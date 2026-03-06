@@ -2,28 +2,29 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package bus implements a high-performance, type-based event bus for
+// asynchronous communication between Steam client modules and plugins.
 package bus
 
 import (
+	"slices"
 	"reflect"
 	"sync"
 	"sync/atomic"
 )
 
-// Option is a generic function pattern for configuration.
-type Option[T any] func(T)
-
-// Event defines the interface that unifies all library events.
+// Event is the marker interface for all events in the system.
+// Any struct can be an event by embedding BaseEvent.
 type Event interface {
 	isEvent()
 }
 
-// BaseEvent is the basic structure for all library events.
+// BaseEvent provides a default implementation of the Event interface.
 type BaseEvent struct{}
 
 func (BaseEvent) isEvent() {}
 
-// Subscription represents an active subscription to a topic.
+// Subscription represents an active listener on the bus.
 type Subscription struct {
 	id     uint64
 	types  []reflect.Type
@@ -32,21 +33,18 @@ type Subscription struct {
 	bus    *Bus
 }
 
-// C returns the channel from which events can be read.
-func (s *Subscription) C() <-chan Event {
-	return s.ch
-}
+// C returns the read-only channel for receiving events.
+func (s *Subscription) C() <-chan Event { return s.ch }
 
-// Unsubscribe removes the subscription from the bus and closes its channel.
-// It is safe to call multiple times.
+// Unsubscribe removes the subscription from the bus and closes the channel.
 func (s *Subscription) Unsubscribe() {
 	if s.closed.CompareAndSwap(false, true) {
 		s.bus.unsubscribe(s)
 	}
 }
 
-// Bus is a thread-safe publish/subscribe event bus.
-// It routes events to channels based on event topics.
+// Bus implements a thread-safe, non-blocking event dispatcher.
+// It routes events based on their Go reflect.Type.
 type Bus struct {
 	mu     sync.RWMutex
 	subs   map[reflect.Type]map[uint64]*Subscription
@@ -55,7 +53,7 @@ type Bus struct {
 	closed bool
 }
 
-// NewBus creates a new event bus.
+// NewBus initializes a new Event Bus.
 func NewBus() *Bus {
 	return &Bus{
 		subs: make(map[reflect.Type]map[uint64]*Subscription),
@@ -63,17 +61,16 @@ func NewBus() *Bus {
 	}
 }
 
-// Subscribe creates a subscription to a single or multiple topics.
-// It returns a *Subscription object which contains the channel for reading events.
-// The channel is buffered to prevent blocking the publisher.
-func (b *Bus) Subscribe(eventTypes ...Event) *Subscription {
+// Subscribe subscribes to specific event types.
+// Usage: bus.Subscribe(MyEvent{}, OtherEvent{})
+func (b *Bus) Subscribe(eventExamples ...Event) *Subscription {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	id := b.nextID.Add(1)
 	sub := &Subscription{
 		id:  id,
-		ch:  make(chan Event, 100),
+		ch:  make(chan Event, 128), // Buffered to handle minor bursts
 		bus: b,
 	}
 
@@ -83,20 +80,22 @@ func (b *Bus) Subscribe(eventTypes ...Event) *Subscription {
 		return sub
 	}
 
-	for _, ev := range eventTypes {
+	for _, ev := range eventExamples {
 		t := reflect.TypeOf(ev)
-		sub.types = append(sub.types, t)
-
-		if b.subs[t] == nil {
-			b.subs[t] = make(map[uint64]*Subscription)
+		// Ensure we don't subscribe to the same type twice for one subscription
+		if !slices.Contains(sub.types, t) {
+			sub.types = append(sub.types, t)
+			if b.subs[t] == nil {
+				b.subs[t] = make(map[uint64]*Subscription)
+			}
+			b.subs[t][id] = sub
 		}
-		b.subs[t][id] = sub
 	}
 
 	return sub
 }
 
-// SubscribeAll subscribes to all the events coming through the bus.
+// SubscribeAll creates a subscription that receives every event published to the bus.
 func (b *Bus) SubscribeAll() *Subscription {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -104,7 +103,7 @@ func (b *Bus) SubscribeAll() *Subscription {
 	id := b.nextID.Add(1)
 	sub := &Subscription{
 		id:  id,
-		ch:  make(chan Event, 500),
+		ch:  make(chan Event, 256),
 		bus: b,
 	}
 
@@ -118,9 +117,8 @@ func (b *Bus) SubscribeAll() *Subscription {
 	return sub
 }
 
-// Publish broadcasts an event to all subscribers of the event's Topic.
-// If a subscriber's channel is full, the event is dropped for that subscriber
-// to prevent blocking the entire application.
+// Publish broadcasts an event to all interested subscribers.
+// If a subscriber's buffer is full, the event is dropped to avoid blocking the system.
 func (b *Bus) Publish(event Event) {
 	if event == nil {
 		return
@@ -134,30 +132,36 @@ func (b *Bus) Publish(event Event) {
 		return
 	}
 
-	var targets []*Subscription
+	// Optimization: instead of creating a slice of targets, we iterate
+	// directly under RLock and send in goroutines or non-blocking.
+	// This reduces allocations per publish.
 
 	if typeSubs, ok := b.subs[t]; ok {
 		for _, sub := range typeSubs {
-			targets = append(targets, sub)
+			b.directSend(sub, event)
 		}
 	}
+
 	for _, sub := range b.all {
-		targets = append(targets, sub)
+		b.directSend(sub, event)
 	}
 	b.mu.RUnlock()
+}
 
-	for _, sub := range targets {
-		if sub.closed.Load() {
-			continue
-		}
-		select {
-		case sub.ch <- event:
-		default:
-		}
+// directSend attempts a non-blocking send to a subscription channel.
+func (b *Bus) directSend(sub *Subscription, ev Event) {
+	if sub.closed.Load() {
+		return
+	}
+
+	select {
+	case sub.ch <- ev:
+	default:
+		// Buffer full - drop event to maintain system stability.
+		// In a trading bot, log this as a warning.
 	}
 }
 
-// Close gracefully shuts down the event bus, closing all subscriber channels.
 func (b *Bus) Close() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -167,19 +171,20 @@ func (b *Bus) Close() {
 	}
 	b.closed = true
 
-	uniqueSubs := make(map[*Subscription]struct{})
-	for _, typeSubs := range b.subs {
-		for _, sub := range typeSubs {
-			uniqueSubs[sub] = struct{}{}
+	// Collect unique subs to close channels exactly once
+	unique := make(map[uint64]*Subscription)
+	for _, m := range b.subs {
+		for id, s := range m {
+			unique[id] = s
 		}
 	}
-	for _, sub := range b.all {
-		uniqueSubs[sub] = struct{}{}
+	for id, s := range b.all {
+		unique[id] = s
 	}
 
-	for sub := range uniqueSubs {
-		sub.closed.Store(true)
-		close(sub.ch)
+	for _, s := range unique {
+		s.closed.Store(true)
+		close(s.ch)
 	}
 
 	b.subs = nil
@@ -202,7 +207,9 @@ func (b *Bus) unsubscribe(sub *Subscription) {
 			}
 		}
 	}
-
 	delete(b.all, sub.id)
 	close(sub.ch)
 }
+
+// Option is a common pattern used across the library for configuration.
+type Option[T any] func(T)

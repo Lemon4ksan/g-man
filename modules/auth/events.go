@@ -39,7 +39,6 @@ type LoggedOnEvent struct {
 	Body             *pb.CMsgClientLogonResponse // Complete logon response for advanced use
 }
 
-func (e LoggedOnEvent) Topic() string { return "auth.logged_on" }
 func (e LoggedOnEvent) IsAuthEvent() {}
 
 // SteamGuardRequiredEvent is emitted during password-based authentication
@@ -52,7 +51,6 @@ type SteamGuardRequiredEvent struct {
 	Callback    func(code string) // Function to call with the user-provided code to continue login
 }
 
-func (e SteamGuardRequiredEvent) Topic() string { return "auth.steam_guard_required" }
 func (e SteamGuardRequiredEvent) IsAuthEvent() {}
 
 // LoggedOffEvent is emitted after the auth client disconnected from CM server unexpectedly.
@@ -61,5 +59,4 @@ type LoggedOffEvent struct {
 	Result protocol.EResult
 }
 
-func (e LoggedOffEvent) Topic() string { return "auth.logged_off" }
 func (e LoggedOffEvent) IsAuthEvent() {}
