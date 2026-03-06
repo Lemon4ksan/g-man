@@ -10,6 +10,7 @@ import (
 
 	"github.com/lemon4ksan/g-man/jobs"
 	"github.com/lemon4ksan/g-man/steam/protocol"
+	"github.com/lemon4ksan/g-man/steam/socket"
 )
 
 type SocketTarget interface {
@@ -21,8 +22,8 @@ type SocketTarget interface {
 // SocketCaller defines the minimal socket interface required by the transport.
 // This decouples the transport from the concrete socket implementation.
 type SocketCaller interface {
-	CallRaw(ctx context.Context, eMsg protocol.EMsg, targetName string, payload []byte, cb jobs.Callback[*protocol.Packet]) error
-	IsAuthenticated() bool
+	CallUnifiedRaw(ctx context.Context, eMsg protocol.EMsg, targetName string, payload []byte, cb jobs.Callback[*protocol.Packet]) error
+	Session() socket.Session
 }
 
 type SocketTransport struct {
@@ -49,12 +50,12 @@ func (t *SocketTransport) Do(req *Request) (*Response, error) {
 		return nil, fmt.Errorf("socket_transport: target %T does not support socket protocol", req.Target())
 	}
 
-	isAuth := t.caller.IsAuthenticated()
+	isAuth := t.caller.Session().IsAuthenticated()
 
 	// Buffer 1 ensures the callback won't block forever if the caller abandons the request
 	resCh := make(chan callResult, 1)
 
-	err := t.caller.CallRaw(req.Context(), target.EMsg(isAuth), target.ObjectName(), req.Body(), func(p *protocol.Packet, err error) {
+	err := t.caller.CallUnifiedRaw(req.Context(), target.EMsg(isAuth), target.ObjectName(), req.Body(), func(p *protocol.Packet, err error) {
 		if err != nil {
 			resCh <- callResult{err: err}
 			return

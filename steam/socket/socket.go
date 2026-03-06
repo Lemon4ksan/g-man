@@ -144,6 +144,7 @@ type Socket struct {
 	// Connection specific state (protected by mu)
 	mu         sync.RWMutex
 	session    Session
+	ctx        context.Context    // Context tied to the entire socket
 	connCtx    context.Context    // Context tied to the active connection
 	connCancel context.CancelFunc // Cancels the active connection
 
@@ -164,7 +165,7 @@ type Socket struct {
 }
 
 // NewSocket initializes a new Socket instance with the given config and options.
-func NewSocket(cfg Config, opts ...Option) *Socket {
+func NewSocket(ctx context.Context, cfg Config, opts ...Option) *Socket {
 	if cfg.Dialers == nil {
 		cfg.Dialers = DefaultDialers()
 	}
@@ -173,6 +174,7 @@ func NewSocket(cfg Config, opts ...Option) *Socket {
 	}
 
 	s := &Socket{
+		ctx:             ctx,
 		config:          cfg,
 		logger:          log.Discard,
 		encoder:         &BaseEncoder{},
@@ -200,6 +202,13 @@ func NewSocket(cfg Config, opts ...Option) *Socket {
 	s.startWorkers(s.config.WorkerCount)
 
 	return s
+}
+
+// Bus returns the underlying event dispatcher.
+func (s *Socket) Bus() *bus.Bus {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.bus
 }
 
 // Session returns the current active session, if any.
@@ -307,7 +316,7 @@ func (s *Socket) Connect(ctx context.Context, server CMServer) error {
 	)
 
 	// Setup active connection context
-	connCtx, connCancel := context.WithCancel(context.Background())
+	connCtx, connCancel := context.WithCancel(s.ctx)
 
 	s.mu.Lock()
 	s.session = NewLoggedSession(baseSession, sessionLogger)
@@ -377,13 +386,23 @@ func (s *Socket) CallProto(ctx context.Context, eMsg protocol.EMsg, req proto.Me
 }
 
 // CallRaw is a general-purpose method for sending ready-made bytes while waiting for a response.
-// It allows SocketTransport to transmit data "as is".
-func (s *Socket) CallRaw(ctx context.Context, eMsg protocol.EMsg, targetName string, payload []byte, cb jobs.Callback[*protocol.Packet]) error {
+func (s *Socket) CallRaw(ctx context.Context, eMsg protocol.EMsg, payload []byte, cb jobs.Callback[*protocol.Packet]) error {
+	return s.sendRequest(ctx, cb, func(buf *bytes.Buffer, sourceJob uint64) error {
+		return s.encoder.EncodeRaw(buf, eMsg, protocol.NoJob, sourceJob, payload)
+	})
+}
+
+// CallRaw is a general-purpose method for sending ready-made bytes while waiting for a response with unified capabilities.
+func (s *Socket) CallUnifiedRaw(ctx context.Context, eMsg protocol.EMsg, targetName string, payload []byte, cb jobs.Callback[*protocol.Packet]) error {
 	return s.sendRequest(ctx, cb, func(buf *bytes.Buffer, sourceJob uint64) error {
 		if targetName != "" {
-			return s.encoder.EncodeUnifiedRaw(buf, s.session.SteamID(), s.session.SessionID(), targetName, sourceJob, payload)
+			sess := s.Session()
+			if sess == nil {
+				return errors.New("socket: session required for unified raw call")
+			}
+			return s.encoder.EncodeUnifiedRaw(buf, sess.SteamID(), sess.SessionID(), targetName, sourceJob, payload)
 		}
-		return s.encoder.EncodeRaw(buf, eMsg, sourceJob, protocol.NoJob, payload)
+		return s.encoder.EncodeRaw(buf, eMsg, protocol.NoJob, sourceJob, payload)
 	})
 }
 
@@ -455,7 +474,7 @@ func (s *Socket) worker() {
 
 // routePacket determines where the packet should go.
 func (s *Socket) routePacket(packet *protocol.Packet) {
-	// 1. Update session state if authorized headers are present.
+	// Update session state if authorized headers are present.
 	if ah, ok := packet.Header.(protocol.AuthorizedHeader); ok {
 		sess := s.Session()
 		if sess != nil {
@@ -468,12 +487,12 @@ func (s *Socket) routePacket(packet *protocol.Packet) {
 		}
 	}
 
-	// 2. Check if this is a response to an ongoing job.
+	// Check if this is a response to an ongoing job.
 	if s.handleJobResponse(packet) {
 		return // Packet consumed by job callback
 	}
 
-	// 3. Route to registered generic handlers (including Multi and ServiceMethods).
+	// Route to registered generic handlers (including Multi and ServiceMethods).
 	s.handlersMu.RLock()
 	handler, ok := s.handlers[packet.EMsg]
 	s.handlersMu.RUnlock()

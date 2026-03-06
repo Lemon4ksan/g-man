@@ -78,7 +78,7 @@ type SocketProvider interface {
 	RegisterMsgHandler(eMsg protocol.EMsg, handler socket.Handler)
 	Connect(ctx context.Context, server socket.CMServer) error
 	CallProto(ctx context.Context, eMsg protocol.EMsg, req proto.Message, cb jobs.Callback[*protocol.Packet]) error
-	SendRaw(ctx context.Context, eMsg protocol.EMsg, body []byte) error
+	CallRaw(ctx context.Context, eMsg protocol.EMsg, payload []byte, cb jobs.Callback[*protocol.Packet]) error
 	Session() socket.Session
 	StartHeartbeat(time.Duration)
 	Bus() *bus.Bus // We rely on the socket's bus for consistent event routing

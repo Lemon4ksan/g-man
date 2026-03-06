@@ -66,7 +66,7 @@ func (a *Authenticator) handleChannelEncryptRequest(packet *protocol.Packet) {
 	a.logger.Debug("Sending ChannelEncryptResponse", log.Int("key_size", len(encryptedKey)))
 
 	// Use background context here as this is an asynchronous response to a CM event
-	if err := a.socket.SendRaw(context.Background(), protocol.EMsg_ChannelEncryptResponse, resp.Bytes()); err != nil {
+	if err := a.socket.CallRaw(context.Background(), protocol.EMsg_ChannelEncryptResponse, resp.Bytes(), nil); err != nil {
 		a.failLogin(fmt.Errorf("encrypt_request send failed: %w", err))
 	}
 }

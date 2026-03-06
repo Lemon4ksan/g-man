@@ -110,10 +110,10 @@ func (e *BaseEncoder) EncodeProtoRaw(w *bytes.Buffer, eMsg protocol.EMsg, steamI
 	return nil
 }
 
-func (e *BaseEncoder) EncodeUnifiedRaw(w *bytes.Buffer, steamID uint64, sessionID int32, methodName string, sourceJob uint64, body []byte) error {
+func (e *BaseEncoder) EncodeUnifiedRaw(w *bytes.Buffer, steamID uint64, sessionID int32, targetName string, sourceJob uint64, body []byte) error {
 	hdr := protocol.NewMsgHdrProtoBuf(protocol.EMsg_ServiceMethodCallFromClient, steamID, sessionID)
 	hdr.Proto.JobidSource = proto.Uint64(sourceJob)
-	hdr.Proto.TargetJobName = proto.String(methodName)
+	hdr.Proto.TargetJobName = proto.String(targetName)
 
 	if err := hdr.SerializeTo(w); err != nil {
 		return fmt.Errorf("encode unified raw header: %w", err)
