@@ -112,8 +112,8 @@ func (c *UnifiedClient) CallUnified(ctx context.Context, httpMethod, iface, meth
 	return c.unmarshalResponse(resp.Body, respMsg)
 }
 
-func (c *UnifiedClient) CallWebAPI(ctx context.Context, iface, method string, version int, respMsg any, mods ...RequestModifier) error {
-	req := NewWebAPIRequest(ctx, "GET", iface, method, version)
+func (c *UnifiedClient) CallWebAPI(ctx context.Context, httpMethod, iface, method string, version int, respMsg any, mods ...RequestModifier) error {
+	req := NewWebAPIRequest(ctx, httpMethod, iface, method, version)
 	for _, mod := range mods {
 		mod(req)
 	}

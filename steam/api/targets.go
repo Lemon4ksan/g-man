@@ -19,6 +19,12 @@ import (
 // RequestModifier allows injecting headers or params into a request before execution.
 type RequestModifier func(req *tr.Request)
 
+func WithParams(params url.Values) RequestModifier {
+	return func(req *tr.Request) {
+		req.WithParams(params)
+	}
+}
+
 type HttpTarget struct {
 	HttpMethod string
 	URL        string
