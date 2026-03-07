@@ -171,6 +171,13 @@ func NewClient(cfg Config, opts ...Option) *Client {
 	return c
 }
 
+// GetModule returns the registered Module with the given name.
+func (c *Client) GetModule(name string) Module {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.modules[name]
+}
+
 // ConnectAndLogin connects to the CM and performs the login sequence.
 // This is a helper that combines Socket.Connect and Auth.LogOn.
 func (c *Client) ConnectAndLogin(ctx context.Context, server socket.CMServer, details *auth.LogOnDetails) error {

@@ -20,6 +20,7 @@ const (
 	protoPkgPath     = "go-steam-next/protocol/protobuf/"
 	steamLangURL     = "https://api.github.com/repos/SteamRE/SteamKit/contents/Resources/SteamLanguage"
 	protoSteamOutput = "../generated/protobuf/steam"
+	protoTF2Output   = "../generated/protobuf/tf2"
 	steamLangOutput  = "../generated/lang/enums_generated.go"
 )
 
@@ -47,6 +48,7 @@ func main() {
 
 func buildProto() {
 	buildProtoMap("./steam", protoSteamOutput, "steam")
+	buildProtoMap("./tf2", protoTF2Output, "tf2")
 }
 
 func buildProtoMap(srcDir string, outDir string, name string) {

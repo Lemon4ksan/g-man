@@ -1,0 +1,40 @@
+// Copyright (c) 2026 Lemon4ksan All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
+package econ
+
+type TradeOfferState int32
+
+const (
+	TradeOfferStateInvalid                  TradeOfferState = 1
+	TradeOfferStateActive                   TradeOfferState = 2
+	TradeOfferStateAccepted                 TradeOfferState = 3
+	TradeOfferStateCountered                TradeOfferState = 4
+	TradeOfferStateExpired                  TradeOfferState = 5
+	TradeOfferStateCanceled                 TradeOfferState = 6
+	TradeOfferStateDeclined                 TradeOfferState = 7
+	TradeOfferStateInvalidItems             TradeOfferState = 8
+	TradeOfferStateCreatedNeedsConfirmation TradeOfferState = 9
+	TradeOfferStateCanceledBySecondFactor   TradeOfferState = 10
+	TradeOfferStateInEscrow                 TradeOfferState = 11
+)
+
+type Item struct {
+	// Identity
+	AppID      uint32 `json:"appid"`
+	ContextID  int64  `json:"contextid,string"`
+	AssetID    uint64 `json:"assetid,string"`
+	ClassID    uint64 `json:"classid,string"`
+	InstanceID uint64 `json:"instanceid,string"`
+	Amount     int64  `json:"amount,string"`
+	Missing    bool   `json:"missing"`
+
+	// Description (Filled by Asset Cache or API)
+	Name           string `json:"name"`
+	MarketHashName string `json:"market_hash_name"`
+	Type           string `json:"type"`
+	IconURL        string `json:"icon_url"`
+	Tradable       bool   `json:"tradable"`
+	Marketable     bool   `json:"marketable"`
+}
