@@ -45,10 +45,10 @@ package main
 
 import (
     "context"
-    "github.com/lemon4ksan/g-man/log"
-    "github.com/lemon4ksan/g-man/steam"
-    "github.com/lemon4ksan/g-man/modules/apps"
-    "github.com/lemon4ksan/g-man/modules/tf2"
+    "github.com/lemon4ksan/g-man/pkg/log"
+    "github.com/lemon4ksan/g-man/pkg/steam"
+    "github.com/lemon4ksan/g-man/pkg/modules/apps"
+    "github.com/lemon4ksan/g-man/pkg/modules/tf2"
 )
 
 func main() {
