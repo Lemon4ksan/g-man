@@ -245,11 +245,11 @@ func (m *Manager[T]) WaitFor(ctx context.Context, id uint64) (T, error) {
 }
 
 // Close cancels all pending jobs and shuts down the manager.
-func (m *Manager[T]) Close() {
+func (m *Manager[T]) Close() error {
 	m.mu.Lock()
 	if m.closed {
 		m.mu.Unlock()
-		return
+		return nil
 	}
 	m.closed = true
 	pending := m.jobs
@@ -274,6 +274,8 @@ func (m *Manager[T]) Close() {
 			go e.callback(*new(T), ErrJobClosed)
 		}
 	}
+
+	return nil
 }
 
 // Count returns the number of currently pending jobs.

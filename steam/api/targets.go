@@ -25,6 +25,12 @@ func WithParams(params url.Values) RequestModifier {
 	}
 }
 
+func WithParam(key, value string) RequestModifier {
+	return func(req *tr.Request) {
+		req.WithParam(key, value)
+	}
+}
+
 type HttpTarget struct {
 	HttpMethod string
 	URL        string

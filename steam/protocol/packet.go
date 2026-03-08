@@ -5,8 +5,8 @@
 package protocol
 
 import (
-	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 
@@ -21,12 +21,12 @@ type Packet struct {
 	Payload []byte
 }
 
-func ParsePacket(data []byte) (*Packet, error) {
-	if len(data) < 4 {
-		return nil, fmt.Errorf("packet too short")
+func ParsePacket(r io.Reader) (*Packet, error) {
+	var rawEMsg uint32
+	if err := binary.Read(r, binary.LittleEndian, &rawEMsg); err != nil {
+		return nil, fmt.Errorf("read emsg: %w", err)
 	}
 
-	rawEMsg := binary.LittleEndian.Uint32(data[:4])
 	eMsg := EMsg(rawEMsg & EMsgMask)
 	isProto := (rawEMsg & ProtoMask) != 0
 
@@ -35,45 +35,52 @@ func ParsePacket(data []byte) (*Packet, error) {
 		IsProto: isProto,
 	}
 
-	reader := bytes.NewReader(data[4:])
-
 	switch {
 	case isProto:
 		var hdrLen uint32
-		if err := binary.Read(reader, binary.LittleEndian, &hdrLen); err != nil {
-			return nil, err
+		if err := binary.Read(r, binary.LittleEndian, &hdrLen); err != nil {
+			return nil, fmt.Errorf("read proto hdr len: %w", err)
+		}
+
+		if hdrLen > 1024*1024 {
+			return nil, errors.New("proto header too large")
 		}
 
 		hdrBuf := make([]byte, hdrLen)
-		if _, err := io.ReadFull(reader, hdrBuf); err != nil {
-			return nil, err
+		if _, err := io.ReadFull(r, hdrBuf); err != nil {
+			return nil, fmt.Errorf("read proto hdr body: %w", err)
 		}
 
 		protoHdr := new(pb.CMsgProtoBufHeader)
 		if err := proto.Unmarshal(hdrBuf, protoHdr); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("unmarshal proto hdr: %w", err)
 		}
 		pkt.Header = &MsgHdrProtoBuf{EMsg: eMsg, Proto: protoHdr}
 
 	case eMsg == EMsg_ChannelEncryptRequest || eMsg == EMsg_ChannelEncryptResult:
 		hdr := &MsgHdr{EMsg: eMsg}
-		if err := binary.Read(reader, binary.LittleEndian, &hdr.TargetJobID); err != nil {
+		if err := binary.Read(r, binary.LittleEndian, &hdr.TargetJobID); err != nil {
 			return nil, err
 		}
-		if err := binary.Read(reader, binary.LittleEndian, &hdr.SourceJobID); err != nil {
+		if err := binary.Read(r, binary.LittleEndian, &hdr.SourceJobID); err != nil {
 			return nil, err
 		}
 		pkt.Header = hdr
 
 	default:
 		h := &MsgHdrExtended{EMsg: eMsg}
-		if err := h.deserialize(reader); err != nil {
-			return nil, err
+		if err := h.deserialize(r); err != nil {
+			return nil, fmt.Errorf("deserialize extended hdr: %w", err)
 		}
 		pkt.Header = h
 	}
 
-	pkt.Payload, _ = io.ReadAll(reader)
+	payload, err := io.ReadAll(r)
+	if err != nil {
+		return nil, fmt.Errorf("read payload: %w", err)
+	}
+	pkt.Payload = payload
+
 	return pkt, nil
 }
 

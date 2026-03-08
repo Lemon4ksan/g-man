@@ -6,12 +6,14 @@ package coordinator
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
 	"github.com/lemon4ksan/g-man/jobs"
 	"github.com/lemon4ksan/g-man/log"
 	"github.com/lemon4ksan/g-man/steam"
+	"github.com/lemon4ksan/g-man/steam/api"
 	"github.com/lemon4ksan/g-man/steam/bus"
 	"github.com/lemon4ksan/g-man/steam/protocol"
 	"github.com/lemon4ksan/g-man/steam/protocol/gc"
@@ -28,36 +30,58 @@ type GCMessageEvent struct {
 	Packet *gc.Packet
 }
 
-func (e *GCMessageEvent) IsEvent() {}
+func (e *GCMessageEvent) Topic() string { return "gc.message" }
 
 // Coordinator handles the routing of messages between the Client and Game Coordinators.
 // It acts as a multiplexer/demultiplexer for AppID-specific traffic.
 type Coordinator struct {
 	mu         sync.RWMutex
-	client     *steam.Client
+	bus        *bus.Bus
+	client     api.LegacyRequester
 	logger     log.Logger
+	closeFunc  func()
 	jobManager *jobs.Manager[*gc.Packet] // Manages GC-specific jobs
 }
 
 // NewCoordinator creates a new GC module.
-func NewCoordinator(logger log.Logger) *Coordinator {
+func NewCoordinator() *Coordinator {
 	return &Coordinator{
-		logger:     logger,
+		logger:     log.Discard,
 		jobManager: jobs.NewManager[*gc.Packet](2000),
 	}
 }
 
 func (c *Coordinator) Name() string { return ModuleName }
 
-func (c *Coordinator) Init(client *steam.Client) error {
-	c.client = client
-	client.RegisterPacketHandler(protocol.EMsg_ClientFromGC, c.handleClientFromGC)
+func (c *Coordinator) Init(init steam.InitContext) error {
+	c.bus = init.Bus()
+	if c.bus == nil {
+		return errors.New("nil bus")
+	}
+	c.client = init.Proto()
+	if c.client == nil {
+		return errors.New("nil proto client")
+	}
+	c.logger = init.Logger().WithModule(ModuleName)
+
+	init.RegisterPacketHandler(protocol.EMsg_ClientFromGC, c.handleClientFromGC)
+	c.closeFunc = func() {
+		init.UnregisterPacketHandler(protocol.EMsg_ClientFromGC)
+	}
 	return nil
 }
 
 // Start implements the Module interface.
 func (c *Coordinator) Start(ctx context.Context) error {
-	// No background loop needed, fully event-driven
+	return nil
+}
+
+// Close unregisters the handlers for communicating with coordinator.
+func (c *Coordinator) Close() error {
+	if c.closeFunc != nil {
+		c.closeFunc()
+		c.closeFunc = nil
+	}
 	return nil
 }
 
@@ -131,7 +155,7 @@ func (c *Coordinator) sendInternal(ctx context.Context, appID uint32, msgType ui
 		log.Uint64("job_id", sourceJobID),
 	)
 
-	err = c.client.Socket().CallProto(ctx, protocol.EMsg_ClientToGC, wrapper, nil)
+	err = c.client.CallLegacy(ctx, protocol.EMsg_ClientToGC, wrapper, nil)
 	if err != nil {
 		if cb != nil {
 			c.jobManager.Resolve(sourceJobID, nil, err)
@@ -174,7 +198,7 @@ func (c *Coordinator) handleClientFromGC(packet *protocol.Packet) {
 	}
 
 	// Otherwise, broadcast to the bus for general listeners (e.g. TF2 module)
-	c.client.Bus().Publish(&GCMessageEvent{
+	c.bus.Publish(&GCMessageEvent{
 		Packet: gcPacket,
 	})
 }

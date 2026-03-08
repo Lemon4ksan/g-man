@@ -9,6 +9,14 @@ import (
 	"github.com/lemon4ksan/g-man/steam/bus"
 )
 
+// StateEvent is emitted whenever the manager transitions between states.
+type StateEvent struct {
+	bus.BaseEvent
+	New State
+}
+
+func (e *StateEvent) Topic() string { return "offers.new" }
+
 // NewOfferEvent is emitted when a new trade offer is received.
 type NewOfferEvent struct {
 	bus.BaseEvent

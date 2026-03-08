@@ -33,7 +33,7 @@ type UnifiedRequester interface {
 
 type WebAPIRequester interface {
 	Requester
-	CallWebAPI(ctx context.Context, iface, method string, version int, respMsg any, mods ...RequestModifier) error
+	CallWebAPI(ctx context.Context, httpMethod, iface, method string, version int, respMsg any, mods ...RequestModifier) error
 }
 
 type LegacyRequester interface {

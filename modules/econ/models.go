@@ -29,11 +29,17 @@ type Item struct {
 	InstanceID uint64 `json:"instanceid,string"`
 	Amount     int64  `json:"amount,string"`
 	Missing    bool   `json:"missing"`
+	Actions    []struct{
+		Link string `json:"link"`
+		Name string `json:"name"`
+	} `json:"actions"`
 
 	// Description (Filled by Asset Cache or API)
 	Name           string `json:"name"`
-	MarketHashName string `json:"market_hash_name"`
+	NameColor      string `json:"name_color"`
 	Type           string `json:"type"`
+	MarketName     string `json:"market_name"`
+	MarketHashName string `json:"market_hash_name"`
 	IconURL        string `json:"icon_url"`
 	Tradable       bool   `json:"tradable"`
 	Marketable     bool   `json:"marketable"`

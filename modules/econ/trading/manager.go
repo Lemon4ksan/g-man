@@ -6,21 +6,51 @@ package trading
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/time/rate"
 
 	"github.com/lemon4ksan/g-man/log"
+	"github.com/lemon4ksan/g-man/modules/auth"
 	"github.com/lemon4ksan/g-man/modules/econ"
 	"github.com/lemon4ksan/g-man/steam"
 	"github.com/lemon4ksan/g-man/steam/api"
+	"github.com/lemon4ksan/g-man/steam/bus"
 )
 
 const ModuleName = "trading"
+
+var (
+	ErrManagerClosed  = errors.New("trade: closed")
+	ErrManagerPolling = errors.New("trade: already polling")
+)
+
+type State int32
+
+const (
+	StateStopped State = iota
+	StatePolling
+	StateClosed
+)
+
+func (s State) String() string {
+	switch s {
+	case StateStopped:
+		return "stopped"
+	case StatePolling:
+		return "polling"
+	case StateClosed:
+		return "closed"
+	default:
+		return "unknown"
+	}
+}
 
 type Config struct {
 	PollInterval time.Duration
@@ -38,30 +68,37 @@ func DefaultConfig() Config {
 }
 
 type Manager struct {
-	client *steam.Client
+	bus    *bus.Bus
+	sub    *bus.Subscription
+
+	client api.WebAPIRequester
 	logger log.Logger
 	config Config
 	cache  *AssetCache
+	state  atomic.Int32
 
-	mu          sync.RWMutex
-	lastPoll    time.Time
-	knownOffers map[uint64]econ.TradeOfferState
+	mu            sync.RWMutex
+	wg            sync.WaitGroup
+	pollingCtx    context.Context
+	pollingCancel context.CancelFunc
+	lastPoll      time.Time
+	knownOffers   map[uint64]econ.TradeOfferState
 
-	// Offers that we saw last time. Used for GC (Garbage Collection of knownOffers).
+	// Offers that we saw last time. Used for Garbage Collection of knownOffers.
 	lastSeenOffers map[uint64]time.Time
 
 	rateLimiter *rate.Limiter
 }
 
-func New(cfg Config, logger log.Logger) *Manager {
+func New(cfg Config) *Manager {
 	if cfg.PollInterval < 1*time.Second {
 		cfg.PollInterval = 30 * time.Second
 	}
 
 	return &Manager{
 		config:         cfg,
+		logger:         log.Discard,
 		cache:          NewAssetCache(),
-		logger:         logger,
 		knownOffers:    make(map[uint64]econ.TradeOfferState),
 		lastSeenOffers: make(map[uint64]time.Time),
 		rateLimiter:    rate.NewLimiter(rate.Every(2*time.Second), 1),
@@ -70,16 +107,86 @@ func New(cfg Config, logger log.Logger) *Manager {
 
 func (m *Manager) Name() string { return ModuleName }
 
-func (m *Manager) Init(c *steam.Client) error {
-	m.client = c
+func (m *Manager) Init(init steam.InitContext) error {
+	m.bus = init.Bus()
+	if m.bus == nil {
+		return errors.New("nil bus")
+	}
+	m.client = init.Proto()
+	if m.client == nil {
+		return errors.New("nil proto client")
+	}
+	m.logger = init.Logger().WithModule(ModuleName)
+
+	m.sub = init.Bus().Subscribe(auth.StateEvent{})
+	go m.listenEvents()
+
 	return nil
 }
 
 func (m *Manager) Start(ctx context.Context) error {
-	// Ensure we have an API Key before polling starts
-	// This is async, so pollLoop handles the wait.
-	go m.pollLoop(ctx)
 	return nil
+}
+
+func (m *Manager) StartAuthed(ctx context.Context, auth steam.AuthContext) error {
+	m.mu.Lock()
+	if m.pollingCancel != nil {
+		m.pollingCancel()
+		m.pollingCancel = nil
+	}
+	m.mu.Unlock()
+
+	return m.StartPolling(ctx)
+}
+
+// Close stops the polling process and discards this module.
+func (m *Manager) Close() error {
+	m.state.Store(int32(StateClosed))
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.pollingCancel != nil {
+		m.pollingCancel()
+	}
+
+	if m.sub != nil {
+		m.sub.Unsubscribe()
+	}
+
+	return nil
+}
+
+func (m *Manager) StartPolling(ctx context.Context) error {
+	if !m.state.CompareAndSwap(int32(StateStopped), int32(StatePolling)) {
+		return ErrManagerPolling
+	}
+
+	m.mu.Lock()
+	m.pollingCtx, m.pollingCancel = context.WithCancel(ctx)
+	m.mu.Unlock()
+
+	m.wg.Add(1)
+	go m.pollingLoop()
+
+	m.logger.Info("Polling started", log.Duration("interval", m.config.PollInterval))
+	m.bus.Publish(&StateEvent{New: StatePolling})
+	return nil
+}
+
+// StopPolling stops the automatic confirmation polling.
+func (m *Manager) StopPolling() {
+	if m.state.CompareAndSwap(int32(StatePolling), int32(StateStopped)) {
+		m.mu.Lock()
+		if m.pollingCancel != nil {
+			m.pollingCancel()
+		}
+		m.mu.Unlock()
+
+		m.wg.Wait() // Wait for the loop to exit cleanly
+		m.logger.Info("Polling stopped")
+		m.bus.Publish(&StateEvent{New: StateStopped})
+	}
 }
 
 // AcceptOffer accepts a trade offer.
@@ -93,7 +200,7 @@ func (m *Manager) AcceptOffer(ctx context.Context, offerID uint64) error {
 	params.Set("serverid", "1")
 
 	// AcceptTradeOffer usually returns 200 OK with empty body or a tradeid
-	return m.client.API().CallWebAPI(ctx, "POST", "IEconService", "AcceptTradeOffer", 1, nil, api.WithParams(params))
+	return m.client.CallWebAPI(ctx, "POST", "IEconService", "AcceptTradeOffer", 1, nil, api.WithParams(params))
 }
 
 // DeclineOffer declines a trade offer.
@@ -105,7 +212,7 @@ func (m *Manager) DeclineOffer(ctx context.Context, offerID uint64) error {
 	params := url.Values{}
 	params.Set("tradeofferid", strconv.FormatUint(offerID, 10))
 
-	return m.client.API().CallWebAPI(ctx, "POST", "IEconService", "DeclineTradeOffer", 1, nil, api.WithParams(params))
+	return m.client.CallWebAPI(ctx, "POST", "IEconService", "DeclineTradeOffer", 1, nil, api.WithParams(params))
 }
 
 // CancelOffer cancels a trade offer sent by us.
@@ -117,7 +224,7 @@ func (m *Manager) CancelOffer(ctx context.Context, offerID uint64) error {
 	params := url.Values{}
 	params.Set("tradeofferid", strconv.FormatUint(offerID, 10))
 
-	return m.client.API().CallWebAPI(ctx, "POST", "IEconService", "CancelTradeOffer", 1, nil, api.WithParams(params))
+	return m.client.CallWebAPI(ctx, "POST", "IEconService", "CancelTradeOffer", 1, nil, api.WithParams(params))
 }
 
 // GetOffer fetches details for a single offer.
@@ -136,7 +243,7 @@ func (m *Manager) GetOffer(ctx context.Context, offerID uint64) (*TradeOffer, er
 		} `json:"response"`
 	}
 
-	err := m.client.API().CallWebAPI(ctx, "GET", "IEconService", "GetTradeOffer", 1, &resp, api.WithParams(params))
+	err := m.client.CallWebAPI(ctx, "GET", "IEconService", "GetTradeOffer", 1, &resp, api.WithParams(params))
 	if err != nil {
 		return nil, err
 	}
@@ -148,32 +255,25 @@ func (m *Manager) GetOffer(ctx context.Context, offerID uint64) (*TradeOffer, er
 	return resp.Response.Offer, nil
 }
 
-func (m *Manager) pollLoop(ctx context.Context) {
-	// Wait until client is connected and ready
-	ticker := time.NewTicker(m.config.PollInterval)
-	defer ticker.Stop()
+func (m *Manager) pollingLoop() {
+	defer m.wg.Done()
 
-	// Initial check for API Key
-	if err := m.ensureAPIKey(ctx); err != nil {
-		m.logger.Error("Failed to ensure API Key", log.Err(err))
-		// We continue anyway, hoping it might work or be fixed later
-	}
+	interval := m.config.PollInterval
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
 
 	for {
 		select {
-		case <-ctx.Done():
+		case <-m.pollingCtx.Done():
 			return
 		case <-ticker.C:
-			if m.client.State() != steam.StateRunning {
-				continue
-			}
-			m.doPoll(ctx)
+			m.doPoll()
 		}
 	}
 }
 
-func (m *Manager) doPoll(ctx context.Context) {
-	if err := m.rateLimiter.Wait(ctx); err != nil {
+func (m *Manager) doPoll() {
+	if err := m.rateLimiter.Wait(m.pollingCtx); err != nil {
 		return
 	}
 
@@ -191,7 +291,7 @@ func (m *Manager) doPoll(ctx context.Context) {
 		} `json:"response"`
 	}
 
-	err := m.client.API().CallWebAPI(ctx, "GET", "IEconService", "GetTradeOffers", 1, &resp, api.WithParams(params))
+	err := m.client.CallWebAPI(m.pollingCtx, "GET", "IEconService", "GetTradeOffers", 1, &resp, api.WithParams(params))
 	if err != nil {
 		m.logger.Warn("Poll failed", log.Err(err))
 		return
@@ -212,11 +312,11 @@ func (m *Manager) doPoll(ctx context.Context) {
 			m.knownOffers[offer.ID] = offer.State
 			if offer.State == econ.TradeOfferStateActive {
 				m.logger.Info("New offer detected", log.Uint64("id", offer.ID))
-				m.client.Bus().Publish(&NewOfferEvent{Offer: offer})
+				m.bus.Publish(&NewOfferEvent{Offer: offer})
 			}
 		} else if oldState != offer.State {
 			m.knownOffers[offer.ID] = offer.State
-			m.client.Bus().Publish(&OfferChangedEvent{
+			m.bus.Publish(&OfferChangedEvent{
 				Offer:    offer,
 				OldState: oldState,
 			})
@@ -234,12 +334,27 @@ func (m *Manager) doPoll(ctx context.Context) {
 		}
 	}
 
-	m.client.Bus().Publish(&PollSuccessEvent{})
+	m.bus.Publish(&PollSuccessEvent{})
 }
 
-func (m *Manager) ensureAPIKey(ctx context.Context) error {
-	// Simple check using Community Client to see if we have a key
-	// If not, register one using m.config.APIKeyDomain
-	// (Implementation depends on Community Client having a GetWebAPIKey method)
-	return nil
+func (m *Manager) listenEvents() {
+	for ev := range m.sub.C() {
+		switch e := ev.(type) {
+		case *auth.StateEvent:
+			m.handleStateChange(e)
+		}
+	}
+}
+
+func (m *Manager) handleStateChange(e *auth.StateEvent) {
+	switch e.New {
+	case auth.StateLoggedOn:
+	case auth.StateDisconnected:
+		m.logger.Warn("Disconnected, stopping session context")
+		m.mu.Lock()
+		if m.pollingCancel != nil {
+			m.pollingCancel()
+		}
+		m.mu.Unlock()
+	}
 }

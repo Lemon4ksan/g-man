@@ -4,6 +4,9 @@
 
 // Package auth provides Steam authentication flows, supporting both
 // the new WebAPI JWT-based login and legacy Connection Manager handshakes.
+//
+// Note: it's not a perfect module because the steam client relies on it.
+// So it cannot be loaded the normal way.
 package auth
 
 import (
@@ -15,7 +18,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/lemon4ksan/g-man/jobs"
 	"github.com/lemon4ksan/g-man/log"
 	"github.com/lemon4ksan/g-man/steam/bus"
 	"github.com/lemon4ksan/g-man/steam/protocol"
@@ -77,8 +79,8 @@ func (s State) String() string {
 type SocketProvider interface {
 	RegisterMsgHandler(eMsg protocol.EMsg, handler socket.Handler)
 	Connect(ctx context.Context, server socket.CMServer) error
-	CallProto(ctx context.Context, eMsg protocol.EMsg, req proto.Message, cb jobs.Callback[*protocol.Packet]) error
-	CallRaw(ctx context.Context, eMsg protocol.EMsg, payload []byte, cb jobs.Callback[*protocol.Packet]) error
+	SendProto(ctx context.Context, eMsg protocol.EMsg, req proto.Message) error
+	SendRaw(ctx context.Context, eMsg protocol.EMsg, payload []byte) error
 	Session() socket.Session
 	StartHeartbeat(time.Duration)
 	Bus() *bus.Bus // We rely on the socket's bus for consistent event routing
@@ -132,12 +134,8 @@ func NewAuthenticator(s SocketProvider, service *AuthenticationService, cfg Conf
 	return auth
 }
 
-// State returns the current authentication state.
 func (a *Authenticator) State() State { return State(a.state.Load()) }
-
-func (a *Authenticator) Service() *AuthenticationService {
-	return a.service
-}
+func (a *Authenticator) Service() *AuthenticationService { return a.service }
 
 // LogOn begins the authentication sequence.
 // It blocks until authentication completes successfully or fails.
@@ -186,7 +184,6 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 
 	// CM Socket Flow: Connect and Authenticate
 	a.setState(StateLoggingOn)
-
 	if err := a.socket.Connect(loginCtx, server); err != nil {
 		return fmt.Errorf("cm connection failed: %w", err)
 	}
@@ -202,14 +199,11 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 	// Wait for CM Response (ClientLogOnResponse)
 	<-loginCtx.Done()
 	err := context.Cause(loginCtx)
-	if errors.Is(err, context.Canceled) {
-		return ctx.Err() // Propagate parent cancellation
+	if err == nil || errors.Is(err, context.Canceled) {
+		a.setState(StateLoggedOn)
+		return nil 
 	}
-	return err // Return specific auth error (e.g., InvalidPassword)
-
-	// Note: We don't return here immediately. The actual success is handled
-	// asynchronously in `handleLogOnResponse`, which updates the state and cancels
-	// the loginCtx with a special "Success" error, or a real error.
+	return err
 }
 
 func (a *Authenticator) LogOnAnonymous(ctx context.Context, server socket.CMServer) error {
@@ -367,7 +361,16 @@ func (a *Authenticator) setState(state State) {
 	}
 }
 
-// failLogin safely aborts the active login context.
+func (a *Authenticator) succeedLogin() {
+	a.mu.RLock()
+	cancel := a.loginCancel
+	a.mu.RUnlock()
+
+	if cancel != nil {
+		cancel(nil) 
+	}
+}
+
 func (a *Authenticator) failLogin(err error) {
 	a.mu.RLock()
 	cancel := a.loginCancel
@@ -375,18 +378,5 @@ func (a *Authenticator) failLogin(err error) {
 
 	if cancel != nil {
 		cancel(err)
-	}
-}
-
-// errSuccess is a sentinel error used to unblock the context gracefully.
-var errSuccess = errors.New("auth success")
-
-func (a *Authenticator) succeedLogin() {
-	a.mu.RLock()
-	cancel := a.loginCancel
-	a.mu.RUnlock()
-
-	if cancel != nil {
-		cancel(errSuccess)
 	}
 }

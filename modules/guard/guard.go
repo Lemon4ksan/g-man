@@ -17,9 +17,13 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/lemon4ksan/g-man/log"
+	"github.com/lemon4ksan/g-man/modules/auth"
+	"github.com/lemon4ksan/g-man/steam"
 	"github.com/lemon4ksan/g-man/steam/bus"
 	"github.com/lemon4ksan/g-man/steam/crypto/totp"
 )
+
+const ModuleName string = "guard"
 
 type State int32
 
@@ -141,13 +145,15 @@ type GuardianMetrics struct {
 }
 
 // Guardian manages Steam Guard mobile confirmations.
+// The polling is started automatically once client is loaded.
 type Guardian struct {
-	service *MobileConf
-	logger  log.Logger
-	bus     *bus.Bus
-	config  Config
+	bus *bus.Bus
+	sub *bus.Subscription
 
-	state atomic.Int32
+	logger  log.Logger
+	service *MobileConf
+	config  Config
+	state   atomic.Int32
 
 	// Confirmation tracking
 	mu            sync.RWMutex
@@ -155,7 +161,7 @@ type Guardian struct {
 	seenIDs       map[uint64]time.Time
 
 	// Polling lifecycle
-	pollingCtx    context.Context
+	pollingCtx    context.Context // polling
 	pollingCancel context.CancelFunc
 	wg            sync.WaitGroup
 
@@ -163,49 +169,82 @@ type Guardian struct {
 	metrics     *GuardianMetrics
 }
 
-type Option func(*Guardian)
-
-func WithLogger(l log.Logger) Option {
-	return func(g *Guardian) { g.logger = l }
-}
-
-func WithBus(b *bus.Bus) Option {
-	return func(g *Guardian) { g.bus = b }
-}
-
-// NewGuardian creates a new confirmation guardian hooked directly to a MobileConf service.
-func NewGuardian(service *MobileConf, cfg Config, opts ...Option) (*Guardian, error) {
+// NewGuardian creates a new confirmation guardian.
+func NewGuardian(cfg Config) (*Guardian, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid guard config: %w", err)
 	}
 
 	g := &Guardian{
-		service:       service,
-		logger:        log.Discard,
-		bus:           bus.NewBus(), // Fallback if not provided
 		config:        cfg,
+		logger:        log.Discard,
 		confirmations: make(map[uint64]*Confirmation),
 		seenIDs:       make(map[uint64]time.Time),
 		metrics:       &GuardianMetrics{},
-
-		// 1 request per interval, burst of 1. Perfect for Steam limits.
-		rateLimiter: rate.NewLimiter(rate.Every(cfg.RateLimit), 1),
+		rateLimiter:   rate.NewLimiter(rate.Every(cfg.RateLimit), 1),
 	}
 
-	for _, opt := range opts {
-		opt(g)
-	}
-
-	g.logger = g.logger.With(log.String("device_id", maskDeviceID(cfg.DeviceID)))
 	g.state.Store(int32(StateStopped))
-
 	return g, nil
 }
 
-// Metrics returns the guardian metrics data.
-func (g *Guardian) Metrics() *GuardianMetrics { return g.metrics }
+func (g *Guardian) Name() string { return ModuleName }
 
-func (g *Guardian) State() State { return State(g.state.Load()) }
+func (g *Guardian) Init(init steam.InitContext) error {
+	g.bus = init.Bus()
+	if g.bus == nil {
+		return errors.New("nil bus")
+	}
+
+	g.logger = init.Logger().
+		WithModule(ModuleName).
+		With(log.String("device_id", maskDeviceID(g.config.DeviceID)))
+
+	g.sub = init.Bus().Subscribe(auth.StateEvent{})
+	go g.listenEvents()
+
+	return nil
+}
+
+func (g *Guardian) Start(ctx context.Context) error {
+	return nil
+}
+
+func (g *Guardian) StartAuthed(ctx context.Context, auth steam.AuthContext) error {
+	g.mu.Lock()
+	if g.pollingCancel != nil {
+		g.pollingCancel()
+	}
+
+	communityClient := auth.Community()
+	if communityClient == nil {
+		return errors.New("nil community client despite successful auth")
+	}
+	g.service = NewMobileConf(communityClient)
+	g.mu.Unlock()
+
+	return g.StartPolling(ctx)
+}
+
+// Close stops the polling process and discards this module.
+func (g *Guardian) Close() error {
+	g.state.Store(int32(StateClosed))
+
+	g.mu.Lock()
+	if g.pollingCancel != nil {
+		g.pollingCancel()
+	}
+	g.mu.Unlock()
+
+	if g.sub != nil {
+		g.sub.Unsubscribe()
+	}
+
+	return nil
+}
+
+func (g *Guardian) Metrics() *GuardianMetrics { return g.metrics }
+func (g *Guardian) State() State              { return State(g.state.Load()) }
 
 // StartPolling begins automatic confirmation polling in a background goroutine.
 func (g *Guardian) StartPolling(ctx context.Context) error {
@@ -238,11 +277,6 @@ func (g *Guardian) StopPolling() {
 		g.logger.Info("Polling stopped")
 		g.bus.Publish(&StateEvent{New: StateStopped})
 	}
-}
-
-func (g *Guardian) Close() {
-	g.StopPolling()
-	g.state.Store(int32(StateClosed))
 }
 
 // FetchConfirmations requests the list of active confirmations from Steam.
@@ -279,6 +313,11 @@ func (g *Guardian) FetchConfirmations(ctx context.Context) ([]*Confirmation, err
 // Accept approves a single confirmation.
 func (g *Guardian) Accept(ctx context.Context, conf *Confirmation) error {
 	return g.respond(ctx, conf, true)
+}
+
+// Cancel declines a single confirmation.
+func (g *Guardian) Cancel(ctx context.Context, conf *Confirmation) error {
+	return g.respond(ctx, conf, false)
 }
 
 func (g *Guardian) respond(ctx context.Context, conf *Confirmation, accept bool) error {
@@ -326,6 +365,8 @@ func (g *Guardian) pollingLoop() {
 
 	for {
 		select {
+		case <-g.pollingCtx.Done():
+			return
 		case <-ticker.C:
 			confs, err := g.FetchConfirmations(g.pollingCtx)
 			if err != nil {
@@ -352,9 +393,6 @@ func (g *Guardian) pollingLoop() {
 
 			g.processFetchedConfirmations(confs)
 			g.cleanupSeenIDs()
-
-		case <-g.pollingCtx.Done():
-			return
 		}
 	}
 }
@@ -387,13 +425,36 @@ func (g *Guardian) processFetchedConfirmations(confs []*Confirmation) {
 }
 
 func (g *Guardian) cleanupSeenIDs() {
-	now := time.Now()
 	g.mu.Lock()
 	defer g.mu.Unlock()
+
+	now := time.Now()
 	for id, seenTime := range g.seenIDs {
 		if now.Sub(seenTime) > 15*time.Minute {
 			delete(g.seenIDs, id)
 		}
+	}
+}
+
+func (g *Guardian) listenEvents() {
+	for ev := range g.sub.C() {
+		switch e := ev.(type) {
+		case *auth.StateEvent:
+			g.handleStateChange(e)
+		}
+	}
+}
+
+func (g *Guardian) handleStateChange(e *auth.StateEvent) {
+	switch e.New {
+	case auth.StateLoggedOn:
+	case auth.StateDisconnected:
+		g.logger.Warn("Disconnected, stopping session context")
+		g.mu.Lock()
+		if g.pollingCancel != nil {
+			g.pollingCancel()
+		}
+		g.mu.Unlock()
 	}
 }
 

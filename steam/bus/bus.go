@@ -7,8 +7,9 @@
 package bus
 
 import (
-	"slices"
+	"maps"
 	"reflect"
+	"slices"
 	"sync"
 	"sync/atomic"
 )
@@ -154,6 +155,12 @@ func (b *Bus) directSend(sub *Subscription, ev Event) {
 		return
 	}
 
+	defer func() {
+		if recover() != nil {
+			// The channel was closed while sending, this is normal when unsubscribing
+		}
+	}()
+
 	select {
 	case sub.ch <- ev:
 	default:
@@ -162,25 +169,21 @@ func (b *Bus) directSend(sub *Subscription, ev Event) {
 	}
 }
 
-func (b *Bus) Close() {
+func (b *Bus) Close() error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	if b.closed {
-		return
+		return nil
 	}
 	b.closed = true
 
 	// Collect unique subs to close channels exactly once
 	unique := make(map[uint64]*Subscription)
 	for _, m := range b.subs {
-		for id, s := range m {
-			unique[id] = s
-		}
+		maps.Copy(unique, m)
 	}
-	for id, s := range b.all {
-		unique[id] = s
-	}
+	maps.Copy(unique, b.all)
 
 	for _, s := range unique {
 		s.closed.Store(true)
@@ -189,6 +192,7 @@ func (b *Bus) Close() {
 
 	b.subs = nil
 	b.all = nil
+	return nil
 }
 
 func (b *Bus) unsubscribe(sub *Subscription) {

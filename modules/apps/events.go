@@ -12,11 +12,15 @@ type AppLaunchedEvent struct {
 	AppID uint32
 }
 
+func (*AppLaunchedEvent) Topic() string { return "apps.launched" }
+
 // AppQuitEvent is emitted when the client stops playing a game.
 type AppQuitEvent struct {
 	bus.BaseEvent
 	AppID uint32
 }
+
+func (*AppQuitEvent) Topic() string { return "apps.quit" }
 
 // PlayingStateEvent is emitted when Steam notifies us about our playing status.
 // Blocked = true means another session is currently playing a game on this account.
@@ -25,3 +29,5 @@ type PlayingStateEvent struct {
 	Blocked    bool
 	PlayingApp uint32
 }
+
+func (*PlayingStateEvent) Topic() string { return "apps.playing_state" }

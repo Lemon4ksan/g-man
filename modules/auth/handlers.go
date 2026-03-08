@@ -66,7 +66,7 @@ func (a *Authenticator) handleChannelEncryptRequest(packet *protocol.Packet) {
 	a.logger.Debug("Sending ChannelEncryptResponse", log.Int("key_size", len(encryptedKey)))
 
 	// Use background context here as this is an asynchronous response to a CM event
-	if err := a.socket.CallRaw(context.Background(), protocol.EMsg_ChannelEncryptResponse, resp.Bytes(), nil); err != nil {
+	if err := a.socket.SendRaw(context.Background(), protocol.EMsg_ChannelEncryptResponse, resp.Bytes()); err != nil {
 		a.failLogin(fmt.Errorf("encrypt_request send failed: %w", err))
 	}
 }
@@ -201,7 +201,7 @@ func (a *Authenticator) sendLogOn(ctx context.Context, details *LogOnDetails, ac
 	a.logger.Info("Sending ClientLogon", log.Uint64("steam_id", details.SteamID))
 
 	// If this fails, we kill the login process.
-	if err := a.socket.CallProto(ctx, protocol.EMsg_ClientLogon, logon, nil); err != nil {
+	if err := a.socket.SendProto(ctx, protocol.EMsg_ClientLogon, logon); err != nil {
 		a.failLogin(fmt.Errorf("send logon failed: %w", err))
 	}
 }

@@ -21,6 +21,63 @@ import (
 	tr "github.com/lemon4ksan/g-man/steam/transport"
 )
 
+// InitContext provides the module with access to the necessary client resources
+// during the initialization phase, without exposing lifecycle management methods (Close, Connect).
+type InitContext interface {
+	// Bus provides access to the event bus for subscribing/publishing internal messages.
+	Bus() *bus.Bus
+
+	// Logger returns the configured logger.
+	Logger() log.Logger
+
+	// Proto returns the UnifiedClient for making requests over the CM Socket.
+	Proto() *api.UnifiedClient
+
+	// RegisterPacketHandler registers a handler for low-level EMsg (TCP/UDP).
+	RegisterPacketHandler(eMsg protocol.EMsg, handler socket.Handler)
+
+	// RegisterServiceHandler registers a handler for Protobuf services (Unified Services).
+	RegisterServiceHandler(method string, handler socket.Handler)
+
+	// GetModule allows you to find another module if there are dependencies between them.
+	GetModule(name string) Module
+
+	// UnregisterPacketHandler removes the handler from socket for freeing memory.
+	UnregisterPacketHandler(eMsg protocol.EMsg)
+
+	// UnregisterServiceHandler removes the service handler from socket for freeing memory.
+	UnregisterServiceHandler(method string)
+}
+
+type AuthContext interface {
+	// Community returns an authorized community client.
+	Community() *api.CommunityClient
+
+	// SteamID returns the steam id of the authorized user.
+	SteamID() uint64
+}
+
+// Module defines the contract for pluggable extensions (e.g., Trade, Chat, GC).
+type Module interface {
+	Name() string
+
+	// Init is called during client creation. Use this to register packet handlers
+	// and subscribe to bus events.
+	Init(init InitContext) error
+
+	// Start is called when the client starts running. Use this to launch
+	// background tasks (tickers, pollers). The context is cancelled when the client closes.
+	Start(ctx context.Context) error
+}
+
+// ModuleAuth defines the contract for pluggable extensions that require authorized clients.
+type ModuleAuth interface {
+	Module
+
+	// StartAuthed is called after a successful Steam login and WebSession creation.
+	StartAuthed(ctx context.Context, auth AuthContext) error
+}
+
 // State represents the lifecycle state of the high-level client.
 type State int32
 
@@ -61,19 +118,6 @@ func DefaultConfig() Config {
 		Socket: socket.DefaultConfig(),
 		Auth:   auth.DefaultConfig(),
 	}
-}
-
-// Module defines the contract for pluggable extensions (e.g., Trade, Chat, GC).
-type Module interface {
-	Name() string
-
-	// Init is called during client creation. Use this to register packet handlers
-	// and subscribe to bus events.
-	Init(c *Client) error
-
-	// Start is called when the client starts running. Use this to launch
-	// background tasks (tickers, pollers). The context is cancelled when the client closes.
-	Start(ctx context.Context) error
 }
 
 // Option defines a functional configuration option for the Client.
@@ -210,6 +254,8 @@ func (c *Client) ConnectAndLogin(ctx context.Context, server socket.CMServer, de
 		c.logger.Info("Web session established")
 	}
 
+	go c.startAuthed()
+
 	return nil
 }
 
@@ -219,9 +265,10 @@ func (c *Client) Disconnect() {
 }
 
 // Close shuts down the client, stops all modules, and releases resources.
-func (c *Client) Close() {
+func (c *Client) Close() error {
 	c.cancel()
 	c.wg.Wait()
+	return nil
 }
 
 // Wait blocks until the client is fully stopped.
@@ -288,7 +335,16 @@ func (c *Client) RegisterServiceHandler(method string, handler socket.Handler) {
 	c.socket.RegisterServiceHandler(method, handler)
 }
 
-// run manages the background lifecycle of the client and modules.
+// UnregisterPacketHandler removes the handler from socket for freeing memory.
+func (c *Client) UnregisterPacketHandler(eMsg protocol.EMsg) {
+	c.socket.RegisterMsgHandler(eMsg, nil)
+}
+
+// UnregisterServiceHandler removes the service handler from socket for freeing memory.
+func (c *Client) UnregisterServiceHandler(method string) {
+	c.socket.RegisterServiceHandler(method, nil)
+}
+
 func (c *Client) run() {
 	defer c.wg.Done()
 	c.state.Store(int32(StateRunning))
@@ -302,12 +358,27 @@ func (c *Client) run() {
 
 	<-c.ctx.Done()
 
-	// Context cancelled (Close called).
-	c.state.Store(int32(StateClosed))
+	// Close all modules
+	for name, mod := range c.modules {
+		if closer, ok := mod.(interface{ Close() error }); ok {
+			if err := closer.Close(); err != nil {
+				c.logger.Error("Failed to close module", log.String("name", name), log.Err(err))
+			}
+		}
+	}
 
-	// Socket cleans itself up via context cancellation.
-	// Bus needs explicit close.
+	c.socket.Close()
 	c.bus.Close()
-
 	close(c.done)
+	c.state.Store(int32(StateClosed))
+}
+
+func (c *Client) startAuthed() {
+	for name, mod := range c.modules {
+		if authed, ok := mod.(ModuleAuth); ok {
+			if err := authed.StartAuthed(c.ctx, c); err != nil {
+				c.logger.Error("Failed to start authed module", log.String("name", name), log.Err(err))
+			}
+		}
+	}
 }

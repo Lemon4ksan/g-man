@@ -57,7 +57,7 @@ type Logger interface {
 	Error(msg string, fields ...Field)
 	With(fields ...Field) Logger
 	WithModule(string) Logger
-	Close()
+	Close() error
 	IsDebugEnabled() bool
 }
 
@@ -110,9 +110,10 @@ func New(cfg Config) Logger {
 	return l
 }
 
-func (l *AsyncLogger) Close() {
+func (l *AsyncLogger) Close() error {
 	close(l.queue)
 	l.wg.Wait()
+	return nil
 }
 
 func (l *AsyncLogger) With(fields ...Field) Logger {
@@ -460,7 +461,7 @@ var Discard Logger = &discard{}
 
 type discard struct{}
 
-func (d *discard) Close()                       {}
+func (d *discard) Close() error                 { return nil }
 func (d *discard) With(fields ...Field) Logger  { return d }
 func (d *discard) WithModule(mod string) Logger { return d }
 func (d *discard) Debug(msg string, f ...Field) {}

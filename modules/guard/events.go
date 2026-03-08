@@ -13,8 +13,7 @@ type GuardEvent interface {
 	IsGuardEvent()
 }
 
-
-// StateEvent is emitted whenever the authenticator transitions between states.
+// StateEvent is emitted whenever the guard transitions between states.
 type StateEvent struct {
 	bus.BaseEvent
 	New State

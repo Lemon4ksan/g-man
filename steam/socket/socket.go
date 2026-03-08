@@ -177,9 +177,7 @@ func NewSocket(ctx context.Context, cfg Config, opts ...Option) *Socket {
 		ctx:             ctx,
 		config:          cfg,
 		logger:          log.Discard,
-		encoder:         &BaseEncoder{},
 		jobManager:      jobs.NewManager[*protocol.Packet](1000),
-		bus:             bus.NewBus(),
 		done:            make(chan struct{}),
 		handlers:        make(map[protocol.EMsg]Handler),
 		serviceHandlers: make(map[string]Handler),
@@ -191,6 +189,13 @@ func NewSocket(ctx context.Context, cfg Config, opts ...Option) *Socket {
 
 	for _, opt := range opts {
 		opt(s)
+	}
+
+	if s.bus == nil {
+		s.bus = bus.NewBus()
+	}
+	if s.encoder == nil {
+		s.encoder = &BaseEncoder{}
 	}
 
 	s.setState(StateDisconnected)
@@ -322,7 +327,6 @@ func (s *Socket) Connect(ctx context.Context, server CMServer) error {
 	s.session = NewLoggedSession(baseSession, sessionLogger)
 	s.connCtx = connCtx
 	s.connCancel = connCancel
-	s.logger = sessionLogger
 	s.mu.Unlock()
 
 	s.logger.Info("Successfully connected", log.Duration("latency", time.Since(start)))
@@ -331,6 +335,17 @@ func (s *Socket) Connect(ctx context.Context, server CMServer) error {
 	s.bus.Publish(&ConnectedEvent{Server: server.Endpoint})
 
 	return nil
+}
+
+// ClearHandlers resets the handlers map.
+func (s *Socket) ClearHandlers() {
+	s.handlersMu.Lock()
+	clear(s.handlers)
+	s.handlersMu.Unlock()
+
+	s.serviceHandlersMu.Lock()
+	clear(s.serviceHandlers)
+	s.serviceHandlersMu.Unlock()
 }
 
 // Disconnect gracefully closes the current active connection.
@@ -354,9 +369,9 @@ func (s *Socket) Disconnect() {
 // Close permanently shuts down the Socket and all its background workers.
 func (s *Socket) Close() error {
 	s.closeOnce.Do(func() {
+		s.ClearHandlers()
 		s.Disconnect()
 		close(s.done)     // Signal workers to stop
-		close(s.msgCh)    // Safe to close here as no new connections will feed it
 		s.workerWg.Wait() // Wait for graceful shutdown
 		s.jobManager.Close()
 	})
@@ -406,6 +421,26 @@ func (s *Socket) CallUnifiedRaw(ctx context.Context, eMsg protocol.EMsg, targetN
 	})
 }
 
+// SendUnified executes a unified service method.
+func (s *Socket) SendUnified(ctx context.Context, method string, req proto.Message) error {
+	return s.CallUnified(ctx, method, req, nil)
+}
+
+// CallProto sends a Protocol Buffer message and optionally tracks the response via a callback.
+func (s *Socket) SendProto(ctx context.Context, eMsg protocol.EMsg, req proto.Message) error {
+	return s.CallProto(ctx, eMsg, req, nil)
+}
+
+// CallRaw is a general-purpose method for sending ready-made bytes.
+func (s *Socket) SendRaw(ctx context.Context, eMsg protocol.EMsg, payload []byte) error {
+	return s.CallRaw(ctx, eMsg, payload, nil)
+}
+
+// CallRaw is a general-purpose method for sending ready-made bytes with unified capabilities.
+func (s *Socket) SendUnifiedRaw(ctx context.Context, eMsg protocol.EMsg, targetName string, payload []byte) error {
+	return s.CallUnifiedRaw(ctx, eMsg, targetName, payload, nil)
+}
+
 type payloadBuilder func(buf *bytes.Buffer, sourceJobID uint64) error
 
 func (s *Socket) sendRequest(ctx context.Context, cb jobs.Callback[*protocol.Packet], build payloadBuilder) error {
@@ -451,7 +486,7 @@ func (s *Socket) sendRequest(ctx context.Context, cb jobs.Callback[*protocol.Pac
 }
 
 func (s *Socket) startWorkers(count int) {
-	for i := 0; i < count; i++ {
+	for range count {
 		s.workerWg.Add(1)
 		go s.worker()
 	}
@@ -565,7 +600,7 @@ func (s *Socket) handleJobResponse(packet *protocol.Packet) bool {
 	return s.jobManager.Resolve(targetID, packet, err)
 }
 
-func (s *Socket) processSingle(msg network.NetMessage) {
+func (s *Socket) processSingle(msg io.Reader) {
 	packet, err := protocol.ParsePacket(msg)
 	if err != nil {
 		s.logger.Error("Failed to parse packet", log.Err(err))
@@ -580,8 +615,6 @@ func (s *Socket) processSingle(msg network.NetMessage) {
 	}
 }
 
-// decompressPayload and processMultiPayload remain largely the same...
-// (Copied here for completeness)
 func (s *Socket) decompressPayload(data network.NetMessage, unzippedSize int64) ([]byte, error) {
 	if unzippedSize > 100*1024*1024 { // 100MB limit to prevent OOM attacks
 		return nil, errors.New("unzipped size too large")
@@ -606,13 +639,7 @@ func (s *Socket) processMultiPayload(payload network.NetMessage) error {
 		if subSize == 0 {
 			continue
 		}
-
-		subData := make([]byte, subSize)
-		if _, err := io.ReadFull(reader, subData); err != nil {
-			return fmt.Errorf("read data: %w", err)
-		}
-
-		s.processSingle(subData) // Recursively feed back into the system
+		s.processSingle(io.LimitReader(reader, int64(subSize)))
 	}
 	return nil
 }
@@ -654,7 +681,9 @@ type inboundHandler struct {
 	sock *Socket
 }
 
-func (h *inboundHandler) OnNetMessage(msg network.NetMessage) { h.sock.processSingle(msg) }
+func (h *inboundHandler) OnNetMessage(msg network.NetMessage) {
+	h.sock.processSingle(bytes.NewReader(msg))
+}
 func (h *inboundHandler) OnNetError(err error) {
 	h.sock.logger.Error("Network error", log.Err(err))
 	h.sock.bus.Publish(&NetworkErrorEvent{Error: err})

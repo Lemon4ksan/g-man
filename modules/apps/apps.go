@@ -7,6 +7,7 @@ package apps
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"sync"
@@ -14,19 +15,21 @@ import (
 
 	"github.com/lemon4ksan/g-man/log"
 	"github.com/lemon4ksan/g-man/steam"
+	"github.com/lemon4ksan/g-man/steam/api"
+	"github.com/lemon4ksan/g-man/steam/bus"
 	"github.com/lemon4ksan/g-man/steam/protocol"
 	pb "github.com/lemon4ksan/g-man/steam/protocol/protobuf"
 	"google.golang.org/protobuf/proto"
 )
 
 const ModuleName string = "apps"
-
-// Magic AppID used by Steam for non-Steam games
 const nonSteamGameID uint64 = 15190414816125648896
 
 type Apps struct {
-	client *steam.Client
-	logger log.Logger
+	bus       *bus.Bus
+	client    api.LegacyRequester
+	logger    log.Logger
+	closeFunc func()
 
 	mu             sync.RWMutex
 	playingAppIDs  []uint32
@@ -34,25 +37,64 @@ type Apps struct {
 }
 
 // New creates a new Apps module.
-func New(logger log.Logger) *Apps {
+func New() *Apps {
 	return &Apps{
-		logger:        logger,
+		logger:        log.Discard,
 		playingAppIDs: make([]uint32, 0),
 	}
 }
 
 func (a *Apps) Name() string { return ModuleName }
 
-func (a *Apps) Init(c *steam.Client) error {
-	a.client = c
+func (a *Apps) Init(init steam.InitContext) error {
+	a.bus = init.Bus()
+	if a.bus == nil {
+		return errors.New("nil bus")
+	}
+	a.client = init.Proto()
+	if a.client == nil {
+		return errors.New("nil proto client")
+	}
+	a.logger = init.Logger().WithModule(ModuleName)
 
-	// Handle notifications about our account playing state
-	c.RegisterPacketHandler(protocol.EMsg_ClientPlayingSessionState, a.handlePlayingSessionState)
+	init.RegisterPacketHandler(protocol.EMsg_ClientPlayingSessionState, a.handlePlayingSessionState)
+	a.closeFunc = func() {
+		init.UnregisterPacketHandler(protocol.EMsg_ClientPlayingSessionState)
+	}
 	return nil
 }
 
 func (a *Apps) Start(ctx context.Context) error {
 	return nil
+}
+
+func (a *Apps) Close() error {
+	if a.closeFunc != nil {
+		a.closeFunc()
+		a.closeFunc = nil
+	}
+	return nil
+}
+
+// GetPlayerCount requests the current number of players online for a specific AppID.
+// Use appID 0 to get the total number of people connected to Steam.
+func (a *Apps) GetPlayerCount(ctx context.Context, appID uint32) (int32, error) {
+	req := &pb.CMsgDPGetNumberOfCurrentPlayers{
+		Appid: proto.Uint32(appID),
+	}
+
+	resp := &pb.CMsgDPGetNumberOfCurrentPlayersResponse{}
+	err := a.client.CallLegacy(ctx, protocol.EMsg_ClientGetNumberOfCurrentPlayersDP, req, resp)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get player count: %w", err)
+	}
+
+	eResult := protocol.EResult(resp.GetEresult())
+	if eResult != protocol.EResult_OK {
+		return 0, fmt.Errorf("steam returned error result: %s", eResult.String())
+	}
+
+	return resp.GetPlayerCount(), nil
 }
 
 // PlayGames tells Steam that you are currently playing the specified AppIDs.
@@ -103,7 +145,7 @@ func (a *Apps) StopPlaying(ctx context.Context) error {
 // account that is currently playing a game.
 func (a *Apps) KickPlayingSession(ctx context.Context) error {
 	req := &pb.CMsgClientKickPlayingSession{}
-	return a.client.Proto().CallLegacy(ctx, protocol.EMsg_ClientKickPlayingSession, req, nil)
+	return a.client.CallLegacy(ctx, protocol.EMsg_ClientKickPlayingSession, req, nil)
 }
 
 func (a *Apps) sendGamesPlayed(ctx context.Context, games []*pb.CMsgClientGamesPlayed_GamePlayed, newAppIDs []uint32) error {
@@ -111,7 +153,7 @@ func (a *Apps) sendGamesPlayed(ctx context.Context, games []*pb.CMsgClientGamesP
 		GamesPlayed: games,
 	}
 
-	if err := a.client.Proto().CallLegacy(ctx, protocol.EMsg_ClientGamesPlayedWithDataBlob, req, nil); err != nil {
+	if err := a.client.CallLegacy(ctx, protocol.EMsg_ClientGamesPlayedWithDataBlob, req, nil); err != nil {
 		return fmt.Errorf("apps: failed to send games played: %w", err)
 	}
 
@@ -121,14 +163,14 @@ func (a *Apps) sendGamesPlayed(ctx context.Context, games []*pb.CMsgClientGamesP
 	for _, newID := range newAppIDs {
 		if !slices.Contains(a.playingAppIDs, newID) {
 			a.logger.Debug("App launched", log.Uint32("appid", newID))
-			a.client.Bus().Publish(&AppLaunchedEvent{AppID: newID})
+			a.bus.Publish(&AppLaunchedEvent{AppID: newID})
 		}
 	}
 
 	for _, oldID := range a.playingAppIDs {
 		if !slices.Contains(newAppIDs, oldID) {
 			a.logger.Debug("App quit", log.Uint32("appid", oldID))
-			a.client.Bus().Publish(&AppQuitEvent{AppID: oldID})
+			a.bus.Publish(&AppQuitEvent{AppID: oldID})
 		}
 	}
 
@@ -154,7 +196,7 @@ func (a *Apps) handlePlayingSessionState(packet *protocol.Packet) {
 		a.logger.Warn("Playing state blocked by another session", log.Uint32("playing_app", playingApp))
 	}
 
-	a.client.Bus().Publish(&PlayingStateEvent{
+	a.bus.Publish(&PlayingStateEvent{
 		Blocked:    blocked,
 		PlayingApp: playingApp,
 	})

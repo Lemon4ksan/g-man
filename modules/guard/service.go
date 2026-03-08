@@ -152,7 +152,7 @@ func (s *TwoFactorService) QueryTimeOffset(ctx context.Context) (time.Duration, 
 		} `json:"response"`
 	}
 
-	err := s.client.CallWebAPI(ctx, "ITwoFactorService", "QueryTime", 1, &resp)
+	err := s.client.CallWebAPI(ctx, "GET", "ITwoFactorService", "QueryTime", 1, &resp)
 	if err != nil {
 		return 0, err
 	}
