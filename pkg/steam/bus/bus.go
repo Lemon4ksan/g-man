@@ -25,6 +25,16 @@ type BaseEvent struct{}
 
 func (BaseEvent) isEvent() {}
 
+// resolveType strips the pointer from a type to ensure pointer and value
+// instances of the same struct are treated as the same event type.
+func resolveType(ev any) reflect.Type {
+	t := reflect.TypeOf(ev)
+	if t != nil && t.Kind() == reflect.Ptr {
+		return t.Elem()
+	}
+	return t
+}
+
 // Subscription represents an active listener on the bus.
 type Subscription struct {
 	id     uint64
@@ -82,7 +92,8 @@ func (b *Bus) Subscribe(eventExamples ...Event) *Subscription {
 	}
 
 	for _, ev := range eventExamples {
-		t := reflect.TypeOf(ev)
+		t := resolveType(ev) // Fixed: Normalize type
+
 		// Ensure we don't subscribe to the same type twice for one subscription
 		if !slices.Contains(sub.types, t) {
 			sub.types = append(sub.types, t)
@@ -125,7 +136,7 @@ func (b *Bus) Publish(event Event) {
 		return
 	}
 
-	t := reflect.TypeOf(event)
+	t := resolveType(event) // Fixed: Normalize type
 
 	b.mu.RLock()
 	if b.closed {
@@ -133,10 +144,7 @@ func (b *Bus) Publish(event Event) {
 		return
 	}
 
-	// Optimization: instead of creating a slice of targets, we iterate
-	// directly under RLock and send in goroutines or non-blocking.
-	// This reduces allocations per publish.
-
+	// Iterate directly under RLock and send non-blocking.
 	if typeSubs, ok := b.subs[t]; ok {
 		for _, sub := range typeSubs {
 			b.directSend(sub, event)
@@ -154,12 +162,6 @@ func (b *Bus) directSend(sub *Subscription, ev Event) {
 	if sub.closed.Load() {
 		return
 	}
-
-	defer func() {
-		if recover() != nil {
-			// The channel was closed while sending, this is normal when unsubscribing
-		}
-	}()
 
 	select {
 	case sub.ch <- ev:

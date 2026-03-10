@@ -86,11 +86,11 @@ func (c *UnifiedClient) Do(req *tr.Request) (*tr.Response, error) {
 	}
 
 	if apiResp.StatusCode != 0 && apiResp.StatusCode != http.StatusOK {
-		return nil, &SteamAPIError{StatusCode: apiResp.StatusCode}
+		return nil, SteamAPIError{StatusCode: apiResp.StatusCode}
 	}
 
 	if apiResp.Result != 0 && apiResp.Result != protocol.EResult_OK {
-		return nil, &EResultError{EResult: apiResp.Result}
+		return nil, EResultError{EResult: apiResp.Result}
 	}
 
 	return apiResp, nil

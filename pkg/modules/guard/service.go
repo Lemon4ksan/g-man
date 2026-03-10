@@ -98,7 +98,6 @@ func (s *MobileConf) executeAction(ctx context.Context, isPost bool, path string
 	if isPost {
 		resp, err = s.client.PostForm(ctx, path, data)
 	} else {
-		// FIXED: Added RequestModifier to inject the URL parameters into the GET request
 		resp, err = s.client.Get(ctx, path, func(r *tr.Request) {
 			r.WithParams(data)
 		})

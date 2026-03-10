@@ -121,23 +121,6 @@ func (c *Confirmation) String() string {
 		c.ID, c.Type, truncate(c.Title, 20), c.TimeRemaining())
 }
 
-// SteamAPIError represents a structured error from Steam's confirmation API.
-type SteamAPIError struct {
-	// Message is the error description from Steam.
-	Message string
-
-	// NeedAuth indicates that the access token has expired and needs refresh.
-	NeedAuth bool
-
-	// StatusCode is the HTTP status code from the response.
-	StatusCode int
-}
-
-func (e *SteamAPIError) Error() string {
-	return fmt.Sprintf("steam API error: %s (need_refresh=%v, status=%d)",
-		e.Message, e.NeedAuth, e.StatusCode)
-}
-
 func truncate(s string, n int) string {
 	if len(s) <= n {
 		return s

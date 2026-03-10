@@ -85,9 +85,13 @@ func DefaultConfig() Config {
 type State int32
 
 const (
+	// StateDisconnected indicates the socket is not connected.
 	StateDisconnected State = iota
+	// StateConnecting indicates the socket is in the process of connecting.
 	StateConnecting
+	// StateConnected indicates the socket has an active connection.
 	StateConnected
+	// StateDisconnecting indicates the socket is shutting down the connection.
 	StateDisconnecting
 )
 
@@ -293,10 +297,9 @@ func (s *Socket) StartHeartbeat(interval time.Duration) {
 
 // Connect attempts to establish a connection to the provided CM server.
 func (s *Socket) Connect(ctx context.Context, server CMServer) error {
-	if s.State() != StateDisconnected {
-		return fmt.Errorf("socket: cannot connect while in state %s", s.State())
+	if !s.state.CompareAndSwap(int32(StateDisconnected), int32(StateConnecting)) {
+		return errors.New("socket: already connecting or connected")
 	}
-	s.setState(StateConnecting)
 
 	dialer, ok := s.config.Dialers[server.Type]
 	if !ok {
@@ -363,6 +366,7 @@ func (s *Socket) Disconnect() {
 	s.mu.Unlock()
 
 	s.logger.Info("Client disconnected")
+	s.bus.Publish(&DisconnectedEvent{})
 	s.setState(StateDisconnected)
 }
 
@@ -453,9 +457,11 @@ func (s *Socket) sendRequest(ctx context.Context, cb jobs.Callback[*protocol.Pac
 	if cb != nil {
 		sourceJobID = s.jobManager.NextID()
 		err := s.jobManager.Add(sourceJobID, func(response *protocol.Packet, err error) {
+			var eMsg protocol.EMsg
 			if response != nil {
-				defer s.recoverPanic(response.EMsg)
+				eMsg = response.EMsg
 			}
+			defer s.recoverPanic(eMsg)
 			cb(response, err)
 		}, jobs.WithContext[*protocol.Packet](ctx))
 
@@ -610,8 +616,6 @@ func (s *Socket) processSingle(msg io.Reader) {
 	select {
 	case s.msgCh <- packet:
 	case <-s.done:
-	default:
-		s.logger.Warn("Message channel full, dropping packet")
 	}
 }
 
@@ -626,7 +630,7 @@ func (s *Socket) decompressPayload(data network.NetMessage, unzippedSize int64) 
 	}
 	defer gr.Close()
 
-	return io.ReadAll(gr)
+	return io.ReadAll(io.LimitReader(gr, unzippedSize))
 }
 
 func (s *Socket) processMultiPayload(payload network.NetMessage) error {

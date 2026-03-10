@@ -58,7 +58,7 @@ func VerifySignature(data, sig []byte, algorithm string) (bool, error) {
 	default:
 		return false, fmt.Errorf("unsupported algorithm: %s", algorithm)
 	}
-	err := rsa.VerifyPKCS1v15(pubKeySystem, crypto.Hash(0), hash, sig) // crypto.Hash(0) indicates that the hash is already computed
+	err := rsa.VerifyPKCS1v15(pubKeySystem, crypto.SHA1, hash, sig)
 	if err != nil {
 		return false, err
 	}

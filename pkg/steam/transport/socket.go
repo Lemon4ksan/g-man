@@ -80,12 +80,15 @@ func (t *SocketTransport) Do(req *Request) (*Response, error) {
 		return nil, fmt.Errorf("socket_transport call failed: %w", err)
 	}
 
-	result := <-resCh
-	if result.err != nil {
-		return nil, result.err
+	select {
+	case <-req.Context().Done():
+		return nil, req.Context().Err()
+	case result := <-resCh:
+		if result.err != nil {
+			return nil, result.err
+		}
+		return result.resp, nil
 	}
-
-	return result.resp, nil
 }
 
 func (t *SocketTransport) Close() error { return nil }

@@ -42,6 +42,10 @@ var _ Encoder = (*BaseEncoder)(nil)
 type BaseEncoder struct{}
 
 func (e *BaseEncoder) EncodeProto(w *bytes.Buffer, eMsg protocol.EMsg, steamID uint64, sessionID int32, sourceJob, targetJob uint64, body proto.Message) error {
+	if body == nil {
+		return fmt.Errorf("proto body is nil")
+	}
+
 	// Protocol Quirk: Steam drops the connection if a SessionID or SteamID
 	// is provided during the initial ClientHello handshake. We enforce 0 here.
 	if eMsg == protocol.EMsg_ClientHello {
@@ -67,6 +71,10 @@ func (e *BaseEncoder) EncodeProto(w *bytes.Buffer, eMsg protocol.EMsg, steamID u
 }
 
 func (e *BaseEncoder) EncodeUnified(w *bytes.Buffer, steamID uint64, sessionID int32, methodName string, sourceJob uint64, body proto.Message) error {
+	if body == nil {
+		return fmt.Errorf("proto body is nil")
+	}
+
 	hdr := protocol.NewMsgHdrProtoBuf(protocol.EMsg_ServiceMethodCallFromClient, steamID, sessionID)
 	hdr.Proto.JobidSource = proto.Uint64(sourceJob)
 	hdr.Proto.TargetJobName = proto.String(methodName)
@@ -85,6 +93,10 @@ func (e *BaseEncoder) EncodeUnified(w *bytes.Buffer, steamID uint64, sessionID i
 }
 
 func (e *BaseEncoder) EncodeLegacy(w *bytes.Buffer, eMsg protocol.EMsg, steamID uint64, sessionID int32, sourceJob, targetJob uint64, body []byte) error {
+	if body == nil {
+		return fmt.Errorf("proto body is nil")
+	}
+
 	hdr := protocol.NewMsgHdrExtended(eMsg, steamID, sessionID)
 	hdr.SourceJobID = sourceJob
 	hdr.TargetJobID = targetJob
@@ -98,6 +110,10 @@ func (e *BaseEncoder) EncodeLegacy(w *bytes.Buffer, eMsg protocol.EMsg, steamID 
 }
 
 func (e *BaseEncoder) EncodeProtoRaw(w *bytes.Buffer, eMsg protocol.EMsg, steamID uint64, sessionID int32, sourceJob, targetJob uint64, body []byte) error {
+	if body == nil {
+		return fmt.Errorf("proto body is nil")
+	}
+
 	hdr := protocol.NewMsgHdrProtoBuf(eMsg, steamID, sessionID)
 	hdr.Proto.JobidSource = proto.Uint64(sourceJob)
 	hdr.Proto.JobidTarget = proto.Uint64(targetJob)
@@ -111,6 +127,10 @@ func (e *BaseEncoder) EncodeProtoRaw(w *bytes.Buffer, eMsg protocol.EMsg, steamI
 }
 
 func (e *BaseEncoder) EncodeUnifiedRaw(w *bytes.Buffer, steamID uint64, sessionID int32, targetName string, sourceJob uint64, body []byte) error {
+	if body == nil {
+		return fmt.Errorf("proto body is nil")
+	}
+
 	hdr := protocol.NewMsgHdrProtoBuf(protocol.EMsg_ServiceMethodCallFromClient, steamID, sessionID)
 	hdr.Proto.JobidSource = proto.Uint64(sourceJob)
 	hdr.Proto.TargetJobName = proto.String(targetName)
@@ -126,6 +146,10 @@ func (e *BaseEncoder) EncodeUnifiedRaw(w *bytes.Buffer, steamID uint64, sessionI
 // EncodeRaw handles basic non-protobuf, non-extended messages
 // (e.g., ChannelEncryptResponse).
 func (e *BaseEncoder) EncodeRaw(w *bytes.Buffer, eMsg protocol.EMsg, targetJob, sourceJob uint64, body []byte) error {
+	if body == nil {
+		return fmt.Errorf("proto body is nil")
+	}
+
 	hdr := protocol.NewMsgHdr(eMsg, targetJob)
 	hdr.SourceJobID = sourceJob
 

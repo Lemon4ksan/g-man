@@ -37,7 +37,7 @@ type SessionMutator interface {
 
 	// SetEncryptionKey upgrades the underlying connection to use Steam's
 	// symmetric encryption if the underlying connection supports it.
-	SetEncryptionKey(key []byte)
+	SetEncryptionKey(key []byte) bool
 
 	// Close terminates the underlying network connection.
 	Close() error
@@ -112,10 +112,12 @@ func (s *BaseSession) Send(ctx context.Context, data []byte) error {
 	return s.conn.Send(ctx, data)
 }
 
-func (s *BaseSession) SetEncryptionKey(key []byte) {
+func (s *BaseSession) SetEncryptionKey(key []byte) bool {
 	if enc, ok := s.conn.(network.Encryptable); ok {
 		enc.SetEncryptionKey(key)
+		return true
 	}
+	return false
 }
 
 func (s *BaseSession) Close() error {
@@ -157,11 +159,14 @@ func (l *LoggedSession) Send(ctx context.Context, data []byte) error {
 }
 
 // SetEncryptionKey intercepts the encryption setup to log the event.
-func (l *LoggedSession) SetEncryptionKey(key []byte) {
+func (l *LoggedSession) SetEncryptionKey(key []byte) bool {
 	l.logger.Debug("Applying channel encryption key", log.Int("key_len", len(key)))
-
-	l.Session.SetEncryptionKey(key)
-	l.logger.Info("Channel encryption established successfully")
+	if l.Session.SetEncryptionKey(key) {
+		l.logger.Info("Channel encryption established successfully")
+		return true
+	}
+	l.logger.Warn("Channel encryption skipped: connection not encryptable")
+	return false
 }
 
 // Close intercepts the Close call to add debug logging.

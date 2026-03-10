@@ -47,8 +47,9 @@ func (s State) String() string {
 }
 
 var (
-	ErrGuardClosed  = errors.New("guard: closed")
-	ErrGuardPolling = errors.New("guard: already polling")
+	ErrGuardClosed      = errors.New("guard: closed")
+	ErrGuardPolling     = errors.New("guard: already polling")
+	ErrNotAuthenticated = errors.New("guard: not authenticated")
 )
 
 // Config holds all configuration options for the Guardian.
@@ -281,6 +282,10 @@ func (g *Guardian) StopPolling() {
 
 // FetchConfirmations requests the list of active confirmations from Steam.
 func (g *Guardian) FetchConfirmations(ctx context.Context) ([]*Confirmation, error) {
+	if g.service == nil {
+		return nil, ErrNotAuthenticated
+	}
+
 	// Respect rate limits before hitting Steam API
 	if err := g.rateLimiter.Wait(ctx); err != nil {
 		return nil, err
@@ -321,6 +326,10 @@ func (g *Guardian) Cancel(ctx context.Context, conf *Confirmation) error {
 }
 
 func (g *Guardian) respond(ctx context.Context, conf *Confirmation, accept bool) error {
+	if g.service == nil {
+		return ErrNotAuthenticated
+	}
+
 	if err := g.rateLimiter.Wait(ctx); err != nil {
 		return err
 	}
@@ -413,8 +422,7 @@ func (g *Guardian) processFetchedConfirmations(confs []*Confirmation) {
 
 		if g.config.AutoAccept && slices.Contains(g.config.AutoAcceptTypes, conf.Type) {
 			go func(c *Confirmation) {
-				// Use background context here so it doesn't instantly die if polling stops
-				if err := g.Accept(context.Background(), c); err != nil {
+				if err := g.Accept(g.pollingCtx, c); err != nil {
 					g.logger.Error("Auto-accept failed", log.Err(err), log.Uint64("id", c.ID))
 				} else {
 					g.logger.Info("Auto-accepted confirmation", log.Uint64("id", c.ID))
@@ -450,11 +458,7 @@ func (g *Guardian) handleStateChange(e *auth.StateEvent) {
 	case auth.StateLoggedOn:
 	case auth.StateDisconnected:
 		g.logger.Warn("Disconnected, stopping session context")
-		g.mu.Lock()
-		if g.pollingCancel != nil {
-			g.pollingCancel()
-		}
-		g.mu.Unlock()
+		g.StopPolling()
 	}
 }
 

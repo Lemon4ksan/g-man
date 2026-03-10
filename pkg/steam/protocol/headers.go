@@ -56,11 +56,11 @@ func NewMsgHdr(eMsg EMsg, targetJobID uint64) *MsgHdr {
 func (h *MsgHdr) GetSourceJob() uint64 { return h.SourceJobID }
 func (h *MsgHdr) GetTargetJob() uint64 { return h.TargetJobID }
 func (h *MsgHdr) SerializeTo(w io.Writer) error {
-	buf := make([]byte, 20)
+	var buf [20]byte
 	binary.LittleEndian.PutUint32(buf[0:4], uint32(h.EMsg))
 	binary.LittleEndian.PutUint64(buf[4:12], h.TargetJobID)
 	binary.LittleEndian.PutUint64(buf[12:20], h.SourceJobID)
-	_, err := w.Write(buf)
+	_, err := w.Write(buf[:])
 	return err
 }
 
@@ -102,16 +102,16 @@ func (h *MsgHdrExtended) GetTargetJob() uint64 { return h.TargetJobID }
 func (h *MsgHdrExtended) GetSteamID() uint64   { return h.SteamID }
 func (h *MsgHdrExtended) GetSessionID() int32  { return h.SessionID }
 func (h *MsgHdrExtended) SerializeTo(w io.Writer) error {
-	buf := make([]byte, 36)
+	var buf [HeaderSizeExtended]byte
 	binary.LittleEndian.PutUint32(buf[0:4], uint32(h.EMsg))
-	buf[4] = 36
+	buf[4] = HeaderSizeExtended
 	binary.LittleEndian.PutUint16(buf[5:7], 2)
 	binary.LittleEndian.PutUint64(buf[7:15], h.TargetJobID)
 	binary.LittleEndian.PutUint64(buf[15:23], h.SourceJobID)
-	buf[23] = 239
+	buf[23] = HeaderCanary
 	binary.LittleEndian.PutUint64(buf[24:32], h.SteamID)
 	binary.LittleEndian.PutUint32(buf[32:36], uint32(h.SessionID))
-	_, err := w.Write(buf)
+	_, err := w.Write(buf[:])
 	return err
 }
 
@@ -145,11 +145,11 @@ func (h *MsgHdrProtoBuf) SerializeTo(w io.Writer) error {
 		return err
 	}
 
-	buf := make([]byte, 8)
+	var buf [8]byte
 	binary.LittleEndian.PutUint32(buf[0:4], uint32(h.EMsg)|ProtoMask)
 	binary.LittleEndian.PutUint32(buf[4:8], uint32(len(protoData)))
 
-	if _, err := w.Write(buf); err != nil {
+	if _, err := w.Write(buf[:]); err != nil {
 		return err
 	}
 	_, err = w.Write(protoData)

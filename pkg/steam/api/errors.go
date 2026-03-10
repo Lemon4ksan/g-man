@@ -30,7 +30,7 @@ type SteamAPIError struct {
 	StatusCode int
 }
 
-func (e *SteamAPIError) Error() string {
+func (e SteamAPIError) Error() string {
 	return fmt.Sprintf("steam API error: %s (need_refresh=%v, status=%d)",
 		e.Message, e.NeedAuth, e.StatusCode)
 }

@@ -8,12 +8,10 @@ package transport
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/url"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
-	"google.golang.org/protobuf/proto"
 )
 
 // Target represents the destination of a Steam request.
@@ -28,7 +26,6 @@ type Request struct {
 	body        []byte
 	params      url.Values
 	headers     http.Header
-	targetJobID uint64
 }
 
 // NewRequest creates a new Request with the specified context, target, and payload.
@@ -64,18 +61,11 @@ func (r *Request) WithHeader(key, value string) *Request {
 	return r
 }
 
-// WithTargetJobID sets the target job ID for legacy response routing over CM.
-func (r *Request) WithTargetJobID(id uint64) *Request {
-	r.targetJobID = id
-	return r
-}
-
 func (r *Request) Context() context.Context { return r.ctx }
 func (r *Request) Target() Target           { return r.target }
 func (r *Request) Body() []byte             { return r.body }
 func (r *Request) Params() url.Values       { return r.params }
 func (r *Request) Header() http.Header      { return r.headers }
-func (r *Request) TargetJobID() uint64      { return r.targetJobID }
 
 // Response represents the result of a Steam API call.
 type Response struct {
@@ -84,14 +74,6 @@ type Response struct {
 	Result      protocol.EResult
 	Body        []byte
 	SourceJobID uint64
-}
-
-// UnmarshalTo deserializes the response body into the provided protobuf message.
-func (r *Response) UnmarshalTo(msg proto.Message) error {
-	if len(r.Body) == 0 {
-		return fmt.Errorf("transport: response body is empty")
-	}
-	return proto.Unmarshal(r.Body, msg)
 }
 
 // Transport executes a Request and returns a Response.

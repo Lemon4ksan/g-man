@@ -143,6 +143,7 @@ type Client struct {
 	socket     *socket.Socket
 	auth       *auth.Authenticator
 	webSession *auth.WebSession // Concrete type, can be nil before login
+	community  *api.CommunityClient
 
 	// API Clients
 	webTransport    tr.Transport
@@ -239,8 +240,11 @@ func (c *Client) ConnectAndLogin(ctx context.Context, server socket.CMServer, de
 	}
 
 	c.mu.Lock()
-	steamID := c.socket.Session().SteamID()
-	// Create a dedicated WebSession for this user
+	sess := c.socket.Session()
+	if sess == nil {
+		return errors.New("session lost after login")
+	}
+	steamID := sess.SteamID()
 	c.webSession = auth.NewWebSession(steamID, c.logger)
 	c.mu.Unlock()
 
@@ -255,6 +259,7 @@ func (c *Client) ConnectAndLogin(ctx context.Context, server socket.CMServer, de
 		c.logger.Info("Web session established")
 	}
 
+	c.wg.Add(1)
 	go c.startAuthed()
 
 	return nil
@@ -262,6 +267,9 @@ func (c *Client) ConnectAndLogin(ctx context.Context, server socket.CMServer, de
 
 // Disconnect closes the connection but keeps the client running (modules stay active).
 func (c *Client) Disconnect() {
+	c.mu.Lock()
+	c.community = nil
+	c.mu.Unlock()
 	c.socket.Disconnect()
 }
 
@@ -306,6 +314,12 @@ func (c *Client) Proto() *api.UnifiedClient {
 // Returns nil if the web session is not established.
 func (c *Client) Community() *api.CommunityClient {
 	c.mu.RLock()
+
+	if c.community != nil {
+		defer c.mu.RUnlock()
+		return c.community
+	}
+
 	ws := c.webSession
 	c.mu.RUnlock()
 
@@ -315,7 +329,8 @@ func (c *Client) Community() *api.CommunityClient {
 
 	// Create a transport using the authenticated WebSession client (CookieJar)
 	tr := tr.NewHTTPTransport(ws.Client(), api.CommunityBase)
-	return api.NewCommunityClient(tr, ws.SessionID, c.logger)
+	c.community = api.NewCommunityClient(tr, ws.SessionID, c.logger)
+	return c.community
 }
 
 // SteamID returns the logged-in SteamID, or 0.
@@ -351,15 +366,18 @@ func (c *Client) run() {
 	c.state.Store(int32(StateRunning))
 
 	// Start all modules
+	c.mu.RLock()
 	for name, mod := range c.modules {
 		if err := mod.Start(c.ctx); err != nil {
 			c.logger.Error("Failed to start module", log.String("name", name), log.Err(err))
 		}
 	}
+	c.mu.RUnlock()
 
 	<-c.ctx.Done()
 
 	// Close all modules
+	c.mu.RLock()
 	for name, mod := range c.modules {
 		if closer, ok := mod.(interface{ Close() error }); ok {
 			if err := closer.Close(); err != nil {
@@ -367,6 +385,7 @@ func (c *Client) run() {
 			}
 		}
 	}
+	c.mu.RUnlock()
 
 	c.socket.Close()
 	c.bus.Close()
