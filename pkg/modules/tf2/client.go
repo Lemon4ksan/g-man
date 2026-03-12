@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package tf2 provides an extensive client for communicating with tf2 gc and performing in-game actions.
 package tf2
 
 import (
@@ -44,6 +45,8 @@ type TF2 struct {
 	state    atomic.Int32
 	backpack *Backpack
 
+	jobQueue chan *GCJob
+
 	ctx    context.Context
 	cancel context.CancelFunc
 }
@@ -75,7 +78,9 @@ func (t *TF2) Init(c *steam.Client) error {
 func (t *TF2) Start(ctx context.Context) error {
 	t.ctx, t.cancel = context.WithCancel(ctx)
 
-	// Start message loop
+	t.jobQueue = make(chan *GCJob, 100)
+	go t.jobWorker()
+
 	sub := t.bus.Subscribe(&coordinator.GCMessageEvent{})
 	go t.loop(sub)
 

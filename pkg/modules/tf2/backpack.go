@@ -72,6 +72,28 @@ func (b *Backpack) IsLoaded() bool {
 	return b.isLoaded
 }
 
+// GetItemsByDefindex returns a list of item IDs with the specified defindex (e.g., 5000 for Scrap).
+func (b *Backpack) GetItemsByDefindex(defIndex uint32) []uint64 {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
+	var ids []uint64
+	for id, item := range b.items {
+		if item.DefIndex == defIndex {
+			ids = append(ids, id)
+		}
+	}
+	return ids
+}
+
+// HasItem checks if the item exists in the inventory.
+func (b *Backpack) HasItem(id uint64) bool {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	_, exists := b.items[id]
+	return exists
+}
+
 // HandleCacheCheck handles the GC asking "do you have the latest data?".
 // We usually just say "refresh please" to be safe or verify versions.
 func (b *Backpack) HandleCacheCheck(coord *coordinator.Coordinator, steamID uint64) {
