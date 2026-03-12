@@ -20,7 +20,7 @@ type DeviceConfig struct {
 // DefaultDeviceConfig returns settings mimicking the official Steam Desktop Client on Windows.
 func DefaultDeviceConfig() DeviceConfig {
 	return DeviceConfig{
-		DeviceFriendlyName: "g-man client",
+		DeviceFriendlyName: "G-man Bot/1.0",
 		PlatformType:       pb.EAuthTokenPlatformType_k_EAuthTokenPlatformType_SteamClient,
 		OSType:             protocol.EOSType_Windows10,
 		GamingDeviceType:   1,
