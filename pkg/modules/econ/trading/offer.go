@@ -5,6 +5,7 @@
 package trading
 
 import (
+	"context"
 	"time"
 
 	"github.com/lemon4ksan/g-man/pkg/modules/econ"
@@ -50,4 +51,30 @@ func (o *TradeOffer) IsActive() bool {
 // IsGlitched returns true if the offer seems malformed (missing items or partner).
 func (o *TradeOffer) IsGlitched() bool {
 	return o.OtherSteamID == 0 || (len(o.ItemsToGive) == 0 && len(o.ItemsToReceive) == 0)
+}
+
+// ActionType defines what to do with an offer.
+type ActionType string
+
+const (
+	ActionAccept  ActionType = "accept"
+	ActionDecline ActionType = "decline"
+	ActionCounter ActionType = "counter"
+	ActionSkip    ActionType = "skip"
+)
+
+// ActionDecision is returned by your bot's business logic to tell the Processor what to do.
+type ActionDecision struct {
+	Action ActionType
+	Reason string
+	Meta   interface{} // Custom metadata (e.g., specific missing value)
+}
+
+// OfferHandler is implemented by your main bot logic.
+// The Processor will call these methods sequentially.
+type OfferHandler interface {
+	// ProcessOffer analyzes the offer and decides what to do.
+	ProcessOffer(ctx context.Context, offer *TradeOffer) (ActionDecision, error)
+	// OnActionFailed is called if the SDK completely fails to execute the action after all retries.
+	OnActionFailed(ctx context.Context, offer *TradeOffer, action ActionType, reason string, err error)
 }

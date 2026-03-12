@@ -56,26 +56,26 @@ type Config struct {
 	PollInterval time.Duration
 	CancelTime   time.Duration
 	Language     string
-	APIKeyDomain string // Domain to register WebAPI Key if missing (e.g. "localhost")
 }
 
 func DefaultConfig() Config {
 	return Config{
 		PollInterval: 30 * time.Second,
 		Language:     "english",
-		APIKeyDomain: "localhost",
 	}
 }
 
 type Manager struct {
-	bus *bus.Bus
-	sub *bus.Subscription
+	bus       *bus.Bus
+	sub       *bus.Subscription
+	processor *Processor
 
-	client api.WebAPIRequester
-	logger log.Logger
-	config Config
-	cache  *AssetCache
-	state  atomic.Int32
+	web       api.WebAPIRequester
+	community *api.CommunityClient
+	logger    log.Logger
+	config    Config
+	cache     *AssetCache
+	state     atomic.Int32
 
 	mu            sync.RWMutex
 	wg            sync.WaitGroup
@@ -112,8 +112,8 @@ func (m *Manager) Init(init steam.InitContext) error {
 	if m.bus == nil {
 		return errors.New("nil bus")
 	}
-	m.client = init.Proto()
-	if m.client == nil {
+	m.web = init.Proto()
+	if m.web == nil {
 		return errors.New("nil proto client")
 	}
 	m.logger = init.Logger().WithModule(ModuleName)
@@ -130,6 +130,7 @@ func (m *Manager) Start(ctx context.Context) error {
 
 func (m *Manager) StartAuthed(ctx context.Context, auth steam.AuthContext) error {
 	m.mu.Lock()
+	m.community = auth.Community()
 	if m.pollingCancel != nil {
 		m.pollingCancel()
 		m.pollingCancel = nil
@@ -137,6 +138,13 @@ func (m *Manager) StartAuthed(ctx context.Context, auth steam.AuthContext) error
 	m.mu.Unlock()
 
 	return m.StartPolling(ctx)
+}
+
+// SetOfferHandler registers the business logic and starts the processor.
+// Call this from your main bot code during initialization.
+func (m *Manager) SetOfferHandler(ctx context.Context, handler OfferHandler) {
+	m.processor = NewProcessor(m, handler, m.logger)
+	m.processor.Start(ctx)
 }
 
 // Close stops the polling process and discards this module.
@@ -200,7 +208,7 @@ func (m *Manager) AcceptOffer(ctx context.Context, offerID uint64) error {
 	params.Set("serverid", "1")
 
 	// AcceptTradeOffer usually returns 200 OK with empty body or a tradeid
-	return m.client.CallWebAPI(ctx, "POST", "IEconService", "AcceptTradeOffer", 1, nil, api.WithParams(params))
+	return m.web.CallWebAPI(ctx, "POST", "IEconService", "AcceptTradeOffer", 1, nil, api.WithParams(params))
 }
 
 // DeclineOffer declines a trade offer.
@@ -212,7 +220,7 @@ func (m *Manager) DeclineOffer(ctx context.Context, offerID uint64) error {
 	params := url.Values{}
 	params.Set("tradeofferid", strconv.FormatUint(offerID, 10))
 
-	return m.client.CallWebAPI(ctx, "POST", "IEconService", "DeclineTradeOffer", 1, nil, api.WithParams(params))
+	return m.web.CallWebAPI(ctx, "POST", "IEconService", "DeclineTradeOffer", 1, nil, api.WithParams(params))
 }
 
 // CancelOffer cancels a trade offer sent by us.
@@ -224,7 +232,7 @@ func (m *Manager) CancelOffer(ctx context.Context, offerID uint64) error {
 	params := url.Values{}
 	params.Set("tradeofferid", strconv.FormatUint(offerID, 10))
 
-	return m.client.CallWebAPI(ctx, "POST", "IEconService", "CancelTradeOffer", 1, nil, api.WithParams(params))
+	return m.web.CallWebAPI(ctx, "POST", "IEconService", "CancelTradeOffer", 1, nil, api.WithParams(params))
 }
 
 // GetOffer fetches details for a single offer.
@@ -243,7 +251,7 @@ func (m *Manager) GetOffer(ctx context.Context, offerID uint64) (*TradeOffer, er
 		} `json:"response"`
 	}
 
-	err := m.client.CallWebAPI(ctx, "GET", "IEconService", "GetTradeOffer", 1, &resp, api.WithParams(params))
+	err := m.web.CallWebAPI(ctx, "GET", "IEconService", "GetTradeOffer", 1, &resp, api.WithParams(params))
 	if err != nil {
 		return nil, err
 	}
@@ -253,6 +261,14 @@ func (m *Manager) GetOffer(ctx context.Context, offerID uint64) (*TradeOffer, er
 	}
 
 	return resp.Response.Offer, nil
+}
+
+// IsItemInTrade allows external modules to know whether an item in the offer is already occupied.
+func (m *Manager) IsItemInTrade(assetID uint64) bool {
+	if m.processor == nil {
+		return false
+	}
+	return m.processor.IsInTrade(assetID)
 }
 
 func (m *Manager) pollingLoop() {
@@ -291,7 +307,7 @@ func (m *Manager) doPoll() {
 		} `json:"response"`
 	}
 
-	err := m.client.CallWebAPI(m.pollingCtx, "GET", "IEconService", "GetTradeOffers", 1, &resp, api.WithParams(params))
+	err := m.web.CallWebAPI(m.pollingCtx, "GET", "IEconService", "GetTradeOffers", 1, &resp, api.WithParams(params))
 	if err != nil {
 		m.logger.Warn("Poll failed", log.Err(err))
 		return
@@ -313,6 +329,10 @@ func (m *Manager) doPoll() {
 			if offer.State == econ.TradeOfferStateActive {
 				m.logger.Info("New offer detected", log.Uint64("id", offer.ID))
 				m.bus.Publish(&NewOfferEvent{Offer: offer})
+
+				if m.processor != nil {
+					m.processor.Enqueue(offer)
+				}
 			}
 		} else if oldState != offer.State {
 			m.knownOffers[offer.ID] = offer.State
