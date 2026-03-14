@@ -2,9 +2,9 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v6.33.5
-// source: gcsystemmsgs.proto
+// source: tf2_gc/gcsystemmsgs.proto
 
-package tf2
+package protobuf
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -345,11 +345,11 @@ func (x EGCSystemMsg) String() string {
 }
 
 func (EGCSystemMsg) Descriptor() protoreflect.EnumDescriptor {
-	return file_gcsystemmsgs_proto_enumTypes[0].Descriptor()
+	return file_tf2_gc_gcsystemmsgs_proto_enumTypes[0].Descriptor()
 }
 
 func (EGCSystemMsg) Type() protoreflect.EnumType {
-	return &file_gcsystemmsgs_proto_enumTypes[0]
+	return &file_tf2_gc_gcsystemmsgs_proto_enumTypes[0]
 }
 
 func (x EGCSystemMsg) Number() protoreflect.EnumNumber {
@@ -368,7 +368,7 @@ func (x *EGCSystemMsg) UnmarshalJSON(b []byte) error {
 
 // Deprecated: Use EGCSystemMsg.Descriptor instead.
 func (EGCSystemMsg) EnumDescriptor() ([]byte, []int) {
-	return file_gcsystemmsgs_proto_rawDescGZIP(), []int{0}
+	return file_tf2_gc_gcsystemmsgs_proto_rawDescGZIP(), []int{0}
 }
 
 type ESOMsg int32
@@ -422,11 +422,11 @@ func (x ESOMsg) String() string {
 }
 
 func (ESOMsg) Descriptor() protoreflect.EnumDescriptor {
-	return file_gcsystemmsgs_proto_enumTypes[1].Descriptor()
+	return file_tf2_gc_gcsystemmsgs_proto_enumTypes[1].Descriptor()
 }
 
 func (ESOMsg) Type() protoreflect.EnumType {
-	return &file_gcsystemmsgs_proto_enumTypes[1]
+	return &file_tf2_gc_gcsystemmsgs_proto_enumTypes[1]
 }
 
 func (x ESOMsg) Number() protoreflect.EnumNumber {
@@ -445,7 +445,7 @@ func (x *ESOMsg) UnmarshalJSON(b []byte) error {
 
 // Deprecated: Use ESOMsg.Descriptor instead.
 func (ESOMsg) EnumDescriptor() ([]byte, []int) {
-	return file_gcsystemmsgs_proto_rawDescGZIP(), []int{1}
+	return file_tf2_gc_gcsystemmsgs_proto_rawDescGZIP(), []int{1}
 }
 
 type EGCBaseClientMsg int32
@@ -496,11 +496,11 @@ func (x EGCBaseClientMsg) String() string {
 }
 
 func (EGCBaseClientMsg) Descriptor() protoreflect.EnumDescriptor {
-	return file_gcsystemmsgs_proto_enumTypes[2].Descriptor()
+	return file_tf2_gc_gcsystemmsgs_proto_enumTypes[2].Descriptor()
 }
 
 func (EGCBaseClientMsg) Type() protoreflect.EnumType {
-	return &file_gcsystemmsgs_proto_enumTypes[2]
+	return &file_tf2_gc_gcsystemmsgs_proto_enumTypes[2]
 }
 
 func (x EGCBaseClientMsg) Number() protoreflect.EnumNumber {
@@ -519,7 +519,7 @@ func (x *EGCBaseClientMsg) UnmarshalJSON(b []byte) error {
 
 // Deprecated: Use EGCBaseClientMsg.Descriptor instead.
 func (EGCBaseClientMsg) EnumDescriptor() ([]byte, []int) {
-	return file_gcsystemmsgs_proto_rawDescGZIP(), []int{2}
+	return file_tf2_gc_gcsystemmsgs_proto_rawDescGZIP(), []int{2}
 }
 
 type EGCToGCMsg int32
@@ -576,11 +576,11 @@ func (x EGCToGCMsg) String() string {
 }
 
 func (EGCToGCMsg) Descriptor() protoreflect.EnumDescriptor {
-	return file_gcsystemmsgs_proto_enumTypes[3].Descriptor()
+	return file_tf2_gc_gcsystemmsgs_proto_enumTypes[3].Descriptor()
 }
 
 func (EGCToGCMsg) Type() protoreflect.EnumType {
-	return &file_gcsystemmsgs_proto_enumTypes[3]
+	return &file_tf2_gc_gcsystemmsgs_proto_enumTypes[3]
 }
 
 func (x EGCToGCMsg) Number() protoreflect.EnumNumber {
@@ -599,7 +599,7 @@ func (x *EGCToGCMsg) UnmarshalJSON(b []byte) error {
 
 // Deprecated: Use EGCToGCMsg.Descriptor instead.
 func (EGCToGCMsg) EnumDescriptor() ([]byte, []int) {
-	return file_gcsystemmsgs_proto_rawDescGZIP(), []int{3}
+	return file_tf2_gc_gcsystemmsgs_proto_rawDescGZIP(), []int{3}
 }
 
 type CCommunity_GamePersonalDataCategoryInfo struct {
@@ -613,7 +613,7 @@ type CCommunity_GamePersonalDataCategoryInfo struct {
 
 func (x *CCommunity_GamePersonalDataCategoryInfo) Reset() {
 	*x = CCommunity_GamePersonalDataCategoryInfo{}
-	mi := &file_gcsystemmsgs_proto_msgTypes[0]
+	mi := &file_tf2_gc_gcsystemmsgs_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -625,7 +625,7 @@ func (x *CCommunity_GamePersonalDataCategoryInfo) String() string {
 func (*CCommunity_GamePersonalDataCategoryInfo) ProtoMessage() {}
 
 func (x *CCommunity_GamePersonalDataCategoryInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_gcsystemmsgs_proto_msgTypes[0]
+	mi := &file_tf2_gc_gcsystemmsgs_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -638,7 +638,7 @@ func (x *CCommunity_GamePersonalDataCategoryInfo) ProtoReflect() protoreflect.Me
 
 // Deprecated: Use CCommunity_GamePersonalDataCategoryInfo.ProtoReflect.Descriptor instead.
 func (*CCommunity_GamePersonalDataCategoryInfo) Descriptor() ([]byte, []int) {
-	return file_gcsystemmsgs_proto_rawDescGZIP(), []int{0}
+	return file_tf2_gc_gcsystemmsgs_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *CCommunity_GamePersonalDataCategoryInfo) GetType() string {
@@ -671,7 +671,7 @@ type CCommunity_GetGamePersonalDataCategories_Request struct {
 
 func (x *CCommunity_GetGamePersonalDataCategories_Request) Reset() {
 	*x = CCommunity_GetGamePersonalDataCategories_Request{}
-	mi := &file_gcsystemmsgs_proto_msgTypes[1]
+	mi := &file_tf2_gc_gcsystemmsgs_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -683,7 +683,7 @@ func (x *CCommunity_GetGamePersonalDataCategories_Request) String() string {
 func (*CCommunity_GetGamePersonalDataCategories_Request) ProtoMessage() {}
 
 func (x *CCommunity_GetGamePersonalDataCategories_Request) ProtoReflect() protoreflect.Message {
-	mi := &file_gcsystemmsgs_proto_msgTypes[1]
+	mi := &file_tf2_gc_gcsystemmsgs_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -696,7 +696,7 @@ func (x *CCommunity_GetGamePersonalDataCategories_Request) ProtoReflect() protor
 
 // Deprecated: Use CCommunity_GetGamePersonalDataCategories_Request.ProtoReflect.Descriptor instead.
 func (*CCommunity_GetGamePersonalDataCategories_Request) Descriptor() ([]byte, []int) {
-	return file_gcsystemmsgs_proto_rawDescGZIP(), []int{1}
+	return file_tf2_gc_gcsystemmsgs_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *CCommunity_GetGamePersonalDataCategories_Request) GetAppid() uint32 {
@@ -716,7 +716,7 @@ type CCommunity_GetGamePersonalDataCategories_Response struct {
 
 func (x *CCommunity_GetGamePersonalDataCategories_Response) Reset() {
 	*x = CCommunity_GetGamePersonalDataCategories_Response{}
-	mi := &file_gcsystemmsgs_proto_msgTypes[2]
+	mi := &file_tf2_gc_gcsystemmsgs_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -728,7 +728,7 @@ func (x *CCommunity_GetGamePersonalDataCategories_Response) String() string {
 func (*CCommunity_GetGamePersonalDataCategories_Response) ProtoMessage() {}
 
 func (x *CCommunity_GetGamePersonalDataCategories_Response) ProtoReflect() protoreflect.Message {
-	mi := &file_gcsystemmsgs_proto_msgTypes[2]
+	mi := &file_tf2_gc_gcsystemmsgs_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -741,7 +741,7 @@ func (x *CCommunity_GetGamePersonalDataCategories_Response) ProtoReflect() proto
 
 // Deprecated: Use CCommunity_GetGamePersonalDataCategories_Response.ProtoReflect.Descriptor instead.
 func (*CCommunity_GetGamePersonalDataCategories_Response) Descriptor() ([]byte, []int) {
-	return file_gcsystemmsgs_proto_rawDescGZIP(), []int{2}
+	return file_tf2_gc_gcsystemmsgs_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *CCommunity_GetGamePersonalDataCategories_Response) GetCategories() []*CCommunity_GamePersonalDataCategoryInfo {
@@ -770,7 +770,7 @@ type CCommunity_GetGamePersonalDataEntries_Request struct {
 
 func (x *CCommunity_GetGamePersonalDataEntries_Request) Reset() {
 	*x = CCommunity_GetGamePersonalDataEntries_Request{}
-	mi := &file_gcsystemmsgs_proto_msgTypes[3]
+	mi := &file_tf2_gc_gcsystemmsgs_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -782,7 +782,7 @@ func (x *CCommunity_GetGamePersonalDataEntries_Request) String() string {
 func (*CCommunity_GetGamePersonalDataEntries_Request) ProtoMessage() {}
 
 func (x *CCommunity_GetGamePersonalDataEntries_Request) ProtoReflect() protoreflect.Message {
-	mi := &file_gcsystemmsgs_proto_msgTypes[3]
+	mi := &file_tf2_gc_gcsystemmsgs_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -795,7 +795,7 @@ func (x *CCommunity_GetGamePersonalDataEntries_Request) ProtoReflect() protorefl
 
 // Deprecated: Use CCommunity_GetGamePersonalDataEntries_Request.ProtoReflect.Descriptor instead.
 func (*CCommunity_GetGamePersonalDataEntries_Request) Descriptor() ([]byte, []int) {
-	return file_gcsystemmsgs_proto_rawDescGZIP(), []int{3}
+	return file_tf2_gc_gcsystemmsgs_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *CCommunity_GetGamePersonalDataEntries_Request) GetAppid() uint32 {
@@ -837,7 +837,7 @@ type CCommunity_GetGamePersonalDataEntries_Response struct {
 
 func (x *CCommunity_GetGamePersonalDataEntries_Response) Reset() {
 	*x = CCommunity_GetGamePersonalDataEntries_Response{}
-	mi := &file_gcsystemmsgs_proto_msgTypes[4]
+	mi := &file_tf2_gc_gcsystemmsgs_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -849,7 +849,7 @@ func (x *CCommunity_GetGamePersonalDataEntries_Response) String() string {
 func (*CCommunity_GetGamePersonalDataEntries_Response) ProtoMessage() {}
 
 func (x *CCommunity_GetGamePersonalDataEntries_Response) ProtoReflect() protoreflect.Message {
-	mi := &file_gcsystemmsgs_proto_msgTypes[4]
+	mi := &file_tf2_gc_gcsystemmsgs_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -862,7 +862,7 @@ func (x *CCommunity_GetGamePersonalDataEntries_Response) ProtoReflect() protoref
 
 // Deprecated: Use CCommunity_GetGamePersonalDataEntries_Response.ProtoReflect.Descriptor instead.
 func (*CCommunity_GetGamePersonalDataEntries_Response) Descriptor() ([]byte, []int) {
-	return file_gcsystemmsgs_proto_rawDescGZIP(), []int{4}
+	return file_tf2_gc_gcsystemmsgs_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *CCommunity_GetGamePersonalDataEntries_Response) GetGceresult() uint32 {
@@ -896,7 +896,7 @@ type CCommunity_TerminateGamePersonalDataEntries_Request struct {
 
 func (x *CCommunity_TerminateGamePersonalDataEntries_Request) Reset() {
 	*x = CCommunity_TerminateGamePersonalDataEntries_Request{}
-	mi := &file_gcsystemmsgs_proto_msgTypes[5]
+	mi := &file_tf2_gc_gcsystemmsgs_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -908,7 +908,7 @@ func (x *CCommunity_TerminateGamePersonalDataEntries_Request) String() string {
 func (*CCommunity_TerminateGamePersonalDataEntries_Request) ProtoMessage() {}
 
 func (x *CCommunity_TerminateGamePersonalDataEntries_Request) ProtoReflect() protoreflect.Message {
-	mi := &file_gcsystemmsgs_proto_msgTypes[5]
+	mi := &file_tf2_gc_gcsystemmsgs_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -921,7 +921,7 @@ func (x *CCommunity_TerminateGamePersonalDataEntries_Request) ProtoReflect() pro
 
 // Deprecated: Use CCommunity_TerminateGamePersonalDataEntries_Request.ProtoReflect.Descriptor instead.
 func (*CCommunity_TerminateGamePersonalDataEntries_Request) Descriptor() ([]byte, []int) {
-	return file_gcsystemmsgs_proto_rawDescGZIP(), []int{5}
+	return file_tf2_gc_gcsystemmsgs_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *CCommunity_TerminateGamePersonalDataEntries_Request) GetAppid() uint32 {
@@ -947,7 +947,7 @@ type CCommunity_TerminateGamePersonalDataEntries_Response struct {
 
 func (x *CCommunity_TerminateGamePersonalDataEntries_Response) Reset() {
 	*x = CCommunity_TerminateGamePersonalDataEntries_Response{}
-	mi := &file_gcsystemmsgs_proto_msgTypes[6]
+	mi := &file_tf2_gc_gcsystemmsgs_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -959,7 +959,7 @@ func (x *CCommunity_TerminateGamePersonalDataEntries_Response) String() string {
 func (*CCommunity_TerminateGamePersonalDataEntries_Response) ProtoMessage() {}
 
 func (x *CCommunity_TerminateGamePersonalDataEntries_Response) ProtoReflect() protoreflect.Message {
-	mi := &file_gcsystemmsgs_proto_msgTypes[6]
+	mi := &file_tf2_gc_gcsystemmsgs_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -972,7 +972,7 @@ func (x *CCommunity_TerminateGamePersonalDataEntries_Response) ProtoReflect() pr
 
 // Deprecated: Use CCommunity_TerminateGamePersonalDataEntries_Response.ProtoReflect.Descriptor instead.
 func (*CCommunity_TerminateGamePersonalDataEntries_Response) Descriptor() ([]byte, []int) {
-	return file_gcsystemmsgs_proto_rawDescGZIP(), []int{6}
+	return file_tf2_gc_gcsystemmsgs_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *CCommunity_TerminateGamePersonalDataEntries_Response) GetGceresult() uint32 {
@@ -982,20 +982,20 @@ func (x *CCommunity_TerminateGamePersonalDataEntries_Response) GetGceresult() ui
 	return 0
 }
 
-var File_gcsystemmsgs_proto protoreflect.FileDescriptor
+var File_tf2_gc_gcsystemmsgs_proto protoreflect.FileDescriptor
 
-const file_gcsystemmsgs_proto_rawDesc = "" +
+const file_tf2_gc_gcsystemmsgs_proto_rawDesc = "" +
 	"\n" +
-	"\x12gcsystemmsgs.proto\"\x91\x01\n" +
+	"\x19tf2_gc/gcsystemmsgs.proto\x12\x06tf2_gc\"\x91\x01\n" +
 	"'CCommunity_GamePersonalDataCategoryInfo\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12-\n" +
 	"\x12localization_token\x18\x02 \x01(\tR\x11localizationToken\x12#\n" +
 	"\rtemplate_file\x18\x03 \x01(\tR\ftemplateFile\"H\n" +
 	"0CCommunity_GetGamePersonalDataCategories_Request\x12\x14\n" +
-	"\x05appid\x18\x01 \x01(\rR\x05appid\"\xad\x01\n" +
-	"1CCommunity_GetGamePersonalDataCategories_Response\x12H\n" +
+	"\x05appid\x18\x01 \x01(\rR\x05appid\"\xb4\x01\n" +
+	"1CCommunity_GetGamePersonalDataCategories_Response\x12O\n" +
 	"\n" +
-	"categories\x18\x01 \x03(\v2(.CCommunity_GamePersonalDataCategoryInfoR\n" +
+	"categories\x18\x01 \x03(\v2/.tf2_gc.CCommunity_GamePersonalDataCategoryInfoR\n" +
 	"categories\x12.\n" +
 	"\x13app_assets_basename\x18\x02 \x01(\tR\x11appAssetsBasename\"\x9a\x01\n" +
 	"-CCommunity_GetGamePersonalDataEntries_Request\x12\x14\n" +
@@ -1147,34 +1147,34 @@ const file_gcsystemmsgs_proto_rawDesc = "" +
 	"\x1ek_EMsgGCToGCSOCacheUnsubscribe\x10\x9f\x01B\x05H\x01\x80\x01\x00"
 
 var (
-	file_gcsystemmsgs_proto_rawDescOnce sync.Once
-	file_gcsystemmsgs_proto_rawDescData []byte
+	file_tf2_gc_gcsystemmsgs_proto_rawDescOnce sync.Once
+	file_tf2_gc_gcsystemmsgs_proto_rawDescData []byte
 )
 
-func file_gcsystemmsgs_proto_rawDescGZIP() []byte {
-	file_gcsystemmsgs_proto_rawDescOnce.Do(func() {
-		file_gcsystemmsgs_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_gcsystemmsgs_proto_rawDesc), len(file_gcsystemmsgs_proto_rawDesc)))
+func file_tf2_gc_gcsystemmsgs_proto_rawDescGZIP() []byte {
+	file_tf2_gc_gcsystemmsgs_proto_rawDescOnce.Do(func() {
+		file_tf2_gc_gcsystemmsgs_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_tf2_gc_gcsystemmsgs_proto_rawDesc), len(file_tf2_gc_gcsystemmsgs_proto_rawDesc)))
 	})
-	return file_gcsystemmsgs_proto_rawDescData
+	return file_tf2_gc_gcsystemmsgs_proto_rawDescData
 }
 
-var file_gcsystemmsgs_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_gcsystemmsgs_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
-var file_gcsystemmsgs_proto_goTypes = []any{
-	(EGCSystemMsg)(0),     // 0: EGCSystemMsg
-	(ESOMsg)(0),           // 1: ESOMsg
-	(EGCBaseClientMsg)(0), // 2: EGCBaseClientMsg
-	(EGCToGCMsg)(0),       // 3: EGCToGCMsg
-	(*CCommunity_GamePersonalDataCategoryInfo)(nil),              // 4: CCommunity_GamePersonalDataCategoryInfo
-	(*CCommunity_GetGamePersonalDataCategories_Request)(nil),     // 5: CCommunity_GetGamePersonalDataCategories_Request
-	(*CCommunity_GetGamePersonalDataCategories_Response)(nil),    // 6: CCommunity_GetGamePersonalDataCategories_Response
-	(*CCommunity_GetGamePersonalDataEntries_Request)(nil),        // 7: CCommunity_GetGamePersonalDataEntries_Request
-	(*CCommunity_GetGamePersonalDataEntries_Response)(nil),       // 8: CCommunity_GetGamePersonalDataEntries_Response
-	(*CCommunity_TerminateGamePersonalDataEntries_Request)(nil),  // 9: CCommunity_TerminateGamePersonalDataEntries_Request
-	(*CCommunity_TerminateGamePersonalDataEntries_Response)(nil), // 10: CCommunity_TerminateGamePersonalDataEntries_Response
+var file_tf2_gc_gcsystemmsgs_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
+var file_tf2_gc_gcsystemmsgs_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_tf2_gc_gcsystemmsgs_proto_goTypes = []any{
+	(EGCSystemMsg)(0),     // 0: tf2_gc.EGCSystemMsg
+	(ESOMsg)(0),           // 1: tf2_gc.ESOMsg
+	(EGCBaseClientMsg)(0), // 2: tf2_gc.EGCBaseClientMsg
+	(EGCToGCMsg)(0),       // 3: tf2_gc.EGCToGCMsg
+	(*CCommunity_GamePersonalDataCategoryInfo)(nil),              // 4: tf2_gc.CCommunity_GamePersonalDataCategoryInfo
+	(*CCommunity_GetGamePersonalDataCategories_Request)(nil),     // 5: tf2_gc.CCommunity_GetGamePersonalDataCategories_Request
+	(*CCommunity_GetGamePersonalDataCategories_Response)(nil),    // 6: tf2_gc.CCommunity_GetGamePersonalDataCategories_Response
+	(*CCommunity_GetGamePersonalDataEntries_Request)(nil),        // 7: tf2_gc.CCommunity_GetGamePersonalDataEntries_Request
+	(*CCommunity_GetGamePersonalDataEntries_Response)(nil),       // 8: tf2_gc.CCommunity_GetGamePersonalDataEntries_Response
+	(*CCommunity_TerminateGamePersonalDataEntries_Request)(nil),  // 9: tf2_gc.CCommunity_TerminateGamePersonalDataEntries_Request
+	(*CCommunity_TerminateGamePersonalDataEntries_Response)(nil), // 10: tf2_gc.CCommunity_TerminateGamePersonalDataEntries_Response
 }
-var file_gcsystemmsgs_proto_depIdxs = []int32{
-	4, // 0: CCommunity_GetGamePersonalDataCategories_Response.categories:type_name -> CCommunity_GamePersonalDataCategoryInfo
+var file_tf2_gc_gcsystemmsgs_proto_depIdxs = []int32{
+	4, // 0: tf2_gc.CCommunity_GetGamePersonalDataCategories_Response.categories:type_name -> tf2_gc.CCommunity_GamePersonalDataCategoryInfo
 	1, // [1:1] is the sub-list for method output_type
 	1, // [1:1] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
@@ -1182,27 +1182,27 @@ var file_gcsystemmsgs_proto_depIdxs = []int32{
 	0, // [0:1] is the sub-list for field type_name
 }
 
-func init() { file_gcsystemmsgs_proto_init() }
-func file_gcsystemmsgs_proto_init() {
-	if File_gcsystemmsgs_proto != nil {
+func init() { file_tf2_gc_gcsystemmsgs_proto_init() }
+func file_tf2_gc_gcsystemmsgs_proto_init() {
+	if File_tf2_gc_gcsystemmsgs_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gcsystemmsgs_proto_rawDesc), len(file_gcsystemmsgs_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_tf2_gc_gcsystemmsgs_proto_rawDesc), len(file_tf2_gc_gcsystemmsgs_proto_rawDesc)),
 			NumEnums:      4,
 			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_gcsystemmsgs_proto_goTypes,
-		DependencyIndexes: file_gcsystemmsgs_proto_depIdxs,
-		EnumInfos:         file_gcsystemmsgs_proto_enumTypes,
-		MessageInfos:      file_gcsystemmsgs_proto_msgTypes,
+		GoTypes:           file_tf2_gc_gcsystemmsgs_proto_goTypes,
+		DependencyIndexes: file_tf2_gc_gcsystemmsgs_proto_depIdxs,
+		EnumInfos:         file_tf2_gc_gcsystemmsgs_proto_enumTypes,
+		MessageInfos:      file_tf2_gc_gcsystemmsgs_proto_msgTypes,
 	}.Build()
-	File_gcsystemmsgs_proto = out.File
-	file_gcsystemmsgs_proto_goTypes = nil
-	file_gcsystemmsgs_proto_depIdxs = nil
+	File_tf2_gc_gcsystemmsgs_proto = out.File
+	file_tf2_gc_gcsystemmsgs_proto_goTypes = nil
+	file_tf2_gc_gcsystemmsgs_proto_depIdxs = nil
 }

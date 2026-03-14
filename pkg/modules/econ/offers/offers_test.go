@@ -14,8 +14,8 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/api"
 	"github.com/lemon4ksan/g-man/pkg/steam/bus"
+	pb "github.com/lemon4ksan/g-man/pkg/steam/protobuf"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
-	pb "github.com/lemon4ksan/g-man/pkg/steam/protocol/protobuf"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
 	"google.golang.org/protobuf/proto"
@@ -227,11 +227,11 @@ func TestManager_HandleTradeRequest(t *testing.T) {
 		}
 
 		tradeEv.Respond(true)
-		
+
 		if initCtx.proto.getCallCount(protocol.EMsg_EconTrading_InitiateTradeResponse) != 1 {
 			t.Error("expected Respond() to call InitiateTradeResponse")
 		}
-		
+
 		req := initCtx.proto.lastReqMsg.(*pb.CMsgTrading_InitiateTradeResponse)
 		if req.GetResponse() != uint32(protocol.EEconTradeResponse_Accepted) {
 			t.Error("expected Respond(true) to send Accepted response")
@@ -251,10 +251,10 @@ func TestManager_HandleTradeResult(t *testing.T) {
 	handler := initCtx.packetHandlers[protocol.EMsg_EconTrading_InitiateTradeResult]
 
 	msg := &pb.CMsgTrading_InitiateTradeResponse{
-		OtherSteamid:            proto.Uint64(333),
-		Response:                proto.Uint32(uint32(protocol.EEconTradeResponse_TooSoon)),
-		SteamguardRequiredDays:  proto.Uint32(15),
-		NewDeviceCooldownDays:   proto.Uint32(7),
+		OtherSteamid:           proto.Uint64(333),
+		Response:               proto.Uint32(uint32(protocol.EEconTradeResponse_TooSoon)),
+		SteamguardRequiredDays: proto.Uint32(15),
+		NewDeviceCooldownDays:  proto.Uint32(7),
 	}
 	payload, _ := proto.Marshal(msg)
 	packet := &protocol.Packet{Payload: payload}

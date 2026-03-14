@@ -22,7 +22,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"google.golang.org/protobuf/proto"
 
-	pb "github.com/lemon4ksan/g-man/pkg/steam/protocol/protobuf"
+	pb "github.com/lemon4ksan/g-man/pkg/steam/protobuf"
 )
 
 type mockConnection struct {

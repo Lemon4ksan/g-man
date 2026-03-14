@@ -13,7 +13,7 @@ import (
 	"math/big"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/api"
-	pb "github.com/lemon4ksan/g-man/pkg/steam/protocol/protobuf"
+	pb "github.com/lemon4ksan/g-man/pkg/steam/protobuf"
 	"google.golang.org/protobuf/proto"
 )
 

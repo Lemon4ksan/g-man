@@ -12,13 +12,19 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 )
 
 const (
-	protoPkgPath     = "go-steam-next/protocol/protobuf/"
-	steamLangURL     = "https://api.github.com/repos/SteamRE/SteamKit/contents/Resources/SteamLanguage"
+	moduleRoot = "github.com/lemon4ksan/g-man"
+
+	steamImportPath = moduleRoot + "/pkg/steam/protobuf"
+	tf2ImportPath   = moduleRoot + "/pkg/tf2/protobuf"
+
+	steamLangURL = "https://api.github.com/repos/SteamRE/SteamKit/contents/Resources/SteamLanguage"
+
 	protoSteamOutput = "../generated/protobuf/steam"
 	protoTF2Output   = "../generated/protobuf/tf2"
 	steamLangOutput  = "../generated/lang/enums_generated.go"
@@ -47,44 +53,85 @@ func main() {
 }
 
 func buildProto() {
-	buildProtoMap("./steam", protoSteamOutput, "steam")
-	buildProtoMap("./tf2", protoTF2Output, "tf2")
-}
+	fmt.Println("### Building Steam Protobufs...")
+	steamSrc, _ := filepath.Abs(filepath.Join("Protobufs", "steam"))
+	steamOut, _ := filepath.Abs(protoSteamOutput)
+	_ = os.MkdirAll(steamOut, os.ModePerm)
 
-func buildProtoMap(srcDir string, outDir string, name string) {
-	_ = os.MkdirAll(outDir, os.ModePerm)
-
-	files, err := filepath.Glob(filepath.Join("Protobufs", srcDir, "*.proto"))
-	if err != nil {
-		fmt.Printf("Error scanning files: %v\n", err)
-		return
+	steamFiles, _ := filepath.Glob(filepath.Join(steamSrc, "*.proto"))
+	var steamMappings []string
+	var steamFileNames []string
+	for _, f := range steamFiles {
+		base := filepath.Base(f)
+		steamMappings = append(steamMappings, "--go_opt=M"+base+"="+steamImportPath)
+		steamFileNames = append(steamFileNames, base)
 	}
 
-	var opt []string
-	for _, proto := range files {
-		base := filepath.Base(proto)
-		opt = append(opt, "--go_opt=M"+base+"="+protoPkgPath+name)
-	}
-
-	for _, proto := range files {
-		base := filepath.Base(proto)
-		out := filepath.Join(outDir, strings.Replace(base, ".proto", ".pb.go", 1))
-		fmt.Printf("# Building Proto: %s\n", out)
-		compileProto("protobufs", srcDir, base, out, opt)
-	}
-}
-
-func compileProto(srcBase, srcSubdir, proto, target string, opt []string) {
-	outDir, _ := filepath.Split(target)
-	args := []string{
-		"-I=" + srcBase,
-		"-I=" + srcBase + "/" + srcSubdir,
-		"--go_out=" + outDir,
+	executeInDir(steamSrc, "protoc", append([]string{
+		"-I=.",
+		"--go_out=" + steamOut,
 		"--go_opt=paths=source_relative",
+	}, append(steamMappings, steamFileNames...)...))
+
+	fmt.Println("### Building TF2 Protobufs...")
+	tempDir, _ := os.MkdirTemp("", "tf2proto_build")
+	defer os.RemoveAll(tempDir)
+
+	tf2Sandbox := filepath.Join(tempDir, "tf2_gc")
+	steamSandbox := filepath.Join(tempDir, "steam")
+	_ = os.MkdirAll(tf2Sandbox, os.ModePerm)
+	_ = os.MkdirAll(steamSandbox, os.ModePerm)
+
+	tf2Files, _ := filepath.Glob(filepath.Join("Protobufs", "tf2", "*.proto"))
+	for _, f := range tf2Files {
+		dst := filepath.Join(tf2Sandbox, filepath.Base(f))
+		copySanitizeTF2(f, dst, "tf2_gc")
 	}
-	args = append(args, opt...)
-	args = append(args, proto)
-	execute("protoc", args)
+
+	steamFiles, _ = filepath.Glob(filepath.Join("Protobufs", "steam", "*.proto"))
+	for _, f := range steamFiles {
+		copyFile(f, filepath.Join(steamSandbox, filepath.Base(f)))
+	}
+
+	tf2Out, _ := filepath.Abs(protoTF2Output)
+	_ = os.MkdirAll(tf2Out, os.ModePerm)
+
+	var mappings []string
+
+	for _, f := range steamFiles {
+		base := filepath.Base(f)
+		mappings = append(mappings, "--go_opt=M"+base+"="+steamImportPath)
+	}
+
+	for _, f := range tf2Files {
+		base := filepath.Base(f)
+
+		mappings = append(mappings, "--go_opt=Mtf2_gc/"+base+"="+tf2ImportPath)
+		mappings = append(mappings, "--go_opt=M"+base+"="+tf2ImportPath)
+	}
+
+	blacklist := map[string]bool{
+		"steammessages.proto":              true,
+		"steammessages_base.proto":         true,
+		"steammessages_unified_base.proto": true,
+		"enums_clientserver.proto":         true,
+	}
+
+	for _, f := range tf2Files {
+		base := filepath.Base(f)
+		if blacklist[base] {
+			continue
+		}
+
+		fmt.Printf("# Compiling: %s\n", base)
+		executeInDir(tempDir, "protoc", append([]string{
+			"-I=.",
+			"-I=tf2_gc",
+			"-I=steam",
+			"--go_out=" + tf2Out,
+			"--go_opt=paths=source_relative",
+		}, append(mappings, filepath.Join("tf2_gc", base))...))
+	}
 }
 
 func buildSteamLang() {
@@ -225,9 +272,73 @@ func execute(command string, args []string) {
 		fmt.Println(command + " " + strings.Join(args, " "))
 	}
 	cmd := exec.Command(command, args...)
-	err := cmd.Run()
+
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		os.Stderr.WriteString(err.Error() + "\n")
+		fmt.Printf("Error executing %s:\n%s\n", command, string(output))
+		os.Exit(1)
+	}
+}
+
+func executeInDir(dir string, command string, args []string) {
+	if printCommands {
+		fmt.Printf("cd %s && %s %s\n", dir, command, strings.Join(args, " "))
+	}
+	cmd := exec.Command(command, args...)
+	cmd.Dir = dir
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Printf("Error executing %s in %s:\n%s\n", command, dir, string(output))
+		os.Exit(1)
+	}
+}
+
+func copyFile(src, dst string) {
+	data, err := os.ReadFile(src)
+	if err != nil {
+		fmt.Printf("Failed to read %s: %v\n", src, err)
+		os.Exit(1)
+	}
+	err = os.WriteFile(dst, data, 0644)
+	if err != nil {
+		fmt.Printf("Failed to write %s: %v\n", dst, err)
+		os.Exit(1)
+	}
+}
+
+func copySanitizeTF2(src, dst, newPkg string) {
+	data, err := os.ReadFile(src)
+	if err != nil {
+		fmt.Printf("Failed to read %s: %v\n", src, err)
+		os.Exit(1)
+	}
+	content := string(data)
+
+	rePkg := regexp.MustCompile(`(?m)^\s*package\s+[^;]+;`)
+	if rePkg.MatchString(content) {
+		content = rePkg.ReplaceAllString(content, "package "+newPkg+";")
+	} else {
+		reSyntax := regexp.MustCompile(`(?m)^\s*syntax\s*=\s*"[^"]+"\s*;`)
+		if reSyntax.MatchString(content) {
+			content = reSyntax.ReplaceAllString(content, "$0\n\npackage "+newPkg+";")
+		} else {
+			content = "package " + newPkg + ";\n\n" + content
+		}
+	}
+
+	reLeadingDot := regexp.MustCompile(`([\s\(\<])\.([a-zA-Z])`)
+
+	content = reLeadingDot.ReplaceAllStringFunc(content, func(m string) string {
+		if strings.Contains(m, ".google") {
+			return m
+		}
+		return string(m[0]) + string(m[2:])
+	})
+
+	err = os.WriteFile(dst, []byte(content), 0644)
+	if err != nil {
+		fmt.Printf("Failed to write sanitized %s: %v\n", dst, err)
 		os.Exit(1)
 	}
 }

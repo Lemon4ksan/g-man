@@ -16,11 +16,11 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/jobs"
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/modules/coordinator"
+	gc "github.com/lemon4ksan/g-man/pkg/modules/coordinator/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/api"
 	"github.com/lemon4ksan/g-man/pkg/steam/bus"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol/gc"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
 	tf2pb "github.com/lemon4ksan/g-man/pkg/tf2/protobuf"
 	"google.golang.org/protobuf/proto"
@@ -190,7 +190,6 @@ func TestTF2_BackpackHandling(t *testing.T) {
 	subAcquired := b.Subscribe(&ItemAcquiredEvent{})
 	subRemoved := b.Subscribe(&ItemRemovedEvent{})
 
-	// 1. Загрузка инвентаря
 	subscribedMsg := &tf2pb.CMsgSOCacheSubscribed{
 		Objects: []*tf2pb.CMsgSOCacheSubscribed_SubscribedType{
 			{
@@ -215,10 +214,9 @@ func TestTF2_BackpackHandling(t *testing.T) {
 		t.Errorf("expected backpack to be loaded with 2 items, got %d", len(tf2.backpack.items))
 	}
 
-	// 2. Добавление предмета
 	createMsg := &tf2pb.CMsgSOSingleObject{
 		TypeId:     proto.Int32(1),
-		ObjectData: createSOItem(300, 5001), // Reclaimed
+		ObjectData: createSOItem(300, 5001),
 	}
 	payload, _ = proto.Marshal(createMsg)
 	tf2.backpack.HandleCreate(&gc.Packet{Payload: payload})
@@ -236,10 +234,9 @@ func TestTF2_BackpackHandling(t *testing.T) {
 		t.Errorf("expected 3 items in backpack, got %d", len(tf2.backpack.items))
 	}
 
-	// 3. Удаление предмета
 	destroyMsg := &tf2pb.CMsgSOSingleObject{
 		TypeId:     proto.Int32(1),
-		ObjectData: createSOItem(100, 5021), // Удаляем ключ
+		ObjectData: createSOItem(100, 5021),
 	}
 	payload, _ = proto.Marshal(destroyMsg)
 	tf2.backpack.HandleDestroy(&gc.Packet{Payload: payload})
@@ -269,15 +266,12 @@ func TestTF2_Craft(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
 
-	// 1. Отправляем запрос на крафт
 	go func() {
 		_, _ = tf2.Craft(ctx, []uint64{100, 200}, -1)
 	}()
 
-	// Ждем, пока вызов дойдет до мока
 	time.Sleep(20 * time.Millisecond)
 
-	// 2. Проверяем CallRaw
 	mockGC.mu.Lock()
 	call, ok := mockGC.callRawCalls[uint32(tf2pb.EGCItemMsg_k_EMsgGCCraft)]
 	mockGC.mu.Unlock()
@@ -286,18 +280,16 @@ func TestTF2_Craft(t *testing.T) {
 		t.Fatal("Craft did not call gc.CallRaw")
 	}
 
-	// Проверяем payload: [recipe(2b)] [count(2b)] [id1(8b)] [id2(8b)]
+	// payload: [recipe(2b)] [count(2b)] [id1(8b)] [id2(8b)]
 	expectedSize := 4 + 8*2
 	if len(call.Payload) != expectedSize {
 		t.Fatalf("expected payload size %d, got %d", expectedSize, len(call.Payload))
 	}
 
-	// 3. Имитируем ответ от GC, вызывая коллбэк
 	if call.Callback == nil {
 		t.Fatal("expected a non-nil callback")
 	}
 
-	// Формируем фейковый ответ от GC
 	respPayload := new(bytes.Buffer)
 	binary.Write(respPayload, binary.LittleEndian, int16(-1))   // Blueprint
 	binary.Write(respPayload, binary.LittleEndian, uint32(0))   // Unknown
@@ -305,9 +297,6 @@ func TestTF2_Craft(t *testing.T) {
 	binary.Write(respPayload, binary.LittleEndian, uint64(300)) // New Item ID
 
 	call.Callback(&gc.Packet{Payload: respPayload.Bytes()}, nil)
-
-	// Теперь метод Craft должен разблокироваться и вернуть результат
-	// Можно добавить проверку возвращаемого значения, если оно вам важно
 }
 
 func TestTF2_JobWorker_CraftMetal(t *testing.T) {

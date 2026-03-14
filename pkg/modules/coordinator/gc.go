@@ -12,12 +12,12 @@ import (
 
 	"github.com/lemon4ksan/g-man/pkg/jobs"
 	"github.com/lemon4ksan/g-man/pkg/log"
+	gc "github.com/lemon4ksan/g-man/pkg/modules/coordinator/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/api"
 	"github.com/lemon4ksan/g-man/pkg/steam/bus"
+	pb "github.com/lemon4ksan/g-man/pkg/steam/protobuf"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol/gc"
-	pb "github.com/lemon4ksan/g-man/pkg/steam/protocol/protobuf"
 	"google.golang.org/protobuf/proto"
 )
 

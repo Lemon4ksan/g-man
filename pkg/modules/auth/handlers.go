@@ -15,8 +15,8 @@ import (
 
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam/crypto"
+	pb "github.com/lemon4ksan/g-man/pkg/steam/protobuf"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
-	pb "github.com/lemon4ksan/g-man/pkg/steam/protocol/protobuf"
 
 	"google.golang.org/protobuf/proto"
 )

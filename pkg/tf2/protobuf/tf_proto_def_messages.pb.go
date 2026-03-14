@@ -2,9 +2,9 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v6.33.5
-// source: tf_proto_def_messages.proto
+// source: tf2_gc/tf_proto_def_messages.proto
 
-package tf2
+package protobuf
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -55,11 +55,11 @@ func (x LogicalOperation) String() string {
 }
 
 func (LogicalOperation) Descriptor() protoreflect.EnumDescriptor {
-	return file_tf_proto_def_messages_proto_enumTypes[0].Descriptor()
+	return file_tf2_gc_tf_proto_def_messages_proto_enumTypes[0].Descriptor()
 }
 
 func (LogicalOperation) Type() protoreflect.EnumType {
-	return &file_tf_proto_def_messages_proto_enumTypes[0]
+	return &file_tf2_gc_tf_proto_def_messages_proto_enumTypes[0]
 }
 
 func (x LogicalOperation) Number() protoreflect.EnumNumber {
@@ -78,7 +78,7 @@ func (x *LogicalOperation) UnmarshalJSON(b []byte) error {
 
 // Deprecated: Use LogicalOperation.Descriptor instead.
 func (LogicalOperation) EnumDescriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{0}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{0}
 }
 
 type EValueDefinitionSource int32
@@ -120,11 +120,11 @@ func (x EValueDefinitionSource) String() string {
 }
 
 func (EValueDefinitionSource) Descriptor() protoreflect.EnumDescriptor {
-	return file_tf_proto_def_messages_proto_enumTypes[1].Descriptor()
+	return file_tf2_gc_tf_proto_def_messages_proto_enumTypes[1].Descriptor()
 }
 
 func (EValueDefinitionSource) Type() protoreflect.EnumType {
-	return &file_tf_proto_def_messages_proto_enumTypes[1]
+	return &file_tf2_gc_tf_proto_def_messages_proto_enumTypes[1]
 }
 
 func (x EValueDefinitionSource) Number() protoreflect.EnumNumber {
@@ -143,7 +143,7 @@ func (x *EValueDefinitionSource) UnmarshalJSON(b []byte) error {
 
 // Deprecated: Use EValueDefinitionSource.Descriptor instead.
 func (EValueDefinitionSource) EnumDescriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{1}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{1}
 }
 
 type ProtoDefTypes int32
@@ -206,11 +206,11 @@ func (x ProtoDefTypes) String() string {
 }
 
 func (ProtoDefTypes) Descriptor() protoreflect.EnumDescriptor {
-	return file_tf_proto_def_messages_proto_enumTypes[2].Descriptor()
+	return file_tf2_gc_tf_proto_def_messages_proto_enumTypes[2].Descriptor()
 }
 
 func (ProtoDefTypes) Type() protoreflect.EnumType {
-	return &file_tf_proto_def_messages_proto_enumTypes[2]
+	return &file_tf2_gc_tf_proto_def_messages_proto_enumTypes[2]
 }
 
 func (x ProtoDefTypes) Number() protoreflect.EnumNumber {
@@ -229,7 +229,7 @@ func (x *ProtoDefTypes) UnmarshalJSON(b []byte) error {
 
 // Deprecated: Use ProtoDefTypes.Descriptor instead.
 func (ProtoDefTypes) EnumDescriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{2}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{2}
 }
 
 type EQuestPoints int32
@@ -265,11 +265,11 @@ func (x EQuestPoints) String() string {
 }
 
 func (EQuestPoints) Descriptor() protoreflect.EnumDescriptor {
-	return file_tf_proto_def_messages_proto_enumTypes[3].Descriptor()
+	return file_tf2_gc_tf_proto_def_messages_proto_enumTypes[3].Descriptor()
 }
 
 func (EQuestPoints) Type() protoreflect.EnumType {
-	return &file_tf_proto_def_messages_proto_enumTypes[3]
+	return &file_tf2_gc_tf_proto_def_messages_proto_enumTypes[3]
 }
 
 func (x EQuestPoints) Number() protoreflect.EnumNumber {
@@ -288,7 +288,7 @@ func (x *EQuestPoints) UnmarshalJSON(b []byte) error {
 
 // Deprecated: Use EQuestPoints.Descriptor instead.
 func (EQuestPoints) EnumDescriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{3}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{3}
 }
 
 type EVarFieldType int32
@@ -342,11 +342,11 @@ func (x EVarFieldType) String() string {
 }
 
 func (EVarFieldType) Descriptor() protoreflect.EnumDescriptor {
-	return file_tf_proto_def_messages_proto_enumTypes[4].Descriptor()
+	return file_tf2_gc_tf_proto_def_messages_proto_enumTypes[4].Descriptor()
 }
 
 func (EVarFieldType) Type() protoreflect.EnumType {
-	return &file_tf_proto_def_messages_proto_enumTypes[4]
+	return &file_tf2_gc_tf_proto_def_messages_proto_enumTypes[4]
 }
 
 func (x EVarFieldType) Number() protoreflect.EnumNumber {
@@ -365,7 +365,7 @@ func (x *EVarFieldType) UnmarshalJSON(b []byte) error {
 
 // Deprecated: Use EVarFieldType.Descriptor instead.
 func (EVarFieldType) EnumDescriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{4}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{4}
 }
 
 type ENodeCashReward int32
@@ -404,11 +404,11 @@ func (x ENodeCashReward) String() string {
 }
 
 func (ENodeCashReward) Descriptor() protoreflect.EnumDescriptor {
-	return file_tf_proto_def_messages_proto_enumTypes[5].Descriptor()
+	return file_tf2_gc_tf_proto_def_messages_proto_enumTypes[5].Descriptor()
 }
 
 func (ENodeCashReward) Type() protoreflect.EnumType {
-	return &file_tf_proto_def_messages_proto_enumTypes[5]
+	return &file_tf2_gc_tf_proto_def_messages_proto_enumTypes[5]
 }
 
 func (x ENodeCashReward) Number() protoreflect.EnumNumber {
@@ -427,7 +427,7 @@ func (x *ENodeCashReward) UnmarshalJSON(b []byte) error {
 
 // Deprecated: Use ENodeCashReward.Descriptor instead.
 func (ENodeCashReward) EnumDescriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{5}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{5}
 }
 
 type CMsgQuestObjectiveDef_ETF2GameModes int32
@@ -514,11 +514,11 @@ func (x CMsgQuestObjectiveDef_ETF2GameModes) String() string {
 }
 
 func (CMsgQuestObjectiveDef_ETF2GameModes) Descriptor() protoreflect.EnumDescriptor {
-	return file_tf_proto_def_messages_proto_enumTypes[6].Descriptor()
+	return file_tf2_gc_tf_proto_def_messages_proto_enumTypes[6].Descriptor()
 }
 
 func (CMsgQuestObjectiveDef_ETF2GameModes) Type() protoreflect.EnumType {
-	return &file_tf_proto_def_messages_proto_enumTypes[6]
+	return &file_tf2_gc_tf_proto_def_messages_proto_enumTypes[6]
 }
 
 func (x CMsgQuestObjectiveDef_ETF2GameModes) Number() protoreflect.EnumNumber {
@@ -537,7 +537,7 @@ func (x *CMsgQuestObjectiveDef_ETF2GameModes) UnmarshalJSON(b []byte) error {
 
 // Deprecated: Use CMsgQuestObjectiveDef_ETF2GameModes.Descriptor instead.
 func (CMsgQuestObjectiveDef_ETF2GameModes) EnumDescriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{6, 0}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{6, 0}
 }
 
 type CMsgQuestObjectiveDef_ETF2Conditions int32
@@ -954,11 +954,11 @@ func (x CMsgQuestObjectiveDef_ETF2Conditions) String() string {
 }
 
 func (CMsgQuestObjectiveDef_ETF2Conditions) Descriptor() protoreflect.EnumDescriptor {
-	return file_tf_proto_def_messages_proto_enumTypes[7].Descriptor()
+	return file_tf2_gc_tf_proto_def_messages_proto_enumTypes[7].Descriptor()
 }
 
 func (CMsgQuestObjectiveDef_ETF2Conditions) Type() protoreflect.EnumType {
-	return &file_tf_proto_def_messages_proto_enumTypes[7]
+	return &file_tf2_gc_tf_proto_def_messages_proto_enumTypes[7]
 }
 
 func (x CMsgQuestObjectiveDef_ETF2Conditions) Number() protoreflect.EnumNumber {
@@ -977,7 +977,7 @@ func (x *CMsgQuestObjectiveDef_ETF2Conditions) UnmarshalJSON(b []byte) error {
 
 // Deprecated: Use CMsgQuestObjectiveDef_ETF2Conditions.Descriptor instead.
 func (CMsgQuestObjectiveDef_ETF2Conditions) EnumDescriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{6, 1}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{6, 1}
 }
 
 type CMsgQuestObjectiveDef_ETF2Team int32
@@ -1010,11 +1010,11 @@ func (x CMsgQuestObjectiveDef_ETF2Team) String() string {
 }
 
 func (CMsgQuestObjectiveDef_ETF2Team) Descriptor() protoreflect.EnumDescriptor {
-	return file_tf_proto_def_messages_proto_enumTypes[8].Descriptor()
+	return file_tf2_gc_tf_proto_def_messages_proto_enumTypes[8].Descriptor()
 }
 
 func (CMsgQuestObjectiveDef_ETF2Team) Type() protoreflect.EnumType {
-	return &file_tf_proto_def_messages_proto_enumTypes[8]
+	return &file_tf2_gc_tf_proto_def_messages_proto_enumTypes[8]
 }
 
 func (x CMsgQuestObjectiveDef_ETF2Team) Number() protoreflect.EnumNumber {
@@ -1033,7 +1033,7 @@ func (x *CMsgQuestObjectiveDef_ETF2Team) UnmarshalJSON(b []byte) error {
 
 // Deprecated: Use CMsgQuestObjectiveDef_ETF2Team.Descriptor instead.
 func (CMsgQuestObjectiveDef_ETF2Team) EnumDescriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{6, 2}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{6, 2}
 }
 
 type CMsgFieldID struct {
@@ -1045,7 +1045,7 @@ type CMsgFieldID struct {
 
 func (x *CMsgFieldID) Reset() {
 	*x = CMsgFieldID{}
-	mi := &file_tf_proto_def_messages_proto_msgTypes[0]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1057,7 +1057,7 @@ func (x *CMsgFieldID) String() string {
 func (*CMsgFieldID) ProtoMessage() {}
 
 func (x *CMsgFieldID) ProtoReflect() protoreflect.Message {
-	mi := &file_tf_proto_def_messages_proto_msgTypes[0]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1070,7 +1070,7 @@ func (x *CMsgFieldID) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgFieldID.ProtoReflect.Descriptor instead.
 func (*CMsgFieldID) Descriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{0}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *CMsgFieldID) GetField() []*CMsgFieldID_CMsgField {
@@ -1082,7 +1082,7 @@ func (x *CMsgFieldID) GetField() []*CMsgFieldID_CMsgField {
 
 type CMsgUniversalFieldID struct {
 	state         protoimpl.MessageState  `protogen:"open.v1"`
-	SourceType    *EValueDefinitionSource `protobuf:"varint,1,opt,name=source_type,json=sourceType,enum=EValueDefinitionSource,def=0" json:"source_type,omitempty"`
+	SourceType    *EValueDefinitionSource `protobuf:"varint,1,opt,name=source_type,json=sourceType,enum=tf2_gc.EValueDefinitionSource,def=0" json:"source_type,omitempty"`
 	DefiningObjId *CMsgProtoDefID         `protobuf:"bytes,2,opt,name=defining_obj_id,json=definingObjId" json:"defining_obj_id,omitempty"`
 	FieldId       *CMsgFieldID            `protobuf:"bytes,3,opt,name=field_id,json=fieldId" json:"field_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -1096,7 +1096,7 @@ const (
 
 func (x *CMsgUniversalFieldID) Reset() {
 	*x = CMsgUniversalFieldID{}
-	mi := &file_tf_proto_def_messages_proto_msgTypes[1]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1108,7 +1108,7 @@ func (x *CMsgUniversalFieldID) String() string {
 func (*CMsgUniversalFieldID) ProtoMessage() {}
 
 func (x *CMsgUniversalFieldID) ProtoReflect() protoreflect.Message {
-	mi := &file_tf_proto_def_messages_proto_msgTypes[1]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1121,7 +1121,7 @@ func (x *CMsgUniversalFieldID) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgUniversalFieldID.ProtoReflect.Descriptor instead.
 func (*CMsgUniversalFieldID) Descriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{1}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *CMsgUniversalFieldID) GetSourceType() EValueDefinitionSource {
@@ -1161,7 +1161,7 @@ const (
 
 func (x *CMsgVariableDefinition) Reset() {
 	*x = CMsgVariableDefinition{}
-	mi := &file_tf_proto_def_messages_proto_msgTypes[2]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1173,7 +1173,7 @@ func (x *CMsgVariableDefinition) String() string {
 func (*CMsgVariableDefinition) ProtoMessage() {}
 
 func (x *CMsgVariableDefinition) ProtoReflect() protoreflect.Message {
-	mi := &file_tf_proto_def_messages_proto_msgTypes[2]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1186,7 +1186,7 @@ func (x *CMsgVariableDefinition) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgVariableDefinition.ProtoReflect.Descriptor instead.
 func (*CMsgVariableDefinition) Descriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{2}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *CMsgVariableDefinition) GetName() string {
@@ -1229,7 +1229,7 @@ const (
 
 func (x *CMsgProtoDefHeader) Reset() {
 	*x = CMsgProtoDefHeader{}
-	mi := &file_tf_proto_def_messages_proto_msgTypes[3]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1241,7 +1241,7 @@ func (x *CMsgProtoDefHeader) String() string {
 func (*CMsgProtoDefHeader) ProtoMessage() {}
 
 func (x *CMsgProtoDefHeader) ProtoReflect() protoreflect.Message {
-	mi := &file_tf_proto_def_messages_proto_msgTypes[3]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1254,7 +1254,7 @@ func (x *CMsgProtoDefHeader) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgProtoDefHeader.ProtoReflect.Descriptor instead.
 func (*CMsgProtoDefHeader) Descriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{3}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *CMsgProtoDefHeader) GetDefindex() uint32 {
@@ -1301,14 +1301,14 @@ func (x *CMsgProtoDefHeader) GetVariables() []*CMsgVariableDefinition {
 
 type CMsgValidTypes struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Types         []ProtoDefTypes        `protobuf:"varint,1,rep,name=types,enum=ProtoDefTypes" json:"types,omitempty"`
+	Types         []ProtoDefTypes        `protobuf:"varint,1,rep,name=types,enum=tf2_gc.ProtoDefTypes" json:"types,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CMsgValidTypes) Reset() {
 	*x = CMsgValidTypes{}
-	mi := &file_tf_proto_def_messages_proto_msgTypes[4]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1320,7 +1320,7 @@ func (x *CMsgValidTypes) String() string {
 func (*CMsgValidTypes) ProtoMessage() {}
 
 func (x *CMsgValidTypes) ProtoReflect() protoreflect.Message {
-	mi := &file_tf_proto_def_messages_proto_msgTypes[4]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1333,7 +1333,7 @@ func (x *CMsgValidTypes) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgValidTypes.ProtoReflect.Descriptor instead.
 func (*CMsgValidTypes) Descriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{4}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *CMsgValidTypes) GetTypes() []ProtoDefTypes {
@@ -1346,7 +1346,7 @@ func (x *CMsgValidTypes) GetTypes() []ProtoDefTypes {
 type CMsgProtoDefID struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
 	Defindex *uint32                `protobuf:"varint,1,opt,name=defindex" json:"defindex,omitempty"`
-	Type     *ProtoDefTypes         `protobuf:"varint,2,opt,name=type,enum=ProtoDefTypes,def=0" json:"type,omitempty"`
+	Type     *ProtoDefTypes         `protobuf:"varint,2,opt,name=type,enum=tf2_gc.ProtoDefTypes,def=0" json:"type,omitempty"`
 	// Types that are valid to be assigned to Instance:
 	//
 	//	*CMsgProtoDefID_InstanceDefTypeQuestMapNode
@@ -1371,7 +1371,7 @@ const (
 
 func (x *CMsgProtoDefID) Reset() {
 	*x = CMsgProtoDefID{}
-	mi := &file_tf_proto_def_messages_proto_msgTypes[5]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1383,7 +1383,7 @@ func (x *CMsgProtoDefID) String() string {
 func (*CMsgProtoDefID) ProtoMessage() {}
 
 func (x *CMsgProtoDefID) ProtoReflect() protoreflect.Message {
-	mi := &file_tf_proto_def_messages_proto_msgTypes[5]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1396,7 +1396,7 @@ func (x *CMsgProtoDefID) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgProtoDefID.ProtoReflect.Descriptor instead.
 func (*CMsgProtoDefID) Descriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{5}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *CMsgProtoDefID) GetDefindex() uint32 {
@@ -1581,14 +1581,14 @@ type CMsgQuestObjectiveDef struct {
 	Points             *uint32                                `protobuf:"varint,3,opt,name=points" json:"points,omitempty"`
 	ConditionsDefindex *uint32                                `protobuf:"varint,5,opt,name=conditions_defindex,json=conditionsDefindex" json:"conditions_defindex,omitempty"`
 	Map                []string                               `protobuf:"bytes,8,rep,name=map" json:"map,omitempty"`
-	GameMode           []CMsgQuestObjectiveDef_ETF2GameModes  `protobuf:"varint,9,rep,name=game_mode,json=gameMode,enum=CMsgQuestObjectiveDef_ETF2GameModes" json:"game_mode,omitempty"`
-	Team               *CMsgQuestObjectiveDef_ETF2Team        `protobuf:"varint,10,opt,name=team,enum=CMsgQuestObjectiveDef_ETF2Team,def=2" json:"team,omitempty"`
+	GameMode           []CMsgQuestObjectiveDef_ETF2GameModes  `protobuf:"varint,9,rep,name=game_mode,json=gameMode,enum=tf2_gc.CMsgQuestObjectiveDef_ETF2GameModes" json:"game_mode,omitempty"`
+	Team               *CMsgQuestObjectiveDef_ETF2Team        `protobuf:"varint,10,opt,name=team,enum=tf2_gc.CMsgQuestObjectiveDef_ETF2Team,def=2" json:"team,omitempty"`
 	ConditionVars      []*CMsgVarField                        `protobuf:"bytes,11,rep,name=condition_vars,json=conditionVars" json:"condition_vars,omitempty"`
 	ClassesVars        []*CMsgVarField                        `protobuf:"bytes,12,rep,name=classes_vars,json=classesVars" json:"classes_vars,omitempty"`
-	Conditions         []CMsgQuestObjectiveDef_ETF2Conditions `protobuf:"varint,13,rep,name=conditions,enum=CMsgQuestObjectiveDef_ETF2Conditions" json:"conditions,omitempty"`
-	ConditionLogic     *LogicalOperation                      `protobuf:"varint,14,opt,name=condition_logic,json=conditionLogic,enum=LogicalOperation,def=0" json:"condition_logic,omitempty"`
+	Conditions         []CMsgQuestObjectiveDef_ETF2Conditions `protobuf:"varint,13,rep,name=conditions,enum=tf2_gc.CMsgQuestObjectiveDef_ETF2Conditions" json:"conditions,omitempty"`
+	ConditionLogic     *LogicalOperation                      `protobuf:"varint,14,opt,name=condition_logic,json=conditionLogic,enum=tf2_gc.LogicalOperation,def=0" json:"condition_logic,omitempty"`
 	ItemName           []string                               `protobuf:"bytes,15,rep,name=item_name,json=itemName" json:"item_name,omitempty"`
-	ItemLogic          *LogicalOperation                      `protobuf:"varint,16,opt,name=item_logic,json=itemLogic,enum=LogicalOperation,def=0" json:"item_logic,omitempty"`
+	ItemLogic          *LogicalOperation                      `protobuf:"varint,16,opt,name=item_logic,json=itemLogic,enum=tf2_gc.LogicalOperation,def=0" json:"item_logic,omitempty"`
 	JumpState          *uint32                                `protobuf:"varint,17,opt,name=jump_state,json=jumpState" json:"jump_state,omitempty"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
@@ -1603,7 +1603,7 @@ const (
 
 func (x *CMsgQuestObjectiveDef) Reset() {
 	*x = CMsgQuestObjectiveDef{}
-	mi := &file_tf_proto_def_messages_proto_msgTypes[6]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1615,7 +1615,7 @@ func (x *CMsgQuestObjectiveDef) String() string {
 func (*CMsgQuestObjectiveDef) ProtoMessage() {}
 
 func (x *CMsgQuestObjectiveDef) ProtoReflect() protoreflect.Message {
-	mi := &file_tf_proto_def_messages_proto_msgTypes[6]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1628,7 +1628,7 @@ func (x *CMsgQuestObjectiveDef) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgQuestObjectiveDef.ProtoReflect.Descriptor instead.
 func (*CMsgQuestObjectiveDef) Descriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{6}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *CMsgQuestObjectiveDef) GetHeader() *CMsgProtoDefHeader {
@@ -1750,7 +1750,7 @@ type CMsgQuestDef struct {
 
 func (x *CMsgQuestDef) Reset() {
 	*x = CMsgQuestDef{}
-	mi := &file_tf_proto_def_messages_proto_msgTypes[7]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1762,7 +1762,7 @@ func (x *CMsgQuestDef) String() string {
 func (*CMsgQuestDef) ProtoMessage() {}
 
 func (x *CMsgQuestDef) ProtoReflect() protoreflect.Message {
-	mi := &file_tf_proto_def_messages_proto_msgTypes[7]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1775,7 +1775,7 @@ func (x *CMsgQuestDef) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgQuestDef.ProtoReflect.Descriptor instead.
 func (*CMsgQuestDef) Descriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{7}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *CMsgQuestDef) GetHeader() *CMsgProtoDefHeader {
@@ -1883,7 +1883,7 @@ type CMsgQuestMapStoreItem struct {
 
 func (x *CMsgQuestMapStoreItem) Reset() {
 	*x = CMsgQuestMapStoreItem{}
-	mi := &file_tf_proto_def_messages_proto_msgTypes[8]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1895,7 +1895,7 @@ func (x *CMsgQuestMapStoreItem) String() string {
 func (*CMsgQuestMapStoreItem) ProtoMessage() {}
 
 func (x *CMsgQuestMapStoreItem) ProtoReflect() protoreflect.Message {
-	mi := &file_tf_proto_def_messages_proto_msgTypes[8]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1908,7 +1908,7 @@ func (x *CMsgQuestMapStoreItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgQuestMapStoreItem.ProtoReflect.Descriptor instead.
 func (*CMsgQuestMapStoreItem) Descriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{8}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *CMsgQuestMapStoreItem) GetHeader() *CMsgProtoDefHeader {
@@ -1969,7 +1969,7 @@ type CMsgQuestMapRegionDef struct {
 
 func (x *CMsgQuestMapRegionDef) Reset() {
 	*x = CMsgQuestMapRegionDef{}
-	mi := &file_tf_proto_def_messages_proto_msgTypes[9]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1981,7 +1981,7 @@ func (x *CMsgQuestMapRegionDef) String() string {
 func (*CMsgQuestMapRegionDef) ProtoMessage() {}
 
 func (x *CMsgQuestMapRegionDef) ProtoReflect() protoreflect.Message {
-	mi := &file_tf_proto_def_messages_proto_msgTypes[9]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1994,7 +1994,7 @@ func (x *CMsgQuestMapRegionDef) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgQuestMapRegionDef.ProtoReflect.Descriptor instead.
 func (*CMsgQuestMapRegionDef) Descriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{9}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *CMsgQuestMapRegionDef) GetHeader() *CMsgProtoDefHeader {
@@ -2073,7 +2073,7 @@ type CMsgVarField struct {
 
 func (x *CMsgVarField) Reset() {
 	*x = CMsgVarField{}
-	mi := &file_tf_proto_def_messages_proto_msgTypes[10]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2085,7 +2085,7 @@ func (x *CMsgVarField) String() string {
 func (*CMsgVarField) ProtoMessage() {}
 
 func (x *CMsgVarField) ProtoReflect() protoreflect.Message {
-	mi := &file_tf_proto_def_messages_proto_msgTypes[10]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2098,7 +2098,7 @@ func (x *CMsgVarField) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgVarField.ProtoReflect.Descriptor instead.
 func (*CMsgVarField) Descriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{10}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *CMsgVarField) GetVariable() string {
@@ -2249,7 +2249,7 @@ type CMsgQuestMapStarType struct {
 
 func (x *CMsgQuestMapStarType) Reset() {
 	*x = CMsgQuestMapStarType{}
-	mi := &file_tf_proto_def_messages_proto_msgTypes[11]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2261,7 +2261,7 @@ func (x *CMsgQuestMapStarType) String() string {
 func (*CMsgQuestMapStarType) ProtoMessage() {}
 
 func (x *CMsgQuestMapStarType) ProtoReflect() protoreflect.Message {
-	mi := &file_tf_proto_def_messages_proto_msgTypes[11]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2274,7 +2274,7 @@ func (x *CMsgQuestMapStarType) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgQuestMapStarType.ProtoReflect.Descriptor instead.
 func (*CMsgQuestMapStarType) Descriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{11}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *CMsgQuestMapStarType) GetHeader() *CMsgProtoDefHeader {
@@ -2303,7 +2303,7 @@ type CMsgQuestMapNodeDef struct {
 	AssociatedOperation *string                    `protobuf:"bytes,16,opt,name=associated_operation,json=associatedOperation" json:"associated_operation,omitempty"`
 	RewardItemName      *string                    `protobuf:"bytes,18,opt,name=reward_item_name,json=rewardItemName" json:"reward_item_name,omitempty"`
 	RewardLootlistName  *string                    `protobuf:"bytes,22,opt,name=reward_lootlist_name,json=rewardLootlistName" json:"reward_lootlist_name,omitempty"`
-	CashReward          *ENodeCashReward           `protobuf:"varint,19,opt,name=cash_reward,json=cashReward,enum=ENodeCashReward,def=1" json:"cash_reward,omitempty"`
+	CashReward          *ENodeCashReward           `protobuf:"varint,19,opt,name=cash_reward,json=cashReward,enum=tf2_gc.ENodeCashReward,def=1" json:"cash_reward,omitempty"`
 	StarType            *CMsgProtoDefID            `protobuf:"bytes,20,opt,name=star_type,json=starType" json:"star_type,omitempty"`
 	StarsToUnlock       *uint32                    `protobuf:"varint,21,opt,name=stars_to_unlock,json=starsToUnlock,def=1" json:"stars_to_unlock,omitempty"`
 	unknownFields       protoimpl.UnknownFields
@@ -2318,7 +2318,7 @@ const (
 
 func (x *CMsgQuestMapNodeDef) Reset() {
 	*x = CMsgQuestMapNodeDef{}
-	mi := &file_tf_proto_def_messages_proto_msgTypes[12]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2330,7 +2330,7 @@ func (x *CMsgQuestMapNodeDef) String() string {
 func (*CMsgQuestMapNodeDef) ProtoMessage() {}
 
 func (x *CMsgQuestMapNodeDef) ProtoReflect() protoreflect.Message {
-	mi := &file_tf_proto_def_messages_proto_msgTypes[12]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2343,7 +2343,7 @@ func (x *CMsgQuestMapNodeDef) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgQuestMapNodeDef.ProtoReflect.Descriptor instead.
 func (*CMsgQuestMapNodeDef) Descriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{12}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *CMsgQuestMapNodeDef) GetHeader() *CMsgProtoDefHeader {
@@ -2446,7 +2446,7 @@ type CMsgPaintKit_Variables struct {
 
 func (x *CMsgPaintKit_Variables) Reset() {
 	*x = CMsgPaintKit_Variables{}
-	mi := &file_tf_proto_def_messages_proto_msgTypes[13]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2458,7 +2458,7 @@ func (x *CMsgPaintKit_Variables) String() string {
 func (*CMsgPaintKit_Variables) ProtoMessage() {}
 
 func (x *CMsgPaintKit_Variables) ProtoReflect() protoreflect.Message {
-	mi := &file_tf_proto_def_messages_proto_msgTypes[13]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2471,7 +2471,7 @@ func (x *CMsgPaintKit_Variables) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgPaintKit_Variables.ProtoReflect.Descriptor instead.
 func (*CMsgPaintKit_Variables) Descriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{13}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *CMsgPaintKit_Variables) GetHeader() *CMsgProtoDefHeader {
@@ -2501,7 +2501,7 @@ type CMsgPaintKit_Operation_TextureStage struct {
 
 func (x *CMsgPaintKit_Operation_TextureStage) Reset() {
 	*x = CMsgPaintKit_Operation_TextureStage{}
-	mi := &file_tf_proto_def_messages_proto_msgTypes[14]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2513,7 +2513,7 @@ func (x *CMsgPaintKit_Operation_TextureStage) String() string {
 func (*CMsgPaintKit_Operation_TextureStage) ProtoMessage() {}
 
 func (x *CMsgPaintKit_Operation_TextureStage) ProtoReflect() protoreflect.Message {
-	mi := &file_tf_proto_def_messages_proto_msgTypes[14]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2526,7 +2526,7 @@ func (x *CMsgPaintKit_Operation_TextureStage) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use CMsgPaintKit_Operation_TextureStage.ProtoReflect.Descriptor instead.
 func (*CMsgPaintKit_Operation_TextureStage) Descriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{14}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *CMsgPaintKit_Operation_TextureStage) GetTexture() *CMsgVarField {
@@ -2631,7 +2631,7 @@ type CMsgPaintKit_Operation_CombineStage struct {
 
 func (x *CMsgPaintKit_Operation_CombineStage) Reset() {
 	*x = CMsgPaintKit_Operation_CombineStage{}
-	mi := &file_tf_proto_def_messages_proto_msgTypes[15]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2643,7 +2643,7 @@ func (x *CMsgPaintKit_Operation_CombineStage) String() string {
 func (*CMsgPaintKit_Operation_CombineStage) ProtoMessage() {}
 
 func (x *CMsgPaintKit_Operation_CombineStage) ProtoReflect() protoreflect.Message {
-	mi := &file_tf_proto_def_messages_proto_msgTypes[15]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2656,7 +2656,7 @@ func (x *CMsgPaintKit_Operation_CombineStage) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use CMsgPaintKit_Operation_CombineStage.ProtoReflect.Descriptor instead.
 func (*CMsgPaintKit_Operation_CombineStage) Descriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{15}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *CMsgPaintKit_Operation_CombineStage) GetAdjustBlack() *CMsgVarField {
@@ -2739,7 +2739,7 @@ type CMsgPaintKit_Operation_SelectStage struct {
 
 func (x *CMsgPaintKit_Operation_SelectStage) Reset() {
 	*x = CMsgPaintKit_Operation_SelectStage{}
-	mi := &file_tf_proto_def_messages_proto_msgTypes[16]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2751,7 +2751,7 @@ func (x *CMsgPaintKit_Operation_SelectStage) String() string {
 func (*CMsgPaintKit_Operation_SelectStage) ProtoMessage() {}
 
 func (x *CMsgPaintKit_Operation_SelectStage) ProtoReflect() protoreflect.Message {
-	mi := &file_tf_proto_def_messages_proto_msgTypes[16]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2764,7 +2764,7 @@ func (x *CMsgPaintKit_Operation_SelectStage) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use CMsgPaintKit_Operation_SelectStage.ProtoReflect.Descriptor instead.
 func (*CMsgPaintKit_Operation_SelectStage) Descriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{16}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *CMsgPaintKit_Operation_SelectStage) GetGroups() *CMsgVarField {
@@ -2792,7 +2792,7 @@ type CMsgPaintKit_Operation_Sticker struct {
 
 func (x *CMsgPaintKit_Operation_Sticker) Reset() {
 	*x = CMsgPaintKit_Operation_Sticker{}
-	mi := &file_tf_proto_def_messages_proto_msgTypes[17]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2804,7 +2804,7 @@ func (x *CMsgPaintKit_Operation_Sticker) String() string {
 func (*CMsgPaintKit_Operation_Sticker) ProtoMessage() {}
 
 func (x *CMsgPaintKit_Operation_Sticker) ProtoReflect() protoreflect.Message {
-	mi := &file_tf_proto_def_messages_proto_msgTypes[17]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2817,7 +2817,7 @@ func (x *CMsgPaintKit_Operation_Sticker) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgPaintKit_Operation_Sticker.ProtoReflect.Descriptor instead.
 func (*CMsgPaintKit_Operation_Sticker) Descriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{17}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *CMsgPaintKit_Operation_Sticker) GetBase() *CMsgVarField {
@@ -2857,7 +2857,7 @@ type CMsgPaintKit_Operation_StickerStage struct {
 
 func (x *CMsgPaintKit_Operation_StickerStage) Reset() {
 	*x = CMsgPaintKit_Operation_StickerStage{}
-	mi := &file_tf_proto_def_messages_proto_msgTypes[18]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2869,7 +2869,7 @@ func (x *CMsgPaintKit_Operation_StickerStage) String() string {
 func (*CMsgPaintKit_Operation_StickerStage) ProtoMessage() {}
 
 func (x *CMsgPaintKit_Operation_StickerStage) ProtoReflect() protoreflect.Message {
-	mi := &file_tf_proto_def_messages_proto_msgTypes[18]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2882,7 +2882,7 @@ func (x *CMsgPaintKit_Operation_StickerStage) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use CMsgPaintKit_Operation_StickerStage.ProtoReflect.Descriptor instead.
 func (*CMsgPaintKit_Operation_StickerStage) Descriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{18}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *CMsgPaintKit_Operation_StickerStage) GetSticker() []*CMsgPaintKit_Operation_Sticker {
@@ -2958,7 +2958,7 @@ type CMsgPaintKit_OperationStage struct {
 
 func (x *CMsgPaintKit_OperationStage) Reset() {
 	*x = CMsgPaintKit_OperationStage{}
-	mi := &file_tf_proto_def_messages_proto_msgTypes[19]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2970,7 +2970,7 @@ func (x *CMsgPaintKit_OperationStage) String() string {
 func (*CMsgPaintKit_OperationStage) ProtoMessage() {}
 
 func (x *CMsgPaintKit_OperationStage) ProtoReflect() protoreflect.Message {
-	mi := &file_tf_proto_def_messages_proto_msgTypes[19]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2983,7 +2983,7 @@ func (x *CMsgPaintKit_OperationStage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgPaintKit_OperationStage.ProtoReflect.Descriptor instead.
 func (*CMsgPaintKit_OperationStage) Descriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{19}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *CMsgPaintKit_OperationStage) GetStage() isCMsgPaintKit_OperationStage_Stage {
@@ -3100,7 +3100,7 @@ type CMsgPaintKit_OperationNode struct {
 
 func (x *CMsgPaintKit_OperationNode) Reset() {
 	*x = CMsgPaintKit_OperationNode{}
-	mi := &file_tf_proto_def_messages_proto_msgTypes[20]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3112,7 +3112,7 @@ func (x *CMsgPaintKit_OperationNode) String() string {
 func (*CMsgPaintKit_OperationNode) ProtoMessage() {}
 
 func (x *CMsgPaintKit_OperationNode) ProtoReflect() protoreflect.Message {
-	mi := &file_tf_proto_def_messages_proto_msgTypes[20]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3125,7 +3125,7 @@ func (x *CMsgPaintKit_OperationNode) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgPaintKit_OperationNode.ProtoReflect.Descriptor instead.
 func (*CMsgPaintKit_OperationNode) Descriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{20}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *CMsgPaintKit_OperationNode) GetNode() isCMsgPaintKit_OperationNode_Node {
@@ -3179,7 +3179,7 @@ type CMsgPaintKit_Operation struct {
 
 func (x *CMsgPaintKit_Operation) Reset() {
 	*x = CMsgPaintKit_Operation{}
-	mi := &file_tf_proto_def_messages_proto_msgTypes[21]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3191,7 +3191,7 @@ func (x *CMsgPaintKit_Operation) String() string {
 func (*CMsgPaintKit_Operation) ProtoMessage() {}
 
 func (x *CMsgPaintKit_Operation) ProtoReflect() protoreflect.Message {
-	mi := &file_tf_proto_def_messages_proto_msgTypes[21]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3204,7 +3204,7 @@ func (x *CMsgPaintKit_Operation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgPaintKit_Operation.ProtoReflect.Descriptor instead.
 func (*CMsgPaintKit_Operation) Descriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{21}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *CMsgPaintKit_Operation) GetHeader() *CMsgProtoDefHeader {
@@ -3233,7 +3233,7 @@ type CMsgPaintKit_ItemDefinition struct {
 
 func (x *CMsgPaintKit_ItemDefinition) Reset() {
 	*x = CMsgPaintKit_ItemDefinition{}
-	mi := &file_tf_proto_def_messages_proto_msgTypes[22]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3245,7 +3245,7 @@ func (x *CMsgPaintKit_ItemDefinition) String() string {
 func (*CMsgPaintKit_ItemDefinition) ProtoMessage() {}
 
 func (x *CMsgPaintKit_ItemDefinition) ProtoReflect() protoreflect.Message {
-	mi := &file_tf_proto_def_messages_proto_msgTypes[22]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3258,7 +3258,7 @@ func (x *CMsgPaintKit_ItemDefinition) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgPaintKit_ItemDefinition.ProtoReflect.Descriptor instead.
 func (*CMsgPaintKit_ItemDefinition) Descriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{22}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *CMsgPaintKit_ItemDefinition) GetHeader() *CMsgProtoDefHeader {
@@ -3347,7 +3347,7 @@ type CMsgPaintKit_Definition struct {
 
 func (x *CMsgPaintKit_Definition) Reset() {
 	*x = CMsgPaintKit_Definition{}
-	mi := &file_tf_proto_def_messages_proto_msgTypes[23]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3359,7 +3359,7 @@ func (x *CMsgPaintKit_Definition) String() string {
 func (*CMsgPaintKit_Definition) ProtoMessage() {}
 
 func (x *CMsgPaintKit_Definition) ProtoReflect() protoreflect.Message {
-	mi := &file_tf_proto_def_messages_proto_msgTypes[23]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3372,7 +3372,7 @@ func (x *CMsgPaintKit_Definition) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgPaintKit_Definition.ProtoReflect.Descriptor instead.
 func (*CMsgPaintKit_Definition) Descriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{23}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *CMsgPaintKit_Definition) GetHeader() *CMsgProtoDefHeader {
@@ -3743,7 +3743,7 @@ type CMsgQuestTheme struct {
 
 func (x *CMsgQuestTheme) Reset() {
 	*x = CMsgQuestTheme{}
-	mi := &file_tf_proto_def_messages_proto_msgTypes[24]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3755,7 +3755,7 @@ func (x *CMsgQuestTheme) String() string {
 func (*CMsgQuestTheme) ProtoMessage() {}
 
 func (x *CMsgQuestTheme) ProtoReflect() protoreflect.Message {
-	mi := &file_tf_proto_def_messages_proto_msgTypes[24]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3768,7 +3768,7 @@ func (x *CMsgQuestTheme) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgQuestTheme.ProtoReflect.Descriptor instead.
 func (*CMsgQuestTheme) Descriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{24}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *CMsgQuestTheme) GetHeader() *CMsgProtoDefHeader {
@@ -3841,66 +3841,9 @@ func (x *CMsgQuestTheme) GetRevealSound() string {
 	return ""
 }
 
-type CMsgQuestMapNodeCondition_NodeState struct {
-	state                   protoimpl.MessageState `protogen:"open.v1"`
-	BonusObjectivesRequired *uint32                `protobuf:"varint,1,opt,name=bonus_objectives_required,json=bonusObjectivesRequired,def=0" json:"bonus_objectives_required,omitempty"`
-	TargetNodeDefid         *CMsgProtoDefID        `protobuf:"bytes,2,req,name=target_node_defid,json=targetNodeDefid" json:"target_node_defid,omitempty"`
-	unknownFields           protoimpl.UnknownFields
-	sizeCache               protoimpl.SizeCache
-}
-
-// Default values for CMsgQuestMapNodeCondition_NodeState fields.
-const (
-	Default_CMsgQuestMapNodeCondition_NodeState_BonusObjectivesRequired = uint32(0)
-)
-
-func (x *CMsgQuestMapNodeCondition_NodeState) Reset() {
-	*x = CMsgQuestMapNodeCondition_NodeState{}
-	mi := &file_tf_proto_def_messages_proto_msgTypes[25]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CMsgQuestMapNodeCondition_NodeState) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CMsgQuestMapNodeCondition_NodeState) ProtoMessage() {}
-
-func (x *CMsgQuestMapNodeCondition_NodeState) ProtoReflect() protoreflect.Message {
-	mi := &file_tf_proto_def_messages_proto_msgTypes[25]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CMsgQuestMapNodeCondition_NodeState.ProtoReflect.Descriptor instead.
-func (*CMsgQuestMapNodeCondition_NodeState) Descriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{25}
-}
-
-func (x *CMsgQuestMapNodeCondition_NodeState) GetBonusObjectivesRequired() uint32 {
-	if x != nil && x.BonusObjectivesRequired != nil {
-		return *x.BonusObjectivesRequired
-	}
-	return Default_CMsgQuestMapNodeCondition_NodeState_BonusObjectivesRequired
-}
-
-func (x *CMsgQuestMapNodeCondition_NodeState) GetTargetNodeDefid() *CMsgProtoDefID {
-	if x != nil {
-		return x.TargetNodeDefid
-	}
-	return nil
-}
-
 type CMsgQuestMapNodeCondition_Logic struct {
 	state         protoimpl.MessageState       `protogen:"open.v1"`
-	Operation     *LogicalOperation            `protobuf:"varint,1,req,name=operation,enum=LogicalOperation,def=0" json:"operation,omitempty"`
+	Operation     *LogicalOperation            `protobuf:"varint,1,req,name=operation,enum=tf2_gc.LogicalOperation,def=0" json:"operation,omitempty"`
 	SubConditions []*CMsgQuestMapNodeCondition `protobuf:"bytes,2,rep,name=sub_conditions,json=subConditions" json:"sub_conditions,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -3913,7 +3856,7 @@ const (
 
 func (x *CMsgQuestMapNodeCondition_Logic) Reset() {
 	*x = CMsgQuestMapNodeCondition_Logic{}
-	mi := &file_tf_proto_def_messages_proto_msgTypes[26]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3925,7 +3868,7 @@ func (x *CMsgQuestMapNodeCondition_Logic) String() string {
 func (*CMsgQuestMapNodeCondition_Logic) ProtoMessage() {}
 
 func (x *CMsgQuestMapNodeCondition_Logic) ProtoReflect() protoreflect.Message {
-	mi := &file_tf_proto_def_messages_proto_msgTypes[26]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3938,7 +3881,7 @@ func (x *CMsgQuestMapNodeCondition_Logic) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgQuestMapNodeCondition_Logic.ProtoReflect.Descriptor instead.
 func (*CMsgQuestMapNodeCondition_Logic) Descriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{26}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *CMsgQuestMapNodeCondition_Logic) GetOperation() LogicalOperation {
@@ -3968,7 +3911,7 @@ type CMsgQuestMapNodeCondition struct {
 
 func (x *CMsgQuestMapNodeCondition) Reset() {
 	*x = CMsgQuestMapNodeCondition{}
-	mi := &file_tf_proto_def_messages_proto_msgTypes[27]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3980,7 +3923,7 @@ func (x *CMsgQuestMapNodeCondition) String() string {
 func (*CMsgQuestMapNodeCondition) ProtoMessage() {}
 
 func (x *CMsgQuestMapNodeCondition) ProtoReflect() protoreflect.Message {
-	mi := &file_tf_proto_def_messages_proto_msgTypes[27]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3993,12 +3936,21 @@ func (x *CMsgQuestMapNodeCondition) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgQuestMapNodeCondition.ProtoReflect.Descriptor instead.
 func (*CMsgQuestMapNodeCondition) Descriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{27}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *CMsgQuestMapNodeCondition) GetOperation() isCMsgQuestMapNodeCondition_Operation {
 	if x != nil {
 		return x.Operation
+	}
+	return nil
+}
+
+func (x *CMsgQuestMapNodeCondition) GetNodeState() *CMsgQuestMapNodeCondition_NodeState {
+	if x != nil {
+		if x, ok := x.Operation.(*CMsgQuestMapNodeCondition_NodeState); ok {
+			return x.NodeState
+		}
 	}
 	return nil
 }
@@ -4014,6 +3966,10 @@ func (x *CMsgQuestMapNodeCondition) GetLogical() *CMsgQuestMapNodeCondition_Logi
 
 type isCMsgQuestMapNodeCondition_Operation interface {
 	isCMsgQuestMapNodeCondition_Operation()
+}
+
+type CMsgQuestMapNodeCondition_NodeState struct {
+	NodeState *CMsgQuestMapNodeCondition_NodeState `protobuf:"bytes,1,opt,name=node_state,json=nodeState,oneof"`
 }
 
 type CMsgQuestMapNodeCondition_Logical struct {
@@ -4033,7 +3989,7 @@ type CMsgHeaderOnly struct {
 
 func (x *CMsgHeaderOnly) Reset() {
 	*x = CMsgHeaderOnly{}
-	mi := &file_tf_proto_def_messages_proto_msgTypes[28]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4045,7 +4001,7 @@ func (x *CMsgHeaderOnly) String() string {
 func (*CMsgHeaderOnly) ProtoMessage() {}
 
 func (x *CMsgHeaderOnly) ProtoReflect() protoreflect.Message {
-	mi := &file_tf_proto_def_messages_proto_msgTypes[28]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4058,7 +4014,7 @@ func (x *CMsgHeaderOnly) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgHeaderOnly.ProtoReflect.Descriptor instead.
 func (*CMsgHeaderOnly) Descriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{28}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *CMsgHeaderOnly) GetHeader() *CMsgProtoDefHeader {
@@ -4078,7 +4034,7 @@ type CMsgFieldID_CMsgField struct {
 
 func (x *CMsgFieldID_CMsgField) Reset() {
 	*x = CMsgFieldID_CMsgField{}
-	mi := &file_tf_proto_def_messages_proto_msgTypes[29]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4090,7 +4046,7 @@ func (x *CMsgFieldID_CMsgField) String() string {
 func (*CMsgFieldID_CMsgField) ProtoMessage() {}
 
 func (x *CMsgFieldID_CMsgField) ProtoReflect() protoreflect.Message {
-	mi := &file_tf_proto_def_messages_proto_msgTypes[29]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4103,7 +4059,7 @@ func (x *CMsgFieldID_CMsgField) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgFieldID_CMsgField.ProtoReflect.Descriptor instead.
 func (*CMsgFieldID_CMsgField) Descriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{0, 0}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{0, 0}
 }
 
 func (x *CMsgFieldID_CMsgField) GetFieldNumber() uint32 {
@@ -4131,7 +4087,7 @@ type CMsgQuestDef_MMCriteria struct {
 
 func (x *CMsgQuestDef_MMCriteria) Reset() {
 	*x = CMsgQuestDef_MMCriteria{}
-	mi := &file_tf_proto_def_messages_proto_msgTypes[30]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4143,7 +4099,7 @@ func (x *CMsgQuestDef_MMCriteria) String() string {
 func (*CMsgQuestDef_MMCriteria) ProtoMessage() {}
 
 func (x *CMsgQuestDef_MMCriteria) ProtoReflect() protoreflect.Message {
-	mi := &file_tf_proto_def_messages_proto_msgTypes[30]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4156,7 +4112,7 @@ func (x *CMsgQuestDef_MMCriteria) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgQuestDef_MMCriteria.ProtoReflect.Descriptor instead.
 func (*CMsgQuestDef_MMCriteria) Descriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{7, 0}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{7, 0}
 }
 
 func (x *CMsgQuestDef_MMCriteria) GetGroupName() string {
@@ -4183,7 +4139,7 @@ func (x *CMsgQuestDef_MMCriteria) GetMapName() string {
 type CMsgQuestDef_ObjectiveInstance struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Objective     *CMsgProtoDefID        `protobuf:"bytes,1,opt,name=objective" json:"objective,omitempty"`
-	PointType     *EQuestPoints          `protobuf:"varint,2,opt,name=point_type,json=pointType,enum=EQuestPoints,def=0" json:"point_type,omitempty"`
+	PointType     *EQuestPoints          `protobuf:"varint,2,opt,name=point_type,json=pointType,enum=tf2_gc.EQuestPoints,def=0" json:"point_type,omitempty"`
 	PointValue    *uint32                `protobuf:"varint,3,opt,name=point_value,json=pointValue" json:"point_value,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -4196,7 +4152,7 @@ const (
 
 func (x *CMsgQuestDef_ObjectiveInstance) Reset() {
 	*x = CMsgQuestDef_ObjectiveInstance{}
-	mi := &file_tf_proto_def_messages_proto_msgTypes[31]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4208,7 +4164,7 @@ func (x *CMsgQuestDef_ObjectiveInstance) String() string {
 func (*CMsgQuestDef_ObjectiveInstance) ProtoMessage() {}
 
 func (x *CMsgQuestDef_ObjectiveInstance) ProtoReflect() protoreflect.Message {
-	mi := &file_tf_proto_def_messages_proto_msgTypes[31]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4221,7 +4177,7 @@ func (x *CMsgQuestDef_ObjectiveInstance) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgQuestDef_ObjectiveInstance.ProtoReflect.Descriptor instead.
 func (*CMsgQuestDef_ObjectiveInstance) Descriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{7, 1}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{7, 1}
 }
 
 func (x *CMsgQuestDef_ObjectiveInstance) GetObjective() *CMsgProtoDefID {
@@ -4256,7 +4212,7 @@ type CMsgQuestMapRegionDef_RegionLink struct {
 
 func (x *CMsgQuestMapRegionDef_RegionLink) Reset() {
 	*x = CMsgQuestMapRegionDef_RegionLink{}
-	mi := &file_tf_proto_def_messages_proto_msgTypes[32]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4268,7 +4224,7 @@ func (x *CMsgQuestMapRegionDef_RegionLink) String() string {
 func (*CMsgQuestMapRegionDef_RegionLink) ProtoMessage() {}
 
 func (x *CMsgQuestMapRegionDef_RegionLink) ProtoReflect() protoreflect.Message {
-	mi := &file_tf_proto_def_messages_proto_msgTypes[32]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4281,7 +4237,7 @@ func (x *CMsgQuestMapRegionDef_RegionLink) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgQuestMapRegionDef_RegionLink.ProtoReflect.Descriptor instead.
 func (*CMsgQuestMapRegionDef_RegionLink) Descriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{9, 0}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{9, 0}
 }
 
 func (x *CMsgQuestMapRegionDef_RegionLink) GetTargetRegionDefid() *CMsgProtoDefID {
@@ -4315,7 +4271,7 @@ type CMsgPaintKit_ItemDefinition_Definition struct {
 
 func (x *CMsgPaintKit_ItemDefinition_Definition) Reset() {
 	*x = CMsgPaintKit_ItemDefinition_Definition{}
-	mi := &file_tf_proto_def_messages_proto_msgTypes[33]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4327,7 +4283,7 @@ func (x *CMsgPaintKit_ItemDefinition_Definition) String() string {
 func (*CMsgPaintKit_ItemDefinition_Definition) ProtoMessage() {}
 
 func (x *CMsgPaintKit_ItemDefinition_Definition) ProtoReflect() protoreflect.Message {
-	mi := &file_tf_proto_def_messages_proto_msgTypes[33]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4340,7 +4296,7 @@ func (x *CMsgPaintKit_ItemDefinition_Definition) ProtoReflect() protoreflect.Mes
 
 // Deprecated: Use CMsgPaintKit_ItemDefinition_Definition.ProtoReflect.Descriptor instead.
 func (*CMsgPaintKit_ItemDefinition_Definition) Descriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{22, 0}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{22, 0}
 }
 
 func (x *CMsgPaintKit_ItemDefinition_Definition) GetOperationTemplate() *CMsgProtoDefID {
@@ -4367,7 +4323,7 @@ type CMsgPaintKit_Definition_Item struct {
 
 func (x *CMsgPaintKit_Definition_Item) Reset() {
 	*x = CMsgPaintKit_Definition_Item{}
-	mi := &file_tf_proto_def_messages_proto_msgTypes[34]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4379,7 +4335,7 @@ func (x *CMsgPaintKit_Definition_Item) String() string {
 func (*CMsgPaintKit_Definition_Item) ProtoMessage() {}
 
 func (x *CMsgPaintKit_Definition_Item) ProtoReflect() protoreflect.Message {
-	mi := &file_tf_proto_def_messages_proto_msgTypes[34]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4392,7 +4348,7 @@ func (x *CMsgPaintKit_Definition_Item) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgPaintKit_Definition_Item.ProtoReflect.Descriptor instead.
 func (*CMsgPaintKit_Definition_Item) Descriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{23, 0}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{23, 0}
 }
 
 func (x *CMsgPaintKit_Definition_Item) GetItemDefinitionTemplate() *CMsgProtoDefID {
@@ -4425,7 +4381,7 @@ const (
 
 func (x *CMsgPaintKit_Definition_Item_ItemData) Reset() {
 	*x = CMsgPaintKit_Definition_Item_ItemData{}
-	mi := &file_tf_proto_def_messages_proto_msgTypes[35]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4437,7 +4393,7 @@ func (x *CMsgPaintKit_Definition_Item_ItemData) String() string {
 func (*CMsgPaintKit_Definition_Item_ItemData) ProtoMessage() {}
 
 func (x *CMsgPaintKit_Definition_Item_ItemData) ProtoReflect() protoreflect.Message {
-	mi := &file_tf_proto_def_messages_proto_msgTypes[35]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4450,7 +4406,7 @@ func (x *CMsgPaintKit_Definition_Item_ItemData) ProtoReflect() protoreflect.Mess
 
 // Deprecated: Use CMsgPaintKit_Definition_Item_ItemData.ProtoReflect.Descriptor instead.
 func (*CMsgPaintKit_Definition_Item_ItemData) Descriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{23, 0, 0}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{23, 0, 0}
 }
 
 func (x *CMsgPaintKit_Definition_Item_ItemData) GetCanApplyPaintkit() bool {
@@ -4484,7 +4440,7 @@ type CMsgQuestTheme_WeightedString struct {
 
 func (x *CMsgQuestTheme_WeightedString) Reset() {
 	*x = CMsgQuestTheme_WeightedString{}
-	mi := &file_tf_proto_def_messages_proto_msgTypes[36]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4496,7 +4452,7 @@ func (x *CMsgQuestTheme_WeightedString) String() string {
 func (*CMsgQuestTheme_WeightedString) ProtoMessage() {}
 
 func (x *CMsgQuestTheme_WeightedString) ProtoReflect() protoreflect.Message {
-	mi := &file_tf_proto_def_messages_proto_msgTypes[36]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4509,7 +4465,7 @@ func (x *CMsgQuestTheme_WeightedString) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgQuestTheme_WeightedString.ProtoReflect.Descriptor instead.
 func (*CMsgQuestTheme_WeightedString) Descriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{24, 0}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{24, 0}
 }
 
 func (x *CMsgQuestTheme_WeightedString) GetString_() string {
@@ -4535,7 +4491,7 @@ type CMsgQuestTheme_WeightedStringSet struct {
 
 func (x *CMsgQuestTheme_WeightedStringSet) Reset() {
 	*x = CMsgQuestTheme_WeightedStringSet{}
-	mi := &file_tf_proto_def_messages_proto_msgTypes[37]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4547,7 +4503,7 @@ func (x *CMsgQuestTheme_WeightedStringSet) String() string {
 func (*CMsgQuestTheme_WeightedStringSet) ProtoMessage() {}
 
 func (x *CMsgQuestTheme_WeightedStringSet) ProtoReflect() protoreflect.Message {
-	mi := &file_tf_proto_def_messages_proto_msgTypes[37]
+	mi := &file_tf2_gc_tf_proto_def_messages_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4560,7 +4516,7 @@ func (x *CMsgQuestTheme_WeightedStringSet) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgQuestTheme_WeightedStringSet.ProtoReflect.Descriptor instead.
 func (*CMsgQuestTheme_WeightedStringSet) Descriptor() ([]byte, []int) {
-	return file_tf_proto_def_messages_proto_rawDescGZIP(), []int{24, 1}
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP(), []int{24, 1}
 }
 
 func (x *CMsgQuestTheme_WeightedStringSet) GetWeightedStrings() []*CMsgQuestTheme_WeightedString {
@@ -4570,240 +4526,240 @@ func (x *CMsgQuestTheme_WeightedStringSet) GetWeightedStrings() []*CMsgQuestThem
 	return nil
 }
 
-var file_tf_proto_def_messages_proto_extTypes = []protoimpl.ExtensionInfo{
+var file_tf2_gc_tf_proto_def_messages_proto_extTypes = []protoimpl.ExtensionInfo{
 	{
 		ExtendedType:  (*descriptorpb.MessageOptions)(nil),
 		ExtensionType: (*bool)(nil),
 		Field:         80000,
-		Name:          "start_expanded",
+		Name:          "tf2_gc.start_expanded",
 		Tag:           "varint,80000,opt,name=start_expanded,def=1",
-		Filename:      "tf_proto_def_messages.proto",
+		Filename:      "tf2_gc/tf_proto_def_messages.proto",
 	},
 	{
 		ExtendedType:  (*descriptorpb.FieldOptions)(nil),
 		ExtensionType: (*ProtoDefTypes)(nil),
 		Field:         70000,
-		Name:          "valid_type",
-		Tag:           "varint,70000,opt,name=valid_type,enum=ProtoDefTypes,def=0",
-		Filename:      "tf_proto_def_messages.proto",
+		Name:          "tf2_gc.valid_type",
+		Tag:           "varint,70000,opt,name=valid_type,enum=tf2_gc.ProtoDefTypes,def=0",
+		Filename:      "tf2_gc/tf_proto_def_messages.proto",
 	},
 	{
 		ExtendedType:  (*descriptorpb.FieldOptions)(nil),
 		ExtensionType: (*bool)(nil),
 		Field:         70001,
-		Name:          "editable",
+		Name:          "tf2_gc.editable",
 		Tag:           "varint,70001,opt,name=editable,def=1",
-		Filename:      "tf_proto_def_messages.proto",
+		Filename:      "tf2_gc/tf_proto_def_messages.proto",
 	},
 	{
 		ExtendedType:  (*descriptorpb.FieldOptions)(nil),
 		ExtensionType: (*bool)(nil),
 		Field:         70002,
-		Name:          "localized",
+		Name:          "tf2_gc.localized",
 		Tag:           "varint,70002,opt,name=localized,def=0",
-		Filename:      "tf_proto_def_messages.proto",
+		Filename:      "tf2_gc/tf_proto_def_messages.proto",
 	},
 	{
 		ExtendedType:  (*descriptorpb.FieldOptions)(nil),
 		ExtensionType: (*bool)(nil),
 		Field:         70003,
-		Name:          "do_not_inherit",
+		Name:          "tf2_gc.do_not_inherit",
 		Tag:           "varint,70003,opt,name=do_not_inherit,def=0",
-		Filename:      "tf_proto_def_messages.proto",
+		Filename:      "tf2_gc/tf_proto_def_messages.proto",
 	},
 	{
 		ExtendedType:  (*descriptorpb.FieldOptions)(nil),
 		ExtensionType: (*string)(nil),
 		Field:         70004,
-		Name:          "display_name",
+		Name:          "tf2_gc.display_name",
 		Tag:           "bytes,70004,opt,name=display_name",
-		Filename:      "tf_proto_def_messages.proto",
+		Filename:      "tf2_gc/tf_proto_def_messages.proto",
 	},
 	{
 		ExtendedType:  (*descriptorpb.FieldOptions)(nil),
 		ExtensionType: (*string)(nil),
 		Field:         70005,
-		Name:          "comment",
+		Name:          "tf2_gc.comment",
 		Tag:           "bytes,70005,opt,name=comment",
-		Filename:      "tf_proto_def_messages.proto",
+		Filename:      "tf2_gc/tf_proto_def_messages.proto",
 	},
 	{
 		ExtendedType:  (*descriptorpb.FieldOptions)(nil),
 		ExtensionType: (*uint32)(nil),
 		Field:         70007,
-		Name:          "max_count",
+		Name:          "tf2_gc.max_count",
 		Tag:           "varint,70007,opt,name=max_count",
-		Filename:      "tf_proto_def_messages.proto",
+		Filename:      "tf2_gc/tf_proto_def_messages.proto",
 	},
 	{
 		ExtendedType:  (*descriptorpb.FieldOptions)(nil),
 		ExtensionType: (*bool)(nil),
 		Field:         70008,
-		Name:          "allow_add",
+		Name:          "tf2_gc.allow_add",
 		Tag:           "varint,70008,opt,name=allow_add,def=1",
-		Filename:      "tf_proto_def_messages.proto",
+		Filename:      "tf2_gc/tf_proto_def_messages.proto",
 	},
 	{
 		ExtendedType:  (*descriptorpb.FieldOptions)(nil),
 		ExtensionType: (*bool)(nil),
 		Field:         70009,
-		Name:          "allow_delete",
+		Name:          "tf2_gc.allow_delete",
 		Tag:           "varint,70009,opt,name=allow_delete,def=1",
-		Filename:      "tf_proto_def_messages.proto",
+		Filename:      "tf2_gc/tf_proto_def_messages.proto",
 	},
 	{
 		ExtendedType:  (*descriptorpb.FieldOptions)(nil),
 		ExtensionType: (*string)(nil),
 		Field:         70010,
-		Name:          "panel_class_override",
+		Name:          "tf2_gc.panel_class_override",
 		Tag:           "bytes,70010,opt,name=panel_class_override",
-		Filename:      "tf_proto_def_messages.proto",
+		Filename:      "tf2_gc/tf_proto_def_messages.proto",
 	},
 	{
 		ExtendedType:  (*descriptorpb.FieldOptions)(nil),
 		ExtensionType: (*string)(nil),
 		Field:         70011,
-		Name:          "message_inherhitance_key_field_name",
+		Name:          "tf2_gc.message_inherhitance_key_field_name",
 		Tag:           "bytes,70011,opt,name=message_inherhitance_key_field_name",
-		Filename:      "tf_proto_def_messages.proto",
+		Filename:      "tf2_gc/tf_proto_def_messages.proto",
 	},
 	{
 		ExtendedType:  (*descriptorpb.FieldOptions)(nil),
 		ExtensionType: (*bool)(nil),
 		Field:         70012,
-		Name:          "inherit_reference_variables",
+		Name:          "tf2_gc.inherit_reference_variables",
 		Tag:           "varint,70012,opt,name=inherit_reference_variables,def=0",
-		Filename:      "tf_proto_def_messages.proto",
+		Filename:      "tf2_gc/tf_proto_def_messages.proto",
 	},
 	{
 		ExtendedType:  (*descriptorpb.FieldOptions)(nil),
 		ExtensionType: (*bool)(nil),
 		Field:         70013,
-		Name:          "self_inherit_only",
+		Name:          "tf2_gc.self_inherit_only",
 		Tag:           "varint,70013,opt,name=self_inherit_only,def=0",
-		Filename:      "tf_proto_def_messages.proto",
+		Filename:      "tf2_gc/tf_proto_def_messages.proto",
 	},
 	{
 		ExtendedType:  (*descriptorpb.FieldOptions)(nil),
 		ExtensionType: (*EVarFieldType)(nil),
 		Field:         70014,
-		Name:          "var_field_type",
-		Tag:           "varint,70014,opt,name=var_field_type,enum=EVarFieldType,def=1",
-		Filename:      "tf_proto_def_messages.proto",
+		Name:          "tf2_gc.var_field_type",
+		Tag:           "varint,70014,opt,name=var_field_type,enum=tf2_gc.EVarFieldType,def=1",
+		Filename:      "tf2_gc/tf_proto_def_messages.proto",
 	},
 	{
 		ExtendedType:  (*descriptorpb.FieldOptions)(nil),
 		ExtensionType: (*bool)(nil),
 		Field:         70015,
-		Name:          "merging_key_field",
+		Name:          "tf2_gc.merging_key_field",
 		Tag:           "varint,70015,opt,name=merging_key_field,def=0",
-		Filename:      "tf_proto_def_messages.proto",
+		Filename:      "tf2_gc/tf_proto_def_messages.proto",
 	},
 }
 
 // Extension fields to descriptorpb.MessageOptions.
 var (
 	// optional bool start_expanded = 80000;
-	E_StartExpanded = &file_tf_proto_def_messages_proto_extTypes[0]
+	E_StartExpanded = &file_tf2_gc_tf_proto_def_messages_proto_extTypes[0]
 )
 
 // Extension fields to descriptorpb.FieldOptions.
 var (
-	// optional ProtoDefTypes valid_type = 70000;
-	E_ValidType = &file_tf_proto_def_messages_proto_extTypes[1]
+	// optional tf2_gc.ProtoDefTypes valid_type = 70000;
+	E_ValidType = &file_tf2_gc_tf_proto_def_messages_proto_extTypes[1]
 	// optional bool editable = 70001;
-	E_Editable = &file_tf_proto_def_messages_proto_extTypes[2]
+	E_Editable = &file_tf2_gc_tf_proto_def_messages_proto_extTypes[2]
 	// optional bool localized = 70002;
-	E_Localized = &file_tf_proto_def_messages_proto_extTypes[3]
+	E_Localized = &file_tf2_gc_tf_proto_def_messages_proto_extTypes[3]
 	// optional bool do_not_inherit = 70003;
-	E_DoNotInherit = &file_tf_proto_def_messages_proto_extTypes[4]
+	E_DoNotInherit = &file_tf2_gc_tf_proto_def_messages_proto_extTypes[4]
 	// optional string display_name = 70004;
-	E_DisplayName = &file_tf_proto_def_messages_proto_extTypes[5]
+	E_DisplayName = &file_tf2_gc_tf_proto_def_messages_proto_extTypes[5]
 	// optional string comment = 70005;
-	E_Comment = &file_tf_proto_def_messages_proto_extTypes[6]
+	E_Comment = &file_tf2_gc_tf_proto_def_messages_proto_extTypes[6]
 	// optional uint32 max_count = 70007;
-	E_MaxCount = &file_tf_proto_def_messages_proto_extTypes[7]
+	E_MaxCount = &file_tf2_gc_tf_proto_def_messages_proto_extTypes[7]
 	// optional bool allow_add = 70008;
-	E_AllowAdd = &file_tf_proto_def_messages_proto_extTypes[8]
+	E_AllowAdd = &file_tf2_gc_tf_proto_def_messages_proto_extTypes[8]
 	// optional bool allow_delete = 70009;
-	E_AllowDelete = &file_tf_proto_def_messages_proto_extTypes[9]
+	E_AllowDelete = &file_tf2_gc_tf_proto_def_messages_proto_extTypes[9]
 	// optional string panel_class_override = 70010;
-	E_PanelClassOverride = &file_tf_proto_def_messages_proto_extTypes[10]
+	E_PanelClassOverride = &file_tf2_gc_tf_proto_def_messages_proto_extTypes[10]
 	// optional string message_inherhitance_key_field_name = 70011;
-	E_MessageInherhitanceKeyFieldName = &file_tf_proto_def_messages_proto_extTypes[11]
+	E_MessageInherhitanceKeyFieldName = &file_tf2_gc_tf_proto_def_messages_proto_extTypes[11]
 	// optional bool inherit_reference_variables = 70012;
-	E_InheritReferenceVariables = &file_tf_proto_def_messages_proto_extTypes[12]
+	E_InheritReferenceVariables = &file_tf2_gc_tf_proto_def_messages_proto_extTypes[12]
 	// optional bool self_inherit_only = 70013;
-	E_SelfInheritOnly = &file_tf_proto_def_messages_proto_extTypes[13]
-	// optional EVarFieldType var_field_type = 70014;
-	E_VarFieldType = &file_tf_proto_def_messages_proto_extTypes[14]
+	E_SelfInheritOnly = &file_tf2_gc_tf_proto_def_messages_proto_extTypes[13]
+	// optional tf2_gc.EVarFieldType var_field_type = 70014;
+	E_VarFieldType = &file_tf2_gc_tf_proto_def_messages_proto_extTypes[14]
 	// optional bool merging_key_field = 70015;
-	E_MergingKeyField = &file_tf_proto_def_messages_proto_extTypes[15]
+	E_MergingKeyField = &file_tf2_gc_tf_proto_def_messages_proto_extTypes[15]
 )
 
-var File_tf_proto_def_messages_proto protoreflect.FileDescriptor
+var File_tf2_gc_tf_proto_def_messages_proto protoreflect.FileDescriptor
 
-const file_tf_proto_def_messages_proto_rawDesc = "" +
+const file_tf2_gc_tf_proto_def_messages_proto_rawDesc = "" +
 	"\n" +
-	"\x1btf_proto_def_messages.proto\x1a google/protobuf/descriptor.proto\"\x92\x01\n" +
-	"\vCMsgFieldID\x12,\n" +
-	"\x05field\x18\x01 \x03(\v2\x16.CMsgFieldID.CMsgFieldR\x05field\x1aU\n" +
+	"\"tf2_gc/tf_proto_def_messages.proto\x12\x06tf2_gc\x1a google/protobuf/descriptor.proto\"\x99\x01\n" +
+	"\vCMsgFieldID\x123\n" +
+	"\x05field\x18\x01 \x03(\v2\x1d.tf2_gc.CMsgFieldID.CMsgFieldR\x05field\x1aU\n" +
 	"\tCMsgField\x12!\n" +
 	"\ffield_number\x18\x01 \x01(\rR\vfieldNumber\x12%\n" +
-	"\x0erepeated_index\x18\x02 \x01(\rR\rrepeatedIndex\"\xc5\x01\n" +
-	"\x14CMsgUniversalFieldID\x12K\n" +
-	"\vsource_type\x18\x01 \x01(\x0e2\x17.EValueDefinitionSource:\x11REFERENCE_DEFINESR\n" +
-	"sourceType\x127\n" +
-	"\x0fdefining_obj_id\x18\x02 \x01(\v2\x0f.CMsgProtoDefIDR\rdefiningObjId\x12'\n" +
-	"\bfield_id\x18\x03 \x01(\v2\f.CMsgFieldIDR\afieldId\"h\n" +
+	"\x0erepeated_index\x18\x02 \x01(\rR\rrepeatedIndex\"\xda\x01\n" +
+	"\x14CMsgUniversalFieldID\x12R\n" +
+	"\vsource_type\x18\x01 \x01(\x0e2\x1e.tf2_gc.EValueDefinitionSource:\x11REFERENCE_DEFINESR\n" +
+	"sourceType\x12>\n" +
+	"\x0fdefining_obj_id\x18\x02 \x01(\v2\x16.tf2_gc.CMsgProtoDefIDR\rdefiningObjId\x12.\n" +
+	"\bfield_id\x18\x03 \x01(\v2\x13.tf2_gc.CMsgFieldIDR\afieldId\"h\n" +
 	"\x16CMsgVariableDefinition\x12\x18\n" +
 	"\x04name\x18\x01 \x01(\tB\x04\xf8\x97\"\x01R\x04name\x12\x1e\n" +
 	"\ainherit\x18\x02 \x01(\b:\x04trueR\ainherit\x12\x14\n" +
-	"\x05value\x18\x03 \x01(\tR\x05value\"\xa3\x05\n" +
+	"\x05value\x18\x03 \x01(\tR\x05value\"\xb1\x05\n" +
 	"\x12CMsgProtoDefHeader\x12A\n" +
 	"\bdefindex\x18\x01 \x02(\rB%\x88\x97\"\x00\xa2\x97\"\bDefindex\xaa\x97\"\rAutogenerated\xe8\x97\"\x01R\bdefindex\x12>\n" +
-	"\x04name\x18\x02 \x01(\tB*\xa2\x97\"\x04Name\xaa\x97\"\x1aName to show in the editor\xe8\x97\"\x01R\x04name\x12\x9e\x01\n" +
-	"\aprefabs\x18\x03 \x03(\v2\x0f.CMsgProtoDefIDBs\xa2\x97\"\x06Prefab\xaa\x97\"EInherit the values of these definitions, in order from top to bottom.җ\"\x18CPrefabFieldEditingPanel\xe8\x97\"\x01R\aprefabs\x12y\n" +
+	"\x04name\x18\x02 \x01(\tB*\xa2\x97\"\x04Name\xaa\x97\"\x1aName to show in the editor\xe8\x97\"\x01R\x04name\x12\xa5\x01\n" +
+	"\aprefabs\x18\x03 \x03(\v2\x16.tf2_gc.CMsgProtoDefIDBs\xa2\x97\"\x06Prefab\xaa\x97\"EInherit the values of these definitions, in order from top to bottom.җ\"\x18CPrefabFieldEditingPanel\xe8\x97\"\x01R\aprefabs\x12y\n" +
 	"\x04tags\x18\x04 \x03(\tBe\xa2\x97\"\x04Tags\xaa\x97\"YStrings used to describe this definition while searching.  ie. 'class', 'shotgun', 'easy'R\x04tags\x12\x81\x01\n" +
 	"\vprefab_only\x18\x05 \x01(\b:\x05falseBY\xa2\x97\"\vPure Prefab\xaa\x97\"BIf true, this is only a prefab and will not be made into an object\xe8\x97\"\x01R\n" +
-	"prefabOnly\x12j\n" +
-	"\tvariables\x18\x06 \x03(\v2\x17.CMsgVariableDefinitionB3\xa2\x97\"\tVariables\xaa\x97\"\x1aVariable value definitionsڗ\"\x04nameR\tvariables\"6\n" +
-	"\x0eCMsgValidTypes\x12$\n" +
-	"\x05types\x18\x01 \x03(\x0e2\x0e.ProtoDefTypesR\x05types\"\xce\b\n" +
+	"prefabOnly\x12q\n" +
+	"\tvariables\x18\x06 \x03(\v2\x1e.tf2_gc.CMsgVariableDefinitionB3\xa2\x97\"\tVariables\xaa\x97\"\x1aVariable value definitionsڗ\"\x04nameR\tvariables\"=\n" +
+	"\x0eCMsgValidTypes\x12+\n" +
+	"\x05types\x18\x01 \x03(\x0e2\x15.tf2_gc.ProtoDefTypesR\x05types\"\x9c\t\n" +
 	"\x0eCMsgProtoDefID\x12\x1a\n" +
-	"\bdefindex\x18\x01 \x01(\rR\bdefindex\x12;\n" +
-	"\x04type\x18\x02 \x01(\x0e2\x0e.ProtoDefTypes:\x17DEF_TYPE_QUEST_MAP_NODER\x04type\x12]\n" +
-	" instance_def_type_quest_map_node\x18\x03 \x01(\v2\x14.CMsgQuestMapNodeDefH\x00R\x1binstanceDefTypeQuestMapNode\x12S\n" +
-	"\x1dinstance_def_type_quest_theme\x18\x05 \x01(\v2\x0f.CMsgQuestThemeH\x00R\x19instanceDefTypeQuestTheme\x12c\n" +
-	"\"instance_def_type_quest_map_region\x18\x06 \x01(\v2\x16.CMsgQuestMapRegionDefH\x00R\x1dinstanceDefTypeQuestMapRegion\x12F\n" +
-	"\x17instance_def_type_quest\x18\a \x01(\v2\r.CMsgQuestDefH\x00R\x14instanceDefTypeQuest\x12b\n" +
-	"!instance_def_type_quest_objective\x18\b \x01(\v2\x16.CMsgQuestObjectiveDefH\x00R\x1dinstanceDefTypeQuestObjective\x12i\n" +
-	"$instance_def_type_paintkit_variables\x18\t \x01(\v2\x17.CMsgPaintKit_VariablesH\x00R instanceDefTypePaintkitVariables\x12i\n" +
+	"\bdefindex\x18\x01 \x01(\rR\bdefindex\x12B\n" +
+	"\x04type\x18\x02 \x01(\x0e2\x15.tf2_gc.ProtoDefTypes:\x17DEF_TYPE_QUEST_MAP_NODER\x04type\x12d\n" +
+	" instance_def_type_quest_map_node\x18\x03 \x01(\v2\x1b.tf2_gc.CMsgQuestMapNodeDefH\x00R\x1binstanceDefTypeQuestMapNode\x12Z\n" +
+	"\x1dinstance_def_type_quest_theme\x18\x05 \x01(\v2\x16.tf2_gc.CMsgQuestThemeH\x00R\x19instanceDefTypeQuestTheme\x12j\n" +
+	"\"instance_def_type_quest_map_region\x18\x06 \x01(\v2\x1d.tf2_gc.CMsgQuestMapRegionDefH\x00R\x1dinstanceDefTypeQuestMapRegion\x12M\n" +
+	"\x17instance_def_type_quest\x18\a \x01(\v2\x14.tf2_gc.CMsgQuestDefH\x00R\x14instanceDefTypeQuest\x12i\n" +
+	"!instance_def_type_quest_objective\x18\b \x01(\v2\x1d.tf2_gc.CMsgQuestObjectiveDefH\x00R\x1dinstanceDefTypeQuestObjective\x12p\n" +
+	"$instance_def_type_paintkit_variables\x18\t \x01(\v2\x1e.tf2_gc.CMsgPaintKit_VariablesH\x00R instanceDefTypePaintkitVariables\x12p\n" +
 	"$instance_def_type_paintkit_operation\x18\n" +
-	" \x01(\v2\x17.CMsgPaintKit_OperationH\x00R instanceDefTypePaintkitOperation\x12y\n" +
-	"*instance_def_type_paintkit_item_definition\x18\v \x01(\v2\x1c.CMsgPaintKit_ItemDefinitionH\x00R%instanceDefTypePaintkitItemDefinition\x12l\n" +
-	"%instance_def_type_paintkit_definition\x18\f \x01(\v2\x18.CMsgPaintKit_DefinitionH\x00R!instanceDefTypePaintkitDefinition\x12S\n" +
-	"\x1dinstance_def_type_header_only\x18\r \x01(\v2\x0f.CMsgHeaderOnlyH\x00R\x19instanceDefTypeHeaderOnlyB\n" +
+	" \x01(\v2\x1e.tf2_gc.CMsgPaintKit_OperationH\x00R instanceDefTypePaintkitOperation\x12\x80\x01\n" +
+	"*instance_def_type_paintkit_item_definition\x18\v \x01(\v2#.tf2_gc.CMsgPaintKit_ItemDefinitionH\x00R%instanceDefTypePaintkitItemDefinition\x12s\n" +
+	"%instance_def_type_paintkit_definition\x18\f \x01(\v2\x1f.tf2_gc.CMsgPaintKit_DefinitionH\x00R!instanceDefTypePaintkitDefinition\x12Z\n" +
+	"\x1dinstance_def_type_header_only\x18\r \x01(\v2\x16.tf2_gc.CMsgHeaderOnlyH\x00R\x19instanceDefTypeHeaderOnlyB\n" +
 	"\n" +
-	"\binstance\"\xd2-\n" +
-	"\x15CMsgQuestObjectiveDef\x12+\n" +
-	"\x06header\x18\x01 \x02(\v2\x13.CMsgProtoDefHeaderR\x06header\x12)\n" +
+	"\binstance\"\x8a.\n" +
+	"\x15CMsgQuestObjectiveDef\x122\n" +
+	"\x06header\x18\x01 \x02(\v2\x1a.tf2_gc.CMsgProtoDefHeaderR\x06header\x12)\n" +
 	"\rloc_desctoken\x18\x02 \x01(\tB\x04\x90\x97\"\x01R\flocDesctoken\x12\x16\n" +
 	"\x06points\x18\x03 \x01(\rR\x06points\x12/\n" +
 	"\x13conditions_defindex\x18\x05 \x01(\rR\x12conditionsDefindex\x12j\n" +
-	"\x03map\x18\b \x03(\tBX\xa2\x97\"\rMaps Modifier\xaa\x97\"CIf set, the player must be on one of the listed maps to get credit.R\x03map\x12\xa6\x01\n" +
-	"\tgame_mode\x18\t \x03(\x0e2$.CMsgQuestObjectiveDef.ETF2GameModesBc\xa2\x97\"\x12Game Mode Modifier\xaa\x97\"IIf set, the player must be in one of the listed game modes to get credit.R\bgameMode\x12\x96\x01\n" +
+	"\x03map\x18\b \x03(\tBX\xa2\x97\"\rMaps Modifier\xaa\x97\"CIf set, the player must be on one of the listed maps to get credit.R\x03map\x12\xad\x01\n" +
+	"\tgame_mode\x18\t \x03(\x0e2+.tf2_gc.CMsgQuestObjectiveDef.ETF2GameModesBc\xa2\x97\"\x12Game Mode Modifier\xaa\x97\"IIf set, the player must be in one of the listed game modes to get credit.R\bgameMode\x12\x9d\x01\n" +
 	"\x04team\x18\n" +
-	" \x01(\x0e2\x1f.CMsgQuestObjectiveDef.ETF2Team:\vTF_TEAM_REDBT\xa2\x97\"\rTeam Modifier\xaa\x97\"?If set, the player must be on the specified team to get credit.R\x04team\x12L\n" +
-	"\x0econdition_vars\x18\v \x03(\v2\r.CMsgVarFieldB\x16\xa2\x97\"\x0eObjective Vars\xf0\x97\"\tR\rconditionVars\x12H\n" +
-	"\fclasses_vars\x18\f \x03(\v2\r.CMsgVarFieldB\x16\xa2\x97\"\x0eClass Modifier\xf0\x97\"\tR\vclassesVars\x12Y\n" +
+	" \x01(\x0e2&.tf2_gc.CMsgQuestObjectiveDef.ETF2Team:\vTF_TEAM_REDBT\xa2\x97\"\rTeam Modifier\xaa\x97\"?If set, the player must be on the specified team to get credit.R\x04team\x12S\n" +
+	"\x0econdition_vars\x18\v \x03(\v2\x14.tf2_gc.CMsgVarFieldB\x16\xa2\x97\"\x0eObjective Vars\xf0\x97\"\tR\rconditionVars\x12O\n" +
+	"\fclasses_vars\x18\f \x03(\v2\x14.tf2_gc.CMsgVarFieldB\x16\xa2\x97\"\x0eClass Modifier\xf0\x97\"\tR\vclassesVars\x12`\n" +
 	"\n" +
-	"conditions\x18\r \x03(\x0e2%.CMsgQuestObjectiveDef.ETF2ConditionsB\x12\xa2\x97\"\x0eRequired CondsR\n" +
-	"conditions\x12\x9a\x01\n" +
-	"\x0fcondition_logic\x18\x0e \x01(\x0e2\x11.LogicalOperation:\x03ANDBY\xa2\x97\"\x0fCondition Logic\xaa\x97\"BWhat kind of logic to use when evaluating the player's conditions.R\x0econditionLogic\x12j\n" +
-	"\titem_name\x18\x0f \x03(\tBM\xa2\x97\"\x16Required equipped item\xaa\x97\"/Require that this item be equipped in any slot.R\bitemName\x12\x86\x01\n" +
+	"conditions\x18\r \x03(\x0e2,.tf2_gc.CMsgQuestObjectiveDef.ETF2ConditionsB\x12\xa2\x97\"\x0eRequired CondsR\n" +
+	"conditions\x12\xa1\x01\n" +
+	"\x0fcondition_logic\x18\x0e \x01(\x0e2\x18.tf2_gc.LogicalOperation:\x03ANDBY\xa2\x97\"\x0fCondition Logic\xaa\x97\"BWhat kind of logic to use when evaluating the player's conditions.R\x0econditionLogic\x12j\n" +
+	"\titem_name\x18\x0f \x03(\tBM\xa2\x97\"\x16Required equipped item\xaa\x97\"/Require that this item be equipped in any slot.R\bitemName\x12\x8d\x01\n" +
 	"\n" +
-	"item_logic\x18\x10 \x01(\x0e2\x11.LogicalOperation:\x03ANDBO\xa2\x97\"\n" +
+	"item_logic\x18\x10 \x01(\x0e2\x18.tf2_gc.LogicalOperation:\x03ANDBO\xa2\x97\"\n" +
 	"Item logic\xaa\x97\"=What kind of logic to use when evaluating the player's items.R\titemLogic\x12a\n" +
 	"\n" +
 	"jump_state\x18\x11 \x01(\rBB\xa2\x97\"\n" +
@@ -4964,9 +4920,9 @@ const file_tf_proto_def_messages_proto_rawDesc = "" +
 	"\vTF_COND_GAS\x10\x83\x01\"-\n" +
 	"\bETF2Team\x12\x0f\n" +
 	"\vTF_TEAM_RED\x10\x02\x12\x10\n" +
-	"\fTF_TEAM_BLUE\x10\x03\"\x9c\t\n" +
-	"\fCMsgQuestDef\x12+\n" +
-	"\x06header\x18\x01 \x02(\v2\x13.CMsgProtoDefHeaderR\x06header\x12 \n" +
+	"\fTF_TEAM_BLUE\x10\x03\"\xc6\t\n" +
+	"\fCMsgQuestDef\x122\n" +
+	"\x06header\x18\x01 \x02(\v2\x1a.tf2_gc.CMsgProtoDefHeaderR\x06header\x12 \n" +
 	"\fmax_points_0\x18\x02 \x01(\rR\n" +
 	"maxPoints0\x12 \n" +
 	"\fmax_points_1\x18\x03 \x01(\rR\n" +
@@ -4974,18 +4930,18 @@ const file_tf_proto_def_messages_proto_rawDesc = "" +
 	"\fmax_points_2\x18\x04 \x01(\rR\n" +
 	"maxPoints2\x12)\n" +
 	"\rname_loctoken\x18\x05 \x01(\tB\x04\x90\x97\"\x01R\fnameLoctoken\x12\x1c\n" +
-	"\toperation\x18\a \x01(\tR\toperation\x129\n" +
-	"\vmm_criteria\x18\b \x01(\v2\x18.CMsgQuestDef.MMCriteriaR\n" +
+	"\toperation\x18\a \x01(\tR\toperation\x12@\n" +
+	"\vmm_criteria\x18\b \x01(\v2\x1f.tf2_gc.CMsgQuestDef.MMCriteriaR\n" +
 	"mmCriteria\x12_\n" +
 	"\n" +
 	"node_image\x18\f \x01(\tB@\xa2\x97\"\n" +
 	"Node Image\xaa\x97\".Filename of the image to show on the node viewR\tnodeImage\x12M\n" +
 	"\n" +
-	"icon_image\x18\r \x01(\tB.\xa2\x97\"\tNode Icon\xaa\x97\"\x1dWhich icon to show on the mapR\ticonImage\x12+\n" +
-	"\x05theme\x18\x0e \x01(\v2\x0f.CMsgProtoDefIDB\x04\x80\x97\"\x02R\x05theme\x12S\n" +
-	"\floaner_names\x18\x0f \x03(\tB0\xa2\x97\"\aLoaners\xaa\x97\"!Names of items to give as loanersR\vloanerNames\x12?\n" +
+	"icon_image\x18\r \x01(\tB.\xa2\x97\"\tNode Icon\xaa\x97\"\x1dWhich icon to show on the mapR\ticonImage\x122\n" +
+	"\x05theme\x18\x0e \x01(\v2\x16.tf2_gc.CMsgProtoDefIDB\x04\x80\x97\"\x02R\x05theme\x12S\n" +
+	"\floaner_names\x18\x0f \x03(\tB0\xa2\x97\"\aLoaners\xaa\x97\"!Names of items to give as loanersR\vloanerNames\x12F\n" +
 	"\n" +
-	"objectives\x18\x10 \x03(\v2\x1f.CMsgQuestDef.ObjectiveInstanceR\n" +
+	"objectives\x18\x10 \x03(\v2&.tf2_gc.CMsgQuestDef.ObjectiveInstanceR\n" +
 	"objectives\x12j\n" +
 	"\x03map\x18\x11 \x03(\tBX\xa2\x97\"\rMaps Modifier\xaa\x97\"CIf set, the player must be on one of the listed maps to get credit.R\x03map\x1ak\n" +
 	"\n" +
@@ -4993,38 +4949,38 @@ const file_tf_proto_def_messages_proto_rawDesc = "" +
 	"\n" +
 	"group_name\x18\x01 \x01(\tR\tgroupName\x12#\n" +
 	"\rcategory_name\x18\x02 \x01(\tR\fcategoryName\x12\x19\n" +
-	"\bmap_name\x18\x03 \x01(\tR\amapName\x1a\xa8\x02\n" +
-	"\x11ObjectiveInstance\x123\n" +
-	"\tobjective\x18\x01 \x01(\v2\x0f.CMsgProtoDefIDB\x04\x80\x97\"\x05R\tobjective\x12A\n" +
+	"\bmap_name\x18\x03 \x01(\tR\amapName\x1a\xb6\x02\n" +
+	"\x11ObjectiveInstance\x12:\n" +
+	"\tobjective\x18\x01 \x01(\v2\x16.tf2_gc.CMsgProtoDefIDB\x04\x80\x97\"\x05R\tobjective\x12H\n" +
 	"\n" +
-	"point_type\x18\x02 \x01(\x0e2\r.EQuestPoints:\x13QUEST_POINTS_NOVICER\tpointType\x12\x9a\x01\n" +
+	"point_type\x18\x02 \x01(\x0e2\x14.tf2_gc.EQuestPoints:\x13QUEST_POINTS_NOVICER\tpointType\x12\x9a\x01\n" +
 	"\vpoint_value\x18\x03 \x01(\rBy\xa2\x97\"\x0fPoints Override\xaa\x97\"bOverride value for the point value of the objective.  If not set, uses the objective's point valueR\n" +
-	"pointValue\"\xc7\x03\n" +
-	"\x15CMsgQuestMapStoreItem\x12+\n" +
-	"\x06header\x18\x01 \x02(\v2\x13.CMsgProtoDefHeaderR\x06header\x12\x1b\n" +
+	"pointValue\"\xd5\x03\n" +
+	"\x15CMsgQuestMapStoreItem\x122\n" +
+	"\x06header\x18\x01 \x02(\v2\x1a.tf2_gc.CMsgProtoDefHeaderR\x06header\x12\x1b\n" +
 	"\titem_name\x18\x02 \x01(\tR\bitemName\x12u\n" +
-	"\x14reward_lootlist_name\x18\x06 \x01(\tBC\xa2\x97\"\x0fReward Lootlist\xaa\x97\",The name of the lootlist to roll as a rewardR\x12rewardLootlistName\x12)\n" +
-	"\x05price\x18\x03 \x01(\v2\r.CMsgVarFieldB\x04\xf0\x97\"\x06R\x05price\x12h\n" +
+	"\x14reward_lootlist_name\x18\x06 \x01(\tBC\xa2\x97\"\x0fReward Lootlist\xaa\x97\",The name of the lootlist to roll as a rewardR\x12rewardLootlistName\x120\n" +
+	"\x05price\x18\x03 \x01(\v2\x14.tf2_gc.CMsgVarFieldB\x04\xf0\x97\"\x06R\x05price\x12h\n" +
 	"\x0epurchase_limit\x18\x04 \x01(\rBA\xa2\x97\"\x0ePurchase Limit\xaa\x97\"+How many times this reward can be purchasedR\rpurchaseLimit\x12X\n" +
 	"\n" +
 	"sort_group\x18\x05 \x01(\rB9\xa2\x97\"\n" +
-	"Sort group\xaa\x97\"'Sort by this group, then alhpabeticallyR\tsortGroup\"\xbd\x06\n" +
-	"\x15CMsgQuestMapRegionDef\x12+\n" +
-	"\x06header\x18\x01 \x02(\v2\x13.CMsgProtoDefHeaderR\x06header\x12\x18\n" +
+	"Sort group\xaa\x97\"'Sort by this group, then alhpabeticallyR\tsortGroup\"\xe2\x06\n" +
+	"\x15CMsgQuestMapRegionDef\x122\n" +
+	"\x06header\x18\x01 \x02(\v2\x1a.tf2_gc.CMsgProtoDefHeaderR\x06header\x12\x18\n" +
 	"\x04name\x18\x02 \x01(\tB\x04\x90\x97\"\x01R\x04name\x12\x18\n" +
-	"\aresfile\x18\x03 \x01(\tR\aresfile\x127\n" +
-	"\x05links\x18\x04 \x03(\v2!.CMsgQuestMapRegionDef.RegionLinkR\x05links\x12\x7f\n" +
-	"\vreturn_link\x18\x05 \x01(\v2\x0f.CMsgProtoDefIDBM\x80\x97\"\x03\xa2\x97\"\vReturn Link\xaa\x97\"6Which link we go to when right-clicking in this regionR\n" +
+	"\aresfile\x18\x03 \x01(\tR\aresfile\x12>\n" +
+	"\x05links\x18\x04 \x03(\v2(.tf2_gc.CMsgQuestMapRegionDef.RegionLinkR\x05links\x12\x86\x01\n" +
+	"\vreturn_link\x18\x05 \x01(\v2\x16.tf2_gc.CMsgProtoDefIDBM\x80\x97\"\x03\xa2\x97\"\vReturn Link\xaa\x97\"6Which link we go to when right-clicking in this regionR\n" +
 	"returnLink\x12z\n" +
 	"\n" +
 	"radio_freq\x18\x06 \x01(\x02B[\xa2\x97\"\vRadio Freq.\xaa\x97\"HWhere the radio tuner goes on the CYOA PDA when this region is selectionR\tradioFreq\x12\x98\x01\n" +
 	"\n" +
 	"zoom_scale\x18\a \x01(\x02By\xa2\x97\"\n" +
-	"Zoom Scale\xaa\x97\"gHow zoomed in this panel should be.  Affects the scale of the map grid lines and node link dashed linesR\tzoomScale\x12u\n" +
-	"\tstar_type\x18\b \x01(\v2\x0f.CMsgProtoDefIDBG\x80\x97\"\f\xa2\x97\"\tStar Type\xaa\x97\"2What stars (if any) the nodes within use to unlockR\bstarType\x1a{\n" +
+	"Zoom Scale\xaa\x97\"gHow zoomed in this panel should be.  Affects the scale of the map grid lines and node link dashed linesR\tzoomScale\x12|\n" +
+	"\tstar_type\x18\b \x01(\v2\x16.tf2_gc.CMsgProtoDefIDBG\x80\x97\"\f\xa2\x97\"\tStar Type\xaa\x97\"2What stars (if any) the nodes within use to unlockR\bstarType\x1a\x82\x01\n" +
 	"\n" +
-	"RegionLink\x12E\n" +
-	"\x13target_region_defid\x18\x01 \x02(\v2\x0f.CMsgProtoDefIDB\x04\x80\x97\"\x03R\x11targetRegionDefid\x12\x12\n" +
+	"RegionLink\x12L\n" +
+	"\x13target_region_defid\x18\x01 \x02(\v2\x16.tf2_gc.CMsgProtoDefIDB\x04\x80\x97\"\x03R\x11targetRegionDefid\x12\x12\n" +
 	"\x04xpos\x18\x02 \x01(\rR\x04xpos\x12\x12\n" +
 	"\x04ypos\x18\x03 \x01(\rR\x04ypos\"\x83\x02\n" +
 	"\fCMsgVarField\x12 \n" +
@@ -5037,200 +4993,200 @@ const file_tf_proto_def_messages_proto_rawDesc = "" +
 	"\x06sint64\x18\a \x01(\x12H\x00R\x06sint64\x12\x14\n" +
 	"\x04bool\x18\b \x01(\bH\x00R\x04bool\x12\x18\n" +
 	"\x06string\x18\t \x01(\tH\x00R\x06stringB\a\n" +
-	"\x05value\"j\n" +
-	"\x14CMsgQuestMapStarType\x12+\n" +
-	"\x06header\x18\x01 \x02(\v2\x13.CMsgProtoDefHeaderR\x06header\x12%\n" +
-	"\x04name\x18\x02 \x01(\tB\x11\x90\x97\"\x01\xa2\x97\"\tType NameR\x04name\"\xbc\n" +
+	"\x05value\"q\n" +
+	"\x14CMsgQuestMapStarType\x122\n" +
+	"\x06header\x18\x01 \x02(\v2\x1a.tf2_gc.CMsgProtoDefHeaderR\x06header\x12%\n" +
+	"\x04name\x18\x02 \x01(\tB\x11\x90\x97\"\x01\xa2\x97\"\tType NameR\x04name\"\xe7\n" +
 	"\n" +
-	"\x13CMsgQuestMapNodeDef\x12+\n" +
-	"\x06header\x18\x01 \x02(\v2\x13.CMsgProtoDefHeaderR\x06header\x12O\n" +
+	"\x13CMsgQuestMapNodeDef\x122\n" +
+	"\x06header\x18\x01 \x02(\v2\x1a.tf2_gc.CMsgProtoDefHeaderR\x06header\x12O\n" +
 	"\rname_loctoken\x18\x04 \x01(\tB*\x90\x97\"\x01\xa2\x97\"\tNode Name\xaa\x97\"\x15The name of this nodeR\fnameLoctoken\x12A\n" +
 	"\x05x_pos\x18\x06 \x01(\x02B,\xa2\x97\"\tMap X Pos\xaa\x97\"\x1bX position on the quest mapR\x04xPos\x12A\n" +
-	"\x05y_pos\x18\a \x01(\x02B,\xa2\x97\"\tMap Y Pos\xaa\x97\"\x1bY position on the quest mapR\x04yPos\x12\x7f\n" +
-	"\tcondition\x18\t \x01(\v2\x1a.CMsgQuestMapNodeConditionBE\xa2\x97\"\n" +
-	"Conditions\xaa\x97\"3Logic to unlock this node. Can be nested with logicR\tcondition\x12u\n" +
+	"\x05y_pos\x18\a \x01(\x02B,\xa2\x97\"\tMap Y Pos\xaa\x97\"\x1bY position on the quest mapR\x04yPos\x12\x86\x01\n" +
+	"\tcondition\x18\t \x01(\v2!.tf2_gc.CMsgQuestMapNodeConditionBE\xa2\x97\"\n" +
+	"Conditions\xaa\x97\"3Logic to unlock this node. Can be nested with logicR\tcondition\x12|\n" +
 	"\rowning_region\x18\n" +
-	" \x01(\v2\x0f.CMsgProtoDefIDB?\x80\x97\"\x03\xa2\x97\"\x06Region\xaa\x97\"-Which region in the map this node shows up inR\fowningRegion\x12r\n" +
-	"\rquest_options\x18\v \x03(\v2\x0f.CMsgProtoDefIDB<\x80\x97\"\x04\xa2\x97\"\x0eOffered Quests\xaa\x97\"\x1eWhich quests this node offers.\xb8\x97\"\x03R\fquestOptions\x12u\n" +
+	" \x01(\v2\x16.tf2_gc.CMsgProtoDefIDB?\x80\x97\"\x03\xa2\x97\"\x06Region\xaa\x97\"-Which region in the map this node shows up inR\fowningRegion\x12y\n" +
+	"\rquest_options\x18\v \x03(\v2\x16.tf2_gc.CMsgProtoDefIDB<\x80\x97\"\x04\xa2\x97\"\x0eOffered Quests\xaa\x97\"\x1eWhich quests this node offers.\xb8\x97\"\x03R\fquestOptions\x12u\n" +
 	"\x14associated_operation\x18\x10 \x01(\tBB\xa2\x97\"\x14Associated Operation\xaa\x97\"&Operation this node is associated withR\x13associatedOperation\x12d\n" +
 	"\x10reward_item_name\x18\x12 \x01(\tB:\xa2\x97\"\vReward Item\xaa\x97\"'The name of an item to give as a rewardR\x0erewardItemName\x12u\n" +
-	"\x14reward_lootlist_name\x18\x16 \x01(\tBC\xa2\x97\"\x0fReward Lootlist\xaa\x97\",The name of the lootlist to roll as a rewardR\x12rewardLootlistName\x12\x93\x01\n" +
-	"\vcash_reward\x18\x13 \x01(\x0e2\x10.ENodeCashReward:\x10CASH_REWARD_NONEBN\xa2\x97\"\vCash Reward\xaa\x97\";How much cash to give when completing the primary objectiveR\n" +
-	"cashReward\x12d\n" +
-	"\tstar_type\x18\x14 \x01(\v2\x0f.CMsgProtoDefIDB6\x80\x97\"\f\xa2\x97\"\tStar Type\xaa\x97\"!Which type of star this node usesR\bstarType\x12e\n" +
-	"\x0fstars_to_unlock\x18\x15 \x01(\r:\x011B:\xa2\x97\"\x0fStars to Unlock\xaa\x97\"#Numbers of stars it costs to unlockR\rstarsToUnlock\"E\n" +
-	"\x16CMsgPaintKit_Variables\x12+\n" +
-	"\x06header\x18\x01 \x02(\v2\x13.CMsgProtoDefHeaderR\x06header\"\x91\x05\n" +
-	"#CMsgPaintKit_Operation_TextureStage\x12-\n" +
-	"\atexture\x18\x01 \x01(\v2\r.CMsgVarFieldB\x04\xf0\x97\"\tR\atexture\x124\n" +
-	"\vtexture_red\x18\x02 \x01(\v2\r.CMsgVarFieldB\x04\xf0\x97\"\tR\n" +
-	"textureRed\x126\n" +
-	"\ftexture_blue\x18\x03 \x01(\v2\r.CMsgVarFieldB\x04\xf0\x97\"\tR\vtextureBlue\x126\n" +
-	"\fadjust_black\x18\x04 \x01(\v2\r.CMsgVarFieldB\x04\xf0\x97\"\tR\vadjustBlack\x128\n" +
-	"\radjust_offset\x18\x05 \x01(\v2\r.CMsgVarFieldB\x04\xf0\x97\"\tR\fadjustOffset\x126\n" +
-	"\fadjust_gamma\x18\x06 \x01(\v2\r.CMsgVarFieldB\x04\xf0\x97\"\tR\vadjustGamma\x12/\n" +
-	"\brotation\x18\a \x01(\v2\r.CMsgVarFieldB\x04\xf0\x97\"\tR\brotation\x124\n" +
-	"\vtranslate_u\x18\b \x01(\v2\r.CMsgVarFieldB\x04\xf0\x97\"\tR\n" +
-	"translateU\x124\n" +
-	"\vtranslate_v\x18\t \x01(\v2\r.CMsgVarFieldB\x04\xf0\x97\"\tR\n" +
-	"translateV\x12.\n" +
+	"\x14reward_lootlist_name\x18\x16 \x01(\tBC\xa2\x97\"\x0fReward Lootlist\xaa\x97\",The name of the lootlist to roll as a rewardR\x12rewardLootlistName\x12\x9a\x01\n" +
+	"\vcash_reward\x18\x13 \x01(\x0e2\x17.tf2_gc.ENodeCashReward:\x10CASH_REWARD_NONEBN\xa2\x97\"\vCash Reward\xaa\x97\";How much cash to give when completing the primary objectiveR\n" +
+	"cashReward\x12k\n" +
+	"\tstar_type\x18\x14 \x01(\v2\x16.tf2_gc.CMsgProtoDefIDB6\x80\x97\"\f\xa2\x97\"\tStar Type\xaa\x97\"!Which type of star this node usesR\bstarType\x12e\n" +
+	"\x0fstars_to_unlock\x18\x15 \x01(\r:\x011B:\xa2\x97\"\x0fStars to Unlock\xaa\x97\"#Numbers of stars it costs to unlockR\rstarsToUnlock\"L\n" +
+	"\x16CMsgPaintKit_Variables\x122\n" +
+	"\x06header\x18\x01 \x02(\v2\x1a.tf2_gc.CMsgProtoDefHeaderR\x06header\"\xe5\x05\n" +
+	"#CMsgPaintKit_Operation_TextureStage\x124\n" +
+	"\atexture\x18\x01 \x01(\v2\x14.tf2_gc.CMsgVarFieldB\x04\xf0\x97\"\tR\atexture\x12;\n" +
+	"\vtexture_red\x18\x02 \x01(\v2\x14.tf2_gc.CMsgVarFieldB\x04\xf0\x97\"\tR\n" +
+	"textureRed\x12=\n" +
+	"\ftexture_blue\x18\x03 \x01(\v2\x14.tf2_gc.CMsgVarFieldB\x04\xf0\x97\"\tR\vtextureBlue\x12=\n" +
+	"\fadjust_black\x18\x04 \x01(\v2\x14.tf2_gc.CMsgVarFieldB\x04\xf0\x97\"\tR\vadjustBlack\x12?\n" +
+	"\radjust_offset\x18\x05 \x01(\v2\x14.tf2_gc.CMsgVarFieldB\x04\xf0\x97\"\tR\fadjustOffset\x12=\n" +
+	"\fadjust_gamma\x18\x06 \x01(\v2\x14.tf2_gc.CMsgVarFieldB\x04\xf0\x97\"\tR\vadjustGamma\x126\n" +
+	"\brotation\x18\a \x01(\v2\x14.tf2_gc.CMsgVarFieldB\x04\xf0\x97\"\tR\brotation\x12;\n" +
+	"\vtranslate_u\x18\b \x01(\v2\x14.tf2_gc.CMsgVarFieldB\x04\xf0\x97\"\tR\n" +
+	"translateU\x12;\n" +
+	"\vtranslate_v\x18\t \x01(\v2\x14.tf2_gc.CMsgVarFieldB\x04\xf0\x97\"\tR\n" +
+	"translateV\x125\n" +
 	"\bscale_uv\x18\n" +
-	" \x01(\v2\r.CMsgVarFieldB\x04\xf0\x97\"\tR\ascaleUv\x12*\n" +
-	"\x06flip_u\x18\v \x01(\v2\r.CMsgVarFieldB\x04\xf0\x97\"\tR\x05flipU\x12*\n" +
-	"\x06flip_v\x18\f \x01(\v2\r.CMsgVarFieldB\x04\xf0\x97\"\tR\x05flipV\"\xb8\x04\n" +
-	"#CMsgPaintKit_Operation_CombineStage\x126\n" +
-	"\fadjust_black\x18\x01 \x01(\v2\r.CMsgVarFieldB\x04\xf0\x97\"\tR\vadjustBlack\x128\n" +
-	"\radjust_offset\x18\x02 \x01(\v2\r.CMsgVarFieldB\x04\xf0\x97\"\tR\fadjustOffset\x126\n" +
-	"\fadjust_gamma\x18\x03 \x01(\v2\r.CMsgVarFieldB\x04\xf0\x97\"\tR\vadjustGamma\x12/\n" +
-	"\brotation\x18\x04 \x01(\v2\r.CMsgVarFieldB\x04\xf0\x97\"\tR\brotation\x124\n" +
-	"\vtranslate_u\x18\x05 \x01(\v2\r.CMsgVarFieldB\x04\xf0\x97\"\tR\n" +
-	"translateU\x124\n" +
-	"\vtranslate_v\x18\x06 \x01(\v2\r.CMsgVarFieldB\x04\xf0\x97\"\tR\n" +
-	"translateV\x12.\n" +
-	"\bscale_uv\x18\a \x01(\v2\r.CMsgVarFieldB\x04\xf0\x97\"\tR\ascaleUv\x12*\n" +
-	"\x06flip_u\x18\b \x01(\v2\r.CMsgVarFieldB\x04\xf0\x97\"\tR\x05flipU\x12*\n" +
-	"\x06flip_v\x18\t \x01(\v2\r.CMsgVarFieldB\x04\xf0\x97\"\tR\x05flipV\x12B\n" +
-	"\x0eoperation_node\x18\v \x03(\v2\x1b.CMsgPaintKit_OperationNodeR\roperationNode\"\x82\x01\n" +
-	"\"CMsgPaintKit_Operation_SelectStage\x12+\n" +
-	"\x06groups\x18\x01 \x01(\v2\r.CMsgVarFieldB\x04\xf0\x97\"\tR\x06groups\x12/\n" +
-	"\x06select\x18\x02 \x03(\v2\r.CMsgVarFieldB\b\xb8\x97\"\x10\xf0\x97\"\tR\x06select\"\xfa\x02\n" +
-	"\x1eCMsgPaintKit_Operation_Sticker\x12]\n" +
-	"\x04base\x18\x01 \x01(\v2\r.CMsgVarFieldB:\xaa\x97\"2Name of the base file for the sticker (the albedo)\xf0\x97\"\tR\x04base\x12[\n" +
-	"\x06weight\x18\x02 \x01(\v2\r.CMsgVarFieldB4\xaa\x97\",Random likelihood this one is to be selected\xf0\x97\"\tR\x06weight\x12\x9b\x01\n" +
-	"\x04spec\x18\x03 \x01(\v2\r.CMsgVarFieldBx\xaa\x97\"pName of the specular file for the sticker, or if blank we will assume it is baseFilename + _spec + baseExtension\xf0\x97\"\tR\x04spec\"\xd8\x03\n" +
-	"#CMsgPaintKit_Operation_StickerStage\x129\n" +
-	"\asticker\x18\x01 \x03(\v2\x1f.CMsgPaintKit_Operation_StickerR\asticker\x12,\n" +
-	"\adest_tl\x18\x02 \x01(\v2\r.CMsgVarFieldB\x04\xf0\x97\"\tR\x06destTl\x12,\n" +
-	"\adest_tr\x18\x03 \x01(\v2\r.CMsgVarFieldB\x04\xf0\x97\"\tR\x06destTr\x12,\n" +
-	"\adest_bl\x18\x04 \x01(\v2\r.CMsgVarFieldB\x04\xf0\x97\"\tR\x06destBl\x126\n" +
-	"\fadjust_black\x18\x05 \x01(\v2\r.CMsgVarFieldB\x04\xf0\x97\"\tR\vadjustBlack\x128\n" +
-	"\radjust_offset\x18\x06 \x01(\v2\r.CMsgVarFieldB\x04\xf0\x97\"\tR\fadjustOffset\x126\n" +
-	"\fadjust_gamma\x18\a \x01(\v2\r.CMsgVarFieldB\x04\xf0\x97\"\tR\vadjustGamma\x12B\n" +
-	"\x0eoperation_node\x18\t \x03(\v2\x1b.CMsgPaintKit_OperationNodeR\roperationNode\"\xe8\x03\n" +
-	"\x1bCMsgPaintKit_OperationStage\x12M\n" +
-	"\x0etexture_lookup\x18\x01 \x01(\v2$.CMsgPaintKit_Operation_TextureStageH\x00R\rtextureLookup\x12G\n" +
-	"\vcombine_add\x18\x02 \x01(\v2$.CMsgPaintKit_Operation_CombineStageH\x00R\n" +
-	"combineAdd\x12I\n" +
-	"\fcombine_lerp\x18\x03 \x01(\v2$.CMsgPaintKit_Operation_CombineStageH\x00R\vcombineLerp\x12Q\n" +
-	"\x10combine_multiply\x18\x04 \x01(\v2$.CMsgPaintKit_Operation_CombineStageH\x00R\x0fcombineMultiply\x12=\n" +
-	"\x06select\x18\x05 \x01(\v2#.CMsgPaintKit_Operation_SelectStageH\x00R\x06select\x12K\n" +
-	"\rapply_sticker\x18\x06 \x01(\v2$.CMsgPaintKit_Operation_StickerStageH\x00R\fapplyStickerB\a\n" +
-	"\x05stage\"\xa6\x01\n" +
-	"\x1aCMsgPaintKit_OperationNode\x124\n" +
-	"\x05stage\x18\x01 \x01(\v2\x1c.CMsgPaintKit_OperationStageH\x00R\x05stage\x12J\n" +
-	"\x12operation_template\x18\x02 \x01(\v2\x0f.CMsgProtoDefIDB\b\x80\x97\"\a\xe0\x97\"\x01H\x00R\x11operationTemplateB\x06\n" +
-	"\x04node\"\x89\x01\n" +
-	"\x16CMsgPaintKit_Operation\x12+\n" +
-	"\x06header\x18\x01 \x02(\v2\x13.CMsgProtoDefHeaderR\x06header\x12B\n" +
-	"\x0eoperation_node\x18\x02 \x03(\v2\x1b.CMsgPaintKit_OperationNodeR\roperationNode\"\xa3\x03\n" +
-	"\x1bCMsgPaintKit_ItemDefinition\x12+\n" +
-	"\x06header\x18\x01 \x02(\v2\x13.CMsgProtoDefHeaderR\x06header\x122\n" +
-	"\x15item_definition_index\x18\x02 \x02(\rR\x13itemDefinitionIndex\x12F\n" +
-	"\x11variable_template\x18\x03 \x01(\v2\x0f.CMsgProtoDefIDB\b\x80\x97\"\x06\xe0\x97\"\x01R\x10variableTemplate\x12M\n" +
+	" \x01(\v2\x14.tf2_gc.CMsgVarFieldB\x04\xf0\x97\"\tR\ascaleUv\x121\n" +
+	"\x06flip_u\x18\v \x01(\v2\x14.tf2_gc.CMsgVarFieldB\x04\xf0\x97\"\tR\x05flipU\x121\n" +
+	"\x06flip_v\x18\f \x01(\v2\x14.tf2_gc.CMsgVarFieldB\x04\xf0\x97\"\tR\x05flipV\"\xfe\x04\n" +
+	"#CMsgPaintKit_Operation_CombineStage\x12=\n" +
+	"\fadjust_black\x18\x01 \x01(\v2\x14.tf2_gc.CMsgVarFieldB\x04\xf0\x97\"\tR\vadjustBlack\x12?\n" +
+	"\radjust_offset\x18\x02 \x01(\v2\x14.tf2_gc.CMsgVarFieldB\x04\xf0\x97\"\tR\fadjustOffset\x12=\n" +
+	"\fadjust_gamma\x18\x03 \x01(\v2\x14.tf2_gc.CMsgVarFieldB\x04\xf0\x97\"\tR\vadjustGamma\x126\n" +
+	"\brotation\x18\x04 \x01(\v2\x14.tf2_gc.CMsgVarFieldB\x04\xf0\x97\"\tR\brotation\x12;\n" +
+	"\vtranslate_u\x18\x05 \x01(\v2\x14.tf2_gc.CMsgVarFieldB\x04\xf0\x97\"\tR\n" +
+	"translateU\x12;\n" +
+	"\vtranslate_v\x18\x06 \x01(\v2\x14.tf2_gc.CMsgVarFieldB\x04\xf0\x97\"\tR\n" +
+	"translateV\x125\n" +
+	"\bscale_uv\x18\a \x01(\v2\x14.tf2_gc.CMsgVarFieldB\x04\xf0\x97\"\tR\ascaleUv\x121\n" +
+	"\x06flip_u\x18\b \x01(\v2\x14.tf2_gc.CMsgVarFieldB\x04\xf0\x97\"\tR\x05flipU\x121\n" +
+	"\x06flip_v\x18\t \x01(\v2\x14.tf2_gc.CMsgVarFieldB\x04\xf0\x97\"\tR\x05flipV\x12I\n" +
+	"\x0eoperation_node\x18\v \x03(\v2\".tf2_gc.CMsgPaintKit_OperationNodeR\roperationNode\"\x90\x01\n" +
+	"\"CMsgPaintKit_Operation_SelectStage\x122\n" +
+	"\x06groups\x18\x01 \x01(\v2\x14.tf2_gc.CMsgVarFieldB\x04\xf0\x97\"\tR\x06groups\x126\n" +
+	"\x06select\x18\x02 \x03(\v2\x14.tf2_gc.CMsgVarFieldB\b\xb8\x97\"\x10\xf0\x97\"\tR\x06select\"\x8f\x03\n" +
+	"\x1eCMsgPaintKit_Operation_Sticker\x12d\n" +
+	"\x04base\x18\x01 \x01(\v2\x14.tf2_gc.CMsgVarFieldB:\xaa\x97\"2Name of the base file for the sticker (the albedo)\xf0\x97\"\tR\x04base\x12b\n" +
+	"\x06weight\x18\x02 \x01(\v2\x14.tf2_gc.CMsgVarFieldB4\xaa\x97\",Random likelihood this one is to be selected\xf0\x97\"\tR\x06weight\x12\xa2\x01\n" +
+	"\x04spec\x18\x03 \x01(\v2\x14.tf2_gc.CMsgVarFieldBx\xaa\x97\"pName of the specular file for the sticker, or if blank we will assume it is baseFilename + _spec + baseExtension\xf0\x97\"\tR\x04spec\"\x90\x04\n" +
+	"#CMsgPaintKit_Operation_StickerStage\x12@\n" +
+	"\asticker\x18\x01 \x03(\v2&.tf2_gc.CMsgPaintKit_Operation_StickerR\asticker\x123\n" +
+	"\adest_tl\x18\x02 \x01(\v2\x14.tf2_gc.CMsgVarFieldB\x04\xf0\x97\"\tR\x06destTl\x123\n" +
+	"\adest_tr\x18\x03 \x01(\v2\x14.tf2_gc.CMsgVarFieldB\x04\xf0\x97\"\tR\x06destTr\x123\n" +
+	"\adest_bl\x18\x04 \x01(\v2\x14.tf2_gc.CMsgVarFieldB\x04\xf0\x97\"\tR\x06destBl\x12=\n" +
+	"\fadjust_black\x18\x05 \x01(\v2\x14.tf2_gc.CMsgVarFieldB\x04\xf0\x97\"\tR\vadjustBlack\x12?\n" +
+	"\radjust_offset\x18\x06 \x01(\v2\x14.tf2_gc.CMsgVarFieldB\x04\xf0\x97\"\tR\fadjustOffset\x12=\n" +
+	"\fadjust_gamma\x18\a \x01(\v2\x14.tf2_gc.CMsgVarFieldB\x04\xf0\x97\"\tR\vadjustGamma\x12I\n" +
+	"\x0eoperation_node\x18\t \x03(\v2\".tf2_gc.CMsgPaintKit_OperationNodeR\roperationNode\"\x92\x04\n" +
+	"\x1bCMsgPaintKit_OperationStage\x12T\n" +
+	"\x0etexture_lookup\x18\x01 \x01(\v2+.tf2_gc.CMsgPaintKit_Operation_TextureStageH\x00R\rtextureLookup\x12N\n" +
+	"\vcombine_add\x18\x02 \x01(\v2+.tf2_gc.CMsgPaintKit_Operation_CombineStageH\x00R\n" +
+	"combineAdd\x12P\n" +
+	"\fcombine_lerp\x18\x03 \x01(\v2+.tf2_gc.CMsgPaintKit_Operation_CombineStageH\x00R\vcombineLerp\x12X\n" +
+	"\x10combine_multiply\x18\x04 \x01(\v2+.tf2_gc.CMsgPaintKit_Operation_CombineStageH\x00R\x0fcombineMultiply\x12D\n" +
+	"\x06select\x18\x05 \x01(\v2*.tf2_gc.CMsgPaintKit_Operation_SelectStageH\x00R\x06select\x12R\n" +
+	"\rapply_sticker\x18\x06 \x01(\v2+.tf2_gc.CMsgPaintKit_Operation_StickerStageH\x00R\fapplyStickerB\a\n" +
+	"\x05stage\"\xb4\x01\n" +
+	"\x1aCMsgPaintKit_OperationNode\x12;\n" +
+	"\x05stage\x18\x01 \x01(\v2#.tf2_gc.CMsgPaintKit_OperationStageH\x00R\x05stage\x12Q\n" +
+	"\x12operation_template\x18\x02 \x01(\v2\x16.tf2_gc.CMsgProtoDefIDB\b\x80\x97\"\a\xe0\x97\"\x01H\x00R\x11operationTemplateB\x06\n" +
+	"\x04node\"\x97\x01\n" +
+	"\x16CMsgPaintKit_Operation\x122\n" +
+	"\x06header\x18\x01 \x02(\v2\x1a.tf2_gc.CMsgProtoDefHeaderR\x06header\x12I\n" +
+	"\x0eoperation_node\x18\x02 \x03(\v2\".tf2_gc.CMsgPaintKit_OperationNodeR\roperationNode\"\xc6\x03\n" +
+	"\x1bCMsgPaintKit_ItemDefinition\x122\n" +
+	"\x06header\x18\x01 \x02(\v2\x1a.tf2_gc.CMsgProtoDefHeaderR\x06header\x122\n" +
+	"\x15item_definition_index\x18\x02 \x02(\rR\x13itemDefinitionIndex\x12M\n" +
+	"\x11variable_template\x18\x03 \x01(\v2\x16.tf2_gc.CMsgProtoDefIDB\b\x80\x97\"\x06\xe0\x97\"\x01R\x10variableTemplate\x12T\n" +
 	"\n" +
-	"definition\x18\x04 \x03(\v2'.CMsgPaintKit_ItemDefinition.DefinitionB\x04\xb8\x97\"\x05R\n" +
-	"definition\x1a\x8b\x01\n" +
+	"definition\x18\x04 \x03(\v2..tf2_gc.CMsgPaintKit_ItemDefinition.DefinitionB\x04\xb8\x97\"\x05R\n" +
+	"definition\x1a\x99\x01\n" +
 	"\n" +
-	"Definition\x12D\n" +
-	"\x12operation_template\x18\x01 \x01(\v2\x0f.CMsgProtoDefIDB\x04\x80\x97\"\aR\x11operationTemplate\x127\n" +
-	"\bvariable\x18\x02 \x03(\v2\r.CMsgVarFieldB\f\xc0\x97\"\x00ȗ\"\x00\xf0\x97\"\tR\bvariable\"\xa3\x1c\n" +
-	"\x17CMsgPaintKit_Definition\x12+\n" +
-	"\x06header\x18\x01 \x02(\v2\x13.CMsgProtoDefHeaderR\x06header\x12)\n" +
-	"\rloc_desctoken\x18\x02 \x01(\tB\x04\x90\x97\"\x01R\flocDesctoken\x12\xc6\x01\n" +
-	"\x12operation_template\x18\x03 \x01(\v2\x0f.CMsgProtoDefIDB\x85\x01\x80\x97\"\a\xaa\x97\"yoperation template which all items in the list will use unless there's operation_template specified in an item_definition\xe0\x97\"\x01R\x11operationTemplate\x12*\n" +
-	"\x11has_team_textures\x18\x04 \x01(\bR\x0fhasTeamTextures\x121\n" +
-	"\x04item\x18\x05 \x03(\v2\x1d.CMsgPaintKit_Definition.ItemR\x04item\x12B\n" +
-	"\rpaintkit_tool\x18\x06 \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\fpaintkitTool\x12A\n" +
-	"\fflamethrower\x18\a \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\fflamethrower\x12G\n" +
-	"\x0fgrenadelauncher\x18\b \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\x0fgrenadelauncher\x123\n" +
-	"\x05knife\x18\t \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\x05knife\x127\n" +
+	"Definition\x12K\n" +
+	"\x12operation_template\x18\x01 \x01(\v2\x16.tf2_gc.CMsgProtoDefIDB\x04\x80\x97\"\aR\x11operationTemplate\x12>\n" +
+	"\bvariable\x18\x02 \x03(\v2\x14.tf2_gc.CMsgVarFieldB\f\xc0\x97\"\x00ȗ\"\x00\xf0\x97\"\tR\bvariable\"\x88\x1f\n" +
+	"\x17CMsgPaintKit_Definition\x122\n" +
+	"\x06header\x18\x01 \x02(\v2\x1a.tf2_gc.CMsgProtoDefHeaderR\x06header\x12)\n" +
+	"\rloc_desctoken\x18\x02 \x01(\tB\x04\x90\x97\"\x01R\flocDesctoken\x12\xcd\x01\n" +
+	"\x12operation_template\x18\x03 \x01(\v2\x16.tf2_gc.CMsgProtoDefIDB\x85\x01\x80\x97\"\a\xaa\x97\"yoperation template which all items in the list will use unless there's operation_template specified in an item_definition\xe0\x97\"\x01R\x11operationTemplate\x12*\n" +
+	"\x11has_team_textures\x18\x04 \x01(\bR\x0fhasTeamTextures\x128\n" +
+	"\x04item\x18\x05 \x03(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\x04item\x12I\n" +
+	"\rpaintkit_tool\x18\x06 \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\fpaintkitTool\x12H\n" +
+	"\fflamethrower\x18\a \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\fflamethrower\x12N\n" +
+	"\x0fgrenadelauncher\x18\b \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\x0fgrenadelauncher\x12:\n" +
+	"\x05knife\x18\t \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\x05knife\x12>\n" +
 	"\amedigun\x18\n" +
-	" \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\amedigun\x127\n" +
-	"\aminigun\x18\v \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\aminigun\x125\n" +
-	"\x06pistol\x18\f \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\x06pistol\x129\n" +
-	"\brevolver\x18\r \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\brevolver\x12E\n" +
-	"\x0erocketlauncher\x18\x0e \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\x0erocketlauncher\x12=\n" +
+	" \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\amedigun\x12>\n" +
+	"\aminigun\x18\v \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\aminigun\x12<\n" +
+	"\x06pistol\x18\f \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\x06pistol\x12@\n" +
+	"\brevolver\x18\r \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\brevolver\x12L\n" +
+	"\x0erocketlauncher\x18\x0e \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\x0erocketlauncher\x12D\n" +
 	"\n" +
-	"scattergun\x18\x0f \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\n" +
-	"scattergun\x127\n" +
-	"\ashotgun\x18\x10 \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\ashotgun\x12/\n" +
-	"\x03smg\x18\x11 \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\x03smg\x12?\n" +
-	"\vsniperrifle\x18\x12 \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\vsniperrifle\x12N\n" +
-	"\x13stickybomb_launcher\x18\x13 \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\x12stickybombLauncher\x127\n" +
-	"\aubersaw\x18\x14 \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\aubersaw\x125\n" +
-	"\x06wrench\x18\x15 \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\x06wrench\x12;\n" +
-	"\tamputator\x18\x16 \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\tamputator\x12B\n" +
-	"\ratom_launcher\x18\x17 \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\fatomLauncher\x12D\n" +
-	"\x0eback_scratcher\x18\x18 \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\rbackScratcher\x12;\n" +
-	"\tbattleaxe\x18\x19 \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\tbattleaxe\x12B\n" +
-	"\rbazaar_sniper\x18\x1a \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\fbazaarSniper\x129\n" +
-	"\bblackbox\x18\x1b \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\bblackbox\x12E\n" +
-	"\x0eclaidheamohmor\x18\x1c \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\x0eclaidheamohmor\x12L\n" +
-	"\x12crusaders_crossbow\x18\x1d \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\x11crusadersCrossbow\x12;\n" +
-	"\tdegreaser\x18\x1e \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\tdegreaser\x12>\n" +
-	"\vdemo_cannon\x18\x1f \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\n" +
-	"demoCannon\x12I\n" +
-	"\x11demo_sultan_sword\x18  \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\x0fdemoSultanSword\x12;\n" +
-	"\tdetonator\x18! \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\tdetonator\x12>\n" +
-	"\vgatling_gun\x18\" \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\n" +
-	"gatlingGun\x12A\n" +
-	"\fholymackerel\x18# \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\fholymackerel\x12/\n" +
-	"\x03jag\x18$ \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\x03jag\x12;\n" +
-	"\tlochnload\x18% \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\tlochnload\x12;\n" +
-	"\tpowerjack\x18& \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\tpowerjack\x129\n" +
-	"\bquadball\x18' \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\bquadball\x12F\n" +
-	"\x0freserve_shooter\x18( \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\x0ereserveShooter\x12>\n" +
-	"\vriding_crop\x18) \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\n" +
-	"ridingCrop\x12@\n" +
-	"\frussian_riot\x18* \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\vrussianRiot\x129\n" +
-	"\bscimitar\x18+ \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\bscimitar\x12>\n" +
-	"\vscorch_shot\x18, \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\n" +
-	"scorchShot\x12;\n" +
-	"\tshortstop\x18- \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\tshortstop\x12>\n" +
-	"\vsoda_popper\x18. \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\n" +
-	"sodaPopper\x12@\n" +
-	"\ftele_shotgun\x18/ \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\vteleShotgun\x129\n" +
-	"\btomislav\x180 \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\btomislav\x12;\n" +
-	"\ttrenchgun\x181 \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\ttrenchgun\x12B\n" +
-	"\rwinger_pistol\x182 \x01(\v2\x1d.CMsgPaintKit_Definition.ItemR\fwingerPistol\x1a\xe7\x02\n" +
-	"\x04Item\x12v\n" +
-	"\x18item_definition_template\x18\x01 \x02(\v2\x0f.CMsgProtoDefIDB+\x80\x97\"\bҗ\"#CPaintKitDefIdFieldProtoEditorFieldR\x16itemDefinitionTemplate\x12:\n" +
-	"\x04data\x18\x05 \x01(\v2&.CMsgPaintKit_Definition.Item.ItemDataR\x04data\x1a\xa4\x01\n" +
+	"scattergun\x18\x0f \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\n" +
+	"scattergun\x12>\n" +
+	"\ashotgun\x18\x10 \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\ashotgun\x126\n" +
+	"\x03smg\x18\x11 \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\x03smg\x12F\n" +
+	"\vsniperrifle\x18\x12 \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\vsniperrifle\x12U\n" +
+	"\x13stickybomb_launcher\x18\x13 \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\x12stickybombLauncher\x12>\n" +
+	"\aubersaw\x18\x14 \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\aubersaw\x12<\n" +
+	"\x06wrench\x18\x15 \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\x06wrench\x12B\n" +
+	"\tamputator\x18\x16 \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\tamputator\x12I\n" +
+	"\ratom_launcher\x18\x17 \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\fatomLauncher\x12K\n" +
+	"\x0eback_scratcher\x18\x18 \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\rbackScratcher\x12B\n" +
+	"\tbattleaxe\x18\x19 \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\tbattleaxe\x12I\n" +
+	"\rbazaar_sniper\x18\x1a \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\fbazaarSniper\x12@\n" +
+	"\bblackbox\x18\x1b \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\bblackbox\x12L\n" +
+	"\x0eclaidheamohmor\x18\x1c \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\x0eclaidheamohmor\x12S\n" +
+	"\x12crusaders_crossbow\x18\x1d \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\x11crusadersCrossbow\x12B\n" +
+	"\tdegreaser\x18\x1e \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\tdegreaser\x12E\n" +
+	"\vdemo_cannon\x18\x1f \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\n" +
+	"demoCannon\x12P\n" +
+	"\x11demo_sultan_sword\x18  \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\x0fdemoSultanSword\x12B\n" +
+	"\tdetonator\x18! \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\tdetonator\x12E\n" +
+	"\vgatling_gun\x18\" \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\n" +
+	"gatlingGun\x12H\n" +
+	"\fholymackerel\x18# \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\fholymackerel\x126\n" +
+	"\x03jag\x18$ \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\x03jag\x12B\n" +
+	"\tlochnload\x18% \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\tlochnload\x12B\n" +
+	"\tpowerjack\x18& \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\tpowerjack\x12@\n" +
+	"\bquadball\x18' \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\bquadball\x12M\n" +
+	"\x0freserve_shooter\x18( \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\x0ereserveShooter\x12E\n" +
+	"\vriding_crop\x18) \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\n" +
+	"ridingCrop\x12G\n" +
+	"\frussian_riot\x18* \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\vrussianRiot\x12@\n" +
+	"\bscimitar\x18+ \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\bscimitar\x12E\n" +
+	"\vscorch_shot\x18, \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\n" +
+	"scorchShot\x12B\n" +
+	"\tshortstop\x18- \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\tshortstop\x12E\n" +
+	"\vsoda_popper\x18. \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\n" +
+	"sodaPopper\x12G\n" +
+	"\ftele_shotgun\x18/ \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\vteleShotgun\x12@\n" +
+	"\btomislav\x180 \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\btomislav\x12B\n" +
+	"\ttrenchgun\x181 \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\ttrenchgun\x12I\n" +
+	"\rwinger_pistol\x182 \x01(\v2$.tf2_gc.CMsgPaintKit_Definition.ItemR\fwingerPistol\x1a\xfc\x02\n" +
+	"\x04Item\x12}\n" +
+	"\x18item_definition_template\x18\x01 \x02(\v2\x16.tf2_gc.CMsgProtoDefIDB+\x80\x97\"\bҗ\"#CPaintKitDefIdFieldProtoEditorFieldR\x16itemDefinitionTemplate\x12A\n" +
+	"\x04data\x18\x05 \x01(\v2-.tf2_gc.CMsgPaintKit_Definition.Item.ItemDataR\x04data\x1a\xab\x01\n" +
 	"\bItemData\x122\n" +
 	"\x12can_apply_paintkit\x18\x02 \x01(\b:\x04trueR\x10canApplyPaintkit\x12+\n" +
-	"\x11material_override\x18\x03 \x01(\tR\x10materialOverride\x127\n" +
-	"\bvariable\x18\x04 \x03(\v2\r.CMsgVarFieldB\f\xc0\x97\"\x00ȗ\"\x00\xf0\x97\"\tR\bvariable:\x04\x80\x88'\x00\"\xb1\x05\n" +
-	"\x0eCMsgQuestTheme\x12+\n" +
-	"\x06header\x18\x01 \x02(\v2\x13.CMsgProtoDefHeaderR\x06header\x12)\n" +
+	"\x11material_override\x18\x03 \x01(\tR\x10materialOverride\x12>\n" +
+	"\bvariable\x18\x04 \x03(\v2\x14.tf2_gc.CMsgVarFieldB\f\xc0\x97\"\x00ȗ\"\x00\xf0\x97\"\tR\bvariable:\x04\x80\x88'\x00\"\xd4\x05\n" +
+	"\x0eCMsgQuestTheme\x122\n" +
+	"\x06header\x18\x01 \x02(\v2\x1a.tf2_gc.CMsgProtoDefHeaderR\x06header\x12)\n" +
 	"\x10notification_res\x18\x02 \x01(\tR\x0fnotificationRes\x12$\n" +
 	"\x0equest_item_res\x18\x03 \x01(\tR\fquestItemRes\x12-\n" +
-	"\x13in_game_tracker_res\x18\x04 \x01(\tR\x10inGameTrackerRes\x12B\n" +
-	"\vgive_sounds\x18\x05 \x03(\v2!.CMsgQuestTheme.WeightedStringSetR\n" +
-	"giveSounds\x12J\n" +
-	"\x0fcomplete_sounds\x18\x06 \x03(\v2!.CMsgQuestTheme.WeightedStringSetR\x0ecompleteSounds\x12U\n" +
-	"\x15fully_complete_sounds\x18\a \x03(\v2!.CMsgQuestTheme.WeightedStringSetR\x13fullyCompleteSounds\x12!\n" +
+	"\x13in_game_tracker_res\x18\x04 \x01(\tR\x10inGameTrackerRes\x12I\n" +
+	"\vgive_sounds\x18\x05 \x03(\v2(.tf2_gc.CMsgQuestTheme.WeightedStringSetR\n" +
+	"giveSounds\x12Q\n" +
+	"\x0fcomplete_sounds\x18\x06 \x03(\v2(.tf2_gc.CMsgQuestTheme.WeightedStringSetR\x0ecompleteSounds\x12\\\n" +
+	"\x15fully_complete_sounds\x18\a \x03(\v2(.tf2_gc.CMsgQuestTheme.WeightedStringSetR\x13fullyCompleteSounds\x12!\n" +
 	"\freward_sound\x18\b \x01(\tR\vrewardSound\x12#\n" +
 	"\rdiscard_sound\x18\t \x01(\tR\fdiscardSound\x12!\n" +
 	"\freveal_sound\x18\n" +
 	" \x01(\tR\vrevealSound\x1a@\n" +
 	"\x0eWeightedString\x12\x16\n" +
 	"\x06string\x18\x01 \x01(\tR\x06string\x12\x16\n" +
-	"\x06weight\x18\x02 \x01(\rR\x06weight\x1a^\n" +
-	"\x11WeightedStringSet\x12I\n" +
-	"\x10weighted_strings\x18\x01 \x03(\v2\x1e.CMsgQuestTheme.WeightedStringR\x0fweightedStrings\"\xd1\x02\n" +
+	"\x06weight\x18\x02 \x01(\rR\x06weight\x1ae\n" +
+	"\x11WeightedStringSet\x12P\n" +
+	"\x10weighted_strings\x18\x01 \x03(\v2%.tf2_gc.CMsgQuestTheme.WeightedStringR\x0fweightedStrings\"\xd8\x02\n" +
 	"#CMsgQuestMapNodeCondition_NodeState\x12\x99\x01\n" +
-	"\x19bonus_objectives_required\x18\x01 \x01(\r:\x010BZ\xa2\x97\"\x0eBonus Required\xaa\x97\"DNumber of bonus objectives required, on top of the primary objectiveR\x17bonusObjectivesRequired\x12\x8d\x01\n" +
-	"\x11target_node_defid\x18\x02 \x02(\v2\x0f.CMsgProtoDefIDBP\x80\x97\"\x00\xa2\x97\"\vTarget Node\xaa\x97\"9Which node is required to have the above number of medalsR\x0ftargetNodeDefid\"\xf7\x01\n" +
-	"\x1fCMsgQuestMapNodeCondition_Logic\x12T\n" +
-	"\toperation\x18\x01 \x02(\x0e2\x11.LogicalOperation:\x03ANDB\x1e\xa2\x97\"\x05Logic\xaa\x97\"\x11Logical operationR\toperation\x12~\n" +
-	"\x0esub_conditions\x18\x02 \x03(\v2\x1a.CMsgQuestMapNodeConditionB;\xa2\x97\"\bOperands\xaa\x97\"+Definitions to use in the logical operationR\rsubConditions\"\xe3\x02\n" +
-	"\x19CMsgQuestMapNodeCondition\x12\xa2\x01\n" +
+	"\x19bonus_objectives_required\x18\x01 \x01(\r:\x010BZ\xa2\x97\"\x0eBonus Required\xaa\x97\"DNumber of bonus objectives required, on top of the primary objectiveR\x17bonusObjectivesRequired\x12\x94\x01\n" +
+	"\x11target_node_defid\x18\x02 \x02(\v2\x16.tf2_gc.CMsgProtoDefIDBP\x80\x97\"\x00\xa2\x97\"\vTarget Node\xaa\x97\"9Which node is required to have the above number of medalsR\x0ftargetNodeDefid\"\x86\x02\n" +
+	"\x1fCMsgQuestMapNodeCondition_Logic\x12[\n" +
+	"\toperation\x18\x01 \x02(\x0e2\x18.tf2_gc.LogicalOperation:\x03ANDB\x1e\xa2\x97\"\x05Logic\xaa\x97\"\x11Logical operationR\toperation\x12\x85\x01\n" +
+	"\x0esub_conditions\x18\x02 \x03(\v2!.tf2_gc.CMsgQuestMapNodeConditionB;\xa2\x97\"\bOperands\xaa\x97\"+Definitions to use in the logical operationR\rsubConditions\"\xf1\x02\n" +
+	"\x19CMsgQuestMapNodeCondition\x12\xa9\x01\n" +
 	"\n" +
-	"node_state\x18\x01 \x01(\v2$.CMsgQuestMapNodeCondition_NodeStateB[\xa2\x97\"\x14Node State Condition\xaa\x97\"?Returns true if a specific node has a required number of medalsH\x00R\tnodeState\x12\x93\x01\n" +
-	"\alogical\x18\x02 \x01(\v2 .CMsgQuestMapNodeCondition_LogicBU\xa2\x97\"\x11Logical Condition\xaa\x97\"<Performs a specified logical operation to all sub conditionsH\x00R\alogicalB\v\n" +
-	"\toperation\"=\n" +
-	"\x0eCMsgHeaderOnly\x12+\n" +
-	"\x06header\x18\x01 \x02(\v2\x13.CMsgProtoDefHeaderR\x06header*,\n" +
+	"node_state\x18\x01 \x01(\v2+.tf2_gc.CMsgQuestMapNodeCondition_NodeStateB[\xa2\x97\"\x14Node State Condition\xaa\x97\"?Returns true if a specific node has a required number of medalsH\x00R\tnodeState\x12\x9a\x01\n" +
+	"\alogical\x18\x02 \x01(\v2'.tf2_gc.CMsgQuestMapNodeCondition_LogicBU\xa2\x97\"\x11Logical Condition\xaa\x97\"<Performs a specified logical operation to all sub conditionsH\x00R\alogicalB\v\n" +
+	"\toperation\"D\n" +
+	"\x0eCMsgHeaderOnly\x122\n" +
+	"\x06header\x18\x01 \x02(\v2\x1a.tf2_gc.CMsgProtoDefHeaderR\x06header*,\n" +
 	"\x10LogicalOperation\x12\a\n" +
 	"\x03AND\x10\x00\x12\x06\n" +
 	"\x02OR\x10\x01\x12\a\n" +
@@ -5274,9 +5230,9 @@ const file_tf_proto_def_messages_proto_rawDesc = "" +
 	"\x11CASH_REWARD_SMALL\x10\x02\x12\x16\n" +
 	"\x12CASH_REWARD_MEDIUM\x10\x03\x12\x15\n" +
 	"\x11CASH_REWARD_LARGE\x10\x04:N\n" +
-	"\x0estart_expanded\x12\x1f.google.protobuf.MessageOptions\x18\x80\xf1\x04 \x01(\b:\x04trueR\rstartExpanded:g\n" +
+	"\x0estart_expanded\x12\x1f.google.protobuf.MessageOptions\x18\x80\xf1\x04 \x01(\b:\x04trueR\rstartExpanded:n\n" +
 	"\n" +
-	"valid_type\x12\x1d.google.protobuf.FieldOptions\x18\xf0\xa2\x04 \x01(\x0e2\x0e.ProtoDefTypes:\x17DEF_TYPE_QUEST_MAP_NODER\tvalidType:A\n" +
+	"valid_type\x12\x1d.google.protobuf.FieldOptions\x18\xf0\xa2\x04 \x01(\x0e2\x15.tf2_gc.ProtoDefTypes:\x17DEF_TYPE_QUEST_MAP_NODER\tvalidType:A\n" +
 	"\beditable\x12\x1d.google.protobuf.FieldOptions\x18\xf1\xa2\x04 \x01(\b:\x04trueR\beditable:D\n" +
 	"\tlocalized\x12\x1d.google.protobuf.FieldOptions\x18\xf2\xa2\x04 \x01(\b:\x05falseR\tlocalized:L\n" +
 	"\x0edo_not_inherit\x12\x1d.google.protobuf.FieldOptions\x18\xf3\xa2\x04 \x01(\b:\x05falseR\fdoNotInherit:B\n" +
@@ -5288,253 +5244,253 @@ const file_tf_proto_def_messages_proto_rawDesc = "" +
 	"\x14panel_class_override\x12\x1d.google.protobuf.FieldOptions\x18\xfa\xa2\x04 \x01(\tR\x12panelClassOverride:m\n" +
 	"#message_inherhitance_key_field_name\x12\x1d.google.protobuf.FieldOptions\x18\xfb\xa2\x04 \x01(\tR\x1fmessageInherhitanceKeyFieldName:f\n" +
 	"\x1binherit_reference_variables\x12\x1d.google.protobuf.FieldOptions\x18\xfc\xa2\x04 \x01(\b:\x05falseR\x19inheritReferenceVariables:R\n" +
-	"\x11self_inherit_only\x12\x1d.google.protobuf.FieldOptions\x18\xfd\xa2\x04 \x01(\b:\x05falseR\x0fselfInheritOnly:g\n" +
-	"\x0evar_field_type\x12\x1d.google.protobuf.FieldOptions\x18\xfe\xa2\x04 \x01(\x0e2\x0e.EVarFieldType:\x10VAR_TYPE_INVALIDR\fvarFieldType:R\n" +
+	"\x11self_inherit_only\x12\x1d.google.protobuf.FieldOptions\x18\xfd\xa2\x04 \x01(\b:\x05falseR\x0fselfInheritOnly:n\n" +
+	"\x0evar_field_type\x12\x1d.google.protobuf.FieldOptions\x18\xfe\xa2\x04 \x01(\x0e2\x15.tf2_gc.EVarFieldType:\x10VAR_TYPE_INVALIDR\fvarFieldType:R\n" +
 	"\x11merging_key_field\x12\x1d.google.protobuf.FieldOptions\x18\xff\xa2\x04 \x01(\b:\x05falseR\x0fmergingKeyFieldB\x05H\x01\x80\x01\x00"
 
 var (
-	file_tf_proto_def_messages_proto_rawDescOnce sync.Once
-	file_tf_proto_def_messages_proto_rawDescData []byte
+	file_tf2_gc_tf_proto_def_messages_proto_rawDescOnce sync.Once
+	file_tf2_gc_tf_proto_def_messages_proto_rawDescData []byte
 )
 
-func file_tf_proto_def_messages_proto_rawDescGZIP() []byte {
-	file_tf_proto_def_messages_proto_rawDescOnce.Do(func() {
-		file_tf_proto_def_messages_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_tf_proto_def_messages_proto_rawDesc), len(file_tf_proto_def_messages_proto_rawDesc)))
+func file_tf2_gc_tf_proto_def_messages_proto_rawDescGZIP() []byte {
+	file_tf2_gc_tf_proto_def_messages_proto_rawDescOnce.Do(func() {
+		file_tf2_gc_tf_proto_def_messages_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_tf2_gc_tf_proto_def_messages_proto_rawDesc), len(file_tf2_gc_tf_proto_def_messages_proto_rawDesc)))
 	})
-	return file_tf_proto_def_messages_proto_rawDescData
+	return file_tf2_gc_tf_proto_def_messages_proto_rawDescData
 }
 
-var file_tf_proto_def_messages_proto_enumTypes = make([]protoimpl.EnumInfo, 9)
-var file_tf_proto_def_messages_proto_msgTypes = make([]protoimpl.MessageInfo, 38)
-var file_tf_proto_def_messages_proto_goTypes = []any{
-	(LogicalOperation)(0),                          // 0: LogicalOperation
-	(EValueDefinitionSource)(0),                    // 1: EValueDefinitionSource
-	(ProtoDefTypes)(0),                             // 2: ProtoDefTypes
-	(EQuestPoints)(0),                              // 3: EQuestPoints
-	(EVarFieldType)(0),                             // 4: EVarFieldType
-	(ENodeCashReward)(0),                           // 5: ENodeCashReward
-	(CMsgQuestObjectiveDef_ETF2GameModes)(0),       // 6: CMsgQuestObjectiveDef.ETF2GameModes
-	(CMsgQuestObjectiveDef_ETF2Conditions)(0),      // 7: CMsgQuestObjectiveDef.ETF2Conditions
-	(CMsgQuestObjectiveDef_ETF2Team)(0),            // 8: CMsgQuestObjectiveDef.ETF2Team
-	(*CMsgFieldID)(nil),                            // 9: CMsgFieldID
-	(*CMsgUniversalFieldID)(nil),                   // 10: CMsgUniversalFieldID
-	(*CMsgVariableDefinition)(nil),                 // 11: CMsgVariableDefinition
-	(*CMsgProtoDefHeader)(nil),                     // 12: CMsgProtoDefHeader
-	(*CMsgValidTypes)(nil),                         // 13: CMsgValidTypes
-	(*CMsgProtoDefID)(nil),                         // 14: CMsgProtoDefID
-	(*CMsgQuestObjectiveDef)(nil),                  // 15: CMsgQuestObjectiveDef
-	(*CMsgQuestDef)(nil),                           // 16: CMsgQuestDef
-	(*CMsgQuestMapStoreItem)(nil),                  // 17: CMsgQuestMapStoreItem
-	(*CMsgQuestMapRegionDef)(nil),                  // 18: CMsgQuestMapRegionDef
-	(*CMsgVarField)(nil),                           // 19: CMsgVarField
-	(*CMsgQuestMapStarType)(nil),                   // 20: CMsgQuestMapStarType
-	(*CMsgQuestMapNodeDef)(nil),                    // 21: CMsgQuestMapNodeDef
-	(*CMsgPaintKit_Variables)(nil),                 // 22: CMsgPaintKit_Variables
-	(*CMsgPaintKit_Operation_TextureStage)(nil),    // 23: CMsgPaintKit_Operation_TextureStage
-	(*CMsgPaintKit_Operation_CombineStage)(nil),    // 24: CMsgPaintKit_Operation_CombineStage
-	(*CMsgPaintKit_Operation_SelectStage)(nil),     // 25: CMsgPaintKit_Operation_SelectStage
-	(*CMsgPaintKit_Operation_Sticker)(nil),         // 26: CMsgPaintKit_Operation_Sticker
-	(*CMsgPaintKit_Operation_StickerStage)(nil),    // 27: CMsgPaintKit_Operation_StickerStage
-	(*CMsgPaintKit_OperationStage)(nil),            // 28: CMsgPaintKit_OperationStage
-	(*CMsgPaintKit_OperationNode)(nil),             // 29: CMsgPaintKit_OperationNode
-	(*CMsgPaintKit_Operation)(nil),                 // 30: CMsgPaintKit_Operation
-	(*CMsgPaintKit_ItemDefinition)(nil),            // 31: CMsgPaintKit_ItemDefinition
-	(*CMsgPaintKit_Definition)(nil),                // 32: CMsgPaintKit_Definition
-	(*CMsgQuestTheme)(nil),                         // 33: CMsgQuestTheme
-	(*CMsgQuestMapNodeCondition_NodeState)(nil),    // 34: CMsgQuestMapNodeCondition_NodeState
-	(*CMsgQuestMapNodeCondition_Logic)(nil),        // 35: CMsgQuestMapNodeCondition_Logic
-	(*CMsgQuestMapNodeCondition)(nil),              // 36: CMsgQuestMapNodeCondition
-	(*CMsgHeaderOnly)(nil),                         // 37: CMsgHeaderOnly
-	(*CMsgFieldID_CMsgField)(nil),                  // 38: CMsgFieldID.CMsgField
-	(*CMsgQuestDef_MMCriteria)(nil),                // 39: CMsgQuestDef.MMCriteria
-	(*CMsgQuestDef_ObjectiveInstance)(nil),         // 40: CMsgQuestDef.ObjectiveInstance
-	(*CMsgQuestMapRegionDef_RegionLink)(nil),       // 41: CMsgQuestMapRegionDef.RegionLink
-	(*CMsgPaintKit_ItemDefinition_Definition)(nil), // 42: CMsgPaintKit_ItemDefinition.Definition
-	(*CMsgPaintKit_Definition_Item)(nil),           // 43: CMsgPaintKit_Definition.Item
-	(*CMsgPaintKit_Definition_Item_ItemData)(nil),  // 44: CMsgPaintKit_Definition.Item.ItemData
-	(*CMsgQuestTheme_WeightedString)(nil),          // 45: CMsgQuestTheme.WeightedString
-	(*CMsgQuestTheme_WeightedStringSet)(nil),       // 46: CMsgQuestTheme.WeightedStringSet
+var file_tf2_gc_tf_proto_def_messages_proto_enumTypes = make([]protoimpl.EnumInfo, 9)
+var file_tf2_gc_tf_proto_def_messages_proto_msgTypes = make([]protoimpl.MessageInfo, 38)
+var file_tf2_gc_tf_proto_def_messages_proto_goTypes = []any{
+	(LogicalOperation)(0),                          // 0: tf2_gc.LogicalOperation
+	(EValueDefinitionSource)(0),                    // 1: tf2_gc.EValueDefinitionSource
+	(ProtoDefTypes)(0),                             // 2: tf2_gc.ProtoDefTypes
+	(EQuestPoints)(0),                              // 3: tf2_gc.EQuestPoints
+	(EVarFieldType)(0),                             // 4: tf2_gc.EVarFieldType
+	(ENodeCashReward)(0),                           // 5: tf2_gc.ENodeCashReward
+	(CMsgQuestObjectiveDef_ETF2GameModes)(0),       // 6: tf2_gc.CMsgQuestObjectiveDef.ETF2GameModes
+	(CMsgQuestObjectiveDef_ETF2Conditions)(0),      // 7: tf2_gc.CMsgQuestObjectiveDef.ETF2Conditions
+	(CMsgQuestObjectiveDef_ETF2Team)(0),            // 8: tf2_gc.CMsgQuestObjectiveDef.ETF2Team
+	(*CMsgFieldID)(nil),                            // 9: tf2_gc.CMsgFieldID
+	(*CMsgUniversalFieldID)(nil),                   // 10: tf2_gc.CMsgUniversalFieldID
+	(*CMsgVariableDefinition)(nil),                 // 11: tf2_gc.CMsgVariableDefinition
+	(*CMsgProtoDefHeader)(nil),                     // 12: tf2_gc.CMsgProtoDefHeader
+	(*CMsgValidTypes)(nil),                         // 13: tf2_gc.CMsgValidTypes
+	(*CMsgProtoDefID)(nil),                         // 14: tf2_gc.CMsgProtoDefID
+	(*CMsgQuestObjectiveDef)(nil),                  // 15: tf2_gc.CMsgQuestObjectiveDef
+	(*CMsgQuestDef)(nil),                           // 16: tf2_gc.CMsgQuestDef
+	(*CMsgQuestMapStoreItem)(nil),                  // 17: tf2_gc.CMsgQuestMapStoreItem
+	(*CMsgQuestMapRegionDef)(nil),                  // 18: tf2_gc.CMsgQuestMapRegionDef
+	(*CMsgVarField)(nil),                           // 19: tf2_gc.CMsgVarField
+	(*CMsgQuestMapStarType)(nil),                   // 20: tf2_gc.CMsgQuestMapStarType
+	(*CMsgQuestMapNodeDef)(nil),                    // 21: tf2_gc.CMsgQuestMapNodeDef
+	(*CMsgPaintKit_Variables)(nil),                 // 22: tf2_gc.CMsgPaintKit_Variables
+	(*CMsgPaintKit_Operation_TextureStage)(nil),    // 23: tf2_gc.CMsgPaintKit_Operation_TextureStage
+	(*CMsgPaintKit_Operation_CombineStage)(nil),    // 24: tf2_gc.CMsgPaintKit_Operation_CombineStage
+	(*CMsgPaintKit_Operation_SelectStage)(nil),     // 25: tf2_gc.CMsgPaintKit_Operation_SelectStage
+	(*CMsgPaintKit_Operation_Sticker)(nil),         // 26: tf2_gc.CMsgPaintKit_Operation_Sticker
+	(*CMsgPaintKit_Operation_StickerStage)(nil),    // 27: tf2_gc.CMsgPaintKit_Operation_StickerStage
+	(*CMsgPaintKit_OperationStage)(nil),            // 28: tf2_gc.CMsgPaintKit_OperationStage
+	(*CMsgPaintKit_OperationNode)(nil),             // 29: tf2_gc.CMsgPaintKit_OperationNode
+	(*CMsgPaintKit_Operation)(nil),                 // 30: tf2_gc.CMsgPaintKit_Operation
+	(*CMsgPaintKit_ItemDefinition)(nil),            // 31: tf2_gc.CMsgPaintKit_ItemDefinition
+	(*CMsgPaintKit_Definition)(nil),                // 32: tf2_gc.CMsgPaintKit_Definition
+	(*CMsgQuestTheme)(nil),                         // 33: tf2_gc.CMsgQuestTheme
+	(*CMsgQuestMapNodeCondition_NodeState)(nil),    // 34: tf2_gc.CMsgQuestMapNodeCondition_NodeState
+	(*CMsgQuestMapNodeCondition_Logic)(nil),        // 35: tf2_gc.CMsgQuestMapNodeCondition_Logic
+	(*CMsgQuestMapNodeCondition)(nil),              // 36: tf2_gc.CMsgQuestMapNodeCondition
+	(*CMsgHeaderOnly)(nil),                         // 37: tf2_gc.CMsgHeaderOnly
+	(*CMsgFieldID_CMsgField)(nil),                  // 38: tf2_gc.CMsgFieldID.CMsgField
+	(*CMsgQuestDef_MMCriteria)(nil),                // 39: tf2_gc.CMsgQuestDef.MMCriteria
+	(*CMsgQuestDef_ObjectiveInstance)(nil),         // 40: tf2_gc.CMsgQuestDef.ObjectiveInstance
+	(*CMsgQuestMapRegionDef_RegionLink)(nil),       // 41: tf2_gc.CMsgQuestMapRegionDef.RegionLink
+	(*CMsgPaintKit_ItemDefinition_Definition)(nil), // 42: tf2_gc.CMsgPaintKit_ItemDefinition.Definition
+	(*CMsgPaintKit_Definition_Item)(nil),           // 43: tf2_gc.CMsgPaintKit_Definition.Item
+	(*CMsgPaintKit_Definition_Item_ItemData)(nil),  // 44: tf2_gc.CMsgPaintKit_Definition.Item.ItemData
+	(*CMsgQuestTheme_WeightedString)(nil),          // 45: tf2_gc.CMsgQuestTheme.WeightedString
+	(*CMsgQuestTheme_WeightedStringSet)(nil),       // 46: tf2_gc.CMsgQuestTheme.WeightedStringSet
 	(*descriptorpb.MessageOptions)(nil),            // 47: google.protobuf.MessageOptions
 	(*descriptorpb.FieldOptions)(nil),              // 48: google.protobuf.FieldOptions
 }
-var file_tf_proto_def_messages_proto_depIdxs = []int32{
-	38,  // 0: CMsgFieldID.field:type_name -> CMsgFieldID.CMsgField
-	1,   // 1: CMsgUniversalFieldID.source_type:type_name -> EValueDefinitionSource
-	14,  // 2: CMsgUniversalFieldID.defining_obj_id:type_name -> CMsgProtoDefID
-	9,   // 3: CMsgUniversalFieldID.field_id:type_name -> CMsgFieldID
-	14,  // 4: CMsgProtoDefHeader.prefabs:type_name -> CMsgProtoDefID
-	11,  // 5: CMsgProtoDefHeader.variables:type_name -> CMsgVariableDefinition
-	2,   // 6: CMsgValidTypes.types:type_name -> ProtoDefTypes
-	2,   // 7: CMsgProtoDefID.type:type_name -> ProtoDefTypes
-	21,  // 8: CMsgProtoDefID.instance_def_type_quest_map_node:type_name -> CMsgQuestMapNodeDef
-	33,  // 9: CMsgProtoDefID.instance_def_type_quest_theme:type_name -> CMsgQuestTheme
-	18,  // 10: CMsgProtoDefID.instance_def_type_quest_map_region:type_name -> CMsgQuestMapRegionDef
-	16,  // 11: CMsgProtoDefID.instance_def_type_quest:type_name -> CMsgQuestDef
-	15,  // 12: CMsgProtoDefID.instance_def_type_quest_objective:type_name -> CMsgQuestObjectiveDef
-	22,  // 13: CMsgProtoDefID.instance_def_type_paintkit_variables:type_name -> CMsgPaintKit_Variables
-	30,  // 14: CMsgProtoDefID.instance_def_type_paintkit_operation:type_name -> CMsgPaintKit_Operation
-	31,  // 15: CMsgProtoDefID.instance_def_type_paintkit_item_definition:type_name -> CMsgPaintKit_ItemDefinition
-	32,  // 16: CMsgProtoDefID.instance_def_type_paintkit_definition:type_name -> CMsgPaintKit_Definition
-	37,  // 17: CMsgProtoDefID.instance_def_type_header_only:type_name -> CMsgHeaderOnly
-	12,  // 18: CMsgQuestObjectiveDef.header:type_name -> CMsgProtoDefHeader
-	6,   // 19: CMsgQuestObjectiveDef.game_mode:type_name -> CMsgQuestObjectiveDef.ETF2GameModes
-	8,   // 20: CMsgQuestObjectiveDef.team:type_name -> CMsgQuestObjectiveDef.ETF2Team
-	19,  // 21: CMsgQuestObjectiveDef.condition_vars:type_name -> CMsgVarField
-	19,  // 22: CMsgQuestObjectiveDef.classes_vars:type_name -> CMsgVarField
-	7,   // 23: CMsgQuestObjectiveDef.conditions:type_name -> CMsgQuestObjectiveDef.ETF2Conditions
-	0,   // 24: CMsgQuestObjectiveDef.condition_logic:type_name -> LogicalOperation
-	0,   // 25: CMsgQuestObjectiveDef.item_logic:type_name -> LogicalOperation
-	12,  // 26: CMsgQuestDef.header:type_name -> CMsgProtoDefHeader
-	39,  // 27: CMsgQuestDef.mm_criteria:type_name -> CMsgQuestDef.MMCriteria
-	14,  // 28: CMsgQuestDef.theme:type_name -> CMsgProtoDefID
-	40,  // 29: CMsgQuestDef.objectives:type_name -> CMsgQuestDef.ObjectiveInstance
-	12,  // 30: CMsgQuestMapStoreItem.header:type_name -> CMsgProtoDefHeader
-	19,  // 31: CMsgQuestMapStoreItem.price:type_name -> CMsgVarField
-	12,  // 32: CMsgQuestMapRegionDef.header:type_name -> CMsgProtoDefHeader
-	41,  // 33: CMsgQuestMapRegionDef.links:type_name -> CMsgQuestMapRegionDef.RegionLink
-	14,  // 34: CMsgQuestMapRegionDef.return_link:type_name -> CMsgProtoDefID
-	14,  // 35: CMsgQuestMapRegionDef.star_type:type_name -> CMsgProtoDefID
-	12,  // 36: CMsgQuestMapStarType.header:type_name -> CMsgProtoDefHeader
-	12,  // 37: CMsgQuestMapNodeDef.header:type_name -> CMsgProtoDefHeader
-	36,  // 38: CMsgQuestMapNodeDef.condition:type_name -> CMsgQuestMapNodeCondition
-	14,  // 39: CMsgQuestMapNodeDef.owning_region:type_name -> CMsgProtoDefID
-	14,  // 40: CMsgQuestMapNodeDef.quest_options:type_name -> CMsgProtoDefID
-	5,   // 41: CMsgQuestMapNodeDef.cash_reward:type_name -> ENodeCashReward
-	14,  // 42: CMsgQuestMapNodeDef.star_type:type_name -> CMsgProtoDefID
-	12,  // 43: CMsgPaintKit_Variables.header:type_name -> CMsgProtoDefHeader
-	19,  // 44: CMsgPaintKit_Operation_TextureStage.texture:type_name -> CMsgVarField
-	19,  // 45: CMsgPaintKit_Operation_TextureStage.texture_red:type_name -> CMsgVarField
-	19,  // 46: CMsgPaintKit_Operation_TextureStage.texture_blue:type_name -> CMsgVarField
-	19,  // 47: CMsgPaintKit_Operation_TextureStage.adjust_black:type_name -> CMsgVarField
-	19,  // 48: CMsgPaintKit_Operation_TextureStage.adjust_offset:type_name -> CMsgVarField
-	19,  // 49: CMsgPaintKit_Operation_TextureStage.adjust_gamma:type_name -> CMsgVarField
-	19,  // 50: CMsgPaintKit_Operation_TextureStage.rotation:type_name -> CMsgVarField
-	19,  // 51: CMsgPaintKit_Operation_TextureStage.translate_u:type_name -> CMsgVarField
-	19,  // 52: CMsgPaintKit_Operation_TextureStage.translate_v:type_name -> CMsgVarField
-	19,  // 53: CMsgPaintKit_Operation_TextureStage.scale_uv:type_name -> CMsgVarField
-	19,  // 54: CMsgPaintKit_Operation_TextureStage.flip_u:type_name -> CMsgVarField
-	19,  // 55: CMsgPaintKit_Operation_TextureStage.flip_v:type_name -> CMsgVarField
-	19,  // 56: CMsgPaintKit_Operation_CombineStage.adjust_black:type_name -> CMsgVarField
-	19,  // 57: CMsgPaintKit_Operation_CombineStage.adjust_offset:type_name -> CMsgVarField
-	19,  // 58: CMsgPaintKit_Operation_CombineStage.adjust_gamma:type_name -> CMsgVarField
-	19,  // 59: CMsgPaintKit_Operation_CombineStage.rotation:type_name -> CMsgVarField
-	19,  // 60: CMsgPaintKit_Operation_CombineStage.translate_u:type_name -> CMsgVarField
-	19,  // 61: CMsgPaintKit_Operation_CombineStage.translate_v:type_name -> CMsgVarField
-	19,  // 62: CMsgPaintKit_Operation_CombineStage.scale_uv:type_name -> CMsgVarField
-	19,  // 63: CMsgPaintKit_Operation_CombineStage.flip_u:type_name -> CMsgVarField
-	19,  // 64: CMsgPaintKit_Operation_CombineStage.flip_v:type_name -> CMsgVarField
-	29,  // 65: CMsgPaintKit_Operation_CombineStage.operation_node:type_name -> CMsgPaintKit_OperationNode
-	19,  // 66: CMsgPaintKit_Operation_SelectStage.groups:type_name -> CMsgVarField
-	19,  // 67: CMsgPaintKit_Operation_SelectStage.select:type_name -> CMsgVarField
-	19,  // 68: CMsgPaintKit_Operation_Sticker.base:type_name -> CMsgVarField
-	19,  // 69: CMsgPaintKit_Operation_Sticker.weight:type_name -> CMsgVarField
-	19,  // 70: CMsgPaintKit_Operation_Sticker.spec:type_name -> CMsgVarField
-	26,  // 71: CMsgPaintKit_Operation_StickerStage.sticker:type_name -> CMsgPaintKit_Operation_Sticker
-	19,  // 72: CMsgPaintKit_Operation_StickerStage.dest_tl:type_name -> CMsgVarField
-	19,  // 73: CMsgPaintKit_Operation_StickerStage.dest_tr:type_name -> CMsgVarField
-	19,  // 74: CMsgPaintKit_Operation_StickerStage.dest_bl:type_name -> CMsgVarField
-	19,  // 75: CMsgPaintKit_Operation_StickerStage.adjust_black:type_name -> CMsgVarField
-	19,  // 76: CMsgPaintKit_Operation_StickerStage.adjust_offset:type_name -> CMsgVarField
-	19,  // 77: CMsgPaintKit_Operation_StickerStage.adjust_gamma:type_name -> CMsgVarField
-	29,  // 78: CMsgPaintKit_Operation_StickerStage.operation_node:type_name -> CMsgPaintKit_OperationNode
-	23,  // 79: CMsgPaintKit_OperationStage.texture_lookup:type_name -> CMsgPaintKit_Operation_TextureStage
-	24,  // 80: CMsgPaintKit_OperationStage.combine_add:type_name -> CMsgPaintKit_Operation_CombineStage
-	24,  // 81: CMsgPaintKit_OperationStage.combine_lerp:type_name -> CMsgPaintKit_Operation_CombineStage
-	24,  // 82: CMsgPaintKit_OperationStage.combine_multiply:type_name -> CMsgPaintKit_Operation_CombineStage
-	25,  // 83: CMsgPaintKit_OperationStage.select:type_name -> CMsgPaintKit_Operation_SelectStage
-	27,  // 84: CMsgPaintKit_OperationStage.apply_sticker:type_name -> CMsgPaintKit_Operation_StickerStage
-	28,  // 85: CMsgPaintKit_OperationNode.stage:type_name -> CMsgPaintKit_OperationStage
-	14,  // 86: CMsgPaintKit_OperationNode.operation_template:type_name -> CMsgProtoDefID
-	12,  // 87: CMsgPaintKit_Operation.header:type_name -> CMsgProtoDefHeader
-	29,  // 88: CMsgPaintKit_Operation.operation_node:type_name -> CMsgPaintKit_OperationNode
-	12,  // 89: CMsgPaintKit_ItemDefinition.header:type_name -> CMsgProtoDefHeader
-	14,  // 90: CMsgPaintKit_ItemDefinition.variable_template:type_name -> CMsgProtoDefID
-	42,  // 91: CMsgPaintKit_ItemDefinition.definition:type_name -> CMsgPaintKit_ItemDefinition.Definition
-	12,  // 92: CMsgPaintKit_Definition.header:type_name -> CMsgProtoDefHeader
-	14,  // 93: CMsgPaintKit_Definition.operation_template:type_name -> CMsgProtoDefID
-	43,  // 94: CMsgPaintKit_Definition.item:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 95: CMsgPaintKit_Definition.paintkit_tool:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 96: CMsgPaintKit_Definition.flamethrower:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 97: CMsgPaintKit_Definition.grenadelauncher:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 98: CMsgPaintKit_Definition.knife:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 99: CMsgPaintKit_Definition.medigun:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 100: CMsgPaintKit_Definition.minigun:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 101: CMsgPaintKit_Definition.pistol:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 102: CMsgPaintKit_Definition.revolver:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 103: CMsgPaintKit_Definition.rocketlauncher:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 104: CMsgPaintKit_Definition.scattergun:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 105: CMsgPaintKit_Definition.shotgun:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 106: CMsgPaintKit_Definition.smg:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 107: CMsgPaintKit_Definition.sniperrifle:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 108: CMsgPaintKit_Definition.stickybomb_launcher:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 109: CMsgPaintKit_Definition.ubersaw:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 110: CMsgPaintKit_Definition.wrench:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 111: CMsgPaintKit_Definition.amputator:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 112: CMsgPaintKit_Definition.atom_launcher:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 113: CMsgPaintKit_Definition.back_scratcher:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 114: CMsgPaintKit_Definition.battleaxe:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 115: CMsgPaintKit_Definition.bazaar_sniper:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 116: CMsgPaintKit_Definition.blackbox:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 117: CMsgPaintKit_Definition.claidheamohmor:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 118: CMsgPaintKit_Definition.crusaders_crossbow:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 119: CMsgPaintKit_Definition.degreaser:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 120: CMsgPaintKit_Definition.demo_cannon:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 121: CMsgPaintKit_Definition.demo_sultan_sword:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 122: CMsgPaintKit_Definition.detonator:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 123: CMsgPaintKit_Definition.gatling_gun:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 124: CMsgPaintKit_Definition.holymackerel:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 125: CMsgPaintKit_Definition.jag:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 126: CMsgPaintKit_Definition.lochnload:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 127: CMsgPaintKit_Definition.powerjack:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 128: CMsgPaintKit_Definition.quadball:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 129: CMsgPaintKit_Definition.reserve_shooter:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 130: CMsgPaintKit_Definition.riding_crop:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 131: CMsgPaintKit_Definition.russian_riot:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 132: CMsgPaintKit_Definition.scimitar:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 133: CMsgPaintKit_Definition.scorch_shot:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 134: CMsgPaintKit_Definition.shortstop:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 135: CMsgPaintKit_Definition.soda_popper:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 136: CMsgPaintKit_Definition.tele_shotgun:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 137: CMsgPaintKit_Definition.tomislav:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 138: CMsgPaintKit_Definition.trenchgun:type_name -> CMsgPaintKit_Definition.Item
-	43,  // 139: CMsgPaintKit_Definition.winger_pistol:type_name -> CMsgPaintKit_Definition.Item
-	12,  // 140: CMsgQuestTheme.header:type_name -> CMsgProtoDefHeader
-	46,  // 141: CMsgQuestTheme.give_sounds:type_name -> CMsgQuestTheme.WeightedStringSet
-	46,  // 142: CMsgQuestTheme.complete_sounds:type_name -> CMsgQuestTheme.WeightedStringSet
-	46,  // 143: CMsgQuestTheme.fully_complete_sounds:type_name -> CMsgQuestTheme.WeightedStringSet
-	14,  // 144: CMsgQuestMapNodeCondition_NodeState.target_node_defid:type_name -> CMsgProtoDefID
-	0,   // 145: CMsgQuestMapNodeCondition_Logic.operation:type_name -> LogicalOperation
-	36,  // 146: CMsgQuestMapNodeCondition_Logic.sub_conditions:type_name -> CMsgQuestMapNodeCondition
-	34,  // 147: CMsgQuestMapNodeCondition.node_state:type_name -> CMsgQuestMapNodeCondition_NodeState
-	35,  // 148: CMsgQuestMapNodeCondition.logical:type_name -> CMsgQuestMapNodeCondition_Logic
-	12,  // 149: CMsgHeaderOnly.header:type_name -> CMsgProtoDefHeader
-	14,  // 150: CMsgQuestDef.ObjectiveInstance.objective:type_name -> CMsgProtoDefID
-	3,   // 151: CMsgQuestDef.ObjectiveInstance.point_type:type_name -> EQuestPoints
-	14,  // 152: CMsgQuestMapRegionDef.RegionLink.target_region_defid:type_name -> CMsgProtoDefID
-	14,  // 153: CMsgPaintKit_ItemDefinition.Definition.operation_template:type_name -> CMsgProtoDefID
-	19,  // 154: CMsgPaintKit_ItemDefinition.Definition.variable:type_name -> CMsgVarField
-	14,  // 155: CMsgPaintKit_Definition.Item.item_definition_template:type_name -> CMsgProtoDefID
-	44,  // 156: CMsgPaintKit_Definition.Item.data:type_name -> CMsgPaintKit_Definition.Item.ItemData
-	19,  // 157: CMsgPaintKit_Definition.Item.ItemData.variable:type_name -> CMsgVarField
-	45,  // 158: CMsgQuestTheme.WeightedStringSet.weighted_strings:type_name -> CMsgQuestTheme.WeightedString
-	47,  // 159: start_expanded:extendee -> google.protobuf.MessageOptions
-	48,  // 160: valid_type:extendee -> google.protobuf.FieldOptions
-	48,  // 161: editable:extendee -> google.protobuf.FieldOptions
-	48,  // 162: localized:extendee -> google.protobuf.FieldOptions
-	48,  // 163: do_not_inherit:extendee -> google.protobuf.FieldOptions
-	48,  // 164: display_name:extendee -> google.protobuf.FieldOptions
-	48,  // 165: comment:extendee -> google.protobuf.FieldOptions
-	48,  // 166: max_count:extendee -> google.protobuf.FieldOptions
-	48,  // 167: allow_add:extendee -> google.protobuf.FieldOptions
-	48,  // 168: allow_delete:extendee -> google.protobuf.FieldOptions
-	48,  // 169: panel_class_override:extendee -> google.protobuf.FieldOptions
-	48,  // 170: message_inherhitance_key_field_name:extendee -> google.protobuf.FieldOptions
-	48,  // 171: inherit_reference_variables:extendee -> google.protobuf.FieldOptions
-	48,  // 172: self_inherit_only:extendee -> google.protobuf.FieldOptions
-	48,  // 173: var_field_type:extendee -> google.protobuf.FieldOptions
-	48,  // 174: merging_key_field:extendee -> google.protobuf.FieldOptions
-	2,   // 175: valid_type:type_name -> ProtoDefTypes
-	4,   // 176: var_field_type:type_name -> EVarFieldType
+var file_tf2_gc_tf_proto_def_messages_proto_depIdxs = []int32{
+	38,  // 0: tf2_gc.CMsgFieldID.field:type_name -> tf2_gc.CMsgFieldID.CMsgField
+	1,   // 1: tf2_gc.CMsgUniversalFieldID.source_type:type_name -> tf2_gc.EValueDefinitionSource
+	14,  // 2: tf2_gc.CMsgUniversalFieldID.defining_obj_id:type_name -> tf2_gc.CMsgProtoDefID
+	9,   // 3: tf2_gc.CMsgUniversalFieldID.field_id:type_name -> tf2_gc.CMsgFieldID
+	14,  // 4: tf2_gc.CMsgProtoDefHeader.prefabs:type_name -> tf2_gc.CMsgProtoDefID
+	11,  // 5: tf2_gc.CMsgProtoDefHeader.variables:type_name -> tf2_gc.CMsgVariableDefinition
+	2,   // 6: tf2_gc.CMsgValidTypes.types:type_name -> tf2_gc.ProtoDefTypes
+	2,   // 7: tf2_gc.CMsgProtoDefID.type:type_name -> tf2_gc.ProtoDefTypes
+	21,  // 8: tf2_gc.CMsgProtoDefID.instance_def_type_quest_map_node:type_name -> tf2_gc.CMsgQuestMapNodeDef
+	33,  // 9: tf2_gc.CMsgProtoDefID.instance_def_type_quest_theme:type_name -> tf2_gc.CMsgQuestTheme
+	18,  // 10: tf2_gc.CMsgProtoDefID.instance_def_type_quest_map_region:type_name -> tf2_gc.CMsgQuestMapRegionDef
+	16,  // 11: tf2_gc.CMsgProtoDefID.instance_def_type_quest:type_name -> tf2_gc.CMsgQuestDef
+	15,  // 12: tf2_gc.CMsgProtoDefID.instance_def_type_quest_objective:type_name -> tf2_gc.CMsgQuestObjectiveDef
+	22,  // 13: tf2_gc.CMsgProtoDefID.instance_def_type_paintkit_variables:type_name -> tf2_gc.CMsgPaintKit_Variables
+	30,  // 14: tf2_gc.CMsgProtoDefID.instance_def_type_paintkit_operation:type_name -> tf2_gc.CMsgPaintKit_Operation
+	31,  // 15: tf2_gc.CMsgProtoDefID.instance_def_type_paintkit_item_definition:type_name -> tf2_gc.CMsgPaintKit_ItemDefinition
+	32,  // 16: tf2_gc.CMsgProtoDefID.instance_def_type_paintkit_definition:type_name -> tf2_gc.CMsgPaintKit_Definition
+	37,  // 17: tf2_gc.CMsgProtoDefID.instance_def_type_header_only:type_name -> tf2_gc.CMsgHeaderOnly
+	12,  // 18: tf2_gc.CMsgQuestObjectiveDef.header:type_name -> tf2_gc.CMsgProtoDefHeader
+	6,   // 19: tf2_gc.CMsgQuestObjectiveDef.game_mode:type_name -> tf2_gc.CMsgQuestObjectiveDef.ETF2GameModes
+	8,   // 20: tf2_gc.CMsgQuestObjectiveDef.team:type_name -> tf2_gc.CMsgQuestObjectiveDef.ETF2Team
+	19,  // 21: tf2_gc.CMsgQuestObjectiveDef.condition_vars:type_name -> tf2_gc.CMsgVarField
+	19,  // 22: tf2_gc.CMsgQuestObjectiveDef.classes_vars:type_name -> tf2_gc.CMsgVarField
+	7,   // 23: tf2_gc.CMsgQuestObjectiveDef.conditions:type_name -> tf2_gc.CMsgQuestObjectiveDef.ETF2Conditions
+	0,   // 24: tf2_gc.CMsgQuestObjectiveDef.condition_logic:type_name -> tf2_gc.LogicalOperation
+	0,   // 25: tf2_gc.CMsgQuestObjectiveDef.item_logic:type_name -> tf2_gc.LogicalOperation
+	12,  // 26: tf2_gc.CMsgQuestDef.header:type_name -> tf2_gc.CMsgProtoDefHeader
+	39,  // 27: tf2_gc.CMsgQuestDef.mm_criteria:type_name -> tf2_gc.CMsgQuestDef.MMCriteria
+	14,  // 28: tf2_gc.CMsgQuestDef.theme:type_name -> tf2_gc.CMsgProtoDefID
+	40,  // 29: tf2_gc.CMsgQuestDef.objectives:type_name -> tf2_gc.CMsgQuestDef.ObjectiveInstance
+	12,  // 30: tf2_gc.CMsgQuestMapStoreItem.header:type_name -> tf2_gc.CMsgProtoDefHeader
+	19,  // 31: tf2_gc.CMsgQuestMapStoreItem.price:type_name -> tf2_gc.CMsgVarField
+	12,  // 32: tf2_gc.CMsgQuestMapRegionDef.header:type_name -> tf2_gc.CMsgProtoDefHeader
+	41,  // 33: tf2_gc.CMsgQuestMapRegionDef.links:type_name -> tf2_gc.CMsgQuestMapRegionDef.RegionLink
+	14,  // 34: tf2_gc.CMsgQuestMapRegionDef.return_link:type_name -> tf2_gc.CMsgProtoDefID
+	14,  // 35: tf2_gc.CMsgQuestMapRegionDef.star_type:type_name -> tf2_gc.CMsgProtoDefID
+	12,  // 36: tf2_gc.CMsgQuestMapStarType.header:type_name -> tf2_gc.CMsgProtoDefHeader
+	12,  // 37: tf2_gc.CMsgQuestMapNodeDef.header:type_name -> tf2_gc.CMsgProtoDefHeader
+	36,  // 38: tf2_gc.CMsgQuestMapNodeDef.condition:type_name -> tf2_gc.CMsgQuestMapNodeCondition
+	14,  // 39: tf2_gc.CMsgQuestMapNodeDef.owning_region:type_name -> tf2_gc.CMsgProtoDefID
+	14,  // 40: tf2_gc.CMsgQuestMapNodeDef.quest_options:type_name -> tf2_gc.CMsgProtoDefID
+	5,   // 41: tf2_gc.CMsgQuestMapNodeDef.cash_reward:type_name -> tf2_gc.ENodeCashReward
+	14,  // 42: tf2_gc.CMsgQuestMapNodeDef.star_type:type_name -> tf2_gc.CMsgProtoDefID
+	12,  // 43: tf2_gc.CMsgPaintKit_Variables.header:type_name -> tf2_gc.CMsgProtoDefHeader
+	19,  // 44: tf2_gc.CMsgPaintKit_Operation_TextureStage.texture:type_name -> tf2_gc.CMsgVarField
+	19,  // 45: tf2_gc.CMsgPaintKit_Operation_TextureStage.texture_red:type_name -> tf2_gc.CMsgVarField
+	19,  // 46: tf2_gc.CMsgPaintKit_Operation_TextureStage.texture_blue:type_name -> tf2_gc.CMsgVarField
+	19,  // 47: tf2_gc.CMsgPaintKit_Operation_TextureStage.adjust_black:type_name -> tf2_gc.CMsgVarField
+	19,  // 48: tf2_gc.CMsgPaintKit_Operation_TextureStage.adjust_offset:type_name -> tf2_gc.CMsgVarField
+	19,  // 49: tf2_gc.CMsgPaintKit_Operation_TextureStage.adjust_gamma:type_name -> tf2_gc.CMsgVarField
+	19,  // 50: tf2_gc.CMsgPaintKit_Operation_TextureStage.rotation:type_name -> tf2_gc.CMsgVarField
+	19,  // 51: tf2_gc.CMsgPaintKit_Operation_TextureStage.translate_u:type_name -> tf2_gc.CMsgVarField
+	19,  // 52: tf2_gc.CMsgPaintKit_Operation_TextureStage.translate_v:type_name -> tf2_gc.CMsgVarField
+	19,  // 53: tf2_gc.CMsgPaintKit_Operation_TextureStage.scale_uv:type_name -> tf2_gc.CMsgVarField
+	19,  // 54: tf2_gc.CMsgPaintKit_Operation_TextureStage.flip_u:type_name -> tf2_gc.CMsgVarField
+	19,  // 55: tf2_gc.CMsgPaintKit_Operation_TextureStage.flip_v:type_name -> tf2_gc.CMsgVarField
+	19,  // 56: tf2_gc.CMsgPaintKit_Operation_CombineStage.adjust_black:type_name -> tf2_gc.CMsgVarField
+	19,  // 57: tf2_gc.CMsgPaintKit_Operation_CombineStage.adjust_offset:type_name -> tf2_gc.CMsgVarField
+	19,  // 58: tf2_gc.CMsgPaintKit_Operation_CombineStage.adjust_gamma:type_name -> tf2_gc.CMsgVarField
+	19,  // 59: tf2_gc.CMsgPaintKit_Operation_CombineStage.rotation:type_name -> tf2_gc.CMsgVarField
+	19,  // 60: tf2_gc.CMsgPaintKit_Operation_CombineStage.translate_u:type_name -> tf2_gc.CMsgVarField
+	19,  // 61: tf2_gc.CMsgPaintKit_Operation_CombineStage.translate_v:type_name -> tf2_gc.CMsgVarField
+	19,  // 62: tf2_gc.CMsgPaintKit_Operation_CombineStage.scale_uv:type_name -> tf2_gc.CMsgVarField
+	19,  // 63: tf2_gc.CMsgPaintKit_Operation_CombineStage.flip_u:type_name -> tf2_gc.CMsgVarField
+	19,  // 64: tf2_gc.CMsgPaintKit_Operation_CombineStage.flip_v:type_name -> tf2_gc.CMsgVarField
+	29,  // 65: tf2_gc.CMsgPaintKit_Operation_CombineStage.operation_node:type_name -> tf2_gc.CMsgPaintKit_OperationNode
+	19,  // 66: tf2_gc.CMsgPaintKit_Operation_SelectStage.groups:type_name -> tf2_gc.CMsgVarField
+	19,  // 67: tf2_gc.CMsgPaintKit_Operation_SelectStage.select:type_name -> tf2_gc.CMsgVarField
+	19,  // 68: tf2_gc.CMsgPaintKit_Operation_Sticker.base:type_name -> tf2_gc.CMsgVarField
+	19,  // 69: tf2_gc.CMsgPaintKit_Operation_Sticker.weight:type_name -> tf2_gc.CMsgVarField
+	19,  // 70: tf2_gc.CMsgPaintKit_Operation_Sticker.spec:type_name -> tf2_gc.CMsgVarField
+	26,  // 71: tf2_gc.CMsgPaintKit_Operation_StickerStage.sticker:type_name -> tf2_gc.CMsgPaintKit_Operation_Sticker
+	19,  // 72: tf2_gc.CMsgPaintKit_Operation_StickerStage.dest_tl:type_name -> tf2_gc.CMsgVarField
+	19,  // 73: tf2_gc.CMsgPaintKit_Operation_StickerStage.dest_tr:type_name -> tf2_gc.CMsgVarField
+	19,  // 74: tf2_gc.CMsgPaintKit_Operation_StickerStage.dest_bl:type_name -> tf2_gc.CMsgVarField
+	19,  // 75: tf2_gc.CMsgPaintKit_Operation_StickerStage.adjust_black:type_name -> tf2_gc.CMsgVarField
+	19,  // 76: tf2_gc.CMsgPaintKit_Operation_StickerStage.adjust_offset:type_name -> tf2_gc.CMsgVarField
+	19,  // 77: tf2_gc.CMsgPaintKit_Operation_StickerStage.adjust_gamma:type_name -> tf2_gc.CMsgVarField
+	29,  // 78: tf2_gc.CMsgPaintKit_Operation_StickerStage.operation_node:type_name -> tf2_gc.CMsgPaintKit_OperationNode
+	23,  // 79: tf2_gc.CMsgPaintKit_OperationStage.texture_lookup:type_name -> tf2_gc.CMsgPaintKit_Operation_TextureStage
+	24,  // 80: tf2_gc.CMsgPaintKit_OperationStage.combine_add:type_name -> tf2_gc.CMsgPaintKit_Operation_CombineStage
+	24,  // 81: tf2_gc.CMsgPaintKit_OperationStage.combine_lerp:type_name -> tf2_gc.CMsgPaintKit_Operation_CombineStage
+	24,  // 82: tf2_gc.CMsgPaintKit_OperationStage.combine_multiply:type_name -> tf2_gc.CMsgPaintKit_Operation_CombineStage
+	25,  // 83: tf2_gc.CMsgPaintKit_OperationStage.select:type_name -> tf2_gc.CMsgPaintKit_Operation_SelectStage
+	27,  // 84: tf2_gc.CMsgPaintKit_OperationStage.apply_sticker:type_name -> tf2_gc.CMsgPaintKit_Operation_StickerStage
+	28,  // 85: tf2_gc.CMsgPaintKit_OperationNode.stage:type_name -> tf2_gc.CMsgPaintKit_OperationStage
+	14,  // 86: tf2_gc.CMsgPaintKit_OperationNode.operation_template:type_name -> tf2_gc.CMsgProtoDefID
+	12,  // 87: tf2_gc.CMsgPaintKit_Operation.header:type_name -> tf2_gc.CMsgProtoDefHeader
+	29,  // 88: tf2_gc.CMsgPaintKit_Operation.operation_node:type_name -> tf2_gc.CMsgPaintKit_OperationNode
+	12,  // 89: tf2_gc.CMsgPaintKit_ItemDefinition.header:type_name -> tf2_gc.CMsgProtoDefHeader
+	14,  // 90: tf2_gc.CMsgPaintKit_ItemDefinition.variable_template:type_name -> tf2_gc.CMsgProtoDefID
+	42,  // 91: tf2_gc.CMsgPaintKit_ItemDefinition.definition:type_name -> tf2_gc.CMsgPaintKit_ItemDefinition.Definition
+	12,  // 92: tf2_gc.CMsgPaintKit_Definition.header:type_name -> tf2_gc.CMsgProtoDefHeader
+	14,  // 93: tf2_gc.CMsgPaintKit_Definition.operation_template:type_name -> tf2_gc.CMsgProtoDefID
+	43,  // 94: tf2_gc.CMsgPaintKit_Definition.item:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 95: tf2_gc.CMsgPaintKit_Definition.paintkit_tool:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 96: tf2_gc.CMsgPaintKit_Definition.flamethrower:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 97: tf2_gc.CMsgPaintKit_Definition.grenadelauncher:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 98: tf2_gc.CMsgPaintKit_Definition.knife:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 99: tf2_gc.CMsgPaintKit_Definition.medigun:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 100: tf2_gc.CMsgPaintKit_Definition.minigun:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 101: tf2_gc.CMsgPaintKit_Definition.pistol:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 102: tf2_gc.CMsgPaintKit_Definition.revolver:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 103: tf2_gc.CMsgPaintKit_Definition.rocketlauncher:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 104: tf2_gc.CMsgPaintKit_Definition.scattergun:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 105: tf2_gc.CMsgPaintKit_Definition.shotgun:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 106: tf2_gc.CMsgPaintKit_Definition.smg:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 107: tf2_gc.CMsgPaintKit_Definition.sniperrifle:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 108: tf2_gc.CMsgPaintKit_Definition.stickybomb_launcher:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 109: tf2_gc.CMsgPaintKit_Definition.ubersaw:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 110: tf2_gc.CMsgPaintKit_Definition.wrench:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 111: tf2_gc.CMsgPaintKit_Definition.amputator:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 112: tf2_gc.CMsgPaintKit_Definition.atom_launcher:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 113: tf2_gc.CMsgPaintKit_Definition.back_scratcher:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 114: tf2_gc.CMsgPaintKit_Definition.battleaxe:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 115: tf2_gc.CMsgPaintKit_Definition.bazaar_sniper:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 116: tf2_gc.CMsgPaintKit_Definition.blackbox:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 117: tf2_gc.CMsgPaintKit_Definition.claidheamohmor:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 118: tf2_gc.CMsgPaintKit_Definition.crusaders_crossbow:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 119: tf2_gc.CMsgPaintKit_Definition.degreaser:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 120: tf2_gc.CMsgPaintKit_Definition.demo_cannon:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 121: tf2_gc.CMsgPaintKit_Definition.demo_sultan_sword:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 122: tf2_gc.CMsgPaintKit_Definition.detonator:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 123: tf2_gc.CMsgPaintKit_Definition.gatling_gun:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 124: tf2_gc.CMsgPaintKit_Definition.holymackerel:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 125: tf2_gc.CMsgPaintKit_Definition.jag:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 126: tf2_gc.CMsgPaintKit_Definition.lochnload:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 127: tf2_gc.CMsgPaintKit_Definition.powerjack:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 128: tf2_gc.CMsgPaintKit_Definition.quadball:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 129: tf2_gc.CMsgPaintKit_Definition.reserve_shooter:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 130: tf2_gc.CMsgPaintKit_Definition.riding_crop:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 131: tf2_gc.CMsgPaintKit_Definition.russian_riot:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 132: tf2_gc.CMsgPaintKit_Definition.scimitar:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 133: tf2_gc.CMsgPaintKit_Definition.scorch_shot:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 134: tf2_gc.CMsgPaintKit_Definition.shortstop:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 135: tf2_gc.CMsgPaintKit_Definition.soda_popper:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 136: tf2_gc.CMsgPaintKit_Definition.tele_shotgun:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 137: tf2_gc.CMsgPaintKit_Definition.tomislav:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 138: tf2_gc.CMsgPaintKit_Definition.trenchgun:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	43,  // 139: tf2_gc.CMsgPaintKit_Definition.winger_pistol:type_name -> tf2_gc.CMsgPaintKit_Definition.Item
+	12,  // 140: tf2_gc.CMsgQuestTheme.header:type_name -> tf2_gc.CMsgProtoDefHeader
+	46,  // 141: tf2_gc.CMsgQuestTheme.give_sounds:type_name -> tf2_gc.CMsgQuestTheme.WeightedStringSet
+	46,  // 142: tf2_gc.CMsgQuestTheme.complete_sounds:type_name -> tf2_gc.CMsgQuestTheme.WeightedStringSet
+	46,  // 143: tf2_gc.CMsgQuestTheme.fully_complete_sounds:type_name -> tf2_gc.CMsgQuestTheme.WeightedStringSet
+	14,  // 144: tf2_gc.CMsgQuestMapNodeCondition_NodeState.target_node_defid:type_name -> tf2_gc.CMsgProtoDefID
+	0,   // 145: tf2_gc.CMsgQuestMapNodeCondition_Logic.operation:type_name -> tf2_gc.LogicalOperation
+	36,  // 146: tf2_gc.CMsgQuestMapNodeCondition_Logic.sub_conditions:type_name -> tf2_gc.CMsgQuestMapNodeCondition
+	34,  // 147: tf2_gc.CMsgQuestMapNodeCondition.node_state:type_name -> tf2_gc.CMsgQuestMapNodeCondition_NodeState
+	35,  // 148: tf2_gc.CMsgQuestMapNodeCondition.logical:type_name -> tf2_gc.CMsgQuestMapNodeCondition_Logic
+	12,  // 149: tf2_gc.CMsgHeaderOnly.header:type_name -> tf2_gc.CMsgProtoDefHeader
+	14,  // 150: tf2_gc.CMsgQuestDef.ObjectiveInstance.objective:type_name -> tf2_gc.CMsgProtoDefID
+	3,   // 151: tf2_gc.CMsgQuestDef.ObjectiveInstance.point_type:type_name -> tf2_gc.EQuestPoints
+	14,  // 152: tf2_gc.CMsgQuestMapRegionDef.RegionLink.target_region_defid:type_name -> tf2_gc.CMsgProtoDefID
+	14,  // 153: tf2_gc.CMsgPaintKit_ItemDefinition.Definition.operation_template:type_name -> tf2_gc.CMsgProtoDefID
+	19,  // 154: tf2_gc.CMsgPaintKit_ItemDefinition.Definition.variable:type_name -> tf2_gc.CMsgVarField
+	14,  // 155: tf2_gc.CMsgPaintKit_Definition.Item.item_definition_template:type_name -> tf2_gc.CMsgProtoDefID
+	44,  // 156: tf2_gc.CMsgPaintKit_Definition.Item.data:type_name -> tf2_gc.CMsgPaintKit_Definition.Item.ItemData
+	19,  // 157: tf2_gc.CMsgPaintKit_Definition.Item.ItemData.variable:type_name -> tf2_gc.CMsgVarField
+	45,  // 158: tf2_gc.CMsgQuestTheme.WeightedStringSet.weighted_strings:type_name -> tf2_gc.CMsgQuestTheme.WeightedString
+	47,  // 159: tf2_gc.start_expanded:extendee -> google.protobuf.MessageOptions
+	48,  // 160: tf2_gc.valid_type:extendee -> google.protobuf.FieldOptions
+	48,  // 161: tf2_gc.editable:extendee -> google.protobuf.FieldOptions
+	48,  // 162: tf2_gc.localized:extendee -> google.protobuf.FieldOptions
+	48,  // 163: tf2_gc.do_not_inherit:extendee -> google.protobuf.FieldOptions
+	48,  // 164: tf2_gc.display_name:extendee -> google.protobuf.FieldOptions
+	48,  // 165: tf2_gc.comment:extendee -> google.protobuf.FieldOptions
+	48,  // 166: tf2_gc.max_count:extendee -> google.protobuf.FieldOptions
+	48,  // 167: tf2_gc.allow_add:extendee -> google.protobuf.FieldOptions
+	48,  // 168: tf2_gc.allow_delete:extendee -> google.protobuf.FieldOptions
+	48,  // 169: tf2_gc.panel_class_override:extendee -> google.protobuf.FieldOptions
+	48,  // 170: tf2_gc.message_inherhitance_key_field_name:extendee -> google.protobuf.FieldOptions
+	48,  // 171: tf2_gc.inherit_reference_variables:extendee -> google.protobuf.FieldOptions
+	48,  // 172: tf2_gc.self_inherit_only:extendee -> google.protobuf.FieldOptions
+	48,  // 173: tf2_gc.var_field_type:extendee -> google.protobuf.FieldOptions
+	48,  // 174: tf2_gc.merging_key_field:extendee -> google.protobuf.FieldOptions
+	2,   // 175: tf2_gc.valid_type:type_name -> tf2_gc.ProtoDefTypes
+	4,   // 176: tf2_gc.var_field_type:type_name -> tf2_gc.EVarFieldType
 	177, // [177:177] is the sub-list for method output_type
 	177, // [177:177] is the sub-list for method input_type
 	175, // [175:177] is the sub-list for extension type_name
@@ -5542,12 +5498,12 @@ var file_tf_proto_def_messages_proto_depIdxs = []int32{
 	0,   // [0:159] is the sub-list for field type_name
 }
 
-func init() { file_tf_proto_def_messages_proto_init() }
-func file_tf_proto_def_messages_proto_init() {
-	if File_tf_proto_def_messages_proto != nil {
+func init() { file_tf2_gc_tf_proto_def_messages_proto_init() }
+func file_tf2_gc_tf_proto_def_messages_proto_init() {
+	if File_tf2_gc_tf_proto_def_messages_proto != nil {
 		return
 	}
-	file_tf_proto_def_messages_proto_msgTypes[5].OneofWrappers = []any{
+	file_tf2_gc_tf_proto_def_messages_proto_msgTypes[5].OneofWrappers = []any{
 		(*CMsgProtoDefID_InstanceDefTypeQuestMapNode)(nil),
 		(*CMsgProtoDefID_InstanceDefTypeQuestTheme)(nil),
 		(*CMsgProtoDefID_InstanceDefTypeQuestMapRegion)(nil),
@@ -5559,7 +5515,7 @@ func file_tf_proto_def_messages_proto_init() {
 		(*CMsgProtoDefID_InstanceDefTypePaintkitDefinition)(nil),
 		(*CMsgProtoDefID_InstanceDefTypeHeaderOnly)(nil),
 	}
-	file_tf_proto_def_messages_proto_msgTypes[10].OneofWrappers = []any{
+	file_tf2_gc_tf_proto_def_messages_proto_msgTypes[10].OneofWrappers = []any{
 		(*CMsgVarField_Float)(nil),
 		(*CMsgVarField_Double)(nil),
 		(*CMsgVarField_Uint32)(nil),
@@ -5569,7 +5525,7 @@ func file_tf_proto_def_messages_proto_init() {
 		(*CMsgVarField_Bool)(nil),
 		(*CMsgVarField_String_)(nil),
 	}
-	file_tf_proto_def_messages_proto_msgTypes[19].OneofWrappers = []any{
+	file_tf2_gc_tf_proto_def_messages_proto_msgTypes[19].OneofWrappers = []any{
 		(*CMsgPaintKit_OperationStage_TextureLookup)(nil),
 		(*CMsgPaintKit_OperationStage_CombineAdd)(nil),
 		(*CMsgPaintKit_OperationStage_CombineLerp)(nil),
@@ -5577,11 +5533,11 @@ func file_tf_proto_def_messages_proto_init() {
 		(*CMsgPaintKit_OperationStage_Select)(nil),
 		(*CMsgPaintKit_OperationStage_ApplySticker)(nil),
 	}
-	file_tf_proto_def_messages_proto_msgTypes[20].OneofWrappers = []any{
+	file_tf2_gc_tf_proto_def_messages_proto_msgTypes[20].OneofWrappers = []any{
 		(*CMsgPaintKit_OperationNode_Stage)(nil),
 		(*CMsgPaintKit_OperationNode_OperationTemplate)(nil),
 	}
-	file_tf_proto_def_messages_proto_msgTypes[27].OneofWrappers = []any{
+	file_tf2_gc_tf_proto_def_messages_proto_msgTypes[27].OneofWrappers = []any{
 		(*CMsgQuestMapNodeCondition_NodeState)(nil),
 		(*CMsgQuestMapNodeCondition_Logical)(nil),
 	}
@@ -5589,19 +5545,19 @@ func file_tf_proto_def_messages_proto_init() {
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_tf_proto_def_messages_proto_rawDesc), len(file_tf_proto_def_messages_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_tf2_gc_tf_proto_def_messages_proto_rawDesc), len(file_tf2_gc_tf_proto_def_messages_proto_rawDesc)),
 			NumEnums:      9,
 			NumMessages:   38,
 			NumExtensions: 16,
 			NumServices:   0,
 		},
-		GoTypes:           file_tf_proto_def_messages_proto_goTypes,
-		DependencyIndexes: file_tf_proto_def_messages_proto_depIdxs,
-		EnumInfos:         file_tf_proto_def_messages_proto_enumTypes,
-		MessageInfos:      file_tf_proto_def_messages_proto_msgTypes,
-		ExtensionInfos:    file_tf_proto_def_messages_proto_extTypes,
+		GoTypes:           file_tf2_gc_tf_proto_def_messages_proto_goTypes,
+		DependencyIndexes: file_tf2_gc_tf_proto_def_messages_proto_depIdxs,
+		EnumInfos:         file_tf2_gc_tf_proto_def_messages_proto_enumTypes,
+		MessageInfos:      file_tf2_gc_tf_proto_def_messages_proto_msgTypes,
+		ExtensionInfos:    file_tf2_gc_tf_proto_def_messages_proto_extTypes,
 	}.Build()
-	File_tf_proto_def_messages_proto = out.File
-	file_tf_proto_def_messages_proto_goTypes = nil
-	file_tf_proto_def_messages_proto_depIdxs = nil
+	File_tf2_gc_tf_proto_def_messages_proto = out.File
+	file_tf2_gc_tf_proto_def_messages_proto_goTypes = nil
+	file_tf2_gc_tf_proto_def_messages_proto_depIdxs = nil
 }

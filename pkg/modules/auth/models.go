@@ -5,8 +5,8 @@
 package auth
 
 import (
+	pb "github.com/lemon4ksan/g-man/pkg/steam/protobuf"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
-	pb "github.com/lemon4ksan/g-man/pkg/steam/protocol/protobuf"
 )
 
 // DeviceConfig allows customizing how the client presents itself to Steam.

@@ -9,7 +9,7 @@ import (
 	"encoding/binary"
 
 	pb "github.com/lemon4ksan/g-man/pkg/tf2/protobuf"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol/gc"
+	gc "github.com/lemon4ksan/g-man/pkg/modules/coordinator/protocol"
 )
 
 // Craft sends a crafting request.

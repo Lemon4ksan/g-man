@@ -12,8 +12,8 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/api"
 	"github.com/lemon4ksan/g-man/pkg/steam/bus"
+	pb "github.com/lemon4ksan/g-man/pkg/steam/protobuf"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
-	pb "github.com/lemon4ksan/g-man/pkg/steam/protocol/protobuf"
 	"google.golang.org/protobuf/proto"
 )
 

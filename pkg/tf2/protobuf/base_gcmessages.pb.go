@@ -2,9 +2,9 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v6.33.5
-// source: base_gcmessages.proto
+// source: tf2_gc/base_gcmessages.proto
 
-package tf2
+package protobuf
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -72,11 +72,11 @@ func (x EGCBaseMsg) String() string {
 }
 
 func (EGCBaseMsg) Descriptor() protoreflect.EnumDescriptor {
-	return file_base_gcmessages_proto_enumTypes[0].Descriptor()
+	return file_tf2_gc_base_gcmessages_proto_enumTypes[0].Descriptor()
 }
 
 func (EGCBaseMsg) Type() protoreflect.EnumType {
-	return &file_base_gcmessages_proto_enumTypes[0]
+	return &file_tf2_gc_base_gcmessages_proto_enumTypes[0]
 }
 
 func (x EGCBaseMsg) Number() protoreflect.EnumNumber {
@@ -95,7 +95,7 @@ func (x *EGCBaseMsg) UnmarshalJSON(b []byte) error {
 
 // Deprecated: Use EGCBaseMsg.Descriptor instead.
 func (EGCBaseMsg) EnumDescriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{0}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{0}
 }
 
 type EGCBaseProtoObjectTypes int32
@@ -128,11 +128,11 @@ func (x EGCBaseProtoObjectTypes) String() string {
 }
 
 func (EGCBaseProtoObjectTypes) Descriptor() protoreflect.EnumDescriptor {
-	return file_base_gcmessages_proto_enumTypes[1].Descriptor()
+	return file_tf2_gc_base_gcmessages_proto_enumTypes[1].Descriptor()
 }
 
 func (EGCBaseProtoObjectTypes) Type() protoreflect.EnumType {
-	return &file_base_gcmessages_proto_enumTypes[1]
+	return &file_tf2_gc_base_gcmessages_proto_enumTypes[1]
 }
 
 func (x EGCBaseProtoObjectTypes) Number() protoreflect.EnumNumber {
@@ -151,7 +151,7 @@ func (x *EGCBaseProtoObjectTypes) UnmarshalJSON(b []byte) error {
 
 // Deprecated: Use EGCBaseProtoObjectTypes.Descriptor instead.
 func (EGCBaseProtoObjectTypes) EnumDescriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{1}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{1}
 }
 
 type GCGoodbyeReason int32
@@ -184,11 +184,11 @@ func (x GCGoodbyeReason) String() string {
 }
 
 func (GCGoodbyeReason) Descriptor() protoreflect.EnumDescriptor {
-	return file_base_gcmessages_proto_enumTypes[2].Descriptor()
+	return file_tf2_gc_base_gcmessages_proto_enumTypes[2].Descriptor()
 }
 
 func (GCGoodbyeReason) Type() protoreflect.EnumType {
-	return &file_base_gcmessages_proto_enumTypes[2]
+	return &file_tf2_gc_base_gcmessages_proto_enumTypes[2]
 }
 
 func (x GCGoodbyeReason) Number() protoreflect.EnumNumber {
@@ -207,7 +207,7 @@ func (x *GCGoodbyeReason) UnmarshalJSON(b []byte) error {
 
 // Deprecated: Use GCGoodbyeReason.Descriptor instead.
 func (GCGoodbyeReason) EnumDescriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{2}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{2}
 }
 
 type CGCStorePurchaseInit_LineItem struct {
@@ -222,7 +222,7 @@ type CGCStorePurchaseInit_LineItem struct {
 
 func (x *CGCStorePurchaseInit_LineItem) Reset() {
 	*x = CGCStorePurchaseInit_LineItem{}
-	mi := &file_base_gcmessages_proto_msgTypes[0]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -234,7 +234,7 @@ func (x *CGCStorePurchaseInit_LineItem) String() string {
 func (*CGCStorePurchaseInit_LineItem) ProtoMessage() {}
 
 func (x *CGCStorePurchaseInit_LineItem) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[0]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -247,7 +247,7 @@ func (x *CGCStorePurchaseInit_LineItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CGCStorePurchaseInit_LineItem.ProtoReflect.Descriptor instead.
 func (*CGCStorePurchaseInit_LineItem) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{0}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *CGCStorePurchaseInit_LineItem) GetItemDefId() uint32 {
@@ -290,7 +290,7 @@ type CMsgGCStorePurchaseInit struct {
 
 func (x *CMsgGCStorePurchaseInit) Reset() {
 	*x = CMsgGCStorePurchaseInit{}
-	mi := &file_base_gcmessages_proto_msgTypes[1]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -302,7 +302,7 @@ func (x *CMsgGCStorePurchaseInit) String() string {
 func (*CMsgGCStorePurchaseInit) ProtoMessage() {}
 
 func (x *CMsgGCStorePurchaseInit) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[1]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -315,7 +315,7 @@ func (x *CMsgGCStorePurchaseInit) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgGCStorePurchaseInit.ProtoReflect.Descriptor instead.
 func (*CMsgGCStorePurchaseInit) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{1}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *CMsgGCStorePurchaseInit) GetCountry() string {
@@ -356,7 +356,7 @@ type CMsgGCStorePurchaseInitResponse struct {
 
 func (x *CMsgGCStorePurchaseInitResponse) Reset() {
 	*x = CMsgGCStorePurchaseInitResponse{}
-	mi := &file_base_gcmessages_proto_msgTypes[2]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -368,7 +368,7 @@ func (x *CMsgGCStorePurchaseInitResponse) String() string {
 func (*CMsgGCStorePurchaseInitResponse) ProtoMessage() {}
 
 func (x *CMsgGCStorePurchaseInitResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[2]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -381,7 +381,7 @@ func (x *CMsgGCStorePurchaseInitResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgGCStorePurchaseInitResponse.ProtoReflect.Descriptor instead.
 func (*CMsgGCStorePurchaseInitResponse) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{2}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *CMsgGCStorePurchaseInitResponse) GetResult() int32 {
@@ -407,7 +407,7 @@ type CMsgSystemBroadcast struct {
 
 func (x *CMsgSystemBroadcast) Reset() {
 	*x = CMsgSystemBroadcast{}
-	mi := &file_base_gcmessages_proto_msgTypes[3]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -419,7 +419,7 @@ func (x *CMsgSystemBroadcast) String() string {
 func (*CMsgSystemBroadcast) ProtoMessage() {}
 
 func (x *CMsgSystemBroadcast) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[3]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -432,7 +432,7 @@ func (x *CMsgSystemBroadcast) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgSystemBroadcast.ProtoReflect.Descriptor instead.
 func (*CMsgSystemBroadcast) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{3}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *CMsgSystemBroadcast) GetMessage() string {
@@ -451,7 +451,7 @@ type CMsgClientHello struct {
 
 func (x *CMsgClientHello) Reset() {
 	*x = CMsgClientHello{}
-	mi := &file_base_gcmessages_proto_msgTypes[4]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -463,7 +463,7 @@ func (x *CMsgClientHello) String() string {
 func (*CMsgClientHello) ProtoMessage() {}
 
 func (x *CMsgClientHello) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[4]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -476,7 +476,7 @@ func (x *CMsgClientHello) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgClientHello.ProtoReflect.Descriptor instead.
 func (*CMsgClientHello) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{4}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *CMsgClientHello) GetVersion() uint32 {
@@ -495,7 +495,7 @@ type CMsgServerHello struct {
 
 func (x *CMsgServerHello) Reset() {
 	*x = CMsgServerHello{}
-	mi := &file_base_gcmessages_proto_msgTypes[5]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -507,7 +507,7 @@ func (x *CMsgServerHello) String() string {
 func (*CMsgServerHello) ProtoMessage() {}
 
 func (x *CMsgServerHello) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[5]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -520,7 +520,7 @@ func (x *CMsgServerHello) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgServerHello.ProtoReflect.Descriptor instead.
 func (*CMsgServerHello) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{5}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *CMsgServerHello) GetVersion() uint32 {
@@ -541,7 +541,7 @@ type CMsgClientWelcome struct {
 
 func (x *CMsgClientWelcome) Reset() {
 	*x = CMsgClientWelcome{}
-	mi := &file_base_gcmessages_proto_msgTypes[6]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -553,7 +553,7 @@ func (x *CMsgClientWelcome) String() string {
 func (*CMsgClientWelcome) ProtoMessage() {}
 
 func (x *CMsgClientWelcome) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[6]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -566,7 +566,7 @@ func (x *CMsgClientWelcome) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgClientWelcome.ProtoReflect.Descriptor instead.
 func (*CMsgClientWelcome) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{6}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *CMsgClientWelcome) GetVersion() uint32 {
@@ -600,7 +600,7 @@ type CMsgServerWelcome struct {
 
 func (x *CMsgServerWelcome) Reset() {
 	*x = CMsgServerWelcome{}
-	mi := &file_base_gcmessages_proto_msgTypes[7]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -612,7 +612,7 @@ func (x *CMsgServerWelcome) String() string {
 func (*CMsgServerWelcome) ProtoMessage() {}
 
 func (x *CMsgServerWelcome) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[7]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -625,7 +625,7 @@ func (x *CMsgServerWelcome) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgServerWelcome.ProtoReflect.Descriptor instead.
 func (*CMsgServerWelcome) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{7}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *CMsgServerWelcome) GetMinAllowedVersion() uint32 {
@@ -644,7 +644,7 @@ func (x *CMsgServerWelcome) GetActiveVersion() uint32 {
 
 type CMsgClientGoodbye struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Reason        *GCGoodbyeReason       `protobuf:"varint,1,opt,name=reason,enum=GCGoodbyeReason,def=1" json:"reason,omitempty"`
+	Reason        *GCGoodbyeReason       `protobuf:"varint,1,opt,name=reason,enum=tf2_gc.GCGoodbyeReason,def=1" json:"reason,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -656,7 +656,7 @@ const (
 
 func (x *CMsgClientGoodbye) Reset() {
 	*x = CMsgClientGoodbye{}
-	mi := &file_base_gcmessages_proto_msgTypes[8]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -668,7 +668,7 @@ func (x *CMsgClientGoodbye) String() string {
 func (*CMsgClientGoodbye) ProtoMessage() {}
 
 func (x *CMsgClientGoodbye) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[8]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -681,7 +681,7 @@ func (x *CMsgClientGoodbye) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgClientGoodbye.ProtoReflect.Descriptor instead.
 func (*CMsgClientGoodbye) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{8}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *CMsgClientGoodbye) GetReason() GCGoodbyeReason {
@@ -693,7 +693,7 @@ func (x *CMsgClientGoodbye) GetReason() GCGoodbyeReason {
 
 type CMsgServerGoodbye struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Reason        *GCGoodbyeReason       `protobuf:"varint,1,opt,name=reason,enum=GCGoodbyeReason,def=1" json:"reason,omitempty"`
+	Reason        *GCGoodbyeReason       `protobuf:"varint,1,opt,name=reason,enum=tf2_gc.GCGoodbyeReason,def=1" json:"reason,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -705,7 +705,7 @@ const (
 
 func (x *CMsgServerGoodbye) Reset() {
 	*x = CMsgServerGoodbye{}
-	mi := &file_base_gcmessages_proto_msgTypes[9]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -717,7 +717,7 @@ func (x *CMsgServerGoodbye) String() string {
 func (*CMsgServerGoodbye) ProtoMessage() {}
 
 func (x *CMsgServerGoodbye) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[9]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -730,7 +730,7 @@ func (x *CMsgServerGoodbye) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgServerGoodbye.ProtoReflect.Descriptor instead.
 func (*CMsgServerGoodbye) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{9}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *CMsgServerGoodbye) GetReason() GCGoodbyeReason {
@@ -748,7 +748,7 @@ type CMsgServerAvailable struct {
 
 func (x *CMsgServerAvailable) Reset() {
 	*x = CMsgServerAvailable{}
-	mi := &file_base_gcmessages_proto_msgTypes[10]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -760,7 +760,7 @@ func (x *CMsgServerAvailable) String() string {
 func (*CMsgServerAvailable) ProtoMessage() {}
 
 func (x *CMsgServerAvailable) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[10]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -773,7 +773,7 @@ func (x *CMsgServerAvailable) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgServerAvailable.ProtoReflect.Descriptor instead.
 func (*CMsgServerAvailable) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{10}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{10}
 }
 
 type CMsgLANServerAvailable struct {
@@ -785,7 +785,7 @@ type CMsgLANServerAvailable struct {
 
 func (x *CMsgLANServerAvailable) Reset() {
 	*x = CMsgLANServerAvailable{}
-	mi := &file_base_gcmessages_proto_msgTypes[11]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -797,7 +797,7 @@ func (x *CMsgLANServerAvailable) String() string {
 func (*CMsgLANServerAvailable) ProtoMessage() {}
 
 func (x *CMsgLANServerAvailable) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[11]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -810,7 +810,7 @@ func (x *CMsgLANServerAvailable) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgLANServerAvailable.ProtoReflect.Descriptor instead.
 func (*CMsgLANServerAvailable) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{11}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *CMsgLANServerAvailable) GetLobbyId() uint64 {
@@ -863,7 +863,7 @@ const (
 
 func (x *CSOEconGameAccountClient) Reset() {
 	*x = CSOEconGameAccountClient{}
-	mi := &file_base_gcmessages_proto_msgTypes[12]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -875,7 +875,7 @@ func (x *CSOEconGameAccountClient) String() string {
 func (*CSOEconGameAccountClient) ProtoMessage() {}
 
 func (x *CSOEconGameAccountClient) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[12]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -888,7 +888,7 @@ func (x *CSOEconGameAccountClient) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CSOEconGameAccountClient.ProtoReflect.Descriptor instead.
 func (*CSOEconGameAccountClient) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{12}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *CSOEconGameAccountClient) GetAdditionalBackpackSlots() uint32 {
@@ -1072,7 +1072,7 @@ type CSOItemCriteriaCondition struct {
 
 func (x *CSOItemCriteriaCondition) Reset() {
 	*x = CSOItemCriteriaCondition{}
-	mi := &file_base_gcmessages_proto_msgTypes[13]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1084,7 +1084,7 @@ func (x *CSOItemCriteriaCondition) String() string {
 func (*CSOItemCriteriaCondition) ProtoMessage() {}
 
 func (x *CSOItemCriteriaCondition) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[13]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1097,7 +1097,7 @@ func (x *CSOItemCriteriaCondition) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CSOItemCriteriaCondition.ProtoReflect.Descriptor instead.
 func (*CSOItemCriteriaCondition) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{13}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *CSOItemCriteriaCondition) GetOp() int32 {
@@ -1154,7 +1154,7 @@ type CSOItemCriteria struct {
 
 func (x *CSOItemCriteria) Reset() {
 	*x = CSOItemCriteria{}
-	mi := &file_base_gcmessages_proto_msgTypes[14]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1166,7 +1166,7 @@ func (x *CSOItemCriteria) String() string {
 func (*CSOItemCriteria) ProtoMessage() {}
 
 func (x *CSOItemCriteria) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[14]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1179,7 +1179,7 @@ func (x *CSOItemCriteria) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CSOItemCriteria.ProtoReflect.Descriptor instead.
 func (*CSOItemCriteria) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{14}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *CSOItemCriteria) GetItemLevel() uint32 {
@@ -1286,7 +1286,7 @@ type CSOItemRecipe struct {
 
 func (x *CSOItemRecipe) Reset() {
 	*x = CSOItemRecipe{}
-	mi := &file_base_gcmessages_proto_msgTypes[15]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1298,7 +1298,7 @@ func (x *CSOItemRecipe) String() string {
 func (*CSOItemRecipe) ProtoMessage() {}
 
 func (x *CSOItemRecipe) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[15]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1311,7 +1311,7 @@ func (x *CSOItemRecipe) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CSOItemRecipe.ProtoReflect.Descriptor instead.
 func (*CSOItemRecipe) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{15}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *CSOItemRecipe) GetDefIndex() uint32 {
@@ -1457,7 +1457,7 @@ type CMsgDevNewItemRequest struct {
 
 func (x *CMsgDevNewItemRequest) Reset() {
 	*x = CMsgDevNewItemRequest{}
-	mi := &file_base_gcmessages_proto_msgTypes[16]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1469,7 +1469,7 @@ func (x *CMsgDevNewItemRequest) String() string {
 func (*CMsgDevNewItemRequest) ProtoMessage() {}
 
 func (x *CMsgDevNewItemRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[16]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1482,7 +1482,7 @@ func (x *CMsgDevNewItemRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgDevNewItemRequest.ProtoReflect.Descriptor instead.
 func (*CMsgDevNewItemRequest) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{16}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *CMsgDevNewItemRequest) GetReceiver() uint64 {
@@ -1509,7 +1509,7 @@ type CMsgDevDebugRollLootRequest struct {
 
 func (x *CMsgDevDebugRollLootRequest) Reset() {
 	*x = CMsgDevDebugRollLootRequest{}
-	mi := &file_base_gcmessages_proto_msgTypes[17]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1521,7 +1521,7 @@ func (x *CMsgDevDebugRollLootRequest) String() string {
 func (*CMsgDevDebugRollLootRequest) ProtoMessage() {}
 
 func (x *CMsgDevDebugRollLootRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[17]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1534,7 +1534,7 @@ func (x *CMsgDevDebugRollLootRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgDevDebugRollLootRequest.ProtoReflect.Descriptor instead.
 func (*CMsgDevDebugRollLootRequest) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{17}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *CMsgDevDebugRollLootRequest) GetReceiver() uint64 {
@@ -1564,7 +1564,7 @@ type CMsgIncrementKillCountAttribute struct {
 
 func (x *CMsgIncrementKillCountAttribute) Reset() {
 	*x = CMsgIncrementKillCountAttribute{}
-	mi := &file_base_gcmessages_proto_msgTypes[18]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1576,7 +1576,7 @@ func (x *CMsgIncrementKillCountAttribute) String() string {
 func (*CMsgIncrementKillCountAttribute) ProtoMessage() {}
 
 func (x *CMsgIncrementKillCountAttribute) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[18]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1589,7 +1589,7 @@ func (x *CMsgIncrementKillCountAttribute) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgIncrementKillCountAttribute.ProtoReflect.Descriptor instead.
 func (*CMsgIncrementKillCountAttribute) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{18}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *CMsgIncrementKillCountAttribute) GetKillerSteamId() uint64 {
@@ -1636,7 +1636,7 @@ type CMsgIncrementKillCountAttribute_Multiple struct {
 
 func (x *CMsgIncrementKillCountAttribute_Multiple) Reset() {
 	*x = CMsgIncrementKillCountAttribute_Multiple{}
-	mi := &file_base_gcmessages_proto_msgTypes[19]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1648,7 +1648,7 @@ func (x *CMsgIncrementKillCountAttribute_Multiple) String() string {
 func (*CMsgIncrementKillCountAttribute_Multiple) ProtoMessage() {}
 
 func (x *CMsgIncrementKillCountAttribute_Multiple) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[19]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1661,7 +1661,7 @@ func (x *CMsgIncrementKillCountAttribute_Multiple) ProtoReflect() protoreflect.M
 
 // Deprecated: Use CMsgIncrementKillCountAttribute_Multiple.ProtoReflect.Descriptor instead.
 func (*CMsgIncrementKillCountAttribute_Multiple) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{19}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *CMsgIncrementKillCountAttribute_Multiple) GetMsgs() []*CMsgIncrementKillCountAttribute {
@@ -1683,7 +1683,7 @@ type CMsgTrackUniquePlayerPairEvent struct {
 
 func (x *CMsgTrackUniquePlayerPairEvent) Reset() {
 	*x = CMsgTrackUniquePlayerPairEvent{}
-	mi := &file_base_gcmessages_proto_msgTypes[20]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1695,7 +1695,7 @@ func (x *CMsgTrackUniquePlayerPairEvent) String() string {
 func (*CMsgTrackUniquePlayerPairEvent) ProtoMessage() {}
 
 func (x *CMsgTrackUniquePlayerPairEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[20]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1708,7 +1708,7 @@ func (x *CMsgTrackUniquePlayerPairEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgTrackUniquePlayerPairEvent.ProtoReflect.Descriptor instead.
 func (*CMsgTrackUniquePlayerPairEvent) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{20}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *CMsgTrackUniquePlayerPairEvent) GetKillerSteamId() uint64 {
@@ -1750,7 +1750,7 @@ type CMsgApplyStrangeCountTransfer struct {
 
 func (x *CMsgApplyStrangeCountTransfer) Reset() {
 	*x = CMsgApplyStrangeCountTransfer{}
-	mi := &file_base_gcmessages_proto_msgTypes[21]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1762,7 +1762,7 @@ func (x *CMsgApplyStrangeCountTransfer) String() string {
 func (*CMsgApplyStrangeCountTransfer) ProtoMessage() {}
 
 func (x *CMsgApplyStrangeCountTransfer) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[21]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1775,7 +1775,7 @@ func (x *CMsgApplyStrangeCountTransfer) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgApplyStrangeCountTransfer.ProtoReflect.Descriptor instead.
 func (*CMsgApplyStrangeCountTransfer) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{21}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *CMsgApplyStrangeCountTransfer) GetToolItemId() uint64 {
@@ -1809,7 +1809,7 @@ type CMsgApplyStrangePart struct {
 
 func (x *CMsgApplyStrangePart) Reset() {
 	*x = CMsgApplyStrangePart{}
-	mi := &file_base_gcmessages_proto_msgTypes[22]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1821,7 +1821,7 @@ func (x *CMsgApplyStrangePart) String() string {
 func (*CMsgApplyStrangePart) ProtoMessage() {}
 
 func (x *CMsgApplyStrangePart) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[22]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1834,7 +1834,7 @@ func (x *CMsgApplyStrangePart) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgApplyStrangePart.ProtoReflect.Descriptor instead.
 func (*CMsgApplyStrangePart) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{22}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *CMsgApplyStrangePart) GetStrangePartItemId() uint64 {
@@ -1862,7 +1862,7 @@ type CMsgApplyStrangeRestriction struct {
 
 func (x *CMsgApplyStrangeRestriction) Reset() {
 	*x = CMsgApplyStrangeRestriction{}
-	mi := &file_base_gcmessages_proto_msgTypes[23]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1874,7 +1874,7 @@ func (x *CMsgApplyStrangeRestriction) String() string {
 func (*CMsgApplyStrangeRestriction) ProtoMessage() {}
 
 func (x *CMsgApplyStrangeRestriction) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[23]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1887,7 +1887,7 @@ func (x *CMsgApplyStrangeRestriction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgApplyStrangeRestriction.ProtoReflect.Descriptor instead.
 func (*CMsgApplyStrangeRestriction) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{23}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *CMsgApplyStrangeRestriction) GetStrangePartItemId() uint64 {
@@ -1921,7 +1921,7 @@ type CMsgApplyUpgradeCard struct {
 
 func (x *CMsgApplyUpgradeCard) Reset() {
 	*x = CMsgApplyUpgradeCard{}
-	mi := &file_base_gcmessages_proto_msgTypes[24]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1933,7 +1933,7 @@ func (x *CMsgApplyUpgradeCard) String() string {
 func (*CMsgApplyUpgradeCard) ProtoMessage() {}
 
 func (x *CMsgApplyUpgradeCard) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[24]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1946,7 +1946,7 @@ func (x *CMsgApplyUpgradeCard) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgApplyUpgradeCard.ProtoReflect.Descriptor instead.
 func (*CMsgApplyUpgradeCard) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{24}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *CMsgApplyUpgradeCard) GetUpgradeCardItemId() uint64 {
@@ -1974,7 +1974,7 @@ type CSOEconItemAttribute struct {
 
 func (x *CSOEconItemAttribute) Reset() {
 	*x = CSOEconItemAttribute{}
-	mi := &file_base_gcmessages_proto_msgTypes[25]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1986,7 +1986,7 @@ func (x *CSOEconItemAttribute) String() string {
 func (*CSOEconItemAttribute) ProtoMessage() {}
 
 func (x *CSOEconItemAttribute) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[25]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1999,7 +1999,7 @@ func (x *CSOEconItemAttribute) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CSOEconItemAttribute.ProtoReflect.Descriptor instead.
 func (*CSOEconItemAttribute) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{25}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *CSOEconItemAttribute) GetDefIndex() uint32 {
@@ -2033,7 +2033,7 @@ type CSOEconItemEquipped struct {
 
 func (x *CSOEconItemEquipped) Reset() {
 	*x = CSOEconItemEquipped{}
-	mi := &file_base_gcmessages_proto_msgTypes[26]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2045,7 +2045,7 @@ func (x *CSOEconItemEquipped) String() string {
 func (*CSOEconItemEquipped) ProtoMessage() {}
 
 func (x *CSOEconItemEquipped) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[26]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2058,7 +2058,7 @@ func (x *CSOEconItemEquipped) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CSOEconItemEquipped.ProtoReflect.Descriptor instead.
 func (*CSOEconItemEquipped) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{26}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *CSOEconItemEquipped) GetNewClass() uint32 {
@@ -2110,7 +2110,7 @@ const (
 
 func (x *CSOEconItem) Reset() {
 	*x = CSOEconItem{}
-	mi := &file_base_gcmessages_proto_msgTypes[27]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2122,7 +2122,7 @@ func (x *CSOEconItem) String() string {
 func (*CSOEconItem) ProtoMessage() {}
 
 func (x *CSOEconItem) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[27]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2135,7 +2135,7 @@ func (x *CSOEconItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CSOEconItem.ProtoReflect.Descriptor instead.
 func (*CSOEconItem) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{27}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *CSOEconItem) GetId() uint64 {
@@ -2282,7 +2282,7 @@ type CMsgAdjustItemEquippedState struct {
 
 func (x *CMsgAdjustItemEquippedState) Reset() {
 	*x = CMsgAdjustItemEquippedState{}
-	mi := &file_base_gcmessages_proto_msgTypes[28]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2294,7 +2294,7 @@ func (x *CMsgAdjustItemEquippedState) String() string {
 func (*CMsgAdjustItemEquippedState) ProtoMessage() {}
 
 func (x *CMsgAdjustItemEquippedState) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[28]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2307,7 +2307,7 @@ func (x *CMsgAdjustItemEquippedState) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgAdjustItemEquippedState.ProtoReflect.Descriptor instead.
 func (*CMsgAdjustItemEquippedState) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{28}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *CMsgAdjustItemEquippedState) GetItemId() uint64 {
@@ -2340,7 +2340,7 @@ type CMsgSortItems struct {
 
 func (x *CMsgSortItems) Reset() {
 	*x = CMsgSortItems{}
-	mi := &file_base_gcmessages_proto_msgTypes[29]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2352,7 +2352,7 @@ func (x *CMsgSortItems) String() string {
 func (*CMsgSortItems) ProtoMessage() {}
 
 func (x *CMsgSortItems) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[29]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2365,7 +2365,7 @@ func (x *CMsgSortItems) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgSortItems.ProtoReflect.Descriptor instead.
 func (*CMsgSortItems) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{29}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *CMsgSortItems) GetSortType() uint32 {
@@ -2387,7 +2387,7 @@ type CSOEconClaimCode struct {
 
 func (x *CSOEconClaimCode) Reset() {
 	*x = CSOEconClaimCode{}
-	mi := &file_base_gcmessages_proto_msgTypes[30]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2399,7 +2399,7 @@ func (x *CSOEconClaimCode) String() string {
 func (*CSOEconClaimCode) ProtoMessage() {}
 
 func (x *CSOEconClaimCode) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[30]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2412,7 +2412,7 @@ func (x *CSOEconClaimCode) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CSOEconClaimCode.ProtoReflect.Descriptor instead.
 func (*CSOEconClaimCode) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{30}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *CSOEconClaimCode) GetAccountId() uint32 {
@@ -2452,7 +2452,7 @@ type CMsgStoreGetUserData struct {
 
 func (x *CMsgStoreGetUserData) Reset() {
 	*x = CMsgStoreGetUserData{}
-	mi := &file_base_gcmessages_proto_msgTypes[31]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2464,7 +2464,7 @@ func (x *CMsgStoreGetUserData) String() string {
 func (*CMsgStoreGetUserData) ProtoMessage() {}
 
 func (x *CMsgStoreGetUserData) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[31]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2477,7 +2477,7 @@ func (x *CMsgStoreGetUserData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgStoreGetUserData.ProtoReflect.Descriptor instead.
 func (*CMsgStoreGetUserData) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{31}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *CMsgStoreGetUserData) GetPriceSheetVersion() uint32 {
@@ -2512,7 +2512,7 @@ const (
 
 func (x *CMsgStoreGetUserDataResponse) Reset() {
 	*x = CMsgStoreGetUserDataResponse{}
-	mi := &file_base_gcmessages_proto_msgTypes[32]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2524,7 +2524,7 @@ func (x *CMsgStoreGetUserDataResponse) String() string {
 func (*CMsgStoreGetUserDataResponse) ProtoMessage() {}
 
 func (x *CMsgStoreGetUserDataResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[32]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2537,7 +2537,7 @@ func (x *CMsgStoreGetUserDataResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgStoreGetUserDataResponse.ProtoReflect.Descriptor instead.
 func (*CMsgStoreGetUserDataResponse) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{32}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *CMsgStoreGetUserDataResponse) GetResult() int32 {
@@ -2622,7 +2622,7 @@ type CMsgUpdateItemSchema struct {
 
 func (x *CMsgUpdateItemSchema) Reset() {
 	*x = CMsgUpdateItemSchema{}
-	mi := &file_base_gcmessages_proto_msgTypes[33]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2634,7 +2634,7 @@ func (x *CMsgUpdateItemSchema) String() string {
 func (*CMsgUpdateItemSchema) ProtoMessage() {}
 
 func (x *CMsgUpdateItemSchema) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[33]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2647,7 +2647,7 @@ func (x *CMsgUpdateItemSchema) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgUpdateItemSchema.ProtoReflect.Descriptor instead.
 func (*CMsgUpdateItemSchema) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{33}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *CMsgUpdateItemSchema) GetItemsGame() []byte {
@@ -2687,7 +2687,7 @@ type CMsgGCError struct {
 
 func (x *CMsgGCError) Reset() {
 	*x = CMsgGCError{}
-	mi := &file_base_gcmessages_proto_msgTypes[34]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2699,7 +2699,7 @@ func (x *CMsgGCError) String() string {
 func (*CMsgGCError) ProtoMessage() {}
 
 func (x *CMsgGCError) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[34]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2712,7 +2712,7 @@ func (x *CMsgGCError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgGCError.ProtoReflect.Descriptor instead.
 func (*CMsgGCError) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{34}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *CMsgGCError) GetErrorText() string {
@@ -2730,7 +2730,7 @@ type CMsgRequestInventoryRefresh struct {
 
 func (x *CMsgRequestInventoryRefresh) Reset() {
 	*x = CMsgRequestInventoryRefresh{}
-	mi := &file_base_gcmessages_proto_msgTypes[35]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2742,7 +2742,7 @@ func (x *CMsgRequestInventoryRefresh) String() string {
 func (*CMsgRequestInventoryRefresh) ProtoMessage() {}
 
 func (x *CMsgRequestInventoryRefresh) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[35]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2755,7 +2755,7 @@ func (x *CMsgRequestInventoryRefresh) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgRequestInventoryRefresh.ProtoReflect.Descriptor instead.
 func (*CMsgRequestInventoryRefresh) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{35}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{35}
 }
 
 type CMsgConVarValue struct {
@@ -2768,7 +2768,7 @@ type CMsgConVarValue struct {
 
 func (x *CMsgConVarValue) Reset() {
 	*x = CMsgConVarValue{}
-	mi := &file_base_gcmessages_proto_msgTypes[36]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2780,7 +2780,7 @@ func (x *CMsgConVarValue) String() string {
 func (*CMsgConVarValue) ProtoMessage() {}
 
 func (x *CMsgConVarValue) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[36]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2793,7 +2793,7 @@ func (x *CMsgConVarValue) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgConVarValue.ProtoReflect.Descriptor instead.
 func (*CMsgConVarValue) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{36}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *CMsgConVarValue) GetName() string {
@@ -2819,7 +2819,7 @@ type CMsgReplicateConVars struct {
 
 func (x *CMsgReplicateConVars) Reset() {
 	*x = CMsgReplicateConVars{}
-	mi := &file_base_gcmessages_proto_msgTypes[37]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2831,7 +2831,7 @@ func (x *CMsgReplicateConVars) String() string {
 func (*CMsgReplicateConVars) ProtoMessage() {}
 
 func (x *CMsgReplicateConVars) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[37]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2844,7 +2844,7 @@ func (x *CMsgReplicateConVars) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgReplicateConVars.ProtoReflect.Descriptor instead.
 func (*CMsgReplicateConVars) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{37}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *CMsgReplicateConVars) GetConvars() []*CMsgConVarValue {
@@ -2868,7 +2868,7 @@ type CMsgUseItem struct {
 
 func (x *CMsgUseItem) Reset() {
 	*x = CMsgUseItem{}
-	mi := &file_base_gcmessages_proto_msgTypes[38]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2880,7 +2880,7 @@ func (x *CMsgUseItem) String() string {
 func (*CMsgUseItem) ProtoMessage() {}
 
 func (x *CMsgUseItem) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[38]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2893,7 +2893,7 @@ func (x *CMsgUseItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgUseItem.ProtoReflect.Descriptor instead.
 func (*CMsgUseItem) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{38}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *CMsgUseItem) GetItemId() uint64 {
@@ -2949,7 +2949,7 @@ type CMsgReplayUploadedToYouTube struct {
 
 func (x *CMsgReplayUploadedToYouTube) Reset() {
 	*x = CMsgReplayUploadedToYouTube{}
-	mi := &file_base_gcmessages_proto_msgTypes[39]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2961,7 +2961,7 @@ func (x *CMsgReplayUploadedToYouTube) String() string {
 func (*CMsgReplayUploadedToYouTube) ProtoMessage() {}
 
 func (x *CMsgReplayUploadedToYouTube) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[39]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2974,7 +2974,7 @@ func (x *CMsgReplayUploadedToYouTube) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgReplayUploadedToYouTube.ProtoReflect.Descriptor instead.
 func (*CMsgReplayUploadedToYouTube) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{39}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *CMsgReplayUploadedToYouTube) GetYoutubeUrl() string {
@@ -3007,7 +3007,7 @@ type CMsgConsumableExhausted struct {
 
 func (x *CMsgConsumableExhausted) Reset() {
 	*x = CMsgConsumableExhausted{}
-	mi := &file_base_gcmessages_proto_msgTypes[40]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3019,7 +3019,7 @@ func (x *CMsgConsumableExhausted) String() string {
 func (*CMsgConsumableExhausted) ProtoMessage() {}
 
 func (x *CMsgConsumableExhausted) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[40]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3032,7 +3032,7 @@ func (x *CMsgConsumableExhausted) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgConsumableExhausted.ProtoReflect.Descriptor instead.
 func (*CMsgConsumableExhausted) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{40}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *CMsgConsumableExhausted) GetItemDefId() int32 {
@@ -3059,7 +3059,7 @@ type CMsgItemAcknowledged struct {
 
 func (x *CMsgItemAcknowledged) Reset() {
 	*x = CMsgItemAcknowledged{}
-	mi := &file_base_gcmessages_proto_msgTypes[41]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3071,7 +3071,7 @@ func (x *CMsgItemAcknowledged) String() string {
 func (*CMsgItemAcknowledged) ProtoMessage() {}
 
 func (x *CMsgItemAcknowledged) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[41]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3084,7 +3084,7 @@ func (x *CMsgItemAcknowledged) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgItemAcknowledged.ProtoReflect.Descriptor instead.
 func (*CMsgItemAcknowledged) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{41}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *CMsgItemAcknowledged) GetAccountId() uint32 {
@@ -3162,7 +3162,7 @@ type CMsgSetPresetItemPosition struct {
 
 func (x *CMsgSetPresetItemPosition) Reset() {
 	*x = CMsgSetPresetItemPosition{}
-	mi := &file_base_gcmessages_proto_msgTypes[42]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3174,7 +3174,7 @@ func (x *CMsgSetPresetItemPosition) String() string {
 func (*CMsgSetPresetItemPosition) ProtoMessage() {}
 
 func (x *CMsgSetPresetItemPosition) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[42]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3187,7 +3187,7 @@ func (x *CMsgSetPresetItemPosition) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgSetPresetItemPosition.ProtoReflect.Descriptor instead.
 func (*CMsgSetPresetItemPosition) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{42}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *CMsgSetPresetItemPosition) GetClassId() uint32 {
@@ -3227,7 +3227,7 @@ type CMsgSetItemPositions struct {
 
 func (x *CMsgSetItemPositions) Reset() {
 	*x = CMsgSetItemPositions{}
-	mi := &file_base_gcmessages_proto_msgTypes[43]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3239,7 +3239,7 @@ func (x *CMsgSetItemPositions) String() string {
 func (*CMsgSetItemPositions) ProtoMessage() {}
 
 func (x *CMsgSetItemPositions) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[43]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3252,7 +3252,7 @@ func (x *CMsgSetItemPositions) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgSetItemPositions.ProtoReflect.Descriptor instead.
 func (*CMsgSetItemPositions) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{43}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *CMsgSetItemPositions) GetItemPositions() []*CMsgSetItemPositions_ItemPosition {
@@ -3274,7 +3274,7 @@ type CSOEconItemPresetInstance struct {
 
 func (x *CSOEconItemPresetInstance) Reset() {
 	*x = CSOEconItemPresetInstance{}
-	mi := &file_base_gcmessages_proto_msgTypes[44]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3286,7 +3286,7 @@ func (x *CSOEconItemPresetInstance) String() string {
 func (*CSOEconItemPresetInstance) ProtoMessage() {}
 
 func (x *CSOEconItemPresetInstance) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[44]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3299,7 +3299,7 @@ func (x *CSOEconItemPresetInstance) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CSOEconItemPresetInstance.ProtoReflect.Descriptor instead.
 func (*CSOEconItemPresetInstance) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{44}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *CSOEconItemPresetInstance) GetClassId() uint32 {
@@ -3340,7 +3340,7 @@ type CMsgSelectPresetForClass struct {
 
 func (x *CMsgSelectPresetForClass) Reset() {
 	*x = CMsgSelectPresetForClass{}
-	mi := &file_base_gcmessages_proto_msgTypes[45]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3352,7 +3352,7 @@ func (x *CMsgSelectPresetForClass) String() string {
 func (*CMsgSelectPresetForClass) ProtoMessage() {}
 
 func (x *CMsgSelectPresetForClass) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[45]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3365,7 +3365,7 @@ func (x *CMsgSelectPresetForClass) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgSelectPresetForClass.ProtoReflect.Descriptor instead.
 func (*CMsgSelectPresetForClass) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{45}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *CMsgSelectPresetForClass) GetClassId() uint32 {
@@ -3393,7 +3393,7 @@ type CSOClassPresetClientData struct {
 
 func (x *CSOClassPresetClientData) Reset() {
 	*x = CSOClassPresetClientData{}
-	mi := &file_base_gcmessages_proto_msgTypes[46]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3405,7 +3405,7 @@ func (x *CSOClassPresetClientData) String() string {
 func (*CSOClassPresetClientData) ProtoMessage() {}
 
 func (x *CSOClassPresetClientData) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[46]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3418,7 +3418,7 @@ func (x *CSOClassPresetClientData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CSOClassPresetClientData.ProtoReflect.Descriptor instead.
 func (*CSOClassPresetClientData) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{46}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *CSOClassPresetClientData) GetAccountId() uint32 {
@@ -3457,7 +3457,7 @@ type CMsgGCReportAbuse struct {
 
 func (x *CMsgGCReportAbuse) Reset() {
 	*x = CMsgGCReportAbuse{}
-	mi := &file_base_gcmessages_proto_msgTypes[47]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3469,7 +3469,7 @@ func (x *CMsgGCReportAbuse) String() string {
 func (*CMsgGCReportAbuse) ProtoMessage() {}
 
 func (x *CMsgGCReportAbuse) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[47]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3482,7 +3482,7 @@ func (x *CMsgGCReportAbuse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgGCReportAbuse.ProtoReflect.Descriptor instead.
 func (*CMsgGCReportAbuse) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{47}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *CMsgGCReportAbuse) GetTargetSteamId() uint64 {
@@ -3545,7 +3545,7 @@ type CMsgGCReportAbuseResponse struct {
 
 func (x *CMsgGCReportAbuseResponse) Reset() {
 	*x = CMsgGCReportAbuseResponse{}
-	mi := &file_base_gcmessages_proto_msgTypes[48]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3557,7 +3557,7 @@ func (x *CMsgGCReportAbuseResponse) String() string {
 func (*CMsgGCReportAbuseResponse) ProtoMessage() {}
 
 func (x *CMsgGCReportAbuseResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[48]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3570,7 +3570,7 @@ func (x *CMsgGCReportAbuseResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgGCReportAbuseResponse.ProtoReflect.Descriptor instead.
 func (*CMsgGCReportAbuseResponse) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{48}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *CMsgGCReportAbuseResponse) GetTargetSteamId() uint64 {
@@ -3605,7 +3605,7 @@ type CMsgGCNameItemNotification struct {
 
 func (x *CMsgGCNameItemNotification) Reset() {
 	*x = CMsgGCNameItemNotification{}
-	mi := &file_base_gcmessages_proto_msgTypes[49]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3617,7 +3617,7 @@ func (x *CMsgGCNameItemNotification) String() string {
 func (*CMsgGCNameItemNotification) ProtoMessage() {}
 
 func (x *CMsgGCNameItemNotification) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[49]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3630,7 +3630,7 @@ func (x *CMsgGCNameItemNotification) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgGCNameItemNotification.ProtoReflect.Descriptor instead.
 func (*CMsgGCNameItemNotification) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{49}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *CMsgGCNameItemNotification) GetPlayerSteamid() uint64 {
@@ -3666,7 +3666,7 @@ type CMsgGCClientDisplayNotification struct {
 
 func (x *CMsgGCClientDisplayNotification) Reset() {
 	*x = CMsgGCClientDisplayNotification{}
-	mi := &file_base_gcmessages_proto_msgTypes[50]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3678,7 +3678,7 @@ func (x *CMsgGCClientDisplayNotification) String() string {
 func (*CMsgGCClientDisplayNotification) ProtoMessage() {}
 
 func (x *CMsgGCClientDisplayNotification) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[50]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3691,7 +3691,7 @@ func (x *CMsgGCClientDisplayNotification) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgGCClientDisplayNotification.ProtoReflect.Descriptor instead.
 func (*CMsgGCClientDisplayNotification) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{50}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *CMsgGCClientDisplayNotification) GetNotificationTitleLocalizationKey() string {
@@ -3731,7 +3731,7 @@ type CMsgGCShowItemsPickedUp struct {
 
 func (x *CMsgGCShowItemsPickedUp) Reset() {
 	*x = CMsgGCShowItemsPickedUp{}
-	mi := &file_base_gcmessages_proto_msgTypes[51]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3743,7 +3743,7 @@ func (x *CMsgGCShowItemsPickedUp) String() string {
 func (*CMsgGCShowItemsPickedUp) ProtoMessage() {}
 
 func (x *CMsgGCShowItemsPickedUp) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[51]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3756,7 +3756,7 @@ func (x *CMsgGCShowItemsPickedUp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgGCShowItemsPickedUp.ProtoReflect.Descriptor instead.
 func (*CMsgGCShowItemsPickedUp) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{51}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *CMsgGCShowItemsPickedUp) GetPlayerSteamid() uint64 {
@@ -3777,7 +3777,7 @@ type CMsgUpdatePeriodicEvent struct {
 
 func (x *CMsgUpdatePeriodicEvent) Reset() {
 	*x = CMsgUpdatePeriodicEvent{}
-	mi := &file_base_gcmessages_proto_msgTypes[52]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3789,7 +3789,7 @@ func (x *CMsgUpdatePeriodicEvent) String() string {
 func (*CMsgUpdatePeriodicEvent) ProtoMessage() {}
 
 func (x *CMsgUpdatePeriodicEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[52]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3802,7 +3802,7 @@ func (x *CMsgUpdatePeriodicEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgUpdatePeriodicEvent.ProtoReflect.Descriptor instead.
 func (*CMsgUpdatePeriodicEvent) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{52}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *CMsgUpdatePeriodicEvent) GetAccountId() uint32 {
@@ -3838,7 +3838,7 @@ type CMsgGCIncrementKillCountResponse struct {
 
 func (x *CMsgGCIncrementKillCountResponse) Reset() {
 	*x = CMsgGCIncrementKillCountResponse{}
-	mi := &file_base_gcmessages_proto_msgTypes[53]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3850,7 +3850,7 @@ func (x *CMsgGCIncrementKillCountResponse) String() string {
 func (*CMsgGCIncrementKillCountResponse) ProtoMessage() {}
 
 func (x *CMsgGCIncrementKillCountResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[53]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3863,7 +3863,7 @@ func (x *CMsgGCIncrementKillCountResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgGCIncrementKillCountResponse.ProtoReflect.Descriptor instead.
 func (*CMsgGCIncrementKillCountResponse) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{53}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *CMsgGCIncrementKillCountResponse) GetKillerAccountId() uint32 {
@@ -3904,7 +3904,7 @@ type CMsgGCRemoveStrangePart struct {
 
 func (x *CMsgGCRemoveStrangePart) Reset() {
 	*x = CMsgGCRemoveStrangePart{}
-	mi := &file_base_gcmessages_proto_msgTypes[54]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3916,7 +3916,7 @@ func (x *CMsgGCRemoveStrangePart) String() string {
 func (*CMsgGCRemoveStrangePart) ProtoMessage() {}
 
 func (x *CMsgGCRemoveStrangePart) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[54]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3929,7 +3929,7 @@ func (x *CMsgGCRemoveStrangePart) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgGCRemoveStrangePart.ProtoReflect.Descriptor instead.
 func (*CMsgGCRemoveStrangePart) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{54}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *CMsgGCRemoveStrangePart) GetItemId() uint64 {
@@ -3956,7 +3956,7 @@ type CMsgGCRemoveUpgradeCard struct {
 
 func (x *CMsgGCRemoveUpgradeCard) Reset() {
 	*x = CMsgGCRemoveUpgradeCard{}
-	mi := &file_base_gcmessages_proto_msgTypes[55]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3968,7 +3968,7 @@ func (x *CMsgGCRemoveUpgradeCard) String() string {
 func (*CMsgGCRemoveUpgradeCard) ProtoMessage() {}
 
 func (x *CMsgGCRemoveUpgradeCard) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[55]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3981,7 +3981,7 @@ func (x *CMsgGCRemoveUpgradeCard) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgGCRemoveUpgradeCard.ProtoReflect.Descriptor instead.
 func (*CMsgGCRemoveUpgradeCard) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{55}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *CMsgGCRemoveUpgradeCard) GetItemId() uint64 {
@@ -4007,7 +4007,7 @@ type CMsgGCRemoveCustomizationAttributeSimple struct {
 
 func (x *CMsgGCRemoveCustomizationAttributeSimple) Reset() {
 	*x = CMsgGCRemoveCustomizationAttributeSimple{}
-	mi := &file_base_gcmessages_proto_msgTypes[56]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4019,7 +4019,7 @@ func (x *CMsgGCRemoveCustomizationAttributeSimple) String() string {
 func (*CMsgGCRemoveCustomizationAttributeSimple) ProtoMessage() {}
 
 func (x *CMsgGCRemoveCustomizationAttributeSimple) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[56]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4032,7 +4032,7 @@ func (x *CMsgGCRemoveCustomizationAttributeSimple) ProtoReflect() protoreflect.M
 
 // Deprecated: Use CMsgGCRemoveCustomizationAttributeSimple.ProtoReflect.Descriptor instead.
 func (*CMsgGCRemoveCustomizationAttributeSimple) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{56}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *CMsgGCRemoveCustomizationAttributeSimple) GetItemId() uint64 {
@@ -4051,7 +4051,7 @@ type CMsgGCResetStrangeScores struct {
 
 func (x *CMsgGCResetStrangeScores) Reset() {
 	*x = CMsgGCResetStrangeScores{}
-	mi := &file_base_gcmessages_proto_msgTypes[57]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4063,7 +4063,7 @@ func (x *CMsgGCResetStrangeScores) String() string {
 func (*CMsgGCResetStrangeScores) ProtoMessage() {}
 
 func (x *CMsgGCResetStrangeScores) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[57]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4076,7 +4076,7 @@ func (x *CMsgGCResetStrangeScores) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgGCResetStrangeScores.ProtoReflect.Descriptor instead.
 func (*CMsgGCResetStrangeScores) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{57}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *CMsgGCResetStrangeScores) GetItemId() uint64 {
@@ -4095,7 +4095,7 @@ type CMsgGCItemPreviewItemBoughtNotification struct {
 
 func (x *CMsgGCItemPreviewItemBoughtNotification) Reset() {
 	*x = CMsgGCItemPreviewItemBoughtNotification{}
-	mi := &file_base_gcmessages_proto_msgTypes[58]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4107,7 +4107,7 @@ func (x *CMsgGCItemPreviewItemBoughtNotification) String() string {
 func (*CMsgGCItemPreviewItemBoughtNotification) ProtoMessage() {}
 
 func (x *CMsgGCItemPreviewItemBoughtNotification) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[58]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4120,7 +4120,7 @@ func (x *CMsgGCItemPreviewItemBoughtNotification) ProtoReflect() protoreflect.Me
 
 // Deprecated: Use CMsgGCItemPreviewItemBoughtNotification.ProtoReflect.Descriptor instead.
 func (*CMsgGCItemPreviewItemBoughtNotification) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{58}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *CMsgGCItemPreviewItemBoughtNotification) GetItemDefIndex() uint32 {
@@ -4139,7 +4139,7 @@ type CMsgGCStorePurchaseCancel struct {
 
 func (x *CMsgGCStorePurchaseCancel) Reset() {
 	*x = CMsgGCStorePurchaseCancel{}
-	mi := &file_base_gcmessages_proto_msgTypes[59]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4151,7 +4151,7 @@ func (x *CMsgGCStorePurchaseCancel) String() string {
 func (*CMsgGCStorePurchaseCancel) ProtoMessage() {}
 
 func (x *CMsgGCStorePurchaseCancel) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[59]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4164,7 +4164,7 @@ func (x *CMsgGCStorePurchaseCancel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgGCStorePurchaseCancel.ProtoReflect.Descriptor instead.
 func (*CMsgGCStorePurchaseCancel) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{59}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *CMsgGCStorePurchaseCancel) GetTxnId() uint64 {
@@ -4183,7 +4183,7 @@ type CMsgGCStorePurchaseCancelResponse struct {
 
 func (x *CMsgGCStorePurchaseCancelResponse) Reset() {
 	*x = CMsgGCStorePurchaseCancelResponse{}
-	mi := &file_base_gcmessages_proto_msgTypes[60]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4195,7 +4195,7 @@ func (x *CMsgGCStorePurchaseCancelResponse) String() string {
 func (*CMsgGCStorePurchaseCancelResponse) ProtoMessage() {}
 
 func (x *CMsgGCStorePurchaseCancelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[60]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4208,7 +4208,7 @@ func (x *CMsgGCStorePurchaseCancelResponse) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use CMsgGCStorePurchaseCancelResponse.ProtoReflect.Descriptor instead.
 func (*CMsgGCStorePurchaseCancelResponse) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{60}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *CMsgGCStorePurchaseCancelResponse) GetResult() uint32 {
@@ -4227,7 +4227,7 @@ type CMsgGCStorePurchaseFinalize struct {
 
 func (x *CMsgGCStorePurchaseFinalize) Reset() {
 	*x = CMsgGCStorePurchaseFinalize{}
-	mi := &file_base_gcmessages_proto_msgTypes[61]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4239,7 +4239,7 @@ func (x *CMsgGCStorePurchaseFinalize) String() string {
 func (*CMsgGCStorePurchaseFinalize) ProtoMessage() {}
 
 func (x *CMsgGCStorePurchaseFinalize) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[61]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4252,7 +4252,7 @@ func (x *CMsgGCStorePurchaseFinalize) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgGCStorePurchaseFinalize.ProtoReflect.Descriptor instead.
 func (*CMsgGCStorePurchaseFinalize) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{61}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *CMsgGCStorePurchaseFinalize) GetTxnId() uint64 {
@@ -4272,7 +4272,7 @@ type CMsgGCStorePurchaseFinalizeResponse struct {
 
 func (x *CMsgGCStorePurchaseFinalizeResponse) Reset() {
 	*x = CMsgGCStorePurchaseFinalizeResponse{}
-	mi := &file_base_gcmessages_proto_msgTypes[62]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4284,7 +4284,7 @@ func (x *CMsgGCStorePurchaseFinalizeResponse) String() string {
 func (*CMsgGCStorePurchaseFinalizeResponse) ProtoMessage() {}
 
 func (x *CMsgGCStorePurchaseFinalizeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[62]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4297,7 +4297,7 @@ func (x *CMsgGCStorePurchaseFinalizeResponse) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use CMsgGCStorePurchaseFinalizeResponse.ProtoReflect.Descriptor instead.
 func (*CMsgGCStorePurchaseFinalizeResponse) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{62}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *CMsgGCStorePurchaseFinalizeResponse) GetResult() uint32 {
@@ -4324,7 +4324,7 @@ type CMsgGCBannedWordListRequest struct {
 
 func (x *CMsgGCBannedWordListRequest) Reset() {
 	*x = CMsgGCBannedWordListRequest{}
-	mi := &file_base_gcmessages_proto_msgTypes[63]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4336,7 +4336,7 @@ func (x *CMsgGCBannedWordListRequest) String() string {
 func (*CMsgGCBannedWordListRequest) ProtoMessage() {}
 
 func (x *CMsgGCBannedWordListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[63]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4349,7 +4349,7 @@ func (x *CMsgGCBannedWordListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgGCBannedWordListRequest.ProtoReflect.Descriptor instead.
 func (*CMsgGCBannedWordListRequest) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{63}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *CMsgGCBannedWordListRequest) GetBanListGroupId() uint32 {
@@ -4377,7 +4377,7 @@ type CMsgGCGiftedItems struct {
 
 func (x *CMsgGCGiftedItems) Reset() {
 	*x = CMsgGCGiftedItems{}
-	mi := &file_base_gcmessages_proto_msgTypes[64]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4389,7 +4389,7 @@ func (x *CMsgGCGiftedItems) String() string {
 func (*CMsgGCGiftedItems) ProtoMessage() {}
 
 func (x *CMsgGCGiftedItems) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[64]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4402,7 +4402,7 @@ func (x *CMsgGCGiftedItems) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgGCGiftedItems.ProtoReflect.Descriptor instead.
 func (*CMsgGCGiftedItems) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{64}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *CMsgGCGiftedItems) GetGifterSteamId() uint64 {
@@ -4436,7 +4436,7 @@ type CMsgGCCollectItem struct {
 
 func (x *CMsgGCCollectItem) Reset() {
 	*x = CMsgGCCollectItem{}
-	mi := &file_base_gcmessages_proto_msgTypes[65]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4448,7 +4448,7 @@ func (x *CMsgGCCollectItem) String() string {
 func (*CMsgGCCollectItem) ProtoMessage() {}
 
 func (x *CMsgGCCollectItem) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[65]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4461,7 +4461,7 @@ func (x *CMsgGCCollectItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgGCCollectItem.ProtoReflect.Descriptor instead.
 func (*CMsgGCCollectItem) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{65}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *CMsgGCCollectItem) GetCollectionItemId() uint64 {
@@ -4487,7 +4487,7 @@ type CMsgGCClientMarketDataRequest struct {
 
 func (x *CMsgGCClientMarketDataRequest) Reset() {
 	*x = CMsgGCClientMarketDataRequest{}
-	mi := &file_base_gcmessages_proto_msgTypes[66]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4499,7 +4499,7 @@ func (x *CMsgGCClientMarketDataRequest) String() string {
 func (*CMsgGCClientMarketDataRequest) ProtoMessage() {}
 
 func (x *CMsgGCClientMarketDataRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[66]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4512,7 +4512,7 @@ func (x *CMsgGCClientMarketDataRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgGCClientMarketDataRequest.ProtoReflect.Descriptor instead.
 func (*CMsgGCClientMarketDataRequest) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{66}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *CMsgGCClientMarketDataRequest) GetUserCurrency() uint32 {
@@ -4534,7 +4534,7 @@ type CMsgGCClientMarketDataEntry struct {
 
 func (x *CMsgGCClientMarketDataEntry) Reset() {
 	*x = CMsgGCClientMarketDataEntry{}
-	mi := &file_base_gcmessages_proto_msgTypes[67]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4546,7 +4546,7 @@ func (x *CMsgGCClientMarketDataEntry) String() string {
 func (*CMsgGCClientMarketDataEntry) ProtoMessage() {}
 
 func (x *CMsgGCClientMarketDataEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[67]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4559,7 +4559,7 @@ func (x *CMsgGCClientMarketDataEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgGCClientMarketDataEntry.ProtoReflect.Descriptor instead.
 func (*CMsgGCClientMarketDataEntry) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{67}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *CMsgGCClientMarketDataEntry) GetItemDefIndex() uint32 {
@@ -4599,7 +4599,7 @@ type CMsgGCClientMarketData struct {
 
 func (x *CMsgGCClientMarketData) Reset() {
 	*x = CMsgGCClientMarketData{}
-	mi := &file_base_gcmessages_proto_msgTypes[68]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4611,7 +4611,7 @@ func (x *CMsgGCClientMarketData) String() string {
 func (*CMsgGCClientMarketData) ProtoMessage() {}
 
 func (x *CMsgGCClientMarketData) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[68]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4624,7 +4624,7 @@ func (x *CMsgGCClientMarketData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgGCClientMarketData.ProtoReflect.Descriptor instead.
 func (*CMsgGCClientMarketData) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{68}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *CMsgGCClientMarketData) GetEntries() []*CMsgGCClientMarketDataEntry {
@@ -4644,7 +4644,7 @@ type CMsgApplyToolToItem struct {
 
 func (x *CMsgApplyToolToItem) Reset() {
 	*x = CMsgApplyToolToItem{}
-	mi := &file_base_gcmessages_proto_msgTypes[69]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4656,7 +4656,7 @@ func (x *CMsgApplyToolToItem) String() string {
 func (*CMsgApplyToolToItem) ProtoMessage() {}
 
 func (x *CMsgApplyToolToItem) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[69]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4669,7 +4669,7 @@ func (x *CMsgApplyToolToItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgApplyToolToItem.ProtoReflect.Descriptor instead.
 func (*CMsgApplyToolToItem) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{69}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *CMsgApplyToolToItem) GetToolItemId() uint64 {
@@ -4696,7 +4696,7 @@ type CMsgApplyToolToBaseItem struct {
 
 func (x *CMsgApplyToolToBaseItem) Reset() {
 	*x = CMsgApplyToolToBaseItem{}
-	mi := &file_base_gcmessages_proto_msgTypes[70]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[70]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4708,7 +4708,7 @@ func (x *CMsgApplyToolToBaseItem) String() string {
 func (*CMsgApplyToolToBaseItem) ProtoMessage() {}
 
 func (x *CMsgApplyToolToBaseItem) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[70]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[70]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4721,7 +4721,7 @@ func (x *CMsgApplyToolToBaseItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgApplyToolToBaseItem.ProtoReflect.Descriptor instead.
 func (*CMsgApplyToolToBaseItem) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{70}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{70}
 }
 
 func (x *CMsgApplyToolToBaseItem) GetToolItemId() uint64 {
@@ -4748,7 +4748,7 @@ type CMsgRecipeComponent struct {
 
 func (x *CMsgRecipeComponent) Reset() {
 	*x = CMsgRecipeComponent{}
-	mi := &file_base_gcmessages_proto_msgTypes[71]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[71]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4760,7 +4760,7 @@ func (x *CMsgRecipeComponent) String() string {
 func (*CMsgRecipeComponent) ProtoMessage() {}
 
 func (x *CMsgRecipeComponent) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[71]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[71]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4773,7 +4773,7 @@ func (x *CMsgRecipeComponent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgRecipeComponent.ProtoReflect.Descriptor instead.
 func (*CMsgRecipeComponent) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{71}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{71}
 }
 
 func (x *CMsgRecipeComponent) GetSubjectItemId() uint64 {
@@ -4800,7 +4800,7 @@ type CMsgFulfillDynamicRecipeComponent struct {
 
 func (x *CMsgFulfillDynamicRecipeComponent) Reset() {
 	*x = CMsgFulfillDynamicRecipeComponent{}
-	mi := &file_base_gcmessages_proto_msgTypes[72]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[72]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4812,7 +4812,7 @@ func (x *CMsgFulfillDynamicRecipeComponent) String() string {
 func (*CMsgFulfillDynamicRecipeComponent) ProtoMessage() {}
 
 func (x *CMsgFulfillDynamicRecipeComponent) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[72]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[72]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4825,7 +4825,7 @@ func (x *CMsgFulfillDynamicRecipeComponent) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use CMsgFulfillDynamicRecipeComponent.ProtoReflect.Descriptor instead.
 func (*CMsgFulfillDynamicRecipeComponent) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{72}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{72}
 }
 
 func (x *CMsgFulfillDynamicRecipeComponent) GetToolItemId() uint64 {
@@ -4852,7 +4852,7 @@ type CMsgSetItemEffectVerticalOffset struct {
 
 func (x *CMsgSetItemEffectVerticalOffset) Reset() {
 	*x = CMsgSetItemEffectVerticalOffset{}
-	mi := &file_base_gcmessages_proto_msgTypes[73]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[73]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4864,7 +4864,7 @@ func (x *CMsgSetItemEffectVerticalOffset) String() string {
 func (*CMsgSetItemEffectVerticalOffset) ProtoMessage() {}
 
 func (x *CMsgSetItemEffectVerticalOffset) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[73]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[73]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4877,7 +4877,7 @@ func (x *CMsgSetItemEffectVerticalOffset) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgSetItemEffectVerticalOffset.ProtoReflect.Descriptor instead.
 func (*CMsgSetItemEffectVerticalOffset) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{73}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{73}
 }
 
 func (x *CMsgSetItemEffectVerticalOffset) GetItemId() uint64 {
@@ -4904,7 +4904,7 @@ type CMsgSetHatEffectUseHeadOrigin struct {
 
 func (x *CMsgSetHatEffectUseHeadOrigin) Reset() {
 	*x = CMsgSetHatEffectUseHeadOrigin{}
-	mi := &file_base_gcmessages_proto_msgTypes[74]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[74]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4916,7 +4916,7 @@ func (x *CMsgSetHatEffectUseHeadOrigin) String() string {
 func (*CMsgSetHatEffectUseHeadOrigin) ProtoMessage() {}
 
 func (x *CMsgSetHatEffectUseHeadOrigin) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[74]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[74]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4929,7 +4929,7 @@ func (x *CMsgSetHatEffectUseHeadOrigin) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgSetHatEffectUseHeadOrigin.ProtoReflect.Descriptor instead.
 func (*CMsgSetHatEffectUseHeadOrigin) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{74}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{74}
 }
 
 func (x *CMsgSetHatEffectUseHeadOrigin) GetItemId() uint64 {
@@ -4956,7 +4956,7 @@ type CMsgDeliverGiftResponseGiver struct {
 
 func (x *CMsgDeliverGiftResponseGiver) Reset() {
 	*x = CMsgDeliverGiftResponseGiver{}
-	mi := &file_base_gcmessages_proto_msgTypes[75]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[75]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4968,7 +4968,7 @@ func (x *CMsgDeliverGiftResponseGiver) String() string {
 func (*CMsgDeliverGiftResponseGiver) ProtoMessage() {}
 
 func (x *CMsgDeliverGiftResponseGiver) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[75]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[75]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4981,7 +4981,7 @@ func (x *CMsgDeliverGiftResponseGiver) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CMsgDeliverGiftResponseGiver.ProtoReflect.Descriptor instead.
 func (*CMsgDeliverGiftResponseGiver) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{75}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{75}
 }
 
 func (x *CMsgDeliverGiftResponseGiver) GetResponseCode() uint32 {
@@ -5012,7 +5012,7 @@ const (
 
 func (x *CSOEconGameAccountForGameServers) Reset() {
 	*x = CSOEconGameAccountForGameServers{}
-	mi := &file_base_gcmessages_proto_msgTypes[76]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[76]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5024,7 +5024,7 @@ func (x *CSOEconGameAccountForGameServers) String() string {
 func (*CSOEconGameAccountForGameServers) ProtoMessage() {}
 
 func (x *CSOEconGameAccountForGameServers) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[76]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[76]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5037,7 +5037,7 @@ func (x *CSOEconGameAccountForGameServers) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CSOEconGameAccountForGameServers.ProtoReflect.Descriptor instead.
 func (*CSOEconGameAccountForGameServers) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{76}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{76}
 }
 
 func (x *CSOEconGameAccountForGameServers) GetDisablePartyQuestProgress() bool {
@@ -5057,7 +5057,7 @@ type CWorkshop_PopulateItemDescriptions_Request struct {
 
 func (x *CWorkshop_PopulateItemDescriptions_Request) Reset() {
 	*x = CWorkshop_PopulateItemDescriptions_Request{}
-	mi := &file_base_gcmessages_proto_msgTypes[77]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[77]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5069,7 +5069,7 @@ func (x *CWorkshop_PopulateItemDescriptions_Request) String() string {
 func (*CWorkshop_PopulateItemDescriptions_Request) ProtoMessage() {}
 
 func (x *CWorkshop_PopulateItemDescriptions_Request) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[77]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[77]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5082,7 +5082,7 @@ func (x *CWorkshop_PopulateItemDescriptions_Request) ProtoReflect() protoreflect
 
 // Deprecated: Use CWorkshop_PopulateItemDescriptions_Request.ProtoReflect.Descriptor instead.
 func (*CWorkshop_PopulateItemDescriptions_Request) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{77}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{77}
 }
 
 func (x *CWorkshop_PopulateItemDescriptions_Request) GetAppid() uint32 {
@@ -5109,7 +5109,7 @@ type CWorkshop_GetContributors_Request struct {
 
 func (x *CWorkshop_GetContributors_Request) Reset() {
 	*x = CWorkshop_GetContributors_Request{}
-	mi := &file_base_gcmessages_proto_msgTypes[78]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[78]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5121,7 +5121,7 @@ func (x *CWorkshop_GetContributors_Request) String() string {
 func (*CWorkshop_GetContributors_Request) ProtoMessage() {}
 
 func (x *CWorkshop_GetContributors_Request) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[78]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[78]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5134,7 +5134,7 @@ func (x *CWorkshop_GetContributors_Request) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use CWorkshop_GetContributors_Request.ProtoReflect.Descriptor instead.
 func (*CWorkshop_GetContributors_Request) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{78}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{78}
 }
 
 func (x *CWorkshop_GetContributors_Request) GetAppid() uint32 {
@@ -5160,7 +5160,7 @@ type CWorkshop_GetContributors_Response struct {
 
 func (x *CWorkshop_GetContributors_Response) Reset() {
 	*x = CWorkshop_GetContributors_Response{}
-	mi := &file_base_gcmessages_proto_msgTypes[79]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[79]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5172,7 +5172,7 @@ func (x *CWorkshop_GetContributors_Response) String() string {
 func (*CWorkshop_GetContributors_Response) ProtoMessage() {}
 
 func (x *CWorkshop_GetContributors_Response) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[79]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[79]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5185,7 +5185,7 @@ func (x *CWorkshop_GetContributors_Response) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use CWorkshop_GetContributors_Response.ProtoReflect.Descriptor instead.
 func (*CWorkshop_GetContributors_Response) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{79}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{79}
 }
 
 func (x *CWorkshop_GetContributors_Response) GetContributors() []uint64 {
@@ -5208,7 +5208,7 @@ type CWorkshop_SetItemPaymentRules_Request struct {
 
 func (x *CWorkshop_SetItemPaymentRules_Request) Reset() {
 	*x = CWorkshop_SetItemPaymentRules_Request{}
-	mi := &file_base_gcmessages_proto_msgTypes[80]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[80]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5220,7 +5220,7 @@ func (x *CWorkshop_SetItemPaymentRules_Request) String() string {
 func (*CWorkshop_SetItemPaymentRules_Request) ProtoMessage() {}
 
 func (x *CWorkshop_SetItemPaymentRules_Request) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[80]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[80]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5233,7 +5233,7 @@ func (x *CWorkshop_SetItemPaymentRules_Request) ProtoReflect() protoreflect.Mess
 
 // Deprecated: Use CWorkshop_SetItemPaymentRules_Request.ProtoReflect.Descriptor instead.
 func (*CWorkshop_SetItemPaymentRules_Request) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{80}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{80}
 }
 
 func (x *CWorkshop_SetItemPaymentRules_Request) GetAppid() uint32 {
@@ -5279,7 +5279,7 @@ type CWorkshop_SetItemPaymentRules_Response struct {
 
 func (x *CWorkshop_SetItemPaymentRules_Response) Reset() {
 	*x = CWorkshop_SetItemPaymentRules_Response{}
-	mi := &file_base_gcmessages_proto_msgTypes[81]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[81]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5291,7 +5291,7 @@ func (x *CWorkshop_SetItemPaymentRules_Response) String() string {
 func (*CWorkshop_SetItemPaymentRules_Response) ProtoMessage() {}
 
 func (x *CWorkshop_SetItemPaymentRules_Response) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[81]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[81]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5304,7 +5304,7 @@ func (x *CWorkshop_SetItemPaymentRules_Response) ProtoReflect() protoreflect.Mes
 
 // Deprecated: Use CWorkshop_SetItemPaymentRules_Response.ProtoReflect.Descriptor instead.
 func (*CWorkshop_SetItemPaymentRules_Response) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{81}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{81}
 }
 
 type CWorkshop_AddSpecialPayment_Request struct {
@@ -5320,7 +5320,7 @@ type CWorkshop_AddSpecialPayment_Request struct {
 
 func (x *CWorkshop_AddSpecialPayment_Request) Reset() {
 	*x = CWorkshop_AddSpecialPayment_Request{}
-	mi := &file_base_gcmessages_proto_msgTypes[82]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[82]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5332,7 +5332,7 @@ func (x *CWorkshop_AddSpecialPayment_Request) String() string {
 func (*CWorkshop_AddSpecialPayment_Request) ProtoMessage() {}
 
 func (x *CWorkshop_AddSpecialPayment_Request) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[82]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[82]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5345,7 +5345,7 @@ func (x *CWorkshop_AddSpecialPayment_Request) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use CWorkshop_AddSpecialPayment_Request.ProtoReflect.Descriptor instead.
 func (*CWorkshop_AddSpecialPayment_Request) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{82}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{82}
 }
 
 func (x *CWorkshop_AddSpecialPayment_Request) GetAppid() uint32 {
@@ -5391,7 +5391,7 @@ type CWorkshop_AddSpecialPayment_Response struct {
 
 func (x *CWorkshop_AddSpecialPayment_Response) Reset() {
 	*x = CWorkshop_AddSpecialPayment_Response{}
-	mi := &file_base_gcmessages_proto_msgTypes[83]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[83]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5403,7 +5403,7 @@ func (x *CWorkshop_AddSpecialPayment_Response) String() string {
 func (*CWorkshop_AddSpecialPayment_Response) ProtoMessage() {}
 
 func (x *CWorkshop_AddSpecialPayment_Response) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[83]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[83]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5416,7 +5416,7 @@ func (x *CWorkshop_AddSpecialPayment_Response) ProtoReflect() protoreflect.Messa
 
 // Deprecated: Use CWorkshop_AddSpecialPayment_Response.ProtoReflect.Descriptor instead.
 func (*CWorkshop_AddSpecialPayment_Response) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{83}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{83}
 }
 
 type CWorkshop_GetSpecialPayments_Request struct {
@@ -5430,7 +5430,7 @@ type CWorkshop_GetSpecialPayments_Request struct {
 
 func (x *CWorkshop_GetSpecialPayments_Request) Reset() {
 	*x = CWorkshop_GetSpecialPayments_Request{}
-	mi := &file_base_gcmessages_proto_msgTypes[84]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[84]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5442,7 +5442,7 @@ func (x *CWorkshop_GetSpecialPayments_Request) String() string {
 func (*CWorkshop_GetSpecialPayments_Request) ProtoMessage() {}
 
 func (x *CWorkshop_GetSpecialPayments_Request) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[84]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[84]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5455,7 +5455,7 @@ func (x *CWorkshop_GetSpecialPayments_Request) ProtoReflect() protoreflect.Messa
 
 // Deprecated: Use CWorkshop_GetSpecialPayments_Request.ProtoReflect.Descriptor instead.
 func (*CWorkshop_GetSpecialPayments_Request) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{84}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{84}
 }
 
 func (x *CWorkshop_GetSpecialPayments_Request) GetAppid() uint32 {
@@ -5488,7 +5488,7 @@ type CWorkshop_GetSpecialPayments_Response struct {
 
 func (x *CWorkshop_GetSpecialPayments_Response) Reset() {
 	*x = CWorkshop_GetSpecialPayments_Response{}
-	mi := &file_base_gcmessages_proto_msgTypes[85]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[85]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5500,7 +5500,7 @@ func (x *CWorkshop_GetSpecialPayments_Response) String() string {
 func (*CWorkshop_GetSpecialPayments_Response) ProtoMessage() {}
 
 func (x *CWorkshop_GetSpecialPayments_Response) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[85]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[85]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5513,7 +5513,7 @@ func (x *CWorkshop_GetSpecialPayments_Response) ProtoReflect() protoreflect.Mess
 
 // Deprecated: Use CWorkshop_GetSpecialPayments_Response.ProtoReflect.Descriptor instead.
 func (*CWorkshop_GetSpecialPayments_Response) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{85}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{85}
 }
 
 func (x *CWorkshop_GetSpecialPayments_Response) GetSpecialPayments() []*CWorkshop_GetSpecialPayments_Response_SpecialPayment {
@@ -5533,7 +5533,7 @@ type CMsgSetItemPositions_ItemPosition struct {
 
 func (x *CMsgSetItemPositions_ItemPosition) Reset() {
 	*x = CMsgSetItemPositions_ItemPosition{}
-	mi := &file_base_gcmessages_proto_msgTypes[86]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[86]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5545,7 +5545,7 @@ func (x *CMsgSetItemPositions_ItemPosition) String() string {
 func (*CMsgSetItemPositions_ItemPosition) ProtoMessage() {}
 
 func (x *CMsgSetItemPositions_ItemPosition) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[86]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[86]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5558,7 +5558,7 @@ func (x *CMsgSetItemPositions_ItemPosition) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use CMsgSetItemPositions_ItemPosition.ProtoReflect.Descriptor instead.
 func (*CMsgSetItemPositions_ItemPosition) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{43, 0}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{43, 0}
 }
 
 func (x *CMsgSetItemPositions_ItemPosition) GetItemId() uint64 {
@@ -5585,7 +5585,7 @@ type CWorkshop_PopulateItemDescriptions_Request_SingleItemDescription struct {
 
 func (x *CWorkshop_PopulateItemDescriptions_Request_SingleItemDescription) Reset() {
 	*x = CWorkshop_PopulateItemDescriptions_Request_SingleItemDescription{}
-	mi := &file_base_gcmessages_proto_msgTypes[87]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[87]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5597,7 +5597,7 @@ func (x *CWorkshop_PopulateItemDescriptions_Request_SingleItemDescription) Strin
 func (*CWorkshop_PopulateItemDescriptions_Request_SingleItemDescription) ProtoMessage() {}
 
 func (x *CWorkshop_PopulateItemDescriptions_Request_SingleItemDescription) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[87]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[87]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5610,7 +5610,7 @@ func (x *CWorkshop_PopulateItemDescriptions_Request_SingleItemDescription) Proto
 
 // Deprecated: Use CWorkshop_PopulateItemDescriptions_Request_SingleItemDescription.ProtoReflect.Descriptor instead.
 func (*CWorkshop_PopulateItemDescriptions_Request_SingleItemDescription) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{77, 0}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{77, 0}
 }
 
 func (x *CWorkshop_PopulateItemDescriptions_Request_SingleItemDescription) GetGameitemid() uint32 {
@@ -5637,7 +5637,7 @@ type CWorkshop_PopulateItemDescriptions_Request_ItemDescriptionsLanguageBlock st
 
 func (x *CWorkshop_PopulateItemDescriptions_Request_ItemDescriptionsLanguageBlock) Reset() {
 	*x = CWorkshop_PopulateItemDescriptions_Request_ItemDescriptionsLanguageBlock{}
-	mi := &file_base_gcmessages_proto_msgTypes[88]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[88]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5649,7 +5649,7 @@ func (x *CWorkshop_PopulateItemDescriptions_Request_ItemDescriptionsLanguageBloc
 func (*CWorkshop_PopulateItemDescriptions_Request_ItemDescriptionsLanguageBlock) ProtoMessage() {}
 
 func (x *CWorkshop_PopulateItemDescriptions_Request_ItemDescriptionsLanguageBlock) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[88]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[88]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5662,7 +5662,7 @@ func (x *CWorkshop_PopulateItemDescriptions_Request_ItemDescriptionsLanguageBloc
 
 // Deprecated: Use CWorkshop_PopulateItemDescriptions_Request_ItemDescriptionsLanguageBlock.ProtoReflect.Descriptor instead.
 func (*CWorkshop_PopulateItemDescriptions_Request_ItemDescriptionsLanguageBlock) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{77, 1}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{77, 1}
 }
 
 func (x *CWorkshop_PopulateItemDescriptions_Request_ItemDescriptionsLanguageBlock) GetLanguage() string {
@@ -5690,7 +5690,7 @@ type CWorkshop_SetItemPaymentRules_Request_WorkshopItemPaymentRule struct {
 
 func (x *CWorkshop_SetItemPaymentRules_Request_WorkshopItemPaymentRule) Reset() {
 	*x = CWorkshop_SetItemPaymentRules_Request_WorkshopItemPaymentRule{}
-	mi := &file_base_gcmessages_proto_msgTypes[89]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[89]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5702,7 +5702,7 @@ func (x *CWorkshop_SetItemPaymentRules_Request_WorkshopItemPaymentRule) String()
 func (*CWorkshop_SetItemPaymentRules_Request_WorkshopItemPaymentRule) ProtoMessage() {}
 
 func (x *CWorkshop_SetItemPaymentRules_Request_WorkshopItemPaymentRule) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[89]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[89]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5715,7 +5715,7 @@ func (x *CWorkshop_SetItemPaymentRules_Request_WorkshopItemPaymentRule) ProtoRef
 
 // Deprecated: Use CWorkshop_SetItemPaymentRules_Request_WorkshopItemPaymentRule.ProtoReflect.Descriptor instead.
 func (*CWorkshop_SetItemPaymentRules_Request_WorkshopItemPaymentRule) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{80, 0}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{80, 0}
 }
 
 func (x *CWorkshop_SetItemPaymentRules_Request_WorkshopItemPaymentRule) GetWorkshopFileId() uint64 {
@@ -5749,7 +5749,7 @@ type CWorkshop_SetItemPaymentRules_Request_WorkshopDirectPaymentRule struct {
 
 func (x *CWorkshop_SetItemPaymentRules_Request_WorkshopDirectPaymentRule) Reset() {
 	*x = CWorkshop_SetItemPaymentRules_Request_WorkshopDirectPaymentRule{}
-	mi := &file_base_gcmessages_proto_msgTypes[90]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[90]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5761,7 +5761,7 @@ func (x *CWorkshop_SetItemPaymentRules_Request_WorkshopDirectPaymentRule) String
 func (*CWorkshop_SetItemPaymentRules_Request_WorkshopDirectPaymentRule) ProtoMessage() {}
 
 func (x *CWorkshop_SetItemPaymentRules_Request_WorkshopDirectPaymentRule) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[90]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[90]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5774,7 +5774,7 @@ func (x *CWorkshop_SetItemPaymentRules_Request_WorkshopDirectPaymentRule) ProtoR
 
 // Deprecated: Use CWorkshop_SetItemPaymentRules_Request_WorkshopDirectPaymentRule.ProtoReflect.Descriptor instead.
 func (*CWorkshop_SetItemPaymentRules_Request_WorkshopDirectPaymentRule) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{80, 1}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{80, 1}
 }
 
 func (x *CWorkshop_SetItemPaymentRules_Request_WorkshopDirectPaymentRule) GetWorkshopFileId() uint64 {
@@ -5802,7 +5802,7 @@ type CWorkshop_SetItemPaymentRules_Request_PartnerItemPaymentRule struct {
 
 func (x *CWorkshop_SetItemPaymentRules_Request_PartnerItemPaymentRule) Reset() {
 	*x = CWorkshop_SetItemPaymentRules_Request_PartnerItemPaymentRule{}
-	mi := &file_base_gcmessages_proto_msgTypes[91]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[91]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5814,7 +5814,7 @@ func (x *CWorkshop_SetItemPaymentRules_Request_PartnerItemPaymentRule) String() 
 func (*CWorkshop_SetItemPaymentRules_Request_PartnerItemPaymentRule) ProtoMessage() {}
 
 func (x *CWorkshop_SetItemPaymentRules_Request_PartnerItemPaymentRule) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[91]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[91]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5827,7 +5827,7 @@ func (x *CWorkshop_SetItemPaymentRules_Request_PartnerItemPaymentRule) ProtoRefl
 
 // Deprecated: Use CWorkshop_SetItemPaymentRules_Request_PartnerItemPaymentRule.ProtoReflect.Descriptor instead.
 func (*CWorkshop_SetItemPaymentRules_Request_PartnerItemPaymentRule) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{80, 2}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{80, 2}
 }
 
 func (x *CWorkshop_SetItemPaymentRules_Request_PartnerItemPaymentRule) GetAccountId() uint32 {
@@ -5864,7 +5864,7 @@ type CWorkshop_GetSpecialPayments_Response_SpecialPayment struct {
 
 func (x *CWorkshop_GetSpecialPayments_Response_SpecialPayment) Reset() {
 	*x = CWorkshop_GetSpecialPayments_Response_SpecialPayment{}
-	mi := &file_base_gcmessages_proto_msgTypes[92]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[92]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5876,7 +5876,7 @@ func (x *CWorkshop_GetSpecialPayments_Response_SpecialPayment) String() string {
 func (*CWorkshop_GetSpecialPayments_Response_SpecialPayment) ProtoMessage() {}
 
 func (x *CWorkshop_GetSpecialPayments_Response_SpecialPayment) ProtoReflect() protoreflect.Message {
-	mi := &file_base_gcmessages_proto_msgTypes[92]
+	mi := &file_tf2_gc_base_gcmessages_proto_msgTypes[92]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5889,7 +5889,7 @@ func (x *CWorkshop_GetSpecialPayments_Response_SpecialPayment) ProtoReflect() pr
 
 // Deprecated: Use CWorkshop_GetSpecialPayments_Response_SpecialPayment.ProtoReflect.Descriptor instead.
 func (*CWorkshop_GetSpecialPayments_Response_SpecialPayment) Descriptor() ([]byte, []int) {
-	return file_base_gcmessages_proto_rawDescGZIP(), []int{85, 0}
+	return file_tf2_gc_base_gcmessages_proto_rawDescGZIP(), []int{85, 0}
 }
 
 func (x *CWorkshop_GetSpecialPayments_Response_SpecialPayment) GetAppid() uint32 {
@@ -5927,22 +5927,22 @@ func (x *CWorkshop_GetSpecialPayments_Response_SpecialPayment) GetNetPaymentRowU
 	return 0
 }
 
-var File_base_gcmessages_proto protoreflect.FileDescriptor
+var File_tf2_gc_base_gcmessages_proto protoreflect.FileDescriptor
 
-const file_base_gcmessages_proto_rawDesc = "" +
+const file_tf2_gc_base_gcmessages_proto_rawDesc = "" +
 	"\n" +
-	"\x15base_gcmessages.proto\x1a\x13steammessages.proto\"\xb5\x01\n" +
+	"\x1ctf2_gc/base_gcmessages.proto\x12\x06tf2_gc\x1a\x13steammessages.proto\"\xb5\x01\n" +
 	"\x1dCGCStorePurchaseInit_LineItem\x12\x1e\n" +
 	"\vitem_def_id\x18\x01 \x01(\rR\titemDefId\x12\x1a\n" +
 	"\bquantity\x18\x02 \x01(\rR\bquantity\x123\n" +
 	"\x16cost_in_local_currency\x18\x03 \x01(\rR\x13costInLocalCurrency\x12#\n" +
-	"\rpurchase_type\x18\x04 \x01(\rR\fpurchaseType\"\xaa\x01\n" +
+	"\rpurchase_type\x18\x04 \x01(\rR\fpurchaseType\"\xb1\x01\n" +
 	"\x17CMsgGCStorePurchaseInit\x12\x18\n" +
 	"\acountry\x18\x01 \x01(\tR\acountry\x12\x1a\n" +
 	"\blanguage\x18\x02 \x01(\x05R\blanguage\x12\x1a\n" +
-	"\bcurrency\x18\x03 \x01(\x05R\bcurrency\x12=\n" +
+	"\bcurrency\x18\x03 \x01(\x05R\bcurrency\x12D\n" +
 	"\n" +
-	"line_items\x18\x04 \x03(\v2\x1e.CGCStorePurchaseInit_LineItemR\tlineItems\"P\n" +
+	"line_items\x18\x04 \x03(\v2%.tf2_gc.CGCStorePurchaseInit_LineItemR\tlineItems\"P\n" +
 	"\x1fCMsgGCStorePurchaseInitResponse\x12\x16\n" +
 	"\x06result\x18\x01 \x01(\x05R\x06result\x12\x15\n" +
 	"\x06txn_id\x18\x02 \x01(\x04R\x05txnId\"/\n" +
@@ -5958,11 +5958,11 @@ const file_base_gcmessages_proto_rawDesc = "" +
 	"\x10txn_country_code\x18\x03 \x01(\tR\x0etxnCountryCode\"j\n" +
 	"\x11CMsgServerWelcome\x12.\n" +
 	"\x13min_allowed_version\x18\x01 \x01(\rR\x11minAllowedVersion\x12%\n" +
-	"\x0eactive_version\x18\x02 \x01(\rR\ractiveVersion\"\\\n" +
-	"\x11CMsgClientGoodbye\x12G\n" +
-	"\x06reason\x18\x01 \x01(\x0e2\x10.GCGoodbyeReason:\x1dGCGoodbyeReason_GC_GOING_DOWNR\x06reason\"\\\n" +
-	"\x11CMsgServerGoodbye\x12G\n" +
-	"\x06reason\x18\x01 \x01(\x0e2\x10.GCGoodbyeReason:\x1dGCGoodbyeReason_GC_GOING_DOWNR\x06reason\"\x15\n" +
+	"\x0eactive_version\x18\x02 \x01(\rR\ractiveVersion\"c\n" +
+	"\x11CMsgClientGoodbye\x12N\n" +
+	"\x06reason\x18\x01 \x01(\x0e2\x17.tf2_gc.GCGoodbyeReason:\x1dGCGoodbyeReason_GC_GOING_DOWNR\x06reason\"c\n" +
+	"\x11CMsgServerGoodbye\x12N\n" +
+	"\x06reason\x18\x01 \x01(\x0e2\x17.tf2_gc.GCGoodbyeReason:\x1dGCGoodbyeReason_GC_GOING_DOWNR\x06reason\"\x15\n" +
 	"\x13CMsgServerAvailable\"3\n" +
 	"\x16CMsgLANServerAvailable\x12\x19\n" +
 	"\blobby_id\x18\x01 \x01(\x06R\alobbyId\"\xff\f\n" +
@@ -5997,7 +5997,7 @@ const file_base_gcmessages_proto_rawDesc = "" +
 	"\brequired\x18\x03 \x01(\bR\brequired\x12\x1f\n" +
 	"\vfloat_value\x18\x04 \x01(\x02R\n" +
 	"floatValue\x12!\n" +
-	"\fstring_value\x18\x05 \x01(\tR\vstringValue\"\xc0\x03\n" +
+	"\fstring_value\x18\x05 \x01(\tR\vstringValue\"\xc7\x03\n" +
 	"\x0fCSOItemCriteria\x12\x1d\n" +
 	"\n" +
 	"item_level\x18\x01 \x01(\rR\titemLevel\x12!\n" +
@@ -6006,15 +6006,15 @@ const file_base_gcmessages_proto_rawDesc = "" +
 	"\x10item_quality_set\x18\x04 \x01(\bR\x0eitemQualitySet\x12+\n" +
 	"\x11initial_inventory\x18\x05 \x01(\rR\x10initialInventory\x12)\n" +
 	"\x10initial_quantity\x18\x06 \x01(\rR\x0finitialQuantity\x12.\n" +
-	"\x13ignore_enabled_flag\x18\b \x01(\bR\x11ignoreEnabledFlag\x129\n" +
+	"\x13ignore_enabled_flag\x18\b \x01(\bR\x11ignoreEnabledFlag\x12@\n" +
 	"\n" +
-	"conditions\x18\t \x03(\v2\x19.CSOItemCriteriaConditionR\n" +
+	"conditions\x18\t \x03(\v2 .tf2_gc.CSOItemCriteriaConditionR\n" +
 	"conditions\x12\x1f\n" +
 	"\vrecent_only\x18\n" +
 	" \x01(\bR\n" +
 	"recentOnly\x12\x12\n" +
 	"\x04tags\x18\v \x01(\tR\x04tags\x12#\n" +
-	"\requip_regions\x18\f \x01(\tR\fequipRegions\"\xc0\x05\n" +
+	"\requip_regions\x18\f \x01(\tR\fequipRegions\"\xce\x05\n" +
 	"\rCSOItemRecipe\x12\x1b\n" +
 	"\tdef_index\x18\x01 \x01(\rR\bdefIndex\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x0f\n" +
@@ -6033,13 +6033,13 @@ const file_base_gcmessages_proto_rawDesc = "" +
 	"\x16requires_all_same_slot\x18\r \x01(\bR\x13requiresAllSameSlot\x123\n" +
 	"\x16class_usage_for_output\x18\x0e \x01(\x05R\x13classUsageForOutput\x121\n" +
 	"\x15slot_usage_for_output\x18\x0f \x01(\x05R\x12slotUsageForOutput\x12$\n" +
-	"\x0eset_for_output\x18\x10 \x01(\x05R\fsetForOutput\x12B\n" +
-	"\x14input_items_criteria\x18\x14 \x03(\v2\x10.CSOItemCriteriaR\x12inputItemsCriteria\x12D\n" +
-	"\x15output_items_criteria\x18\x15 \x03(\v2\x10.CSOItemCriteriaR\x13outputItemsCriteria\x123\n" +
-	"\x16input_item_dupe_counts\x18\x16 \x03(\rR\x13inputItemDupeCounts\"a\n" +
+	"\x0eset_for_output\x18\x10 \x01(\x05R\fsetForOutput\x12I\n" +
+	"\x14input_items_criteria\x18\x14 \x03(\v2\x17.tf2_gc.CSOItemCriteriaR\x12inputItemsCriteria\x12K\n" +
+	"\x15output_items_criteria\x18\x15 \x03(\v2\x17.tf2_gc.CSOItemCriteriaR\x13outputItemsCriteria\x123\n" +
+	"\x16input_item_dupe_counts\x18\x16 \x03(\rR\x13inputItemDupeCounts\"h\n" +
 	"\x15CMsgDevNewItemRequest\x12\x1a\n" +
-	"\breceiver\x18\x01 \x01(\x06R\breceiver\x12,\n" +
-	"\bcriteria\x18\x02 \x01(\v2\x10.CSOItemCriteriaR\bcriteria\"_\n" +
+	"\breceiver\x18\x01 \x01(\x06R\breceiver\x123\n" +
+	"\bcriteria\x18\x02 \x01(\v2\x17.tf2_gc.CSOItemCriteriaR\bcriteria\"_\n" +
 	"\x1bCMsgDevDebugRollLootRequest\x12\x1a\n" +
 	"\breceiver\x18\x01 \x01(\x06R\breceiver\x12$\n" +
 	"\x0eloot_list_name\x18\x02 \x01(\tR\flootListName\"\xd2\x01\n" +
@@ -6049,9 +6049,9 @@ const file_base_gcmessages_proto_rawDesc = "" +
 	"\aitem_id\x18\x03 \x01(\x04R\x06itemId\x12\x1d\n" +
 	"\n" +
 	"event_type\x18\x04 \x01(\rR\teventType\x12'\n" +
-	"\x0fincrement_value\x18\x05 \x01(\rR\x0eincrementValue\"`\n" +
-	"(CMsgIncrementKillCountAttribute_Multiple\x124\n" +
-	"\x04msgs\x18\x01 \x03(\v2 .CMsgIncrementKillCountAttributeR\x04msgs\"\xa8\x01\n" +
+	"\x0fincrement_value\x18\x05 \x01(\rR\x0eincrementValue\"g\n" +
+	"(CMsgIncrementKillCountAttribute_Multiple\x12;\n" +
+	"\x04msgs\x18\x01 \x03(\v2'.tf2_gc.CMsgIncrementKillCountAttributeR\x04msgs\"\xa8\x01\n" +
 	"\x1eCMsgTrackUniquePlayerPairEvent\x12&\n" +
 	"\x0fkiller_steam_id\x18\x01 \x01(\x04R\rkillerSteamId\x12&\n" +
 	"\x0fvictim_steam_id\x18\x02 \x01(\x04R\rvictimSteamId\x12\x17\n" +
@@ -6082,7 +6082,7 @@ const file_base_gcmessages_proto_rawDesc = "" +
 	"valueBytes\"M\n" +
 	"\x13CSOEconItemEquipped\x12\x1b\n" +
 	"\tnew_class\x18\x01 \x01(\rR\bnewClass\x12\x19\n" +
-	"\bnew_slot\x18\x02 \x01(\rR\anewSlot\"\xab\x05\n" +
+	"\bnew_slot\x18\x02 \x01(\rR\anewSlot\"\xc0\x05\n" +
 	"\vCSOEconItem\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x04R\x02id\x12\x1d\n" +
 	"\n" +
@@ -6098,15 +6098,15 @@ const file_base_gcmessages_proto_rawDesc = "" +
 	" \x01(\tR\n" +
 	"customName\x12\x1f\n" +
 	"\vcustom_desc\x18\v \x01(\tR\n" +
-	"customDesc\x123\n" +
-	"\tattribute\x18\f \x03(\v2\x15.CSOEconItemAttributeR\tattribute\x121\n" +
-	"\rinterior_item\x18\r \x01(\v2\f.CSOEconItemR\finteriorItem\x12\x1c\n" +
+	"customDesc\x12:\n" +
+	"\tattribute\x18\f \x03(\v2\x1c.tf2_gc.CSOEconItemAttributeR\tattribute\x128\n" +
+	"\rinterior_item\x18\r \x01(\v2\x13.tf2_gc.CSOEconItemR\finteriorItem\x12\x1c\n" +
 	"\x06in_use\x18\x0e \x01(\b:\x05falseR\x05inUse\x12\x17\n" +
 	"\x05style\x18\x0f \x01(\r:\x010R\x05style\x12\"\n" +
 	"\voriginal_id\x18\x10 \x01(\x04:\x010R\n" +
 	"originalId\x126\n" +
-	"\x17contains_equipped_state\x18\x11 \x01(\bR\x15containsEquippedState\x12;\n" +
-	"\x0eequipped_state\x18\x12 \x03(\v2\x14.CSOEconItemEquippedR\requippedState\x12;\n" +
+	"\x17contains_equipped_state\x18\x11 \x01(\bR\x15containsEquippedState\x12B\n" +
+	"\x0eequipped_state\x18\x12 \x03(\v2\x1b.tf2_gc.CSOEconItemEquippedR\requippedState\x12;\n" +
 	"\x1acontains_equipped_state_v2\x18\x13 \x01(\bR\x17containsEquippedStateV2\"n\n" +
 	"\x1bCMsgAdjustItemEquippedState\x12\x17\n" +
 	"\aitem_id\x18\x01 \x01(\x04R\x06itemId\x12\x1b\n" +
@@ -6147,9 +6147,9 @@ const file_base_gcmessages_proto_rawDesc = "" +
 	"\x1bCMsgRequestInventoryRefresh\";\n" +
 	"\x0fCMsgConVarValue\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value\"B\n" +
-	"\x14CMsgReplicateConVars\x12*\n" +
-	"\aconvars\x18\x01 \x03(\v2\x10.CMsgConVarValueR\aconvars\"\x97\x02\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value\"I\n" +
+	"\x14CMsgReplicateConVars\x121\n" +
+	"\aconvars\x18\x01 \x03(\v2\x17.tf2_gc.CMsgConVarValueR\aconvars\"\x97\x02\n" +
 	"\vCMsgUseItem\x12\x17\n" +
 	"\aitem_id\x18\x01 \x01(\x04R\x06itemId\x12&\n" +
 	"\x0ftarget_steam_id\x18\x02 \x01(\x06R\rtargetSteamId\x125\n" +
@@ -6182,9 +6182,9 @@ const file_base_gcmessages_proto_rawDesc = "" +
 	"\bclass_id\x18\x01 \x01(\rR\aclassId\x12\x1b\n" +
 	"\tpreset_id\x18\x02 \x01(\rR\bpresetId\x12\x17\n" +
 	"\aslot_id\x18\x03 \x01(\rR\x06slotId\x12\x17\n" +
-	"\aitem_id\x18\x04 \x01(\x04R\x06itemId\"\xa6\x01\n" +
-	"\x14CMsgSetItemPositions\x12I\n" +
-	"\x0eitem_positions\x18\x01 \x03(\v2\".CMsgSetItemPositions.ItemPositionR\ritemPositions\x1aC\n" +
+	"\aitem_id\x18\x04 \x01(\x04R\x06itemId\"\xad\x01\n" +
+	"\x14CMsgSetItemPositions\x12P\n" +
+	"\x0eitem_positions\x18\x01 \x03(\v2).tf2_gc.CMsgSetItemPositions.ItemPositionR\ritemPositions\x1aC\n" +
 	"\fItemPosition\x12\x17\n" +
 	"\aitem_id\x18\x01 \x01(\x04R\x06itemId\x12\x1a\n" +
 	"\bposition\x18\x02 \x01(\rR\bposition\"\x97\x01\n" +
@@ -6274,9 +6274,9 @@ const file_base_gcmessages_proto_rawDesc = "" +
 	"\x0eitem_def_index\x18\x01 \x01(\rR\fitemDefIndex\x12!\n" +
 	"\fitem_quality\x18\x02 \x01(\rR\vitemQuality\x12,\n" +
 	"\x12item_sell_listings\x18\x03 \x01(\rR\x10itemSellListings\x125\n" +
-	"\x17price_in_local_currency\x18\x04 \x01(\rR\x14priceInLocalCurrency\"P\n" +
-	"\x16CMsgGCClientMarketData\x126\n" +
-	"\aentries\x18\x01 \x03(\v2\x1c.CMsgGCClientMarketDataEntryR\aentries\"_\n" +
+	"\x17price_in_local_currency\x18\x04 \x01(\rR\x14priceInLocalCurrency\"W\n" +
+	"\x16CMsgGCClientMarketData\x12=\n" +
+	"\aentries\x18\x01 \x03(\v2#.tf2_gc.CMsgGCClientMarketDataEntryR\aentries\"_\n" +
 	"\x13CMsgApplyToolToItem\x12 \n" +
 	"\ftool_item_id\x18\x01 \x01(\x04R\n" +
 	"toolItemId\x12&\n" +
@@ -6287,11 +6287,11 @@ const file_base_gcmessages_proto_rawDesc = "" +
 	"\x12baseitem_def_index\x18\x02 \x01(\rR\x10baseitemDefIndex\"f\n" +
 	"\x13CMsgRecipeComponent\x12&\n" +
 	"\x0fsubject_item_id\x18\x01 \x01(\x04R\rsubjectItemId\x12'\n" +
-	"\x0fattribute_index\x18\x02 \x01(\x04R\x0eattributeIndex\"\x92\x01\n" +
+	"\x0fattribute_index\x18\x02 \x01(\x04R\x0eattributeIndex\"\x99\x01\n" +
 	"!CMsgFulfillDynamicRecipeComponent\x12 \n" +
 	"\ftool_item_id\x18\x01 \x01(\x04R\n" +
-	"toolItemId\x12K\n" +
-	"\x16consumption_components\x18\x02 \x03(\v2\x14.CMsgRecipeComponentR\x15consumptionComponents\"R\n" +
+	"toolItemId\x12R\n" +
+	"\x16consumption_components\x18\x02 \x03(\v2\x1b.tf2_gc.CMsgRecipeComponentR\x15consumptionComponents\"R\n" +
 	"\x1fCMsgSetItemEffectVerticalOffset\x12\x17\n" +
 	"\aitem_id\x18\x01 \x01(\x04R\x06itemId\x12\x16\n" +
 	"\x06offset\x18\x02 \x01(\x02R\x06offset\"S\n" +
@@ -6302,33 +6302,33 @@ const file_base_gcmessages_proto_rawDesc = "" +
 	"\rresponse_code\x18\x01 \x01(\rR\fresponseCode\x122\n" +
 	"\x15receiver_account_name\x18\x02 \x01(\tR\x13receiverAccountName\"j\n" +
 	" CSOEconGameAccountForGameServers\x12F\n" +
-	"\x1cdisable_party_quest_progress\x18\x06 \x01(\b:\x05falseR\x19disablePartyQuestProgress\"\xb4\x03\n" +
+	"\x1cdisable_party_quest_progress\x18\x06 \x01(\b:\x05falseR\x19disablePartyQuestProgress\"\xc2\x03\n" +
 	"*CWorkshop_PopulateItemDescriptions_Request\x12\x14\n" +
-	"\x05appid\x18\x01 \x01(\rR\x05appid\x12g\n" +
-	"\tlanguages\x18\x02 \x03(\v2I.CWorkshop_PopulateItemDescriptions_Request.ItemDescriptionsLanguageBlockR\tlanguages\x1ab\n" +
+	"\x05appid\x18\x01 \x01(\rR\x05appid\x12n\n" +
+	"\tlanguages\x18\x02 \x03(\v2P.tf2_gc.CWorkshop_PopulateItemDescriptions_Request.ItemDescriptionsLanguageBlockR\tlanguages\x1ab\n" +
 	"\x15SingleItemDescription\x12\x1e\n" +
 	"\n" +
 	"gameitemid\x18\x01 \x01(\rR\n" +
 	"gameitemid\x12)\n" +
-	"\x10item_description\x18\x02 \x01(\tR\x0fitemDescription\x1a\xa2\x01\n" +
+	"\x10item_description\x18\x02 \x01(\tR\x0fitemDescription\x1a\xa9\x01\n" +
 	"\x1dItemDescriptionsLanguageBlock\x12\x1a\n" +
-	"\blanguage\x18\x01 \x01(\tR\blanguage\x12e\n" +
-	"\fdescriptions\x18\x02 \x03(\v2A.CWorkshop_PopulateItemDescriptions_Request.SingleItemDescriptionR\fdescriptions\"Y\n" +
+	"\blanguage\x18\x01 \x01(\tR\blanguage\x12l\n" +
+	"\fdescriptions\x18\x02 \x03(\v2H.tf2_gc.CWorkshop_PopulateItemDescriptions_Request.SingleItemDescriptionR\fdescriptions\"Y\n" +
 	"!CWorkshop_GetContributors_Request\x12\x14\n" +
 	"\x05appid\x18\x01 \x01(\rR\x05appid\x12\x1e\n" +
 	"\n" +
 	"gameitemid\x18\x02 \x01(\rR\n" +
 	"gameitemid\"H\n" +
 	"\"CWorkshop_GetContributors_Response\x12\"\n" +
-	"\fcontributors\x18\x01 \x03(\x06R\fcontributors\"\x8b\a\n" +
+	"\fcontributors\x18\x01 \x03(\x06R\fcontributors\"\xa1\a\n" +
 	"%CWorkshop_SetItemPaymentRules_Request\x12\x14\n" +
 	"\x05appid\x18\x01 \x01(\rR\x05appid\x12\x1e\n" +
 	"\n" +
 	"gameitemid\x18\x02 \x01(\rR\n" +
-	"gameitemid\x12z\n" +
-	"\x19associated_workshop_files\x18\x03 \x03(\v2>.CWorkshop_SetItemPaymentRules_Request.WorkshopItemPaymentRuleR\x17associatedWorkshopFiles\x12h\n" +
-	"\x10partner_accounts\x18\x04 \x03(\v2=.CWorkshop_SetItemPaymentRules_Request.PartnerItemPaymentRuleR\x0fpartnerAccounts\x12\x9f\x01\n" +
-	",associated_workshop_file_for_direct_payments\x18\a \x01(\v2@.CWorkshop_SetItemPaymentRules_Request.WorkshopDirectPaymentRuleR'associatedWorkshopFileForDirectPayments\x1a\x9d\x01\n" +
+	"gameitemid\x12\x81\x01\n" +
+	"\x19associated_workshop_files\x18\x03 \x03(\v2E.tf2_gc.CWorkshop_SetItemPaymentRules_Request.WorkshopItemPaymentRuleR\x17associatedWorkshopFiles\x12o\n" +
+	"\x10partner_accounts\x18\x04 \x03(\v2D.tf2_gc.CWorkshop_SetItemPaymentRules_Request.PartnerItemPaymentRuleR\x0fpartnerAccounts\x12\xa6\x01\n" +
+	",associated_workshop_file_for_direct_payments\x18\a \x01(\v2G.tf2_gc.CWorkshop_SetItemPaymentRules_Request.WorkshopDirectPaymentRuleR'associatedWorkshopFileForDirectPayments\x1a\x9d\x01\n" +
 	"\x17WorkshopItemPaymentRule\x12(\n" +
 	"\x10workshop_file_id\x18\x01 \x01(\x04R\x0eworkshopFileId\x12-\n" +
 	"\x12revenue_percentage\x18\x02 \x01(\x02R\x11revenuePercentage\x12)\n" +
@@ -6356,9 +6356,9 @@ const file_base_gcmessages_proto_rawDesc = "" +
 	"\n" +
 	"gameitemid\x18\x02 \x01(\rR\n" +
 	"gameitemid\x12\x12\n" +
-	"\x04date\x18\x03 \x01(\tR\x04date\"\xc2\x02\n" +
-	"%CWorkshop_GetSpecialPayments_Response\x12`\n" +
-	"\x10special_payments\x18\x01 \x03(\v25.CWorkshop_GetSpecialPayments_Response.SpecialPaymentR\x0fspecialPayments\x1a\xb6\x01\n" +
+	"\x04date\x18\x03 \x01(\tR\x04date\"\xc9\x02\n" +
+	"%CWorkshop_GetSpecialPayments_Response\x12g\n" +
+	"\x10special_payments\x18\x01 \x03(\v2<.tf2_gc.CWorkshop_GetSpecialPayments_Response.SpecialPaymentR\x0fspecialPayments\x1a\xb6\x01\n" +
 	"\x0eSpecialPayment\x12\x14\n" +
 	"\x05appid\x18\x01 \x01(\rR\x05appid\x12\x1e\n" +
 	"\n" +
@@ -6386,139 +6386,139 @@ const file_base_gcmessages_proto_rawDesc = "" +
 	"\x1aGCGoodbyeReason_NO_SESSION\x10\x02B\x05H\x01\x80\x01\x00"
 
 var (
-	file_base_gcmessages_proto_rawDescOnce sync.Once
-	file_base_gcmessages_proto_rawDescData []byte
+	file_tf2_gc_base_gcmessages_proto_rawDescOnce sync.Once
+	file_tf2_gc_base_gcmessages_proto_rawDescData []byte
 )
 
-func file_base_gcmessages_proto_rawDescGZIP() []byte {
-	file_base_gcmessages_proto_rawDescOnce.Do(func() {
-		file_base_gcmessages_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_base_gcmessages_proto_rawDesc), len(file_base_gcmessages_proto_rawDesc)))
+func file_tf2_gc_base_gcmessages_proto_rawDescGZIP() []byte {
+	file_tf2_gc_base_gcmessages_proto_rawDescOnce.Do(func() {
+		file_tf2_gc_base_gcmessages_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_tf2_gc_base_gcmessages_proto_rawDesc), len(file_tf2_gc_base_gcmessages_proto_rawDesc)))
 	})
-	return file_base_gcmessages_proto_rawDescData
+	return file_tf2_gc_base_gcmessages_proto_rawDescData
 }
 
-var file_base_gcmessages_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_base_gcmessages_proto_msgTypes = make([]protoimpl.MessageInfo, 93)
-var file_base_gcmessages_proto_goTypes = []any{
-	(EGCBaseMsg)(0),                                                          // 0: EGCBaseMsg
-	(EGCBaseProtoObjectTypes)(0),                                             // 1: EGCBaseProtoObjectTypes
-	(GCGoodbyeReason)(0),                                                     // 2: GCGoodbyeReason
-	(*CGCStorePurchaseInit_LineItem)(nil),                                    // 3: CGCStorePurchaseInit_LineItem
-	(*CMsgGCStorePurchaseInit)(nil),                                          // 4: CMsgGCStorePurchaseInit
-	(*CMsgGCStorePurchaseInitResponse)(nil),                                  // 5: CMsgGCStorePurchaseInitResponse
-	(*CMsgSystemBroadcast)(nil),                                              // 6: CMsgSystemBroadcast
-	(*CMsgClientHello)(nil),                                                  // 7: CMsgClientHello
-	(*CMsgServerHello)(nil),                                                  // 8: CMsgServerHello
-	(*CMsgClientWelcome)(nil),                                                // 9: CMsgClientWelcome
-	(*CMsgServerWelcome)(nil),                                                // 10: CMsgServerWelcome
-	(*CMsgClientGoodbye)(nil),                                                // 11: CMsgClientGoodbye
-	(*CMsgServerGoodbye)(nil),                                                // 12: CMsgServerGoodbye
-	(*CMsgServerAvailable)(nil),                                              // 13: CMsgServerAvailable
-	(*CMsgLANServerAvailable)(nil),                                           // 14: CMsgLANServerAvailable
-	(*CSOEconGameAccountClient)(nil),                                         // 15: CSOEconGameAccountClient
-	(*CSOItemCriteriaCondition)(nil),                                         // 16: CSOItemCriteriaCondition
-	(*CSOItemCriteria)(nil),                                                  // 17: CSOItemCriteria
-	(*CSOItemRecipe)(nil),                                                    // 18: CSOItemRecipe
-	(*CMsgDevNewItemRequest)(nil),                                            // 19: CMsgDevNewItemRequest
-	(*CMsgDevDebugRollLootRequest)(nil),                                      // 20: CMsgDevDebugRollLootRequest
-	(*CMsgIncrementKillCountAttribute)(nil),                                  // 21: CMsgIncrementKillCountAttribute
-	(*CMsgIncrementKillCountAttribute_Multiple)(nil),                         // 22: CMsgIncrementKillCountAttribute_Multiple
-	(*CMsgTrackUniquePlayerPairEvent)(nil),                                   // 23: CMsgTrackUniquePlayerPairEvent
-	(*CMsgApplyStrangeCountTransfer)(nil),                                    // 24: CMsgApplyStrangeCountTransfer
-	(*CMsgApplyStrangePart)(nil),                                             // 25: CMsgApplyStrangePart
-	(*CMsgApplyStrangeRestriction)(nil),                                      // 26: CMsgApplyStrangeRestriction
-	(*CMsgApplyUpgradeCard)(nil),                                             // 27: CMsgApplyUpgradeCard
-	(*CSOEconItemAttribute)(nil),                                             // 28: CSOEconItemAttribute
-	(*CSOEconItemEquipped)(nil),                                              // 29: CSOEconItemEquipped
-	(*CSOEconItem)(nil),                                                      // 30: CSOEconItem
-	(*CMsgAdjustItemEquippedState)(nil),                                      // 31: CMsgAdjustItemEquippedState
-	(*CMsgSortItems)(nil),                                                    // 32: CMsgSortItems
-	(*CSOEconClaimCode)(nil),                                                 // 33: CSOEconClaimCode
-	(*CMsgStoreGetUserData)(nil),                                             // 34: CMsgStoreGetUserData
-	(*CMsgStoreGetUserDataResponse)(nil),                                     // 35: CMsgStoreGetUserDataResponse
-	(*CMsgUpdateItemSchema)(nil),                                             // 36: CMsgUpdateItemSchema
-	(*CMsgGCError)(nil),                                                      // 37: CMsgGCError
-	(*CMsgRequestInventoryRefresh)(nil),                                      // 38: CMsgRequestInventoryRefresh
-	(*CMsgConVarValue)(nil),                                                  // 39: CMsgConVarValue
-	(*CMsgReplicateConVars)(nil),                                             // 40: CMsgReplicateConVars
-	(*CMsgUseItem)(nil),                                                      // 41: CMsgUseItem
-	(*CMsgReplayUploadedToYouTube)(nil),                                      // 42: CMsgReplayUploadedToYouTube
-	(*CMsgConsumableExhausted)(nil),                                          // 43: CMsgConsumableExhausted
-	(*CMsgItemAcknowledged)(nil),                                             // 44: CMsgItemAcknowledged
-	(*CMsgSetPresetItemPosition)(nil),                                        // 45: CMsgSetPresetItemPosition
-	(*CMsgSetItemPositions)(nil),                                             // 46: CMsgSetItemPositions
-	(*CSOEconItemPresetInstance)(nil),                                        // 47: CSOEconItemPresetInstance
-	(*CMsgSelectPresetForClass)(nil),                                         // 48: CMsgSelectPresetForClass
-	(*CSOClassPresetClientData)(nil),                                         // 49: CSOClassPresetClientData
-	(*CMsgGCReportAbuse)(nil),                                                // 50: CMsgGCReportAbuse
-	(*CMsgGCReportAbuseResponse)(nil),                                        // 51: CMsgGCReportAbuseResponse
-	(*CMsgGCNameItemNotification)(nil),                                       // 52: CMsgGCNameItemNotification
-	(*CMsgGCClientDisplayNotification)(nil),                                  // 53: CMsgGCClientDisplayNotification
-	(*CMsgGCShowItemsPickedUp)(nil),                                          // 54: CMsgGCShowItemsPickedUp
-	(*CMsgUpdatePeriodicEvent)(nil),                                          // 55: CMsgUpdatePeriodicEvent
-	(*CMsgGCIncrementKillCountResponse)(nil),                                 // 56: CMsgGCIncrementKillCountResponse
-	(*CMsgGCRemoveStrangePart)(nil),                                          // 57: CMsgGCRemoveStrangePart
-	(*CMsgGCRemoveUpgradeCard)(nil),                                          // 58: CMsgGCRemoveUpgradeCard
-	(*CMsgGCRemoveCustomizationAttributeSimple)(nil),                         // 59: CMsgGCRemoveCustomizationAttributeSimple
-	(*CMsgGCResetStrangeScores)(nil),                                         // 60: CMsgGCResetStrangeScores
-	(*CMsgGCItemPreviewItemBoughtNotification)(nil),                          // 61: CMsgGCItemPreviewItemBoughtNotification
-	(*CMsgGCStorePurchaseCancel)(nil),                                        // 62: CMsgGCStorePurchaseCancel
-	(*CMsgGCStorePurchaseCancelResponse)(nil),                                // 63: CMsgGCStorePurchaseCancelResponse
-	(*CMsgGCStorePurchaseFinalize)(nil),                                      // 64: CMsgGCStorePurchaseFinalize
-	(*CMsgGCStorePurchaseFinalizeResponse)(nil),                              // 65: CMsgGCStorePurchaseFinalizeResponse
-	(*CMsgGCBannedWordListRequest)(nil),                                      // 66: CMsgGCBannedWordListRequest
-	(*CMsgGCGiftedItems)(nil),                                                // 67: CMsgGCGiftedItems
-	(*CMsgGCCollectItem)(nil),                                                // 68: CMsgGCCollectItem
-	(*CMsgGCClientMarketDataRequest)(nil),                                    // 69: CMsgGCClientMarketDataRequest
-	(*CMsgGCClientMarketDataEntry)(nil),                                      // 70: CMsgGCClientMarketDataEntry
-	(*CMsgGCClientMarketData)(nil),                                           // 71: CMsgGCClientMarketData
-	(*CMsgApplyToolToItem)(nil),                                              // 72: CMsgApplyToolToItem
-	(*CMsgApplyToolToBaseItem)(nil),                                          // 73: CMsgApplyToolToBaseItem
-	(*CMsgRecipeComponent)(nil),                                              // 74: CMsgRecipeComponent
-	(*CMsgFulfillDynamicRecipeComponent)(nil),                                // 75: CMsgFulfillDynamicRecipeComponent
-	(*CMsgSetItemEffectVerticalOffset)(nil),                                  // 76: CMsgSetItemEffectVerticalOffset
-	(*CMsgSetHatEffectUseHeadOrigin)(nil),                                    // 77: CMsgSetHatEffectUseHeadOrigin
-	(*CMsgDeliverGiftResponseGiver)(nil),                                     // 78: CMsgDeliverGiftResponseGiver
-	(*CSOEconGameAccountForGameServers)(nil),                                 // 79: CSOEconGameAccountForGameServers
-	(*CWorkshop_PopulateItemDescriptions_Request)(nil),                       // 80: CWorkshop_PopulateItemDescriptions_Request
-	(*CWorkshop_GetContributors_Request)(nil),                                // 81: CWorkshop_GetContributors_Request
-	(*CWorkshop_GetContributors_Response)(nil),                               // 82: CWorkshop_GetContributors_Response
-	(*CWorkshop_SetItemPaymentRules_Request)(nil),                            // 83: CWorkshop_SetItemPaymentRules_Request
-	(*CWorkshop_SetItemPaymentRules_Response)(nil),                           // 84: CWorkshop_SetItemPaymentRules_Response
-	(*CWorkshop_AddSpecialPayment_Request)(nil),                              // 85: CWorkshop_AddSpecialPayment_Request
-	(*CWorkshop_AddSpecialPayment_Response)(nil),                             // 86: CWorkshop_AddSpecialPayment_Response
-	(*CWorkshop_GetSpecialPayments_Request)(nil),                             // 87: CWorkshop_GetSpecialPayments_Request
-	(*CWorkshop_GetSpecialPayments_Response)(nil),                            // 88: CWorkshop_GetSpecialPayments_Response
-	(*CMsgSetItemPositions_ItemPosition)(nil),                                // 89: CMsgSetItemPositions.ItemPosition
-	(*CWorkshop_PopulateItemDescriptions_Request_SingleItemDescription)(nil), // 90: CWorkshop_PopulateItemDescriptions_Request.SingleItemDescription
-	(*CWorkshop_PopulateItemDescriptions_Request_ItemDescriptionsLanguageBlock)(nil), // 91: CWorkshop_PopulateItemDescriptions_Request.ItemDescriptionsLanguageBlock
-	(*CWorkshop_SetItemPaymentRules_Request_WorkshopItemPaymentRule)(nil),            // 92: CWorkshop_SetItemPaymentRules_Request.WorkshopItemPaymentRule
-	(*CWorkshop_SetItemPaymentRules_Request_WorkshopDirectPaymentRule)(nil),          // 93: CWorkshop_SetItemPaymentRules_Request.WorkshopDirectPaymentRule
-	(*CWorkshop_SetItemPaymentRules_Request_PartnerItemPaymentRule)(nil),             // 94: CWorkshop_SetItemPaymentRules_Request.PartnerItemPaymentRule
-	(*CWorkshop_GetSpecialPayments_Response_SpecialPayment)(nil),                     // 95: CWorkshop_GetSpecialPayments_Response.SpecialPayment
+var file_tf2_gc_base_gcmessages_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_tf2_gc_base_gcmessages_proto_msgTypes = make([]protoimpl.MessageInfo, 93)
+var file_tf2_gc_base_gcmessages_proto_goTypes = []any{
+	(EGCBaseMsg)(0),                                                          // 0: tf2_gc.EGCBaseMsg
+	(EGCBaseProtoObjectTypes)(0),                                             // 1: tf2_gc.EGCBaseProtoObjectTypes
+	(GCGoodbyeReason)(0),                                                     // 2: tf2_gc.GCGoodbyeReason
+	(*CGCStorePurchaseInit_LineItem)(nil),                                    // 3: tf2_gc.CGCStorePurchaseInit_LineItem
+	(*CMsgGCStorePurchaseInit)(nil),                                          // 4: tf2_gc.CMsgGCStorePurchaseInit
+	(*CMsgGCStorePurchaseInitResponse)(nil),                                  // 5: tf2_gc.CMsgGCStorePurchaseInitResponse
+	(*CMsgSystemBroadcast)(nil),                                              // 6: tf2_gc.CMsgSystemBroadcast
+	(*CMsgClientHello)(nil),                                                  // 7: tf2_gc.CMsgClientHello
+	(*CMsgServerHello)(nil),                                                  // 8: tf2_gc.CMsgServerHello
+	(*CMsgClientWelcome)(nil),                                                // 9: tf2_gc.CMsgClientWelcome
+	(*CMsgServerWelcome)(nil),                                                // 10: tf2_gc.CMsgServerWelcome
+	(*CMsgClientGoodbye)(nil),                                                // 11: tf2_gc.CMsgClientGoodbye
+	(*CMsgServerGoodbye)(nil),                                                // 12: tf2_gc.CMsgServerGoodbye
+	(*CMsgServerAvailable)(nil),                                              // 13: tf2_gc.CMsgServerAvailable
+	(*CMsgLANServerAvailable)(nil),                                           // 14: tf2_gc.CMsgLANServerAvailable
+	(*CSOEconGameAccountClient)(nil),                                         // 15: tf2_gc.CSOEconGameAccountClient
+	(*CSOItemCriteriaCondition)(nil),                                         // 16: tf2_gc.CSOItemCriteriaCondition
+	(*CSOItemCriteria)(nil),                                                  // 17: tf2_gc.CSOItemCriteria
+	(*CSOItemRecipe)(nil),                                                    // 18: tf2_gc.CSOItemRecipe
+	(*CMsgDevNewItemRequest)(nil),                                            // 19: tf2_gc.CMsgDevNewItemRequest
+	(*CMsgDevDebugRollLootRequest)(nil),                                      // 20: tf2_gc.CMsgDevDebugRollLootRequest
+	(*CMsgIncrementKillCountAttribute)(nil),                                  // 21: tf2_gc.CMsgIncrementKillCountAttribute
+	(*CMsgIncrementKillCountAttribute_Multiple)(nil),                         // 22: tf2_gc.CMsgIncrementKillCountAttribute_Multiple
+	(*CMsgTrackUniquePlayerPairEvent)(nil),                                   // 23: tf2_gc.CMsgTrackUniquePlayerPairEvent
+	(*CMsgApplyStrangeCountTransfer)(nil),                                    // 24: tf2_gc.CMsgApplyStrangeCountTransfer
+	(*CMsgApplyStrangePart)(nil),                                             // 25: tf2_gc.CMsgApplyStrangePart
+	(*CMsgApplyStrangeRestriction)(nil),                                      // 26: tf2_gc.CMsgApplyStrangeRestriction
+	(*CMsgApplyUpgradeCard)(nil),                                             // 27: tf2_gc.CMsgApplyUpgradeCard
+	(*CSOEconItemAttribute)(nil),                                             // 28: tf2_gc.CSOEconItemAttribute
+	(*CSOEconItemEquipped)(nil),                                              // 29: tf2_gc.CSOEconItemEquipped
+	(*CSOEconItem)(nil),                                                      // 30: tf2_gc.CSOEconItem
+	(*CMsgAdjustItemEquippedState)(nil),                                      // 31: tf2_gc.CMsgAdjustItemEquippedState
+	(*CMsgSortItems)(nil),                                                    // 32: tf2_gc.CMsgSortItems
+	(*CSOEconClaimCode)(nil),                                                 // 33: tf2_gc.CSOEconClaimCode
+	(*CMsgStoreGetUserData)(nil),                                             // 34: tf2_gc.CMsgStoreGetUserData
+	(*CMsgStoreGetUserDataResponse)(nil),                                     // 35: tf2_gc.CMsgStoreGetUserDataResponse
+	(*CMsgUpdateItemSchema)(nil),                                             // 36: tf2_gc.CMsgUpdateItemSchema
+	(*CMsgGCError)(nil),                                                      // 37: tf2_gc.CMsgGCError
+	(*CMsgRequestInventoryRefresh)(nil),                                      // 38: tf2_gc.CMsgRequestInventoryRefresh
+	(*CMsgConVarValue)(nil),                                                  // 39: tf2_gc.CMsgConVarValue
+	(*CMsgReplicateConVars)(nil),                                             // 40: tf2_gc.CMsgReplicateConVars
+	(*CMsgUseItem)(nil),                                                      // 41: tf2_gc.CMsgUseItem
+	(*CMsgReplayUploadedToYouTube)(nil),                                      // 42: tf2_gc.CMsgReplayUploadedToYouTube
+	(*CMsgConsumableExhausted)(nil),                                          // 43: tf2_gc.CMsgConsumableExhausted
+	(*CMsgItemAcknowledged)(nil),                                             // 44: tf2_gc.CMsgItemAcknowledged
+	(*CMsgSetPresetItemPosition)(nil),                                        // 45: tf2_gc.CMsgSetPresetItemPosition
+	(*CMsgSetItemPositions)(nil),                                             // 46: tf2_gc.CMsgSetItemPositions
+	(*CSOEconItemPresetInstance)(nil),                                        // 47: tf2_gc.CSOEconItemPresetInstance
+	(*CMsgSelectPresetForClass)(nil),                                         // 48: tf2_gc.CMsgSelectPresetForClass
+	(*CSOClassPresetClientData)(nil),                                         // 49: tf2_gc.CSOClassPresetClientData
+	(*CMsgGCReportAbuse)(nil),                                                // 50: tf2_gc.CMsgGCReportAbuse
+	(*CMsgGCReportAbuseResponse)(nil),                                        // 51: tf2_gc.CMsgGCReportAbuseResponse
+	(*CMsgGCNameItemNotification)(nil),                                       // 52: tf2_gc.CMsgGCNameItemNotification
+	(*CMsgGCClientDisplayNotification)(nil),                                  // 53: tf2_gc.CMsgGCClientDisplayNotification
+	(*CMsgGCShowItemsPickedUp)(nil),                                          // 54: tf2_gc.CMsgGCShowItemsPickedUp
+	(*CMsgUpdatePeriodicEvent)(nil),                                          // 55: tf2_gc.CMsgUpdatePeriodicEvent
+	(*CMsgGCIncrementKillCountResponse)(nil),                                 // 56: tf2_gc.CMsgGCIncrementKillCountResponse
+	(*CMsgGCRemoveStrangePart)(nil),                                          // 57: tf2_gc.CMsgGCRemoveStrangePart
+	(*CMsgGCRemoveUpgradeCard)(nil),                                          // 58: tf2_gc.CMsgGCRemoveUpgradeCard
+	(*CMsgGCRemoveCustomizationAttributeSimple)(nil),                         // 59: tf2_gc.CMsgGCRemoveCustomizationAttributeSimple
+	(*CMsgGCResetStrangeScores)(nil),                                         // 60: tf2_gc.CMsgGCResetStrangeScores
+	(*CMsgGCItemPreviewItemBoughtNotification)(nil),                          // 61: tf2_gc.CMsgGCItemPreviewItemBoughtNotification
+	(*CMsgGCStorePurchaseCancel)(nil),                                        // 62: tf2_gc.CMsgGCStorePurchaseCancel
+	(*CMsgGCStorePurchaseCancelResponse)(nil),                                // 63: tf2_gc.CMsgGCStorePurchaseCancelResponse
+	(*CMsgGCStorePurchaseFinalize)(nil),                                      // 64: tf2_gc.CMsgGCStorePurchaseFinalize
+	(*CMsgGCStorePurchaseFinalizeResponse)(nil),                              // 65: tf2_gc.CMsgGCStorePurchaseFinalizeResponse
+	(*CMsgGCBannedWordListRequest)(nil),                                      // 66: tf2_gc.CMsgGCBannedWordListRequest
+	(*CMsgGCGiftedItems)(nil),                                                // 67: tf2_gc.CMsgGCGiftedItems
+	(*CMsgGCCollectItem)(nil),                                                // 68: tf2_gc.CMsgGCCollectItem
+	(*CMsgGCClientMarketDataRequest)(nil),                                    // 69: tf2_gc.CMsgGCClientMarketDataRequest
+	(*CMsgGCClientMarketDataEntry)(nil),                                      // 70: tf2_gc.CMsgGCClientMarketDataEntry
+	(*CMsgGCClientMarketData)(nil),                                           // 71: tf2_gc.CMsgGCClientMarketData
+	(*CMsgApplyToolToItem)(nil),                                              // 72: tf2_gc.CMsgApplyToolToItem
+	(*CMsgApplyToolToBaseItem)(nil),                                          // 73: tf2_gc.CMsgApplyToolToBaseItem
+	(*CMsgRecipeComponent)(nil),                                              // 74: tf2_gc.CMsgRecipeComponent
+	(*CMsgFulfillDynamicRecipeComponent)(nil),                                // 75: tf2_gc.CMsgFulfillDynamicRecipeComponent
+	(*CMsgSetItemEffectVerticalOffset)(nil),                                  // 76: tf2_gc.CMsgSetItemEffectVerticalOffset
+	(*CMsgSetHatEffectUseHeadOrigin)(nil),                                    // 77: tf2_gc.CMsgSetHatEffectUseHeadOrigin
+	(*CMsgDeliverGiftResponseGiver)(nil),                                     // 78: tf2_gc.CMsgDeliverGiftResponseGiver
+	(*CSOEconGameAccountForGameServers)(nil),                                 // 79: tf2_gc.CSOEconGameAccountForGameServers
+	(*CWorkshop_PopulateItemDescriptions_Request)(nil),                       // 80: tf2_gc.CWorkshop_PopulateItemDescriptions_Request
+	(*CWorkshop_GetContributors_Request)(nil),                                // 81: tf2_gc.CWorkshop_GetContributors_Request
+	(*CWorkshop_GetContributors_Response)(nil),                               // 82: tf2_gc.CWorkshop_GetContributors_Response
+	(*CWorkshop_SetItemPaymentRules_Request)(nil),                            // 83: tf2_gc.CWorkshop_SetItemPaymentRules_Request
+	(*CWorkshop_SetItemPaymentRules_Response)(nil),                           // 84: tf2_gc.CWorkshop_SetItemPaymentRules_Response
+	(*CWorkshop_AddSpecialPayment_Request)(nil),                              // 85: tf2_gc.CWorkshop_AddSpecialPayment_Request
+	(*CWorkshop_AddSpecialPayment_Response)(nil),                             // 86: tf2_gc.CWorkshop_AddSpecialPayment_Response
+	(*CWorkshop_GetSpecialPayments_Request)(nil),                             // 87: tf2_gc.CWorkshop_GetSpecialPayments_Request
+	(*CWorkshop_GetSpecialPayments_Response)(nil),                            // 88: tf2_gc.CWorkshop_GetSpecialPayments_Response
+	(*CMsgSetItemPositions_ItemPosition)(nil),                                // 89: tf2_gc.CMsgSetItemPositions.ItemPosition
+	(*CWorkshop_PopulateItemDescriptions_Request_SingleItemDescription)(nil), // 90: tf2_gc.CWorkshop_PopulateItemDescriptions_Request.SingleItemDescription
+	(*CWorkshop_PopulateItemDescriptions_Request_ItemDescriptionsLanguageBlock)(nil), // 91: tf2_gc.CWorkshop_PopulateItemDescriptions_Request.ItemDescriptionsLanguageBlock
+	(*CWorkshop_SetItemPaymentRules_Request_WorkshopItemPaymentRule)(nil),            // 92: tf2_gc.CWorkshop_SetItemPaymentRules_Request.WorkshopItemPaymentRule
+	(*CWorkshop_SetItemPaymentRules_Request_WorkshopDirectPaymentRule)(nil),          // 93: tf2_gc.CWorkshop_SetItemPaymentRules_Request.WorkshopDirectPaymentRule
+	(*CWorkshop_SetItemPaymentRules_Request_PartnerItemPaymentRule)(nil),             // 94: tf2_gc.CWorkshop_SetItemPaymentRules_Request.PartnerItemPaymentRule
+	(*CWorkshop_GetSpecialPayments_Response_SpecialPayment)(nil),                     // 95: tf2_gc.CWorkshop_GetSpecialPayments_Response.SpecialPayment
 }
-var file_base_gcmessages_proto_depIdxs = []int32{
-	3,  // 0: CMsgGCStorePurchaseInit.line_items:type_name -> CGCStorePurchaseInit_LineItem
-	2,  // 1: CMsgClientGoodbye.reason:type_name -> GCGoodbyeReason
-	2,  // 2: CMsgServerGoodbye.reason:type_name -> GCGoodbyeReason
-	16, // 3: CSOItemCriteria.conditions:type_name -> CSOItemCriteriaCondition
-	17, // 4: CSOItemRecipe.input_items_criteria:type_name -> CSOItemCriteria
-	17, // 5: CSOItemRecipe.output_items_criteria:type_name -> CSOItemCriteria
-	17, // 6: CMsgDevNewItemRequest.criteria:type_name -> CSOItemCriteria
-	21, // 7: CMsgIncrementKillCountAttribute_Multiple.msgs:type_name -> CMsgIncrementKillCountAttribute
-	28, // 8: CSOEconItem.attribute:type_name -> CSOEconItemAttribute
-	30, // 9: CSOEconItem.interior_item:type_name -> CSOEconItem
-	29, // 10: CSOEconItem.equipped_state:type_name -> CSOEconItemEquipped
-	39, // 11: CMsgReplicateConVars.convars:type_name -> CMsgConVarValue
-	89, // 12: CMsgSetItemPositions.item_positions:type_name -> CMsgSetItemPositions.ItemPosition
-	70, // 13: CMsgGCClientMarketData.entries:type_name -> CMsgGCClientMarketDataEntry
-	74, // 14: CMsgFulfillDynamicRecipeComponent.consumption_components:type_name -> CMsgRecipeComponent
-	91, // 15: CWorkshop_PopulateItemDescriptions_Request.languages:type_name -> CWorkshop_PopulateItemDescriptions_Request.ItemDescriptionsLanguageBlock
-	92, // 16: CWorkshop_SetItemPaymentRules_Request.associated_workshop_files:type_name -> CWorkshop_SetItemPaymentRules_Request.WorkshopItemPaymentRule
-	94, // 17: CWorkshop_SetItemPaymentRules_Request.partner_accounts:type_name -> CWorkshop_SetItemPaymentRules_Request.PartnerItemPaymentRule
-	93, // 18: CWorkshop_SetItemPaymentRules_Request.associated_workshop_file_for_direct_payments:type_name -> CWorkshop_SetItemPaymentRules_Request.WorkshopDirectPaymentRule
-	95, // 19: CWorkshop_GetSpecialPayments_Response.special_payments:type_name -> CWorkshop_GetSpecialPayments_Response.SpecialPayment
-	90, // 20: CWorkshop_PopulateItemDescriptions_Request.ItemDescriptionsLanguageBlock.descriptions:type_name -> CWorkshop_PopulateItemDescriptions_Request.SingleItemDescription
+var file_tf2_gc_base_gcmessages_proto_depIdxs = []int32{
+	3,  // 0: tf2_gc.CMsgGCStorePurchaseInit.line_items:type_name -> tf2_gc.CGCStorePurchaseInit_LineItem
+	2,  // 1: tf2_gc.CMsgClientGoodbye.reason:type_name -> tf2_gc.GCGoodbyeReason
+	2,  // 2: tf2_gc.CMsgServerGoodbye.reason:type_name -> tf2_gc.GCGoodbyeReason
+	16, // 3: tf2_gc.CSOItemCriteria.conditions:type_name -> tf2_gc.CSOItemCriteriaCondition
+	17, // 4: tf2_gc.CSOItemRecipe.input_items_criteria:type_name -> tf2_gc.CSOItemCriteria
+	17, // 5: tf2_gc.CSOItemRecipe.output_items_criteria:type_name -> tf2_gc.CSOItemCriteria
+	17, // 6: tf2_gc.CMsgDevNewItemRequest.criteria:type_name -> tf2_gc.CSOItemCriteria
+	21, // 7: tf2_gc.CMsgIncrementKillCountAttribute_Multiple.msgs:type_name -> tf2_gc.CMsgIncrementKillCountAttribute
+	28, // 8: tf2_gc.CSOEconItem.attribute:type_name -> tf2_gc.CSOEconItemAttribute
+	30, // 9: tf2_gc.CSOEconItem.interior_item:type_name -> tf2_gc.CSOEconItem
+	29, // 10: tf2_gc.CSOEconItem.equipped_state:type_name -> tf2_gc.CSOEconItemEquipped
+	39, // 11: tf2_gc.CMsgReplicateConVars.convars:type_name -> tf2_gc.CMsgConVarValue
+	89, // 12: tf2_gc.CMsgSetItemPositions.item_positions:type_name -> tf2_gc.CMsgSetItemPositions.ItemPosition
+	70, // 13: tf2_gc.CMsgGCClientMarketData.entries:type_name -> tf2_gc.CMsgGCClientMarketDataEntry
+	74, // 14: tf2_gc.CMsgFulfillDynamicRecipeComponent.consumption_components:type_name -> tf2_gc.CMsgRecipeComponent
+	91, // 15: tf2_gc.CWorkshop_PopulateItemDescriptions_Request.languages:type_name -> tf2_gc.CWorkshop_PopulateItemDescriptions_Request.ItemDescriptionsLanguageBlock
+	92, // 16: tf2_gc.CWorkshop_SetItemPaymentRules_Request.associated_workshop_files:type_name -> tf2_gc.CWorkshop_SetItemPaymentRules_Request.WorkshopItemPaymentRule
+	94, // 17: tf2_gc.CWorkshop_SetItemPaymentRules_Request.partner_accounts:type_name -> tf2_gc.CWorkshop_SetItemPaymentRules_Request.PartnerItemPaymentRule
+	93, // 18: tf2_gc.CWorkshop_SetItemPaymentRules_Request.associated_workshop_file_for_direct_payments:type_name -> tf2_gc.CWorkshop_SetItemPaymentRules_Request.WorkshopDirectPaymentRule
+	95, // 19: tf2_gc.CWorkshop_GetSpecialPayments_Response.special_payments:type_name -> tf2_gc.CWorkshop_GetSpecialPayments_Response.SpecialPayment
+	90, // 20: tf2_gc.CWorkshop_PopulateItemDescriptions_Request.ItemDescriptionsLanguageBlock.descriptions:type_name -> tf2_gc.CWorkshop_PopulateItemDescriptions_Request.SingleItemDescription
 	21, // [21:21] is the sub-list for method output_type
 	21, // [21:21] is the sub-list for method input_type
 	21, // [21:21] is the sub-list for extension type_name
@@ -6526,28 +6526,27 @@ var file_base_gcmessages_proto_depIdxs = []int32{
 	0,  // [0:21] is the sub-list for field type_name
 }
 
-func init() { file_base_gcmessages_proto_init() }
-func file_base_gcmessages_proto_init() {
-	if File_base_gcmessages_proto != nil {
+func init() { file_tf2_gc_base_gcmessages_proto_init() }
+func file_tf2_gc_base_gcmessages_proto_init() {
+	if File_tf2_gc_base_gcmessages_proto != nil {
 		return
 	}
-	file_steammessages_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_base_gcmessages_proto_rawDesc), len(file_base_gcmessages_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_tf2_gc_base_gcmessages_proto_rawDesc), len(file_tf2_gc_base_gcmessages_proto_rawDesc)),
 			NumEnums:      3,
 			NumMessages:   93,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_base_gcmessages_proto_goTypes,
-		DependencyIndexes: file_base_gcmessages_proto_depIdxs,
-		EnumInfos:         file_base_gcmessages_proto_enumTypes,
-		MessageInfos:      file_base_gcmessages_proto_msgTypes,
+		GoTypes:           file_tf2_gc_base_gcmessages_proto_goTypes,
+		DependencyIndexes: file_tf2_gc_base_gcmessages_proto_depIdxs,
+		EnumInfos:         file_tf2_gc_base_gcmessages_proto_enumTypes,
+		MessageInfos:      file_tf2_gc_base_gcmessages_proto_msgTypes,
 	}.Build()
-	File_base_gcmessages_proto = out.File
-	file_base_gcmessages_proto_goTypes = nil
-	file_base_gcmessages_proto_depIdxs = nil
+	File_tf2_gc_base_gcmessages_proto = out.File
+	file_tf2_gc_base_gcmessages_proto_goTypes = nil
+	file_tf2_gc_base_gcmessages_proto_depIdxs = nil
 }

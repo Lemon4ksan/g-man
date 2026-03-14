@@ -228,25 +228,14 @@ func TestGuardian_PollingBackoff(t *testing.T) {
 	defer cancel()
 
 	_ = g.StartPolling(ctx)
-
-	// Ожидаем, пока цикл отработает.
-	// 1-й фейл (сразу), 2-й фейл (через 10ms),
-	// затем backoff до 20ms, потом до 40ms.
 	time.Sleep(90 * time.Millisecond)
 
-	// Мы не можем точно измерить интервал тикера, но можем проверить, что
-	// при успешном ответе он сбрасывается обратно.
 	mockSvc.mu.Lock()
 	mockSvc.getConfErr = nil
 	mockSvc.getConfResponse = &ConfirmationsList{Success: true}
 	mockSvc.mu.Unlock()
 
-	// Даем время на успешный полл и сброс
 	time.Sleep(50 * time.Millisecond)
-
-	// Если бы backoff не сбросился, следующий полл был бы через 40ms+,
-	// а так он должен быть через 10ms. Точно проверить сложно, но
-	// мы убедились, что код не падает в панику и продолжает работать.
 }
 
 func TestGuardian_Respond(t *testing.T) {
@@ -299,23 +288,19 @@ func TestGuardian_HandleStateChange(t *testing.T) {
 	}
 	_ = g.Init(newMockInitContext())
 
-	// Запускаем опрос, чтобы был активный pollingCtx
 	ctx, cancel := context.WithCancel(context.Background())
 	g.pollingCtx = ctx
 	g.pollingCancel = cancel
 	g.state.Store(int32(StatePolling))
 
-	// Имитируем событие дисконнекта
 	g.handleStateChange(&auth.StateEvent{New: auth.StateDisconnected})
 
 	if g.State() != StateStopped {
 		t.Errorf("expected state Stopped after disconnect, got %s", g.State())
 	}
 
-	// Проверяем, что контекст был отменен
 	select {
 	case <-g.pollingCtx.Done():
-		// Успех
 	case <-time.After(100 * time.Millisecond):
 		t.Fatal("expected polling context to be canceled on disconnect")
 	}
