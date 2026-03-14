@@ -8,9 +8,17 @@ package sku
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 )
+
+var rxPriceKey = regexp.MustCompile(`^(\d+);([0-9]|[1][0-5])(;((uncraftable)|(untrad(e)?able)|(australium)|(festive)|(strange)|((u|pk|td-|c|od-|oq-|p)\d+)|(w[1-5])|(kt-[1-3])|(n((100)|[1-9]\d?))))*?$|^\d+$`)
+
+// IsValid tests if a string matches the standard TF2 SKU format.
+func IsValid(sku string) bool {
+	return rxPriceKey.MatchString(sku)
+}
 
 // Item represents a TF2 item with all possible SKU attributes.
 type Item struct {

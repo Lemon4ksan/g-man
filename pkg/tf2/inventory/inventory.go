@@ -20,7 +20,7 @@ import (
 type PlayerInventory struct {
 	steamID uint64
 
-	steamClient *api.UnifiedClient
+	steamClient api.WebAPIRequester
 	httpClient  rest.HTTPDoer
 
 	bptfUserID string
@@ -33,7 +33,7 @@ type PlayerInventory struct {
 }
 
 // NewPlayerInventory initializes the inventory for a specific player.
-func NewPlayerInventory(steamID uint64, steamClient *api.UnifiedClient, httpClient rest.HTTPDoer, bptfUserID string) *PlayerInventory {
+func NewPlayerInventory(steamID uint64, steamClient api.WebAPIRequester, httpClient rest.HTTPDoer, bptfUserID string) *PlayerInventory {
 	if httpClient == nil {
 		httpClient = http.DefaultClient
 	}
@@ -44,6 +44,54 @@ func NewPlayerInventory(steamID uint64, steamClient *api.UnifiedClient, httpClie
 		bptfUserID:  bptfUserID,
 		items:       make([]TF2Item, 0),
 	}
+}
+
+// IsDuped checks if an item is a duplicate. Returns a bool pointer:
+// nil - if the item has never been in backpack.tf
+// *true - if it is a duplicate
+// *false - if it is clean
+func (inv *PlayerInventory) IsDuped(ctx context.Context, assetID uint64) (*bool, error) {
+	history, err := inv.getItemHistory(ctx, assetID)
+	if err != nil {
+		return nil, err
+	}
+
+	if history.Recorded {
+		return &history.IsDuped, nil
+	}
+
+	inv.mu.Lock()
+	if !inv.fetched {
+		if err := inv.fetch(ctx); err != nil {
+			inv.mu.Unlock()
+			return nil, err
+		}
+	}
+	items := inv.items
+	inv.mu.Unlock()
+
+	var targetItem *TF2Item
+	for i := range items {
+		if items[i].ID == assetID {
+			targetItem = &items[i]
+			break
+		}
+	}
+
+	if targetItem == nil {
+		return nil, ErrItemNotFound
+	}
+
+	historyOriginal, err := inv.getItemHistory(ctx, targetItem.OriginalID)
+	if err != nil {
+		return nil, err
+	}
+
+	if historyOriginal.Recorded {
+		return &historyOriginal.IsDuped, nil
+	}
+
+	return nil, nil
 }
 
 func (inv *PlayerInventory) fetch(ctx context.Context) error {
@@ -118,52 +166,4 @@ func (inv *PlayerInventory) getItemHistory(ctx context.Context, assetID uint64) 
 		Recorded: true,
 		IsDuped:  isDuped,
 	}, nil
-}
-
-// IsDuped checks if an item is a duplicate. Returns a bool pointer:
-// nil - if the item has never been in backpack.tf
-// *true - if it is a duplicate
-// *false - if it is clean
-func (inv *PlayerInventory) IsDuped(ctx context.Context, assetID uint64) (*bool, error) {
-	history, err := inv.getItemHistory(ctx, assetID)
-	if err != nil {
-		return nil, err
-	}
-
-	if history.Recorded {
-		return &history.IsDuped, nil
-	}
-
-	inv.mu.Lock()
-	if !inv.fetched {
-		if err := inv.fetch(ctx); err != nil {
-			inv.mu.Unlock()
-			return nil, err
-		}
-	}
-	items := inv.items
-	inv.mu.Unlock()
-
-	var targetItem *TF2Item
-	for i := range items {
-		if items[i].ID == assetID {
-			targetItem = &items[i]
-			break
-		}
-	}
-
-	if targetItem == nil {
-		return nil, ErrItemNotFound
-	}
-
-	historyOriginal, err := inv.getItemHistory(ctx, targetItem.OriginalID)
-	if err != nil {
-		return nil, err
-	}
-
-	if historyOriginal.Recorded {
-		return &historyOriginal.IsDuped, nil
-	}
-
-	return nil, nil
 }

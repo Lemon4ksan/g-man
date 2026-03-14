@@ -17,11 +17,17 @@ import (
 
 var ErrMaxRetriesReached = errors.New("max retries reached")
 
+type ManagerProvider interface {
+	GetEscrowDuration(ctx context.Context, offerID uint64) (EscrowDetails, error)
+	AcceptOffer(ctx context.Context, offerID uint64) error
+	DeclineOffer(ctx context.Context, offerID uint64) error
+}
+
 // Processor handles a sequential queue of incoming trade offers.
 // It ensures that only one offer is evaluated at a time to prevent race conditions
 // with inventory and pure calculations.
 type Processor struct {
-	manager *Manager
+	manager ManagerProvider
 	handler OfferHandler
 	logger  log.Logger
 
@@ -32,7 +38,7 @@ type Processor struct {
 }
 
 // NewProcessor creates a new sequential offer processor.
-func NewProcessor(manager *Manager, handler OfferHandler, logger log.Logger) *Processor {
+func NewProcessor(manager ManagerProvider, handler OfferHandler, logger log.Logger) *Processor {
 	return &Processor{
 		manager: manager,
 		handler: handler,

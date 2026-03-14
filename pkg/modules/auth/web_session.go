@@ -39,7 +39,6 @@ type WebSessionManager interface {
 	IsAuthenticated() bool
 	Client() *http.Client
 	SessionID(targetURL string) string
-	SteamID() uint64
 }
 
 // WebSession handles HTTP-based interactions with Steam Community and Store.
@@ -65,8 +64,6 @@ func NewWebSession(steamID uint64, logger log.Logger) *WebSession {
 }
 
 func (s *WebSession) Client() *http.Client { return s.client }
-
-func (s *WebSession) SteamID() uint64 { return s.steamID }
 
 func (s *WebSession) IsAuthenticated() bool {
 	s.mu.RLock()
@@ -209,7 +206,7 @@ func (s *WebSession) executeTransferWithRetry(ctx context.Context, transferURL s
 	const maxRetries = 3
 	var lastErr error
 
-	for i := 0; i < maxRetries; i++ {
+	for range maxRetries {
 		resp, err := s.doMultipartRequest(ctx, transferURL, params)
 		if err != nil {
 			lastErr = err

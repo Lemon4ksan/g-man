@@ -29,6 +29,15 @@ var (
 	rxTradeError = regexp.MustCompile(`<div id="error_msg">\s*([^<]+)\s*<\/div>`)
 )
 
+type CommunityRequester interface {
+	Requester
+	Get(ctx context.Context, path string, mods ...RequestModifier) (*tr.Response, error)
+	GetJSON(ctx context.Context, path string, params url.Values, target any, mods ...RequestModifier) error
+	PostForm(ctx context.Context, path string, data url.Values, mods ...RequestModifier) (*tr.Response, error)
+	PostJSON(ctx context.Context, path string, payload any, mods ...RequestModifier) (*tr.Response, error)
+	SessionID(targetURI string) string
+}
+
 type CommunityClient struct {
 	transport   tr.Transport
 	sessionFunc func(string) string

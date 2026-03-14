@@ -19,12 +19,44 @@ import (
 
 var rxTradeOfferID = regexp.MustCompile(`id="tradeofferid_(\d+)"`)
 
-// MobileConf provides access to Steam's mobile verification endpoints.
-type MobileConf struct {
-	client *api.CommunityClient
+// TwoFactorService covers ITwoFactorService methods.
+type TwoFactorService struct {
+	client api.WebAPIRequester
 }
 
-func NewMobileConf(client *api.CommunityClient) *MobileConf {
+func NewTwoFactorService(ur api.WebAPIRequester) *TwoFactorService {
+	return &TwoFactorService{client: ur}
+}
+
+// QueryTimeOffset calculates the drift between local computer time and Steam Server time.
+// Crucial for generating valid TOTP codes if the local clock is out of sync.
+func (s *TwoFactorService) QueryTimeOffset(ctx context.Context) (time.Duration, error) {
+	var resp struct {
+		Response struct {
+			ServerTime string `json:"server_time"`
+		} `json:"response"`
+	}
+
+	err := s.client.CallWebAPI(ctx, "GET", "ITwoFactorService", "QueryTime", 1, &resp)
+	if err != nil {
+		return 0, err
+	}
+
+	serverTime, err := strconv.ParseInt(resp.Response.ServerTime, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid server time: %w", err)
+	}
+
+	diffSeconds := serverTime - time.Now().Unix()
+	return time.Duration(diffSeconds) * time.Second, nil
+}
+
+// MobileConf provides access to Steam's mobile verification endpoints.
+type MobileConf struct {
+	client api.CommunityRequester
+}
+
+func NewMobileConf(client api.CommunityRequester) *MobileConf {
 	return &MobileConf{client: client}
 }
 
@@ -131,36 +163,4 @@ func (s *MobileConf) buildBaseParams(deviceID string, steamID uint64, confKey st
 	params.Set("m", "react")
 	params.Set("tag", tag)
 	return params
-}
-
-// TwoFactorService covers ITwoFactorService methods.
-type TwoFactorService struct {
-	client api.WebAPIRequester
-}
-
-func NewTwoFactorService(ur api.WebAPIRequester) *TwoFactorService {
-	return &TwoFactorService{client: ur}
-}
-
-// QueryTimeOffset calculates the drift between local computer time and Steam Server time.
-// Crucial for generating valid TOTP codes if the local clock is out of sync.
-func (s *TwoFactorService) QueryTimeOffset(ctx context.Context) (time.Duration, error) {
-	var resp struct {
-		Response struct {
-			ServerTime string `json:"server_time"`
-		} `json:"response"`
-	}
-
-	err := s.client.CallWebAPI(ctx, "GET", "ITwoFactorService", "QueryTime", 1, &resp)
-	if err != nil {
-		return 0, err
-	}
-
-	serverTime, err := strconv.ParseInt(resp.Response.ServerTime, 10, 64)
-	if err != nil {
-		return 0, fmt.Errorf("invalid server time: %w", err)
-	}
-
-	diffSeconds := serverTime - time.Now().Unix()
-	return time.Duration(diffSeconds) * time.Second, nil
 }

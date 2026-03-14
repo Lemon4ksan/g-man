@@ -13,8 +13,8 @@ import (
 )
 
 var (
-	rxTheirEscrow = regexp.MustCompile(`g_DaysTheirEscrow\s*=\s*(\d+);`)
-	rxMyEscrow    = regexp.MustCompile(`g_DaysMyEscrow\s*=\s*(\d+);`)
+	rxTheirEscrow = regexp.MustCompile(`(?i)g_DaysTheirEscrow\s*=\s*(\d+);`)
+	rxMyEscrow    = regexp.MustCompile(`(?i)g_DaysMyEscrow\s*=\s*(\d+);`)
 
 	ErrCommunityNotReady = errors.New("trading: community client is not ready (bot not logged in)")
 	ErrEscrowNotFound    = errors.New("trading: escrow data not found on the page (Steam might be down or offer is invalid)")

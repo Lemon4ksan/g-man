@@ -24,8 +24,14 @@ type InitContext interface {
 	// Logger returns the configured logger.
 	Logger() log.Logger
 
-	// Proto returns the UnifiedClient for making requests over the CM Socket.
-	Proto() *api.UnifiedClient
+	// Proto returns the proto client for making requests over the CM Socket.
+	Proto() api.LegacyRequester
+
+	// WebAPI returns the http client for making API requests.
+    WebAPI() api.WebAPIRequester
+
+	// Unified returns the UnifiedClient for making unified request over the HTTP or CM Socket.
+    Unified() api.UnifiedRequester
 
 	// RegisterPacketHandler registers a handler for low-level EMsg (TCP/UDP).
 	RegisterPacketHandler(eMsg protocol.EMsg, handler socket.Handler)
@@ -45,7 +51,7 @@ type InitContext interface {
 
 type AuthContext interface {
 	// Community returns an authorized community client.
-	Community() *api.CommunityClient
+	Community() api.CommunityRequester
 
 	// SteamID returns the steam id of the authorized user.
 	SteamID() uint64

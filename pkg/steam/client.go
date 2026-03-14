@@ -244,14 +244,21 @@ func (c *Client) API() *api.UnifiedClient {
 }
 
 // Proto returns the UnifiedClient for making requests over the CM Socket.
-// This is preferred for most operations as it avoids HTTP rate limits.
-func (c *Client) Proto() *api.UnifiedClient {
+func (c *Client) Proto() api.LegacyRequester {
 	return c.socketAPIClient
+}
+
+func (c *Client) WebAPI() api.WebAPIRequester {
+	return c.socketAPIClient
+}
+
+func (c *Client) Unified() api.UnifiedRequester {
+	return c.unifiedClient
 }
 
 // Community returns a client for interacting with the Steam Community website.
 // Returns nil if the web session is not established.
-func (c *Client) Community() *api.CommunityClient {
+func (c *Client) Community() api.CommunityRequester {
 	c.mu.RLock()
 
 	if c.community != nil {

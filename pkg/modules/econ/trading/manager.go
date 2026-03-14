@@ -71,7 +71,7 @@ type Manager struct {
 	processor *Processor
 
 	web       api.WebAPIRequester
-	community *api.CommunityClient
+	community api.CommunityRequester
 	logger    log.Logger
 	config    Config
 	cache     *AssetCache
@@ -112,7 +112,7 @@ func (m *Manager) Init(init steam.InitContext) error {
 	if m.bus == nil {
 		return errors.New("nil bus")
 	}
-	m.web = init.Proto()
+	m.web = init.WebAPI()
 	if m.web == nil {
 		return errors.New("nil proto client")
 	}

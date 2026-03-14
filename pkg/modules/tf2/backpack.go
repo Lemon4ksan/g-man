@@ -9,7 +9,6 @@ import (
 	"sync"
 
 	"github.com/lemon4ksan/g-man/pkg/log"
-	"github.com/lemon4ksan/g-man/pkg/modules/coordinator"
 	"github.com/lemon4ksan/g-man/pkg/steam/bus"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/gc"
 
@@ -96,7 +95,7 @@ func (b *Backpack) HasItem(id uint64) bool {
 
 // HandleCacheCheck handles the GC asking "do you have the latest data?".
 // We usually just say "refresh please" to be safe or verify versions.
-func (b *Backpack) HandleCacheCheck(coord *coordinator.Coordinator, steamID uint64) {
+func (b *Backpack) HandleCacheCheck(coord CoordinatorProvider, steamID uint64) {
 	b.logger.Debug("GC requested SO Cache Refresh")
 	req := &pb.CMsgSOCacheSubscriptionRefresh{
 		Owner: proto.Uint64(steamID),

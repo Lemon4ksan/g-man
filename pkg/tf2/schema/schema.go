@@ -959,7 +959,7 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 	excludeAtomic := strings.Contains(name, "bonk! atomic punch") || strings.Contains(name, "atomic accolade")
 	for effName, effID := range s.effByName {
 		if effName == "" {
-			continue // пропускаем пустые эффекты
+			continue
 		}
 		if strings.Contains(name, effName) {
 			// Skip conditions
@@ -1299,7 +1299,6 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 		debugLog("with # after", name, item)
 	}
 
-	// Специальные краты
 	if strings.Contains(name, "salvaged mann co. supply crate") {
 		debugLog("salvaged crate", name, item)
 		item.Crateseries = number
@@ -1324,8 +1323,6 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 			item.Defindex = 5041
 		case 5, 9, 10, 15, 16, 21, 25, 28, 29, 33, 38, 41, 45, 55, 59, 77:
 			item.Defindex = 5045
-		default:
-			// Неизвестная серия
 		}
 		item.Crateseries = crateseries
 		item.Quality = QualityUnique

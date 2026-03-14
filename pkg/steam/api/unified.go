@@ -41,8 +41,9 @@ type LegacyRequester interface {
 	CallLegacy(ctx context.Context, eMsg protocol.EMsg, reqMsg, respMsg proto.Message, mods ...RequestModifier) error
 }
 
-type UnifiedLegacyRequester interface {
+type Client interface {
 	UnifiedRequester
+	WebAPIRequester
 	LegacyRequester
 }
 

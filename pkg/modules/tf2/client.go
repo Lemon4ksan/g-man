@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/lemon4ksan/g-man/pkg/jobs"
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/modules/coordinator"
 	"github.com/lemon4ksan/g-man/pkg/steam"
@@ -36,14 +37,21 @@ const (
 	GCConnected
 )
 
+type CoordinatorProvider interface {
+	Send(ctx context.Context, appID uint32, msgType uint32, msg proto.Message) error
+	SendRaw(ctx context.Context, appID uint32, msgType uint32, payload []byte) error
+	Call(ctx context.Context, appID uint32, msgType uint32, msg proto.Message, cb jobs.Callback[*gc.Packet]) error
+	CallRaw(ctx context.Context, appID uint32, msgType uint32, payload []byte, cb jobs.Callback[*gc.Packet]) error
+}
+
 type TF2 struct {
-	client *steam.Client
-	gc     *coordinator.Coordinator
+	gc     CoordinatorProvider
 	logger log.Logger
 	bus    *bus.Bus
 
 	state    atomic.Int32
 	backpack *Backpack
+	steamID  uint64
 
 	jobQueue chan *GCJob
 
@@ -59,14 +67,12 @@ func New(logger log.Logger) *TF2 {
 
 func (t *TF2) Name() string { return ModuleName }
 
-func (t *TF2) Init(c *steam.Client) error {
-	t.client = c
-
+func (t *TF2) Init(c steam.InitContext) error {
 	gcModule := c.GetModule(coordinator.ModuleName)
 	if gcModule == nil {
 		return errors.New("tf2: coordinator not initialized")
 	}
-	t.gc = gcModule.(*coordinator.Coordinator)
+	t.gc = gcModule.(CoordinatorProvider)
 
 	sub := c.Bus().Subscribe(&coordinator.GCMessageEvent{})
 	go t.loop(sub)
@@ -84,6 +90,11 @@ func (t *TF2) Start(ctx context.Context) error {
 	sub := t.bus.Subscribe(&coordinator.GCMessageEvent{})
 	go t.loop(sub)
 
+	return nil
+}
+
+func (t *TF2) StartAuthed(ctx context.Context, authCtx steam.AuthContext) error {
+	t.steamID = authCtx.SteamID()
 	return nil
 }
 
@@ -166,7 +177,7 @@ func (t *TF2) handlePacket(pkt *gc.Packet) {
 	switch pb.ESOMsg(pkt.MsgType) {
 	// Shared Object (Inventory) Messages
 	case pb.ESOMsg_k_ESOMsg_CacheSubscriptionCheck:
-		t.backpack.HandleCacheCheck(t.gc, t.client.SteamID())
+		t.backpack.HandleCacheCheck(t.gc, t.steamID)
 	case pb.ESOMsg_k_ESOMsg_CacheSubscribed:
 		t.backpack.HandleSubscribed(pkt)
 	case pb.ESOMsg_k_ESOMsg_Create:

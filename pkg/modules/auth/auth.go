@@ -83,7 +83,15 @@ type SocketProvider interface {
 	SendRaw(ctx context.Context, eMsg protocol.EMsg, payload []byte) error
 	Session() socket.Session
 	StartHeartbeat(time.Duration)
-	Bus() *bus.Bus // We rely on the socket's bus for consistent event routing
+	Bus() *bus.Bus
+}
+
+// WebAuthenticator defines the interface for performing WebAPI-based authentication flows.
+// It decouples the Authenticator from the concrete implementation of the service.
+type WebAuthenticator interface {
+	BeginAuthSessionViaCredentials(ctx context.Context, accountName, password string, authCode string) (*pb.CAuthentication_BeginAuthSessionViaCredentials_Response, error)
+	PollAuthSessionStatus(ctx context.Context, clientID uint64, requestID []byte) (*pb.CAuthentication_PollAuthSessionStatus_Response, error)
+	UpdateAuthSessionWithSteamGuardCode(ctx context.Context, clientID uint64, steamID uint64, code string, codeType pb.EAuthSessionGuardType) error
 }
 
 // Option defines a functional option for Authenticator.
@@ -99,7 +107,7 @@ type Authenticator struct {
 	state  atomic.Int32
 
 	socket  SocketProvider
-	service *AuthenticationService // Assuming this handles raw WebAPI requests
+	service WebAuthenticator
 	logger  log.Logger
 
 	// Protects details from concurrent access during relogins
@@ -112,7 +120,7 @@ type Authenticator struct {
 	loginCancel context.CancelCauseFunc
 }
 
-func NewAuthenticator(s SocketProvider, service *AuthenticationService, cfg Config, opts ...Option) *Authenticator {
+func NewAuthenticator(s SocketProvider, service WebAuthenticator, cfg Config, opts ...Option) *Authenticator {
 	auth := &Authenticator{
 		config:  cfg,
 		socket:  s,
@@ -134,8 +142,8 @@ func NewAuthenticator(s SocketProvider, service *AuthenticationService, cfg Conf
 	return auth
 }
 
-func (a *Authenticator) State() State                    { return State(a.state.Load()) }
-func (a *Authenticator) Service() *AuthenticationService { return a.service }
+func (a *Authenticator) State() State              { return State(a.state.Load()) }
+func (a *Authenticator) Service() WebAuthenticator { return a.service }
 
 // LogOn begins the authentication sequence.
 // It blocks until authentication completes successfully or fails.

@@ -21,7 +21,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-const ModuleName string = "coordinator"
+const ModuleName string = "gc"
 
 // GCMessageEvent is triggered when a Game Coordinator message is received.
 // and WAS NOT handled by a specific Job callback.
@@ -43,8 +43,8 @@ type Coordinator struct {
 	jobManager *jobs.Manager[*gc.Packet] // Manages GC-specific jobs
 }
 
-// NewCoordinator creates a new GC module.
-func NewCoordinator() *Coordinator {
+// New creates a new GC module.
+func New() *Coordinator {
 	return &Coordinator{
 		logger:     log.Discard,
 		jobManager: jobs.NewManager[*gc.Packet](2000),
@@ -105,7 +105,6 @@ func (c *Coordinator) CallRaw(ctx context.Context, appID uint32, msgType uint32,
 	return c.sendInternal(ctx, appID, msgType, nil, payload, cb)
 }
 
-// sendInternal handles payload serialization, header wrapping, and job registration.
 func (c *Coordinator) sendInternal(ctx context.Context, appID uint32, msgType uint32, msg proto.Message, payload []byte, cb jobs.Callback[*gc.Packet]) error {
 	var err error
 
@@ -166,7 +165,6 @@ func (c *Coordinator) sendInternal(ctx context.Context, appID uint32, msgType ui
 	return nil
 }
 
-// handleClientFromGC processes incoming messages routed from a GC.
 func (c *Coordinator) handleClientFromGC(packet *protocol.Packet) {
 	wrapper := &pb.CMsgGCClient{}
 	if err := proto.Unmarshal(packet.Payload, wrapper); err != nil {
@@ -174,10 +172,7 @@ func (c *Coordinator) handleClientFromGC(packet *protocol.Packet) {
 		return
 	}
 
-	appID := wrapper.GetAppid()
-
-	// This function must handle both Proto and Legacy headers based on the payload bytes.
-	gcPacket, err := gc.ParsePacket(appID, wrapper.GetMsgtype(), wrapper.GetPayload())
+	gcPacket, err := gc.ParsePacket(wrapper.GetAppid(), wrapper.GetMsgtype(), wrapper.GetPayload())
 	if err != nil {
 		c.logger.Error("Failed to parse inner GC packet", log.Err(err))
 		return
@@ -189,15 +184,12 @@ func (c *Coordinator) handleClientFromGC(packet *protocol.Packet) {
 		log.Uint64("target_job", gcPacket.TargetJobID),
 	)
 
-	// Check if this is a response to a pending Job
 	if gcPacket.TargetJobID != protocol.NoJob {
 		if c.jobManager.Resolve(gcPacket.TargetJobID, gcPacket, nil) {
-			// Job found and callback executed. We are done.
 			return
 		}
 	}
 
-	// Otherwise, broadcast to the bus for general listeners (e.g. TF2 module)
 	c.bus.Publish(&GCMessageEvent{
 		Packet: gcPacket,
 	})

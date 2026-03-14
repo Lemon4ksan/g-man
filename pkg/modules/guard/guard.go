@@ -52,6 +52,11 @@ var (
 	ErrNotAuthenticated = errors.New("guard: not authenticated")
 )
 
+type ConfService interface {
+	GetConfirmations(ctx context.Context, deviceID string, steamID uint64, confKey string, timestamp int64) (*ConfirmationsList, error)
+	RespondToConfirmation(ctx context.Context, conf *Confirmation, accept bool, deviceID string, steamID uint64, confKey string, timestamp int64) error
+}
+
 // Config holds all configuration options for the Guardian.
 // Use DefaultConfig() for production-ready defaults.
 type Config struct {
@@ -131,9 +136,6 @@ func (c Config) Validate() error {
 		return fmt.Errorf("max backoff (%v) must be >= poll interval (%v)",
 			c.MaxBackoff, c.PollInterval)
 	}
-	if c.RateLimit < 500*time.Millisecond {
-		return fmt.Errorf("rate limit too aggressive (minimum 500ms)")
-	}
 	return nil
 }
 
@@ -152,7 +154,7 @@ type Guardian struct {
 	sub *bus.Subscription
 
 	logger  log.Logger
-	service *MobileConf
+	service ConfService
 	config  Config
 	state   atomic.Int32
 

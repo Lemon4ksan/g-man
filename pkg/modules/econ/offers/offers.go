@@ -144,6 +144,11 @@ func (m *Manager) handleTradeResult(p *protocol.Packet) {
 
 func (m *Manager) handleTradeStarted(p *protocol.Packet) {
 	msg := &pb.CMsgTrading_StartSession{}
+	if err := proto.Unmarshal(p.Payload, msg); err != nil {
+		m.logger.Error("Failed to unmarshal StartSession", log.Err(err))
+		return
+	}
+
 	m.logger.Info("Trade session started", log.Uint64("other", msg.GetOtherSteamid()))
 	m.bus.Publish(&TradeSessionStartedEvent{
 		OtherSteamID: msg.GetOtherSteamid(),
