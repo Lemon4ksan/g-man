@@ -60,9 +60,10 @@ func newMockInitContext() *mockInitContext {
 	}
 }
 
-func (m *mockInitContext) Bus() *bus.Bus        { return m.eventBus }
-func (m *mockInitContext) Logger() log.Logger   { return log.Discard }
-func (m *mockInitContext) Config() steam.Config { return steam.Config{} }
+func (m *mockInitContext) Bus() *bus.Bus               { return m.eventBus }
+func (m *mockInitContext) Logger() log.Logger          { return log.Discard }
+func (m *mockInitContext) Config() steam.Config        { return steam.Config{} }
+func (m *mockInitContext) WebAPI() api.WebAPIRequester { return nil }
 
 func (m *mockInitContext) GetModule(name string) steam.Module {
 	panic("unimplemented")
@@ -83,9 +84,6 @@ func (m *mockInitContext) UnregisterPacketHandler(eMsg protocol.EMsg) {
 	panic("unimplemented")
 }
 func (m *mockInitContext) UnregisterServiceHandler(method string) {
-	panic("unimplemented")
-}
-func (m *mockInitContext) WebAPI() api.WebAPIRequester {
 	panic("unimplemented")
 }
 

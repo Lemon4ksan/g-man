@@ -153,10 +153,12 @@ type Guardian struct {
 	bus *bus.Bus
 	sub *bus.Subscription
 
-	logger  log.Logger
-	service ConfService
-	config  Config
-	state   atomic.Int32
+	logger       log.Logger
+	service      ConfService
+	config       Config
+	state        atomic.Int32
+	clock        *OffsetClock
+	twoFactorSvc *TwoFactorService
 
 	// Confirmation tracking
 	mu            sync.RWMutex
@@ -181,6 +183,7 @@ func New(cfg Config) (*Guardian, error) {
 	g := &Guardian{
 		config:        cfg,
 		logger:        log.Discard,
+		clock:         &OffsetClock{},
 		confirmations: make(map[uint64]*Confirmation),
 		seenIDs:       make(map[uint64]time.Time),
 		metrics:       &GuardianMetrics{},
@@ -198,7 +201,9 @@ func (g *Guardian) Init(init steam.InitContext) error {
 	if g.bus == nil {
 		return errors.New("nil bus")
 	}
-
+	if web := init.WebAPI(); web != nil {
+		g.twoFactorSvc = NewTwoFactorService(web)
+	}
 	g.logger = init.Logger().
 		WithModule(ModuleName).
 		With(log.String("device_id", maskDeviceID(g.config.DeviceID)))
@@ -224,6 +229,14 @@ func (g *Guardian) StartAuthed(ctx context.Context, auth steam.AuthContext) erro
 		return errors.New("nil community client despite successful auth")
 	}
 	g.service = NewMobileConf(communityClient)
+
+	if g.twoFactorSvc != nil {
+		offset, err := g.twoFactorSvc.QueryTimeOffset(ctx)
+		if err != nil {
+			return fmt.Errorf("time sync failed: %w", err)
+		}
+		g.clock.SetOffset(offset)
+	}
 	g.mu.Unlock()
 
 	return g.StartPolling(ctx)
@@ -237,11 +250,11 @@ func (g *Guardian) Close() error {
 	if g.pollingCancel != nil {
 		g.pollingCancel()
 	}
-	g.mu.Unlock()
 
 	if g.sub != nil {
 		g.sub.Unsubscribe()
 	}
+	g.mu.Unlock()
 
 	return nil
 }
@@ -293,7 +306,7 @@ func (g *Guardian) FetchConfirmations(ctx context.Context) ([]*Confirmation, err
 		return nil, err
 	}
 
-	timestamp := time.Now().Unix()
+	timestamp := g.clock.Now().Unix()
 	key, err := totp.GenerateConfirmationKey(g.config.IdentitySecret, timestamp, "conf")
 	if err != nil {
 		return nil, fmt.Errorf("key generation: %w", err)

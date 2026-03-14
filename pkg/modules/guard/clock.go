@@ -19,8 +19,8 @@ type OffsetClock struct {
 	offset atomic.Int64
 }
 
-func (c *OffsetClock) SetOffset(offsetSeconds int64) {
-	c.offset.Store(int64(time.Duration(offsetSeconds) * time.Second))
+func (c *OffsetClock) SetOffset(offset time.Duration) {
+	c.offset.Store(int64(offset))
 }
 
 func (c *OffsetClock) Now() time.Time {
