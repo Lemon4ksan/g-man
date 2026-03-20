@@ -151,6 +151,7 @@ func (ar *AssetResponse) ToAsset() *Asset {
 
 // CreateSellOrderOptions contains parameters for creating a sell order.
 type CreateSellOrderOptions struct {
+	AppID     uint32
 	AssetID   uint64
 	ContextID int64
 	Price     int // Price in minimum currency units (kopecks, cents)
@@ -177,6 +178,7 @@ type CreateSellOrder struct {
 
 // CreateBuyOrderOptions contains parameters for creating a buy order.
 type CreateBuyOrderOptions struct {
+	AppID          uint32
 	MarketHashName string
 	Price          int // Price in minimum currency units
 	Amount         int
@@ -240,7 +242,6 @@ func (g *GraphPoints) UnmarshalJSON(data []byte) error {
 
 // ItemOrdersHistogram is a pure structure with a histogram of orders.
 type ItemOrdersHistogram struct {
-	Success          bool
 	SellOrderTable   string
 	SellOrderSummary string
 	BuyOrderTable    string

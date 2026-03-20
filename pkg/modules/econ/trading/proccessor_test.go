@@ -162,7 +162,6 @@ func TestProcessor_CounterFallback(t *testing.T) {
 func TestProcessor_WithRetry(t *testing.T) {
 	p := NewProcessor(nil, nil, log.Discard)
 
-	// 1. Успех с первой попытки
 	attempts := 0
 	err := p.withRetry(context.Background(), 3, func() error {
 		attempts++
@@ -172,20 +171,18 @@ func TestProcessor_WithRetry(t *testing.T) {
 		t.Errorf("expected success on first try, got attempts=%d, err=%v", attempts, err)
 	}
 
-	// 2. Провал после всех попыток
 	attempts = 0
 	expectedErr := errors.New("persistent error")
 	err = p.withRetry(context.Background(), 2, func() error {
 		attempts++
 		return expectedErr
 	})
-	if !errors.Is(err, expectedErr) || attempts != 3 { // 2 retries + 1 initial = 3 attempts
+	if !errors.Is(err, expectedErr) || attempts != 3 {
 		t.Errorf("expected persistent error after all retries, got attempts=%d, err=%v", attempts, err)
 	}
 
-	// 3. Прерывание по контексту
 	ctx, cancel := context.WithCancel(context.Background())
-	cancel() // Отменяем сразу
+	cancel()
 	err = p.withRetry(ctx, 5, func() error {
 		return errors.New("any error")
 	})

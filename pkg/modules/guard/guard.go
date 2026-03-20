@@ -17,24 +17,25 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/lemon4ksan/g-man/pkg/log"
+	"github.com/lemon4ksan/g-man/pkg/modules"
 	"github.com/lemon4ksan/g-man/pkg/modules/auth"
-	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/bus"
 	"github.com/lemon4ksan/g-man/pkg/steam/crypto/totp"
 )
 
 const ModuleName string = "guard"
 
+// State represents the lifecycle state of the high-level client.
 type State int32
 
 const (
-	StateStopped State = iota
+	StateStopped int32 = iota
 	StatePolling
 	StateClosed
 )
 
 func (s State) String() string {
-	switch s {
+	switch int32(s) {
 	case StateStopped:
 		return "stopped"
 	case StatePolling:
@@ -150,39 +151,32 @@ type GuardianMetrics struct {
 // Guardian manages Steam Guard mobile confirmations.
 // The polling is started automatically once client is loaded.
 type Guardian struct {
-	bus *bus.Bus
-	sub *bus.Subscription
+	modules.BaseModule
 
-	logger       log.Logger
 	service      ConfService
 	config       Config
-	state        atomic.Int32
 	clock        *OffsetClock
 	twoFactorSvc *TwoFactorService
 
 	// Confirmation tracking
 	mu            sync.RWMutex
+	pollingWg     sync.WaitGroup
 	confirmations map[uint64]*Confirmation
 	seenIDs       map[uint64]time.Time
 
-	// Polling lifecycle
-	pollingCtx    context.Context // polling
-	pollingCancel context.CancelFunc
-	wg            sync.WaitGroup
-
-	rateLimiter *rate.Limiter
 	metrics     *GuardianMetrics
+	rateLimiter *rate.Limiter
 }
 
-// New creates a new confirmation guardian.
+// New creates a new confirmation guardian instance.
 func New(cfg Config) (*Guardian, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid guard config: %w", err)
 	}
 
 	g := &Guardian{
+		BaseModule:    modules.NewBase(ModuleName),
 		config:        cfg,
-		logger:        log.Discard,
 		clock:         &OffsetClock{},
 		confirmations: make(map[uint64]*Confirmation),
 		seenIDs:       make(map[uint64]time.Time),
@@ -190,108 +184,94 @@ func New(cfg Config) (*Guardian, error) {
 		rateLimiter:   rate.NewLimiter(rate.Every(cfg.RateLimit), 1),
 	}
 
-	g.state.Store(int32(StateStopped))
+	g.State.Store(StateStopped)
 	return g, nil
 }
 
-func (g *Guardian) Name() string { return ModuleName }
+func (g *Guardian) Metrics() *GuardianMetrics { return g.metrics }
 
-func (g *Guardian) Init(init steam.InitContext) error {
-	g.bus = init.Bus()
-	if g.bus == nil {
-		return errors.New("nil bus")
+// Init initializes the module dependencies and starts background event listeners.
+func (g *Guardian) Init(init modules.InitContext) error {
+	// Initialize base logic (sets up logger, bus, and module context)
+	if err := g.BaseModule.Init(init); err != nil {
+		return err
 	}
-	if web := init.WebAPI(); web != nil {
+
+	if web := init.Service(); web != nil {
 		g.twoFactorSvc = NewTwoFactorService(web)
 	}
-	g.logger = init.Logger().
-		WithModule(ModuleName).
-		With(log.String("device_id", maskDeviceID(g.config.DeviceID)))
 
-	g.sub = init.Bus().Subscribe(auth.StateEvent{})
-	go g.listenEvents()
+	// Add context-aware logging metadata
+	g.Logger = g.Logger.With(log.String("device_id", maskDeviceID(g.config.DeviceID)))
+
+	// Subscribe to auth events to handle auto-polling on logon
+	sub := init.Bus().Subscribe(auth.StateEvent{})
+
+	// Use g.Go to run background tasks. It automatically handles the WaitGroup.
+	g.Go(func(ctx context.Context) {
+		g.listenEvents(ctx, sub)
+	})
 
 	return nil
 }
 
-func (g *Guardian) Start(ctx context.Context) error {
-	return nil
-}
-
-func (g *Guardian) StartAuthed(ctx context.Context, auth steam.AuthContext) error {
-	g.mu.Lock()
-	if g.pollingCancel != nil {
-		g.pollingCancel()
+// StartAuthed is called when the Steam Client successfully logs in.
+// It synchronizes time and starts the confirmation polling loop.
+func (g *Guardian) StartAuthed(ctx context.Context, authCtx modules.AuthContext) error {
+	if g.State.Load() == int32(StatePolling) {
+		g.Logger.Debug("Re-authentication detected, stopping old polling loop")
+		g.StopPolling()
 	}
 
-	communityClient := auth.Community()
+	communityClient := authCtx.Community()
 	if communityClient == nil {
-		return errors.New("nil community client despite successful auth")
+		return errors.New("guard: community client is required")
 	}
+
+	g.mu.Lock()
 	g.service = NewMobileConf(communityClient)
 
 	if g.twoFactorSvc != nil {
 		offset, err := g.twoFactorSvc.QueryTimeOffset(ctx)
-		if err != nil {
-			return fmt.Errorf("time sync failed: %w", err)
+		if err == nil {
+			g.clock.SetOffset(offset)
 		}
-		g.clock.SetOffset(offset)
 	}
 	g.mu.Unlock()
 
-	return g.StartPolling(ctx)
+	return g.StartPolling()
 }
 
-// Close stops the polling process and discards this module.
+// Close gracefully shuts down the module and waits for all goroutines.
 func (g *Guardian) Close() error {
-	g.state.Store(int32(StateClosed))
-
-	g.mu.Lock()
-	if g.pollingCancel != nil {
-		g.pollingCancel()
-	}
-
-	if g.sub != nil {
-		g.sub.Unsubscribe()
-	}
-	g.mu.Unlock()
-
-	return nil
+	g.State.Store(StateClosed)
+	return g.BaseModule.Close()
 }
-
-func (g *Guardian) Metrics() *GuardianMetrics { return g.metrics }
-func (g *Guardian) State() State              { return State(g.state.Load()) }
 
 // StartPolling begins automatic confirmation polling in a background goroutine.
-func (g *Guardian) StartPolling(ctx context.Context) error {
-	if !g.state.CompareAndSwap(int32(StateStopped), int32(StatePolling)) {
+func (g *Guardian) StartPolling() error {
+	if !g.State.CompareAndSwap(int32(StateStopped), int32(StatePolling)) {
 		return ErrGuardPolling
 	}
 
-	g.mu.Lock()
-	g.pollingCtx, g.pollingCancel = context.WithCancel(ctx)
-	g.mu.Unlock()
+	g.pollingWg.Add(1)
 
-	g.wg.Add(1)
-	go g.pollingLoop()
+	g.Go(func(ctx context.Context) {
+		defer g.pollingWg.Done()
+		g.pollingLoop(ctx)
+	})
 
-	g.logger.Info("Polling started", log.Duration("interval", g.config.PollInterval))
-	g.bus.Publish(&StateEvent{New: StatePolling})
+	g.Logger.Info("Polling started", log.Duration("interval", g.config.PollInterval))
+	g.Bus.Publish(&StateEvent{New: State(StatePolling)})
 	return nil
 }
 
-// StopPolling stops the automatic confirmation polling.
+// StopPolling halts the automatic polling loop.
 func (g *Guardian) StopPolling() {
-	if g.state.CompareAndSwap(int32(StatePolling), int32(StateStopped)) {
-		g.mu.Lock()
-		if g.pollingCancel != nil {
-			g.pollingCancel()
-		}
-		g.mu.Unlock()
-
-		g.wg.Wait() // Wait for the loop to exit cleanly
-		g.logger.Info("Polling stopped")
-		g.bus.Publish(&StateEvent{New: StateStopped})
+	if g.State.CompareAndSwap(int32(StatePolling), int32(StateStopped)) {
+		g.pollingWg.Wait() 
+		g.Logger.Info("Polling loop fully terminated")
+		g.Bus.Publish(&StateEvent{New: State(StateStopped)})
 	}
 }
 
@@ -301,7 +281,6 @@ func (g *Guardian) FetchConfirmations(ctx context.Context) ([]*Confirmation, err
 		return nil, ErrNotAuthenticated
 	}
 
-	// Respect rate limits before hitting Steam API
 	if err := g.rateLimiter.Wait(ctx); err != nil {
 		return nil, err
 	}
@@ -309,21 +288,21 @@ func (g *Guardian) FetchConfirmations(ctx context.Context) ([]*Confirmation, err
 	timestamp := g.clock.Now().Unix()
 	key, err := totp.GenerateConfirmationKey(g.config.IdentitySecret, timestamp, "conf")
 	if err != nil {
-		return nil, fmt.Errorf("key generation: %w", err)
+		return nil, fmt.Errorf("guard: key generation: %w", err)
 	}
 
 	resp, err := g.service.GetConfirmations(ctx, g.config.DeviceID, g.config.SteamID, key, timestamp)
 	if err != nil {
 		g.metrics.TotalErrors.Add(1)
-		return nil, fmt.Errorf("api request failed: %w", err)
+		return nil, err
 	}
 
 	if !resp.Success {
 		g.metrics.TotalErrors.Add(1)
 		if resp.NeedAuth {
-			g.bus.Publish(&NeedAuthEvent{Message: resp.Message})
+			g.Bus.Publish(&NeedAuthEvent{Message: resp.Message})
 		}
-		return nil, fmt.Errorf("steam rejected conf request: %s", resp.Message)
+		return nil, fmt.Errorf("guard: steam rejected request: %s", resp.Message)
 	}
 
 	g.metrics.TotalFetched.Add(int64(len(resp.Confirmations)))
@@ -378,9 +357,8 @@ func (g *Guardian) respond(ctx context.Context, conf *Confirmation, accept bool)
 	return nil
 }
 
-func (g *Guardian) pollingLoop() {
-	defer g.wg.Done()
-
+// pollingLoop handles the ticker logic and exponential backoff on failures.
+func (g *Guardian) pollingLoop(ctx context.Context) {
 	interval := g.config.PollInterval
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -388,40 +366,45 @@ func (g *Guardian) pollingLoop() {
 	consecutiveFailures := 0
 
 	for {
+		if g.State.Load() != int32(StatePolling) {
+			return
+		}
+
 		select {
-		case <-g.pollingCtx.Done():
+		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			confs, err := g.FetchConfirmations(g.pollingCtx)
-			if err != nil {
-				if errors.Is(err, context.Canceled) {
-					return
-				}
+			// Check if we should still be polling based on module state
+			if g.State.Load() != int32(StatePolling) {
+				g.Logger.Debug("Exiting polling loop as state is no longer Polling")
+				return
+			}
 
-				// Exponential Backoff
+			confs, err := g.FetchConfirmations(ctx)
+			if err != nil {
 				consecutiveFailures++
 				if consecutiveFailures > g.config.MaxPollFailures {
 					interval = min(interval*2, g.config.MaxBackoff)
 					ticker.Reset(interval)
-					g.logger.Warn("Backed off polling due to errors", log.Duration("new_interval", interval))
+					g.Logger.Warn("Backed off polling due to errors", log.Duration("new_interval", interval))
 				}
 				continue
 			}
 
-			// Success - Reset backoff
+			// Success - Reset backoff and interval
 			if consecutiveFailures > 0 {
 				consecutiveFailures = 0
 				interval = g.config.PollInterval
 				ticker.Reset(interval)
 			}
 
-			g.processFetchedConfirmations(confs)
+			g.processFetchedConfirmations(ctx, confs)
 			g.cleanupSeenIDs()
 		}
 	}
 }
 
-func (g *Guardian) processFetchedConfirmations(confs []*Confirmation) {
+func (g *Guardian) processFetchedConfirmations(ctx context.Context, confs []*Confirmation) {
 	for _, conf := range confs {
 		g.mu.Lock()
 		if _, seen := g.seenIDs[conf.ID]; seen {
@@ -432,17 +415,39 @@ func (g *Guardian) processFetchedConfirmations(confs []*Confirmation) {
 		g.confirmations[conf.ID] = conf
 		g.mu.Unlock()
 
-		g.logger.Info("New confirmation received", log.String("title", conf.Title))
-		g.bus.Publish(&ConfirmationReceivedEvent{Confirmation: conf})
+		g.Logger.Info("New confirmation received", log.String("title", conf.Title))
+		g.Bus.Publish(&ConfirmationReceivedEvent{Confirmation: conf})
 
+		// Handle Auto-Accept logic
 		if g.config.AutoAccept && slices.Contains(g.config.AutoAcceptTypes, conf.Type) {
-			go func(c *Confirmation) {
-				if err := g.Accept(g.pollingCtx, c); err != nil {
-					g.logger.Error("Auto-accept failed", log.Err(err), log.Uint64("id", c.ID))
+			// Launch auto-accept in a separate routine managed by the module
+			g.Go(func(workerCtx context.Context) {
+				if err := g.Accept(workerCtx, conf); err != nil {
+					g.Logger.Error("Auto-accept failed", log.Err(err), log.Uint64("id", conf.ID))
 				} else {
-					g.logger.Info("Auto-accepted confirmation", log.Uint64("id", c.ID))
+					g.Logger.Info("Auto-accepted confirmation", log.Uint64("id", conf.ID))
 				}
-			}(conf)
+			})
+		}
+	}
+}
+
+// listenEvents handles background event processing for auth state changes.
+func (g *Guardian) listenEvents(ctx context.Context, sub *bus.Subscription) {
+	defer sub.Unsubscribe()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case ev, ok := <-sub.C():
+			if !ok {
+				return
+			}
+			if e, ok := ev.(*auth.StateEvent); ok {
+				if e.New == auth.StateDisconnected {
+					g.StopPolling()
+				}
+			}
 		}
 	}
 }
@@ -459,20 +464,11 @@ func (g *Guardian) cleanupSeenIDs() {
 	}
 }
 
-func (g *Guardian) listenEvents() {
-	for ev := range g.sub.C() {
-		switch e := ev.(type) {
-		case *auth.StateEvent:
-			g.handleStateChange(e)
-		}
-	}
-}
-
 func (g *Guardian) handleStateChange(e *auth.StateEvent) {
 	switch e.New {
 	case auth.StateLoggedOn:
 	case auth.StateDisconnected:
-		g.logger.Warn("Disconnected, stopping session context")
+		g.Logger.Warn("Disconnected, stopping session context")
 		g.StopPolling()
 	}
 }

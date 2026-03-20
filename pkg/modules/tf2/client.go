@@ -14,9 +14,9 @@ import (
 
 	"github.com/lemon4ksan/g-man/pkg/jobs"
 	"github.com/lemon4ksan/g-man/pkg/log"
+	"github.com/lemon4ksan/g-man/pkg/modules"
 	"github.com/lemon4ksan/g-man/pkg/modules/coordinator"
 	gc "github.com/lemon4ksan/g-man/pkg/modules/coordinator/protocol"
-	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/bus"
 
 	pb "github.com/lemon4ksan/g-man/pkg/tf2/protobuf"
@@ -67,17 +67,18 @@ func New(logger log.Logger) *TF2 {
 
 func (t *TF2) Name() string { return ModuleName }
 
-func (t *TF2) Init(c steam.InitContext) error {
-	gcModule := c.GetModule(coordinator.ModuleName)
+func (t *TF2) Init(init modules.InitContext) error {
+	t.bus = init.Bus()
+	gcModule := init.GetModule(coordinator.ModuleName)
 	if gcModule == nil {
 		return errors.New("tf2: coordinator not initialized")
 	}
 	t.gc = gcModule.(CoordinatorProvider)
 
-	sub := c.Bus().Subscribe(&coordinator.GCMessageEvent{})
+	sub := init.Bus().Subscribe(&coordinator.GCMessageEvent{})
 	go t.loop(sub)
 
-	t.backpack = NewBackpack(t.logger, c.Bus())
+	t.backpack = NewBackpack(t.logger, init.Bus())
 	return nil
 }
 
@@ -93,7 +94,11 @@ func (t *TF2) Start(ctx context.Context) error {
 	return nil
 }
 
-func (t *TF2) StartAuthed(ctx context.Context, authCtx steam.AuthContext) error {
+func (t *TF2) Backpack() *Backpack {
+	return t.backpack
+}
+
+func (t *TF2) StartAuthed(ctx context.Context, authCtx modules.AuthContext) error {
 	t.steamID = authCtx.SteamID()
 	return nil
 }

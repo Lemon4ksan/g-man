@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"hash/crc32"
 	"io"
@@ -21,7 +22,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// handleChannelEncryptRequest processes the initial handshake from Steam CM.
+// handleChannelEncryptRequest processes the initial TCP handshake from Steam CM.
 // It generates a symmetric session key and sends it back encrypted with Steam's public key.
 func (a *Authenticator) handleChannelEncryptRequest(packet *protocol.Packet) {
 	a.logger.Debug("Received ChannelEncryptRequest", log.Int("size", len(packet.Payload)))
@@ -29,31 +30,29 @@ func (a *Authenticator) handleChannelEncryptRequest(packet *protocol.Packet) {
 	r := bytes.NewReader(packet.Payload)
 	var protocolVer, universe uint32
 	if err := binary.Read(r, binary.LittleEndian, &protocolVer); err != nil {
-		a.failLogin(fmt.Errorf("encrypt_request read proto ver: %w", err))
+		a.failLogin(fmt.Errorf("encrypt_request: failed to read protocol version: %w", err))
 		return
 	}
 	if err := binary.Read(r, binary.LittleEndian, &universe); err != nil {
-		a.failLogin(fmt.Errorf("encrypt_request read universe: %w", err))
+		a.failLogin(fmt.Errorf("encrypt_request: failed to read universe: %w", err))
 		return
 	}
 
 	nonce := make([]byte, 16)
 	if _, err := io.ReadFull(r, nonce); err != nil {
-		a.failLogin(fmt.Errorf("encrypt_request read nonce: %w", err))
+		a.failLogin(fmt.Errorf("encrypt_request: failed to read nonce: %w", err))
 		return
 	}
 
 	// Generate symmetric key for this session
 	plainKey, encryptedKey, err := crypto.GenerateSessionKey(nonce)
 	if err != nil {
-		a.failLogin(fmt.Errorf("encrypt_request gen key: %w", err))
+		a.failLogin(fmt.Errorf("encrypt_request: failed to generate session key: %w", err))
 		return
 	}
 
 	// Store temporarily until CM confirms it
-	a.mu.Lock()
-	a.tempKey = plainKey
-	a.mu.Unlock()
+	a.tempKey.Store(&plainKey)
 
 	// Structure: [ProtocolVersion] [KeySize] [EncryptedKey] [CRC32] [Trailer(0)]
 	resp := new(bytes.Buffer)
@@ -65,9 +64,9 @@ func (a *Authenticator) handleChannelEncryptRequest(packet *protocol.Packet) {
 
 	a.logger.Debug("Sending ChannelEncryptResponse", log.Int("key_size", len(encryptedKey)))
 
-	// Use background context here as this is an asynchronous response to a CM event
+	// This is a network-level response, independent of the user's LogOn context.
 	if err := a.socket.SendRaw(context.Background(), protocol.EMsg_ChannelEncryptResponse, resp.Bytes()); err != nil {
-		a.failLogin(fmt.Errorf("encrypt_request send failed: %w", err))
+		a.failLogin(fmt.Errorf("encrypt_request: failed to send response: %w", err))
 	}
 }
 
@@ -77,47 +76,47 @@ func (a *Authenticator) handleChannelEncryptResult(packet *protocol.Packet) {
 	r := bytes.NewReader(packet.Payload)
 	var result uint32
 	if err := binary.Read(r, binary.LittleEndian, &result); err != nil {
-		a.failLogin(fmt.Errorf("encrypt_result read result: %w", err))
+		a.failLogin(fmt.Errorf("encrypt_result: failed to read result code: %w", err))
 		return
 	}
 
 	if eresult := protocol.EResult(result); eresult != protocol.EResult_OK {
-		a.failLogin(fmt.Errorf("encryption failed: %s", eresult))
+		a.failLogin(fmt.Errorf("encryption failed with EResult: %s", eresult))
 		return
 	}
 
-	a.mu.Lock()
-	key := a.tempKey
-	a.tempKey = nil // Clear temp key to prevent reuse
-	details := a.details
-	loginCtx := a.loginCtx // Grab the context tied to this login attempt
-	a.mu.Unlock()
-
-	if key == nil {
-		a.failLogin(fmt.Errorf("encrypt_result no temp key found"))
+	// Atomically swap the temp key to prevent reuse/race conditions
+	keyPtr := a.tempKey.Swap(nil)
+	if keyPtr == nil || *keyPtr == nil {
+		a.failLogin(errors.New("encrypt_result: no temporary session key found to activate"))
 		return
 	}
 
-	a.socket.Session().SetEncryptionKey(key)
+	a.socket.Session().SetEncryptionKey(*keyPtr)
 	a.logger.Info("TCP Encryption established")
 
-	if loginCtx == nil {
-		loginCtx = context.Background()
+	// Get the context and details for the current login attempt
+	loginCtxPtr := a.loginCtx.Load()
+	details := a.activeDetails.Load()
+
+	if loginCtxPtr == nil || details == nil {
+		a.failLogin(errors.New("encrypt_result: login context or details are missing"))
+		return
 	}
 
 	// Proceed to send logon credentials over the encrypted channel
-	a.sendLogOn(loginCtx, details, details.RefreshToken)
+	a.sendLogOn(*loginCtxPtr, details, details.RefreshToken)
 }
 
-// handleLogOnResponse handles the final verdict from Steam.
+// handleLogOnResponse handles the final authentication verdict from Steam.
 func (a *Authenticator) handleLogOnResponse(packet *protocol.Packet) {
-	resp := &pb.CMsgClientLogonResponse{}
-	if err := proto.Unmarshal(packet.Payload, resp); err != nil {
-		a.failLogin(fmt.Errorf("logon_response unmarshal: %w", err))
+	msg := &pb.CMsgClientLogonResponse{}
+	if err := proto.Unmarshal(packet.Payload, msg); err != nil {
+		a.failLogin(fmt.Errorf("logon_response: unmarshal failed: %w", err))
 		return
 	}
 
-	eresult := protocol.EResult(resp.GetEresult())
+	eresult := protocol.EResult(msg.GetEresult())
 	if eresult != protocol.EResult_OK {
 		a.logger.Error("Logon denied by CM", log.String("eresult", eresult.String()))
 		a.failLogin(fmt.Errorf("steam logon denied: %s", eresult))
@@ -129,8 +128,8 @@ func (a *Authenticator) handleLogOnResponse(packet *protocol.Packet) {
 	}
 
 	a.logger.Info("Logon successful",
-		log.Int32("hb_seconds", resp.GetHeartbeatSeconds()),
-		log.Uint32("public_ip", resp.GetPublicIp().GetV4()),
+		log.Int32("heartbeat_seconds", msg.GetHeartbeatSeconds()),
+		log.Uint32("public_ip", msg.GetPublicIp().GetV4()),
 	)
 
 	// Update session identifiers
@@ -145,7 +144,7 @@ func (a *Authenticator) handleLogOnResponse(packet *protocol.Packet) {
 	}
 
 	// Start Heartbeat
-	interval := time.Duration(resp.GetHeartbeatSeconds()) * time.Second
+	interval := time.Duration(msg.GetHeartbeatSeconds()) * time.Second
 	if interval <= 0 {
 		interval = 10 * time.Second
 	}
@@ -159,7 +158,7 @@ func (a *Authenticator) handleLogOnResponse(packet *protocol.Packet) {
 	})
 }
 
-// handleLoggedOff handles server-side disconnections (e.g. logged in elsewhere).
+// handleLoggedOff handles server-side disconnections (e.g., "Logged in elsewhere").
 func (a *Authenticator) handleLoggedOff(packet *protocol.Packet) {
 	resp := &pb.CMsgClientLoggedOff{}
 	_ = proto.Unmarshal(packet.Payload, resp)
@@ -169,11 +168,13 @@ func (a *Authenticator) handleLoggedOff(packet *protocol.Packet) {
 
 	a.setState(StateDisconnected)
 
+	// Propagate the logoff event to other modules
 	a.socket.Bus().Publish(&LoggedOffEvent{
 		Result: eresult,
 	})
 }
 
+// sendLogOn constructs and sends the ClientLogon message.
 func (a *Authenticator) sendLogOn(ctx context.Context, details *LogOnDetails, accessToken string) {
 	logon := &pb.CMsgClientLogon{
 		ProtocolVersion:           proto.Uint32(details.ProtocolVersion),
@@ -200,8 +201,8 @@ func (a *Authenticator) sendLogOn(ctx context.Context, details *LogOnDetails, ac
 
 	a.logger.Info("Sending ClientLogon", log.Uint64("steam_id", details.SteamID))
 
-	// If this fails, we kill the login process.
+	// If this send fails, the parent context will be canceled, terminating the login process.
 	if err := a.socket.SendProto(ctx, protocol.EMsg_ClientLogon, logon); err != nil {
-		a.failLogin(fmt.Errorf("send logon failed: %w", err))
+		a.failLogin(fmt.Errorf("failed to send logon message: %w", err))
 	}
 }

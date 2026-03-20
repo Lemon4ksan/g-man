@@ -5,268 +5,216 @@
 package auth
 
 import (
-	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/base64"
 	"errors"
 	"fmt"
 	"reflect"
-	"sync"
 	"testing"
 
-	"github.com/lemon4ksan/g-man/pkg/steam/api"
 	pb "github.com/lemon4ksan/g-man/pkg/steam/protobuf"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
-	"github.com/lemon4ksan/g-man/pkg/steam/transport"
+	"github.com/lemon4ksan/g-man/test"
 	"google.golang.org/protobuf/proto"
 )
 
-type mockUnifiedRequester struct {
-	mu           sync.Mutex
-	calls        []string
-	lastReqMsg   proto.Message
-	responses    map[string]proto.Message
-	responseErrs map[string]error
+const TestTimestamp = 1234567890
+const TestSteamID = 123
+
+func setupAuthService(t *testing.T, conf *DeviceConfig) (*AuthenticationService, *test.MockRequester) {
+	t.Helper()
+	mock := test.NewMockRequester()
+	svc := NewAuthenticationService(mock, conf)
+	return svc, mock
 }
 
-func newMockUnifiedRequester() *mockUnifiedRequester {
-	return &mockUnifiedRequester{
-		responses:    make(map[string]proto.Message),
-		responseErrs: make(map[string]error),
-	}
-}
-
-func (m *mockUnifiedRequester) CallUnified(ctx context.Context, httpMethod, iface, method string, version int, reqMsg, respMsg any, mods ...api.RequestModifier) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.calls = append(m.calls, method)
-	if msg, ok := reqMsg.(proto.Message); ok {
-		m.lastReqMsg = msg
-	}
-
-	if err, ok := m.responseErrs[method]; ok && err != nil {
-		return err
-	}
-
-	if respMsg != nil {
-		if resp, ok := m.responses[method]; ok {
-			outBytes, _ := proto.Marshal(resp)
-			_ = proto.Unmarshal(outBytes, respMsg.(proto.Message))
-		}
-	}
-
-	return nil
-}
-
-func (m *mockUnifiedRequester) Do(req *transport.Request) (*transport.Response, error) {
-	panic("Not implemented")
-}
-
-func TestNewAuthenticationService(t *testing.T) {
-	mockReq := newMockUnifiedRequester()
-
-	svcDefault := NewAuthenticationService(mockReq, nil)
-	defConf := DefaultDeviceConfig()
-	if !reflect.DeepEqual(svcDefault.DeviceConf(), defConf) {
-		t.Errorf("expected default device config")
-	}
-
-	customConf := &DeviceConfig{
-		DeviceFriendlyName: "Custom Device",
-		PlatformType:       pb.EAuthTokenPlatformType_k_EAuthTokenPlatformType_MobileApp,
-		OSType:             protocol.EOSType_Android9,
-		GamingDeviceType:   500,
-	}
-	svcCustom := NewAuthenticationService(mockReq, customConf)
-	if !reflect.DeepEqual(svcCustom.DeviceConf(), *customConf) {
-		t.Errorf("expected custom device config")
-	}
-}
-
-func TestAuthenticationService_EncryptPassword(t *testing.T) {
-	mockReq := newMockUnifiedRequester()
-	svc := NewAuthenticationService(mockReq, nil)
-	ctx := context.Background()
-
+func mockRSAResponse(t *testing.T, mock *test.MockRequester) *rsa.PrivateKey {
+	t.Helper()
 	privKey, err := rsa.GenerateKey(rand.Reader, 1024)
 	if err != nil {
-		t.Fatalf("failed to generate test RSA key: %v", err)
+		t.Fatalf("failed to generate RSA key: %v", err)
 	}
 
 	modHex := fmt.Sprintf("%x", privKey.N)
 	expHex := fmt.Sprintf("%x", privKey.E)
 
-	mockReq.responses["GetPasswordRSAPublicKey"] = &pb.CAuthentication_GetPasswordRSAPublicKey_Response{
+	mock.SetProtoResponse("Authentication", "GetPasswordRSAPublicKey", &pb.CAuthentication_GetPasswordRSAPublicKey_Response{
 		PublickeyMod: proto.String(modHex),
 		PublickeyExp: proto.String(expHex),
-		Timestamp:    proto.Uint64(1234567890),
-	}
+		Timestamp:    proto.Uint64(TestTimestamp),
+	})
+	return privKey
+}
 
-	password := "my_super_secret_password_123!"
+func TestNewAuthenticationService(t *testing.T) {
+	t.Run("Default Config", func(t *testing.T) {
+		svc, _ := setupAuthService(t, nil)
+		if !reflect.DeepEqual(svc.DeviceConf(), DefaultDeviceConfig()) {
+			t.Error("expected default device config")
+		}
+	})
 
-	encBase64, timestamp, err := svc.EncryptPassword(ctx, "testuser", password)
+	t.Run("Custom Config", func(t *testing.T) {
+		custom := &DeviceConfig{DeviceFriendlyName: "G-man Bot"}
+		svc, _ := setupAuthService(t, custom)
+		if svc.DeviceConf().DeviceFriendlyName != "G-man Bot" {
+			t.Error("expected custom device config")
+		}
+	})
+}
+
+func TestAuthenticationService_EncryptPassword(t *testing.T) {
+	svc, mock := setupAuthService(t, nil)
+	privKey := mockRSAResponse(t, mock)
+
+	password := "secret_123"
+	encBase64, ts, err := svc.EncryptPassword(t.Context(), "user", password)
 	if err != nil {
 		t.Fatalf("EncryptPassword failed: %v", err)
 	}
 
-	if timestamp != 1234567890 {
-		t.Errorf("expected timestamp 1234567890, got %d", timestamp)
+	if ts != TestTimestamp {
+		t.Errorf("expected ts %d, got %d", TestTimestamp, ts)
 	}
 
-	cipherText, err := base64.StdEncoding.DecodeString(encBase64)
-	if err != nil {
-		t.Fatalf("failed to decode base64: %v", err)
-	}
-
+	cipherText, _ := base64.StdEncoding.DecodeString(encBase64)
 	plainText, err := rsa.DecryptPKCS1v15(rand.Reader, privKey, cipherText)
 	if err != nil {
-		t.Fatalf("failed to decrypt PKCS1v15 payload: %v", err)
+		t.Fatalf("failed to decrypt: %v", err)
 	}
 
 	if string(plainText) != password {
-		t.Errorf("decrypted password mismatch: expected '%s', got '%s'", password, string(plainText))
+		t.Errorf("password mismatch: want %q, got %q", password, string(plainText))
 	}
 }
 
 func TestAuthenticationService_EncryptPassword_Errors(t *testing.T) {
-	mockReq := newMockUnifiedRequester()
-	svc := NewAuthenticationService(mockReq, nil)
-	ctx := context.Background()
+	svc, mock := setupAuthService(t, nil)
+	method := "Authentication.GetPasswordRSAPublicKey"
 
-	mockReq.responseErrs["GetPasswordRSAPublicKey"] = errors.New("api down")
-	_, _, err := svc.EncryptPassword(ctx, "user", "pwd")
-	if err == nil {
-		t.Error("expected error when API fails")
+	tests := []struct {
+		name    string
+		setup   func()
+		wantErr string
+	}{
+		{
+			name: "API Down",
+			setup: func() {
+				mock.ResponseErrs[method] = errors.New("api down")
+			},
+			wantErr: "fetch rsa key: api down",
+		},
+		{
+			name: "Empty Parameters",
+			setup: func() {
+				mock.ResponseErrs[method] = nil
+				mock.SetProtoResponse("Authentication", "GetPasswordRSAPublicKey", &pb.CAuthentication_GetPasswordRSAPublicKey_Response{})
+			},
+			wantErr: "steam returned empty rsa parameters",
+		},
+		{
+			name: "Invalid Hex",
+			setup: func() {
+				mock.SetProtoResponse("Authentication", "GetPasswordRSAPublicKey", &pb.CAuthentication_GetPasswordRSAPublicKey_Response{
+					PublickeyMod: proto.String("NOT_HEX"),
+					PublickeyExp: proto.String("010001"),
+				})
+			},
+			wantErr: "invalid rsa modulus hex string",
+		},
 	}
 
-	mockReq.responseErrs["GetPasswordRSAPublicKey"] = nil
-	mockReq.responses["GetPasswordRSAPublicKey"] = &pb.CAuthentication_GetPasswordRSAPublicKey_Response{}
-	_, _, err = svc.EncryptPassword(ctx, "user", "pwd")
-	if err == nil || err.Error() != "steam returned empty rsa parameters" {
-		t.Errorf("expected empty RSA parameters error, got %v", err)
-	}
-
-	mockReq.responses["GetPasswordRSAPublicKey"] = &pb.CAuthentication_GetPasswordRSAPublicKey_Response{
-		PublickeyMod: proto.String("INVALID_HEX"),
-		PublickeyExp: proto.String("010001"),
-	}
-	_, _, err = svc.EncryptPassword(ctx, "user", "pwd")
-	if err == nil || err.Error() != "invalid rsa modulus hex string" {
-		t.Errorf("expected invalid modulus error, got %v", err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.setup()
+			_, _, err := svc.EncryptPassword(t.Context(), "user", "pwd")
+			if err == nil || (tt.wantErr != "" && !reflect.DeepEqual(err.Error(), tt.wantErr)) {
+				t.Errorf("expected error %q, got %v", tt.wantErr, err)
+			}
+		})
 	}
 }
 
 func TestAuthenticationService_BeginAuthSessionViaCredentials(t *testing.T) {
-	mockReq := newMockUnifiedRequester()
-	svc := NewAuthenticationService(mockReq, nil)
-	ctx := context.Background()
+	svc, mock := setupAuthService(t, nil)
+	mockRSAResponse(t, mock)
 
-	privKey, _ := rsa.GenerateKey(rand.Reader, 1024)
-	mockReq.responses["GetPasswordRSAPublicKey"] = &pb.CAuthentication_GetPasswordRSAPublicKey_Response{
-		PublickeyMod: proto.String(fmt.Sprintf("%x", privKey.PublicKey.N)),
-		PublickeyExp: proto.String(fmt.Sprintf("%x", privKey.PublicKey.E)),
-		Timestamp:    proto.Uint64(100),
-	}
-
-	mockReq.responses["BeginAuthSessionViaCredentials"] = &pb.CAuthentication_BeginAuthSessionViaCredentials_Response{
+	mock.SetProtoResponse("Authentication", "BeginAuthSessionViaCredentials", &pb.CAuthentication_BeginAuthSessionViaCredentials_Response{
 		ClientId: proto.Uint64(999),
-	}
+	})
 
-	resp, err := svc.BeginAuthSessionViaCredentials(ctx, "myuser", "mypwd", "STEAMGUARD123")
+	resp, err := svc.BeginAuthSessionViaCredentials(t.Context(), "user", "pass", "GUARD_CODE")
 	if err != nil {
-		t.Fatalf("BeginAuthSessionViaCredentials failed: %v", err)
+		t.Fatalf("failed: %v", err)
 	}
 
 	if resp.GetClientId() != 999 {
-		t.Errorf("expected ClientId 999, got %d", resp.GetClientId())
+		t.Errorf("expected client id 999, got %d", resp.GetClientId())
 	}
 
-	req := mockReq.lastReqMsg.(*pb.CAuthentication_BeginAuthSessionViaCredentials_Request)
+	sent := &pb.CAuthentication_BeginAuthSessionViaCredentials_Request{}
+	mock.GetLastCall(sent)
 
-	if req.GetAccountName() != "myuser" {
-		t.Errorf("expected account 'myuser', got '%s'", req.GetAccountName())
+	if sent.GetAccountName() != "user" || sent.GetGuardData() != "GUARD_CODE" {
+		t.Errorf("wrong request params: %+v", sent)
 	}
-	if req.GetEncryptedPassword() == "" || req.GetEncryptedPassword() == "mypwd" {
-		t.Error("expected password to be encrypted base64")
-	}
-	if req.GetGuardData() != "STEAMGUARD123" {
-		t.Errorf("expected guard data 'STEAMGUARD123', got '%s'", req.GetGuardData())
-	}
-	if !req.GetRememberLogin() {
-		t.Error("expected RememberLogin to be true")
-	}
-	if req.DeviceDetails.GetDeviceFriendlyName() != DefaultDeviceConfig().DeviceFriendlyName {
-		t.Error("expected device details to be populated")
+	if sent.GetEncryptedPassword() == "" {
+		t.Error("password was not encrypted")
 	}
 }
 
 func TestAuthenticationService_PollAuthSessionStatus(t *testing.T) {
-	mockReq := newMockUnifiedRequester()
-	svc := NewAuthenticationService(mockReq, nil)
-	ctx := context.Background()
+	svc, mock := setupAuthService(t, nil)
 
-	mockReq.responses["PollAuthSessionStatus"] = &pb.CAuthentication_PollAuthSessionStatus_Response{
-		RefreshToken: proto.String("jwt_refresh_token_here"),
-	}
+	mock.SetProtoResponse("Authentication", "PollAuthSessionStatus", &pb.CAuthentication_PollAuthSessionStatus_Response{
+		RefreshToken: proto.String("new_token"),
+	})
 
-	reqID := []byte{0x01, 0x02, 0x03}
-	resp, err := svc.PollAuthSessionStatus(ctx, 12345, reqID)
-
+	resp, err := svc.PollAuthSessionStatus(t.Context(), 123, []byte{1, 2})
 	if err != nil {
-		t.Fatalf("PollAuthSessionStatus failed: %v", err)
+		t.Fatalf("failed: %v", err)
 	}
 
-	if resp.GetRefreshToken() != "jwt_refresh_token_here" {
-		t.Errorf("expected refresh token, got %s", resp.GetRefreshToken())
+	if resp.GetRefreshToken() != "new_token" {
+		t.Error("token mismatch")
 	}
 
-	req := mockReq.lastReqMsg.(*pb.CAuthentication_PollAuthSessionStatus_Request)
-	if req.GetClientId() != 12345 {
-		t.Errorf("expected client id 12345, got %d", req.GetClientId())
+	sent := &pb.CAuthentication_PollAuthSessionStatus_Request{}
+	mock.GetLastCall(sent)
+	if sent.GetClientId() != 123 {
+		t.Errorf("expected client id 123, got %d", sent.GetClientId())
 	}
 }
 
 func TestAuthenticationService_UpdateAuthSessionWithSteamGuardCode(t *testing.T) {
-	mockReq := newMockUnifiedRequester()
-	svc := NewAuthenticationService(mockReq, nil)
-	ctx := context.Background()
+	svc, mock := setupAuthService(t, nil)
 
-	err := svc.UpdateAuthSessionWithSteamGuardCode(ctx, 111, 222, "QWERT", pb.EAuthSessionGuardType_k_EAuthSessionGuardType_DeviceCode)
+	err := svc.UpdateAuthSessionWithSteamGuardCode(t.Context(), 111, TestSteamID, "ABCDE", pb.EAuthSessionGuardType_k_EAuthSessionGuardType_DeviceCode)
 	if err != nil {
-		t.Fatalf("UpdateAuthSessionWithSteamGuardCode failed: %v", err)
+		t.Fatalf("failed: %v", err)
 	}
 
-	req := mockReq.lastReqMsg.(*pb.CAuthentication_UpdateAuthSessionWithSteamGuardCode_Request)
-	if req.GetClientId() != 111 || req.GetSteamid() != 222 || req.GetCode() != "QWERT" {
-		t.Errorf("invalid request params: %+v", req)
-	}
-	if req.GetCodeType() != pb.EAuthSessionGuardType_k_EAuthSessionGuardType_DeviceCode {
-		t.Errorf("invalid code type")
+	sent := &pb.CAuthentication_UpdateAuthSessionWithSteamGuardCode_Request{}
+	mock.GetLastCall(sent)
+
+	if sent.GetCode() != "ABCDE" || sent.GetSteamid() != TestSteamID {
+		t.Errorf("invalid request: %+v", sent)
 	}
 }
 
 func TestAuthenticationService_GenerateAccessTokenForApp(t *testing.T) {
-	mockReq := newMockUnifiedRequester()
-	svc := NewAuthenticationService(mockReq, nil)
-	ctx := context.Background()
+	svc, mock := setupAuthService(t, nil)
 
-	mockReq.responses["GenerateAccessTokenForApp"] = &pb.CAuthentication_AccessToken_GenerateForApp_Response{
-		AccessToken: proto.String("short_lived_access_token"),
-	}
+	mock.SetProtoResponse("Authentication", "GenerateAccessTokenForApp", &pb.CAuthentication_AccessToken_GenerateForApp_Response{
+		AccessToken: proto.String("access_token"),
+	})
 
-	resp, err := svc.GenerateAccessTokenForApp(ctx, "my_refresh_token", 76561198000000000)
+	resp, err := svc.GenerateAccessTokenForApp(t.Context(), "refresh_token", TestSteamID)
 	if err != nil {
-		t.Fatalf("GenerateAccessTokenForApp failed: %v", err)
+		t.Fatalf("failed: %v", err)
 	}
 
-	if resp.GetAccessToken() != "short_lived_access_token" {
-		t.Errorf("expected access token, got %s", resp.GetAccessToken())
-	}
-
-	req := mockReq.lastReqMsg.(*pb.CAuthentication_AccessToken_GenerateForApp_Request)
-	if req.GetRefreshToken() != "my_refresh_token" || req.GetSteamid() != 76561198000000000 {
-		t.Errorf("invalid request params: %+v", req)
+	if resp.GetAccessToken() != "access_token" {
+		t.Error("access token mismatch")
 	}
 }

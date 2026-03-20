@@ -10,6 +10,9 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+
+	"github.com/lemon4ksan/g-man/pkg/steam/api"
+	"github.com/lemon4ksan/g-man/pkg/steam/community"
 )
 
 var (
@@ -34,19 +37,19 @@ func (e EscrowDetails) HasHold() bool {
 // GetEscrowDuration loads the trade page and parses the Trade Hold information.
 func (m *Manager) GetEscrowDuration(ctx context.Context, offerID uint64) (EscrowDetails, error) {
 	m.mu.RLock()
-	community := m.community
+	c := m.community
 	m.mu.RUnlock()
 
-	if community == nil {
+	if c == nil {
 		return EscrowDetails{}, ErrCommunityNotReady
 	}
 
-	resp, err := community.Get(ctx, fmt.Sprintf("tradeoffer/%d/", offerID))
+	resp, err := community.Get[[]byte](ctx, c, fmt.Sprintf("tradeoffer/%d/", offerID), nil, api.WithFormat(api.FormatRaw))
 	if err != nil {
 		return EscrowDetails{}, fmt.Errorf("failed to fetch offer page: %w", err)
 	}
 
-	html := string(resp.Body)
+	html := string(*resp)
 
 	theirMatches := rxTheirEscrow.FindStringSubmatch(html)
 	myMatches := rxMyEscrow.FindStringSubmatch(html)

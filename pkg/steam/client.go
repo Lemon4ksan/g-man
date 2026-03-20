@@ -13,11 +13,13 @@ import (
 	"sync/atomic"
 
 	"github.com/lemon4ksan/g-man/pkg/log"
+	"github.com/lemon4ksan/g-man/pkg/modules"
 	"github.com/lemon4ksan/g-man/pkg/modules/auth"
 	"github.com/lemon4ksan/g-man/pkg/rest"
-	"github.com/lemon4ksan/g-man/pkg/steam/api"
 	"github.com/lemon4ksan/g-man/pkg/steam/bus"
+	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
 )
@@ -67,7 +69,7 @@ func WithLogger(l log.Logger) Option {
 	return func(c *Client) { c.logger = l }
 }
 
-func WithModule(m Module) Option {
+func WithModule(m modules.Module) Option {
 	return func(c *Client) { c.modules[m.Name()] = m }
 }
 
@@ -81,18 +83,18 @@ type Client struct {
 	// Core Components
 	socket     *socket.Socket
 	auth       *auth.Authenticator
-	webSession *auth.WebSession // Concrete type, can be nil before login
-	community  *api.CommunityClient
+	webSession *auth.WebSession
+	community  *community.Client
 
 	// API Clients
 	webTransport    tr.Transport
-	unifiedClient   *api.UnifiedClient // WebAPI (HTTP)
-	socketAPIClient *api.UnifiedClient // CM (TCP/WS)
+	unifiedClient   *service.Client // WebAPI (HTTP)
+	socketAPIClient *service.Client // CM (TCP/WS)
 
 	// State & Lifecycle
 	state   atomic.Int32
 	mu      sync.RWMutex
-	modules map[string]Module
+	modules map[string]modules.Module
 
 	ctx    context.Context    // Global client context
 	cancel context.CancelFunc // Cancels everything on Close()
@@ -108,7 +110,7 @@ func NewClient(cfg Config, opts ...Option) *Client {
 		cfg:     cfg,
 		logger:  log.Discard,
 		bus:     bus.NewBus(),
-		modules: make(map[string]Module),
+		modules: make(map[string]modules.Module),
 		ctx:     ctx,
 		cancel:  cancel,
 		done:    make(chan struct{}),
@@ -118,12 +120,11 @@ func NewClient(cfg Config, opts ...Option) *Client {
 		opt(c)
 	}
 
-	c.webTransport = tr.NewHTTPTransport(cfg.HTTPClient, api.WebAPIBase)
-	c.unifiedClient = api.NewUnifiedClient(c.webTransport)
+	c.webTransport = tr.NewHTTPTransport(cfg.HTTPClient, service.WebAPIBase)
+	c.unifiedClient = service.New(c.webTransport)
 
 	// We pass the global client context to the socket so it dies when we die.
 	c.socket = socket.NewSocket(
-		ctx,
 		cfg.Socket,
 		socket.WithBus(c.bus),
 		socket.WithLogger(c.logger), // Logger will be wrapped inside
@@ -141,7 +142,7 @@ func NewClient(cfg Config, opts ...Option) *Client {
 	// Initialize Socket API Client (Lazy-ready)
 	// This client uses the socket transport. It works only when connected.
 	socketTransport := tr.NewSocketTransport(c.socket)
-	c.socketAPIClient = api.NewUnifiedClient(socketTransport)
+	c.socketAPIClient = service.New(socketTransport)
 
 	for name, mod := range c.modules {
 		if err := mod.Init(c); err != nil {
@@ -157,7 +158,7 @@ func NewClient(cfg Config, opts ...Option) *Client {
 }
 
 // GetModule returns the registered Module with the given name.
-func (c *Client) GetModule(name string) Module {
+func (c *Client) GetModule(name string) modules.Module {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.modules[name]
@@ -167,7 +168,7 @@ func (c *Client) GetModule(name string) Module {
 // This is a helper that combines Socket.Connect and Auth.LogOn.
 func (c *Client) ConnectAndLogin(ctx context.Context, server socket.CMServer, details *auth.LogOnDetails) error {
 	if c.State() == StateClosed {
-		return ErrClientClosed
+		return modules.ErrClientClosed
 	}
 
 	if err := c.socket.Connect(ctx, server); err != nil {
@@ -230,9 +231,9 @@ func (c *Client) Socket() *socket.Socket    { return c.socket }
 func (c *Client) Auth() *auth.Authenticator { return c.auth }
 func (c *Client) Logger() log.Logger        { return c.logger }
 
-// API returns the UnifiedClient for making HTTP WebAPI requests.
+// Service returns the client for making HTTP WebAPI, Unified and Legacy requests.
 // It automatically injects the AccessToken if available.
-func (c *Client) API() *api.UnifiedClient {
+func (c *Client) Service() service.Requester {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -243,22 +244,9 @@ func (c *Client) API() *api.UnifiedClient {
 	return c.unifiedClient
 }
 
-// Proto returns the UnifiedClient for making requests over the CM Socket.
-func (c *Client) Proto() api.LegacyRequester {
-	return c.socketAPIClient
-}
-
-func (c *Client) WebAPI() api.WebAPIRequester {
-	return c.socketAPIClient
-}
-
-func (c *Client) Unified() api.UnifiedRequester {
-	return c.unifiedClient
-}
-
 // Community returns a client for interacting with the Steam Community website.
 // Returns nil if the web session is not established.
-func (c *Client) Community() api.CommunityRequester {
+func (c *Client) Community() community.Requester {
 	c.mu.RLock()
 
 	if c.community != nil {
@@ -274,8 +262,7 @@ func (c *Client) Community() api.CommunityRequester {
 	}
 
 	// Create a transport using the authenticated WebSession client (CookieJar)
-	tr := tr.NewHTTPTransport(ws.Client(), api.CommunityBase)
-	c.community = api.NewCommunityClient(tr, ws.SessionID, c.logger)
+	c.community = community.New(ws.Client().HTTP(), ws.SessionID, c.logger)
 	return c.community
 }
 
@@ -341,7 +328,7 @@ func (c *Client) run() {
 
 func (c *Client) startAuthed() {
 	for name, mod := range c.modules {
-		if authed, ok := mod.(ModuleAuth); ok {
+		if authed, ok := mod.(modules.ModuleAuth); ok {
 			if err := authed.StartAuthed(c.ctx, c); err != nil {
 				c.logger.Error("Failed to start authed module", log.String("name", name), log.Err(err))
 			}

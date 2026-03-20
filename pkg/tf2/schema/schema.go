@@ -11,7 +11,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/lemon4ksan/g-man/pkg/tf2/sku"
@@ -105,8 +104,6 @@ type Schema struct {
 
 	// Crate series
 	crateSeriesList map[int]int
-
-	mu sync.RWMutex
 }
 
 // NewSchema creates a Schema from the given raw data and builds all indices.
@@ -872,10 +869,7 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 		return item
 	}
 
-	kitFabricatorDetected := false
-	if strings.Contains(name, "kit fabricator") {
-		kitFabricatorDetected = true
-	}
+	kitFabricatorDetected := strings.Contains(name, "kit fabricator")
 
 	if !kitFabricatorDetected {
 		killstreaks := []struct {

@@ -28,7 +28,7 @@ func TestClient_Request_URLConstruction(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(nil, server.URL)
+	client := NewClient(nil).WithBaseURL(server.URL)
 	_, err := client.Request(context.Background(), http.MethodGet, "/api/v1/test", nil, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -45,7 +45,7 @@ func TestClient_Request_GetParams(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(nil, server.URL)
+	client := NewClient(nil).WithBaseURL(server.URL)
 	params := url.Values{}
 	params.Set("foo", "bar")
 	params.Set("baz", "123")
@@ -68,8 +68,7 @@ func TestClient_Headers(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(nil, server.URL)
-	client.SetHeader("X-Default", "default-val")
+	client := NewClient(nil).WithBaseURL(server.URL).WithHeader("X-Default", "default-val")
 
 	mod := func(req *http.Request) {
 		req.Header.Set("X-Custom", "custom-val")
@@ -82,7 +81,7 @@ func TestClient_Headers(t *testing.T) {
 }
 
 func TestClient_GetJSON(t *testing.T) {
-	expected := testPayload{Message: "hello", Status: 200}
+	expected := testPayload{Message: "hello", Status: http.StatusOK}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -90,9 +89,8 @@ func TestClient_GetJSON(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(nil, server.URL)
-	var result testPayload
-	err := client.GetJSON(context.Background(), "/json", nil, &result)
+	client := NewClient(nil).WithBaseURL(server.URL)
+	result, err := GetJSON[testPayload](context.Background(), client, "/json", nil)
 
 	if err != nil {
 		t.Fatalf("GetJSON failed: %v", err)
@@ -127,9 +125,8 @@ func TestClient_PostJSON(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(nil, server.URL)
-	var result testPayload
-	err := client.PostJSON(context.Background(), "/post", input, &result)
+	client := NewClient(nil).WithBaseURL(server.URL)
+	result, err := PostJSON[testPayload, testPayload](context.Background(), client, "/post", input, nil)
 
 	if err != nil {
 		t.Fatalf("PostJSON failed: %v", err)
@@ -146,13 +143,13 @@ func TestClient_ErrorStatus(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(nil, server.URL)
-	err := client.GetJSON(context.Background(), "/404", nil, nil)
+	client := NewClient(nil).WithBaseURL(server.URL)
+	_, err := GetJSON[any](context.Background(), client, "/404", nil)
 
 	if err == nil {
 		t.Fatal("expected error on 404 status code, got nil")
 	}
-	if !contains(err.Error(), "unexpected status code 404") {
+	if !contains(err.Error(), "not found") {
 		t.Errorf("unexpected error message: %v", err)
 	}
 }
@@ -168,7 +165,7 @@ func TestClient_ContextCancellation(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(nil, server.URL)
+	client := NewClient(nil).WithBaseURL(server.URL)
 	ctx, cancel := context.WithCancel(context.Background())
 
 	cancel()

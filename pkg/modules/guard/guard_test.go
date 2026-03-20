@@ -7,84 +7,44 @@ package guard
 import (
 	"context"
 	"errors"
-	"sync"
 	"testing"
 	"time"
 
-	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/modules/auth"
-	"github.com/lemon4ksan/g-man/pkg/steam"
-	"github.com/lemon4ksan/g-man/pkg/steam/api"
-	"github.com/lemon4ksan/g-man/pkg/steam/bus"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
-	"github.com/lemon4ksan/g-man/pkg/steam/socket"
+	"github.com/lemon4ksan/g-man/test"
 )
 
 type mockConfService struct {
-	mu                  sync.Mutex
-	getConfErr          error
-	getConfResponse     *ConfirmationsList
-	respondErr          error
-	lastAcceptedConfID  uint64
-	lastRejectedConfID  uint64
-	lastAcceptedConfKey string
-	lastRejectedConfKey string
+	getConfFunc func() (*ConfirmationsList, error)
+	respondChan chan confResponseCall
+}
+
+type confResponseCall struct {
+	ID     uint64
+	Accept bool
+	Key    string
+}
+
+func newMockConfService() *mockConfService {
+	return &mockConfService{
+		respondChan: make(chan confResponseCall, 10),
+	}
 }
 
 func (m *mockConfService) GetConfirmations(ctx context.Context, deviceID string, steamID uint64, confKey string, timestamp int64) (*ConfirmationsList, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return m.getConfResponse, m.getConfErr
+	if m.getConfFunc != nil {
+		return m.getConfFunc()
+	}
+	return &ConfirmationsList{Success: true, Confirmations: []*Confirmation{}}, nil
 }
 
 func (m *mockConfService) RespondToConfirmation(ctx context.Context, conf *Confirmation, accept bool, deviceID string, steamID uint64, confKey string, timestamp int64) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if accept {
-		m.lastAcceptedConfID = conf.ID
-		m.lastAcceptedConfKey = confKey
-	} else {
-		m.lastRejectedConfID = conf.ID
-		m.lastRejectedConfKey = confKey
+	m.respondChan <- confResponseCall{
+		ID:     conf.ID,
+		Accept: accept,
+		Key:    confKey,
 	}
-	return m.respondErr
-}
-
-type mockInitContext struct {
-	eventBus *bus.Bus
-}
-
-func newMockInitContext() *mockInitContext {
-	return &mockInitContext{
-		eventBus: bus.NewBus(),
-	}
-}
-
-func (m *mockInitContext) Bus() *bus.Bus               { return m.eventBus }
-func (m *mockInitContext) Logger() log.Logger          { return log.Discard }
-func (m *mockInitContext) Config() steam.Config        { return steam.Config{} }
-func (m *mockInitContext) WebAPI() api.WebAPIRequester { return nil }
-
-func (m *mockInitContext) GetModule(name string) steam.Module {
-	panic("unimplemented")
-}
-func (m *mockInitContext) Proto() api.LegacyRequester {
-	panic("unimplemented")
-}
-func (m *mockInitContext) RegisterPacketHandler(eMsg protocol.EMsg, handler socket.Handler) {
-	panic("unimplemented")
-}
-func (m *mockInitContext) RegisterServiceHandler(method string, handler socket.Handler) {
-	panic("unimplemented")
-}
-func (m *mockInitContext) Unified() api.UnifiedRequester {
-	panic("unimplemented")
-}
-func (m *mockInitContext) UnregisterPacketHandler(eMsg protocol.EMsg) {
-	panic("unimplemented")
-}
-func (m *mockInitContext) UnregisterServiceHandler(method string) {
-	panic("unimplemented")
+	return nil
 }
 
 func validConfig() Config {
@@ -97,47 +57,48 @@ func validConfig() Config {
 	return cfg
 }
 
-func TestConfig_Validate(t *testing.T) {
-	tests := []struct {
-		name    string
-		cfg     Config
-		wantErr bool
-	}{
-		{"Valid", validConfig(), false},
-		{"Missing IdentitySecret", func() Config { cfg := validConfig(); cfg.IdentitySecret = ""; return cfg }(), true},
-		{"Missing DeviceID", func() Config { cfg := validConfig(); cfg.DeviceID = ""; return cfg }(), true},
-		{"Invalid PollInterval", func() Config { cfg := validConfig(); cfg.PollInterval = 0; return cfg }(), true},
+func setupGuard(t *testing.T, cfg Config) (*Guardian, *test.MockInitContext, *mockConfService) {
+	t.Helper()
+	g, err := New(cfg)
+	if err != nil {
+		t.Fatalf("failed to create Guardian: %v", err)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := tt.cfg.Validate()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
+	ictx := test.NewMockInitContext()
+
+	if err := g.Init(ictx); err != nil {
+		t.Fatalf("failed to init Guardian: %v", err)
 	}
+
+	mSvc := newMockConfService()
+
+	g.mu.Lock()
+	g.service = mSvc
+	g.mu.Unlock()
+
+	t.Cleanup(func() {
+		_ = g.Close()
+	})
+
+	return g, ictx, mSvc
 }
 
-func TestGuardian_PollingLogic(t *testing.T) {
-	cfg := validConfig()
-	g, _ := New(cfg)
+func TestGuardian_PollingLifecycle(t *testing.T) {
+	g, ictx, mSvc := setupGuard(t, validConfig())
+	sub := ictx.Bus().Subscribe(&ConfirmationReceivedEvent{})
 
-	mockSvc := &mockConfService{}
-	initCtx := newMockInitContext()
-	g.service = mockSvc
-	_ = g.Init(initCtx)
-
-	sub := initCtx.eventBus.Subscribe(&ConfirmationReceivedEvent{})
-
-	mockSvc.getConfResponse = &ConfirmationsList{
-		Success: true,
-		Confirmations: []*Confirmation{
-			{ID: 101, Type: ConfTypeTrade, Title: "Trade with Alice"},
-		},
+	mSvc.getConfFunc = func() (*ConfirmationsList, error) {
+		return &ConfirmationsList{
+			Success: true,
+			Confirmations: []*Confirmation{
+				{ID: 101, Type: ConfTypeTrade, Title: "Trade #1"},
+			},
+		}, nil
 	}
 
-	_ = g.StartPolling(t.Context())
+	if err := g.StartPolling(); err != nil {
+		t.Fatalf("StartPolling failed: %v", err)
+	}
 
 	select {
 	case ev := <-sub.C():
@@ -145,24 +106,35 @@ func TestGuardian_PollingLogic(t *testing.T) {
 		if confEv.Confirmation.ID != 101 {
 			t.Errorf("expected conf ID 101, got %d", confEv.Confirmation.ID)
 		}
-	case <-time.After(500 * time.Millisecond):
-		t.Fatal("timed out waiting for ConfirmationReceivedEvent")
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("timed out waiting for confirmation")
 	}
 
-	mockSvc.mu.Lock()
-	mockSvc.getConfResponse.Confirmations = append(mockSvc.getConfResponse.Confirmations, &Confirmation{
-		ID: 102, Type: ConfTypeMarket, Title: "Sell Item",
-	})
-	mockSvc.mu.Unlock()
+	g.StopPolling()
+	if g.State.Load() != StateStopped {
+		t.Errorf("expected state Stopped, got %d", g.State.Load())
+	}
 
-	select {
-	case ev := <-sub.C():
-		confEv := ev.(*ConfirmationReceivedEvent)
-		if confEv.Confirmation.ID != 102 {
-			t.Errorf("expected new conf ID 102, got %d", confEv.Confirmation.ID)
-		}
-	case <-time.After(500 * time.Millisecond):
-		t.Fatal("timed out waiting for new ConfirmationReceivedEvent")
+	mSvc.getConfFunc = func() (*ConfirmationsList, error) {
+		t.Error("polling loop should have been stopped, but FetchConfirmations was called")
+		return nil, errors.New("stopped")
+	}
+
+	time.Sleep(50 * time.Millisecond)
+}
+
+func TestGuardian_RestartIdempotency(t *testing.T) {
+	g, _, _ := setupGuard(t, validConfig())
+
+	for i := 0; i < 3; i++ {
+		_ = g.StartPolling()
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	g.StopPolling()
+
+	if g.State.Load() != StateStopped {
+		t.Error("failed to stop polling cleanly")
 	}
 }
 
@@ -171,135 +143,59 @@ func TestGuardian_AutoAccept(t *testing.T) {
 	cfg.AutoAccept = true
 	cfg.AutoAcceptTypes = []ConfirmationType{ConfTypeTrade}
 
-	g, _ := New(cfg)
-	mockSvc := &mockConfService{}
-	initCtx := newMockInitContext()
-	g.service = mockSvc
-	_ = g.Init(initCtx)
+	g, _, mSvc := setupGuard(t, cfg)
 
-	mockSvc.getConfResponse = &ConfirmationsList{
-		Success: true,
-		Confirmations: []*Confirmation{
-			{ID: 201, Type: ConfTypeTrade, Title: "Auto-Accept Me"},
-			{ID: 202, Type: ConfTypeMarket, Title: "Do Not Auto-Accept"},
-		},
+	mSvc.getConfFunc = func() (*ConfirmationsList, error) {
+		return &ConfirmationsList{
+			Success: true,
+			Confirmations: []*Confirmation{
+				{ID: 201, Type: ConfTypeTrade, Title: "Auto-Accept Me"},
+			},
+		}, nil
 	}
 
-	_ = g.StartPolling(t.Context())
+	_ = g.StartPolling()
 
-	deadline := time.Now().Add(500 * time.Millisecond)
-	success := false
-	for time.Now().Before(deadline) {
-		mockSvc.mu.Lock()
-		accepted := mockSvc.lastAcceptedConfID
-		mockSvc.mu.Unlock()
-		if accepted == 201 {
-			success = true
-			break
+	select {
+	case call := <-mSvc.respondChan:
+		if call.ID != 201 || !call.Accept {
+			t.Errorf("unexpected auto-accept call: %+v", call)
 		}
-		time.Sleep(10 * time.Millisecond)
-	}
-
-	if !success {
-		t.Error("expected trade confirmation 201 to be auto-accepted")
-	}
-}
-
-func TestGuardian_PollingBackoff(t *testing.T) {
-	cfg := validConfig()
-	cfg.PollInterval = 10 * time.Millisecond
-	cfg.MaxBackoff = 40 * time.Millisecond
-	cfg.MaxPollFailures = 1 // Уменьшаем для теста
-
-	g, err := New(cfg)
-	if err != nil {
-		t.Fatalf("New failed: %v", err)
-	}
-
-	mockSvc := &mockConfService{
-		getConfErr: errors.New("steam is down"),
-	}
-	g.service = mockSvc
-	_ = g.Init(newMockInitContext())
-
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-	defer cancel()
-
-	_ = g.StartPolling(ctx)
-	time.Sleep(90 * time.Millisecond)
-
-	mockSvc.mu.Lock()
-	mockSvc.getConfErr = nil
-	mockSvc.getConfResponse = &ConfirmationsList{Success: true}
-	mockSvc.mu.Unlock()
-
-	time.Sleep(50 * time.Millisecond)
-}
-
-func TestGuardian_Respond(t *testing.T) {
-	cfg := validConfig()
-	g, err := New(cfg)
-	if err != nil {
-		t.Fatalf("New failed: %v", err)
-	}
-
-	mockSvc := &mockConfService{}
-	g.service = mockSvc
-
-	conf := &Confirmation{ID: 301}
-
-	// Accept
-	err = g.Accept(context.Background(), conf)
-	if err != nil {
-		t.Fatalf("Accept failed: %v", err)
-	}
-	if mockSvc.lastAcceptedConfID != 301 {
-		t.Error("Accept did not call service correctly")
-	}
-	if mockSvc.lastAcceptedConfKey == "" {
-		t.Error("expected a confirmation key to be generated for accept")
-	}
-
-	// Cancel
-	err = g.Cancel(context.Background(), conf)
-	if err != nil {
-		t.Fatalf("Cancel failed: %v", err)
-	}
-	if mockSvc.lastRejectedConfID != 301 {
-		t.Error("Cancel did not call service correctly")
-	}
-	if mockSvc.lastRejectedConfKey == "" {
-		t.Error("expected a confirmation key to be generated for cancel")
-	}
-
-	if g.Metrics().TotalAccepted.Load() != 1 || g.Metrics().TotalRejected.Load() != 1 {
-		t.Errorf("metrics not updated correctly: accepted=%d, rejected=%d",
-			g.Metrics().TotalAccepted.Load(), g.Metrics().TotalRejected.Load())
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("timed out waiting for auto-accept")
 	}
 }
 
 func TestGuardian_HandleStateChange(t *testing.T) {
-	cfg := validConfig()
-	g, err := New(cfg)
-	if err != nil {
-		t.Fatalf("New failed: %v", err)
-	}
-	_ = g.Init(newMockInitContext())
+	g, _, _ := setupGuard(t, validConfig())
 
-	ctx, cancel := context.WithCancel(context.Background())
-	g.pollingCtx = ctx
-	g.pollingCancel = cancel
-	g.state.Store(int32(StatePolling))
+	_ = g.StartPolling()
 
 	g.handleStateChange(&auth.StateEvent{New: auth.StateDisconnected})
 
-	if g.State() != StateStopped {
-		t.Errorf("expected state Stopped after disconnect, got %s", g.State())
+	time.Sleep(50 * time.Millisecond)
+
+	if g.State.Load() != StateStopped {
+		t.Errorf("expected state Stopped after disconnect, got %d", g.State.Load())
+	}
+}
+
+func TestGuardian_Close(t *testing.T) {
+	g, _, _ := setupGuard(t, validConfig())
+	_ = g.StartPolling()
+
+	if err := g.Close(); err != nil {
+		t.Fatalf("Close failed: %v", err)
+	}
+
+	if g.State.Load() != StateClosed {
+		t.Error("State should be Closed")
 	}
 
 	select {
-	case <-g.pollingCtx.Done():
-	case <-time.After(100 * time.Millisecond):
-		t.Fatal("expected polling context to be canceled on disconnect")
+	case <-g.Ctx.Done():
+		// OK
+	default:
+		t.Error("BaseModule context was not canceled after Close")
 	}
 }

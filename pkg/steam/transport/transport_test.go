@@ -5,13 +5,11 @@
 package transport
 
 import (
-	"context"
 	"io"
 	"net/http"
 	"net/url"
 	"testing"
 
-	"github.com/lemon4ksan/g-man/pkg/jobs"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
 )
@@ -54,16 +52,8 @@ type mockSession struct {
 }
 
 func (m *mockSession) IsAuthenticated() bool { return m.isAuth }
-
-type mockSocketCaller struct {
-	callFunc func(ctx context.Context, eMsg protocol.EMsg, targetName string, payload []byte, cb jobs.Callback[*protocol.Packet]) error
-	session  *mockSession
-}
-
-func (m *mockSocketCaller) CallUnifiedRaw(ctx context.Context, eMsg protocol.EMsg, targetName string, payload []byte, cb jobs.Callback[*protocol.Packet]) error {
-	return m.callFunc(ctx, eMsg, targetName, payload, cb)
-}
-func (m *mockSocketCaller) Session() socket.Session { return m.session }
+func (m *mockSession) SteamID() uint64       { return 12345 }
+func (m *mockSession) SessionID() int32      { return 67890 }
 
 type mockEHeader struct {
 	result    protocol.EResult
@@ -76,18 +66,14 @@ func (m mockEHeader) GetTargetJob() uint64          { return 0 }
 func (m mockEHeader) SerializeTo(w io.Writer) error { return nil }
 
 func TestRequest_Builder(t *testing.T) {
-	ctx := context.Background()
 	target := mockTarget{name: "test_target"}
 	body := []byte("hello steam")
 
-	req := NewRequest(ctx, target, body).
+	req := NewRequest(target, body).
 		WithParam("key1", "val1").
 		WithParams(url.Values{"key2": {"val2"}}).
 		WithHeader("X-Token", "123")
 
-	if req.Context() != ctx {
-		t.Errorf("Expected context to match")
-	}
 	if req.Target().String() != "test_target" {
 		t.Errorf("Expected target to be 'test_target', got '%s'", req.Target().String())
 	}

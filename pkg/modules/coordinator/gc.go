@@ -2,22 +2,22 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package coordinator manages communication with Game Coordinators (GC) for specific AppIDs.
 package coordinator
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 
 	"github.com/lemon4ksan/g-man/pkg/jobs"
 	"github.com/lemon4ksan/g-man/pkg/log"
+	"github.com/lemon4ksan/g-man/pkg/modules"
 	gc "github.com/lemon4ksan/g-man/pkg/modules/coordinator/protocol"
-	"github.com/lemon4ksan/g-man/pkg/steam"
-	"github.com/lemon4ksan/g-man/pkg/steam/api"
 	"github.com/lemon4ksan/g-man/pkg/steam/bus"
 	pb "github.com/lemon4ksan/g-man/pkg/steam/protobuf"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -30,62 +30,57 @@ type GCMessageEvent struct {
 	Packet *gc.Packet
 }
 
-func (e *GCMessageEvent) Topic() string { return "gc.message" }
-
-// Coordinator handles the routing of messages between the Client and Game Coordinators.
-// It acts as a multiplexer/demultiplexer for AppID-specific traffic.
+// Coordinator acts as a multiplexer for Game Coordinator messages.
+// It handles routing based on AppID and manages GC-level request-response cycles.
 type Coordinator struct {
-	mu         sync.RWMutex
-	bus        *bus.Bus
-	client     api.LegacyRequester
-	logger     log.Logger
-	closeFunc  func()
-	jobManager *jobs.Manager[*gc.Packet] // Manages GC-specific jobs
+	modules.BaseModule
+
+	client     service.Requester
+	jobManager *jobs.Manager[*gc.Packet]
+
+	mu         sync.Mutex
+	unregFuncs []func()
 }
 
-// New creates a new GC module.
+// New creates a new Game Coordinator module.
 func New() *Coordinator {
 	return &Coordinator{
-		logger:     log.Discard,
+		BaseModule: modules.NewBase(ModuleName),
 		jobManager: jobs.NewManager[*gc.Packet](2000),
 	}
 }
 
-func (c *Coordinator) Name() string { return ModuleName }
+// Init registers global packet handlers for GC communication.
+func (c *Coordinator) Init(init modules.InitContext) error {
+	if err := c.BaseModule.Init(init); err != nil {
+		return err
+	}
 
-func (c *Coordinator) Init(init steam.InitContext) error {
-	c.bus = init.Bus()
-	if c.bus == nil {
-		return errors.New("nil bus")
-	}
-	c.client = init.Proto()
-	if c.client == nil {
-		return errors.New("nil proto client")
-	}
-	c.logger = init.Logger().WithModule(ModuleName)
+	c.client = init.Service()
 
 	init.RegisterPacketHandler(protocol.EMsg_ClientFromGC, c.handleClientFromGC)
-	c.closeFunc = func() {
+
+	c.unregFuncs = append(c.unregFuncs, func() {
 		init.UnregisterPacketHandler(protocol.EMsg_ClientFromGC)
-	}
+	})
+
 	return nil
 }
 
-// Start implements the Module interface.
-func (c *Coordinator) Start(ctx context.Context) error {
-	return nil
-}
-
-// Close unregisters the handlers for communicating with coordinator.
+// Close ensures all GC jobs are canceled and handlers are removed.
 func (c *Coordinator) Close() error {
-	if c.closeFunc != nil {
-		c.closeFunc()
-		c.closeFunc = nil
+	c.mu.Lock()
+	for _, unreg := range c.unregFuncs {
+		unreg()
 	}
-	return nil
+	c.unregFuncs = nil
+	c.mu.Unlock()
+
+	c.jobManager.Close()
+	return c.BaseModule.Close()
 }
 
-// Send fires a message to the GC without waiting for a response.
+// Send sends a message to a Game Coordinator without expecting a response.
 func (c *Coordinator) Send(ctx context.Context, appID uint32, msgType uint32, msg proto.Message) error {
 	return c.sendInternal(ctx, appID, msgType, msg, nil, nil)
 }
@@ -95,8 +90,12 @@ func (c *Coordinator) SendRaw(ctx context.Context, appID uint32, msgType uint32,
 	return c.sendInternal(ctx, appID, msgType, nil, payload, nil)
 }
 
-// Call sends a message to the GC and waits for a response with a matching JobID.
+// Call sends a message to a Game Coordinator and registers a callback for the response.
+// The response is matched using the GC's internal JobID system.
 func (c *Coordinator) Call(ctx context.Context, appID uint32, msgType uint32, msg proto.Message, cb jobs.Callback[*gc.Packet]) error {
+	if cb == nil {
+		return fmt.Errorf("gc: callback is required for Call")
+	}
 	return c.sendInternal(ctx, appID, msgType, msg, nil, cb)
 }
 
@@ -105,6 +104,7 @@ func (c *Coordinator) CallRaw(ctx context.Context, appID uint32, msgType uint32,
 	return c.sendInternal(ctx, appID, msgType, nil, payload, cb)
 }
 
+// sendInternal handles the low-level wrapping of GC messages into Steam CM packets.
 func (c *Coordinator) sendInternal(ctx context.Context, appID uint32, msgType uint32, msg proto.Message, payload []byte, cb jobs.Callback[*gc.Packet]) error {
 	var err error
 
@@ -115,10 +115,9 @@ func (c *Coordinator) sendInternal(ctx context.Context, appID uint32, msgType ui
 		}
 	}
 
-	var sourceJobID uint64 = protocol.NoJob
+	sourceJobID := protocol.NoJob
 	if cb != nil {
 		sourceJobID = c.jobManager.NextID()
-		// Register the job BEFORE sending to avoid race conditions where response comes too fast
 		err := c.jobManager.Add(sourceJobID, cb, jobs.WithContext[*gc.Packet](ctx))
 		if err != nil {
 			return fmt.Errorf("gc job track: %w", err)
@@ -130,7 +129,7 @@ func (c *Coordinator) sendInternal(ctx context.Context, appID uint32, msgType ui
 		MsgType:     msgType,
 		IsProto:     msg != nil,
 		SourceJobID: sourceJobID,
-		TargetJobID: protocol.NoJob, // We are initiating, so no target
+		TargetJobID: protocol.NoJob,
 		Payload:     payload,
 	}
 
@@ -144,41 +143,43 @@ func (c *Coordinator) sendInternal(ctx context.Context, appID uint32, msgType ui
 
 	wrapper := &pb.CMsgGCClient{
 		Appid:   proto.Uint32(appID),
-		Msgtype: proto.Uint32(msgType | gc.ProtoMask), // Hint for Steam routing
+		Msgtype: proto.Uint32(msgType | gc.ProtoMask),
 		Payload: gcData,
 	}
 
-	c.logger.Debug("Sending GC Message",
+	c.Logger.Debug("Sending GC Message",
 		log.Uint32("appid", appID),
 		log.Uint32("msg_type", msgType),
 		log.Uint64("job_id", sourceJobID),
 	)
 
-	err = c.client.CallLegacy(ctx, protocol.EMsg_ClientToGC, wrapper, nil)
+	_, err = service.Legacy[any](ctx, c.client, protocol.EMsg_ClientToGC, wrapper)
 	if err != nil {
 		if cb != nil {
 			c.jobManager.Resolve(sourceJobID, nil, err)
 		}
-		return fmt.Errorf("gc send: %w", err)
+		return fmt.Errorf("gc transport send: %w", err)
 	}
 
 	return nil
 }
 
+// --- Handlers ---
+
 func (c *Coordinator) handleClientFromGC(packet *protocol.Packet) {
 	wrapper := &pb.CMsgGCClient{}
 	if err := proto.Unmarshal(packet.Payload, wrapper); err != nil {
-		c.logger.Error("Failed to unmarshal ClientFromGC envelope", log.Err(err))
+		c.Logger.Error("Failed to unmarshal ClientFromGC envelope", log.Err(err))
 		return
 	}
 
 	gcPacket, err := gc.ParsePacket(wrapper.GetAppid(), wrapper.GetMsgtype(), wrapper.GetPayload())
 	if err != nil {
-		c.logger.Error("Failed to parse inner GC packet", log.Err(err))
+		c.Logger.Error("Failed to parse inner GC packet", log.Err(err))
 		return
 	}
 
-	c.logger.Debug("Received GC Message",
+	c.Logger.Debug("Received GC Message",
 		log.Uint32("appid", gcPacket.AppID),
 		log.Uint32("msg_type", gcPacket.MsgType),
 		log.Uint64("target_job", gcPacket.TargetJobID),
@@ -190,7 +191,7 @@ func (c *Coordinator) handleClientFromGC(packet *protocol.Packet) {
 		}
 	}
 
-	c.bus.Publish(&GCMessageEvent{
+	c.Bus.Publish(&GCMessageEvent{
 		Packet: gcPacket,
 	})
 }

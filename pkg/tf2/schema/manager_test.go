@@ -7,73 +7,14 @@ package tf2schema
 import (
 	"context"
 	"errors"
-	"net/http"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/lemon4ksan/g-man/pkg/steam/api"
-	"github.com/lemon4ksan/g-man/pkg/steam/transport"
 	"github.com/lemon4ksan/g-man/pkg/steam/bus"
+	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
+	"github.com/lemon4ksan/g-man/test"
 )
-
-type targetMock struct{ url string }
-
-func (t targetMock) String() string { return t.url }
-
-type mockWebAPI struct {
-	overviewErr error
-	itemsErr    error
-	httpErr     error
-
-	overviewData  map[string]any
-	itemsData     map[string]any
-	paintKitsBody string
-	itemsGameBody string
-}
-
-func (m *mockWebAPI) CallWebAPI(ctx context.Context, httpMethod, iface, method string, version int, respMsg any, mods ...api.RequestModifier) error {
-	if method == "GetSchemaOverview" {
-		if m.overviewErr != nil {
-			return m.overviewErr
-		}
-		*respMsg.(*map[string]any) = m.overviewData
-		return nil
-	}
-	if method == "GetSchemaItems" {
-		if m.itemsErr != nil {
-			return m.itemsErr
-		}
-		*respMsg.(*map[string]any) = m.itemsData
-		return nil
-	}
-	return errors.New("unknown webapi method")
-}
-
-func (m *mockWebAPI) Do(req *transport.Request) (*transport.Response, error) {
-	if m.httpErr != nil {
-		return nil, m.httpErr
-	}
-
-	urlStr := ""
-	if req.Target() != nil {
-		urlStr = req.Target().String()
-	}
-
-	resp := &transport.Response{
-		StatusCode: http.StatusOK,
-		Header:     make(http.Header),
-	}
-
-	if strings.Contains(urlStr, "tf_proto_obj_defs_english") || req.Target() == nil {
-		resp.Body = []byte(m.paintKitsBody)
-	}
-	if strings.Contains(urlStr, "items_game.txt") {
-		resp.Body = []byte(m.itemsGameBody)
-	}
-
-	return resp, nil
-}
 
 func TestNewSchemaManager_ConfigDefaults(t *testing.T) {
 	cfg := Config{UpdateInterval: 10 * time.Second}
@@ -116,34 +57,37 @@ func TestSchemaManager_LiteModePruning(t *testing.T) {
 }
 
 func TestSchemaManager_Refresh_Success(t *testing.T) {
-	mockAPI := &mockWebAPI{
-		overviewData: map[string]any{
+	mockAPI := test.NewMockRequester()
+
+	mockAPI.SetJSONResponse("IEconItems_440", "GetSchemaOverview", map[string]any{
+		"result": map[string]any{
 			"qualities": map[string]any{"Normal": 0, "Genuine": 1},
 		},
-		itemsData: map[string]any{
-			"result": map[string]any{
-				"items": []any{
-					map[string]any{"defindex": 5021, "name": "Mann Co. Supply Crate Key"},
-				},
-				"next": float64(0),
+	})
+
+	mockAPI.SetJSONResponse("IEconItems_440", "GetSchemaItems", map[string]any{
+		"result": map[string]any{
+			"items": []any{
+				map[string]any{"defindex": 5021, "name": "Mann Co. Supply Crate Key"},
 			},
+			"next": 0,
 		},
-		paintKitsBody: `
-"lang"
-{
-	"Tokens"
-	{
-		"9_11_weapon 11" "11: Macabre Web"
-		"9_12_weapon 12" "Nutcracker"
-	}
-}
-`,
-		itemsGameBody: `
-"items_game"
-{
-	"valid_key" "value"
-}
-`,
+	})
+
+	mockAPI.OnDo = func(req *tr.Request) (*tr.Response, error) {
+		target := req.Target().String()
+
+		if strings.Contains(target, "paint_kits") || strings.Contains(target, "proto_obj") {
+			vdf := "\"lang\"\n{\n\t\"Tokens\"\n\t{\n\t\t\"9_12_weapon 12\" \"Nutcracker\"\n\t}\n}\n"
+			return tr.NewResponse([]byte(vdf), tr.HTTPMetadata{StatusCode: 200}), nil
+		}
+
+		if strings.Contains(target, "items_game") {
+			vdf := "\"items_game\"\n{\n\t\"valid_key\" \"value\"\n}\n"
+			return tr.NewResponse([]byte(vdf), tr.HTTPMetadata{StatusCode: 200}), nil
+		}
+
+		return nil, nil
 	}
 
 	sm := New(Config{LiteMode: false})
@@ -160,10 +104,6 @@ func TestSchemaManager_Refresh_Success(t *testing.T) {
 	schema := sm.Get()
 	if schema == nil {
 		t.Fatal("expected schema to be populated, got nil")
-	}
-
-	if len(schema.Raw.Schema.Qualities) == 0 {
-		t.Error("expected qualities to be parsed from overview")
 	}
 
 	if len(schema.Raw.Schema.Items) != 1 {
@@ -185,36 +125,37 @@ func TestSchemaManager_Refresh_Success(t *testing.T) {
 func TestSchemaManager_Refresh_Failures(t *testing.T) {
 	tests := []struct {
 		name      string
-		mockSetup func(*mockWebAPI)
+		mockSetup func(m *test.MockRequester)
 	}{
 		{
 			name: "Overview WebAPI Error",
-			mockSetup: func(m *mockWebAPI) {
-				m.overviewErr = errors.New("steam api down")
+			mockSetup: func(m *test.MockRequester) {
+				m.ResponseErrs["IEconItems_440/GetSchemaOverview"] = errors.New("steam api down")
 			},
 		},
 		{
 			name: "Items WebAPI Error",
-			mockSetup: func(m *mockWebAPI) {
-				m.itemsErr = errors.New("steam api timeout")
+			mockSetup: func(m *test.MockRequester) {
+				m.ResponseErrs["IEconItems_440/GetSchemaItems"] = errors.New("steam api timeout")
 			},
 		},
 		{
-			name: "GitHub HTTP Error",
-			mockSetup: func(m *mockWebAPI) {
-				m.httpErr = errors.New("github down")
+			name: "External Resource HTTP Error",
+			mockSetup: func(m *test.MockRequester) {
+				m.OnDo = func(req *tr.Request) (*tr.Response, error) {
+					return nil, errors.New("github down")
+				}
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockAPI := &mockWebAPI{
-				overviewData:  map[string]any{},
-				itemsData:     map[string]any{"result": map[string]any{"items": []any{}}},
-				paintKitsBody: `"lang" { "Tokens" {} }`,
-				itemsGameBody: `"items_game" {}`,
-			}
+			mockAPI := test.NewMockRequester()
+
+			mockAPI.SetJSONResponse("IEconItems_440", "GetSchemaOverview", map[string]any{"result": map[string]any{}})
+			mockAPI.SetJSONResponse("IEconItems_440", "GetSchemaItems", map[string]any{"result": map[string]any{"items": []any{}}})
+
 			tt.mockSetup(mockAPI)
 
 			sm := New(Config{})

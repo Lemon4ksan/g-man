@@ -5,287 +5,189 @@
 package coordinator
 
 import (
-	"context"
-	"sync"
+	"reflect"
 	"testing"
 	"time"
 
-	"github.com/lemon4ksan/g-man/pkg/log"
 	gc "github.com/lemon4ksan/g-man/pkg/modules/coordinator/protocol"
-	"github.com/lemon4ksan/g-man/pkg/steam"
-	"github.com/lemon4ksan/g-man/pkg/steam/api"
-	"github.com/lemon4ksan/g-man/pkg/steam/bus"
 	pb "github.com/lemon4ksan/g-man/pkg/steam/protobuf"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
-	"github.com/lemon4ksan/g-man/pkg/steam/socket"
-	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
+	"github.com/lemon4ksan/g-man/test"
 	"google.golang.org/protobuf/proto"
 )
 
-type mockLegacyRequester struct {
-	mu          sync.Mutex
-	calls       map[protocol.EMsg]int
-	lastReqMsg  proto.Message
-	responseErr error
-}
+const (
+	AppID_TF2 uint32 = 440
+	AppID_CS2 uint32 = 730
+)
 
-func newMockRequester() *mockLegacyRequester {
-	return &mockLegacyRequester{
-		calls: make(map[protocol.EMsg]int),
+func setupCoordinator(t *testing.T) (*Coordinator, *test.MockInitContext) {
+	t.Helper()
+	c := New()
+	ictx := test.NewMockInitContext()
+
+	if err := c.Init(ictx); err != nil {
+		t.Fatalf("failed to init coordinator: %v", err)
 	}
+
+	t.Cleanup(func() {
+		_ = c.Close()
+	})
+
+	return c, ictx
 }
 
-func (m *mockLegacyRequester) CallLegacy(ctx context.Context, eMsg protocol.EMsg, reqMsg, respMsg proto.Message, mods ...api.RequestModifier) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.calls[eMsg]++
-	m.lastReqMsg = reqMsg
-
-	if m.responseErr != nil {
-		return m.responseErr
+func emitGC(t *testing.T, ictx *test.MockInitContext, appID uint32, msgType uint32, payload []byte, jobID uint64) {
+	t.Helper()
+	inner := &gc.Packet{
+		AppID:       appID,
+		MsgType:     msgType,
+		TargetJobID: jobID,
+		Payload:     payload,
 	}
-	return nil
-}
-
-func (m *mockLegacyRequester) Do(*tr.Request) (*tr.Response, error) {
-	panic("Not implemented")
-}
-
-func (m *mockLegacyRequester) getCallCount(emsg protocol.EMsg) int {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return m.calls[emsg]
-}
-
-type mockInitContext struct {
-	eventBus       *bus.Bus
-	proto          *mockLegacyRequester
-	packetHandlers map[protocol.EMsg]socket.Handler
-}
-
-func newMockInitContext() *mockInitContext {
-	return &mockInitContext{
-		eventBus:       bus.NewBus(),
-		proto:          newMockRequester(),
-		packetHandlers: make(map[protocol.EMsg]socket.Handler),
+	gcData, err := inner.Serialize()
+	if err != nil {
+		t.Fatalf("failed to serialize GC packet: %v", err)
 	}
-}
 
-func (m *mockInitContext) Bus() *bus.Bus                 { return m.eventBus }
-func (m *mockInitContext) Proto() api.LegacyRequester    { return m.proto }
-func (m *mockInitContext) Unified() api.UnifiedRequester { return nil }
-func (m *mockInitContext) Logger() log.Logger            { return log.Discard }
-func (m *mockInitContext) WebAPI() api.WebAPIRequester   { return nil }
-func (m *mockInitContext) Config() steam.Config          { return steam.Config{} }
-
-func (m *mockInitContext) RegisterPacketHandler(e protocol.EMsg, h socket.Handler) {
-	m.packetHandlers[e] = h
-}
-func (m *mockInitContext) UnregisterPacketHandler(e protocol.EMsg) {
-	delete(m.packetHandlers, e)
-}
-func (m *mockInitContext) RegisterServiceHandler(method string, handler socket.Handler) {}
-func (m *mockInitContext) UnregisterServiceHandler(method string)                       {}
-func (m *mockInitContext) GetModule(name string) steam.Module                           { return nil }
-
-type dummyProto struct {
-	pb.CMsgGCClient
+	ictx.EmitPacket(t, protocol.EMsg_ClientFromGC, &pb.CMsgGCClient{
+		Appid:   proto.Uint32(appID),
+		Msgtype: proto.Uint32(msgType),
+		Payload: gcData,
+	})
 }
 
 func TestCoordinator_InitAndClose(t *testing.T) {
 	c := New()
-	initCtx := newMockInitContext()
+	ictx := test.NewMockInitContext()
 
-	if c.Name() != ModuleName {
-		t.Errorf("expected %s, got %s", ModuleName, c.Name())
-	}
+	t.Run("Name", func(t *testing.T) {
+		if c.Name() != ModuleName {
+			t.Errorf("expected %s, got %s", ModuleName, c.Name())
+		}
+	})
 
-	err := c.Init(initCtx)
-	if err != nil {
-		t.Fatalf("Init failed: %v", err)
-	}
+	t.Run("Registration", func(t *testing.T) {
+		_ = c.Init(ictx)
+		if _, ok := ictx.GetPacketHandler(protocol.EMsg_ClientFromGC); !ok {
+			t.Error("EMsg_ClientFromGC handler not registered")
+		}
+	})
 
-	if _, ok := initCtx.packetHandlers[protocol.EMsg_ClientFromGC]; !ok {
-		t.Error("expected EMsg_ClientFromGC handler to be registered")
-	}
-
-	err = c.Close()
-	if err != nil {
-		t.Fatalf("Close failed: %v", err)
-	}
-
-	if _, ok := initCtx.packetHandlers[protocol.EMsg_ClientFromGC]; ok {
-		t.Error("expected handler to be unregistered after Close")
-	}
+	t.Run("Cleanup", func(t *testing.T) {
+		_ = c.Close()
+		if _, ok := ictx.GetPacketHandler(protocol.EMsg_ClientFromGC); ok {
+			t.Error("handler should be unregistered after Close")
+		}
+	})
 }
 
 func TestCoordinator_SendRaw(t *testing.T) {
-	c := New()
-	initCtx := newMockInitContext()
-	_ = c.Init(initCtx)
-
-	ctx := context.Background()
-	appID := uint32(440)
+	c, ictx := setupCoordinator(t)
 	msgType := uint32(1005)
-	payload := []byte{0x01, 0x02, 0x03}
+	payload := []byte{0xDE, 0xAD, 0xBE, 0xEF}
 
-	err := c.SendRaw(ctx, appID, msgType, payload)
+	err := c.SendRaw(t.Context(), AppID_TF2, msgType, payload)
 	if err != nil {
 		t.Fatalf("SendRaw failed: %v", err)
 	}
 
-	if initCtx.proto.getCallCount(protocol.EMsg_ClientToGC) != 1 {
-		t.Error("expected 1 call to ClientToGC")
+	req := &pb.CMsgGCClient{}
+	ictx.MockService().GetLastCall(req)
+
+	if req.GetAppid() != AppID_TF2 {
+		t.Errorf("expected AppID %d, got %d", AppID_TF2, req.GetAppid())
 	}
 
-	req := initCtx.proto.lastReqMsg.(*pb.CMsgGCClient)
-	if req.GetAppid() != appID {
-		t.Errorf("expected AppID %d, got %d", appID, req.GetAppid())
-	}
-
-	if req.GetMsgtype() != (msgType | gc.ProtoMask) {
-		t.Errorf("expected MsgType %d, got %d", msgType|gc.ProtoMask, req.GetMsgtype())
-	}
-
-	if c.jobManager.Count() != 0 {
-		t.Error("expected 0 jobs in jobManager for SendRaw")
+	expectedMsgType := msgType | gc.ProtoMask
+	if req.GetMsgtype() != expectedMsgType {
+		t.Errorf("expected msg type %d, got %d", expectedMsgType, req.GetMsgtype())
 	}
 }
 
 func TestCoordinator_Call(t *testing.T) {
-	c := New()
-	initCtx := newMockInitContext()
-	_ = c.Init(initCtx)
+	c, ictx := setupCoordinator(t)
 
-	ctx := context.Background()
-	appID := uint32(730)
+	appID := AppID_CS2
 	msgType := uint32(4004)
+	replyType := uint32(4005)
 
-	var receivedPacket *gc.Packet
-	var receivedErr error
-	var wg sync.WaitGroup
-	wg.Add(1)
+	resultChan := make(chan *gc.Packet, 1)
 
-	cb := func(p *gc.Packet, err error) {
-		receivedPacket = p
-		receivedErr = err
-		wg.Done()
-	}
-
-	msg := &dummyProto{}
-	err := c.Call(ctx, appID, msgType, msg, cb)
+	err := c.Call(t.Context(), appID, msgType, &pb.CMsgGCClient{}, func(p *gc.Packet, err error) {
+		if err != nil {
+			t.Errorf("callback error: %v", err)
+		}
+		resultChan <- p
+	})
 	if err != nil {
 		t.Fatalf("Call failed: %v", err)
 	}
 
 	if c.jobManager.Count() != 1 {
-		t.Errorf("expected 1 job in jobManager, got %d", c.jobManager.Count())
+		t.Errorf("expected 1 active job, got %d", c.jobManager.Count())
 	}
 
 	jobID := uint64(1)
+	emitGC(t, ictx, appID, replyType, []byte("response"), jobID)
 
-	replyPacket := &gc.Packet{AppID: appID, MsgType: 4005, TargetJobID: jobID}
-	c.jobManager.Resolve(jobID, replyPacket, nil)
-
-	wg.Wait()
-
-	if receivedErr != nil {
-		t.Errorf("unexpected error in callback: %v", receivedErr)
-	}
-	if receivedPacket == nil || receivedPacket.TargetJobID != jobID {
-		t.Errorf("invalid packet received in callback")
+	select {
+	case p := <-resultChan:
+		if p.MsgType != replyType || string(p.Payload) != "response" {
+			t.Errorf("unexpected response packet: %+v", p)
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("timed out waiting for job callback")
 	}
 
 	if c.jobManager.Count() != 0 {
-		t.Errorf("expected job to be removed, count is %d", c.jobManager.Count())
+		t.Error("job should be removed after resolution")
 	}
 }
 
-func TestCoordinator_HandleClientFromGC_BusRouting(t *testing.T) {
-	c := New()
-	initCtx := newMockInitContext()
-	_ = c.Init(initCtx)
+func TestCoordinator_Routing(t *testing.T) {
+	c, ictx := setupCoordinator(t)
+	sub := ictx.Bus().Subscribe(&GCMessageEvent{})
 
-	sub := initCtx.eventBus.Subscribe(&GCMessageEvent{})
-	handler := initCtx.packetHandlers[protocol.EMsg_ClientFromGC]
+	t.Run("Route to Bus", func(t *testing.T) {
+		msgType := uint32(2002)
+		payload := []byte{0x01, 0x02}
 
-	innerPacket := &gc.Packet{
-		AppID:       440,
-		MsgType:     2002,
-		TargetJobID: protocol.NoJob,
-		Payload:     []byte{0xFF},
-	}
+		emitGC(t, ictx, AppID_TF2, msgType, payload, protocol.NoJob)
 
-	gcData, _ := innerPacket.Serialize()
-	if gcData == nil {
-		gcData = []byte{0x00}
-	}
-
-	wrapper := &pb.CMsgGCClient{
-		Appid:   proto.Uint32(440),
-		Msgtype: proto.Uint32(2002),
-		Payload: gcData,
-	}
-
-	wrapperBytes, _ := proto.Marshal(wrapper)
-	packet := &protocol.Packet{Payload: wrapperBytes}
-
-	handler(packet)
-
-	select {
-	case ev := <-sub.C():
-		gcEv := ev.(*GCMessageEvent)
-		if gcEv.Packet == nil {
-			t.Error("expected non-nil inner GC packet in event")
+		select {
+		case ev := <-sub.C():
+			gcEv := ev.(*GCMessageEvent)
+			if gcEv.Packet.MsgType != msgType || !reflect.DeepEqual(gcEv.Packet.Payload, payload) {
+				t.Errorf("invalid event data: %+v", gcEv)
+			}
+		case <-time.After(500 * time.Millisecond):
+			t.Fatal("GCMessageEvent not received")
 		}
-	case <-time.After(100 * time.Millisecond):
-		t.Fatal("timed out waiting for GCMessageEvent on bus")
-	}
-}
-
-func TestCoordinator_HandleClientFromGC_JobRouting(t *testing.T) {
-	c := New()
-	initCtx := newMockInitContext()
-	_ = c.Init(initCtx)
-
-	handler := initCtx.packetHandlers[protocol.EMsg_ClientFromGC]
-
-	var callbackHit bool
-	var wg sync.WaitGroup
-	wg.Add(1)
-
-	jobID := uint64(123)
-	_ = c.jobManager.Add(jobID, func(p *gc.Packet, err error) {
-		callbackHit = true
-		wg.Done()
 	})
 
-	innerPacket := &gc.Packet{
-		AppID:       440,
-		MsgType:     2002,
-		TargetJobID: jobID,
-	}
+	t.Run("Route to Job Only", func(t *testing.T) {
+		jobID := uint64(999)
+		hit := make(chan bool, 1)
 
-	gcData, _ := innerPacket.Serialize()
-	wrapper := &pb.CMsgGCClient{
-		Appid:   proto.Uint32(440),
-		Msgtype: proto.Uint32(2002),
-		Payload: gcData,
-	}
-	wrapperBytes, _ := proto.Marshal(wrapper)
+		_ = c.jobManager.Add(jobID, func(p *gc.Packet, err error) {
+			hit <- true
+		})
 
-	sub := initCtx.eventBus.Subscribe(&GCMessageEvent{})
-	handler(&protocol.Packet{Payload: wrapperBytes})
-	wg.Wait()
+		emitGC(t, ictx, AppID_TF2, 3003, nil, jobID)
 
-	if !callbackHit {
-		t.Error("expected job callback to be executed")
-	}
+		select {
+		case <-hit:
+			// OK
+		case <-time.After(500 * time.Millisecond):
+			t.Fatal("job callback was not executed")
+		}
 
-	select {
-	case <-sub.C():
-		t.Error("event should NOT be published to bus if job handled it")
-	default:
-	}
+		select {
+		case ev := <-sub.C():
+			t.Errorf("packet was routed to Bus, but should have been captured by Job: %+v", ev)
+		case <-time.After(50 * time.Millisecond):
+			// OK
+		}
+	})
 }

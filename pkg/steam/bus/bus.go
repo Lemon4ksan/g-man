@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package bus implements a high-performance, type-based event bus for
-// asynchronous communication between Steam client modules and plugins.
 package bus
 
 import (
@@ -14,28 +12,41 @@ import (
 	"sync/atomic"
 )
 
+// Option is a common pattern used for configuration of components.
+type Option[T any] func(T)
+
 // Event is the marker interface for all events in the system.
-// Any struct can be an event by embedding BaseEvent.
+// To make a struct an Event, simply embed BaseEvent.
+//
+// Example:
+//
+//	type UserLoginEvent struct {
+//	    bus.BaseEvent
+//	    Username string
+//	}
 type Event interface {
 	isEvent()
 }
 
 // BaseEvent provides a default implementation of the Event interface.
+// Structs should embed this to satisfy the Event marker.
 type BaseEvent struct{}
 
 func (BaseEvent) isEvent() {}
 
 // resolveType strips the pointer from a type to ensure pointer and value
 // instances of the same struct are treated as the same event type.
+// For example, both `MyEvent{}` and `&MyEvent{}` resolve to `MyEvent`.
 func resolveType(ev any) reflect.Type {
 	t := reflect.TypeOf(ev)
-	if t != nil && t.Kind() == reflect.Ptr {
+	if t != nil && t.Kind() == reflect.Pointer {
 		return t.Elem()
 	}
 	return t
 }
 
 // Subscription represents an active listener on the bus.
+// It provides a channel for receiving events and methods for lifecycle management.
 type Subscription struct {
 	id     uint64
 	types  []reflect.Type
@@ -45,9 +56,11 @@ type Subscription struct {
 }
 
 // C returns the read-only channel for receiving events.
+// The channel will be closed when the subscriber calls Unsubscribe or the Bus is closed.
 func (s *Subscription) C() <-chan Event { return s.ch }
 
-// Unsubscribe removes the subscription from the bus and closes the channel.
+// Unsubscribe removes the subscription from the bus and closes the event channel.
+// It is safe to call this method multiple times.
 func (s *Subscription) Unsubscribe() {
 	if s.closed.CompareAndSwap(false, true) {
 		s.bus.unsubscribe(s)
@@ -55,7 +68,7 @@ func (s *Subscription) Unsubscribe() {
 }
 
 // Bus implements a thread-safe, non-blocking event dispatcher.
-// It routes events based on their Go reflect.Type.
+// It routes events based on their Go [reflect.Type].
 type Bus struct {
 	mu     sync.RWMutex
 	subs   map[reflect.Type]map[uint64]*Subscription
@@ -72,8 +85,12 @@ func NewBus() *Bus {
 	}
 }
 
-// Subscribe subscribes to specific event types.
-// Usage: bus.Subscribe(MyEvent{}, OtherEvent{})
+// Subscribe subscribes to specific event types using examples.
+// Passing MyEvent{} will subscribe to all events of type MyEvent.
+//
+// Example:
+//
+//	sub := bus.Subscribe(LoginEvent{}, &DisconnectEvent{})
 func (b *Bus) Subscribe(eventExamples ...Event) *Subscription {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -92,7 +109,7 @@ func (b *Bus) Subscribe(eventExamples ...Event) *Subscription {
 	}
 
 	for _, ev := range eventExamples {
-		t := resolveType(ev) // Fixed: Normalize type
+		t := resolveType(ev)
 
 		// Ensure we don't subscribe to the same type twice for one subscription
 		if !slices.Contains(sub.types, t) {
@@ -107,7 +124,8 @@ func (b *Bus) Subscribe(eventExamples ...Event) *Subscription {
 	return sub
 }
 
-// SubscribeAll creates a subscription that receives every event published to the bus.
+// SubscribeAll creates a subscription that receives every single event published to the bus.
+// This is useful for logging, debugging, or global state monitoring.
 func (b *Bus) SubscribeAll() *Subscription {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -115,7 +133,7 @@ func (b *Bus) SubscribeAll() *Subscription {
 	id := b.nextID.Add(1)
 	sub := &Subscription{
 		id:  id,
-		ch:  make(chan Event, 256),
+		ch:  make(chan Event, 256), // Larger buffer for global listeners
 		bus: b,
 	}
 
@@ -130,13 +148,16 @@ func (b *Bus) SubscribeAll() *Subscription {
 }
 
 // Publish broadcasts an event to all interested subscribers.
-// If a subscriber's buffer is full, the event is dropped to avoid blocking the system.
+//
+// NON-BLOCKING: If a subscriber's channel buffer is full, the event is dropped
+// for that specific subscriber to avoid stalling the entire bus. In high-load
+// scenarios, ensure subscribers process events quickly or use larger buffers.
 func (b *Bus) Publish(event Event) {
 	if event == nil {
 		return
 	}
 
-	t := resolveType(event) // Fixed: Normalize type
+	t := resolveType(event)
 
 	b.mu.RLock()
 	if b.closed {
@@ -144,13 +165,14 @@ func (b *Bus) Publish(event Event) {
 		return
 	}
 
-	// Iterate directly under RLock and send non-blocking.
+	// Send to specific type subscribers
 	if typeSubs, ok := b.subs[t]; ok {
 		for _, sub := range typeSubs {
 			b.directSend(sub, event)
 		}
 	}
 
+	// Send to "SubscribeAll" listeners
 	for _, sub := range b.all {
 		b.directSend(sub, event)
 	}
@@ -167,10 +189,11 @@ func (b *Bus) directSend(sub *Subscription, ev Event) {
 	case sub.ch <- ev:
 	default:
 		// Buffer full - drop event to maintain system stability.
-		// In a trading bot, log this as a warning.
 	}
 }
 
+// Close shuts down the bus and closes all active subscription channels.
+// After Close, no new subscriptions can be made and Publish calls will be ignored.
 func (b *Bus) Close() error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -180,7 +203,7 @@ func (b *Bus) Close() error {
 	}
 	b.closed = true
 
-	// Collect unique subs to close channels exactly once
+	// Collect unique subs to close channels exactly once (a sub can be in multiple maps)
 	unique := make(map[uint64]*Subscription)
 	for _, m := range b.subs {
 		maps.Copy(unique, m)
@@ -205,6 +228,7 @@ func (b *Bus) unsubscribe(sub *Subscription) {
 		return
 	}
 
+	// Remove from type-specific maps
 	for _, t := range sub.types {
 		if typeSubs, ok := b.subs[t]; ok {
 			delete(typeSubs, sub.id)
@@ -213,9 +237,10 @@ func (b *Bus) unsubscribe(sub *Subscription) {
 			}
 		}
 	}
+
+	// Remove from global map
 	delete(b.all, sub.id)
+
+	// Close channel to unblock any 'range sub.C()'
 	close(sub.ch)
 }
-
-// Option is a common pattern used across the library for configuration.
-type Option[T any] func(T)

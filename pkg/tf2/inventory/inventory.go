@@ -8,19 +8,18 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strconv"
 	"sync"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/lemon4ksan/g-man/pkg/rest"
-	"github.com/lemon4ksan/g-man/pkg/steam/api"
+	"github.com/lemon4ksan/g-man/pkg/steam/service"
 )
 
 // PlayerInventory represents a specific player's TF2 inventory, lazy-loaded.
 type PlayerInventory struct {
 	steamID uint64
 
-	steamClient api.WebAPIRequester
+	steamClient service.Requester
 	httpClient  rest.HTTPDoer
 
 	bptfUserID string
@@ -33,13 +32,13 @@ type PlayerInventory struct {
 }
 
 // NewPlayerInventory initializes the inventory for a specific player.
-func NewPlayerInventory(steamID uint64, steamClient api.WebAPIRequester, httpClient rest.HTTPDoer, bptfUserID string) *PlayerInventory {
+func NewPlayerInventory(steamID uint64, c service.Requester, httpClient rest.HTTPDoer, bptfUserID string) *PlayerInventory {
 	if httpClient == nil {
 		httpClient = http.DefaultClient
 	}
 	return &PlayerInventory{
 		steamID:     steamID,
-		steamClient: steamClient,
+		steamClient: c,
 		httpClient:  httpClient,
 		bptfUserID:  bptfUserID,
 		items:       make([]TF2Item, 0),
@@ -95,27 +94,20 @@ func (inv *PlayerInventory) IsDuped(ctx context.Context, assetID uint64) (*bool,
 }
 
 func (inv *PlayerInventory) fetch(ctx context.Context) error {
-	var response PlayerItemsResponse
-
-	err := inv.steamClient.CallWebAPI(
-		ctx,
-		http.MethodGet,
-		"IEconItems_440",
-		"GetPlayerItems",
-		1,
-		&response,
-		api.WithParam("steamid", strconv.FormatUint(inv.steamID, 10)),
-	)
+	req := &struct {
+		SteamID uint64 `url:"steamid"`
+	}{inv.steamID}
+	resp, err := service.WebAPI[PlayerItemsResponse](ctx, inv.steamClient, "GET", "IEconItems_440", "GetPlayerItems", 1, req)
 	if err != nil {
 		return fmt.Errorf("failed to fetch TF2 items: %w", err)
 	}
 
-	if response.Result.Status != 1 {
-		return fmt.Errorf("%w: %s (status %d)", ErrSteamAPI, response.Result.StatusDetail, response.Result.Status)
+	if resp.Result.Status != 1 {
+		return fmt.Errorf("%w: %s (status %d)", ErrSteamAPI, resp.Result.StatusDetail, resp.Result.Status)
 	}
 
-	inv.slots = response.Result.NumBackpackSlots
-	inv.items = response.Result.Items
+	inv.slots = resp.Result.NumBackpackSlots
+	inv.items = resp.Result.Items
 	inv.fetched = true
 
 	return nil

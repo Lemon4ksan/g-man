@@ -6,11 +6,9 @@ package directory
 
 import (
 	"context"
-	"net/url"
 	"slices"
-	"strconv"
 
-	"github.com/lemon4ksan/g-man/pkg/steam/api"
+	"github.com/lemon4ksan/g-man/pkg/steam/service"
 )
 
 type CMServer struct {
@@ -31,10 +29,10 @@ type CMCfg struct {
 }
 
 type DirectoryService struct {
-	client api.WebAPIRequester
+	client service.Requester
 }
 
-func NewDirectoryService(client api.WebAPIRequester) *DirectoryService {
+func NewDirectoryService(client service.Requester) *DirectoryService {
 	return &DirectoryService{
 		client: client,
 	}
@@ -42,43 +40,38 @@ func NewDirectoryService(client api.WebAPIRequester) *DirectoryService {
 
 // GetCMList returns the complete list of tcp and ws servers. MaxCount is optional.
 func (d *DirectoryService) GetCMList(ctx context.Context, cellID, maxCount uint32) ([]string, []string, error) {
-	params := url.Values{}
-	params.Add("cellid", strconv.FormatUint(uint64(cellID), 10))
-	if maxCount > 0 {
-		params.Add("maxcount", strconv.FormatUint(uint64(maxCount), 10))
+	req := struct {
+		CellID   uint32 `url:"cellid"`
+		MaxCount uint32 `url:"maxcount,omitempty"`
+	}{cellID, maxCount}
+	type respStruct struct {
+		ServerList           []string `json:"serverlist"`
+		ServerListWebsockets []string `json:"serverlist_websockets"`
 	}
-	var resp struct {
-		Response struct {
-			ServerList           []string `json:"serverlist"`
-			ServerListWebsockets []string `json:"serverlist_websockets"`
-		} `json:"response"`
+	resp, err := service.WebAPI[respStruct](ctx, d.client, "GET", "ISteamDirectory", "GetCMList", 1, req)
+	if err != nil {
+		return nil, nil, err
 	}
-	err := d.client.CallWebAPI(ctx, "GET", "ISteamDirectory", "GetCMList", 1, &resp, api.WithParams(params))
-	return resp.Response.ServerList, resp.Response.ServerListWebsockets, err
+	return resp.ServerList, resp.ServerListWebsockets, nil
 }
 
 // GetCMListForConnect returns the optimal servers for connecting to steam.
 func (d *DirectoryService) GetCMListForConnect(ctx context.Context, cfg CMCfg) ([]CMServer, error) {
-	params := url.Values{}
-	if cfg.CellID != 0 {
-		params.Add("cellid", strconv.FormatUint(uint64(cfg.CellID), 10))
+	req := struct {
+		CellID   uint32 `url:"cellid,omitempty"`
+		MaxCount uint32 `url:"maxcount,omitempty"`
+		CmType   string `url:"cmtype,omitempty"`
+		Realm    string `url:"realm,omitempty"`
+	}{cfg.CellID, cfg.MaxCount, cfg.CmType, cfg.Realm}
+	type respStruct struct {
+		ServerList []CMServer `json:"serverlist"`
 	}
-	if cfg.MaxCount > 0 {
-		params.Add("maxcount", strconv.FormatUint(uint64(cfg.MaxCount), 10))
+
+	resp, err := service.WebAPI[respStruct](ctx, d.client, "GET", "ISteamDirectory", "GetCMListForConnect", 1, req)
+	if err != nil {
+		return nil, err
 	}
-	if cfg.CmType != "" {
-		params.Add("cmtype", cfg.CmType)
-	}
-	if cfg.Realm != "" {
-		params.Add("realm", cfg.Realm)
-	}
-	var resp struct {
-		Response struct {
-			ServerList []CMServer `json:"serverlist"`
-		} `json:"response"`
-	}
-	err := d.client.CallWebAPI(ctx, "GET", "ISteamDirectory", "GetCMListForConnect", 1, &resp, api.WithParams(params))
-	return resp.Response.ServerList, err
+	return resp.ServerList, err
 }
 
 // GetOptimalCMServer returns the CM server with the lowest load.
@@ -102,11 +95,12 @@ func (d *DirectoryService) GetOptimalCMServer(ctx context.Context) (CMServer, er
 }
 
 func (d *DirectoryService) GetSteamPipeDomains(ctx context.Context) ([]string, error) {
-	var resp struct {
-		Response struct {
-			DomainList []string `json:"domainlist"`
-		} `json:"response"`
+	type respStruct struct {
+		DomainList []string `json:"domainlist"`
 	}
-	err := d.client.CallWebAPI(ctx, "GET", "ISteamDirectory", "GetSteamPipeDomains", 1, &resp)
-	return resp.Response.DomainList, err
+	resp, err := service.WebAPI[respStruct](ctx, d.client, "GET", "ISteamDirectory", "GetSteamPipeDomains", 1, nil)
+	if err != nil {
+		return nil, err
+	}
+	return resp.DomainList, err
 }

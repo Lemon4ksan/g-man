@@ -26,9 +26,7 @@ type PersonaState struct {
 
 // GetBadgesResponse describes the response from the IPlayerService/GetBadges WebAPI.
 type GetBadgesResponse struct {
-	Response struct {
-		PlayerLevel int `json:"player_level"`
-	} `json:"response"`
+	PlayerLevel int `json:"player_level"`
 }
 
 // RelationshipChangedEvent is fired when someone adds us as a friend,

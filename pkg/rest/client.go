@@ -2,6 +2,16 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package rest provides a generic, boilerplate-free HTTP client for RESTful services.
+// It leverages Go generics to handle JSON encoding/decoding and supports a flexible
+// "RequestModifier" pattern for per-request customization (headers, cookies, etc.).
+//
+// Example:
+//
+//	type User struct { ID int; Name string }
+//	client := rest.NewClient(nil, "https://api.example.com")
+//
+//	user, err := rest.GetJSON[User](ctx, client, "/users/1", nil)
 package rest
 
 import (
@@ -17,65 +27,109 @@ import (
 	"time"
 )
 
+// APIError represents an unsuccessful HTTP response (status code outside 2xx).
+// It captures the raw response body, which often contains error details from the server.
+type APIError struct {
+	// StatusCode is the HTTP status code returned by the server.
+	StatusCode int
+	// Body is the raw response body.
+	Body []byte
+}
+
+func (e *APIError) Error() string {
+	if len(e.Body) > 0 {
+		return fmt.Sprintf("rest: status %d, body: %s", e.StatusCode, string(e.Body))
+	}
+	return fmt.Sprintf("rest: unexpected status code %d", e.StatusCode)
+}
+
+// HTTPDoer is an interface for objects that can execute an [http.Request].
+// It is satisfied by [http.Client].
 type HTTPDoer interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
-// RequestModifier allows modifying the request before it's sent.
+// Requester defines the requirements for performing raw HTTP requests
+// with path joining and query parameter encoding.
+type Requester interface {
+	Request(ctx context.Context, method, path string, body []byte, query url.Values, mods ...RequestModifier) (*http.Response, error)
+}
+
+// RequestModifier is a function that can modify an *http.Request before it is sent.
+// This is used for adding one-off headers, authentication tokens, or logging.
 type RequestModifier func(req *http.Request)
 
-// Client is a generic REST HTTP client.
+// Client is a concrete implementation of the Requester interface.
+// It maintains a base URL and a set of default headers applied to every request.
 type Client struct {
 	http    HTTPDoer
-	baseURL string
+	baseURL *url.URL
 	headers http.Header
 }
 
-// NewClient creates a new REST client.
-func NewClient(httpClient HTTPDoer, baseURL string) *Client {
+// NewClient initializes a REST client.
+// If httpClient is nil, a default http.Client with a 15-second timeout is used.
+func NewClient(httpClient HTTPDoer) *Client {
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 15 * time.Second}
 	}
+
 	return &Client{
 		http:    httpClient,
-		baseURL: strings.TrimRight(baseURL, "/"),
 		headers: make(http.Header),
 	}
 }
 
-// SetHeader sets a default header for all requests made by this client.
-func (c *Client) SetHeader(key, value string) *Client {
-	c.headers.Set(key, value)
+func (c *Client) WithBaseURL(raw string) *Client {
+	baseURL, _ := url.Parse(strings.TrimRight(raw, "/"))
+	c.baseURL = baseURL
 	return c
 }
 
-// Request executes an HTTP request.
-func (c *Client) Request(ctx context.Context, method, path string, body []byte, params url.Values, mods ...RequestModifier) (*http.Response, error) {
-	var bodyReader io.Reader
+// WithHeader returns a new Client instance with an additional default header.
+// This follows the immutable/chaining pattern.
+func (c *Client) WithHeader(key, value string) *Client {
+	newClient := &Client{
+		http:    c.http,
+		baseURL: c.baseURL,
+		headers: c.headers.Clone(),
+	}
+	newClient.headers.Set(key, value)
+	return newClient
+}
 
-	fullURL := c.baseURL + "/" + strings.TrimLeft(path, "/")
+// HTTP returns the underlying [HTTPDoer].
+func (c *Client) HTTP() HTTPDoer {
+	return c.http
+}
 
-	if len(params) > 0 {
-		if method == http.MethodGet {
-			fullURL += "?" + params.Encode()
-		} else {
-			bodyReader = strings.NewReader(params.Encode())
-		}
+// Request builds and executes an HTTP request.
+// The path is joined with the client's base URL, and query values are appended to the URL.
+func (c *Client) Request(ctx context.Context, method, path string, body []byte, query url.Values, mods ...RequestModifier) (*http.Response, error) {
+	rel, err := url.Parse(strings.TrimLeft(path, "/"))
+	if err != nil {
+		return nil, fmt.Errorf("rest: invalid path: %w", err)
+	}
+	u := c.baseURL.ResolveReference(rel)
+
+	if len(query) > 0 {
+		u.RawQuery = query.Encode()
 	}
 
-	if body != nil {
+	var bodyReader io.Reader
+	if len(body) > 0 {
 		bodyReader = bytes.NewReader(body)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, method, fullURL, bodyReader)
+	req, err := http.NewRequestWithContext(ctx, method, u.String(), bodyReader)
 	if err != nil {
 		return nil, fmt.Errorf("rest: failed to create request: %w", err)
 	}
 
-	// Add default headers
+	// Apply default client headers
 	maps.Copy(req.Header, c.headers)
 
-	// Apply custom modifications (like specific headers for this request)
+	// Apply request-specific modifiers
 	for _, mod := range mods {
 		mod(req)
 	}
@@ -88,54 +142,62 @@ func (c *Client) Request(ctx context.Context, method, path string, body []byte, 
 	return resp, nil
 }
 
-// GetJSON is a high-level helper to fetch and unmarshal JSON directly.
-func (c *Client) GetJSON(ctx context.Context, path string, params url.Values, target any, mods ...RequestModifier) error {
-	resp, err := c.Request(ctx, http.MethodGet, path, nil, params, mods...)
+// GetJSON performs a GET request and decodes the JSON response body into a new instance of Resp.
+// Returns an *APIError if the response status is not 2xx.
+func GetJSON[Resp any](ctx context.Context, c Requester, path string, query url.Values, mods ...RequestModifier) (*Resp, error) {
+	resp, err := c.Request(ctx, http.MethodGet, path, nil, query, mods...)
 	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("rest: unexpected status code %d", resp.StatusCode)
+		return nil, err
 	}
 
-	if target == nil {
-		return nil
+	result := new(Resp)
+	if err := handleJSONResponse(resp, result); err != nil {
+		return nil, err
 	}
-
-	return json.NewDecoder(resp.Body).Decode(target)
+	return result, nil
 }
 
-// PostJSON is a high-level helper to send a JSON payload and decode the response.
-func (c *Client) PostJSON(ctx context.Context, path string, payload any, target any, mods ...RequestModifier) error {
-	var body []byte
-	var err error
-
-	if payload != nil {
-		body, err = json.Marshal(payload)
-		if err != nil {
-			return fmt.Errorf("rest: failed to marshal payload: %w", err)
-		}
+// PostJSON marshals the payload to JSON, performs a POST request, and decodes the
+// response body into a new instance of Resp.
+// It automatically sets the Content-Type and Accept headers to application/json.
+func PostJSON[Req any, Resp any](ctx context.Context, c Requester, path string, payload Req, query url.Values, mods ...RequestModifier) (*Resp, error) {
+	bodyBytes, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("rest: failed to marshal payload: %w", err)
 	}
 
-	// Ensure Content-Type is set to JSON
 	jsonMod := func(req *http.Request) {
 		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
 	}
+	// Prepend JSON headers so they can be overridden by user mods if needed
 	mods = append([]RequestModifier{jsonMod}, mods...)
 
-	resp, err := c.Request(ctx, http.MethodPost, path, body, nil, mods...)
+	resp, err := c.Request(ctx, http.MethodPost, path, bodyBytes, query, mods...)
 	if err != nil {
-		return err
+		return nil, err
 	}
+
+	result := new(Resp)
+	if err := handleJSONResponse(resp, result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// handleJSONResponse closes the body and handles status code validation.
+func handleJSONResponse(resp *http.Response, target any) error {
 	defer resp.Body.Close()
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("rest: unexpected status code %d", resp.StatusCode)
+	// Validate status code
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return &APIError{StatusCode: resp.StatusCode, Body: bodyBytes}
 	}
 
+	// If target is nil (e.g., 204 No Content), discard body and return
 	if target == nil {
+		_, _ = io.Copy(io.Discard, resp.Body)
 		return nil
 	}
 

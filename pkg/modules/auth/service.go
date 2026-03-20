@@ -14,19 +14,20 @@ import (
 
 	"github.com/lemon4ksan/g-man/pkg/steam/api"
 	pb "github.com/lemon4ksan/g-man/pkg/steam/protobuf"
+	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"google.golang.org/protobuf/proto"
 )
 
 // AuthenticationService acts as a gateway for Steam's Unified WebAPI authentication endpoints.
 // It handles password encryption and JWT token lifecycle management.
 type AuthenticationService struct {
-	client     api.UnifiedRequester
+	client     service.Requester
 	deviceConf DeviceConfig
 }
 
 // NewAuthenticationService creates a new service wrapper around a Unified API client.
 // If deviceConf is nil, standard defaults are applied.
-func NewAuthenticationService(ur api.UnifiedRequester, deviceConf *DeviceConfig) *AuthenticationService {
+func NewAuthenticationService(ur service.Requester, deviceConf *DeviceConfig) *AuthenticationService {
 	conf := DefaultDeviceConfig()
 	if deviceConf != nil {
 		conf = *deviceConf
@@ -48,9 +49,9 @@ func (s *AuthenticationService) GetPasswordRSAPublicKey(ctx context.Context, acc
 	req := &pb.CAuthentication_GetPasswordRSAPublicKey_Request{
 		AccountName: proto.String(accountName),
 	}
-	resp := &pb.CAuthentication_GetPasswordRSAPublicKey_Response{}
-
-	err := s.client.CallUnified(ctx, "GET", "Authentication", "GetPasswordRSAPublicKey", 1, req, resp)
+	resp, err := service.Unified[pb.CAuthentication_GetPasswordRSAPublicKey_Response](
+		ctx, s.client, req, api.WithHTTPMethod("GET"),
+	)
 	return resp, err
 }
 
@@ -113,9 +114,9 @@ func (s *AuthenticationService) BeginAuthSessionViaCredentials(ctx context.Conte
 		req.GuardData = proto.String(authCode)
 	}
 
-	resp := &pb.CAuthentication_BeginAuthSessionViaCredentials_Response{}
-	err = s.client.CallUnified(ctx, "POST", "Authentication", "BeginAuthSessionViaCredentials", 1, req, resp)
-	return resp, err
+	return service.Unified[pb.CAuthentication_BeginAuthSessionViaCredentials_Response](
+		ctx, s.client, req,
+	)
 }
 
 // PollAuthSessionStatus repeatedly checks the status of a pending login (e.g., waiting for Mobile confirmation).
@@ -124,10 +125,9 @@ func (s *AuthenticationService) PollAuthSessionStatus(ctx context.Context, clien
 		ClientId:  proto.Uint64(clientID),
 		RequestId: requestID,
 	}
-	resp := &pb.CAuthentication_PollAuthSessionStatus_Response{}
-
-	err := s.client.CallUnified(ctx, "POST", "Authentication", "PollAuthSessionStatus", 1, req, resp)
-	return resp, err
+	return service.Unified[pb.CAuthentication_PollAuthSessionStatus_Response](
+		ctx, s.client, req,
+	)
 }
 
 // UpdateAuthSessionWithSteamGuardCode submits a 2FA or Email code for an ongoing session.
@@ -138,9 +138,10 @@ func (s *AuthenticationService) UpdateAuthSessionWithSteamGuardCode(ctx context.
 		Code:     proto.String(code),
 		CodeType: codeType.Enum(),
 	}
-
-	// Steam returns an empty response body on success, so we pass nil for the response struct.
-	return s.client.CallUnified(ctx, "POST", "Authentication", "UpdateAuthSessionWithSteamGuardCode", 1, req, nil)
+	_, err := service.Unified[any](
+		ctx, s.client, req,
+	)
+	return err
 }
 
 // GenerateAccessTokenForApp exchanges a RefreshToken for a short-lived AccessToken.
@@ -150,10 +151,9 @@ func (s *AuthenticationService) GenerateAccessTokenForApp(ctx context.Context, r
 		Steamid:      proto.Uint64(steamID),
 		RenewalType:  pb.ETokenRenewalType_k_ETokenRenewalType_None.Enum(),
 	}
-	resp := &pb.CAuthentication_AccessToken_GenerateForApp_Response{}
-
-	err := s.client.CallUnified(ctx, "POST", "Authentication", "GenerateAccessTokenForApp", 1, req, resp)
-	return resp, err
+	return service.UnifiedExplicit[pb.CAuthentication_AccessToken_GenerateForApp_Response](
+		ctx, s.client, "POST", "Authentication", "GenerateAccessTokenForApp", 1, req,
+	)
 }
 
 // getDeviceDetails returns the structured device profile.

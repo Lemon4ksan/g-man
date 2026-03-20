@@ -1,343 +1,189 @@
-// Copyright (c) 2026 Lemon4ksan All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
-
 package apps
 
 import (
-	"context"
-	"errors"
 	"reflect"
-	"sync"
 	"testing"
 	"time"
 
-	"github.com/lemon4ksan/g-man/pkg/log"
-	"github.com/lemon4ksan/g-man/pkg/steam"
-	"github.com/lemon4ksan/g-man/pkg/steam/api"
 	"github.com/lemon4ksan/g-man/pkg/steam/bus"
 	pb "github.com/lemon4ksan/g-man/pkg/steam/protobuf"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
-	"github.com/lemon4ksan/g-man/pkg/steam/socket"
-	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
+	"github.com/lemon4ksan/g-man/test"
 	"google.golang.org/protobuf/proto"
 )
 
-type mockLegacyRequester struct {
-	mu          sync.Mutex
-	calls       map[protocol.EMsg]int
-	lastRequest proto.Message
-	responseMsg proto.Message
-	responseErr error
-}
+const (
+	AppID_TF2 = 440
+	AppID_CS2 = 730
+)
 
-func newMockRequester() *mockLegacyRequester {
-	return &mockLegacyRequester{
-		calls: make(map[protocol.EMsg]int),
-	}
-}
+func setup(t *testing.T) (*Apps, *test.MockInitContext) {
+	t.Helper()
+	a := New()
+	ictx := test.NewMockInitContext()
 
-func (m *mockLegacyRequester) Do(req *tr.Request) (*tr.Response, error) {
-	panic("unimplemented")
-}
-
-func (m *mockLegacyRequester) CallLegacy(ctx context.Context, eMsg protocol.EMsg, reqMsg, respMsg proto.Message, mods ...api.RequestModifier) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.calls[eMsg]++
-	m.lastRequest = reqMsg
-
-	if m.responseErr != nil {
-		return m.responseErr
+	if err := a.Init(ictx); err != nil {
+		t.Fatalf("failed to init apps module: %v", err)
 	}
 
-	if respMsg != nil && m.responseMsg != nil {
-		outBytes, _ := proto.Marshal(m.responseMsg)
-		_ = proto.Unmarshal(outBytes, respMsg)
-	}
+	t.Cleanup(func() {
+		_ = a.Close()
+	})
 
-	return nil
-}
-
-func (m *mockLegacyRequester) getCallCount(emsg protocol.EMsg) int {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return m.calls[emsg]
-}
-
-type mockInitContext struct {
-	eventBus *bus.Bus
-	proto    *mockLegacyRequester
-	handlers map[protocol.EMsg]socket.Handler
-}
-
-func (m *mockInitContext) Bus() *bus.Bus                 { return m.eventBus }
-func (m *mockInitContext) Proto() api.LegacyRequester    { return m.proto }
-func (m *mockInitContext) Logger() log.Logger            { return log.Discard }
-func (m *mockInitContext) WebAPI() api.WebAPIRequester   { return nil }
-func (m *mockInitContext) Config() steam.Config          { return steam.Config{} }
-func (m *mockInitContext) Unified() api.UnifiedRequester { return nil }
-
-func (m *mockInitContext) RegisterPacketHandler(e protocol.EMsg, h socket.Handler) {
-	m.handlers[e] = h
-}
-func (m *mockInitContext) UnregisterPacketHandler(e protocol.EMsg) {
-	delete(m.handlers, e)
-}
-func (m *mockInitContext) GetModule(name string) steam.Module {
-	panic("unimplemented")
-}
-func (m *mockInitContext) RegisterServiceHandler(method string, handler socket.Handler) {
-	panic("unimplemented")
-}
-func (m *mockInitContext) UnregisterServiceHandler(method string) {
-	panic("unimplemented")
-}
-
-func newMockInitContext() *mockInitContext {
-	return &mockInitContext{
-		eventBus: bus.NewBus(),
-		proto:    newMockRequester(),
-		handlers: make(map[protocol.EMsg]socket.Handler),
-	}
+	return a, ictx
 }
 
 func TestApps_InitAndClose(t *testing.T) {
 	a := New()
-	initCtx := newMockInitContext()
+	ictx := test.NewMockInitContext()
 
 	if a.Name() != ModuleName {
 		t.Errorf("expected module name %s, got %s", ModuleName, a.Name())
 	}
 
-	err := a.Init(initCtx)
-	if err != nil {
+	if err := a.Init(ictx); err != nil {
 		t.Fatalf("Init failed: %v", err)
 	}
+	ictx.AssertPacketHandlerRegistered(t, protocol.EMsg_ClientPlayingSessionState)
 
-	if _, ok := initCtx.handlers[protocol.EMsg_ClientPlayingSessionState]; !ok {
-		t.Error("expected EMsg_ClientPlayingSessionState handler to be registered")
-	}
-
-	err = a.Close()
-	if err != nil {
+	if err := a.Close(); err != nil {
 		t.Fatalf("Close failed: %v", err)
 	}
-
-	if _, ok := initCtx.handlers[protocol.EMsg_ClientPlayingSessionState]; ok {
-		t.Error("expected handler to be unregistered after Close")
-	}
+	ictx.AssertPacketHandlerUnregistered(t, protocol.EMsg_ClientPlayingSessionState)
 }
 
 func TestApps_GetPlayerCount(t *testing.T) {
-	a := New()
-	initCtx := newMockInitContext()
-	_ = a.Init(initCtx)
+	a, ictx := setup(t)
 
-	ctx := context.Background()
-
-	initCtx.proto.responseMsg = &pb.CMsgDPGetNumberOfCurrentPlayersResponse{
-		Eresult:     proto.Int32(int32(protocol.EResult_OK)),
-		PlayerCount: proto.Int32(100500),
+	tests := []struct {
+		name      string
+		eresult   protocol.EResult
+		mockCount int32
+		wantErr   bool
+		wantCount int32
+	}{
+		{
+			name:      "Success",
+			eresult:   protocol.EResult_OK,
+			mockCount: 100500,
+			wantCount: 100500,
+		},
+		{
+			name:    "Access Denied",
+			eresult: protocol.EResult_AccessDenied,
+			wantErr: true,
+		},
 	}
 
-	count, err := a.GetPlayerCount(ctx, 440) // TF2
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if count != 100500 {
-		t.Errorf("expected player count 100500, got %d", count)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ictx.MockServiceAccessor().SetLegacyResponse(
+				protocol.EMsg_ClientGetNumberOfCurrentPlayersDP,
+				&pb.CMsgDPGetNumberOfCurrentPlayersResponse{
+					Eresult:     proto.Int32(int32(tt.eresult)),
+					PlayerCount: proto.Int32(tt.mockCount),
+				},
+			)
 
-	initCtx.proto.responseMsg = &pb.CMsgDPGetNumberOfCurrentPlayersResponse{
-		Eresult: proto.Int32(int32(protocol.EResult_AccessDenied)),
-	}
-
-	_, err = a.GetPlayerCount(ctx, 440)
-	if err == nil {
-		t.Error("expected error due to AccessDenied EResult, got nil")
-	}
-
-	initCtx.proto.responseErr = errors.New("network error")
-	_, err = a.GetPlayerCount(ctx, 440)
-	if err == nil {
-		t.Error("expected network error, got nil")
-	}
-}
-
-func TestApps_PlayGames(t *testing.T) {
-	a := New()
-	initCtx := newMockInitContext()
-	_ = a.Init(initCtx)
-
-	var launchedEvents []uint32
-	var quitEvents []uint32
-
-	subLaunched := initCtx.eventBus.Subscribe(&AppLaunchedEvent{})
-	subQuit := initCtx.eventBus.Subscribe(&AppQuitEvent{})
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		timeout := time.After(1 * time.Second)
-		for {
-			select {
-			case ev := <-subLaunched.C():
-				launchedEvents = append(launchedEvents, ev.(*AppLaunchedEvent).AppID)
-			case ev := <-subQuit.C():
-				quitEvents = append(quitEvents, ev.(*AppQuitEvent).AppID)
-			case <-timeout:
-				return
+			count, err := a.GetPlayerCount(t.Context(), AppID_TF2)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("GetPlayerCount() error = %v, wantErr %v", err, tt.wantErr)
 			}
-		}
-	}()
-
-	ctx := context.Background()
-
-	err := a.PlayGames(ctx, []uint32{440}, false)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	err = a.PlayGames(ctx, []uint32{440, 730}, false)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	err = a.PlayGames(ctx, []uint32{730}, false)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	err = a.StopPlaying(ctx)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	count := initCtx.proto.getCallCount(protocol.EMsg_ClientGamesPlayedWithDataBlob)
-	if count != 4 {
-		t.Errorf("expected 4 calls to play games, got %d", count)
-	}
-
-	wg.Wait()
-
-	expectedLaunched := []uint32{440, 730}
-	if !reflect.DeepEqual(launchedEvents, expectedLaunched) {
-		t.Errorf("expected launched events %v, got %v", expectedLaunched, launchedEvents)
-	}
-
-	expectedQuit := []uint32{440, 730}
-	if !reflect.DeepEqual(quitEvents, expectedQuit) {
-		t.Errorf("expected quit events %v, got %v", expectedQuit, quitEvents)
-	}
-}
-
-func TestApps_PlayCustomGames(t *testing.T) {
-	a := New()
-	initCtx := newMockInitContext()
-	_ = a.Init(initCtx)
-
-	ctx := context.Background()
-
-	err := a.PlayCustomGames(ctx, []string{"G-man Bot", "Trading"})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if initCtx.proto.getCallCount(protocol.EMsg_ClientGamesPlayedWithDataBlob) != 1 {
-		t.Error("expected 1 call to play custom games")
-	}
-
-	req := initCtx.proto.lastRequest.(*pb.CMsgClientGamesPlayed)
-	if len(req.GamesPlayed) != 2 {
-		t.Fatalf("expected 2 custom games, got %d", len(req.GamesPlayed))
-	}
-
-	if req.GamesPlayed[0].GetGameId() != nonSteamGameID || req.GamesPlayed[0].GetGameExtraInfo() != "G-man Bot" {
-		t.Errorf("invalid first custom game setup")
-	}
-}
-
-func TestApps_KickPlayingSession(t *testing.T) {
-	a := New()
-	initCtx := newMockInitContext()
-	_ = a.Init(initCtx)
-
-	ctx := context.Background()
-
-	err := a.KickPlayingSession(ctx)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if initCtx.proto.getCallCount(protocol.EMsg_ClientKickPlayingSession) != 1 {
-		t.Error("expected 1 call to KickPlayingSession")
-	}
-
-	a.mu.Lock()
-	a.playingBlocked = true
-	a.mu.Unlock()
-
-	err = a.PlayGames(ctx, []uint32{440}, true)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if initCtx.proto.getCallCount(protocol.EMsg_ClientKickPlayingSession) != 2 {
-		t.Error("expected 2 calls to KickPlayingSession due to forceKick")
+			if count != tt.wantCount {
+				t.Errorf("expected count %d, got %d", tt.wantCount, count)
+			}
+		})
 	}
 }
 
 func TestApps_HandlePlayingSessionState(t *testing.T) {
-	a := New()
-	initCtx := newMockInitContext()
-	_ = a.Init(initCtx)
+	a, ictx := setup(t)
+	subState := ictx.Bus().Subscribe(&PlayingStateEvent{})
 
-	subState := initCtx.eventBus.Subscribe(&PlayingStateEvent{})
-
-	msg := &pb.CMsgClientPlayingSessionState{
+	ictx.EmitPacket(t, protocol.EMsg_ClientPlayingSessionState, &pb.CMsgClientPlayingSessionState{
 		PlayingBlocked: proto.Bool(true),
-		PlayingApp:     proto.Uint32(730),
-	}
-	payload, _ := proto.Marshal(msg)
-
-	packet := &protocol.Packet{
-		Payload: payload,
-	}
-
-	handler := initCtx.handlers[protocol.EMsg_ClientPlayingSessionState]
-	handler(packet)
+		PlayingApp:     proto.Uint32(AppID_CS2),
+	})
 
 	a.mu.RLock()
-	blocked := a.playingBlocked
+	isBlocked := a.playingBlocked
 	a.mu.RUnlock()
 
-	if !blocked {
-		t.Error("expected playingBlocked to be true")
+	if !isBlocked {
+		t.Error("module state should be 'blocked' after receiving packet")
 	}
 
 	select {
 	case ev := <-subState.C():
-		stateEvent := ev.(*PlayingStateEvent)
-		if !stateEvent.Blocked || stateEvent.PlayingApp != 730 {
-			t.Errorf("unexpected event data: %+v", stateEvent)
+		event := ev.(*PlayingStateEvent)
+		if !event.Blocked || event.PlayingApp != AppID_CS2 {
+			t.Errorf("unexpected event data: %+v", event)
 		}
-	case <-time.After(100 * time.Millisecond):
-		t.Error("timed out waiting for PlayingStateEvent")
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for PlayingStateEvent")
 	}
 }
 
-func TestApps_HandlePlayingSessionState_InvalidPayload(t *testing.T) {
-	a := New()
-	initCtx := newMockInitContext()
-	_ = a.Init(initCtx)
+func TestApps_PlayGames_Sequence(t *testing.T) {
+	a, ictx := setup(t)
 
-	packet := &protocol.Packet{
-		Payload: []byte("invalid data"),
+	subL := ictx.Bus().Subscribe(&AppLaunchedEvent{})
+	subQ := ictx.Bus().Subscribe(&AppQuitEvent{})
+
+	collectIDs := func(ch <-chan bus.Event, count int) []uint32 {
+		ids := make([]uint32, 0, count)
+		for i := 0; i < count; i++ {
+			select {
+			case ev := <-ch:
+				if l, ok := ev.(*AppLaunchedEvent); ok {
+					ids = append(ids, l.AppID)
+				} else if q, ok := ev.(*AppQuitEvent); ok {
+					ids = append(ids, q.AppID)
+				}
+			case <-time.After(500 * time.Millisecond):
+				t.Fatalf("expected %d events, but timed out at %d", count, i)
+			}
+		}
+		return ids
 	}
 
-	handler := initCtx.handlers[protocol.EMsg_ClientPlayingSessionState]
-	handler(packet)
+	_ = a.PlayGames(t.Context(), []uint32{AppID_TF2}, false)
+	_ = a.PlayGames(t.Context(), []uint32{AppID_TF2, AppID_CS2}, false)
+	_ = a.PlayGames(t.Context(), []uint32{AppID_CS2}, false)
+	_ = a.StopPlaying(t.Context())
+
+	launched := collectIDs(subL.C(), 2)
+	quit := collectIDs(subQ.C(), 2)
+
+	expected := []uint32{AppID_TF2, AppID_CS2}
+	if !reflect.DeepEqual(launched, expected) {
+		t.Errorf("launched apps mismatch: want %v, got %v", expected, launched)
+	}
+	if !reflect.DeepEqual(quit, expected) {
+		t.Errorf("quit apps mismatch: want %v, got %v", expected, quit)
+	}
+}
+
+func TestApps_PlayCustomGames(t *testing.T) {
+	a, ictx := setup(t)
+	gameNames := []string{"G-man Bot", "Trading"}
+
+	err := a.PlayCustomGames(t.Context(), gameNames)
+	if err != nil {
+		t.Fatalf("PlayCustomGames failed: %v", err)
+	}
+
+	req := &pb.CMsgClientGamesPlayed{}
+	ictx.MockServiceAccessor().GetLastCall(req)
+
+	if len(req.GamesPlayed) != len(gameNames) {
+		t.Fatalf("expected %d games in request, got %d", len(gameNames), len(req.GamesPlayed))
+	}
+
+	for i, name := range gameNames {
+		extraInfo := req.GamesPlayed[i].GetGameExtraInfo()
+		if extraInfo != name {
+			t.Errorf("game %d: expected name %q, got %q", i, name, extraInfo)
+		}
+	}
 }

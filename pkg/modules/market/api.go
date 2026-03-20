@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+
+	"github.com/lemon4ksan/g-man/pkg/steam/community"
 )
 
 // SearchOptions contains parameters for determining the TP.
@@ -23,6 +25,8 @@ type SearchOptions struct {
 
 // Search searches for items on the marketplace.
 func (m *Manager) Search(ctx context.Context, appID uint32, opts SearchOptions) (*SearchResponse, error) {
+	referer := fmt.Sprintf("https://steamcommunity.com/market/search?appid=%d", appID)
+
 	if opts.Count == 0 {
 		opts.Count = 100
 	}
@@ -38,84 +42,70 @@ func (m *Manager) Search(ctx context.Context, appID uint32, opts SearchOptions) 
 		searchDesc = "1"
 	}
 
-	params := url.Values{
-		"query":               {opts.Query},
-		"start":               {strconv.Itoa(opts.Start)},
-		"count":               {strconv.Itoa(opts.Count)},
-		"search_descriptions": {searchDesc},
-		"sort_column":         {opts.SortColumn},
-		"sort_dir":            {opts.SortDir},
-		"appid":               {strconv.FormatUint(uint64(appID), 10)},
-		"norender":            {"1"},
-	}
-
-	referer := fmt.Sprintf("https://steamcommunity.com/market/search?appid=%d", appID)
-	var response SearchResponse
-
-	err := m.community.GetJSON(ctx, "market/search/render", params, &response, withMarketHeaders(referer))
-	if err != nil {
-		return nil, err
-	}
-
-	return &response, nil
+	req := struct {
+		Query              string `url:"query"`
+		Start              int    `url:"start"`
+		Count              int    `url:"count"`
+		SearchDescriptions string `url:"search_descriptions"`
+		SortColumn         string `url:"sort_column"`
+		SortDir            string `url:"sort_dir"`
+		AppID              uint32 `url:"appid"`
+		NoRender           string `url:"norender"`
+	}{opts.Query, opts.Start, opts.Count, searchDesc, opts.SortColumn, opts.SortDir, appID, "1"}
+	return community.Get[SearchResponse](
+		ctx, m.community, "market/search/render", req, withMarketHeaders(referer),
+	)
 }
 
 // GetPriceOverview gets a quick summary of the item's price.
 func (m *Manager) GetPriceOverview(ctx context.Context, appID uint32, marketHashName string) (*PriceOverviewResponse, error) {
-	params := url.Values{
-		"appid":            {strconv.FormatUint(uint64(appID), 10)},
-		"currency":         {strconv.Itoa(int(m.config.Currency))},
-		"market_hash_name": {marketHashName},
-	}
-
-	var response PriceOverviewResponse
-	err := m.community.GetJSON(ctx, "market/priceoverview", params, &response, withMarketHeaders(""))
-	if err != nil {
-		return nil, err
-	}
-
-	return &response, nil
+	req := struct {
+		AppID          uint32       `url:"appid"`
+		Currency       CurrencyCode `url:"currency"`
+		MarketHashName string       `url:"market_hash_name"`
+	}{appID, m.config.Currency, marketHashName}
+	return community.Get[PriceOverviewResponse](
+		ctx, m.community, "market/priceoverview", req, withMarketHeaders(""),
+	)
 }
 
 // GetItemOrdersHistogram gets a histogram of active buy and sell orders.
 // The itemNameID can be obtained by parsing the lot page (usually cached by the bot).
 func (m *Manager) GetItemOrdersHistogram(ctx context.Context, appID uint32, marketHashName string, itemNameID uint64) (*ItemOrdersHistogram, error) {
-	params := url.Values{
-		"country":     {m.config.Country},
-		"language":    {m.config.Language},
-		"currency":    {strconv.Itoa(int(m.config.Currency))},
-		"item_nameid": {strconv.FormatUint(itemNameID, 10)},
-		"two_factor":  {"0"},
-	}
-
 	referer := fmt.Sprintf("https://steamcommunity.com/market/listings/%d/%s", appID, url.PathEscape(marketHashName))
-	var response ItemOrdersHistogramResponse
 
-	err := m.community.GetJSON(ctx, "market/itemordershistogram", params, &response, withMarketHeaders(referer))
+	req := struct {
+		Country    string       `url:"country"`
+		Language   string       `url:"language"`
+		Currency   CurrencyCode `url:"currency"`
+		ItemNameID uint64       `url:"item_nameid"`
+		TwoFactor  int          `url:"two_factor"`
+	}{m.config.Country, m.config.Language, m.config.Currency, itemNameID, 0}
+
+	resp, err := community.Get[ItemOrdersHistogramResponse](ctx, m.community, "market/itemordershistogram", req, withMarketHeaders(referer))
 	if err != nil {
 		return nil, err
 	}
 
 	histogram := &ItemOrdersHistogram{
-		Success:          response.Success == 1,
-		SellOrderTable:   response.SellOrderTable,
-		SellOrderSummary: response.SellOrderSummary,
-		BuyOrderTable:    response.BuyOrderTable,
-		BuyOrderSummary:  response.BuyOrderSummary,
-		BuyOrderGraph:    response.BuyOrderGraph,
-		SellOrderGraph:   response.SellOrderGraph,
-		GraphMaxY:        response.GraphMaxY,
-		GraphMinX:        response.GraphMinX,
-		GraphMaxX:        response.GraphMaxX,
-		PricePrefix:      response.PricePrefix,
-		PriceSuffix:      response.PriceSuffix,
+		SellOrderTable:   resp.SellOrderTable,
+		SellOrderSummary: resp.SellOrderSummary,
+		BuyOrderTable:    resp.BuyOrderTable,
+		BuyOrderSummary:  resp.BuyOrderSummary,
+		BuyOrderGraph:    resp.BuyOrderGraph,
+		SellOrderGraph:   resp.SellOrderGraph,
+		GraphMaxY:        resp.GraphMaxY,
+		GraphMinX:        resp.GraphMinX,
+		GraphMaxX:        resp.GraphMaxX,
+		PricePrefix:      resp.PricePrefix,
+		PriceSuffix:      resp.PriceSuffix,
 	}
 
-	if response.HighestBuyOrder != "" {
-		histogram.HighestBuyOrder, _ = strconv.ParseFloat(response.HighestBuyOrder, 64)
+	if resp.HighestBuyOrder != "" {
+		histogram.HighestBuyOrder, _ = strconv.ParseFloat(resp.HighestBuyOrder, 64)
 	}
-	if response.LowestSellOrder != "" {
-		histogram.LowestSellOrder, _ = strconv.ParseFloat(response.LowestSellOrder, 64)
+	if resp.LowestSellOrder != "" {
+		histogram.LowestSellOrder, _ = strconv.ParseFloat(resp.LowestSellOrder, 64)
 	}
 
 	return histogram, nil
@@ -126,16 +116,10 @@ func (m *Manager) GetMyListings(ctx context.Context, start, count int) (*MyListi
 	if count == 0 {
 		count = 100
 	}
-	params := url.Values{
-		"start":    {strconv.Itoa(start)},
-		"count":    {strconv.Itoa(count)},
-		"norender": {"1"},
-	}
-
-	var response MyListingsResponse
-	err := m.community.GetJSON(ctx, "market/mylistings", params, &response, withMarketHeaders(""))
-	if err != nil {
-		return nil, err
-	}
-	return &response, nil
+	req := struct {
+		Start    int `url:"start"`
+		Count    int `url:"count"`
+		NoRender int `url:"norender"`
+	}{start, count, 1}
+	return community.Get[MyListingsResponse](ctx, m.community, "market/mylistings", req, withMarketHeaders(""))
 }

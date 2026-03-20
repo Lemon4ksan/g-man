@@ -6,89 +6,86 @@ package transport
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
-	"github.com/lemon4ksan/g-man/pkg/jobs"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
 )
 
+// SocketMetadata holds context-specific information from a socket-based response.
+type SocketMetadata struct {
+	Result      protocol.EResult // EResult code from the message header.
+	Header      protocol.Header  // The full, parsed packet header.
+	SourceJobID uint64           // The original Job ID that this message is a response to.
+}
+
+// SocketTarget is an extension of the Target interface for destinations that can be
+// reached via a persistent socket connection.
 type SocketTarget interface {
 	Target
 	EMsg(isAuth bool) protocol.EMsg
 	ObjectName() string
 }
 
-// SocketCaller defines the minimal socket interface required by the transport.
-// This decouples the transport from the concrete socket implementation.
+// SocketCaller defines the minimum interface required by the transport to interact
+// with the underlying socket.
 type SocketCaller interface {
-	CallUnifiedRaw(ctx context.Context, eMsg protocol.EMsg, targetName string, payload []byte, cb jobs.Callback[*protocol.Packet]) error
+	SendSync(ctx context.Context, build socket.PayloadBuilder, opts ...socket.SendOption) (*protocol.Packet, error)
 	Session() socket.Session
 }
 
+// SocketTransport implements the Transport interface for socket-based communication.
+// It translates abstract Requests into concrete protocol.Packets.
 type SocketTransport struct {
 	caller SocketCaller
 }
 
-var _ Transport = (*SocketTransport)(nil)
-
+// NewSocketTransport creates a new socket transport layer.
 func NewSocketTransport(caller SocketCaller) *SocketTransport {
 	return &SocketTransport{
 		caller: caller,
 	}
 }
 
-// callResult groups the output of the async socket call.
-type callResult struct {
-	resp *Response
-	err  error
-}
-
-func (t *SocketTransport) Do(req *Request) (*Response, error) {
+// Do executes a Request over a persistent socket. It performs the following steps:
+// 1. Asserts that the request's Target is a SocketTarget.
+// 2. Determines the correct EMsg based on the current authentication state.
+// 3. Uses the SocketCaller to send the message and wait for a response packet.
+// 4. Extracts metadata (EResult, header) from the response packet.
+// 5. Wraps the result in a generic Response container.
+func (t *SocketTransport) Do(ctx context.Context, req *Request) (*Response, error) {
 	target, ok := req.Target().(SocketTarget)
 	if !ok {
 		return nil, fmt.Errorf("socket_transport: target %T does not support socket protocol", req.Target())
 	}
 
-	isAuth := t.caller.Session().IsAuthenticated()
+	sess := t.caller.Session()
+	if sess == nil {
+		return nil, errors.New("socket is disconnected")
+	}
+	isAuth := sess.IsAuthenticated()
 
-	// Buffer 1 ensures the callback won't block forever if the caller abandons the request
-	resCh := make(chan callResult, 1)
-
-	err := t.caller.CallUnifiedRaw(req.Context(), target.EMsg(isAuth), target.ObjectName(), req.Body(), func(p *protocol.Packet, err error) {
-		if err != nil {
-			resCh <- callResult{err: err}
-			return
-		}
-
-		res := &Response{
-			Body:   p.Payload,
-			Result: protocol.EResult_OK,
-		}
-
-		if p.Header != nil {
-			if eh, ok := p.Header.(protocol.EHeader); ok {
-				res.Result = eh.GetEResult()
-			}
-			res.SourceJobID = p.GetSourceJobID()
-		}
-
-		resCh <- callResult{resp: res}
-	})
-
+	p, err := t.caller.SendSync(ctx,
+		socket.DynamicRaw(target.EMsg(isAuth), target.ObjectName(), req.Body()),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("socket_transport call failed: %w", err)
 	}
 
-	select {
-	case <-req.Context().Done():
-		return nil, req.Context().Err()
-	case result := <-resCh:
-		if result.err != nil {
-			return nil, result.err
-		}
-		return result.resp, nil
-	}
-}
+	result := protocol.EResult_OK
+	var sourceJobID uint64
 
-func (t *SocketTransport) Close() error { return nil }
+	if p.Header != nil {
+		if eh, ok := p.Header.(protocol.EHeader); ok {
+			result = eh.GetEResult()
+		}
+		sourceJobID = p.GetSourceJobID()
+	}
+
+	return NewResponse(p.Payload, SocketMetadata{
+		Result:      result,
+		SourceJobID: sourceJobID,
+		Header:      p.Header,
+	}), nil
+}

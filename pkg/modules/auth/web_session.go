@@ -5,28 +5,24 @@
 package auth
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io"
 	"maps"
-	"mime/multipart"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
 	"sync"
-	"time"
 
 	"github.com/lemon4ksan/g-man/pkg/log"
+	"github.com/lemon4ksan/g-man/pkg/rest"
 	pb "github.com/lemon4ksan/g-man/pkg/steam/protobuf"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
-	"github.com/lemon4ksan/g-man/pkg/steam/transport"
 )
 
-// Standard Steam domains that require synchronization of cookies.
+// steamDomains are the standard Steam domains that require synchronized cookies.
 var steamDomains = []string{
 	"https://steamcommunity.com",
 	"https://store.steampowered.com",
@@ -34,47 +30,67 @@ var steamDomains = []string{
 	"https://login.steampowered.com",
 }
 
+// WebSessionManager defines the public interface for the web session.
 type WebSessionManager interface {
 	Authenticate(ctx context.Context, authService *AuthenticationService, refreshToken string) error
 	IsAuthenticated() bool
-	Client() *http.Client
+	Client() rest.Requester
 	SessionID(targetURL string) string
 }
 
 // WebSession handles HTTP-based interactions with Steam Community and Store.
+// It uses a rest.Client with a shared cookie jar for state management.
 type WebSession struct {
 	mu sync.RWMutex
 
 	steamID uint64
-	client  *http.Client
+	client  *rest.Client
+	jar     http.CookieJar
 	logger  log.Logger
 	isAuth  bool
 }
 
+// NewWebSession creates a new, unauthenticated web session.
 func NewWebSession(steamID uint64, logger log.Logger) *WebSession {
 	jar, _ := cookiejar.New(nil)
+	httpClient := &http.Client{Jar: jar}
+
 	return &WebSession{
 		steamID: steamID,
 		logger:  logger,
-		client: &http.Client{
-			Timeout: 30 * time.Second,
-			Jar:     jar,
-		},
+		jar:     jar,
+		client:  rest.NewClient(httpClient),
 	}
 }
 
-func (s *WebSession) Client() *http.Client { return s.client }
+// Client returns the underlying REST requester.
+func (s *WebSession) Client() *rest.Client { return s.client }
 
+// IsAuthenticated returns true if the session has successfully obtained login cookies.
 func (s *WebSession) IsAuthenticated() bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.isAuth
 }
 
-// Authenticate performs the OIDC login flow to establish web cookies.
+// SessionID retrieves the 'sessionid' cookie value for a specific domain.
+func (s *WebSession) SessionID(targetURL string) string {
+	u, err := url.Parse(targetURL)
+	if err != nil {
+		return ""
+	}
+	for _, cookie := range s.jar.Cookies(u) {
+		if cookie.Name == "sessionid" {
+			return cookie.Value
+		}
+	}
+	return ""
+}
+
+// Authenticate performs the OIDC login flow to establish web cookies using a refresh token.
 func (s *WebSession) Authenticate(ctx context.Context, authService *AuthenticationService, refreshToken string) error {
 	if refreshToken == "" {
-		return fmt.Errorf("web_session: refresh token is required")
+		return fmt.Errorf("websession: refresh token is required")
 	}
 
 	sessionID, err := generateSessionID()
@@ -84,8 +100,7 @@ func (s *WebSession) Authenticate(ctx context.Context, authService *Authenticati
 
 	platform := authService.DeviceConf().PlatformType
 
-	// Steam treats Web tokens and App tokens differently.
-	// Using a SteamClient token via authSlowPath (Web login) often causes 401.
+	// Steam treats Web tokens and App tokens differently. Fast path is for client tokens.
 	if platform == pb.EAuthTokenPlatformType_k_EAuthTokenPlatformType_SteamClient ||
 		platform == pb.EAuthTokenPlatformType_k_EAuthTokenPlatformType_MobileApp {
 		s.logger.Debug("Platform allows fast-path cookie generation")
@@ -95,24 +110,11 @@ func (s *WebSession) Authenticate(ctx context.Context, authService *Authenticati
 	return s.authSlowPath(ctx, refreshToken, sessionID)
 }
 
-func (s *WebSession) SessionID(targetURL string) string {
-	u, err := url.Parse(targetURL)
-	if err != nil {
-		return ""
-	}
-	for _, cookie := range s.client.Jar.Cookies(u) {
-		if cookie.Name == "sessionid" {
-			return cookie.Value
-		}
-	}
-	return ""
-}
-
 // authFastPath directly constructs the steamLoginSecure cookie using a JWT.
 func (s *WebSession) authFastPath(ctx context.Context, authService *AuthenticationService, refreshToken, sessionID string) error {
 	tokenResp, err := authService.GenerateAccessTokenForApp(ctx, refreshToken, s.steamID)
 	if err != nil {
-		return fmt.Errorf("fast_path generate token: %w", err)
+		return fmt.Errorf("websession: failed to generate token: %w", err)
 	}
 
 	// Format: SteamID||AccessToken
@@ -128,7 +130,7 @@ func (s *WebSession) authFastPath(ctx context.Context, authService *Authenticati
 	return nil
 }
 
-// authSlowPath follows the full OIDC redirection/transfer flow.
+// authSlowPath follows the full OIDC redirection/transfer flow for web-based tokens.
 func (s *WebSession) authSlowPath(ctx context.Context, refreshToken, sessionID string) error {
 	params := map[string]string{
 		"nonce":     refreshToken,
@@ -136,23 +138,25 @@ func (s *WebSession) authSlowPath(ctx context.Context, refreshToken, sessionID s
 		"redir":     "https://steamcommunity.com/login/home/?goto=",
 	}
 
-	resp, err := s.doMultipartRequest(ctx, "https://login.steampowered.com/jwt/finalizelogin", params)
-	if err != nil {
-		return err
+	type finalizeResponse struct {
+		Error        int `json:"error"`
+		TransferInfo []struct {
+			URL    string            `json:"url"`
+			Params map[string]string `json:"params"`
+		} `json:"transfer_info"`
 	}
-	defer resp.Body.Close()
 
-	var finalRes finalizeResponse
-	if err := json.NewDecoder(resp.Body).Decode(&finalRes); err != nil {
-		return fmt.Errorf("decode finalizelogin: %w", err)
+	// The rest package uses url.Values, so we adapt our map.
+	finalRes, err := rest.PostJSON[map[string]string, finalizeResponse](
+		ctx, s.client, "https://login.steampowered.com/jwt/finalizelogin", params, nil,
+	)
+	if err != nil {
+		return fmt.Errorf("websession: finalize login failed: %w", err)
 	}
 
 	if finalRes.Error != 0 {
-		return fmt.Errorf("finalizelogin error code: %d", finalRes.Error)
+		return fmt.Errorf("websession: finalize login error code: %d", finalRes.Error)
 	}
-
-	// FinalizeLogin sets the initial cookies for login.steampowered.com
-	s.extractCookiesToJar(resp)
 
 	// Execute transfers to other domains (community, store, etc.)
 	for _, transfer := range finalRes.TransferInfo {
@@ -198,7 +202,7 @@ func (s *WebSession) seedCookies(sessionID, secureValue string) {
 				SameSite: http.SameSiteLaxMode,
 			})
 		}
-		s.client.Jar.SetCookies(u, cookies)
+		s.jar.SetCookies(u, cookies)
 	}
 }
 
@@ -206,61 +210,25 @@ func (s *WebSession) executeTransferWithRetry(ctx context.Context, transferURL s
 	const maxRetries = 3
 	var lastErr error
 
+	type transferResult struct {
+		Result protocol.EResult `json:"result"`
+	}
+
 	for range maxRetries {
-		resp, err := s.doMultipartRequest(ctx, transferURL, params)
+		resp, err := rest.PostJSON[map[string]string, transferResult](ctx, s.client, transferURL, params, nil)
 		if err != nil {
 			lastErr = err
 			continue
 		}
 
-		body, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			lastErr = fmt.Errorf("status %d", resp.StatusCode)
-			continue
+		if resp.Result != protocol.EResult_OK {
+			return fmt.Errorf("steam error: %s", resp.Result.String())
 		}
 
-		// Check for EResult in JSON body
-		var tr transferResult
-		if err := json.Unmarshal(body, &tr); err == nil {
-			if tr.Result != protocol.EResult_OK {
-				return fmt.Errorf("steam error: %s", tr.Result.String())
-			}
-		}
-
-		s.extractCookiesToJar(resp)
-		return nil
+		return nil // Success
 	}
+
 	return fmt.Errorf("after %d retries: %w", maxRetries, lastErr)
-}
-
-func (s *WebSession) doMultipartRequest(ctx context.Context, reqURL string, params map[string]string) (*http.Response, error) {
-	var b bytes.Buffer
-	w := multipart.NewWriter(&b)
-
-	for k, v := range params {
-		_ = w.WriteField(k, v)
-	}
-	w.Close()
-
-	req, err := http.NewRequestWithContext(ctx, "POST", reqURL, &b)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Content-Type", w.FormDataContentType())
-	req.Header.Set("User-Agent", transport.HTTPUserAgent)
-	// Important for CORS-like requests in Steam's backend
-	req.Header.Set("Referer", "https://steamcommunity.com/")
-
-	return s.client.Do(req)
-}
-
-func (s *WebSession) extractCookiesToJar(resp *http.Response) {
-	if cookies := resp.Cookies(); len(cookies) > 0 {
-		s.client.Jar.SetCookies(resp.Request.URL, cookies)
-	}
 }
 
 func generateSessionID() (string, error) {
@@ -269,16 +237,4 @@ func generateSessionID() (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(b), nil
-}
-
-type finalizeResponse struct {
-	Error        int `json:"error"`
-	TransferInfo []struct {
-		URL    string            `json:"url"`
-		Params map[string]string `json:"params"`
-	} `json:"transfer_info"`
-}
-
-type transferResult struct {
-	Result protocol.EResult `json:"result"`
 }

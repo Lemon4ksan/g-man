@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"reflect"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -23,21 +24,21 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam/bus"
 	"github.com/lemon4ksan/g-man/pkg/steam/network"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	pb "github.com/lemon4ksan/g-man/pkg/steam/protobuf"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 
 	"google.golang.org/protobuf/proto"
 )
 
-// Handler defines a callback function for processing incoming Steam packets.
+// Handler defines a callback function for processing an incoming, fully-parsed Steam packet.
 type Handler func(p *protocol.Packet)
 
 // CMServer represents a Steam Connection Manager server endpoint.
 type CMServer struct {
-	Endpoint string  // Host:port address for connection.
-	Type     string  // Connection protocol: "netfilter" (TCP) or "websockets".
-	Load     float64 // Current server load (lower is better).
-	Realm    string  // Steam realm, e.g., "steamglobal", "steamchina".
+	Endpoint string  // Host:port address.
+	Type     string  // Connection protocol: "tcp", "websockets", or "netfilter".
+	Load     float64 // Server load metric (lower is better).
+	Realm    string  // Steam realm, e.g., "steamglobal".
 }
 
 // ConnectionDialer defines a function signature for establishing network connections.
@@ -59,14 +60,40 @@ func DefaultDialers() map[string]ConnectionDialer {
 	}
 }
 
+// TypedHandler defines a generic callback for a specific, unmarshaled Protobuf message type.
+type TypedHandler[T proto.Message] func(body T)
+
+// RegisterMsgHandlerTyped provides a type-safe, generic wrapper for registering message handlers.
+// It automatically handles Protobuf unmarshaling and error logging.
+//
+// Example:
+//
+//	RegisterMsgHandlerTyped(s, protocol.EMsg_ClientLogOnResponse, func(resp *pb.CMsgClientLogonResponse) {
+//	   fmt.Println("Logon result:", resp.GetEresult())
+//	})
+func RegisterMsgHandlerTyped[T proto.Message](s *Socket, eMsg protocol.EMsg, handler TypedHandler[T]) {
+	var zero T
+	typ := reflect.TypeOf(zero).Elem()
+
+	wrapper := func(p *protocol.Packet) {
+		body := reflect.New(typ).Interface().(T)
+
+		if err := proto.Unmarshal(p.Payload, body); err != nil {
+			s.logger.Error("Failed to unmarshal", log.Err(err))
+			return
+		}
+		handler(body)
+	}
+	s.RegisterMsgHandler(eMsg, wrapper)
+}
+
 // Config holds configuration parameters for the Socket.
 type Config struct {
-	ConnectTimeout time.Duration
-	EventChanSize  int
-	WorkerCount    int
-	DebugEvents    bool
-	BlockingEvents bool
-	Dialers        map[string]ConnectionDialer
+	ConnectTimeout time.Duration               // Max time to wait for a network connection to establish.
+	EventChanSize  int                         // Buffer size for the internal message-passing channel.
+	WorkerCount    int                         // Number of parallel workers processing incoming packets.
+	DebugEvents    bool                        // If true, enables verbose event logging.
+	Dialers        map[string]ConnectionDialer // Map of protocol names to dialer functions.
 }
 
 // DefaultConfig returns the recommended default configuration.
@@ -76,7 +103,6 @@ func DefaultConfig() Config {
 		EventChanSize:  1000, // Increased to handle bursts of multi-messages
 		WorkerCount:    runtime.NumCPU(),
 		DebugEvents:    true,
-		BlockingEvents: false,
 		Dialers:        DefaultDialers(),
 	}
 }
@@ -120,35 +146,27 @@ func WithBus(b *bus.Bus) Option {
 
 // WithLogger sets a custom logger.
 func WithLogger(l log.Logger) Option {
-	return func(s *Socket) { s.logger = l }
+	return func(s *Socket) { s.logger = l.WithModule("sock") }
 }
 
 // WithSession injects a custom pre-configured session.
 func WithSession(session Session) Option {
-	return func(s *Socket) { s.session = session }
+	return func(s *Socket) { s.session.Store(&session) }
 }
 
-// WithEncoder sets a custom message encoder.
-func WithEncoder(encoder Encoder) Option {
-	return func(s *Socket) { s.encoder = encoder }
-}
-
-// Socket represents the core client network manager. It handles connections,
-// message routing, job tracking, and payload encoding/decoding.
+// Socket is the core network engine. It orchestrates the connection lifecycle,
+// message routing, job tracking, and session management. It is designed to be thread-safe.
 type Socket struct {
 	config Config
 	state  atomic.Int32
 
 	// Global dependencies
 	logger     log.Logger
-	encoder    Encoder
 	bus        *bus.Bus
 	jobManager *jobs.Manager[*protocol.Packet]
+	session    atomic.Pointer[Session]
 
-	// Connection specific state (protected by mu)
 	mu         sync.RWMutex
-	session    Session
-	ctx        context.Context    // Context tied to the entire socket
 	connCtx    context.Context    // Context tied to the active connection
 	connCancel context.CancelFunc // Cancels the active connection
 
@@ -169,7 +187,7 @@ type Socket struct {
 }
 
 // NewSocket initializes a new Socket instance with the given config and options.
-func NewSocket(ctx context.Context, cfg Config, opts ...Option) *Socket {
+func NewSocket(cfg Config, opts ...Option) *Socket {
 	if cfg.Dialers == nil {
 		cfg.Dialers = DefaultDialers()
 	}
@@ -178,7 +196,6 @@ func NewSocket(ctx context.Context, cfg Config, opts ...Option) *Socket {
 	}
 
 	s := &Socket{
-		ctx:             ctx,
 		config:          cfg,
 		logger:          log.Discard,
 		jobManager:      jobs.NewManager[*protocol.Packet](1000),
@@ -198,17 +215,11 @@ func NewSocket(ctx context.Context, cfg Config, opts ...Option) *Socket {
 	if s.bus == nil {
 		s.bus = bus.NewBus()
 	}
-	if s.encoder == nil {
-		s.encoder = &BaseEncoder{}
-	}
 
 	s.setState(StateDisconnected)
 
 	s.RegisterMsgHandler(protocol.EMsg_Multi, s.handleMulti)
 	s.RegisterMsgHandler(protocol.EMsg_ServiceMethod, s.handleServiceMethod)
-
-	// Start workers ONCE for the lifetime of the Socket.
-	s.startWorkers(s.config.WorkerCount)
 
 	return s
 }
@@ -222,9 +233,11 @@ func (s *Socket) Bus() *bus.Bus {
 
 // Session returns the current active session, if any.
 func (s *Socket) Session() Session {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.session
+	sess := s.session.Load()
+	if sess == nil {
+		return nil
+	}
+	return *sess
 }
 
 // State returns the current connection state.
@@ -261,41 +274,9 @@ func (s *Socket) RegisterServiceHandler(method string, handler Handler) {
 	}
 }
 
-// StartHeartbeat begins sending heartbeat messages at the specified interval.
-// It runs asynchronously and stops automatically when the connection drops.
-func (s *Socket) StartHeartbeat(interval time.Duration) {
-	s.mu.RLock()
-	ctx := s.connCtx
-	s.mu.RUnlock()
-
-	if ctx == nil {
-		s.logger.Warn("StartHeartbeat called without an active connection")
-		return
-	}
-
-	go func() {
-		s.logger.Debug("Heartbeat started", log.Duration("interval", interval))
-		ticker := time.NewTicker(interval)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ticker.C:
-				if s.State() != StateConnected {
-					return
-				}
-				s.CallProto(ctx, protocol.EMsg_ClientHeartBeat, &pb.CMsgClientHeartBeat{}, nil)
-			case <-ctx.Done():
-				s.logger.Debug("Heartbeat stopped due to connection closure")
-				return
-			case <-s.done:
-				return
-			}
-		}
-	}()
-}
-
 // Connect attempts to establish a connection to the provided CM server.
+// This is a non-blocking call that starts background processes. The connection
+// state can be monitored via the event bus or State().
 func (s *Socket) Connect(ctx context.Context, server CMServer) error {
 	if !s.state.CompareAndSwap(int32(StateDisconnected), int32(StateConnecting)) {
 		return errors.New("socket: already connecting or connected")
@@ -308,10 +289,8 @@ func (s *Socket) Connect(ctx context.Context, server CMServer) error {
 	}
 
 	start := time.Now()
-	handler := &inboundHandler{sock: s}
 
-	// Establish transport connection
-	conn, err := dialer(handler, s.logger, server.Endpoint)
+	conn, err := dialer(inboundHandler{sock: s}, s.logger, server.Endpoint)
 	if err != nil {
 		s.setState(StateDisconnected)
 		return fmt.Errorf("transport dial failed: %w", err)
@@ -323,21 +302,56 @@ func (s *Socket) Connect(ctx context.Context, server CMServer) error {
 		log.Int64("conn_id", conn.ID()),
 	)
 
-	// Setup active connection context
-	connCtx, connCancel := context.WithCancel(s.ctx)
+	var ls Session = NewLoggedSession(baseSession, sessionLogger)
+	s.session.Store(&ls)
+
+	connCtx, connCancel := context.WithCancel(ctx)
 
 	s.mu.Lock()
-	s.session = NewLoggedSession(baseSession, sessionLogger)
-	s.connCtx = connCtx
-	s.connCancel = connCancel
+	s.connCtx, s.connCancel = connCtx, connCancel
 	s.mu.Unlock()
 
-	s.logger.Info("Successfully connected", log.Duration("latency", time.Since(start)))
+	s.startWorkers(connCtx, s.config.WorkerCount)
 
 	s.setState(StateConnected)
 	s.bus.Publish(&ConnectedEvent{Server: server.Endpoint})
+	s.logger.Info("Successfully connected", log.Duration("latency", time.Since(start)))
 
 	return nil
+}
+
+// StartHeartbeat begins sending periodic heartbeat messages to keep the connection alive.
+// It runs in a background goroutine and stops automatically when the connection is closed.
+func (s *Socket) StartHeartbeat(interval time.Duration) {
+	s.mu.RLock()
+	ctx := s.connCtx
+	s.mu.RUnlock()
+
+	if ctx == nil {
+		s.logger.Warn("StartHeartbeat called without an active connection")
+		return
+	}
+
+	s.workerWg.Go(func() {
+		s.logger.Debug("Heartbeat started", log.Duration("interval", interval))
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				if s.State() != StateConnected {
+					return
+				}
+				s.SendProto(ctx, protocol.EMsg_ClientHeartBeat, &pb.CMsgClientHeartBeat{})
+			case <-ctx.Done():
+				s.logger.Debug("Heartbeat stopped due to connection closure")
+				return
+			case <-s.done:
+				return
+			}
+		}
+	})
 }
 
 // ClearHandlers resets the handlers map.
@@ -351,26 +365,32 @@ func (s *Socket) ClearHandlers() {
 	s.serviceHandlersMu.Unlock()
 }
 
-// Disconnect gracefully closes the current active connection.
+// Disconnect gracefully closes the current active connection, waits for workers to finish,
+// and resets the session.
 func (s *Socket) Disconnect() {
+	if s.State() == StateDisconnected {
+		return
+	}
+
 	s.setState(StateDisconnecting)
 
 	s.mu.Lock()
 	if s.connCancel != nil {
 		s.connCancel()
 	}
-	if s.session != nil {
-		s.session.Close()
-		s.session = nil
-	}
 	s.mu.Unlock()
 
-	s.logger.Info("Client disconnected")
+	s.workerWg.Wait()
+	s.drainMsgChannel()
+
+	s.session.Store(nil)
 	s.bus.Publish(&DisconnectedEvent{})
 	s.setState(StateDisconnected)
+	s.logger.Info("Client disconnected")
 }
 
-// Close permanently shuts down the Socket and all its background workers.
+// Close permanently shuts down the Socket, its workers, and all associated resources.
+// After Close is called, the Socket instance should not be reused.
 func (s *Socket) Close() error {
 	s.closeOnce.Do(func() {
 		s.ClearHandlers()
@@ -382,123 +402,44 @@ func (s *Socket) Close() error {
 	return nil
 }
 
-// CallUnified executes a unified service method and waits for the response if cb provided.
-func (s *Socket) CallUnified(ctx context.Context, method string, req proto.Message, cb jobs.Callback[*protocol.Packet]) error {
-	return s.sendRequest(ctx, cb, func(buf *bytes.Buffer, sourceJob uint64) error {
-		sess := s.Session()
-		if sess == nil {
-			return errors.New("no active session")
-		}
-		return s.encoder.EncodeUnified(buf, sess.SteamID(), sess.SessionID(), method, sourceJob, req)
-	})
-}
-
-// CallProto sends a Protocol Buffer message and optionally tracks the response via a callback.
-func (s *Socket) CallProto(ctx context.Context, eMsg protocol.EMsg, req proto.Message, cb jobs.Callback[*protocol.Packet]) error {
-	return s.sendRequest(ctx, cb, func(buf *bytes.Buffer, sourceJob uint64) error {
-		sess := s.Session()
-		if sess == nil {
-			return errors.New("no active session")
-		}
-		return s.encoder.EncodeProto(buf, eMsg, sess.SteamID(), sess.SessionID(), sourceJob, protocol.NoJob, req)
-	})
-}
-
-// CallRaw is a general-purpose method for sending ready-made bytes while waiting for a response.
-func (s *Socket) CallRaw(ctx context.Context, eMsg protocol.EMsg, payload []byte, cb jobs.Callback[*protocol.Packet]) error {
-	return s.sendRequest(ctx, cb, func(buf *bytes.Buffer, sourceJob uint64) error {
-		return s.encoder.EncodeRaw(buf, eMsg, protocol.NoJob, sourceJob, payload)
-	})
-}
-
-// CallRaw is a general-purpose method for sending ready-made bytes while waiting for a response with unified capabilities.
-func (s *Socket) CallUnifiedRaw(ctx context.Context, eMsg protocol.EMsg, targetName string, payload []byte, cb jobs.Callback[*protocol.Packet]) error {
-	return s.sendRequest(ctx, cb, func(buf *bytes.Buffer, sourceJob uint64) error {
-		if targetName != "" {
-			sess := s.Session()
-			if sess == nil {
-				return errors.New("socket: session required for unified raw call")
-			}
-			return s.encoder.EncodeUnifiedRaw(buf, sess.SteamID(), sess.SessionID(), targetName, sourceJob, payload)
-		}
-		return s.encoder.EncodeRaw(buf, eMsg, protocol.NoJob, sourceJob, payload)
-	})
-}
-
-// SendUnified executes a unified service method.
-func (s *Socket) SendUnified(ctx context.Context, method string, req proto.Message) error {
-	return s.CallUnified(ctx, method, req, nil)
-}
-
-// CallProto sends a Protocol Buffer message and optionally tracks the response via a callback.
-func (s *Socket) SendProto(ctx context.Context, eMsg protocol.EMsg, req proto.Message) error {
-	return s.CallProto(ctx, eMsg, req, nil)
-}
-
-// CallRaw is a general-purpose method for sending ready-made bytes.
-func (s *Socket) SendRaw(ctx context.Context, eMsg protocol.EMsg, payload []byte) error {
-	return s.CallRaw(ctx, eMsg, payload, nil)
-}
-
-// CallRaw is a general-purpose method for sending ready-made bytes with unified capabilities.
-func (s *Socket) SendUnifiedRaw(ctx context.Context, eMsg protocol.EMsg, targetName string, payload []byte) error {
-	return s.CallUnifiedRaw(ctx, eMsg, targetName, payload, nil)
-}
-
-type payloadBuilder func(buf *bytes.Buffer, sourceJobID uint64) error
-
-func (s *Socket) sendRequest(ctx context.Context, cb jobs.Callback[*protocol.Packet], build payloadBuilder) error {
-	sess := s.Session()
-	if sess == nil {
-		return errors.New("socket is disconnected")
-	}
-
-	var sourceJobID uint64 = protocol.NoJob
-	if cb != nil {
-		sourceJobID = s.jobManager.NextID()
-		err := s.jobManager.Add(sourceJobID, func(response *protocol.Packet, err error) {
-			var eMsg protocol.EMsg
-			if response != nil {
-				eMsg = response.EMsg
-			}
-			defer s.recoverPanic(eMsg)
-			cb(response, err)
-		}, jobs.WithContext[*protocol.Packet](ctx))
-
-		if err != nil {
-			return fmt.Errorf("track job: %w", err)
+func (s *Socket) drainMsgChannel() {
+	s.logger.Debug("Draining message channel...")
+	for {
+		select {
+		case <-s.msgCh:
+		default:
+			return
 		}
 	}
-
-	buf := s.bufferPool.Get().(*bytes.Buffer)
-	buf.Reset()
-	defer s.bufferPool.Put(buf)
-
-	if err := build(buf, sourceJobID); err != nil {
-		if cb != nil {
-			s.jobManager.Resolve(sourceJobID, nil, err)
-		}
-		return err
-	}
-
-	if err := sess.Send(ctx, buf.Bytes()); err != nil {
-		if cb != nil {
-			s.jobManager.Resolve(sourceJobID, nil, err)
-		}
-		return err
-	}
-
-	return nil
 }
 
-func (s *Socket) startWorkers(count int) {
+func (s *Socket) setState(new State) State {
+	old := State(s.state.Swap(int32(new)))
+	if old != new {
+		s.bus.Publish(&StateEvent{Old: old, New: new})
+	}
+	return old
+}
+
+func (s *Socket) recoverPanic(emsg protocol.EMsg) {
+	if r := recover(); r != nil {
+		s.logger.Error("Socket recovered from panic",
+			log.String("emsg", emsg.String()),
+			log.Any("panic", r),
+		)
+	}
+}
+
+func (s *Socket) startWorkers(ctx context.Context, count int) {
 	for range count {
 		s.workerWg.Add(1)
-		go s.worker()
+		go s.worker(ctx)
 	}
 }
 
-func (s *Socket) worker() {
+// worker is the core of the concurrent processing model. It runs in a loop,
+// consuming packets from the message channel and passing them to the router.
+func (s *Socket) worker(ctx context.Context) {
 	defer s.workerWg.Done()
 	for {
 		select {
@@ -507,13 +448,21 @@ func (s *Socket) worker() {
 				return
 			} // msgCh closed during socket Close()
 			s.routePacket(pkt)
+		case <-ctx.Done():
+			s.logger.Debug("Worker stopped due to disconnect")
+			return
 		case <-s.done:
-			return // Socket closed
+			s.logger.Debug("Worker stopped due to socket close")
+			return
 		}
 	}
 }
 
-// routePacket determines where the packet should go.
+// routePacket is the central dispatcher for all incoming messages.
+// It prioritizes routing in the following order:
+// 1. Job Response: If the packet has a target Job ID, it's resolved.
+// 2. Registered Handler: If a handler for the packet's EMsg exists, it's invoked.
+// 3. Unhandled: Otherwise, the packet is logged as unhandled.
 func (s *Socket) routePacket(packet *protocol.Packet) {
 	// Update session state if authorized headers are present.
 	if ah, ok := packet.Header.(protocol.AuthorizedHeader); ok {
@@ -548,7 +497,8 @@ func (s *Socket) routePacket(packet *protocol.Packet) {
 	}
 }
 
-// handleMulti is the default handler for EMsg_Multi packets.
+// handleMulti is the built-in handler for EMsg_Multi, which contains multiple
+// nested or compressed packets.
 func (s *Socket) handleMulti(packet *protocol.Packet) {
 	msg := &pb.CMsgMulti{}
 	if err := proto.Unmarshal(packet.Payload, msg); err != nil {
@@ -630,10 +580,15 @@ func (s *Socket) decompressPayload(data network.NetMessage, unzippedSize int64) 
 	}
 	defer gr.Close()
 
-	return io.ReadAll(io.LimitReader(gr, unzippedSize))
+	out := make([]byte, unzippedSize)
+	if _, err := io.ReadFull(gr, out); err != nil {
+		return nil, fmt.Errorf("read full decompressed payload: %w", err)
+	}
+
+	return out, nil
 }
 
-func (s *Socket) processMultiPayload(payload network.NetMessage) error {
+func (s *Socket) processMultiPayload(payload []byte) error {
 	reader := bytes.NewReader(payload)
 	for reader.Len() > 0 {
 		var subSize uint32
@@ -643,7 +598,18 @@ func (s *Socket) processMultiPayload(payload network.NetMessage) error {
 		if subSize == 0 {
 			continue
 		}
-		s.processSingle(io.LimitReader(reader, int64(subSize)))
+
+		packet, err := protocol.ParsePacket(io.LimitReader(reader, int64(subSize)))
+		if err != nil {
+			s.logger.Error("Failed to parse nested multi packet", log.Err(err))
+			continue
+		}
+
+		select {
+		case s.msgCh <- packet:
+		case <-s.done:
+			return nil
+		}
 	}
 	return nil
 }
@@ -663,33 +629,24 @@ func (s *Socket) handleRemoteClose() {
 	}
 }
 
-func (s *Socket) recoverPanic(emsg protocol.EMsg) {
-	if r := recover(); r != nil {
-		s.logger.Error("Socket recovered from panic",
-			log.String("emsg", emsg.String()),
-			log.Any("panic", r),
-		)
-	}
-}
-
-func (s *Socket) setState(new State) State {
-	old := State(s.state.Swap(int32(new)))
-	if old != new {
-		s.bus.Publish(&StateEvent{Old: old, New: new})
-	}
-	return old
-}
-
-// inboundHandler acts as the bridge between the raw network connection and the Socket.
+// inboundHandler acts as the adapter (or "bridge") between the low-level `network`
+// package and the higher-level `socket` logic. It implements network.Handler.
 type inboundHandler struct {
 	sock *Socket
 }
 
-func (h *inboundHandler) OnNetMessage(msg network.NetMessage) {
+// OnNetMessage translates a raw network message into a logical packet and queues it for processing.
+func (h inboundHandler) OnNetMessage(msg network.NetMessage) {
 	h.sock.processSingle(bytes.NewReader(msg))
 }
-func (h *inboundHandler) OnNetError(err error) {
+
+// OnNetError pushes a network-layer error onto the event bus.
+func (h inboundHandler) OnNetError(err error) {
 	h.sock.logger.Error("Network error", log.Err(err))
 	h.sock.bus.Publish(&NetworkErrorEvent{Error: err})
 }
-func (h *inboundHandler) OnNetClose() { h.sock.handleRemoteClose() }
+
+// OnNetClose triggers the socket's disconnect logic when the underlying connection is lost.
+func (h inboundHandler) OnNetClose() {
+	h.sock.handleRemoteClose()
+}

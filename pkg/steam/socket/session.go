@@ -62,7 +62,7 @@ type BaseSession struct {
 
 	steamID     atomic.Uint64
 	sessionID   atomic.Int32
-	accessToken atomic.Pointer[string]
+	accessToken atomic.Value
 }
 
 // NewBaseSession initializes a new session wrapping the provided connection.
@@ -70,8 +70,6 @@ func NewBaseSession(conn network.Connection) *BaseSession {
 	return &BaseSession{
 		conn: conn,
 	}
-	// Note: No need to pre-allocate an empty string for accessToken.
-	// The AccessToken() getter handles nil pointers safely.
 }
 
 func (s *BaseSession) SteamID() uint64 {
@@ -83,11 +81,8 @@ func (s *BaseSession) SessionID() int32 {
 }
 
 func (s *BaseSession) AccessToken() string {
-	ptr := s.accessToken.Load()
-	if ptr == nil {
-		return ""
-	}
-	return *ptr
+	val, _ := s.accessToken.Load().(string)
+	return val
 }
 
 func (s *BaseSession) IsAuthenticated() bool {
@@ -105,7 +100,7 @@ func (s *BaseSession) SetSessionID(sid int32) {
 }
 
 func (s *BaseSession) SetAccessToken(token string) {
-	s.accessToken.Store(&token)
+	s.accessToken.Store(token)
 }
 
 func (s *BaseSession) Send(ctx context.Context, data []byte) error {
@@ -127,8 +122,8 @@ func (s *BaseSession) Close() error {
 // LoggedSession is a Decorator that wraps a Session to provide automatic
 // logging of network and lifecycle events, without modifying the core logic.
 type LoggedSession struct {
-	Session // Embedded interface automatically forwards all unimplemented methods
-	logger  log.Logger
+	Session
+	logger log.Logger
 }
 
 // NewLoggedSession wraps an existing session with logging capabilities.
@@ -141,12 +136,10 @@ func NewLoggedSession(s Session, l log.Logger) *LoggedSession {
 
 // Send intercepts the Send call to add debug logging.
 func (l *LoggedSession) Send(ctx context.Context, data []byte) error {
-	if l.logger.IsDebugEnabled() {
-		l.logger.Debug("Writing to socket",
-			log.Int("size_bytes", len(data)),
-			log.Uint64("steam_id", l.Session.SteamID()),
-		)
-	}
+	l.logger.Debug("Writing to socket",
+		log.Int("size_bytes", len(data)),
+		log.Uint64("steam_id", l.SteamID()),
+	)
 
 	err := l.Session.Send(ctx, data)
 	if err != nil {
@@ -172,8 +165,8 @@ func (l *LoggedSession) SetEncryptionKey(key []byte) bool {
 // Close intercepts the Close call to add debug logging.
 func (l *LoggedSession) Close() error {
 	l.logger.Debug("Closing session connection",
-		log.Uint64("steam_id", l.Session.SteamID()),
-		log.Int32("session_id", l.Session.SessionID()),
+		log.Uint64("steam_id", l.SteamID()),
+		log.Int32("session_id", l.SessionID()),
 	)
 	return l.Session.Close()
 }

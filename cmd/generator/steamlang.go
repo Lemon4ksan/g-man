@@ -99,7 +99,7 @@ func fetchFileList(url string) ([]GitHubFile, error) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("github api returned %d", resp.StatusCode)
 	}
 
@@ -128,7 +128,7 @@ func parseSteamd(content string) []*EnumDef {
 	reStart := regexp.MustCompile(`^enum (E[a-zA-Z0-9]+)(?:<([a-z]+)>)?`)
 	reVal := regexp.MustCompile(`^([A-Za-z0-9_]+) = ([^;]+);(.*)$`)
 
-	for _, line := range strings.Split(content, "\n") {
+	for line := range strings.SplitSeq(content, "\n") {
 		line = strings.TrimSpace(line)
 
 		// Trim comments
@@ -145,7 +145,7 @@ func parseSteamd(content string) []*EnumDef {
 		if cur == nil {
 			if m := reStart.FindStringSubmatch(line); len(m) > 0 {
 				name := m[1]
-				rawType := "int" // По умолчанию int (безопаснее для C++ enum)
+				rawType := "int"
 				if m[2] != "" {
 					rawType = m[2]
 				}

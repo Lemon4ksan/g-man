@@ -1,18 +1,28 @@
-package steam
+// Copyright (c) 2026 Lemon4ksan All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
+// Package models provides structured used across
+package modules
 
 import (
 	"context"
 	"errors"
 
+	"sync"
+	"sync/atomic"
+
 	"github.com/lemon4ksan/g-man/pkg/log"
-	"github.com/lemon4ksan/g-man/pkg/steam/api"
 	"github.com/lemon4ksan/g-man/pkg/steam/bus"
+	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
 )
 
 var (
 	ErrClientClosed = errors.New("steam: client is closed")
+	ErrNotAuthenticated = errors.New("steam: not authenticated")
 )
 
 // InitContext provides the module with access to the necessary client resources
@@ -24,14 +34,9 @@ type InitContext interface {
 	// Logger returns the configured logger.
 	Logger() log.Logger
 
-	// Proto returns the proto client for making requests over the CM Socket.
-	Proto() api.LegacyRequester
-
-	// WebAPI returns the http client for making API requests.
-    WebAPI() api.WebAPIRequester
-
-	// Unified returns the UnifiedClient for making unified request over the HTTP or CM Socket.
-    Unified() api.UnifiedRequester
+	// Service returns a client for working with the official Steam APIs (Unified, WebAPI, Legacy).
+	// This client is compatible with the functions [service.Unified], [service.WebAPI], etc.
+	Service() service.Requester
 
 	// RegisterPacketHandler registers a handler for low-level EMsg (TCP/UDP).
 	RegisterPacketHandler(eMsg protocol.EMsg, handler socket.Handler)
@@ -50,8 +55,9 @@ type InitContext interface {
 }
 
 type AuthContext interface {
-	// Community returns an authorized community client.
-	Community() api.CommunityRequester
+	// Community returns an authorized community client for working with community endpoint.
+	// This client is compatible with [community.Get], [community.PostForm], etc.
+	Community() community.Requester
 
 	// SteamID returns the steam id of the authorized user.
 	SteamID() uint64
@@ -76,4 +82,60 @@ type ModuleAuth interface {
 
 	// StartAuthed is called after a successful Steam login and WebSession creation.
 	StartAuthed(ctx context.Context, auth AuthContext) error
+}
+
+// BaseModule provides a standard implementation of the module lifecycle.
+// Other modules should embed it:
+//
+//	type YourModule struct {
+//		modules.BaseModule
+//		... specific fields
+//	}
+type BaseModule struct {
+	NameStr string
+
+	Logger log.Logger
+	Bus    *bus.Bus
+
+	State atomic.Int32
+
+	Ctx    context.Context
+	Cancel context.CancelFunc
+	Wg     sync.WaitGroup
+}
+
+func NewBase(name string) BaseModule {
+	return BaseModule{
+		NameStr: name,
+	}
+}
+
+func (b *BaseModule) Name() string { return b.NameStr }
+
+func (b *BaseModule) Init(ctx InitContext) error {
+    b.Logger = ctx.Logger().WithModule(b.NameStr)
+    b.Bus = ctx.Bus()
+
+    if b.Ctx == nil || b.Ctx.Err() != nil {
+        b.Ctx, b.Cancel = context.WithCancel(context.Background())
+    }
+    
+    b.State.Store(0)
+    return nil
+}
+
+func (b *BaseModule) Close() error {
+    if b.Cancel != nil {
+        b.Cancel()
+    }
+    
+    b.Wg.Wait()
+    b.Wg = sync.WaitGroup{}
+    return nil
+}
+
+func (b *BaseModule) Go(fn func(ctx context.Context)) {
+	b.Wg.Go(func() {
+		fn(b.Ctx)
+	})
 }

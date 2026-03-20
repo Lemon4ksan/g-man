@@ -2,110 +2,110 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package friends manages the Steam friends list, persona states, and group invitations.
 package friends
 
 import (
 	"context"
-	"net/url"
-	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/lemon4ksan/g-man/pkg/log"
-	"github.com/lemon4ksan/g-man/pkg/steam"
-	"github.com/lemon4ksan/g-man/pkg/steam/api"
-	"github.com/lemon4ksan/g-man/pkg/steam/bus"
+	"github.com/lemon4ksan/g-man/pkg/modules"
+	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	pb "github.com/lemon4ksan/g-man/pkg/steam/protobuf"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"google.golang.org/protobuf/proto"
 )
 
 const ModuleName string = "friends"
 
-// Manager manages the friends list, user cache, and groups.
+// Manager handles friends list synchronization and user status tracking.
+// It embeds modules.BaseModule for standardized lifecycle management.
 type Manager struct {
-	bus       *bus.Bus
-	logger    log.Logger
-	web       api.WebAPIRequester
-	proto     api.LegacyRequester
-	community api.CommunityRequester
+	modules.BaseModule
 
+	// Dependencies
+	client    service.Requester
+	community community.Requester
+
+	// State
 	mu            sync.RWMutex
 	relationships map[uint64]protocol.EFriendRelationship
 	users         map[uint64]*PersonaState
 
 	mySteamID  uint64
 	maxFriends int
-	closeFunc  func()
+
+	unregFuncs []func()
 }
 
-// New creates a new instance of the friends module.
+// New creates a new instance of the friends manager.
 func New() *Manager {
 	return &Manager{
+		BaseModule:    modules.NewBase(ModuleName),
 		relationships: make(map[uint64]protocol.EFriendRelationship),
 		users:         make(map[uint64]*PersonaState),
 	}
 }
 
-func (m *Manager) Name() string {
-	return ModuleName
-}
+// Init registers packet handlers and sets up module dependencies.
+func (m *Manager) Init(init modules.InitContext) error {
+	if err := m.BaseModule.Init(init); err != nil {
+		return err
+	}
 
-func (m *Manager) Init(init steam.InitContext) error {
-	m.bus = init.Bus()
-	m.logger = init.Logger().WithModule(ModuleName)
-	m.web = init.WebAPI()
-	m.proto = init.Proto()
+	m.client = init.Service()
 
 	init.RegisterPacketHandler(protocol.EMsg_ClientFriendsList, m.handleFriendsList)
 	init.RegisterPacketHandler(protocol.EMsg_ClientPersonaState, m.handlePersonaState)
 
-	m.closeFunc = func() {
+	m.unregFuncs = append(m.unregFuncs, func() {
 		init.UnregisterPacketHandler(protocol.EMsg_ClientFriendsList)
 		init.UnregisterPacketHandler(protocol.EMsg_ClientPersonaState)
-	}
+	})
 
 	return nil
 }
 
-func (m *Manager) StartAuthed(ctx context.Context, auth steam.AuthContext) error {
+// StartAuthed is called when the client is logged in and ready.
+func (m *Manager) StartAuthed(ctx context.Context, auth modules.AuthContext) error {
+	m.mu.Lock()
 	m.community = auth.Community()
 	m.mySteamID = auth.SteamID()
+	m.mu.Unlock()
 	return nil
 }
 
-func (m *Manager) Start(ctx context.Context) error {
-	return nil
-}
-
+// Close cleans up registered handlers and cancels background tasks.
 func (m *Manager) Close() error {
-	if m.closeFunc != nil {
-		m.closeFunc()
-		m.closeFunc = nil
+	for _, unreg := range m.unregFuncs {
+		unreg()
 	}
-	return nil
+	return m.BaseModule.Close()
 }
 
-// GetFriend returns cached user information or nil.
+// GetFriend returns cached user information (persona state) for a given SteamID.
 func (m *Manager) GetFriend(steamID uint64) *PersonaState {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.users[steamID]
 }
 
-// IsFriend checks if the user is our friend.
+// IsFriend returns true if the specified SteamID is in our friends list.
 func (m *Manager) IsFriend(steamID uint64) bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.relationships[steamID] == protocol.EFriendRelationship_Friend
 }
 
-// GetFriends returns a list of SteamID64s of all current friends.
+// GetFriends returns a list of SteamIDs for all users with a "Friend" relationship.
 func (m *Manager) GetFriends() []uint64 {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	var friends []uint64
+	friends := make([]uint64, 0, len(m.relationships))
 	for steamID, relation := range m.relationships {
 		if relation == protocol.EFriendRelationship_Friend {
 			friends = append(friends, steamID)
@@ -114,27 +114,25 @@ func (m *Manager) GetFriends() []uint64 {
 	return friends
 }
 
-// GetMaxFriends calculates the maximum number of friends based on Steam level.
+// GetMaxFriends calculates the friend limit based on the user's Steam level.
 func (m *Manager) GetMaxFriends(ctx context.Context) (int, error) {
 	m.mu.RLock()
 	if m.maxFriends > 0 {
-		m.mu.RUnlock()
+		defer m.mu.RUnlock()
 		return m.maxFriends, nil
 	}
 	m.mu.RUnlock()
 
-	var resp GetBadgesResponse
-	err := m.web.CallWebAPI(ctx, "GET", "IPlayerService", "GetBadges", 1, &resp,
-		api.WithParam("steamid", strconv.FormatUint(m.mySteamID, 10)),
-	)
+	req := struct {
+		SteamID uint64 `url:"steamid"`
+	}{m.mySteamID}
+
+	resp, err := service.WebAPI[GetBadgesResponse](ctx, m.client, "GET", "IPlayerService", "GetBadges", 1, req)
 	if err != nil {
 		return 0, err
 	}
 
-	level := resp.Response.PlayerLevel
-	base := 250
-	multiplier := 5
-	max := base + (level * multiplier)
+	max := 250 + (resp.PlayerLevel * 5)
 
 	m.mu.Lock()
 	m.maxFriends = max
@@ -143,67 +141,59 @@ func (m *Manager) GetMaxFriends(ctx context.Context) (int, error) {
 	return max, nil
 }
 
-// AddFriend sends a friend request or accepts an incoming request.
+// AddFriend sends a friend request or accepts an incoming invitation.
 func (m *Manager) AddFriend(ctx context.Context, steamID uint64) error {
 	req := &pb.CMsgClientAddFriend{
 		SteamidToAdd: &steamID,
 	}
-	return m.proto.CallLegacy(ctx, protocol.EMsg_ClientAddFriend, req, nil)
+	_, err := service.Legacy[any](ctx, m.client, protocol.EMsg_ClientAddFriend, req)
+	return err
 }
 
-// RemoveFriend removes a user from friends or rejects an incoming request.
+// RemoveFriend removes a friend or rejects an incoming request.
 func (m *Manager) RemoveFriend(ctx context.Context, steamID uint64) error {
 	req := &pb.CMsgClientRemoveFriend{
 		Friendid: &steamID,
 	}
-	return m.proto.CallLegacy(ctx, protocol.EMsg_ClientRemoveFriend, req, nil)
+	_, err := service.Legacy[any](ctx, m.client, protocol.EMsg_ClientRemoveFriend, req)
+	return err
 }
 
-// InviteToGroups sends invitations to the specified groups.
-// Returns an error only if there is a system failure. 400 (already invited) errors are ignored.
+// InviteToGroups sends group invitations to a friend.
+// Standard HTTP 400 errors (already in group/already invited) are ignored.
 func (m *Manager) InviteToGroups(ctx context.Context, steamID uint64, groupIDs []uint64) {
 	if !m.IsFriend(steamID) {
-		m.logger.Debug("Skipping group invite, user is not a friend", log.Uint64("steamID", steamID))
+		m.Logger.Debug("Skipping group invite: user is not a friend", log.Uint64("steam_id", steamID))
 		return
 	}
 
 	for _, groupID := range groupIDs {
-		data := url.Values{
-			"json":    {"1"},
-			"type":    {"groupInvite"},
-			"inviter": {strconv.FormatUint(m.mySteamID, 10)},
-			"invitee": {strconv.FormatUint(steamID, 10)},
-			"group":   {strconv.FormatUint(groupID, 10)},
-		}
+		req := struct {
+			JSON    int    `url:"json"`
+			Type    string `url:"type"`
+			Inviter uint64 `url:"inviter"`
+			Invitee uint64 `url:"invitee"`
+			Group   uint64 `url:"group"`
+		}{1, "groupInvite", m.mySteamID, steamID, groupID}
 
-		_, err := m.community.PostForm(ctx, "actions/GroupInvite", data)
+		_, err := community.PostForm[any](ctx, m.community, "actions/GroupInvite", req)
 		if err != nil {
-			// Steam returns 400 if the user is already in the group, already invited, or banned.
 			if strings.Contains(err.Error(), "400") {
-				m.logger.Debug("Ignored HTTP 400 while inviting to group",
-					log.Uint64("steamID", steamID),
-					log.Uint64("groupID", groupID),
-				)
 				continue
 			}
-
-			m.logger.Warn("Failed to invite to group",
-				log.Uint64("steamID", steamID),
-				log.Uint64("groupID", groupID),
-				log.Err(err),
-			)
+			m.Logger.Warn("Failed to invite to group", log.Uint64("group_id", groupID), log.Err(err))
 			continue
 		}
-
-		m.logger.Debug("Successfully invited user to group", log.Uint64("steamID", steamID), log.Uint64("groupID", groupID))
+		m.Logger.Debug("Invited user to group", log.Uint64("steam_id", steamID), log.Uint64("group_id", groupID))
 	}
 }
 
-// handleFriendsList is called upon login and any changes to the list (adding/deleting).
+// --- Handlers ---
+
 func (m *Manager) handleFriendsList(packet *protocol.Packet) {
-	var list pb.CMsgClientFriendsList
-	if err := proto.Unmarshal(packet.Payload, &list); err != nil {
-		m.logger.Error("Failed to unmarshal friends list", log.Err(err))
+	list := &pb.CMsgClientFriendsList{}
+	if err := proto.Unmarshal(packet.Payload, list); err != nil {
+		m.Logger.Error("Failed to unmarshal friends list", log.Err(err))
 		return
 	}
 
@@ -218,7 +208,7 @@ func (m *Manager) handleFriendsList(packet *protocol.Packet) {
 		m.relationships[steamID] = newRel
 
 		if oldRel != newRel {
-			m.bus.Publish(&RelationshipChangedEvent{
+			m.Bus.Publish(&RelationshipChangedEvent{
 				SteamID: steamID,
 				Old:     oldRel,
 				New:     newRel,
@@ -227,11 +217,10 @@ func (m *Manager) handleFriendsList(packet *protocol.Packet) {
 	}
 }
 
-// handleFriendsList is called upon login and any changes to the list (adding/deleting).
 func (m *Manager) handlePersonaState(packet *protocol.Packet) {
-	var state pb.CMsgClientPersonaState
-	if err := proto.Unmarshal(packet.Payload, &state); err != nil {
-		m.logger.Error("Failed to unmarshal persona state", log.Err(err))
+	state := &pb.CMsgClientPersonaState{}
+	if err := proto.Unmarshal(packet.Payload, state); err != nil {
+		m.Logger.Error("Failed to unmarshal persona state", log.Err(err))
 		return
 	}
 
@@ -254,7 +243,7 @@ func (m *Manager) handlePersonaState(packet *protocol.Packet) {
 			user.AvatarHash = friend.GetAvatarHash()
 		}
 
-		m.bus.Publish(&PersonaStateUpdatedEvent{
+		m.Bus.Publish(&PersonaStateUpdatedEvent{
 			SteamID: steamID,
 			State:   user,
 		})

@@ -2,21 +2,21 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package market provides functionality to interact with the Steam Community Market,
+// including creating buy/sell orders and managing listings.
 package market
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"net/url"
 	"strconv"
 	"sync"
 
 	"github.com/lemon4ksan/g-man/pkg/log"
-	"github.com/lemon4ksan/g-man/pkg/steam"
+	"github.com/lemon4ksan/g-man/pkg/modules"
 	"github.com/lemon4ksan/g-man/pkg/steam/api"
-	"github.com/lemon4ksan/g-man/pkg/steam/bus"
+	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
 )
 
@@ -38,167 +38,182 @@ func DefaultConfig() Config {
 	}
 }
 
-// Manager manages interaction with the Steam Community Market.
+// Manager manages interactions with the Steam Community Market.
+// It embeds modules.BaseModule for lifecycle and logging consistency.
 type Manager struct {
-	config    Config
-	bus       *bus.Bus
-	logger    log.Logger
-	community api.CommunityRequester
-	steamID   uint64
+	modules.BaseModule
 
-	mu        sync.RWMutex
-	closeFunc func()
+	config    Config
+	community community.Requester
+
+	mu      sync.RWMutex
+	steamID uint64
 }
 
-// New creates a new Market module.
+// New creates a new Market module instance.
 func New(cfg Config) *Manager {
 	return &Manager{
-		config: cfg,
-		logger: log.Discard,
+		BaseModule: modules.NewBase(ModuleName),
+		config:     cfg,
 	}
 }
 
-func (m *Manager) Name() string { return ModuleName }
-
-func (m *Manager) Init(init steam.InitContext) error {
-	m.bus = init.Bus()
-	if m.bus == nil {
-		return errors.New("market: nil bus")
-	}
-	m.logger = init.Logger().WithModule(ModuleName)
-
-	return nil
+// Init initializes the module dependencies.
+func (m *Manager) Init(init modules.InitContext) error {
+	return m.BaseModule.Init(init)
 }
 
-func (m *Manager) Start(ctx context.Context) error {
-	return nil
-}
-
-func (m *Manager) StartAuthed(ctx context.Context, auth steam.AuthContext) error {
-	m.community = auth.Community()
-	if m.community == nil {
-		return errors.New("market: nil community client")
-	}
-	m.steamID = auth.SteamID()
-	m.logger.Info("Market module successfully authenticated", log.Int("currency", int(m.config.Currency)))
-	return nil
-}
-
-func (m *Manager) Close() error {
+// StartAuthed is called when a community session is established.
+// It captures the authenticated community requester and the user's SteamID.
+func (m *Manager) StartAuthed(ctx context.Context, auth modules.AuthContext) error {
 	m.mu.Lock()
-	defer m.mu.Unlock()
-	if m.closeFunc != nil {
-		m.closeFunc()
-		m.closeFunc = nil
-	}
+	m.community = auth.Community()
+	m.steamID = auth.SteamID()
+	m.mu.Unlock()
+
+	m.Logger.Info("Market module ready",
+		log.Int("currency", int(m.config.Currency)),
+		log.Uint64("steam_id", m.steamID),
+	)
 	return nil
 }
 
-// CreateSellOrder lists an item for sale.
-// The price is given in kopecks/cents, excluding the Steam commission (the commission is added automatically).
-func (m *Manager) CreateSellOrder(ctx context.Context, appID uint32, opts CreateSellOrderOptions) (*CreateSellOrder, error) {
-	sessionID := m.community.SessionID(api.CommunityBase)
+// Close ensures the module is shut down correctly.
+func (m *Manager) Close() error {
+	return m.BaseModule.Close()
+}
 
-	data := url.Values{
-		"sessionid": {sessionID},
-		"appid":     {strconv.FormatUint(uint64(appID), 10)},
-		"contextid": {strconv.FormatInt(opts.ContextID, 10)},
-		"assetid":   {strconv.FormatUint(opts.AssetID, 10)},
-		"amount":    {strconv.Itoa(opts.Amount)},
-		"price":     {strconv.Itoa(opts.Price)},
+// CreateSellOrder places an item from the user's inventory onto the market.
+// The price should be in the smallest currency unit (e.g., cents/kopecks)
+// and represents the amount the seller receives.
+func (m *Manager) CreateSellOrder(ctx context.Context, opts CreateSellOrderOptions) (*CreateSellOrder, error) {
+	m.mu.RLock()
+	comm := m.community
+	myID := m.steamID
+	m.mu.RUnlock()
+
+	if comm == nil {
+		return nil, modules.ErrNotAuthenticated
 	}
 
-	referer := fmt.Sprintf("https://steamcommunity.com/profiles/%d/inventory?modal=1&market=1", m.steamID)
+	sessionID := comm.SessionID(community.BaseURL)
+	referer := fmt.Sprintf("%sprofiles/%d/inventory?modal=1&market=1", community.BaseURL, myID)
 
-	resp, err := m.community.PostForm(ctx, "market/sellitem", data, withMarketHeaders(referer), withOrigin())
+	req := struct {
+		SessionID string `url:"sessionid"`
+		AppID     uint32 `url:"appid"`
+		ContextID int64  `url:"contextid"`
+		AssetID   uint64 `url:"assetid"`
+		Amount    int    `url:"amount"`
+		Price     int    `url:"price"`
+	}{sessionID, opts.AppID, opts.ContextID, opts.AssetID, opts.Amount, opts.Price}
+
+	resp, err := community.PostForm[CreateSellOrderResponse](ctx, comm, "market/sellitem", req,
+		withMarketHeaders(referer),
+		withOrigin(),
+	)
 	if err != nil {
-		return nil, err
-	}
-
-	var response CreateSellOrderResponse
-	if err := json.Unmarshal(resp.Body, &response); err != nil {
-		return nil, fmt.Errorf("failed to parse sell order response: %w", err)
+		return nil, fmt.Errorf("market: sell order failed: %w", err)
 	}
 
 	return &CreateSellOrder{
-		Success:                 response.Success,
-		RequiresConfirmation:    response.RequiresConfirmation == 1,
-		NeedsMobileConfirmation: response.NeedsMobileConfirmation,
-		NeedsEmailConfirmation:  response.NeedsEmailConfirmation,
-		EmailDomain:             response.EmailDomain,
+		Success:                 resp.Success,
+		RequiresConfirmation:    resp.RequiresConfirmation == 1,
+		NeedsMobileConfirmation: resp.NeedsMobileConfirmation,
+		NeedsEmailConfirmation:  resp.NeedsEmailConfirmation,
+		EmailDomain:             resp.EmailDomain,
 	}, nil
 }
 
-// CreateBuyOrder places an order to automatically purchase an item (Buy Order).
-func (m *Manager) CreateBuyOrder(ctx context.Context, appID uint32, opts CreateBuyOrderOptions) (*CreateBuyOrderResponse, error) {
-	sessionID := m.community.SessionID(api.CommunityBase)
+// CreateBuyOrder creates a buy order (buy order) for a specific item.
+func (m *Manager) CreateBuyOrder(ctx context.Context, opts CreateBuyOrderOptions) (*CreateBuyOrderResponse, error) {
+	m.mu.RLock()
+	comm := m.community
+	m.mu.RUnlock()
 
-	// Steam expects price_total to be a floating-point string, depending on the currency.
-	// For example, for USD (1), it's "1.50" (if the price is 150 cents). For RUB (5), it's "150.00".
+	if comm == nil {
+		return nil, modules.ErrNotAuthenticated
+	}
+
+	sessionID := comm.SessionID(community.BaseURL)
+	referer := fmt.Sprintf("%smarket/listings/%d/%s", community.BaseURL, opts.AppID, url.PathEscape(opts.MarketHashName))
+
+	// Format price to Steam's expected decimal string (e.g., "1.50")
 	totalCents := opts.Price * opts.Amount
 	priceTotalStr := formatCurrencyDecimal(totalCents, m.config.Currency)
 
-	data := url.Values{
-		"sessionid":        {sessionID},
-		"currency":         {strconv.Itoa(int(m.config.Currency))},
-		"appid":            {strconv.FormatUint(uint64(appID), 10)},
-		"market_hash_name": {opts.MarketHashName},
-		"price_total":      {priceTotalStr},
-		"quantity":         {strconv.Itoa(opts.Amount)},
-		"billing_state":    {""},
-		"save_my_address":  {"0"},
+	req := struct {
+		SessionID      string       `url:"sessionid"`
+		AppID          uint32       `url:"appid"`
+		Currency       CurrencyCode `url:"currency"`
+		MarketHashName string       `url:"market_hash_name"`
+		PriceTotal     string       `url:"price_total"`
+		Quantity       int          `url:"quantity"`
+		BillingState   string       `url:"billing_state"`
+		SaveMyAddress  string       `url:"save_my_address"`
+	}{
+		SessionID:      sessionID,
+		AppID:          opts.AppID,
+		Currency:       m.config.Currency,
+		MarketHashName: opts.MarketHashName,
+		PriceTotal:     priceTotalStr,
+		Quantity:       opts.Amount,
+		BillingState:   "",
+		SaveMyAddress:  "0",
 	}
 
-	referer := fmt.Sprintf("https://steamcommunity.com/market/listings/%d/%s", appID, url.PathEscape(opts.MarketHashName))
-
-	resp, err := m.community.PostForm(ctx, "market/createbuyorder", data, withMarketHeaders(referer), withOrigin())
+	resp, err := community.PostForm[CreateBuyOrderResponse](ctx, comm, "market/createbuyorder", req,
+		withMarketHeaders(referer),
+		withOrigin(),
+	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("market: buy order failed: %w", err)
 	}
-
-	var response CreateBuyOrderResponse
-	if err := json.Unmarshal(resp.Body, &response); err != nil {
-		return nil, fmt.Errorf("failed to parse buy order response: %w", err)
-	}
-
-	return &response, nil
+	return resp, nil
 }
 
-// CancelBuyOrder cancels an active buy order.
+// CancelBuyOrder cancels an existing active buy order.
 func (m *Manager) CancelBuyOrder(ctx context.Context, buyOrderID uint64) error {
-	sessionID := m.community.SessionID(api.CommunityBase)
+	m.mu.RLock()
+	comm := m.community
+	m.mu.RUnlock()
 
-	data := url.Values{
-		"sessionid":   {sessionID},
-		"buy_orderid": {strconv.FormatUint(buyOrderID, 10)},
+	if comm == nil {
+		return modules.ErrNotAuthenticated
 	}
 
-	_, err := m.community.PostForm(ctx, "market/cancelbuyorder", data, withMarketHeaders(""), withOrigin())
-	if err != nil {
-		return err
-	}
+	req := struct {
+		SessionID  string `url:"sessionid"`
+		BuyOrderID uint64 `url:"buy_orderid"`
+	}{comm.SessionID(community.BaseURL), buyOrderID}
 
-	return nil
+	_, err := community.PostForm[any](ctx, comm, "market/cancelbuyorder", req, withMarketHeaders(""), withOrigin())
+	return err
 }
 
-// CancelSellOrder removes the item from sale.
+// CancelSellOrder removes an item from sale on the market.
 func (m *Manager) CancelSellOrder(ctx context.Context, listingID uint64) error {
-	sessionID := m.community.SessionID(api.CommunityBase)
+	m.mu.RLock()
+	comm := m.community
+	m.mu.RUnlock()
 
-	data := url.Values{
-		"sessionid": {sessionID},
+	if comm == nil {
+		return modules.ErrNotAuthenticated
 	}
+
+	req := struct {
+		SessionID string `url:"sessionid"`
+	}{comm.SessionID(community.BaseURL)}
 
 	path := fmt.Sprintf("market/removelisting/%d", listingID)
-	_, err := m.community.PostForm(ctx, path, data, withMarketHeaders(""), withOrigin())
-	if err != nil {
-		return err
-	}
-
-	return nil
+	_, err := community.PostForm[any](ctx, comm, path, req, withMarketHeaders(""), withOrigin())
+	return err
 }
 
+// --- Helpers ---
+
 func formatCurrencyDecimal(cents int, currency CurrencyCode) string {
+	// Some currencies don't use decimals (JPY, KRW, VND)
 	switch currency {
 	case CurrencyCodeJPY, CurrencyCodeKRW, CurrencyCodeVND:
 		return strconv.Itoa(cents)
@@ -207,20 +222,21 @@ func formatCurrencyDecimal(cents int, currency CurrencyCode) string {
 	}
 }
 
-func withMarketHeaders(referer string) api.RequestModifier {
-	return func(req *tr.Request) {
+// withMarketHeaders injects headers required for Steam Market AJAX calls.
+func withMarketHeaders(referer string) api.CallOption {
+	return func(req *tr.Request, _ *api.CallConfig) {
 		req.WithHeader("X-Requested-With", "XMLHttpRequest")
 		req.WithHeader("X-Prototype-Version", "1.7")
 		if referer != "" {
 			req.WithHeader("Referer", referer)
 		} else {
-			req.WithHeader("Referer", "https://steamcommunity.com/market/")
+			req.WithHeader("Referer", community.BaseURL+"market/")
 		}
 	}
 }
 
-func withOrigin() api.RequestModifier {
-	return func(req *tr.Request) {
+func withOrigin() api.CallOption {
+	return func(req *tr.Request, _ *api.CallConfig) {
 		req.WithHeader("Origin", "https://steamcommunity.com")
 	}
 }

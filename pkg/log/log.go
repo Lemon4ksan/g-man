@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package log provides a high-performance, asynchronous, structured logger
+// designed for both human readability and machine efficiency.
 package log
 
 import (
@@ -11,23 +13,30 @@ import (
 	"io"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 )
 
-// Level represents log severity.
+// Level represents the severity of the log message.
 type Level int8
 
 const (
+	// DebugLevel is typically used in development to trace logic.
 	DebugLevel Level = iota - 1
+	// InfoLevel is the default logging level for general operational events.
 	InfoLevel
+	// WarnLevel represents non-critical issues that might require attention.
 	WarnLevel
+	// ErrorLevel represents high-priority failures.
 	ErrorLevel
 )
 
+// Short returns a single-character representation of the log level.
 func (l Level) Short() string {
 	switch l {
 	case DebugLevel:
@@ -43,38 +52,61 @@ func (l Level) Short() string {
 	}
 }
 
-// Field is a key-value pair for structured logging.
+// Field represents a single key-value pair used in structured logging.
+// It is recommended to use the provided helper functions (e.g., log.String(), log.Int())
+// to create Fields.
 type Field struct {
 	Key   string
 	Value any
 }
 
-// Logger interface.
+// Logger defines the primary interface for logging operations.
 type Logger interface {
+	// Debug logs a message at the Debug level.
 	Debug(msg string, fields ...Field)
+	// Info logs a message at the Info level.
 	Info(msg string, fields ...Field)
+	// Warn logs a message at the Warn level.
 	Warn(msg string, fields ...Field)
+	// Error logs a message at the Error level.
 	Error(msg string, fields ...Field)
+
+	// With returns a new Logger instance carrying the provided fields as context.
+	// Example:
+	//   requestLogger := logger.With(log.String("request_id", "abc-123"))
+	//   requestLogger.Info("Processing") // Includes request_id automatically
 	With(fields ...Field) Logger
+
+	// WithModule returns a new Logger instance with an appended module name.
+	// By default, this creates a tree-like visual structure in the terminal.
 	WithModule(string) Logger
+
+	// Close flushes the asynchronous queue and stops the writer loop.
 	Close() error
-	IsDebugEnabled() bool
 }
 
-// Config controls logger behavior.
+// Config controls the behavior and visual style of the logger.
 type Config struct {
-	Level        Level
-	Output       io.Writer
-	TimeFormat   string
-	AsyncSize    int    // Buffer size for async channel
-	DebugEnabled bool   // Ignore Debug logs if false
-	Colors       bool   // Enable ANSI colors
-	FullPath     bool   // Show full module path vs tree style
-	PathSep      string // Path separator for FullPath mode
-	AlignWidth   int    // Minimum width before printing inline fields
+	// Level is the minimum severity to log.
+	Level Level
+	// Output is the destination for logs (e.g., os.Stdout or a file).
+	Output io.Writer
+	// TimeFormat defines the timestamp layout (Go standard time formatting).
+	TimeFormat string
+	// AsyncSize is the capacity of the non-blocking log queue.
+	AsyncSize int
+	// Colors enables ANSI terminal color codes.
+	Colors bool
+	// FullPath, if true, prints "Mod > Sub > Service" instead of a tree structure.
+	FullPath bool
+	// PathSep is the separator used when FullPath is true.
+	PathSep string
+	// AlignWidth is the horizontal offset where fields start, ensuring messages are aligned.
+	AlignWidth int
 }
 
-// DefaultConfig returns sensible defaults balancing beauty and performance.
+// DefaultConfig returns a configuration balanced for local development.
+// It enables colors, tree-style modules, and a reasonable async buffer.
 func DefaultConfig(level Level) Config {
 	return Config{
 		Level:      level,
@@ -88,7 +120,8 @@ func DefaultConfig(level Level) Config {
 	}
 }
 
-// AsyncLogger implements a high-performance, beautiful, non-blocking logger.
+// AsyncLogger implements the Logger interface with a non-blocking background writer.
+// Logs are formatted in the calling goroutine, then sent to a channel for writing.
 type AsyncLogger struct {
 	cfg     Config
 	path    []string
@@ -96,9 +129,22 @@ type AsyncLogger struct {
 
 	queue chan *bytes.Buffer
 	wg    *sync.WaitGroup
+
+	// Synchronization for safe shutdown
+	mu     sync.RWMutex
+	closed atomic.Bool
+
+	// dropped tracks the number of messages discarded due to a full queue.
+	dropped atomic.Uint64
 }
 
-// New creates and starts an AsyncLogger.
+// New creates and starts a background goroutine to process logs based on the provided Config.
+//
+// Example:
+//
+//	l := log.New(log.DefaultConfig(log.InfoLevel))
+//	defer l.Close()
+//	l.Info("Application started")
 func New(cfg Config) Logger {
 	l := &AsyncLogger{
 		cfg:   cfg,
@@ -110,12 +156,24 @@ func New(cfg Config) Logger {
 	return l
 }
 
+// Close gracefully shuts down the logger. It stops accepting new logs,
+// closes the internal queue, and waits for pending logs to be written.
 func (l *AsyncLogger) Close() error {
+	// Prevent multiple closures
+	if l.closed.Swap(true) {
+		return nil
+	}
+
+	l.mu.Lock()
 	close(l.queue)
+	l.mu.Unlock()
+
 	l.wg.Wait()
 	return nil
 }
 
+// With appends fields to the current logger context. If a field key is "module"
+// or "component", it updates the module path instead.
 func (l *AsyncLogger) With(fields ...Field) Logger {
 	child := &AsyncLogger{
 		cfg:     l.cfg,
@@ -130,7 +188,13 @@ func (l *AsyncLogger) With(fields ...Field) Logger {
 
 	for _, f := range fields {
 		if f.Key == "module" || f.Key == "component" {
-			val := fmt.Sprint(f.Value)
+			var val string
+			if s, ok := f.Value.(string); ok {
+				val = s
+			} else {
+				val = fmt.Sprint(f.Value)
+			}
+
 			if len(child.path) == 0 || child.path[len(child.path)-1] != val {
 				child.path = append(child.path, val)
 			}
@@ -142,6 +206,8 @@ func (l *AsyncLogger) With(fields ...Field) Logger {
 	return child
 }
 
+// WithModule is a helper that specifically extends the logger's module path.
+// Visually, this creates an indented "tree" line in the console.
 func (l *AsyncLogger) WithModule(mod string) Logger {
 	child := &AsyncLogger{
 		cfg:     l.cfg,
@@ -166,10 +232,9 @@ func (l *AsyncLogger) Info(msg string, f ...Field)  { l.log(InfoLevel, msg, f) }
 func (l *AsyncLogger) Warn(msg string, f ...Field)  { l.log(WarnLevel, msg, f) }
 func (l *AsyncLogger) Error(msg string, f ...Field) { l.log(ErrorLevel, msg, f) }
 
-func (l *AsyncLogger) IsDebugEnabled() bool { return l.cfg.DebugEnabled }
-
 func (l *AsyncLogger) log(lvl Level, msg string, fields []Field) {
-	if lvl < l.cfg.Level {
+	// Fast check for level and closed state
+	if lvl < l.cfg.Level || l.closed.Load() {
 		return
 	}
 
@@ -178,23 +243,39 @@ func (l *AsyncLogger) log(lvl Level, msg string, fields []Field) {
 
 	l.format(buf, lvl, msg, fields)
 
+	// Safe enqueue using RLock to prevent race with Close()
+	l.mu.RLock()
+	if l.closed.Load() {
+		l.mu.RUnlock()
+		bufPool.Put(buf)
+		return
+	}
+
 	select {
 	case l.queue <- buf:
 	default:
-		// Queue is full, drop to avoid blocking and return buffer
+		// Queue is full. Record the drop and discard the buffer.
+		l.dropped.Add(1)
 		bufPool.Put(buf)
 	}
+	l.mu.RUnlock()
 }
 
 func (l *AsyncLogger) writerLoop() {
 	defer l.wg.Done()
 	for buf := range l.queue {
+		// Report dropped messages periodically or on the next successful write
+		if drops := l.dropped.Swap(0); drops > 0 {
+			warnMsg := fmt.Sprintf("%s[LOGGER WARNING] Dropped %d messages due to full queue%s\n", ansiRedBold, drops, ansiReset)
+			_, _ = l.cfg.Output.Write([]byte(warnMsg))
+		}
+
 		_, _ = l.cfg.Output.Write(buf.Bytes())
 		bufPool.Put(buf)
 	}
 }
 
-// ANSI Escape Codes
+// ANSI Escape Codes for terminal coloring
 const (
 	ansiReset   = "\033[0m"
 	ansiDim     = "\033[2m"
@@ -215,8 +296,14 @@ func (l *AsyncLogger) writeColor(b *bytes.Buffer, colorCode string) {
 	}
 }
 
+// format handles the complex logic of building the log line, including:
+// 1. Timestamp and Level
+// 2. Module Tree (indentation)
+// 3. Main Message
+// 4. Inline Fields (short values)
+// 5. Block Fields (multi-line or very long values)
 func (l *AsyncLogger) format(b *bytes.Buffer, lvl Level, msg string, callFields []Field) {
-	visibleLen := 0 // Tracks visual length for alignment
+	visibleLen := 0
 
 	// Time
 	ts := time.Now().Format(l.cfg.TimeFormat)
@@ -228,11 +315,12 @@ func (l *AsyncLogger) format(b *bytes.Buffer, lvl Level, msg string, callFields 
 
 	// Level
 	l.writeColor(b, levelColor(lvl))
-	lvlStr := fmt.Sprintf("[%s]", lvl.Short())
-	b.WriteString(lvlStr)
+	b.WriteByte('[')
+	b.WriteString(lvl.Short())
+	b.WriteByte(']')
 	l.writeColor(b, ansiReset)
 	b.WriteByte(' ')
-	visibleLen += len(lvlStr) + 1
+	visibleLen += 4 // "[L] "
 
 	// Path / Tree
 	depth := len(l.path)
@@ -268,11 +356,8 @@ func (l *AsyncLogger) format(b *bytes.Buffer, lvl Level, msg string, callFields 
 		return
 	}
 
-	// Separate inline and block fields
-	// Optimisation: use simple slices, they are tiny and GC eats them fast
 	var inline, blocks []Field
-	var inlineStrs []string
-	var blockStrs []string
+	var inlineStrs, blockStrs []string
 
 	processField := func(f Field) {
 		if f.Key == "" {
@@ -307,7 +392,7 @@ func (l *AsyncLogger) format(b *bytes.Buffer, lvl Level, msg string, callFields 
 			l.writeColor(b, ansiCyan)
 			b.WriteString(f.Key)
 			l.writeColor(b, ansiGray)
-			b.WriteString("=")
+			b.WriteByte('=')
 			l.writeColor(b, ansiReset)
 			b.WriteString(inlineStrs[i])
 			b.WriteByte(' ')
@@ -315,14 +400,14 @@ func (l *AsyncLogger) format(b *bytes.Buffer, lvl Level, msg string, callFields 
 	}
 	b.WriteByte('\n')
 
-	// Write Block Fields (Multi-line / Long)
+	// Write Block Fields
 	if len(blocks) > 0 {
 		paddingStr := strings.Repeat(" ", l.blockPadding(depth))
 		for i, f := range blocks {
 			b.WriteString(paddingStr)
 			l.writeColor(b, ansiCyan)
 			b.WriteString(f.Key)
-			b.WriteString(":")
+			b.WriteByte(':')
 			l.writeColor(b, ansiReset)
 			b.WriteByte(' ')
 			b.WriteString(blockStrs[i])
@@ -331,14 +416,15 @@ func (l *AsyncLogger) format(b *bytes.Buffer, lvl Level, msg string, callFields 
 	}
 }
 
+// blockPadding calculates the indentation for block fields to align them under the message.
 func (l *AsyncLogger) blockPadding(depth int) int {
-	base := len(l.cfg.TimeFormat) + 5 // Time + "[L] "
+	base := len(l.cfg.TimeFormat) + 5
 	if depth > 0 {
 		if l.cfg.FullPath {
 			pathStr := strings.Join(l.path, l.cfg.PathSep)
 			base += len(pathStr) + 1
 		} else {
-			base += (depth-1)*3 + 3 // Indent + "└─ "
+			base += (depth-1)*3 + 3
 		}
 	}
 	return base
@@ -359,18 +445,39 @@ func levelColor(lvl Level) string {
 	}
 }
 
-// formatValue stringifies a value quickly without reflection where possible
+// formatValue stringifies a value with minimal allocations.
+// Heavily optimized using strconv instead of fmt.Sprintf.
 func formatValue(v any) string {
 	switch val := v.(type) {
 	case string:
-		if strings.Contains(val, " ") {
-			return fmt.Sprintf("%q", val)
+		if strings.Contains(val, " ") || strings.Contains(val, "\n") {
+			return strconv.Quote(val)
 		}
 		return val
-	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
-		return fmt.Sprintf("%d", val)
-	case float32, float64:
-		return fmt.Sprintf("%g", val)
+	case int:
+		return strconv.Itoa(val)
+	case int8:
+		return strconv.FormatInt(int64(val), 10)
+	case int16:
+		return strconv.FormatInt(int64(val), 10)
+	case int32:
+		return strconv.FormatInt(int64(val), 10)
+	case int64:
+		return strconv.FormatInt(val, 10)
+	case uint:
+		return strconv.FormatUint(uint64(val), 10)
+	case uint8:
+		return strconv.FormatUint(uint64(val), 10)
+	case uint16:
+		return strconv.FormatUint(uint64(val), 10)
+	case uint32:
+		return strconv.FormatUint(uint64(val), 10)
+	case uint64:
+		return strconv.FormatUint(val, 10)
+	case float32:
+		return strconv.FormatFloat(float64(val), 'g', -1, 32)
+	case float64:
+		return strconv.FormatFloat(val, 'g', -1, 64)
 	case bool:
 		if val {
 			return "true"
@@ -390,17 +497,19 @@ func formatValue(v any) string {
 	case net.IP:
 		return val.String()
 	default:
-		return fmt.Sprintf("%+v", v)
+		return fmt.Sprintf("%+v", v) // Fallback for complex structs
 	}
 }
 
-// Global buffer pool. Shared across all loggers to reduce GC pressure.
+// Global buffer pool to reduce GC pressure for high-frequency logging.
 var bufPool = sync.Pool{
 	New: func() any { return new(bytes.Buffer) },
 }
 
-// --- Field Helpers (Zero alloc wrappers) ---
+// --- Field Helpers (Zero-allocation wrappers) ---
+// These helpers are used to provide structured context to log messages.
 
+// Basic Types
 func String(k, v string) Field                 { return Field{Key: k, Value: v} }
 func Int(k string, v int) Field                { return Field{Key: k, Value: v} }
 func Int32(k string, v int32) Field            { return Field{Key: k, Value: v} }
@@ -416,7 +525,7 @@ func Err(err error) Field                      { return Field{Key: "error", Valu
 func Any(k string, v any) Field                { return Field{Key: k, Value: v} }
 func Module(name string) Field                 { return Field{Key: "module", Value: name} }
 
-// Slices / Complex types
+// Collections
 func Strings(k string, v []string) Field  { return Field{Key: k, Value: v} }
 func Ints(k string, v []int) Field        { return Field{Key: k, Value: v} }
 func Uints(k string, v []uint) Field      { return Field{Key: k, Value: v} }
@@ -425,14 +534,14 @@ func Bytes(k string, v []byte) Field      { return Field{Key: k, Value: v} }
 func ByteString(k string, v []byte) Field { return Field{Key: k, Value: string(v)} }
 func HexF(k string, v []byte) Field       { return Field{Key: k, Value: hex.EncodeToString(v)} }
 
-// Network
+// Network Helpers
 func IP(k string, v net.IP) Field { return Field{Key: k, Value: v.String()} }
 func Port(k string, v int) Field  { return Field{Key: k, Value: v} }
 func HostPort(k string, h string, p int) Field {
 	return Field{Key: k, Value: fmt.Sprintf("%s:%d", h, p)}
 }
 
-// Optional helpers
+// Optionals: These return an empty Field (ignored) if the value is zero-equivalent.
 func StringOpt(k, v string) Field {
 	if v == "" {
 		return Field{}
@@ -446,17 +555,26 @@ func IntOpt(k string, v int) Field {
 	return Field{Key: k, Value: v}
 }
 
-// Steam Specific Helpers
+// --- Steam Specific Helpers ---
+// Designed for integration with Steam protocol implementations.
+
+// SteamID logs a 64-bit Steam identifier.
 func SteamID(k string, v uint64) Field { return Field{Key: k, Value: v} }
-func JobID(v uint64) Field             { return Field{Key: "job_id", Value: v} }
+
+// JobID logs an asynchronous correlation ID.
+func JobID(v uint64) Field { return Field{Key: "job_id", Value: v} }
+
+// EMsg logs a Steam protocol message type as a readable string.
 func EMsg(k string, v protocol.EMsg) Field {
 	return Field{Key: k, Value: v.String()}
 }
+
+// EResult logs a Steam result code as a readable string.
 func EResult(v protocol.EResult) Field {
 	return Field{Key: "eresult", Value: v.String()}
 }
 
-// Discard Logger Pattern
+// Discard Logger Pattern: Useful for tests or disabling logs.
 var Discard Logger = &discard{}
 
 type discard struct{}

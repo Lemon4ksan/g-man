@@ -9,7 +9,6 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/binary"
-	"io"
 	"math"
 	"sync"
 	"sync/atomic"
@@ -42,45 +41,6 @@ func newMockConnection() *mockConnection {
 func (m *mockConnection) Name() string                                { return "MOCK" }
 func (m *mockConnection) Send(ctx context.Context, data []byte) error { return m.sendFunc(ctx, data) }
 func (m *mockConnection) Close() error                                { return m.closeFunc() }
-
-type mockEncoder struct {
-	lastSourceJob uint64
-	mu            sync.Mutex
-}
-
-func (m *mockEncoder) EncodeProto(w *bytes.Buffer, eMsg protocol.EMsg, steamID uint64, sessionID int32, sourceJob, targetJob uint64, body proto.Message) error {
-	m.mu.Lock()
-	m.lastSourceJob = sourceJob
-	m.mu.Unlock()
-	return nil
-}
-func (m *mockEncoder) EncodeUnified(w *bytes.Buffer, steamID uint64, sessionID int32, methodName string, sourceJob uint64, body proto.Message) error {
-	return nil
-}
-func (m *mockEncoder) EncodeLegacy(w *bytes.Buffer, eMsg protocol.EMsg, steamID uint64, sessionID int32, sourceJob, targetJob uint64, body []byte) error {
-	return nil
-}
-func (m *mockEncoder) EncodeProtoRaw(w *bytes.Buffer, eMsg protocol.EMsg, steamID uint64, sessionID int32, sourceJob, targetJob uint64, body []byte) error {
-	return nil
-}
-func (m *mockEncoder) EncodeUnifiedRaw(w *bytes.Buffer, steamID uint64, sessionID int32, targetName string, sourceJob uint64, body []byte) error {
-	return nil
-}
-func (m *mockEncoder) EncodeRaw(w *bytes.Buffer, eMsg protocol.EMsg, targetJob, sourceJob uint64, body []byte) error {
-	m.mu.Lock()
-	m.lastSourceJob = sourceJob
-	m.mu.Unlock()
-	return nil
-}
-
-type mockHeader struct {
-	targetJob uint64
-	sourceJob uint64
-}
-
-func (m mockHeader) GetSourceJob() uint64          { return m.sourceJob }
-func (m mockHeader) GetTargetJob() uint64          { return m.targetJob }
-func (m mockHeader) SerializeTo(w io.Writer) error { return nil }
 
 func packProto(eMsg protocol.EMsg, jobId uint64, payload []byte) []byte {
 	buf := new(bytes.Buffer)
@@ -117,10 +77,7 @@ func packBasic(eMsg protocol.EMsg, targetJob, sourceJob uint64, payload []byte) 
 }
 
 func TestSocket_Initialization(t *testing.T) {
-	ctx := context.Background()
-	cfg := DefaultConfig()
-
-	sock := NewSocket(ctx, cfg)
+	sock := NewSocket(DefaultConfig())
 	defer sock.Close()
 
 	if sock.State() != StateDisconnected {
@@ -132,8 +89,7 @@ func TestSocket_Initialization(t *testing.T) {
 }
 
 func TestSocket_HandlersManagement(t *testing.T) {
-	ctx := context.Background()
-	sock := NewSocket(ctx, DefaultConfig())
+	sock := NewSocket(DefaultConfig())
 	defer sock.Close()
 
 	var called atomic.Bool
@@ -161,9 +117,7 @@ func TestSocket_HandlersManagement(t *testing.T) {
 }
 
 func TestSocket_ConnectAndDisconnect(t *testing.T) {
-	ctx := context.Background()
 	cfg := DefaultConfig()
-
 	cfg.Dialers = map[string]ConnectionDialer{
 		"mock": func(nh network.Handler, l log.Logger, s string) (network.Connection, error) {
 			return newMockConnection(), nil
@@ -171,13 +125,13 @@ func TestSocket_ConnectAndDisconnect(t *testing.T) {
 	}
 
 	eventBus := bus.NewBus()
-	sock := NewSocket(ctx, cfg, WithBus(eventBus))
+	sock := NewSocket(cfg, WithBus(eventBus))
 	defer sock.Close()
 
 	sub := eventBus.Subscribe(ConnectedEvent{}, DisconnectedEvent{})
 	defer sub.Unsubscribe()
 
-	err := sock.Connect(ctx, CMServer{Type: "mock", Endpoint: "localhost:1234"})
+	err := sock.Connect(t.Context(), CMServer{Type: "mock", Endpoint: "localhost:1234"})
 	if err != nil {
 		t.Fatalf("Connect failed: %v", err)
 	}
@@ -212,9 +166,12 @@ func TestSocket_ConnectAndDisconnect(t *testing.T) {
 }
 
 func TestSocket_Routing(t *testing.T) {
-	ctx := context.Background()
-	sock := NewSocket(ctx, DefaultConfig())
+	sock := NewSocket(DefaultConfig())
 	defer sock.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	sock.startWorkers(ctx, 1)
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
@@ -247,10 +204,8 @@ func TestSocket_Routing(t *testing.T) {
 }
 
 func TestSocket_JobTracking(t *testing.T) {
-	ctx := context.Background()
 	cfg := DefaultConfig()
 
-	// Настраиваем мок соединения
 	conn := newMockConnection()
 	cfg.Dialers = map[string]ConnectionDialer{
 		"mock": func(nh network.Handler, l log.Logger, s string) (network.Connection, error) {
@@ -258,11 +213,10 @@ func TestSocket_JobTracking(t *testing.T) {
 		},
 	}
 
-	encoder := &mockEncoder{}
-	sock := NewSocket(ctx, cfg, WithEncoder(encoder))
+	sock := NewSocket(cfg)
 	defer sock.Close()
 
-	if err := sock.Connect(ctx, CMServer{Type: "mock"}); err != nil {
+	if err := sock.Connect(t.Context(), CMServer{Type: "mock"}); err != nil {
 		t.Fatalf("Connect failed: %v", err)
 	}
 
@@ -271,28 +225,34 @@ func TestSocket_JobTracking(t *testing.T) {
 
 	var receivedErr error
 	var receivedResp *protocol.Packet
+	var capturedJobID uint64
 
-	err := sock.CallRaw(ctx, protocol.EMsg_ClientGamesPlayed, []byte("data"), func(resp *protocol.Packet, err error) {
-		receivedResp = resp
-		receivedErr = err
-		wg.Done()
-	})
-
-	if err != nil {
-		t.Fatalf("CallRaw failed: %v", err)
+	builder := func(sess Session, buf *bytes.Buffer, sourceJobID uint64) error {
+		capturedJobID = sourceJobID
+		return Raw(protocol.EMsg_ClientGamesPlayed, []byte("data"))(sess, buf, sourceJobID)
 	}
 
-	encoder.mu.Lock()
-	assignedJobID := encoder.lastSourceJob
-	encoder.mu.Unlock()
+	err := sock.Send(t.Context(), builder,
+		WithCallback(func(resp *protocol.Packet, err error) {
+			receivedResp, receivedErr = resp, err
+			wg.Done()
+		}),
+	)
 
-	if assignedJobID == 0 || assignedJobID == protocol.NoJob {
-		t.Fatalf("Invalid job ID generated: %d", assignedJobID)
+	if err != nil {
+		t.Fatalf("Send failed: %v", err)
+	}
+
+	if capturedJobID == 0 || capturedJobID == protocol.NoJob {
+		t.Fatalf("Invalid job ID captured: %d", capturedJobID)
 	}
 
 	respPacket := &protocol.Packet{
-		EMsg:    protocol.EMsg_ClientGamesPlayed,
-		Header:  mockHeader{targetJob: assignedJobID},
+		EMsg: protocol.EMsg_ClientGamesPlayed,
+		Header: &protocol.MsgHdr{
+			TargetJobID: capturedJobID,
+			SourceJobID: protocol.NoJob,
+		},
 		Payload: []byte("response_data"),
 	}
 
@@ -310,7 +270,7 @@ func TestSocket_JobTracking(t *testing.T) {
 			t.Errorf("Unexpected job error: %v", receivedErr)
 		}
 		if string(receivedResp.Payload) != "response_data" {
-			t.Errorf("Expected response payload 'response_data', got '%s'", string(receivedResp.Payload))
+			t.Errorf("Expected payload 'response_data', got '%s'", string(receivedResp.Payload))
 		}
 	case <-time.After(2 * time.Second):
 		t.Error("Timeout: Job callback was never called. Correlation by JobID failed.")
@@ -318,13 +278,10 @@ func TestSocket_JobTracking(t *testing.T) {
 }
 
 func TestSocket_SessionUpdateFromHeader(t *testing.T) {
-	ctx := context.Background()
-	cfg := DefaultConfig()
-
 	mockConn := newMockConnection()
 	sess := NewBaseSession(mockConn)
 
-	sock := NewSocket(ctx, cfg, WithSession(sess))
+	sock := NewSocket(DefaultConfig(), WithSession(sess))
 	defer sock.Close()
 
 	packet := &protocol.Packet{
@@ -347,12 +304,8 @@ func TestSocket_SessionUpdateFromHeader(t *testing.T) {
 }
 
 func TestSocket_HandleMultiPacket(t *testing.T) {
-	ctx := context.Background()
-
-	cfg := DefaultConfig()
-	cfg.WorkerCount = 1
-
-	sock := NewSocket(ctx, cfg)
+	sock := NewSocket(DefaultConfig())
+	sock.startWorkers(t.Context(), 1)
 	defer sock.Close()
 
 	var wg sync.WaitGroup
@@ -412,8 +365,7 @@ func TestSocket_HandleMultiPacket(t *testing.T) {
 }
 
 func TestSocket_ServiceMethodRouting(t *testing.T) {
-	ctx := context.Background()
-	sock := NewSocket(ctx, DefaultConfig())
+	sock := NewSocket(DefaultConfig())
 	defer sock.Close()
 
 	method := "Player.GetOwnedGames#1"
@@ -442,9 +394,8 @@ func TestSocket_ServiceMethodRouting(t *testing.T) {
 }
 
 func TestSocket_StateTransitions(t *testing.T) {
-	ctx := context.Background()
 	eventBus := bus.NewBus()
-	sock := NewSocket(ctx, DefaultConfig(), WithBus(eventBus))
+	sock := NewSocket(DefaultConfig(), WithBus(eventBus))
 	defer sock.Close()
 
 	sub := eventBus.Subscribe(StateEvent{})
@@ -464,7 +415,8 @@ func TestSocket_StateTransitions(t *testing.T) {
 }
 
 func TestSocket_ProcessProtobufPacket(t *testing.T) {
-	sock := NewSocket(context.Background(), DefaultConfig())
+	sock := NewSocket(DefaultConfig())
+	sock.startWorkers(t.Context(), 1)
 	defer sock.Close()
 
 	resCh := make(chan *protocol.Packet, 1)
@@ -499,7 +451,8 @@ func TestSocket_ProcessProtobufPacket(t *testing.T) {
 func TestSocket_ProcessExtendedPacket(t *testing.T) {
 	mockConn := newMockConnection()
 	sess := NewBaseSession(mockConn)
-	sock := NewSocket(context.Background(), DefaultConfig(), WithSession(sess))
+	sock := NewSocket(DefaultConfig(), WithSession(sess))
+	sock.startWorkers(t.Context(), 1)
 	defer sock.Close()
 
 	resCh := make(chan *protocol.Packet, 1)
@@ -528,7 +481,8 @@ func TestSocket_ProcessExtendedPacket(t *testing.T) {
 }
 
 func TestSocket_ProcessBasicCryptoPacket(t *testing.T) {
-	sock := NewSocket(context.Background(), DefaultConfig())
+	sock := NewSocket(DefaultConfig())
+	sock.startWorkers(t.Context(), 1)
 	defer sock.Close()
 
 	resCh := make(chan *protocol.Packet, 1)
@@ -558,15 +512,11 @@ func TestSocket_ProcessBasicCryptoPacket(t *testing.T) {
 }
 
 func TestSocket_InvalidPacket_UnexpectedEOF(t *testing.T) {
-	sock := NewSocket(context.Background(), DefaultConfig())
+	sock := NewSocket(DefaultConfig())
 	defer sock.Close()
 
 	invalid := new(bytes.Buffer)
 	binary.Write(invalid, binary.LittleEndian, uint32(protocol.EMsg_ClientLogon)|0x80000000)
 
 	sock.processSingle(invalid)
-
-	if sock.State() != StateDisconnected {
-		// OK
-	}
 }

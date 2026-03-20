@@ -56,20 +56,6 @@ func (p PureStock) FormatStock() []string {
 
 		metalStr := fmt.Sprintf("%.2f ref", refTruncated)
 
-		// Add detailed breakdown if needed (e.g., "(5 ref, 1 rec)")
-		if p.Refined > 0 || p.Reclaimed > 0 || p.Scrap > 0 {
-			var details []string
-			if p.Refined > 0 {
-				details = append(details, fmt.Sprintf("%d ref", p.Refined))
-			}
-			if p.Reclaimed > 0 {
-				details = append(details, fmt.Sprintf("%d rec", p.Reclaimed))
-			}
-			if p.Scrap > 0 {
-				details = append(details, fmt.Sprintf("%d scrap", p.Scrap))
-			}
-		}
-
 		result = append(result, metalStr)
 	}
 

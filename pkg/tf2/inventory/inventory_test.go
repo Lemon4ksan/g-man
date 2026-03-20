@@ -14,8 +14,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/lemon4ksan/g-man/pkg/steam/api"
-	"github.com/lemon4ksan/g-man/pkg/steam/transport"
+	"github.com/lemon4ksan/g-man/test"
 )
 
 type mockHTTPClient struct {
@@ -34,27 +33,6 @@ func (m *mockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 		StatusCode: http.StatusNotFound,
 		Body:       io.NopCloser(bytes.NewReader(nil)),
 	}, nil
-}
-
-type mockWebAPIRequester struct {
-	apiError error
-	response PlayerItemsResponse
-}
-
-func (m *mockWebAPIRequester) CallWebAPI(ctx context.Context, httpMethod, iface, method string, version int, respMsg any, mods ...api.RequestModifier) error {
-	if m.apiError != nil {
-		return m.apiError
-	}
-
-	val := reflect.ValueOf(respMsg)
-	if val.Kind() == reflect.Ptr {
-		val.Elem().Set(reflect.ValueOf(m.response))
-	}
-	return nil
-}
-
-func (m *mockWebAPIRequester) Do(req *transport.Request) (*transport.Response, error) {
-	return nil, nil
 }
 
 func createBptfHTML(hasTable bool, isDuped bool) string {
@@ -145,8 +123,6 @@ func TestPlayerInventory_getItemHistory(t *testing.T) {
 				},
 			}
 
-			// Хак для обхода проблемы с типизацией: создаем структуру напрямую.
-			// Если PlayerInventory использует интерфейс, подставьте его.
 			inv := &PlayerInventory{
 				httpClient: mockHTTP,
 				bptfUserID: "test_uid",
@@ -180,14 +156,17 @@ func TestPlayerInventory_fetch(t *testing.T) {
 			wantErr:  true,
 		},
 		{
-			name: "Steam API Status != 1",
+			name: "Steam API Status != 1 (Access Denied)",
 			apiResponse: PlayerItemsResponse{
 				Result: struct {
 					Status           int       `json:"status"`
 					StatusDetail     string    `json:"statusDetail"`
 					NumBackpackSlots int       `json:"num_backpack_slots"`
 					Items            []TF2Item `json:"items"`
-				}{Status: 15, StatusDetail: "access denied"},
+				}{
+					Status:       15,
+					StatusDetail: "access denied",
+				},
 			},
 			wantErr: true,
 		},
@@ -204,7 +183,7 @@ func TestPlayerInventory_fetch(t *testing.T) {
 					NumBackpackSlots: 3000,
 					Items: []TF2Item{
 						{ID: 1, OriginalID: 1},
-						{ID: 2, OriginalID: 1}, // Item with history ID
+						{ID: 2, OriginalID: 2},
 					},
 				},
 			},
@@ -216,9 +195,12 @@ func TestPlayerInventory_fetch(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockAPI := &mockWebAPIRequester{
-				apiError: tt.apiError,
-				response: tt.apiResponse,
+			mockAPI := test.NewMockRequester()
+
+			if tt.apiError != nil {
+				mockAPI.ResponseErr = tt.apiError
+			} else {
+				mockAPI.SetJSONResponse("IEconItems_440", "GetPlayerItems", tt.apiResponse)
 			}
 
 			inv := &PlayerInventory{
@@ -226,18 +208,20 @@ func TestPlayerInventory_fetch(t *testing.T) {
 			}
 
 			err := inv.fetch(context.Background())
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("fetch() error = %v, wantErr %v", err, tt.wantErr)
 			}
+
 			if !tt.wantErr {
 				if inv.slots != tt.wantSlots {
 					t.Errorf("slots = %v, want %v", inv.slots, tt.wantSlots)
 				}
 				if len(inv.items) != tt.wantItems {
-					t.Errorf("items = %v, want %v", len(inv.items), tt.wantItems)
+					t.Errorf("items count = %v, want %v", len(inv.items), tt.wantItems)
 				}
 				if !inv.fetched {
-					t.Error("fetched flag should be true")
+					t.Error("fetched flag should be true after successful fetch")
 				}
 			}
 		})

@@ -6,7 +6,6 @@ package transport
 
 import (
 	"bytes"
-	"context"
 	"io"
 	"net/http"
 	"testing"
@@ -15,7 +14,7 @@ import (
 )
 
 func TestHTTPTransport_ParseEResult(t *testing.T) {
-	trans := &HTTPTransport{}
+	tr := &HTTPTransport{}
 
 	tests := []struct {
 		name     string
@@ -34,7 +33,7 @@ func TestHTTPTransport_ParseEResult(t *testing.T) {
 			if tt.header != "" {
 				resp.Header.Set("x-eresult", tt.header)
 			}
-			result := trans.parseEResult(resp)
+			result := tr.parseEResult(resp)
 			if result != tt.expected {
 				t.Errorf("Expected EResult %v, got %v", tt.expected, result)
 			}
@@ -53,7 +52,7 @@ func TestHTTPTransport_Do(t *testing.T) {
 			}
 
 			resp := &http.Response{
-				StatusCode: 200,
+				StatusCode: http.StatusOK,
 				Header:     make(http.Header),
 				Body:       io.NopCloser(bytes.NewReader([]byte(`{"response":{}}`))),
 			}
@@ -62,25 +61,26 @@ func TestHTTPTransport_Do(t *testing.T) {
 		},
 	}
 
-	trans := NewHTTPTransport(doer, "https://api.steampowered.com")
-	defer trans.Close()
+	tr := NewHTTPTransport(doer, "https://api.steampowered.com")
 
 	target := mockHTTPTarget{
 		method: "GET",
 		path:   "/IPlayerService/GetOwnedGames/v1/",
 	}
 
-	req := NewRequest(context.Background(), target, []byte("proto_data"))
-	resp, err := trans.Do(req)
+	req := NewRequest(target, []byte("proto_data"))
+	resp, err := tr.Do(t.Context(), req)
 
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	if resp.StatusCode != 200 {
-		t.Errorf("Expected StatusCode 200, got %d", resp.StatusCode)
+
+	meta, _ := resp.HTTP()
+	if meta.StatusCode != http.StatusOK {
+		t.Errorf("Expected StatusCode 200, got %d", meta.StatusCode)
 	}
-	if resp.Result != protocol.EResult_OK {
-		t.Errorf("Expected Result OK, got %v", resp.Result)
+	if meta.Result != protocol.EResult_OK {
+		t.Errorf("Expected Result OK, got %v", meta.Result)
 	}
 	if string(resp.Body) != `{"response":{}}` {
 		t.Errorf("Unexpected body: %s", string(resp.Body))

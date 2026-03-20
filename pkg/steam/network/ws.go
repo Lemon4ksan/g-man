@@ -18,7 +18,8 @@ import (
 
 var _ Connection = (*WSConnection)(nil)
 
-// WSConnection implements a WebSocket-based connection to a CM server.
+// WSConnection implements a WebSocket-based connection.
+// It leverages the gorilla/websocket library for handling the WebSocket protocol details.
 type WSConnection struct {
 	BaseConnection
 
@@ -26,10 +27,11 @@ type WSConnection struct {
 	handler Handler
 	logger  log.Logger
 
-	writeMu   sync.Mutex // Protects conn
-	closeOnce sync.Once  // ensures Close is idempotent
+	writeMu   sync.Mutex // Protects conn for concurrent writes.
+	closeOnce sync.Once  // Ensures Close actions are performed only once.
 }
 
+// NewWSConnection establishes a WebSocket connection to the given endpoint and starts its read loop.
 func NewWSConnection(handler Handler, logger log.Logger, endpoint string) (*WSConnection, error) {
 	u := url.URL{Scheme: "wss", Host: endpoint, Path: "/cmsocket/"}
 
@@ -56,6 +58,7 @@ func NewWSConnection(handler Handler, logger log.Logger, endpoint string) (*WSCo
 
 func (w *WSConnection) Name() string { return "WS" }
 
+// Send transmits data as a binary message over the WebSocket connection.
 func (w *WSConnection) Send(ctx context.Context, data []byte) error {
 	w.writeMu.Lock()
 	defer w.writeMu.Unlock()
@@ -73,6 +76,8 @@ func (w *WSConnection) Send(ctx context.Context, data []byte) error {
 	return w.conn.WriteMessage(websocket.BinaryMessage, data)
 }
 
+// Close sends a standard WebSocket close frame and terminates the connection.
+// It is safe to call multiple times.
 func (w *WSConnection) Close() error {
 	var err error
 	w.closeOnce.Do(func() {
@@ -80,14 +85,16 @@ func (w *WSConnection) Close() error {
 		defer w.writeMu.Unlock()
 
 		if w.conn != nil {
+			// Best-effort attempt to send a clean close message.
 			msg := websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")
-			w.conn.WriteMessage(websocket.CloseMessage, msg)
+			_ = w.conn.WriteMessage(websocket.CloseMessage, msg)
 			err = w.conn.Close()
 		}
 	})
 	return err
 }
 
+// readLoop runs in a dedicated goroutine, reading messages from the WebSocket.
 func (w *WSConnection) readLoop() {
 	defer func() {
 		w.Close()
@@ -97,7 +104,8 @@ func (w *WSConnection) readLoop() {
 	for {
 		msgType, data, err := w.conn.ReadMessage()
 		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure, websocket.CloseAbnormalClosure) {
+			// Filter out expected close errors to avoid noisy logs.
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
 				w.handler.OnNetError(err)
 			}
 			return

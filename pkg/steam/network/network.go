@@ -12,31 +12,35 @@ import (
 // globalConnectionID is an atomic counter used to generate unique connection IDs.
 var globalConnectionID atomic.Int64
 
-// NetMessage represents a binary message received over the network.
+// NetMessage represents a complete, raw binary message received from the network.
+// It is a slice of bytes that a Handler can process.
 type NetMessage []byte
 
-// Handler defines the callbacks that a connection will invoke for network events.
+// Handler defines the event-driven callbacks that a network connection will invoke.
+// This interface decouples the raw network I/O from the application's logic.
 type Handler interface {
-	// OnNetMessage is called when a complete message is received.
+	// OnNetMessage is called when a complete message is framed and received.
 	OnNetMessage(msg NetMessage)
 
 	// OnNetError is called when a non-fatal error occurs on the connection.
 	// Fatal errors typically result in the connection being closed automatically.
 	OnNetError(err error)
 
-	// OnNetClose is called when the connection is closed, either
-	// by the remote peer or due to an unrecoverable error.
+	// OnNetClose is called exactly once when the connection is terminated,
+	// either by the remote peer or due to an unrecoverable local error.
 	OnNetClose()
 }
 
-// Connection defines the interface that all network connections must implement.
+// Connection defines the standard interface that all network connection types must implement.
+// It provides methods for sending data, closing the connection, and identification.
 type Connection interface {
 	// Send transmits the provided data over the connection.
-	// Returns an error if the data could not be sent.
+	// It is the responsibility of the implementation to handle message framing and encryption.
+	// This method must be safe for concurrent use.
 	Send(ctx context.Context, data []byte) error
 
-	// Close gracefully terminates the connection and releases any resources.
-	// Returns an error if the closure fails.
+	// Close gracefully terminates the connection and releases any associated resources.
+	// This method should be idempotent (safe to call multiple times).
 	Close() error
 
 	// ID returns a unique identifier for this connection instance.
@@ -48,12 +52,16 @@ type Connection interface {
 	Name() string
 }
 
-// Encryptable is an optional interface for encrypted connections.
+// Encryptable is an optional interface that connections can implement to support
+// session-based symmetric encryption.
 type Encryptable interface {
+	// SetEncryptionKey provides the connection with the secret key used to
+	// encrypt outgoing messages and decrypt incoming ones.
 	SetEncryptionKey(key []byte)
 }
 
 // BaseConnection provides common functionality and state shared by all connection implementations.
+// It should be embedded in concrete connection types (e.g., TCPConnection).
 type BaseConnection struct {
 	id   int64
 	name string

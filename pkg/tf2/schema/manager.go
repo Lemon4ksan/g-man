@@ -20,6 +20,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/api"
 	"github.com/lemon4ksan/g-man/pkg/steam/bus"
+	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"github.com/mitchellh/mapstructure"
 
 	"golang.org/x/sync/errgroup"
@@ -38,7 +39,7 @@ type Config struct {
 // SchemaManager manages the TF2 item schema, keeping it up to date.
 type SchemaManager struct {
 	bus    *bus.Bus
-	client api.WebAPIRequester
+	client service.Requester
 	logger log.Logger
 	config Config
 
@@ -80,7 +81,7 @@ func (m *SchemaManager) Init(c *steam.Client) error {
 	if m.bus == nil {
 		return errors.New("nil bus")
 	}
-	m.client = c.API()
+	m.client = c.Service()
 	if m.client == nil {
 		return errors.New("nil API client")
 	}
@@ -229,12 +230,14 @@ func (m *SchemaManager) pruneItemsGame(raw *RawSchema) {
 }
 
 func (m *SchemaManager) getSchemaOverview(ctx context.Context) (map[string]any, error) {
-	var data map[string]any
-	err := m.client.CallWebAPI(ctx, "GET", "IEconItems_440", "GetSchemaOverview", 1, &data, api.WithParam("language", "en"))
+	req := struct {
+		Language string `url:"language"`
+	}{"en"}
+	resp, err := service.WebAPI[map[string]any](ctx, m.client, "GET", "IEconItems_440", "GetSchemaOverview", 1, req)
 	if err != nil {
 		return nil, fmt.Errorf("transport error: %w", err)
 	}
-	return data, nil
+	return *resp, nil
 }
 
 func (m *SchemaManager) getSchemaItems(ctx context.Context) ([]any, error) {
@@ -242,16 +245,16 @@ func (m *SchemaManager) getSchemaItems(ctx context.Context) ([]any, error) {
 	next := 0
 
 	for {
-		var data map[string]any
-		err := m.client.CallWebAPI(ctx, "GET", "IEconItems_440", "GetSchemaItems", 1, &data,
-			api.WithParam("language", "en"),
-			api.WithParam("start", fmt.Sprintf("%d", next)),
-		)
+		req := struct {
+			Language string `url:"language"`
+			Start    int    `url:"start"`
+		}{"en", next}
+		resp, err := service.WebAPI[map[string]any](ctx, m.client, "GET", "IEconItems_440", "GetSchemaItems", 1, req)
 		if err != nil {
 			return nil, err
 		}
 
-		result, ok := data["result"].(map[string]any)
+		result, ok := (*resp)["result"].(map[string]any)
 		if !ok {
 			break
 		}
@@ -272,8 +275,8 @@ func (m *SchemaManager) getSchemaItems(ctx context.Context) ([]any, error) {
 
 func (m *SchemaManager) getPaintKits(ctx context.Context) (map[string]string, error) {
 	url := "https://raw.githubusercontent.com/SteamDatabase/GameTracking-TF2/master/tf/resource/tf_proto_obj_defs_english.txt"
-	req := api.NewHttpRequest(ctx, "GET", url, nil)
-	resp, err := m.client.Do(req)
+	req := api.NewHttpRequest("GET", url, nil)
+	resp, err := m.client.Do(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -325,8 +328,8 @@ func (m *SchemaManager) getPaintKits(ctx context.Context) (map[string]string, er
 
 func (m *SchemaManager) getItemsGame(ctx context.Context) (map[string]any, error) {
 	url := "https://raw.githubusercontent.com/SteamDatabase/GameTracking-TF2/master/tf/scripts/items/items_game.txt"
-	req := api.NewHttpRequest(ctx, "GET", url, nil)
-	resp, err := m.client.Do(req)
+	req := api.NewHttpRequest("GET", url, nil)
+	resp, err := m.client.Do(ctx, req)
 	if err != nil {
 		return nil, err
 	}

@@ -14,21 +14,21 @@
 
 ---
 
-**G-man** is a next-generation Steam client library architected specifically for high-frequency trading and heavy automation. Built on **Go**, it leaves the limitations of single-threaded Node.js wrappers behind.
+**G-man** is a next-generation Steam client library architected specifically for high-frequency trading, inventory management, and heavy automation. Built on **Go**, it leaves the limitations of single-threaded Node.js wrappers behind, offering unmatched performance for bot farms of any scale.
 
-It prioritizes **Type Safety**, **Concurrency**, and **Modularity**. Whether you are managing a single inventory or orchestrating a farm of thousands, G-man provides the rock-solid foundation you need.
+It prioritizes **Type Safety**, **Predictable Concurrency**, and **Modular Architecture**.
 
-> [!NOTE]
-> This SDK is currently in the early development. The API is not yet stable, and breaking changes may occur. Production use is at your own risk.
+> [!WARNING]
+> This SDK is currently in **early development (Alpha)**. The API is evolving rapidly. Breaking changes are expected. Production use is at your own risk.
 
-## Key Features
+## ⚡ Key Features
 
-* **Architected for Speed:** Native Go concurrency allows you to handle thousands of events and trade offers simultaneously without blocking a central event loop.
-* **Transport Agnostic:** A unique `Transport` layer seamlessly switches between **TCP Sockets** and **HTTP WebAPI**. Bypass rate limits by sending API requests directly through the authenticated CM socket.
-* **Truly Modular (SOLID):** Need a simple chat bot? Don't load the trading module. Need TF2 logic? Plug it in. Everything is decoupled via a high-performance **Event Bus**.
-* **Modern Authentication:** Full support for the new Steam JWT-based authentication flow, `WebSession` management, and session refreshment.
-* **Game Coordinator Native:** First-class support for GC interactions (TF2, CS2, DOTA2) with automatic protobuf handling and job management.
-* **Smart Guard:** Integrated mobile confirmation handling with automatic rate-limiting and exponential backoff to prevent API bans.
+* **High-Concurrency Engine:** Native Go routines allow you to handle thousands of events, trade offers, and socket messages simultaneously without blocking.
+* **Polymorphic Transport:** A unique layer that seamlessly switches between **TCP/WebSockets** and **HTTP WebAPI**. Bypass rate limits by routing API calls directly through the authenticated CM socket.
+* **BaseModule Pattern:** Standardized lifecycle for all modules (`Init`, `StartAuthed`, `Close`). Built-in support for scoped logging, event bus integration, and safe goroutine management.
+* **Deep Error Scraping:** Specialized `community` client that detects "soft errors" (Family View, Login redirects, Steam Maintenance) hidden inside HTML responses.
+* **Modern Authentication:** Full support for JWT-based login, automatic `WebSession` establishment, and OIDC cookie transfers.
+* **Game Coordinator Native:** First-class support for GC interactions (TF2, CS2, DOTA2) with automatic job tracking and Protobuf unmarshaling.
 
 ## 📦 Installation
 
@@ -38,100 +38,91 @@ go get github.com/lemon4ksan/g-man@latest
 
 ## 🚀 Quick Start
 
-G-man uses a composite architecture. You create a `Client` and plug in the modules you need during initialization.
+G-man uses a declarative configuration. You define the modules you need in a single config struct, and the client handles the rest.
 
 ```go
 package main
 
 import (
     "context"
-    "fmt"
-    "os"
+    "time"
 
     "github.com/lemon4ksan/g-man/pkg/log"
     "github.com/lemon4ksan/g-man/pkg/modules/apps"
     "github.com/lemon4ksan/g-man/pkg/modules/auth"
-    "github.com/lemon4ksan/g-man/pkg/modules/directory"
-    "github.com/lemon4ksan/g-man/pkg/modules/tf2"
+    "github.com/lemon4ksan/g-man/pkg/modules/guard"
+    "github.com/lemon4ksan/g-man/pkg/modules/trading"
     "github.com/lemon4ksan/g-man/pkg/steam"
-    "github.com/lemon4ksan/g-man/pkg/steam/socket"
 )
 
 func main() {
-    // For this example, we'll use an environment variable for the password.
-    password := os.Getenv("STEAM_PASSWORD")
-    if password == "" {
-        fmt.Println("STEAM_PASSWORD environment variable not set.")
-        return
+    logger := log.New(log.DefaultConfig(log.InfoLevel))
+
+    // 1. Configure the client and its modules
+    cfg := steam.Config{
+        Guard: &guard.Config{
+            IdentitySecret: "base64_secret",
+            DeviceID:       "android:uuid",
+            AutoAccept:     true,
+        },
+            Trading: &trading.Config{
+            PollInterval: 15 * time.Second,
+        },
     }
 
-    // Initialize a logger and desired modules.
-    logger := log.New(log.DefaultConfig(log.InfoLevel))
-    appsMod := apps.New()
-    tf2Mod := tf2.New(logger)
+    // 2. Initialize the Client
+    client := steam.NewClient(cfg, steam.WithLogger(logger))
 
-    // Create the core client, providing modules as functional options.
-    client := steam.NewClient(
-        steam.DefaultConfig(),
-        steam.WithLogger(logger),
-        steam.WithModule(appsMod),
-        steam.WithModule(tf2Mod),
-    )
-
-    // Listen for the "LoggedOnEvent" to know when we can perform actions.
-    sub := client.Bus().Subscribe(&auth.LoggedOnEvent{}, &tf2.BackpackLoadedEvent{})
+    // 3. Subscribe to events via the global Bus
+    sub := client.Bus().Subscribe(&auth.LoggedOnEvent{}, &trading.NewOfferEvent{})
     go func() {
         for event := range sub.C() {
             switch ev := event.(type) {
             case *auth.LoggedOnEvent:
-                logger.Info("Successfully logged on!", log.SteamID("steamID", ev.SteamID))
-                // Now that we're logged in, we can launch TF2 to connect to its GC.
-                appsMod.PlayGames(context.Background(), []uint32{tf2.AppID}, false)
-
-            case *tf2.BackpackLoadedEvent:
-                logger.Info("TF2 Backpack loaded!", log.Int("item_count", ev.Count))
+                logger.Info("Logged in!", log.Uint64("steam_id", ev.SteamID))
+            case *trading.NewOfferEvent:
+                logger.Info("New trade offer!", log.Uint64("offer_id", ev.Offer.ID))
             }
         }
     }()
 
-    server, err := directory.GetOptimalCMServer(context.Background())
-    if err != nil {
-        logger.Error("Failed to get cm server", log.Err(err))
-        return
-    }
-    
-    err := client.ConnectAndLogin(context.Background(), server, &auth.LogOnDetails{
-        AccountName: "your_steam_username",
-        Password:    password,
+    // 4. Connect and Login
+    err := client.ConnectAndLogin(context.Background(), nil, steam.LogOnDetails{
+        AccountName: "username",
+        Password:    "password",
     })
     if err != nil {
-        logger.Error("Failed to login", log.Err(err))
-        return
+        panic(err)
     }
 
-    // Wait for the client to be closed (e.g., by CTRL+C).
     client.Wait()
-    logger.Info("Client has been shut down.")
 }
 ```
 
-## 🧰 Packages
+## 🏗 Roadmap
 
-The pkg directory contains independent packages that can be used to bring any idea to life. From a community market parser and item auto smelter to full-fledged trading bots.
+### Core & Protocol
 
-## 🚧 What's Next? (Roadmap)
+* [ ] **Proxy Support:** Integrated SOCKS5/HTTP tunnel support for both Socket and WebAPI.
+* [ ] **Persistence Layer:** Pluggable storage drivers (Redis, PostgreSQL, SQLite) for session and state persistence.
+* [ ] **Steam CDN Support:** Logic for manifest parsing and downloading app metadata/item assets directly from Valve's content servers.
+* [ ] **WebSession Auto-Refresh:** Background worker to keep cookies alive via periodic "heartbeat" visits to lightweight Steam pages.
 
-While the foundation is strong, several key features are planned for future releases:
+### Economy & Trading
 
-* **Bot Abstraction:** A universal bot client with plugin support for reducing low level code.
-* **Trade Middleware Engine:** Possibility to attach chains of checks to incoming/outgoing trades.
-* **WebSession Auto-Refresh:** A background worker that periodically visits steamcommunity.com/chat or other lightweight pages to keep the session active.
-* **Generic Pricer Interface**: An abstract Pricer interface that can have implementations for backpack.tf, pricedb.io, or a custom API.
-* **Idempotency Support for Trades:** The logic for checking the offer status before retrying to avoid accepting an already accepted or cancelled trade.
-* **Persistence Layer:** An interface for database integration (e.g., SQLite, Redis) to persist session data and state across restarts.
-* **Proxy Support:** Integrated SOCKS5/HTTP proxy support for both WebAPI and CM connections.
-* **Detailed Documentation:** A more descriptive documentation for public methods.
-* **CS2, DOTA2 support:** Currently only TF2 game coordinator is implemented.
+* [ ] **Trade Middleware Engine:** A "Chain of Responsibility" for incoming trades (e.g., `Blacklist` -> `Pricer` -> `EscrowCheck`).
+* [ ] **Inventory Manager:** High-level abstractions for multi-context inventory synchronization and item moving.
+* [ ] **PriceDB Integration:** Generic interface for price providers (Backpack.tf, PriceDB, custom APIs).
+
+### Game Domains
+
+* [ ] **CS2 Support:** Full Game Coordinator implementation, including inventory and match data.
+* [ ] **Dota 2 Support:** GC implementation for item management and lobby control.
+* [ ] **TF2 Crafting:** High-level API for mass-smelting and weapon crafting.
+
+## 🤝 Contributing
+
+G-man is an open-source project. We welcome contributions in the form of bug reports, feature requests, or pull requests. Please see our [Contributing Guide](CONTRIBUTING.md) for more details.
 
 ## License
 

@@ -2,72 +2,87 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package chat manages one-on-one friend messages and Steam group chats.
 package chat
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/lemon4ksan/g-man/pkg/log"
-	"github.com/lemon4ksan/g-man/pkg/steam"
-	"github.com/lemon4ksan/g-man/pkg/steam/api"
-	"github.com/lemon4ksan/g-man/pkg/steam/bus"
+	"github.com/lemon4ksan/g-man/pkg/modules"
 	pb "github.com/lemon4ksan/g-man/pkg/steam/protobuf"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"google.golang.org/protobuf/proto"
 )
 
 const ModuleName string = "chat"
 
+// Manager handles sending and receiving messages via Steam's Unified Services.
+// It embeds modules.BaseModule for standardized lifecycle management.
 type Manager struct {
-	bus       *bus.Bus
-	logger    log.Logger
-	unified   api.UnifiedRequester
-	proto     api.LegacyRequester
-	steamID   uint64
-	closeFunc func()
+	modules.BaseModule
+
+	// Dependencies
+	service service.Requester
+	steamID uint64
+
+	mu         sync.Mutex
+	unregFuncs []func()
 }
 
+// New creates a new instance of the chat manager.
 func New() *Manager {
-	return &Manager{}
+	return &Manager{
+		BaseModule: modules.NewBase(ModuleName),
+	}
 }
 
-func (m *Manager) Name() string { return ModuleName }
-
-func (m *Manager) Init(init steam.InitContext) error {
-	m.bus = init.Bus()
-	m.logger = init.Logger().WithModule(ModuleName)
-	m.unified = init.Unified()
-	m.proto = init.Proto()
-
-	init.RegisterServiceHandler("FriendMessagesClient.IncomingMessage#1", m.handleIncomingMessage)
-	init.RegisterServiceHandler("ChatRoomClient.NotifyIncomingChatMessage#1", m.handleGroupMessage)
-	// "ChatRoomClient.NotifyChatGroupUserStateChanged#1"
-	// "ChatRoomClient.NotifyMemberStateChange#1"
-	m.closeFunc = func() {
-		init.UnregisterServiceHandler("FriendMessagesClient.IncomingMessage#1")
-		init.UnregisterServiceHandler("ChatRoomClient.NotifyIncomingChatMessage#1")
+// Init registers service handlers for incoming friend and group messages.
+func (m *Manager) Init(init modules.InitContext) error {
+	if err := m.BaseModule.Init(init); err != nil {
+		return err
 	}
+
+	m.service = init.Service()
+
+	friendHandler := "FriendMessagesClient.IncomingMessage#1"
+	groupHandler := "ChatRoomClient.NotifyIncomingChatMessage#1"
+
+	init.RegisterServiceHandler(friendHandler, m.handleIncomingMessage)
+	init.RegisterServiceHandler(groupHandler, m.handleGroupMessage)
+
+	m.unregFuncs = append(m.unregFuncs, func() {
+		init.UnregisterServiceHandler(friendHandler)
+		init.UnregisterServiceHandler(groupHandler)
+	})
 
 	return nil
 }
 
-func (m *Manager) Start(ctx context.Context) error { return nil }
-
-func (m *Manager) StartAuthed(ctx context.Context, auth steam.AuthContext) error {
+// StartAuthed updates the current user's SteamID after a successful login.
+func (m *Manager) StartAuthed(ctx context.Context, auth modules.AuthContext) error {
+	m.mu.Lock()
 	m.steamID = auth.SteamID()
+	m.mu.Unlock()
 	return nil
 }
 
+// Close ensures all service handlers are removed and background tasks are stopped.
 func (m *Manager) Close() error {
-	if m.closeFunc != nil {
-		m.closeFunc()
-		m.closeFunc = nil
+	m.mu.Lock()
+	for _, unreg := range m.unregFuncs {
+		unreg()
 	}
-	return nil
+	m.unregFuncs = nil
+	m.mu.Unlock()
+
+	return m.BaseModule.Close()
 }
 
-// SendMessage sends a text message to the user by SteamID64.
+// SendMessage sends a plain text message to a specific Steam user.
 func (m *Manager) SendMessage(ctx context.Context, steamID uint64, text string) error {
 	req := &pb.CFriendMessages_SendMessage_Request{
 		Steamid:        proto.Uint64(steamID),
@@ -75,106 +90,90 @@ func (m *Manager) SendMessage(ctx context.Context, steamID uint64, text string) 
 		Message:        proto.String(text),
 		ContainsBbcode: proto.Bool(true),
 	}
-	var resp pb.CFriendMessages_SendMessage_Response
-	return m.unified.CallUnified(ctx, "", "FriendMessages", "SendMessage", 1, req, &resp)
+	_, err := service.Unified[any](ctx, m.service, req)
+	return err
 }
 
-// SendTyping sends the "Typing..." status to the user.
-// Useful for simulating the bot's "live" behavior before sending a long message.
+// SendTyping notifies a friend that the bot is currently typing a message.
 func (m *Manager) SendTyping(ctx context.Context, steamID uint64) error {
 	req := &pb.CFriendMessages_SendMessage_Request{
 		Steamid:       proto.Uint64(steamID),
 		ChatEntryType: proto.Int32(ChatEntryTypeTyping),
 	}
-	return m.unified.CallUnified(ctx, "", "FriendMessages", "SendMessage", 1, req, nil)
+	_, err := service.Unified[any](ctx, m.service, req)
+	return err
 }
 
-// AckFriendMessage marks messages from a friend as "read".
+// AckFriendMessage marks all messages from a specific friend up to the timestamp as read.
 func (m *Manager) AckFriendMessage(ctx context.Context, steamID uint64, timestamp uint32) error {
 	req := &pb.CFriendMessages_AckMessage_Notification{
 		SteamidPartner: proto.Uint64(steamID),
 		Timestamp:      proto.Uint32(timestamp),
 	}
-	return m.unified.CallUnified(ctx, "", "FriendMessages", "AckMessage", 1, req, nil)
+	_, err := service.Unified[any](ctx, m.service, req)
+	return err
 }
 
-// SendGroupMessage sends a message to a group chat.
+// SendGroupMessage sends a text message to a Steam group chatroom.
 func (m *Manager) SendGroupMessage(ctx context.Context, groupID, chatID uint64, text string) error {
 	req := &pb.CChatRoom_SendChatMessage_Request{
 		ChatGroupId: proto.Uint64(groupID),
 		ChatId:      proto.Uint64(chatID),
 		Message:     proto.String(text),
 	}
-
-	var resp pb.CChatRoom_SendChatMessage_Response
-	return m.unified.CallUnified(ctx, "", "ChatRoom", "SendChatMessage", 1, req, &resp)
+	_, err := service.Unified[any](ctx, m.service, req)
+	return err
 }
 
-// GetRecentMessages gets the message history with a friend.
+// GetRecentMessages retrieves the chat history with a specific friend.
 func (m *Manager) GetRecentMessages(ctx context.Context, steamID uint64, count uint32) ([]*pb.CFriendMessages_GetRecentMessages_Response_FriendMessage, error) {
+	m.mu.Lock()
+	myID := m.steamID
+	m.mu.Unlock()
+
 	req := &pb.CFriendMessages_GetRecentMessages_Request{
-		Steamid1:     proto.Uint64(m.steamID),
+		Steamid1:     proto.Uint64(myID),
 		Steamid2:     proto.Uint64(steamID),
 		Count:        proto.Uint32(count),
 		BbcodeFormat: proto.Bool(true),
 	}
-
-	var resp pb.CFriendMessages_GetRecentMessages_Response
-
-	err := m.unified.CallUnified(ctx, "", "FriendMessages", "GetRecentMessages", 1, req, &resp)
+	resp, err := service.Unified[pb.CFriendMessages_GetRecentMessages_Response](ctx, m.service, req)
 	if err != nil {
 		return nil, err
 	}
-
 	return resp.GetMessages(), nil
 }
 
-// GetActiveSessions gets the list of friends with whom we have recent (active) conversations.
-func (m *Manager) GetActiveSessions(ctx context.Context, since time.Time) ([]*pb.CFriendsMessages_GetActiveMessageSessions_Response_FriendMessageSession, error) {
-	req := &pb.CFriendsMessages_GetActiveMessageSessions_Request{}
-
-	if !since.IsZero() {
-		req.LastmessageSince = proto.Uint32(uint32(since.Unix()))
-	}
-
-	var resp pb.CFriendsMessages_GetActiveMessageSessions_Response
-	err := m.unified.CallUnified(ctx, "", "FriendMessages", "GetActiveMessageSessions", 1, req, &resp)
-	if err != nil {
-		return nil, err
-	}
-
-	return resp.GetMessageSessions(), nil
-}
-
-// DeleteGroupMessages deletes messages from a group chat (requires moderator rights).
+// DeleteGroupMessages removes specific messages from a group chat (requires appropriate permissions).
 func (m *Manager) DeleteGroupMessages(ctx context.Context, groupID, chatID uint64, messages []*pb.CChatRoom_DeleteChatMessages_Request_Message) error {
 	req := &pb.CChatRoom_DeleteChatMessages_Request{
 		ChatGroupId: proto.Uint64(groupID),
 		ChatId:      proto.Uint64(chatID),
 		Messages:    messages,
 	}
-
-	var resp pb.CChatRoom_DeleteChatMessages_Response
-	return m.unified.CallUnified(ctx, "", "ChatRoom", "DeleteChatMessages", 1, req, &resp)
+	_, err := service.Unified[pb.CChatRoom_DeleteChatMessages_Response](ctx, m.service, req)
+	return err
 }
 
+// --- Handlers ---
+
 func (m *Manager) handleIncomingMessage(packet *protocol.Packet) {
-	var msg pb.CFriendMessages_IncomingMessage_Notification
-	if err := proto.Unmarshal(packet.Payload, &msg); err != nil {
-		m.logger.Error("Failed to unmarshal unified incoming message", log.Err(err))
+	msg := &pb.CFriendMessages_IncomingMessage_Notification{}
+	if err := proto.Unmarshal(packet.Payload, msg); err != nil {
+		m.Logger.Error("Failed to unmarshal incoming friend message", log.Err(err))
 		return
+	}
+
+	if msg.GetLocalEcho() {
+		return // Ignore our own messages reflected by the server
 	}
 
 	senderID := msg.GetSteamidFriend()
 	chatType := msg.GetChatEntryType()
 
-	if msg.GetLocalEcho() {
-		return
-	}
-
 	switch chatType {
 	case ChatEntryTypeChatMsg:
-		m.bus.Publish(&MessageEvent{
+		m.Bus.Publish(&MessageEvent{
 			SenderID:  senderID,
 			Message:   msg.GetMessage(),
 			Timestamp: time.Unix(int64(msg.GetRtime32ServerTimestamp()), 0),
@@ -182,18 +181,18 @@ func (m *Manager) handleIncomingMessage(packet *protocol.Packet) {
 		})
 
 	case ChatEntryTypeTyping:
-		m.bus.Publish(&TypingEvent{SenderID: senderID})
+		m.Bus.Publish(&TypingEvent{SenderID: senderID})
 	}
 }
 
 func (m *Manager) handleGroupMessage(packet *protocol.Packet) {
-	var msg pb.CChatRoom_IncomingChatMessage_Notification
-	if err := proto.Unmarshal(packet.Payload, &msg); err != nil {
-		m.logger.Error("Failed to unmarshal group chat message", log.Err(err))
+	msg := &pb.CChatRoom_IncomingChatMessage_Notification{}
+	if err := proto.Unmarshal(packet.Payload, msg); err != nil {
+		m.Logger.Error("Failed to unmarshal incoming group message", log.Err(err))
 		return
 	}
 
-	m.bus.Publish(&GroupMessageEvent{
+	m.Bus.Publish(&GroupMessageEvent{
 		ChatGroupID: msg.GetChatGroupId(),
 		ChatID:      msg.GetChatId(),
 		SenderID:    msg.GetSteamidSender(),

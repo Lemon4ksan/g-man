@@ -2,36 +2,66 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package transport provides an abstraction layer over Steam API communication,
-// allowing seamless switching between HTTP WebAPI and Connection Manager sockets.
 package transport
 
 import (
+	"bytes"
 	"context"
 	"net/http"
 	"net/url"
-
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"reflect"
+	"sync"
 )
 
-// Target represents the destination of a Steam request.
+const maxBufferCapacity = 64 * 1024
+
+// bufferPool reduces memory allocations for temporary buffers used in request processing.
+var bufferPool = sync.Pool{
+	New: func() any {
+		return new(bytes.Buffer)
+	},
+}
+
+// GetBytesBuffer retrieves a buffer from the pool.
+func GetBytesBuffer() *bytes.Buffer {
+	buf := bufferPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	return buf
+}
+
+// PutBytesBuffer returns a buffer to the pool.
+func PutBytesBuffer(buf *bytes.Buffer) {
+	// Avoid retaining overly large buffers.
+	if buf.Cap() > maxBufferCapacity {
+		return
+	}
+	bufferPool.Put(buf)
+}
+
+// Transport is the core interface that unifies different network implementations.
+type Transport interface {
+	Do(ctx context.Context, req *Request) (*Response, error)
+}
+
+// Target represents the logical destination of a Steam request.
+// It is a marker interface implemented by protocol-specific targets.
 type Target interface {
 	String() string
 }
 
 // Request is a protocol-agnostic container for a Steam API call.
+// It holds all the information necessary for either HTTP or socket transports
+// to build and send a message.
 type Request struct {
-	ctx         context.Context
-	target      Target
-	body        []byte
-	params      url.Values
-	headers     http.Header
+	target  Target
+	body    []byte
+	params  url.Values
+	headers http.Header
 }
 
-// NewRequest creates a new Request with the specified context, target, and payload.
-func NewRequest(ctx context.Context, target Target, body []byte) *Request {
+// NewRequest creates a new Request with a target and payload.
+func NewRequest(target Target, body []byte) *Request {
 	return &Request{
-		ctx:     ctx,
 		target:  target,
 		body:    body,
 		params:  make(url.Values),
@@ -39,7 +69,7 @@ func NewRequest(ctx context.Context, target Target, body []byte) *Request {
 	}
 }
 
-// WithParam adds a key-value parameter (e.g., query string for WebAPI).
+// WithParam adds a key-value parameter (e.g., a URL query string).
 func (r *Request) WithParam(key, value string) *Request {
 	r.params.Set(key, value)
 	return r
@@ -55,30 +85,70 @@ func (r *Request) WithParams(params url.Values) *Request {
 	return r
 }
 
-// WithHeader adds metadata (used as HTTP headers or Socket routing info).
+// WithHeader adds metadata to the request (e.g., HTTP headers).
 func (r *Request) WithHeader(key, value string) *Request {
 	r.headers.Add(key, value)
 	return r
 }
 
-func (r *Request) Context() context.Context { return r.ctx }
-func (r *Request) Target() Target           { return r.target }
-func (r *Request) Body() []byte             { return r.body }
-func (r *Request) Params() url.Values       { return r.params }
-func (r *Request) Header() http.Header      { return r.headers }
+func (r *Request) Target() Target      { return r.target }
+func (r *Request) Body() []byte        { return r.body }
+func (r *Request) Params() url.Values  { return r.params }
+func (r *Request) Header() http.Header { return r.headers }
 
-// Response represents the result of a Steam API call.
+// Response represents the result of a Steam API call. It is a protocol-agnostic
+// container for the body and transport-specific metadata.
 type Response struct {
-	StatusCode  int
-	Header      http.Header
-	Result      protocol.EResult
-	Body        []byte
-	SourceJobID uint64
+	Body     []byte
+	metadata any
 }
 
-// Transport executes a Request and returns a Response.
-// Implementations must be safe for concurrent use.
-type Transport interface {
-	Do(req *Request) (*Response, error)
-	Close() error
+// NewResponse creates a new Response with a body and associated metadata.
+func NewResponse(body []byte, meta any) *Response {
+	return &Response{
+		Body:     body,
+		metadata: meta,
+	}
+}
+
+// As provides a type-safe way to extract protocol-specific metadata from a Response.
+// It functions similarly to errors.As, populating the target if the types match.
+//
+// Example:
+//
+//	var meta transport.HTTPMetadata
+//	if resp.As(&meta) {
+//	    fmt.Println("Status Code:", meta.StatusCode)
+//	}
+func (r *Response) As(target any) bool {
+	if r.metadata == nil {
+		return false
+	}
+
+	val := reflect.ValueOf(target)
+	if val.Kind() != reflect.Pointer || val.IsNil() {
+		panic("transport: target must be a non-nil pointer")
+	}
+
+	targetVal := val.Elem()
+	metaVal := reflect.ValueOf(r.metadata)
+
+	if metaVal.Type().AssignableTo(targetVal.Type()) {
+		targetVal.Set(metaVal)
+		return true
+	}
+
+	return false
+}
+
+// HTTP is a convenient helper to extract HTTPMetadata.
+func (r *Response) HTTP() (meta HTTPMetadata, ok bool) {
+	meta, ok = r.metadata.(HTTPMetadata)
+	return
+}
+
+// Socket is a convenient helper to extract SocketMetadata.
+func (r *Response) Socket() (meta SocketMetadata, ok bool) {
+	meta, ok = r.metadata.(SocketMetadata)
+	return
 }

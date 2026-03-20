@@ -2,115 +2,118 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package apps provides application management (launching, kicking sessions, PICS).
+// Package apps provides application management including launching games,
+// tracking player counts, and handling concurrent playing sessions.
 package apps
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"slices"
 	"sync"
 	"time"
 
 	"github.com/lemon4ksan/g-man/pkg/log"
-	"github.com/lemon4ksan/g-man/pkg/steam"
-	"github.com/lemon4ksan/g-man/pkg/steam/api"
-	"github.com/lemon4ksan/g-man/pkg/steam/bus"
+	"github.com/lemon4ksan/g-man/pkg/modules"
 	pb "github.com/lemon4ksan/g-man/pkg/steam/protobuf"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"google.golang.org/protobuf/proto"
 )
 
 const ModuleName string = "apps"
+
+// nonSteamGameID is the special ID used by Steam to represent a "Non-Steam Game" shortcut.
 const nonSteamGameID uint64 = 15190414816125648896
 
+// Apps manages the "In-Game" status and interacts with Steam's app services.
+// It embeds modules.BaseModule for lifecycle and concurrency management.
 type Apps struct {
-	bus       *bus.Bus
-	client    api.LegacyRequester
-	logger    log.Logger
-	closeFunc func()
+	modules.BaseModule
 
+	// Dependencies
+	client service.Requester
+
+	// Internal State
 	mu             sync.RWMutex
 	playingAppIDs  []uint32
 	playingBlocked bool
+
+	unregFuncs []func()
 }
 
-// New creates a new Apps module.
+// New creates a new instance of the Apps module.
 func New() *Apps {
 	return &Apps{
-		logger:        log.Discard,
+		BaseModule:    modules.NewBase(ModuleName),
 		playingAppIDs: make([]uint32, 0),
 	}
 }
 
-func (a *Apps) Name() string { return ModuleName }
+// Init registers handlers for tracking the state of playing sessions.
+func (a *Apps) Init(init modules.InitContext) error {
+	if err := a.BaseModule.Init(init); err != nil {
+		return err
+	}
 
-func (a *Apps) Init(init steam.InitContext) error {
-	a.bus = init.Bus()
-	if a.bus == nil {
-		return errors.New("nil bus")
-	}
-	a.client = init.Proto()
-	if a.client == nil {
-		return errors.New("nil proto client")
-	}
-	a.logger = init.Logger().WithModule(ModuleName)
+	a.client = init.Service()
 
-	init.RegisterPacketHandler(protocol.EMsg_ClientPlayingSessionState, a.handlePlayingSessionState)
-	a.closeFunc = func() {
-		init.UnregisterPacketHandler(protocol.EMsg_ClientPlayingSessionState)
-	}
+	handler := protocol.EMsg_ClientPlayingSessionState
+	init.RegisterPacketHandler(handler, a.handlePlayingSessionState)
+
+	a.unregFuncs = append(a.unregFuncs, func() {
+		init.UnregisterPacketHandler(handler)
+	})
+
 	return nil
 }
 
-func (a *Apps) Start(ctx context.Context) error {
-	return nil
-}
-
+// Close ensures all packet handlers are removed and background tasks are stopped.
 func (a *Apps) Close() error {
-	if a.closeFunc != nil {
-		a.closeFunc()
-		a.closeFunc = nil
+	a.mu.Lock()
+	for _, unreg := range a.unregFuncs {
+		unreg()
 	}
-	return nil
+	a.unregFuncs = nil
+	a.mu.Unlock()
+
+	return a.BaseModule.Close()
 }
 
-// GetPlayerCount requests the current number of players online for a specific AppID.
-// Use appID 0 to get the total number of people connected to Steam.
+// GetPlayerCount requests the current number of online players for a specific AppID.
+// Set appID to 0 to get the total number of users currently connected to Steam.
 func (a *Apps) GetPlayerCount(ctx context.Context, appID uint32) (int32, error) {
 	req := &pb.CMsgDPGetNumberOfCurrentPlayers{
 		Appid: proto.Uint32(appID),
 	}
 
-	resp := &pb.CMsgDPGetNumberOfCurrentPlayersResponse{}
-	err := a.client.CallLegacy(ctx, protocol.EMsg_ClientGetNumberOfCurrentPlayersDP, req, resp)
+	resp, err := service.Legacy[pb.CMsgDPGetNumberOfCurrentPlayersResponse](ctx, a.client, protocol.EMsg_ClientGetNumberOfCurrentPlayersDP, req)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get player count: %w", err)
+		return 0, fmt.Errorf("apps: failed to get player count: %w", err)
 	}
 
 	eResult := protocol.EResult(resp.GetEresult())
 	if eResult != protocol.EResult_OK {
-		return 0, fmt.Errorf("steam returned error result: %s", eResult.String())
+		return 0, fmt.Errorf("apps: steam error: %s", eResult.String())
 	}
 
 	return resp.GetPlayerCount(), nil
 }
 
-// PlayGames tells Steam that you are currently playing the specified AppIDs.
-// Pass an empty slice to stop playing all games.
-// If forceKick is true, it will attempt to kick any other session playing games on this account.
+// PlayGames updates the account's status to "In-Game" for the specified AppIDs.
+// Pass an empty slice to stop playing.
+// If forceKick is true, it will attempt to disconnect any other session currently playing games.
 func (a *Apps) PlayGames(ctx context.Context, appIDs []uint32, forceKick bool) error {
 	a.mu.RLock()
 	blocked := a.playingBlocked
 	a.mu.RUnlock()
 
 	if blocked && forceKick {
-		a.logger.Info("Playing is blocked by another session. Forcing kick...")
+		a.Logger.Info("Playing session is blocked by another client. Attempting to kick...")
 		if err := a.KickPlayingSession(ctx); err != nil {
-			a.logger.Error("Failed to kick playing session", log.Err(err))
+			a.Logger.Error("Failed to kick other playing session", log.Err(err))
 		}
-		// Give Steam a moment to process the kick
+		// Give Steam a moment to invalidate the other session
 		time.Sleep(500 * time.Millisecond)
 	}
 
@@ -124,7 +127,7 @@ func (a *Apps) PlayGames(ctx context.Context, appIDs []uint32, forceKick bool) e
 	return a.sendGamesPlayed(ctx, games, appIDs)
 }
 
-// PlayCustomGame sets your status to playing a non-Steam game with a custom name.
+// PlayCustomGames sets the "In-Game" status to one or more non-Steam games with custom names.
 func (a *Apps) PlayCustomGames(ctx context.Context, names []string) error {
 	games := make([]*pb.CMsgClientGamesPlayed_GamePlayed, 0, len(names))
 	for _, name := range names {
@@ -136,41 +139,46 @@ func (a *Apps) PlayCustomGames(ctx context.Context, names []string) error {
 	return a.sendGamesPlayed(ctx, games, nil)
 }
 
-// StopPlaying tells Steam to clear your "In-Game" status.
+// StopPlaying clears the "In-Game" status for the account.
 func (a *Apps) StopPlaying(ctx context.Context) error {
 	return a.PlayGames(ctx, nil, false)
 }
 
-// KickPlayingSession asks Steam to disconnect any other client logged into this
-// account that is currently playing a game.
+// KickPlayingSession sends a request to Steam to terminate any other active
+// game-playing sessions on this account (e.g., on another PC).
 func (a *Apps) KickPlayingSession(ctx context.Context) error {
-	req := &pb.CMsgClientKickPlayingSession{}
-	return a.client.CallLegacy(ctx, protocol.EMsg_ClientKickPlayingSession, req, nil)
+	_, err := service.Legacy[any](ctx, a.client, protocol.EMsg_ClientKickPlayingSession, &pb.CMsgClientKickPlayingSession{})
+	return err
 }
+
+// --- Internal Logic ---
 
 func (a *Apps) sendGamesPlayed(ctx context.Context, games []*pb.CMsgClientGamesPlayed_GamePlayed, newAppIDs []uint32) error {
 	req := &pb.CMsgClientGamesPlayed{
 		GamesPlayed: games,
 	}
 
-	if err := a.client.CallLegacy(ctx, protocol.EMsg_ClientGamesPlayedWithDataBlob, req, nil); err != nil {
-		return fmt.Errorf("apps: failed to send games played: %w", err)
+	_, err := service.Legacy[any](ctx, a.client, protocol.EMsg_ClientGamesPlayedWithDataBlob, req)
+	if err != nil {
+		return fmt.Errorf("apps: failed to update playing status: %w", err)
 	}
 
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
+	// Emit events for newly launched apps
 	for _, newID := range newAppIDs {
 		if !slices.Contains(a.playingAppIDs, newID) {
-			a.logger.Debug("App launched", log.Uint32("appid", newID))
-			a.bus.Publish(&AppLaunchedEvent{AppID: newID})
+			a.Logger.Debug("App launched", log.Uint32("appid", newID))
+			a.Bus.Publish(&AppLaunchedEvent{AppID: newID})
 		}
 	}
 
+	// Emit events for quit apps
 	for _, oldID := range a.playingAppIDs {
 		if !slices.Contains(newAppIDs, oldID) {
-			a.logger.Debug("App quit", log.Uint32("appid", oldID))
-			a.bus.Publish(&AppQuitEvent{AppID: oldID})
+			a.Logger.Debug("App quit", log.Uint32("appid", oldID))
+			a.Bus.Publish(&AppQuitEvent{AppID: oldID})
 		}
 	}
 
@@ -178,10 +186,13 @@ func (a *Apps) sendGamesPlayed(ctx context.Context, games []*pb.CMsgClientGamesP
 	return nil
 }
 
+
+// --- Handlers ---
+
 func (a *Apps) handlePlayingSessionState(packet *protocol.Packet) {
 	msg := &pb.CMsgClientPlayingSessionState{}
 	if err := proto.Unmarshal(packet.Payload, msg); err != nil {
-		a.logger.Error("Failed to unmarshal ClientPlayingSessionState", log.Err(err))
+		a.Logger.Error("Failed to unmarshal playing session state", log.Err(err))
 		return
 	}
 
@@ -193,10 +204,10 @@ func (a *Apps) handlePlayingSessionState(packet *protocol.Packet) {
 	a.mu.Unlock()
 
 	if blocked {
-		a.logger.Warn("Playing state blocked by another session", log.Uint32("playing_app", playingApp))
+		a.Logger.Warn("In-game status blocked by another session", log.Uint32("active_app", playingApp))
 	}
 
-	a.bus.Publish(&PlayingStateEvent{
+	a.Bus.Publish(&PlayingStateEvent{
 		Blocked:    blocked,
 		PlayingApp: playingApp,
 	})

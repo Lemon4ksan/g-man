@@ -2,39 +2,17 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package api
+package service
 
 import (
-	"context"
 	"net/url"
 	"testing"
 
+	"github.com/lemon4ksan/g-man/pkg/steam/api"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
-
-func TestHttpTarget(t *testing.T) {
-	target := HttpTarget{
-		HttpMethod: "POST",
-		URL:        "https://steamcommunity.com/tradeoffer/new/",
-	}
-
-	if target.HTTPMethod() != "POST" {
-		t.Errorf("expected POST, got %s", target.HTTPMethod())
-	}
-
-	expectedPath := "tradeoffer/new/"
-	if target.HTTPPath() != expectedPath {
-		t.Errorf("expected path %s, got %s", expectedPath, target.HTTPPath())
-	}
-
-	// Test default method
-	targetDefault := HttpTarget{URL: "http://test.com/path"}
-	if targetDefault.HTTPMethod() != "GET" {
-		t.Error("expected default method GET")
-	}
-}
 
 func TestUnifiedTarget_Formatting(t *testing.T) {
 	cases := []struct {
@@ -45,30 +23,30 @@ func TestUnifiedTarget_Formatting(t *testing.T) {
 		{
 			name: "Standard Service",
 			target: UnifiedTarget{
-				Interface:  "Player",
-				MethodName: "GetGameBadgeLevels",
-				Version:    1,
-				IsService:  true,
+				Interface: "Player",
+				Method:    "GetGameBadgeLevels",
+				Version:   1,
+				IsService: true,
 			},
 			expected: "IPlayerService/GetGameBadgeLevels/v1",
 		},
 		{
 			name: "Already prefixed",
 			target: UnifiedTarget{
-				Interface:  "IInventory",
-				MethodName: "GetItems",
-				Version:    2,
-				IsService:  true,
+				Interface: "IInventory",
+				Method:    "GetItems",
+				Version:   2,
+				IsService: true,
 			},
 			expected: "IInventoryService/GetItems/v2",
 		},
 		{
 			name: "Non-Service",
 			target: UnifiedTarget{
-				Interface:  "Cloud",
-				MethodName: "GetFile",
-				Version:    1,
-				IsService:  false,
+				Interface: "Cloud",
+				Method:    "GetFile",
+				Version:   1,
+				IsService: false,
 			},
 			expected: "ICloud/GetFile/v1",
 		},
@@ -96,11 +74,9 @@ func TestUnifiedTarget_EMsg(t *testing.T) {
 }
 
 func TestNewUnifiedRequest_Encoding(t *testing.T) {
-	ctx := context.Background()
-
 	t.Run("Proto encoding", func(t *testing.T) {
 		msg := &emptypb.Empty{}
-		req, err := NewUnifiedRequest(ctx, "POST", "Test", "Method", 1, msg)
+		req, err := NewUnifiedRequest("POST", "Test", "Method", 1, msg)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -112,7 +88,7 @@ func TestNewUnifiedRequest_Encoding(t *testing.T) {
 
 	t.Run("JSON encoding", func(t *testing.T) {
 		msg := map[string]string{"foo": "bar"}
-		req, err := NewUnifiedRequest(ctx, "POST", "Test", "Method", 1, msg)
+		req, err := NewUnifiedRequest("POST", "Test", "Method", 1, msg)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -123,7 +99,7 @@ func TestNewUnifiedRequest_Encoding(t *testing.T) {
 
 	t.Run("Raw bytes", func(t *testing.T) {
 		raw := []byte{0x01, 0x02}
-		req, _ := NewUnifiedRequest(ctx, "POST", "Test", "Method", 1, raw)
+		req, _ := NewUnifiedRequest("POST", "Test", "Method", 1, raw)
 		if string(req.Body()) != string(raw) {
 			t.Error("raw body mismatch")
 		}
@@ -158,10 +134,10 @@ func TestLegacyTarget(t *testing.T) {
 }
 
 func TestRequestModifiers(t *testing.T) {
-	req := NewWebAPIRequest(context.Background(), "GET", "I", "M", 1)
+	req := NewWebAPIRequest("GET", "I", "M", 1)
 
-	WithParam("a", "1")(req)
-	WithParams(url.Values{"b": {"2"}})(req)
+	api.WithQueryParam("a", "1")(req, nil)
+	api.WithQueryParams(url.Values{"b": {"2"}})(req, nil)
 
 	if req.Params().Get("a") != "1" {
 		t.Error("WithParam failed")
