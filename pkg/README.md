@@ -77,54 +77,6 @@ G-man is built on **Declarative Configuration**, **Dependency Injection**, and *
 3. **Middleware-First**: Trade logic is not a mess of `if-else` statements. It's a clean chain of responsibilities (Middlewares) like `Recover` -> `Logger` -> `Blacklist` -> `Pricer`.
 4. **Persistent by Design**: With the `storage` layer, the bot can save Refresh Tokens and offer states, allowing for seamless auto-relogin after a crash or update.
 
-### Example: A Production-Ready Client
-
-```go
-package main
-
-import (
-    "context"
-    "time"
-
-    "github.com/lemon4ksan/g-man/pkg/modules/guard"
-    "github.com/lemon4ksan/g-man/pkg/modules/trading"
-    "github.com/lemon4ksan/g-man/pkg/steam"
-    "github.com/lemon4ksan/g-man/pkg/storage/memory" // Or your SQLite/Redis provider
-)
-
-func main() {
-    // 1. Setup persistence
-    store := memory.New()
-
-    // 2. Configure standard modules declaratively
-    cfg := steam.Config{
-        Storage: store,
-        Guard: &guard.Config{
-            IdentitySecret: "...",
-            AutoAccept:     true,
-        },
-        Trading: &trading.Config{
-            PollInterval: 30 * time.Second,
-        },
-    }
-
-    // 3. Initialize the client
-    client := steam.NewClient(cfg)
-
-    // 4. Authenticate (will use store to try auto-relogin if RefreshToken exists)
-    err := client.ConnectAndLogin(context.Background(), nil, &steam.LogOnDetails{
-        AccountName: "bot_user",
-        Password:    "bot_pass",
-    })
-    
-    if err != nil {
-        panic(err)
-    }
-
-    client.Wait()
-}
-```
-
 ## 🤝 Contributing
 
 When adding new packages or modifying existing ones in `pkg/`:

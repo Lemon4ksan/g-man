@@ -25,10 +25,11 @@ It prioritizes **Type Safety**, **Predictable Concurrency**, and **Modular Archi
 
 * **High-Concurrency Engine:** Native Go routines allow you to handle thousands of events, trade offers, and socket messages simultaneously without blocking.
 * **Polymorphic Transport:** A unique layer that seamlessly switches between **TCP/WebSockets** and **HTTP WebAPI**. Bypass rate limits by routing API calls directly through the authenticated CM socket.
-* **BaseModule Pattern:** Standardized lifecycle for all modules (`Init`, `StartAuthed`, `Close`). Built-in support for scoped logging, event bus integration, and safe goroutine management.
+* **BaseModule Pattern:** Standardized lifecycle for all modules (`Init`, `StartAuthed`, `Close`). Includes built-in support for scoped logging, event bus integration, and safe goroutine management.
+* **Persistence Layer:** Pluggable storage architecture. Automatically save and resume sessions (JWT Refresh Tokens) using Memory, SQLite, or PostgreSQL.
+* **Trade Middleware Engine:** A powerful "Onion" style processing chain for incoming trades (e.g., `Deduplicator` -> `Blacklist` -> `Pricer` -> `EscrowCheck`).
 * **Deep Error Scraping:** Specialized `community` client that detects "soft errors" (Family View, Login redirects, Steam Maintenance) hidden inside HTML responses.
-* **Modern Authentication:** Full support for JWT-based login, automatic `WebSession` establishment, and OIDC cookie transfers.
-* **Game Coordinator Native:** First-class support for GC interactions (TF2, CS2, DOTA2) with automatic job tracking and Protobuf unmarshaling.
+* **Game Coordinator Native:** First-class support for GC interactions (TF2, CS2, DOTA2) with automatic job tracking, `SOCache` (Shared Objects) management, and Protobuf unmarshaling.
 
 ## 📦 Installation
 
@@ -38,7 +39,7 @@ go get github.com/lemon4ksan/g-man@latest
 
 ## 🚀 Quick Start
 
-G-man uses a declarative configuration. You define the modules you need in a single config struct, and the client handles the rest.
+G-man uses a declarative configuration. You define the modules and storage you need in a single config struct, and the client handles the orchestration.
 
 ```go
 package main
@@ -48,32 +49,32 @@ import (
     "time"
 
     "github.com/lemon4ksan/g-man/pkg/log"
-    "github.com/lemon4ksan/g-man/pkg/modules/apps"
     "github.com/lemon4ksan/g-man/pkg/modules/auth"
     "github.com/lemon4ksan/g-man/pkg/modules/guard"
     "github.com/lemon4ksan/g-man/pkg/modules/trading"
     "github.com/lemon4ksan/g-man/pkg/steam"
+    "github.com/lemon4ksan/g-man/pkg/storage/memory"
 )
 
 func main() {
     logger := log.New(log.DefaultConfig(log.InfoLevel))
 
-    // 1. Configure the client and its modules
-    cfg := steam.Config{
-        Guard: &guard.Config{
+    // Configure the client and its pluggable modules
+    cfg := steam.DefaultConfig()
+    cfg.Storage = memory.New() // Use SQLite or Postgres for production
+
+    // Initialize the Client
+    client := steam.NewClient(cfg,
+        steam.WithLogger(logger),
+        guard.WithModule(guard.Config{
             IdentitySecret: "base64_secret",
             DeviceID:       "android:uuid",
             AutoAccept:     true,
-        },
-            Trading: &trading.Config{
-            PollInterval: 15 * time.Second,
-        },
-    }
+        }),
+        trading.WithModule(trading.DefaultConfig()),
+    )
 
-    // 2. Initialize the Client
-    client := steam.NewClient(cfg, steam.WithLogger(logger))
-
-    // 3. Subscribe to events via the global Bus
+    // Subscribe to events via the global Event Bus
     sub := client.Bus().Subscribe(&auth.LoggedOnEvent{}, &trading.NewOfferEvent{})
     go func() {
         for event := range sub.C() {
@@ -86,8 +87,8 @@ func main() {
         }
     }()
 
-    // 4. Connect and Login
-    err := client.ConnectAndLogin(context.Background(), nil, steam.LogOnDetails{
+    // Connect and Login (will automatically use saved tokens if available)
+    err := client.ConnectAndLogin(context.Background(), nil, &auth.LogOnDetails{
         AccountName: "username",
         Password:    "password",
     })
@@ -103,22 +104,24 @@ func main() {
 
 ### Core & Protocol
 
+* [x] **Persistence Layer:** Foundation interfaces and memory provider.
+* [ ] **Database Drivers:** Official support for SQLite (bbolt/sql) and PostgreSQL.
 * [ ] **Proxy Support:** Integrated SOCKS5/HTTP tunnel support for both Socket and WebAPI.
-* [ ] **Persistence Layer:** Pluggable storage drivers (Redis, PostgreSQL, SQLite) for session and state persistence.
-* [ ] **Steam CDN Support:** Logic for manifest parsing and downloading app metadata/item assets directly from Valve's content servers.
-* [ ] **WebSession Auto-Refresh:** Background worker to keep cookies alive via periodic "heartbeat" visits to lightweight Steam pages.
+* [ ] **Steam CDN Support:** Logic for manifest parsing and downloading app metadata/item assets.
+* [ ] **WebSession Auto-Refresh:** Background worker to keep cookies alive via periodic "heartbeat" visits.
 
 ### Economy & Trading
 
-* [ ] **Trade Middleware Engine:** A "Chain of Responsibility" for incoming trades (e.g., `Blacklist` -> `Pricer` -> `EscrowCheck`).
-* [ ] **Inventory Manager:** High-level abstractions for multi-context inventory synchronization and item moving.
-* [ ] **PriceDB Integration:** Generic interface for price providers (Backpack.tf, PriceDB, custom APIs).
+* [x] **Trade Middleware Engine:** "Chain of Responsibility" implementation.
+* [x] **SOCache Manager:** Real-time inventory mirroring via Game Coordinator.
+* [ ] **Inventory Manager:** High-level abstractions for item moving and multi-context sync.
+* [ ] **PriceDB Integration:** Generic interface for price providers (Backpack.tf, Prices.tf).
 
 ### Game Domains
 
-* [ ] **CS2 Support:** Full Game Coordinator implementation, including inventory and match data.
-* [ ] **Dota 2 Support:** GC implementation for item management and lobby control.
 * [ ] **TF2 Crafting:** High-level API for mass-smelting and weapon crafting.
+* [ ] **CS2 Support:** Game Coordinator implementation for inventory and match data.
+* [ ] **Dota 2 Support:** GC implementation for item management and lobby control.
 
 ## 🤝 Contributing
 
