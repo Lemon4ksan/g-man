@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/rest"
 	"github.com/lemon4ksan/g-man/pkg/steam/api"
@@ -34,6 +36,11 @@ var (
 	rxFamilyView = regexp.MustCompile(`<div id="parental_notice_instructions">Enter your PIN below to exit Family View\.<\/div>`)
 	rxSorry      = regexp.MustCompile(`<h1>Sorry!<\/h1>[\s\S]*?<h3>(.+?)<\/h3>`)
 	rxTradeError = regexp.MustCompile(`<div id="error_msg">\s*([^<]+)\s*<\/div>`)
+	rxApiKey     = regexp.MustCompile(`(?i)[0-9A-F]{32}`)
+)
+
+var (
+	ErrAPITokenNotFound = errors.New("could not find api key or registration form (account might be limited)")
 )
 
 // Client handles communication with Steam Community, backed by a generic REST client.
@@ -68,7 +75,7 @@ func (c *Client) SessionID(targetURI string) string {
 
 // Request implements rest.Requester. It executes the HTTP request and deeply
 // inspects the response for Steam-specific soft errors (like HTML redirects).
-func (c *Client) Request(ctx context.Context, method, path string, body []byte, query url.Values, mods ...rest.RequestModifier) (*http.Response, error) {
+func (c *Client) Request(ctx context.Context, method, path string, body []byte, query any, mods ...rest.RequestModifier) (*http.Response, error) {
 	c.logger.Debug("Community Request", log.String("method", method), log.String("path", path))
 
 	resp, err := c.restClient.Request(ctx, method, path, body, query, mods...)
@@ -94,12 +101,62 @@ func (c *Client) Request(ctx context.Context, method, path string, body []byte, 
 	return resp, nil
 }
 
+// GetOrRegisterAPIKey checks for the presence of a WebAPI key on the account.
+// If no key exists, it registers a new one for the specified domain (default: localhost).
+func (c *Client) GetOrRegisterAPIKey(ctx context.Context, domain string) (string, error) {
+	if domain == "" {
+		domain = "localhost"
+	}
+
+	body, err := GetHTML(ctx, c, "dev/apikey")
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch apikey page: %w", err)
+	}
+
+	key := rxApiKey.FindString(string(body))
+	if key != "" {
+		return key, nil
+	}
+
+	doc, err := goquery.NewDocumentFromReader(bytes.NewReader(body))
+	if err != nil {
+		return "", err
+	}
+
+	if doc.Find("#register_form").Length() > 0 {
+		return c.registerAPIKey(ctx, domain)
+	}
+
+	return "", ErrAPITokenNotFound
+}
+
+func (c *Client) registerAPIKey(ctx context.Context, domain string) (string, error) {
+	c.logger.Info("Registering new WebAPI key...", log.String("domain", domain))
+
+	formData := url.Values{
+		"domain":       {domain},
+		"agreeToTerms": {"agreed"},
+		"Submit":       {"Register"},
+		"sessionid":    {c.SessionID(BaseURL)},
+	}
+
+	resp, err := c.restClient.Request(ctx, "POST", "dev/registerkey", []byte(formData.Encode()), nil, func(req *http.Request) {
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	})
+	if err != nil {
+		return "", fmt.Errorf("registration request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	return c.GetOrRegisterAPIKey(ctx, domain)
+}
+
 // Get performs a GET request and unmarshals the resulting JSON into the Resp type.
 func Get[Resp any](ctx context.Context, c Requester, path string, reqMsg any, opts ...api.CallOption) (*Resp, error) {
 	var query url.Values
 	if reqMsg != nil {
 		var err error
-		query, err = api.StructToValues(reqMsg)
+		query, err = rest.StructToValues(reqMsg)
 		if err != nil {
 			return nil, err
 		}
@@ -134,7 +191,7 @@ func PostForm[Resp any](ctx context.Context, c Requester, path string, reqMsg an
 	var params url.Values
 	if reqMsg != nil {
 		var err error
-		params, err = api.StructToValues(reqMsg)
+		params, err = rest.StructToValues(reqMsg)
 		if err != nil {
 			return nil, err
 		}

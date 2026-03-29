@@ -38,5 +38,5 @@ type ConfigProvider interface {
 	IsMetalsCraftingEnabled() bool
 	GetMetalThresholds() (minScrap, minRec, threshold int)
 	GetCraftWeaponsByClass() map[string][]string
-	GetAllCraftWeapons()[]string
+	GetAllCraftWeapons() []string
 }

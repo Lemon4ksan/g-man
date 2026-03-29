@@ -5,29 +5,28 @@
 package tf2
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 
-	pb "github.com/lemon4ksan/g-man/pkg/tf2/protobuf"
 	gc "github.com/lemon4ksan/g-man/pkg/modules/coordinator/protocol"
+	pb "github.com/lemon4ksan/g-man/pkg/tf2/protobuf"
 )
 
 // Craft sends a crafting request.
 func (t *TF2) Craft(ctx context.Context, items []uint64, recipe int16) ([]uint64, error) {
 	// Format: [Recipe(int16)] [Count(int16)] [ItemID(uint64)]...
-	payload := make([]byte, 4+(8*len(items)))
-	binary.LittleEndian.PutUint16(payload[0:], uint16(recipe))
-	binary.LittleEndian.PutUint16(payload[2:], uint16(len(items)))
-
-	for i, id := range items {
-		offset := 4 + (i * 8)
-		binary.LittleEndian.PutUint64(payload[offset:], id)
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.LittleEndian, recipe)
+	binary.Write(buf, binary.LittleEndian, int16(len(items)))
+	for _, id := range items {
+		binary.Write(buf, binary.LittleEndian, id)
 	}
 
 	resCh := make(chan []uint64, 1)
 	errCh := make(chan error, 1)
 
-	err := t.gc.CallRaw(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCCraft), payload, func(pkt *gc.Packet, err error) {
+	err := t.gc.CallRaw(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCCraft), buf.Bytes(), func(pkt *gc.Packet, err error) {
 		if err != nil {
 			errCh <- err
 			return
@@ -41,12 +40,12 @@ func (t *TF2) Craft(ctx context.Context, items []uint64, recipe int16) ([]uint64
 	}
 
 	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case err := <-errCh:
-		return nil, err
 	case items := <-resCh:
 		return items, nil
+	case err := <-errCh:
+		return nil, err
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	}
 }
 
@@ -75,7 +74,7 @@ func (t *TF2) handleCraftResponse(pkt *gc.Packet) {
 	items := parseCraftResponse(pkt.Payload)
 	if len(items) > 0 || len(pkt.Payload) >= 2 {
 		blueprint := int16(binary.LittleEndian.Uint16(pkt.Payload[0:]))
-		t.bus.Publish(&CraftResponseEvent{
+		t.Bus.Publish(&CraftResponseEvent{
 			BlueprintID:  blueprint,
 			CreatedItems: items,
 		})

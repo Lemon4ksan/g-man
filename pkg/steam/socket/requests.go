@@ -14,6 +14,7 @@ import (
 // SendConfig contains parameters for sending a message.
 type SendConfig struct {
 	Callback jobs.Callback[*protocol.Packet]
+	Token    string
 }
 
 // SendOption defines a functional option for SendConfig.
@@ -26,13 +27,19 @@ func WithCallback(cb jobs.Callback[*protocol.Packet]) SendOption {
 	}
 }
 
+func WithToken(token string) SendOption {
+	return func(c *SendConfig) {
+		c.Token = token
+	}
+}
+
 // PayloadBuilder describes a function that assembles a binary packet body with the required headers.
-type PayloadBuilder func(sess Session, buf *bytes.Buffer, sourceJobID uint64) error
+type PayloadBuilder func(sess Session, buf *bytes.Buffer, sourceJobID uint64, token string) error
 
 // Proto creates a PayloadBuilder to send a Protobuf message.
 func Proto(eMsg protocol.EMsg, req proto.Message) PayloadBuilder {
-	return func(sess Session, buf *bytes.Buffer, sourceJobID uint64) error {
-		pkt, err := buildProtoPacket(sess, eMsg, sourceJobID, req)
+	return func(sess Session, buf *bytes.Buffer, sourceJobID uint64, token string) error {
+		pkt, err := buildProtoPacket(sess, eMsg, sourceJobID, req, "", token)
 		if err != nil {
 			return err
 		}
@@ -42,19 +49,18 @@ func Proto(eMsg protocol.EMsg, req proto.Message) PayloadBuilder {
 
 // Unified creates a PayloadBuilder to call the Unified Service (e.g. "Player.GetGameBadgeLevels#1").
 func Unified(method string, req proto.Message) PayloadBuilder {
-	return func(sess Session, buf *bytes.Buffer, sourceJobID uint64) error {
-		pkt, err := buildProtoPacket(sess, protocol.EMsg_ServiceMethodCallFromClient, sourceJobID, req)
+	return func(sess Session, buf *bytes.Buffer, sourceJobID uint64, token string) error {
+		pkt, err := buildProtoPacket(sess, protocol.EMsg_ServiceMethodCallFromClient, sourceJobID, req, method, token)
 		if err != nil {
 			return err
 		}
-		pkt.Header.(*protocol.MsgHdrProtoBuf).Proto.TargetJobName = proto.String(method)
 		return pkt.SerializeTo(buf)
 	}
 }
 
 // Raw creates a PayloadBuilder to send a plain byte array (e.g. for encryption).
 func Raw(eMsg protocol.EMsg, payload []byte) PayloadBuilder {
-	return func(sess Session, buf *bytes.Buffer, sourceJobID uint64) error {
+	return func(sess Session, buf *bytes.Buffer, sourceJobID uint64, _ string) error {
 		hdr := protocol.NewMsgHdr(eMsg, protocol.NoJob)
 		hdr.SourceJobID = sourceJobID
 
@@ -71,7 +77,7 @@ func Raw(eMsg protocol.EMsg, payload []byte) PayloadBuilder {
 
 // DynamicRaw creates a PayloadBuilder to send both unified and raw messages based on provided arguments.
 func DynamicRaw(eMsg protocol.EMsg, targetName string, payload []byte) PayloadBuilder {
-	return func(sess Session, buf *bytes.Buffer, sourceJobID uint64) error {
+	return func(sess Session, buf *bytes.Buffer, sourceJobID uint64, token string) error {
 		var steamID uint64
 		var sessionID int32
 		if sess != nil {
@@ -79,31 +85,27 @@ func DynamicRaw(eMsg protocol.EMsg, targetName string, payload []byte) PayloadBu
 			sessionID = sess.SessionID()
 		}
 
-		var pkt *protocol.Packet
-
 		if targetName != "" {
 			hdr := protocol.NewMsgHdrProtoBuf(eMsg, steamID, sessionID)
 			hdr.Proto.JobidSource = proto.Uint64(sourceJobID)
 			hdr.Proto.TargetJobName = proto.String(targetName)
 
-			pkt = &protocol.Packet{
+			if token != "" {
+				hdr.Proto.WgToken = proto.String(token)
+			}
+
+			pkt := &protocol.Packet{
 				EMsg:    eMsg,
 				IsProto: true,
 				Header:  hdr,
 				Payload: payload,
 			}
-		} else {
-			hdr := protocol.NewMsgHdrExtended(eMsg, steamID, sessionID)
-			hdr.SourceJobID = sourceJobID
-
-			pkt = &protocol.Packet{
-				EMsg:    eMsg,
-				IsProto: false,
-				Header:  hdr,
-				Payload: payload,
-			}
+			return pkt.SerializeTo(buf)
 		}
 
+		hdr := protocol.NewMsgHdrExtended(eMsg, steamID, sessionID)
+		hdr.SourceJobID = sourceJobID
+		pkt := &protocol.Packet{EMsg: eMsg, IsProto: false, Header: hdr, Payload: payload}
 		return pkt.SerializeTo(buf)
 	}
 }
@@ -145,7 +147,7 @@ func (s *Socket) Send(ctx context.Context, build PayloadBuilder, opts ...SendOpt
 		}
 	}()
 
-	if err := build(sess, buf, sourceJobID); err != nil {
+	if err := build(sess, buf, sourceJobID, cfg.Token); err != nil {
 		if cfg.Callback != nil {
 			s.jobManager.Resolve(sourceJobID, nil, err)
 		}
@@ -203,7 +205,7 @@ func (s *Socket) SendSync(ctx context.Context, build PayloadBuilder, opts ...Sen
 	}
 }
 
-func buildProtoPacket(sess Session, eMsg protocol.EMsg, jobID uint64, body proto.Message) (*protocol.Packet, error) {
+func buildProtoPacket(sess Session, eMsg protocol.EMsg, jobID uint64, body proto.Message, jobName, token string) (*protocol.Packet, error) {
 	var steamID uint64
 	var sessionID int32
 	if sess != nil {
@@ -221,6 +223,13 @@ func buildProtoPacket(sess Session, eMsg protocol.EMsg, jobID uint64, body proto
 
 	hdr := protocol.NewMsgHdrProtoBuf(eMsg, steamID, sessionID)
 	hdr.Proto.JobidSource = proto.Uint64(jobID)
+	if jobName != "" {
+		hdr.Proto.TargetJobName = proto.String(jobName)
+	}
+
+	if token != "" {
+		hdr.Proto.WgToken = proto.String(token)
+	}
 
 	return &protocol.Packet{EMsg: eMsg, IsProto: true, Header: hdr, Payload: payload}, nil
 }

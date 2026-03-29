@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package tf2schema
+package schema
 
 import (
 	"time"
@@ -14,18 +14,18 @@ type SchemaReadyEvent struct {
 	bus.BaseEvent
 }
 
-func (e *SchemaReadyEvent) Topic() string { return "tf2schema.ready" }
+func (e *SchemaReadyEvent) Topic() string { return "schema.ready" }
 
 type SchemaUpdatedEvent struct {
 	bus.BaseEvent
 	Timestamp time.Time
 }
 
-func (e *SchemaUpdatedEvent) Topic() string { return "tf2schema.updated" }
+func (e *SchemaUpdatedEvent) Topic() string { return "schema.updated" }
 
 type SchemaUpdateFailedEvent struct {
 	bus.BaseEvent
 	Error error
 }
 
-func (e *SchemaUpdateFailedEvent) Topic() string { return "tf2schema.failed" }
+func (e *SchemaUpdateFailedEvent) Topic() string { return "schema.failed" }

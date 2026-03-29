@@ -132,7 +132,7 @@ func TestApps_PlayGames_Sequence(t *testing.T) {
 
 	collectIDs := func(ch <-chan bus.Event, count int) []uint32 {
 		ids := make([]uint32, 0, count)
-		for i := 0; i < count; i++ {
+		for i := range count {
 			select {
 			case ev := <-ch:
 				if l, ok := ev.(*AppLaunchedEvent); ok {

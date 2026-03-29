@@ -38,7 +38,7 @@ func (t *TF2) AcknowledgeItem(ctx context.Context, itemID uint64) error {
 }
 
 func (t *TF2) sendSimpleItemAction(ctx context.Context, msgType pb.EGCItemMsg, itemID uint64) error {
-	buf := make([]byte, 8)
-	binary.LittleEndian.PutUint64(buf, itemID)
-	return t.gc.CallRaw(ctx, AppID, uint32(msgType), buf, nil)
+	data := make([]byte, 8)
+	binary.LittleEndian.PutUint64(data, itemID)
+	return t.gc.SendRaw(ctx, AppID, uint32(msgType), data)
 }

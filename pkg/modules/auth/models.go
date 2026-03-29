@@ -54,6 +54,9 @@ type LogOnDetails struct {
 	// and doesn't require storing passwords.
 	RefreshToken string
 
+	// AccessToken is a short-lived token that is generated during login.
+	AccessToken string
+
 	// SteamID can be provided to avoid looking it up during login.
 	// If not provided, it will be extracted from the refresh token or
 	// obtained during authentication.
@@ -84,4 +87,15 @@ type LogOnDetails struct {
 	// ClientLanguage specifies the language the client should use.
 	// Defaults to "english" if not specified.
 	ClientLanguage string
+}
+
+// NewLogOnDetails creates a new structure with default fields.
+func NewLogOnDetails(account, password string) *LogOnDetails {
+	return &LogOnDetails{
+		AccountName:     account,
+		Password:        password,
+		ClientOSType:    uint32(protocol.EOSType_Windows10),
+		ProtocolVersion: ProtocolVersion,
+		ClientLanguage:  "english",
+	}
 }

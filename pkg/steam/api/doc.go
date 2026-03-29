@@ -20,11 +20,13 @@ handling Steam's inconsistent response formats and parameter requirements.
 # Response Unwrapping
 
 A common pain point with Steam APIs is the "response" wrapper:
+
 	{
 	  "response": {
 	    "players": [...]
 	  }
 	}
+
 The UnmarshalJSON and UnmarshalVDF functions in this package detect the presence
 of this key and decode the inner content directly into your target struct,
 reducing boilerplate code in your service layers.
@@ -51,21 +53,6 @@ the result into a Go struct:
 	// Decode result
 	var result GetPlayerSummaryResponse
 	err = api.UnmarshalResponse(rawBody, &result, api.FormatJSON)
-
-# Usage Example: Struct to URL Parameters
-
-When dealing with many filters or complex queries, you can define a struct and
-convert it to [url.Values]:
-
-	type SearchParams struct {
-		SearchText string `url:"filter"`
-		Limit      int    `url:"count,omitempty"`
-		Strict     bool   `url:"strict"`
-	}
-
-	params := SearchParams{SearchText: "G-Man", Strict: true}
-	values, err := api.StructToValues(params)
-	// values now contains: filter=G-Man&strict=true
 
 # Error Handling
 

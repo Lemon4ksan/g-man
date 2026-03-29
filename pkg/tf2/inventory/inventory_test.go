@@ -5,268 +5,59 @@
 package inventory
 
 import (
-	"bytes"
 	"context"
 	"errors"
-	"io"
 	"net/http"
-	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/lemon4ksan/g-man/test"
 )
 
-type mockHTTPClient struct {
-	responses map[string]*http.Response
-	err       error
+type mockRoundTripper struct {
+	fn func(req *http.Request) (*http.Response, error)
 }
 
-func (m *mockHTTPClient) Do(req *http.Request) (*http.Response, error) {
-	if m.err != nil {
-		return nil, m.err
-	}
-	if resp, ok := m.responses[req.URL.String()]; ok {
-		return resp, nil
-	}
-	return &http.Response{
-		StatusCode: http.StatusNotFound,
-		Body:       io.NopCloser(bytes.NewReader(nil)),
-	}, nil
+func (m *mockRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	return m.fn(req)
 }
 
-func createBptfHTML(hasTable bool, isDuped bool) string {
-	var sb strings.Builder
-	sb.WriteString("<html><body>")
-	if hasTable {
-		sb.WriteString("<table><tr><td>History</td></tr></table>")
-		if isDuped {
-			sb.WriteString(`<button id="dupe-modal-btn">Duplicated</button>`)
-		}
-	}
-	sb.WriteString("</body></html>")
-	return sb.String()
+type MockDupeChecker struct {
+	Responses map[uint64]HistoryStatus
+	Err       error
 }
 
-func TestPlayerInventory_getItemHistory(t *testing.T) {
-	tests := []struct {
-		name         string
-		assetID      uint64
-		httpResponse *http.Response
-		httpErr      error
-		wantResult   ItemHistoryResult
-		wantErr      bool
-	}{
-		{
-			name:    "HTTP Error",
-			assetID: 123,
-			httpErr: errors.New("timeout"),
-			wantErr: true,
-		},
-		{
-			name:    "Status 404 - Not recorded",
-			assetID: 123,
-			httpResponse: &http.Response{
-				StatusCode: http.StatusNotFound,
-				Body:       io.NopCloser(bytes.NewReader(nil)),
-			},
-			wantResult: ItemHistoryResult{Recorded: false, IsDuped: false},
-			wantErr:    false,
-		},
-		{
-			name:    "Status 500 - Server Error",
-			assetID: 123,
-			httpResponse: &http.Response{
-				StatusCode: http.StatusInternalServerError,
-				Body:       io.NopCloser(bytes.NewReader(nil)),
-			},
-			wantErr: true,
-		},
-		{
-			name:    "Recorded, Clean (Table exists, no dupe button)",
-			assetID: 123,
-			httpResponse: &http.Response{
-				StatusCode: http.StatusOK,
-				Body:       io.NopCloser(strings.NewReader(createBptfHTML(true, false))),
-			},
-			wantResult: ItemHistoryResult{Recorded: true, IsDuped: false},
-			wantErr:    false,
-		},
-		{
-			name:    "Recorded, Duped (Table exists, dupe button exists)",
-			assetID: 123,
-			httpResponse: &http.Response{
-				StatusCode: http.StatusOK,
-				Body:       io.NopCloser(strings.NewReader(createBptfHTML(true, true))),
-			},
-			wantResult: ItemHistoryResult{Recorded: true, IsDuped: true},
-			wantErr:    false,
-		},
-		{
-			name:    "Not recorded, OK status (No table)",
-			assetID: 123,
-			httpResponse: &http.Response{
-				StatusCode: http.StatusOK,
-				Body:       io.NopCloser(strings.NewReader(createBptfHTML(false, false))),
-			},
-			wantResult: ItemHistoryResult{Recorded: false, IsDuped: false},
-			wantErr:    false,
-		},
+func (m *MockDupeChecker) CheckHistory(ctx context.Context, id uint64) (HistoryStatus, error) {
+	if m.Err != nil {
+		return HistoryStatus{}, m.Err
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mockHTTP := &mockHTTPClient{
-				err: tt.httpErr,
-				responses: map[string]*http.Response{
-					"https://backpack.tf/item/123": tt.httpResponse,
-				},
-			}
-
-			inv := &PlayerInventory{
-				httpClient: mockHTTP,
-				bptfUserID: "test_uid",
-			}
-
-			res, err := inv.getItemHistory(context.Background(), tt.assetID)
-
-			if (err != nil) != tt.wantErr {
-				t.Errorf("getItemHistory() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(res, tt.wantResult) {
-				t.Errorf("getItemHistory() = %v, want %v", res, tt.wantResult)
-			}
-		})
-	}
-}
-
-func TestPlayerInventory_fetch(t *testing.T) {
-	tests := []struct {
-		name        string
-		apiError    error
-		apiResponse PlayerItemsResponse
-		wantErr     bool
-		wantSlots   int
-		wantItems   int
-	}{
-		{
-			name:     "API Transport Error",
-			apiError: errors.New("network down"),
-			wantErr:  true,
-		},
-		{
-			name: "Steam API Status != 1 (Access Denied)",
-			apiResponse: PlayerItemsResponse{
-				Result: struct {
-					Status           int       `json:"status"`
-					StatusDetail     string    `json:"statusDetail"`
-					NumBackpackSlots int       `json:"num_backpack_slots"`
-					Items            []TF2Item `json:"items"`
-				}{
-					Status:       15,
-					StatusDetail: "access denied",
-				},
-			},
-			wantErr: true,
-		},
-		{
-			name: "Success Fetch",
-			apiResponse: PlayerItemsResponse{
-				Result: struct {
-					Status           int       `json:"status"`
-					StatusDetail     string    `json:"statusDetail"`
-					NumBackpackSlots int       `json:"num_backpack_slots"`
-					Items            []TF2Item `json:"items"`
-				}{
-					Status:           1,
-					NumBackpackSlots: 3000,
-					Items: []TF2Item{
-						{ID: 1, OriginalID: 1},
-						{ID: 2, OriginalID: 2},
-					},
-				},
-			},
-			wantErr:   false,
-			wantSlots: 3000,
-			wantItems: 2,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mockAPI := test.NewMockRequester()
-
-			if tt.apiError != nil {
-				mockAPI.ResponseErr = tt.apiError
-			} else {
-				mockAPI.SetJSONResponse("IEconItems_440", "GetPlayerItems", tt.apiResponse)
-			}
-
-			inv := &PlayerInventory{
-				steamClient: mockAPI,
-			}
-
-			err := inv.fetch(context.Background())
-
-			if (err != nil) != tt.wantErr {
-				t.Errorf("fetch() error = %v, wantErr %v", err, tt.wantErr)
-			}
-
-			if !tt.wantErr {
-				if inv.slots != tt.wantSlots {
-					t.Errorf("slots = %v, want %v", inv.slots, tt.wantSlots)
-				}
-				if len(inv.items) != tt.wantItems {
-					t.Errorf("items count = %v, want %v", len(inv.items), tt.wantItems)
-				}
-				if !inv.fetched {
-					t.Error("fetched flag should be true after successful fetch")
-				}
-			}
-		})
-	}
+	return m.Responses[id], nil
 }
 
 func TestPlayerInventory_IsDuped(t *testing.T) {
-	mockHTTP := &mockHTTPClient{
-		responses: map[string]*http.Response{
-			// Asset 100: Recorded directly on ID, Clean
-			"https://backpack.tf/item/100": {
-				StatusCode: http.StatusOK,
-				Body:       io.NopCloser(strings.NewReader(createBptfHTML(true, false))),
+	mockAPI := test.NewMockRequester()
+	mockAPI.SetJSONResponse("IEconItems_440", "GetPlayerItems", PlayerItemsResponse{
+		Result: struct {
+			Status           int       `json:"status"`
+			StatusDetail     string    `json:"statusDetail"`
+			NumBackpackSlots int       `json:"num_backpack_slots"`
+			Items            []TF2Item `json:"items"`
+		}{
+			Status: 1,
+			Items: []TF2Item{
+				{ID: 100, OriginalID: 50},
+				{ID: 200, OriginalID: 200},
 			},
-			// Asset 200: NOT recorded on ID. Original ID is 50.
-			"https://backpack.tf/item/200": {
-				StatusCode: http.StatusNotFound,
-				Body:       io.NopCloser(bytes.NewReader(nil)),
-			},
-			// Asset 50 (Original for 200): Recorded, Duped!
-			"https://backpack.tf/item/50": {
-				StatusCode: http.StatusOK,
-				Body:       io.NopCloser(strings.NewReader(createBptfHTML(true, true))),
-			},
-			// Asset 300: Not recorded on ID, not recorded on Original ID (60)
-			"https://backpack.tf/item/300": {
-				StatusCode: http.StatusNotFound,
-				Body:       io.NopCloser(bytes.NewReader(nil)),
-			},
-			"https://backpack.tf/item/60": {
-				StatusCode: http.StatusNotFound,
-				Body:       io.NopCloser(bytes.NewReader(nil)),
-			},
+		},
+	})
+
+	checker1 := &MockDupeChecker{
+		Responses: map[uint64]HistoryStatus{
+			200: {Recorded: true, IsDuped: false},
+			50:  {Recorded: true, IsDuped: true},
 		},
 	}
 
-	inv := &PlayerInventory{
-		httpClient: mockHTTP,
-		fetched:    true,
-		items: []TF2Item{
-			{ID: 100, OriginalID: 10},
-			{ID: 200, OriginalID: 50},
-			{ID: 300, OriginalID: 60},
-		},
-	}
+	inv := New(7656119, mockAPI, checker1)
 
 	tests := []struct {
 		name      string
@@ -275,54 +66,60 @@ func TestPlayerInventory_IsDuped(t *testing.T) {
 		wantErr   error
 	}{
 		{
-			name:      "Direct hit on current ID, Clean",
-			assetID:   100,
-			wantDuped: boolPtr(false),
-			wantErr:   nil,
-		},
-		{
-			name:      "Fallback to Original ID, Duped",
+			name:      "Clean item",
 			assetID:   200,
+			wantDuped: boolPtr(false),
+		},
+		{
+			name:      "Duped via OriginalID",
+			assetID:   100,
 			wantDuped: boolPtr(true),
-			wantErr:   nil,
 		},
 		{
-			name:      "Not found in history (Never premium on bptf)",
-			assetID:   300,
-			wantDuped: nil,
-			wantErr:   nil,
-		},
-		{
-			name:      "Item not in inventory",
-			assetID:   999,
-			wantDuped: nil,
-			wantErr:   ErrItemNotFound,
+			name:    "Item not in inventory",
+			assetID: 999,
+			wantErr: ErrItemNotFound,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := inv.IsDuped(context.Background(), tt.assetID)
-
-			if err != tt.wantErr {
-				t.Errorf("IsDuped() error = %v, want %v", err, tt.wantErr)
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("IsDuped() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
 			if tt.wantDuped == nil {
 				if got != nil {
-					t.Errorf("IsDuped() = %v, want nil", *got)
+					t.Errorf("expected nil result, got %v", *got)
 				}
 			} else {
-				if got == nil {
-					t.Errorf("IsDuped() = nil, want %v", *tt.wantDuped)
-				} else if *got != *tt.wantDuped {
-					t.Errorf("IsDuped() = %v, want %v", *got, *tt.wantDuped)
+				if got == nil || *got != *tt.wantDuped {
+					t.Errorf("IsDuped() = %v, want %v", got, tt.wantDuped)
 				}
 			}
 		})
 	}
 }
 
-func boolPtr(b bool) *bool {
-	return &b
+func TestPlayerInventory_MultipleCheckers(t *testing.T) {
+	checker1 := &MockDupeChecker{
+		Responses: map[uint64]HistoryStatus{
+			100: {Recorded: false},
+		},
+	}
+	checker2 := &MockDupeChecker{
+		Responses: map[uint64]HistoryStatus{
+			100: {Recorded: true, IsDuped: true},
+		},
+	}
+
+	inv := New(7656119, nil, checker1, checker2)
+
+	got, _ := inv.IsDuped(context.Background(), 100)
+	if got == nil || !*got {
+		t.Error("expected IsDuped to be true from second checker")
+	}
 }
+
+func boolPtr(b bool) *bool { return &b }

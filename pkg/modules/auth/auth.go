@@ -6,8 +6,12 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -17,25 +21,25 @@ import (
 	pb "github.com/lemon4ksan/g-man/pkg/steam/protobuf"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
+	"github.com/lemon4ksan/g-man/pkg/storage"
+	"github.com/lemon4ksan/g-man/pkg/storage/memory"
 	"google.golang.org/protobuf/proto"
 )
+
+var ErrLoginSuccess = errors.New("login successful")
 
 const ProtocolVersion = 65580
 
 // Config defines the configuration for the Authenticator.
 type Config struct {
-	ApiTimeout  time.Duration
-	LogonID     uint32
-	AutoRelogin bool
-	MaxRetries  int
+	LogonID      uint32
+	LogonTimeout time.Duration
 }
 
 func DefaultConfig() Config {
 	return Config{
-		ApiTimeout:  30 * time.Second,
-		LogonID:     uint32(time.Now().Unix()),
-		AutoRelogin: true,
-		MaxRetries:  3,
+		LogonID: uint32(time.Now().Unix()),
+		LogonTimeout: 30*time.Second,
 	}
 }
 
@@ -83,6 +87,7 @@ type WebAuthenticator interface {
 	BeginAuthSessionViaCredentials(ctx context.Context, accountName, password string, authCode string) (*pb.CAuthentication_BeginAuthSessionViaCredentials_Response, error)
 	PollAuthSessionStatus(ctx context.Context, clientID uint64, requestID []byte) (*pb.CAuthentication_PollAuthSessionStatus_Response, error)
 	UpdateAuthSessionWithSteamGuardCode(ctx context.Context, clientID, steamID uint64, code string, codeType pb.EAuthSessionGuardType) error
+	GenerateAccessTokenForApp(ctx context.Context, refreshToken string, steamID uint64) (*pb.CAuthentication_AccessToken_GenerateForApp_Response, error)
 }
 
 // Option defines a functional option for Authenticator.
@@ -90,6 +95,10 @@ type Option func(*Authenticator)
 
 func WithLogger(l log.Logger) Option {
 	return func(a *Authenticator) { a.logger = l.WithModule("auth") }
+}
+
+func WithStorage(store storage.AuthStore) Option {
+	return func(a *Authenticator) { a.store = store }
 }
 
 // Authenticator handles the complex multi-step Steam authentication process.
@@ -107,8 +116,9 @@ type Authenticator struct {
 	tempKey       atomic.Pointer[[]byte]
 
 	// Active login coordination
-	loginCtx    atomic.Pointer[context.Context]
-	loginCancel atomic.Pointer[context.CancelCauseFunc]
+	loginCtx    atomic.Value
+	loginCancel atomic.Value
+	store       storage.AuthStore
 }
 
 func NewAuthenticator(s SocketProvider, service WebAuthenticator, cfg Config, opts ...Option) *Authenticator {
@@ -120,6 +130,9 @@ func NewAuthenticator(s SocketProvider, service WebAuthenticator, cfg Config, op
 	}
 	for _, opt := range opts {
 		opt(auth)
+	}
+	if auth.store == nil {
+		auth.store = memory.New().AuthStore()
 	}
 
 	auth.setState(StateDisconnected)
@@ -147,23 +160,49 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 		return err
 	}
 
-	// Setup coordination context
-	loginCtx, cancel := context.WithCancelCause(ctx)
-	a.loginCtx.Store(&loginCtx)
-	a.loginCancel.Store(&cancel)
+	if len(details.MachineID) == 0 {
+		if savedMachineID, err := a.store.GetMachineID(ctx, details.AccountName); err == nil {
+			a.logger.Debug("Found saved MachineID in storage")
+			details.MachineID = savedMachineID
+		} else {
+			a.logger.Info("Generating new MachineID for account (First run on this device)")
+			details.MachineID = generateMachineID()
+			_ = a.store.SaveMachineID(ctx, details.AccountName, details.MachineID)
+		}
+	}
+
+	baseCtx, cancelWithCause := context.WithCancelCause(ctx)
+	loginCtx, cancel := context.WithTimeoutCause(baseCtx, a.config.LogonTimeout, errors.New("logon response timeout"))
+	defer cancel()
+
+	a.loginCtx.Store(loginCtx)
+	a.loginCancel.Store(cancelWithCause)
 	a.activeDetails.Store(details)
 
 	if details.RefreshToken == "" {
-		token, steamID, err := a.performPasswordAuth(loginCtx, details)
-		if err != nil {
-			return fmt.Errorf("webapi auth failed: %w", err)
+		if token, err := a.store.GetRefreshToken(ctx, details.AccountName); err == nil && token != "" {
+			a.logger.Info("Found saved refresh token in storage")
+			details.RefreshToken = token
 		}
+	}
 
-		// Update details with new credentials
-		details.RefreshToken = token
+	if details.RefreshToken != "" && details.SteamID == 0 {
+		details.SteamID = ExtractSteamIDFromJWT(details.RefreshToken)
+		if details.SteamID != 0 {
+			a.logger.Debug("Extracted SteamID from saved token", log.Uint64("steam_id", details.SteamID))
+		}
+	}
+
+	if details.RefreshToken == "" {
+		a.logger.Info("No saved token, performing password authentication via WebAPI")
+		refresh, access, steamID, err := a.performPasswordAuth(loginCtx, details)
+		if err != nil {
+			return err
+		}
+		details.RefreshToken = refresh
+		details.AccessToken = access
 		details.SteamID = steamID
-		a.activeDetails.Store(details)
-		a.logger.Info("Password authentication successful, obtained refresh token")
+		_ = a.store.SaveRefreshToken(ctx, details.AccountName, refresh)
 	}
 
 	a.setState(StateLoggingOn)
@@ -176,22 +215,30 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 		return errors.New("cm socket returned nil session")
 	}
 	sess.SetSteamID(details.SteamID)
-	sess.SetAccessToken(details.RefreshToken)
+	sess.SetRefreshToken(details.RefreshToken)
 
 	if server.Type == "websockets" {
 		a.logger.Debug("WebSocket detected, starting logon sequence immediately")
-		a.sendLogOn(loginCtx, details, details.RefreshToken)
+		a.sendLogOn(loginCtx, details)
 	}
 
 	<-loginCtx.Done()
 	err := context.Cause(loginCtx)
 
-	if err == nil || errors.Is(err, context.Canceled) {
+	if errors.Is(err, ErrLoginSuccess) {
 		a.setState(StateLoggedOn)
 		return nil
 	}
 
+	if strings.Contains(fmt.Sprint(err), "InvalidPassword") {
+		a.logger.Warn("Session rejected by CM, clearing token")
+		_ = a.store.Clear(ctx, details.AccountName)
+	}
+
 	a.setState(StateFailed)
+	if errors.Is(err, context.Canceled) {
+		return ctx.Err()
+	}
 	return err
 }
 
@@ -256,28 +303,30 @@ func (a *Authenticator) validate(details *LogOnDetails) error {
 	if details.ClientOSType == 0 {
 		details.ClientOSType = uint32(protocol.EOSType_Windows10)
 	}
+
 	if details.ProtocolVersion == 0 {
 		details.ProtocolVersion = ProtocolVersion
 	}
+
 	if details.ClientLanguage == "" {
 		details.ClientLanguage = "english"
 	}
 
 	if details.RefreshToken == "" && details.AccountName == "" {
-		return errors.New("auth: either refresh token or account name required")
+		return errors.New("auth: account name or refresh token is required")
 	}
+
 	if details.RefreshToken == "" && details.Password == "" {
-		return errors.New("auth: password required when using account name")
+		return errors.New("auth: password is required when refresh token is missing")
 	}
+
 	return nil
 }
 
-func (a *Authenticator) performPasswordAuth(ctx context.Context, details *LogOnDetails) (string, uint64, error) {
-	a.logger.Info("Starting password authentication via WebAPI")
-
+func (a *Authenticator) performPasswordAuth(ctx context.Context, details *LogOnDetails) (string, string, uint64, error) {
 	resp, err := a.service.BeginAuthSessionViaCredentials(ctx, details.AccountName, details.Password, details.AuthCode)
 	if err != nil {
-		return "", 0, fmt.Errorf("begin session failed: %w", err)
+		return "", "", 0, fmt.Errorf("begin session failed: %w", err)
 	}
 
 	confirmations := resp.GetAllowedConfirmations()
@@ -327,31 +376,30 @@ func (a *Authenticator) resolveConfirmation(ctx context.Context, conf *pb.CAuthe
 
 	case pb.EAuthSessionGuardType_k_EAuthSessionGuardType_DeviceConfirmation:
 		a.logger.Info("Mobile app confirmation required (Accept prompt on phone)")
-		a.socket.Bus().Publish(&SteamGuardRequiredEvent{Is2FA: true})
+		a.socket.Bus().Publish(&SteamGuardRequiredEvent{IsAppConfirm: true})
 	}
 }
 
-func (a *Authenticator) pollAuthStatus(ctx context.Context, clientID uint64, requestID []byte, steamID uint64, interval time.Duration) (string, uint64, error) {
+func (a *Authenticator) pollAuthStatus(ctx context.Context, clientID uint64, requestID []byte, steamID uint64, interval time.Duration) (string, string, uint64, error) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
-			return "", 0, context.Cause(ctx)
+			return "", "", 0, context.Cause(ctx)
 
 		case <-ticker.C:
 			pollRes, err := a.service.PollAuthSessionStatus(ctx, clientID, requestID)
 			if err != nil {
-				// Ignore duplicate requests/timeouts to keep polling
 				if !strings.Contains(err.Error(), "DuplicateRequest") {
 					a.logger.Debug("Poll status warning", log.Err(err))
 				}
 				continue
 			}
 
-			if token := pollRes.GetRefreshToken(); token != "" {
-				return token, steamID, nil
+			if refresh := pollRes.GetRefreshToken(); refresh != "" {
+				return refresh, pollRes.GetAccessToken(), steamID, nil
 			}
 		}
 	}
@@ -365,13 +413,49 @@ func (a *Authenticator) setState(state State) {
 }
 
 func (a *Authenticator) succeedLogin() {
-	if cancelPtr := a.loginCancel.Load(); cancelPtr != nil {
-		(*cancelPtr)(nil)
+	if cancelFunc, ok := a.loginCancel.Load().(context.CancelCauseFunc); ok {
+		cancelFunc(ErrLoginSuccess)
 	}
 }
 
 func (a *Authenticator) failLogin(err error) {
-	if cancelPtr := a.loginCancel.Load(); cancelPtr != nil {
-		(*cancelPtr)(err)
+	if cancelFunc, ok := a.loginCancel.Load().(context.CancelCauseFunc); ok {
+		cancelFunc(err)
 	}
+}
+
+func ExtractSteamIDFromJWT(token string) uint64 {
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return 0
+	}
+
+	payloadStr := parts[1]
+	if pad := len(payloadStr) % 4; pad != 0 {
+		payloadStr += strings.Repeat("=", 4-pad)
+	}
+
+	payload, err := base64.URLEncoding.DecodeString(payloadStr)
+	if err != nil {
+		payload, err = base64.RawURLEncoding.DecodeString(parts[1])
+		if err != nil {
+			return 0
+		}
+	}
+
+	var claims struct {
+		Sub string `json:"sub"`
+	}
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		return 0
+	}
+
+	steamID, _ := strconv.ParseUint(claims.Sub, 10, 64)
+	return steamID
+}
+
+func generateMachineID() []byte {
+	var b [42]byte
+	_, _ = rand.Read(b[:])
+	return b[:]
 }

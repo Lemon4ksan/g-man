@@ -305,10 +305,9 @@ func (s *Socket) Connect(ctx context.Context, server CMServer) error {
 	var ls Session = NewLoggedSession(baseSession, sessionLogger)
 	s.session.Store(&ls)
 
-	connCtx, connCancel := context.WithCancel(ctx)
-
 	s.mu.Lock()
-	s.connCtx, s.connCancel = connCtx, connCancel
+	s.connCtx, s.connCancel = context.WithCancel(context.Background())
+	connCtx := s.connCtx
 	s.mu.Unlock()
 
 	s.startWorkers(connCtx, s.config.WorkerCount)

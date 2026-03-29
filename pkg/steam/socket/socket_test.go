@@ -227,9 +227,9 @@ func TestSocket_JobTracking(t *testing.T) {
 	var receivedResp *protocol.Packet
 	var capturedJobID uint64
 
-	builder := func(sess Session, buf *bytes.Buffer, sourceJobID uint64) error {
+	builder := func(sess Session, buf *bytes.Buffer, sourceJobID uint64, token string) error {
 		capturedJobID = sourceJobID
-		return Raw(protocol.EMsg_ClientGamesPlayed, []byte("data"))(sess, buf, sourceJobID)
+		return Raw(protocol.EMsg_ClientGamesPlayed, []byte("data"))(sess, buf, sourceJobID, token)
 	}
 
 	err := sock.Send(t.Context(), builder,

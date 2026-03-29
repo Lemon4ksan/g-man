@@ -7,8 +7,8 @@ package steam
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"maps"
 	"sync"
 	"sync/atomic"
 
@@ -22,7 +22,25 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
+	"github.com/lemon4ksan/g-man/pkg/storage"
+	"github.com/lemon4ksan/g-man/pkg/storage/memory"
 )
+
+// Config aggregates configurations for all core subsystems and standard modules.
+type Config struct {
+	Socket  socket.Config
+	Auth    auth.Config
+	Storage storage.Provider
+	HTTP    rest.HTTPDoer // Optional custom HTTP client
+}
+
+// DefaultConfig returns the baseline configuration for core systems.
+func DefaultConfig() Config {
+	return Config{
+		Socket: socket.DefaultConfig(),
+		Auth:   auth.DefaultConfig(),
+	}
+}
 
 // State represents the lifecycle state of the high-level client.
 type State int32
@@ -46,39 +64,20 @@ func (s State) String() string {
 	}
 }
 
-// Config aggregates configurations for all core subsystems.
-type Config struct {
-	Socket socket.Config
-	Auth   auth.Config
-
-	// HTTPClient is optional. If nil, a default client is used.
-	HTTPClient rest.HTTPDoer
-}
-
-func DefaultConfig() Config {
-	return Config{
-		Socket: socket.DefaultConfig(),
-		Auth:   auth.DefaultConfig(),
-	}
-}
-
-// Option defines a functional configuration option for the Client.
+// Option defines a functional configuration option for custom overrides.
 type Option func(*Client)
 
 func WithLogger(l log.Logger) Option {
 	return func(c *Client) { c.logger = l }
 }
 
-func WithModule(m modules.Module) Option {
-	return func(c *Client) { c.modules[m.Name()] = m }
-}
-
 // Client acts as the central hub connecting the Socket, Auth, WebSession, and Modules.
 type Client struct {
 	// Configuration & Dependencies
-	cfg    Config
-	logger log.Logger
-	bus    *bus.Bus
+	cfg     Config
+	logger  log.Logger
+	bus     *bus.Bus
+	storage storage.Provider
 
 	// Core Components
 	socket     *socket.Socket
@@ -87,7 +86,7 @@ type Client struct {
 	community  *community.Client
 
 	// API Clients
-	webTransport    tr.Transport
+	restClient      *rest.Client
 	unifiedClient   *service.Client // WebAPI (HTTP)
 	socketAPIClient *service.Client // CM (TCP/WS)
 
@@ -102,14 +101,20 @@ type Client struct {
 	wg     sync.WaitGroup
 }
 
-// NewClient initializes a Steam Client with the provided config and options.
+// NewClient initializes a Steam Client.
 func NewClient(cfg Config, opts ...Option) *Client {
 	ctx, cancel := context.WithCancel(context.Background())
+
+	// Fallback to in-memory storage if none provided
+	if cfg.Storage == nil {
+		cfg.Storage = memory.New()
+	}
 
 	c := &Client{
 		cfg:     cfg,
 		logger:  log.Discard,
 		bus:     bus.NewBus(),
+		storage: cfg.Storage,
 		modules: make(map[string]modules.Module),
 		ctx:     ctx,
 		cancel:  cancel,
@@ -120,27 +125,26 @@ func NewClient(cfg Config, opts ...Option) *Client {
 		opt(c)
 	}
 
-	c.webTransport = tr.NewHTTPTransport(cfg.HTTPClient, service.WebAPIBase)
-	c.unifiedClient = service.New(c.webTransport)
+	webTransport := tr.NewHTTPTransport(cfg.HTTP, service.WebAPIBase)
+	c.unifiedClient = service.New(webTransport)
+	c.restClient = rest.NewClient(cfg.HTTP)
 
-	// We pass the global client context to the socket so it dies when we die.
 	c.socket = socket.NewSocket(
 		cfg.Socket,
 		socket.WithBus(c.bus),
-		socket.WithLogger(c.logger), // Logger will be wrapped inside
+		socket.WithLogger(c.logger),
 	)
 
-	// Auth needs a UnifiedClient (HTTP) to perform the initial handshake.
+	// Initialize Auth with Storage Support
 	authService := auth.NewAuthenticationService(c.unifiedClient, nil)
 	c.auth = auth.NewAuthenticator(
 		c.socket,
 		authService,
 		cfg.Auth,
 		auth.WithLogger(c.logger),
+		auth.WithStorage(cfg.Storage.AuthStore()),
 	)
 
-	// Initialize Socket API Client (Lazy-ready)
-	// This client uses the socket transport. It works only when connected.
 	socketTransport := tr.NewSocketTransport(c.socket)
 	c.socketAPIClient = service.New(socketTransport)
 
@@ -150,29 +154,16 @@ func NewClient(cfg Config, opts ...Option) *Client {
 		}
 	}
 
-	// Start lifecycle monitor
 	c.wg.Add(1)
 	go c.run()
 
 	return c
 }
 
-// GetModule returns the registered Module with the given name.
-func (c *Client) GetModule(name string) modules.Module {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.modules[name]
-}
-
 // ConnectAndLogin connects to the CM and performs the login sequence.
-// This is a helper that combines Socket.Connect and Auth.LogOn.
 func (c *Client) ConnectAndLogin(ctx context.Context, server socket.CMServer, details *auth.LogOnDetails) error {
 	if c.State() == StateClosed {
 		return modules.ErrClientClosed
-	}
-
-	if err := c.socket.Connect(ctx, server); err != nil {
-		return fmt.Errorf("connect: %w", err)
 	}
 
 	if err := c.auth.LogOn(ctx, details, server); err != nil {
@@ -180,29 +171,85 @@ func (c *Client) ConnectAndLogin(ctx context.Context, server socket.CMServer, de
 	}
 
 	c.mu.Lock()
-	sess := c.socket.Session()
-	if sess == nil {
-		return errors.New("session lost after login")
-	}
-	steamID := sess.SteamID()
-	c.webSession = auth.NewWebSession(steamID, c.logger)
+	c.webSession = auth.NewWebSession(details.SteamID, c.logger)
 	c.mu.Unlock()
 
-	// We use the Socket API Client for fetching because we are already logged in via TCP
-	socketAuthSvc := auth.NewAuthenticationService(c.socketAPIClient, nil)
+	c.wg.Go(func() {
+		defer c.startAuthed()
 
-	if err := c.webSession.Authenticate(ctx, socketAuthSvc, details.RefreshToken); err != nil {
-		c.logger.Warn("Failed to establish web session", log.Err(err))
-		// We don't return error here, because TCP login was successful.
-		// Trade bot might work partially (chat works, offers might not).
-	} else {
-		c.logger.Info("Web session established")
-	}
+		socketAuthSvc := auth.NewAuthenticationService(c.socketAPIClient, nil)
+		c.logger.Debug("Exchanging saved Refresh Token for Access Token...", log.Uint64("steam_id", details.SteamID))
 
-	c.wg.Add(1)
-	go c.startAuthed()
+		resp, err := socketAuthSvc.GenerateAccessTokenForApp(ctx, details.RefreshToken, details.SteamID)
+		if err != nil {
+			c.logger.Warn("Saved token expired or rejected", log.Err(err))
+		} else {
+			details.AccessToken = resp.GetAccessToken()
+			c.logger.Debug("Successfully generated Access Token for CM")
+		}
+
+		err = c.webSession.Authenticate(c.ctx, socketAuthSvc.DeviceConf().PlatformType, details.RefreshToken, details.AccessToken)
+		if err != nil {
+			c.logger.Warn("Web session failed", log.Err(err))
+			return
+		}
+
+		c.logger.Info("Web session ready")
+
+		c.mu.Lock()
+		comm := community.New(c.webSession.Client().HTTP(), c.webSession.SessionID, c.logger)
+		c.community = comm
+		c.mu.Unlock()
+
+		apiKey, err := comm.GetOrRegisterAPIKey(c.ctx, "g-man-bot.dev")
+		if err != nil {
+			c.logger.Warn("Could not auto-fetch API Key", log.Err(err))
+			return
+		}
+
+		c.logger.Info("WebAPI Key acquired automatically", log.String("key", apiKey[:4]+"***"))
+
+		c.mu.Lock()
+		c.unifiedClient.WithAPIKey(apiKey)
+		c.unifiedClient.WithAccessToken(details.AccessToken)
+		c.socketAPIClient.WithAPIKey(apiKey)
+		c.socketAPIClient.WithAccessToken(details.AccessToken)
+		c.mu.Unlock()
+	})
 
 	return nil
+}
+
+// Do implements the [service.Requester] interface.
+// This makes the Client a "smart proxy" that selects the transport on the fly.
+func (c *Client) Do(ctx context.Context, req *tr.Request) (*tr.Response, error) {
+	c.mu.RLock()
+	_, isSocketCompatible := req.Target().(tr.SocketTarget)
+	isConnected := c.socket.State() == socket.StateConnected
+	
+	var selectedRequester service.Requester
+	if isConnected && isSocketCompatible {
+		selectedRequester = c.socketAPIClient
+	} else {
+		selectedRequester = c.unifiedClient
+	}
+	c.mu.RUnlock()
+
+	return selectedRequester.Do(ctx, req)
+}
+
+// WithCustomModule allows adding non-standard (user-defined) modules.
+func (c *Client) RegisterModule(m modules.Module) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.modules[m.Name()] = m
+}
+
+// Module returns the registered Module with the given name.
+func (c *Client) Module(name string) modules.Module {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.modules[name]
 }
 
 // Disconnect closes the connection but keeps the client running (modules stay active).
@@ -225,45 +272,28 @@ func (c *Client) Wait() {
 	<-c.done
 }
 
+func (c *Client) Storage() storage.Provider { return c.storage }
 func (c *Client) State() State              { return State(c.state.Load()) }
 func (c *Client) Bus() *bus.Bus             { return c.bus }
 func (c *Client) Socket() *socket.Socket    { return c.socket }
-func (c *Client) Auth() *auth.Authenticator { return c.auth }
 func (c *Client) Logger() log.Logger        { return c.logger }
+func (c *Client) Rest() rest.Requester      { return c.restClient }
 
 // Service returns the client for making HTTP WebAPI, Unified and Legacy requests.
-// It automatically injects the AccessToken if available.
 func (c *Client) Service() service.Requester {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	// If we have a session, inject the token for every request
-	if sess := c.socket.Session(); sess != nil {
-		return c.unifiedClient.WithAccessToken(sess.AccessToken())
-	}
-	return c.unifiedClient
+	return c
 }
 
 // Community returns a client for interacting with the Steam Community website.
 // Returns nil if the web session is not established.
 func (c *Client) Community() community.Requester {
 	c.mu.RLock()
+	defer c.mu.RUnlock()
 
-	if c.community != nil {
-		defer c.mu.RUnlock()
+	if c.community != nil && c.webSession != nil && c.webSession.IsAuthenticated() {
 		return c.community
 	}
-
-	ws := c.webSession
-	c.mu.RUnlock()
-
-	if ws == nil || !ws.IsAuthenticated() {
-		return nil
-	}
-
-	// Create a transport using the authenticated WebSession client (CookieJar)
-	c.community = community.New(ws.Client().HTTP(), ws.SessionID, c.logger)
-	return c.community
+	return nil
 }
 
 // SteamID returns the logged-in SteamID, or 0.
@@ -327,7 +357,12 @@ func (c *Client) run() {
 }
 
 func (c *Client) startAuthed() {
-	for name, mod := range c.modules {
+	c.mu.RLock()
+	mods := make(map[string]modules.Module, len(c.modules))
+	maps.Copy(mods, c.modules)
+	c.mu.RUnlock()
+
+	for name, mod := range mods {
 		if authed, ok := mod.(modules.ModuleAuth); ok {
 			if err := authed.StartAuthed(c.ctx, c); err != nil {
 				c.logger.Error("Failed to start authed module", log.String("name", name), log.Err(err))

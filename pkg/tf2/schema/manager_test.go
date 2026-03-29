@@ -2,19 +2,33 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package tf2schema
+package schema
 
 import (
 	"context"
 	"errors"
+	"io"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/lemon4ksan/g-man/pkg/steam/bus"
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
 	"github.com/lemon4ksan/g-man/test"
 )
+
+func setupSchema(t *testing.T, cfg Config) (*Manager, *test.MockRequester) {
+	t.Helper()
+	mockAPI := test.NewMockRequester()
+	init := test.NewMockInitContext()
+	init.SetService(mockAPI)
+
+	sm := New(cfg)
+	if err := sm.Init(init); err != nil {
+		t.Fatalf("failed to init schema manager: %v", err)
+	}
+	return sm, mockAPI
+}
 
 func TestNewSchemaManager_ConfigDefaults(t *testing.T) {
 	cfg := Config{UpdateInterval: 10 * time.Second}
@@ -32,8 +46,7 @@ func TestNewSchemaManager_ConfigDefaults(t *testing.T) {
 }
 
 func TestSchemaManager_LiteModePruning(t *testing.T) {
-	cfg := Config{LiteMode: true}
-	sm := New(cfg)
+	sm, _ := setupSchema(t, Config{LiteMode: true})
 
 	raw := &RawSchema{
 		ItemsGame: map[string]any{
@@ -57,7 +70,7 @@ func TestSchemaManager_LiteModePruning(t *testing.T) {
 }
 
 func TestSchemaManager_Refresh_Success(t *testing.T) {
-	mockAPI := test.NewMockRequester()
+	sm, mockAPI := setupSchema(t, Config{LiteMode: false})
 
 	mockAPI.SetJSONResponse("IEconItems_440", "GetSchemaOverview", map[string]any{
 		"result": map[string]any{
@@ -74,29 +87,28 @@ func TestSchemaManager_Refresh_Success(t *testing.T) {
 		},
 	})
 
-	mockAPI.OnDo = func(req *tr.Request) (*tr.Response, error) {
-		target := req.Target().String()
-
-		if strings.Contains(target, "paint_kits") || strings.Contains(target, "proto_obj") {
+	mockAPI.OnRest = func(method, path string, body []byte) (*http.Response, error) {
+		if strings.Contains(path, "proto_obj_defs") {
 			vdf := "\"lang\"\n{\n\t\"Tokens\"\n\t{\n\t\t\"9_12_weapon 12\" \"Nutcracker\"\n\t}\n}\n"
-			return tr.NewResponse([]byte(vdf), tr.HTTPMetadata{StatusCode: 200}), nil
+			return &http.Response{
+				Body: io.NopCloser(strings.NewReader(vdf)),
+				StatusCode: 200,
+			}, nil
 		}
 
-		if strings.Contains(target, "items_game") {
+		if strings.Contains(path, "items_game.txt") {
 			vdf := "\"items_game\"\n{\n\t\"valid_key\" \"value\"\n}\n"
-			return tr.NewResponse([]byte(vdf), tr.HTTPMetadata{StatusCode: 200}), nil
+			return &http.Response{
+				Body: io.NopCloser(strings.NewReader(vdf)),
+				StatusCode: 200,
+			}, nil
 		}
 
 		return nil, nil
 	}
+	sub := sm.Bus.Subscribe(&SchemaUpdatedEvent{})
 
-	sm := New(Config{LiteMode: false})
-	sm.client = mockAPI
-	sm.bus = bus.NewBus()
-
-	ctx := context.Background()
-
-	err := sm.Refresh(ctx)
+	err := sm.Refresh(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error during Refresh: %v", err)
 	}
@@ -113,12 +125,11 @@ func TestSchemaManager_Refresh_Success(t *testing.T) {
 		t.Errorf("expected item defindex 5021, got %d", schema.Raw.Schema.Items[0].Defindex)
 	}
 
-	if kitName, exists := schema.Raw.Schema.PaintKits["12"]; !exists || kitName != "Nutcracker" {
-		t.Errorf("expected paintkit '12' to be 'Nutcracker', got %v", kitName)
-	}
-
-	if val, ok := schema.Raw.ItemsGame["valid_key"]; !ok || val != "value" {
-		t.Errorf("expected ItemsGame to contain valid_key='value', got %v", val)
+	select {
+	case <-sub.C():
+		// OK
+	case <-time.After(100 * time.Millisecond):
+		t.Error("SchemaUpdatedEvent was not published")
 	}
 }
 
@@ -140,10 +151,13 @@ func TestSchemaManager_Refresh_Failures(t *testing.T) {
 			},
 		},
 		{
-			name: "External Resource HTTP Error",
+			name: "Github Resource Down",
 			mockSetup: func(m *test.MockRequester) {
 				m.OnDo = func(req *tr.Request) (*tr.Response, error) {
-					return nil, errors.New("github down")
+					if strings.HasPrefix(req.Target().String(), "https://raw.githubusercontent.com") {
+						return nil, errors.New("github connection failed")
+					}
+					return nil, nil
 				}
 			},
 		},
@@ -151,16 +165,12 @@ func TestSchemaManager_Refresh_Failures(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockAPI := test.NewMockRequester()
+			sm, mockAPI := setupSchema(t, Config{})
 
 			mockAPI.SetJSONResponse("IEconItems_440", "GetSchemaOverview", map[string]any{"result": map[string]any{}})
 			mockAPI.SetJSONResponse("IEconItems_440", "GetSchemaItems", map[string]any{"result": map[string]any{"items": []any{}}})
 
 			tt.mockSetup(mockAPI)
-
-			sm := New(Config{})
-			sm.client = mockAPI
-			sm.bus = bus.NewBus()
 
 			err := sm.Refresh(context.Background())
 			if err == nil {

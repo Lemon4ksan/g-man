@@ -17,9 +17,11 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/modules"
 	"github.com/lemon4ksan/g-man/pkg/modules/auth"
 	"github.com/lemon4ksan/g-man/pkg/modules/econ"
+	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/bus"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
+	schema "github.com/lemon4ksan/g-man/pkg/tf2/schema"
 )
 
 const ModuleName = "trading"
@@ -64,6 +66,16 @@ func DefaultConfig() Config {
 	}
 }
 
+func WithModule(cfg Config) steam.Option {
+	return func(c *steam.Client) {
+		c.RegisterModule(New(cfg))
+	}
+}
+
+type SchemaProvider interface {
+	Get() *schema.Schema
+}
+
 // Manager handles trade offer synchronization, polling, and state tracking.
 // It integrates with a Processor to handle business logic for individual offers.
 type Manager struct {
@@ -73,6 +85,7 @@ type Manager struct {
 	web       service.Requester
 	community community.Requester
 	processor *Processor
+	schema    SchemaProvider
 
 	config Config
 	cache  *AssetCache
@@ -109,6 +122,11 @@ func (m *Manager) Init(init modules.InitContext) error {
 	}
 
 	m.web = init.Service()
+
+	schemaMod := init.Module("tf2_schema")
+	if schemaMod == nil {
+		m.Logger.Warn("tf2_schema module not found, cannot resolve SKUs")
+	}
 
 	// Listen for auth events to handle disconnects
 	sub := m.Bus.Subscribe(auth.StateEvent{})
@@ -221,20 +239,18 @@ func (m *Manager) GetOffer(ctx context.Context, offerID uint64) (*TradeOffer, er
 		Language     string `url:"language"`
 	}{offerID, m.config.Language}
 	type respStruct struct {
-		Response struct {
-			Offer *TradeOffer `json:"offer"`
-		} `json:"response"`
+		Offer *TradeOffer `json:"offer"`
 	}
 	resp, err := service.WebAPI[respStruct](ctx, m.web, "GET", "IEconService", "GetTradeOffer", 1, req)
 	if err != nil {
 		return nil, err
 	}
 
-	if resp.Response.Offer == nil {
+	if resp.Offer == nil {
 		return nil, fmt.Errorf("offer %d not found", offerID)
 	}
 
-	return resp.Response.Offer, nil
+	return resp.Offer, nil
 }
 
 // IsItemInTrade allows external modules to know whether an item in the offer is already occupied.
@@ -298,6 +314,7 @@ func (m *Manager) doPoll(ctx context.Context) {
 	allOffers := append(resp.Sent, resp.Received...)
 
 	for _, offer := range allOffers {
+		m.enrichOfferWithSKUs(offer)
 		m.lastSeenOffers[offer.ID] = now
 		oldState, exists := m.knownOffers[offer.ID]
 
@@ -323,6 +340,27 @@ func (m *Manager) doPoll(ctx context.Context) {
 	m.gcKnownOffers(now)
 }
 
+func (m *Manager) enrichOfferWithSKUs(offer *TradeOffer) {
+	if m.schema == nil {
+		m.Logger.Error("tf2_schema module not found, cannot resolve SKU")
+		return
+	}
+
+	schema := m.schema.Get()
+	if schema == nil {
+		m.Logger.Warn("schema is not ready yet")
+		return
+	}
+
+	for i := range offer.ItemsToGive {
+		offer.ItemsToGive[i].SKU = schema.GetSKUFromEconItem(offer.ItemsToGive[i])
+	}
+
+	for i := range offer.ItemsToReceive {
+		offer.ItemsToReceive[i].SKU = schema.GetSKUFromEconItem(offer.ItemsToReceive[i])
+	}
+}
+
 // gcKnownOffers removes stale offers from memory to prevent memory leaks.
 func (m *Manager) gcKnownOffers(now time.Time) {
 	for id, lastSeen := range m.lastSeenOffers {
@@ -342,7 +380,9 @@ func (m *Manager) listenEvents(ctx context.Context, sub *bus.Subscription) {
 		case <-ctx.Done():
 			return
 		case ev, ok := <-sub.C():
-			if !ok { return }
+			if !ok {
+				return
+			}
 			if e, ok := ev.(*auth.StateEvent); ok {
 				if e.New == auth.StateDisconnected {
 					m.StopPolling()

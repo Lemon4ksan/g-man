@@ -88,7 +88,7 @@ func (s *WebSession) SessionID(targetURL string) string {
 }
 
 // Authenticate performs the OIDC login flow to establish web cookies using a refresh token.
-func (s *WebSession) Authenticate(ctx context.Context, authService *AuthenticationService, refreshToken string) error {
+func (s *WebSession) Authenticate(ctx context.Context, platform pb.EAuthTokenPlatformType, refreshToken, accessToken string) error {
 	if refreshToken == "" {
 		return fmt.Errorf("websession: refresh token is required")
 	}
@@ -98,35 +98,25 @@ func (s *WebSession) Authenticate(ctx context.Context, authService *Authenticati
 		return err
 	}
 
-	platform := authService.DeviceConf().PlatformType
-
 	// Steam treats Web tokens and App tokens differently. Fast path is for client tokens.
 	if platform == pb.EAuthTokenPlatformType_k_EAuthTokenPlatformType_SteamClient ||
-		platform == pb.EAuthTokenPlatformType_k_EAuthTokenPlatformType_MobileApp {
+		platform == pb.EAuthTokenPlatformType_k_EAuthTokenPlatformType_MobileApp && accessToken != "" {
 		s.logger.Debug("Platform allows fast-path cookie generation")
-		return s.authFastPath(ctx, authService, refreshToken, sessionID)
+		return s.applyFastPath(accessToken, sessionID)
 	}
 
 	return s.authSlowPath(ctx, refreshToken, sessionID)
 }
 
-// authFastPath directly constructs the steamLoginSecure cookie using a JWT.
-func (s *WebSession) authFastPath(ctx context.Context, authService *AuthenticationService, refreshToken, sessionID string) error {
-	tokenResp, err := authService.GenerateAccessTokenForApp(ctx, refreshToken, s.steamID)
-	if err != nil {
-		return fmt.Errorf("websession: failed to generate token: %w", err)
-	}
-
-	// Format: SteamID||AccessToken
-	secureCookieValue := fmt.Sprintf("%d||%s", s.steamID, tokenResp.GetAccessToken())
-
+func (s *WebSession) applyFastPath(accessToken, sessionID string) error {
+	secureCookieValue := fmt.Sprintf("%d||%s", s.steamID, accessToken)
 	s.seedCookies(sessionID, secureCookieValue)
 
 	s.mu.Lock()
 	s.isAuth = true
 	s.mu.Unlock()
 
-	s.logger.Info("Web session authenticated (Fast Path)")
+	s.logger.Info("Web session authenticated via existing token")
 	return nil
 }
 

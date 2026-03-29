@@ -15,6 +15,7 @@ import (
 
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/modules"
+	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/api"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
@@ -36,6 +37,12 @@ func DefaultConfig() Config {
 		Country:  "US",
 		Language: "english",
 	}
+}
+
+func WithModule(cfg Config) steam.Option {
+    return func(c *steam.Client) {
+        c.RegisterModule(New(cfg))
+    }
 }
 
 // Manager manages interactions with the Steam Community Market.

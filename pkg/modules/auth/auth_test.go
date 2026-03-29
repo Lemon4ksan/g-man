@@ -25,6 +25,7 @@ type mockSession struct {
 	sessionID int32
 	key       []byte
 	token     string
+	access    string
 }
 
 func (m *mockSession) SteamID() uint64                             { return m.steamID }
@@ -33,8 +34,10 @@ func (m *mockSession) SessionID() int32                            { return m.se
 func (m *mockSession) SetSessionID(id int32)                       { m.sessionID = id }
 func (m *mockSession) SetEncryptionKey(k []byte) bool              { m.key = k; return true }
 func (m *mockSession) IsEncrypted() bool                           { return m.key != nil }
-func (m *mockSession) AccessToken() string                         { return m.token }
-func (m *mockSession) SetAccessToken(t string)                     { m.token = t }
+func (m *mockSession) RefreshToken() string                        { return m.token }
+func (m *mockSession) AccessToken() string                         { return m.access }
+func (m *mockSession) SetRefreshToken(t string)                    { m.token = t }
+func (m *mockSession) SetAccessToken(t string)                     { m.access = t }
 func (m *mockSession) Close() error                                { return nil }
 func (m *mockSession) IsAuthenticated() bool                       { return m.token != "" }
 func (m *mockSession) Send(ctx context.Context, data []byte) error { return nil }
@@ -113,6 +116,7 @@ func (m *mockSocketProvider) simulatePacket(eMsg protocol.EMsg, payload []byte) 
 type mockWebAuth struct {
 	beginResp *pb.CAuthentication_BeginAuthSessionViaCredentials_Response
 	pollResp  *pb.CAuthentication_PollAuthSessionStatus_Response
+	genResp   *pb.CAuthentication_AccessToken_GenerateForApp_Response
 	err       error
 }
 
@@ -125,6 +129,9 @@ func (m *mockWebAuth) PollAuthSessionStatus(ctx context.Context, id uint64, reqI
 func (m *mockWebAuth) UpdateAuthSessionWithSteamGuardCode(ctx context.Context, cID, sID uint64, code string, t pb.EAuthSessionGuardType) error {
 	return m.err
 }
+func (m *mockWebAuth) GenerateAccessTokenForApp(ctx context.Context, refreshToken string, steamID uint64) (*pb.CAuthentication_AccessToken_GenerateForApp_Response, error) {
+	return m.genResp, m.err
+}
 
 func TestAuthenticator_CryptoHandshake(t *testing.T) {
 	s := newMockSocket()
@@ -134,8 +141,8 @@ func TestAuthenticator_CryptoHandshake(t *testing.T) {
 	ctx, cancel := context.WithCancelCause(context.Background())
 	details := &LogOnDetails{RefreshToken: "test_token"}
 
-	a.loginCtx.Store(&ctx)
-	a.loginCancel.Store(&cancel)
+	a.loginCtx.Store(ctx)
+	a.loginCancel.Store(cancel)
 	a.activeDetails.Store(details)
 	a.state.Store(int32(StateLoggingOn))
 

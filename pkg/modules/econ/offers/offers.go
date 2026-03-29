@@ -12,6 +12,7 @@ import (
 
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/modules"
+	"github.com/lemon4ksan/g-man/pkg/steam"
 	pb "github.com/lemon4ksan/g-man/pkg/steam/protobuf"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
@@ -19,6 +20,12 @@ import (
 )
 
 const ModuleName string = "offers"
+
+func WithModule() steam.Option {
+    return func(c *steam.Client) {
+        c.RegisterModule(New())
+    }
+}
 
 // Manager handles trade invitations (proposing, accepting, canceling).
 // It embeds modules.BaseModule for lifecycle and concurrency management.

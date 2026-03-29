@@ -39,6 +39,7 @@ type Item struct {
 	Output        int
 	OutputQuality int
 	Paint         int
+	Spells        []int
 }
 
 // FromString parses a SKU string into an Item.

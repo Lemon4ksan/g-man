@@ -133,7 +133,7 @@ func TestManager_AddAndRemoveFriend(t *testing.T) {
 
 func TestManager_InviteToGroups(t *testing.T) {
 	m, _ := setupFriends(t)
-	
+
 	authCtx := test.NewMockAuthContext(BotSteamID)
 	comm := authCtx.MockCommunity()
 
@@ -151,7 +151,7 @@ func TestManager_InviteToGroups(t *testing.T) {
 		if last == nil {
 			t.Fatal("no HTTP call recorded")
 		}
-		
+
 		data, _ := io.ReadAll(last.Body)
 		body, _ := url.ParseQuery(string(data))
 		if body.Get("invitee") != fmt.Sprint(FriendID_1) {

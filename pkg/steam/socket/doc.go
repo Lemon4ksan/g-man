@@ -15,13 +15,13 @@ decompression of Steam "Multi" messages.
 
 The socket layer revolves around three main pillars:
 
-1.  Connection Management: Handles dialers, handshakes, and heartbeats. It supports
+ 1. Connection Management: Handles dialers, handshakes, and heartbeats. It supports
     multiple transport protocols (TCP, WebSockets) through the ConnectionDialer interface.
 
-2.  Message Dispatching: Routes incoming packets to registered handlers based on
+ 2. Message Dispatching: Routes incoming packets to registered handlers based on
     the EMsg (message type) or the Service Method name (for Unified Services).
 
-3.  Job Tracking: Implements an asynchronous request-response pattern using Job IDs.
+ 3. Job Tracking: Implements an asynchronous request-response pattern using Job IDs.
     Methods like CallProto and CallUnified return results via callbacks, mapping
     Steam's asynchronous responses back to the original callers.
 
@@ -34,7 +34,7 @@ operations for lifecycle status and RWMutexes for configuration data.
 
 # Packet Handling Flow
 
-    Network -> inboundHandler -> processSingle -> msgCh -> Workers -> routePacket -> Handler/Job
+	Network -> inboundHandler -> processSingle -> msgCh -> Workers -> routePacket -> Handler/Job
 
 The router automatically detects special Steam messages, such as EMsg_Multi,
 which are transparently decompressed (GZIP) and re-dispatched as individual

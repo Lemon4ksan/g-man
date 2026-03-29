@@ -17,6 +17,7 @@ type SessionReader interface {
 	SteamID() uint64
 	SessionID() int32
 	AccessToken() string
+	RefreshToken() string
 
 	// IsAuthenticated returns true if the session has been assigned both
 	// a SessionID by the CM and a valid SteamID.
@@ -33,6 +34,7 @@ type SessionWriter interface {
 type SessionMutator interface {
 	SetSteamID(uint64)
 	SetSessionID(int32)
+	SetRefreshToken(string)
 	SetAccessToken(string)
 
 	// SetEncryptionKey upgrades the underlying connection to use Steam's
@@ -60,9 +62,10 @@ var _ Session = (*BaseSession)(nil)
 type BaseSession struct {
 	conn network.Connection
 
-	steamID     atomic.Uint64
-	sessionID   atomic.Int32
-	accessToken atomic.Value
+	steamID      atomic.Uint64
+	sessionID    atomic.Int32
+	refreshToken atomic.Value
+	accessToken  atomic.Value
 }
 
 // NewBaseSession initializes a new session wrapping the provided connection.
@@ -78,6 +81,11 @@ func (s *BaseSession) SteamID() uint64 {
 
 func (s *BaseSession) SessionID() int32 {
 	return s.sessionID.Load()
+}
+
+func (s *BaseSession) RefreshToken() string {
+	val, _ := s.refreshToken.Load().(string)
+	return val
 }
 
 func (s *BaseSession) AccessToken() string {
@@ -97,6 +105,10 @@ func (s *BaseSession) SetSteamID(sid uint64) {
 
 func (s *BaseSession) SetSessionID(sid int32) {
 	s.sessionID.Store(sid)
+}
+
+func (s *BaseSession) SetRefreshToken(token string) {
+	s.refreshToken.Store(token)
 }
 
 func (s *BaseSession) SetAccessToken(token string) {

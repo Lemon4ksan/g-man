@@ -12,6 +12,7 @@ import (
 
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/modules"
+	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	pb "github.com/lemon4ksan/g-man/pkg/steam/protobuf"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
@@ -20,6 +21,12 @@ import (
 )
 
 const ModuleName string = "friends"
+
+func WithModule() steam.Option {
+    return func(c *steam.Client) {
+        c.RegisterModule(New())
+    }
+}
 
 // Manager handles friends list synchronization and user status tracking.
 // It embeds modules.BaseModule for standardized lifecycle management.

@@ -55,27 +55,27 @@ func TestToRefined(t *testing.T) {
 func TestCurrencies_String(t *testing.T) {
 	tests := []struct {
 		name string
-		c    *currency.Currencies
+		c    *currency.Currency
 		want string
 	}{
 		{
 			name: "Single key and metal",
-			c:    currency.NewCurrencies(1, 20.11),
+			c:    currency.New(1, 20.11),
 			want: "1 key, 20.11 ref",
 		},
 		{
 			name: "Multiple keys",
-			c:    currency.NewCurrencies(5, 0),
+			c:    currency.New(5, 0),
 			want: "5 keys",
 		},
 		{
 			name: "Only metal",
-			c:    currency.NewCurrencies(0, 15.33),
+			c:    currency.New(0, 15.33),
 			want: "15.33 ref",
 		},
 		{
 			name: "Zero value",
-			c:    currency.NewCurrencies(0, 0),
+			c:    currency.New(0, 0),
 			want: "0 keys, 0 ref",
 		},
 	}
@@ -108,7 +108,7 @@ func TestCurrencies_ToValue(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := currency.NewCurrencies(tt.keys, tt.metal)
+			c := currency.New(tt.keys, tt.metal)
 			conversion := conv
 			if tt.wantErr {
 				conversion = 0

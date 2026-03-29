@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package models provides structured used across
+// Package modules provides extensible plugins system for 'steam.Client'.
 package modules
 
 import (
@@ -13,21 +13,26 @@ import (
 	"sync/atomic"
 
 	"github.com/lemon4ksan/g-man/pkg/log"
+	"github.com/lemon4ksan/g-man/pkg/rest"
 	"github.com/lemon4ksan/g-man/pkg/steam/bus"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
+	"github.com/lemon4ksan/g-man/pkg/storage"
 )
 
 var (
-	ErrClientClosed = errors.New("steam: client is closed")
+	ErrClientClosed     = errors.New("steam: client is closed")
 	ErrNotAuthenticated = errors.New("steam: not authenticated")
 )
 
 // InitContext provides the module with access to the necessary client resources
 // during the initialization phase, without exposing lifecycle management methods (Close, Connect).
 type InitContext interface {
+	// Storage returns the configured storage provider.
+	Storage() storage.Provider
+
 	// Bus provides access to the event bus for subscribing/publishing internal messages.
 	Bus() *bus.Bus
 
@@ -38,6 +43,9 @@ type InitContext interface {
 	// This client is compatible with the functions [service.Unified], [service.WebAPI], etc.
 	Service() service.Requester
 
+	// Rest returns a client for making http rest api calls.
+	Rest() rest.Requester
+
 	// RegisterPacketHandler registers a handler for low-level EMsg (TCP/UDP).
 	RegisterPacketHandler(eMsg protocol.EMsg, handler socket.Handler)
 
@@ -45,7 +53,7 @@ type InitContext interface {
 	RegisterServiceHandler(method string, handler socket.Handler)
 
 	// GetModule allows you to find another module if there are dependencies between them.
-	GetModule(name string) Module
+	Module(name string) Module
 
 	// UnregisterPacketHandler removes the handler from socket for freeing memory.
 	UnregisterPacketHandler(eMsg protocol.EMsg)
@@ -112,26 +120,30 @@ func NewBase(name string) BaseModule {
 
 func (b *BaseModule) Name() string { return b.NameStr }
 
-func (b *BaseModule) Init(ctx InitContext) error {
-    b.Logger = ctx.Logger().WithModule(b.NameStr)
-    b.Bus = ctx.Bus()
+func (b *BaseModule) Start(ctx context.Context) error {
+	return nil
+}
 
-    if b.Ctx == nil || b.Ctx.Err() != nil {
-        b.Ctx, b.Cancel = context.WithCancel(context.Background())
-    }
-    
-    b.State.Store(0)
-    return nil
+func (b *BaseModule) Init(ctx InitContext) error {
+	b.Logger = ctx.Logger().WithModule(b.NameStr)
+	b.Bus = ctx.Bus()
+
+	if b.Ctx == nil || b.Ctx.Err() != nil {
+		b.Ctx, b.Cancel = context.WithCancel(context.Background())
+	}
+
+	b.State.Store(0)
+	return nil
 }
 
 func (b *BaseModule) Close() error {
-    if b.Cancel != nil {
-        b.Cancel()
-    }
-    
-    b.Wg.Wait()
-    b.Wg = sync.WaitGroup{}
-    return nil
+	if b.Cancel != nil {
+		b.Cancel()
+	}
+
+	b.Wg.Wait()
+	b.Wg = sync.WaitGroup{}
+	return nil
 }
 
 func (b *BaseModule) Go(fn func(ctx context.Context)) {

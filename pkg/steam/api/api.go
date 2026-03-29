@@ -10,8 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"reflect"
-	"strconv"
 	"strings"
 
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
@@ -139,65 +137,6 @@ func (c HttpTarget) HTTPPath() string {
 // NewHttpRequest creates a new transport request for a generic HTTP endpoint.
 func NewHttpRequest(httpMethod string, url string, body []byte) *tr.Request {
 	return tr.NewRequest(HttpTarget{HttpMethod: httpMethod, URL: url}, body)
-}
-
-// StructToValues converts a struct into url.Values using "url" tags.
-// It supports string, int, uint, bool, and float types.
-//
-// Example:
-//
-//	type Params struct {
-//	    SteamID uint64 `url:"steamid"`
-//	    Count   int    `url:"count,omitempty"`
-//	}
-//	v, _ := api.StructToValues(Params{SteamID: 7656119...})
-func StructToValues(s any) (url.Values, error) {
-	values := make(url.Values)
-	v := reflect.ValueOf(s)
-
-	if v.Kind() == reflect.Pointer {
-		v = v.Elem()
-	}
-
-	if v.Kind() != reflect.Struct {
-		return nil, errors.New("input must be a struct or a pointer to a struct")
-	}
-
-	t := v.Type()
-	for i := range v.NumField() {
-		field := t.Field(i)
-		tag := field.Tag.Get("url")
-		if tag == "" || tag == "-" {
-			continue
-		}
-
-		parts := strings.Split(tag, ",")
-		key := parts[0]
-		omitempty := len(parts) > 1 && parts[1] == "omitempty"
-
-		fieldValue := v.Field(i)
-		if omitempty && fieldValue.IsZero() {
-			continue
-		}
-
-		var strValue string
-		switch fieldValue.Kind() {
-		case reflect.String:
-			strValue = fieldValue.String()
-		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			strValue = strconv.FormatInt(fieldValue.Int(), 10)
-		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-			strValue = strconv.FormatUint(fieldValue.Uint(), 10)
-		case reflect.Bool:
-			strValue = strconv.FormatBool(fieldValue.Bool())
-		case reflect.Float32, reflect.Float64:
-			strValue = strconv.FormatFloat(fieldValue.Float(), 'f', -1, 64)
-		default:
-			return nil, fmt.Errorf("unsupported type for field %s: %s", field.Name, fieldValue.Kind())
-		}
-		values.Set(key, strValue)
-	}
-	return values, nil
 }
 
 // UnmarshalResponse is the primary dispatcher for decoding Steam API responses

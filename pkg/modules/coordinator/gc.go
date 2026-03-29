@@ -14,6 +14,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/modules"
 	gc "github.com/lemon4ksan/g-man/pkg/modules/coordinator/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/bus"
 	pb "github.com/lemon4ksan/g-man/pkg/steam/protobuf"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
@@ -22,6 +23,12 @@ import (
 )
 
 const ModuleName string = "gc"
+
+func WithModule() steam.Option {
+    return func(c *steam.Client) {
+        c.RegisterModule(New())
+    }
+}
 
 // GCMessageEvent is triggered when a Game Coordinator message is received.
 // and WAS NOT handled by a specific Job callback.
@@ -82,12 +89,12 @@ func (c *Coordinator) Close() error {
 
 // Send sends a message to a Game Coordinator without expecting a response.
 func (c *Coordinator) Send(ctx context.Context, appID uint32, msgType uint32, msg proto.Message) error {
-	return c.sendInternal(ctx, appID, msgType, msg, nil, nil)
+	return c.send(ctx, appID, msgType, msg, nil, nil)
 }
 
 // Send fires a raw payload to the GC without waiting for a response.
 func (c *Coordinator) SendRaw(ctx context.Context, appID uint32, msgType uint32, payload []byte) error {
-	return c.sendInternal(ctx, appID, msgType, nil, payload, nil)
+	return c.send(ctx, appID, msgType, nil, payload, nil)
 }
 
 // Call sends a message to a Game Coordinator and registers a callback for the response.
@@ -96,16 +103,16 @@ func (c *Coordinator) Call(ctx context.Context, appID uint32, msgType uint32, ms
 	if cb == nil {
 		return fmt.Errorf("gc: callback is required for Call")
 	}
-	return c.sendInternal(ctx, appID, msgType, msg, nil, cb)
+	return c.send(ctx, appID, msgType, msg, nil, cb)
 }
 
 // Call sends a message to the GC and waits for a response with a matching JobID.
 func (c *Coordinator) CallRaw(ctx context.Context, appID uint32, msgType uint32, payload []byte, cb jobs.Callback[*gc.Packet]) error {
-	return c.sendInternal(ctx, appID, msgType, nil, payload, cb)
+	return c.send(ctx, appID, msgType, nil, payload, cb)
 }
 
-// sendInternal handles the low-level wrapping of GC messages into Steam CM packets.
-func (c *Coordinator) sendInternal(ctx context.Context, appID uint32, msgType uint32, msg proto.Message, payload []byte, cb jobs.Callback[*gc.Packet]) error {
+// send handles the low-level wrapping of GC messages into Steam CM packets.
+func (c *Coordinator) send(ctx context.Context, appID uint32, msgType uint32, msg proto.Message, payload []byte, cb jobs.Callback[*gc.Packet]) error {
 	var err error
 
 	if msg != nil {
@@ -163,8 +170,6 @@ func (c *Coordinator) sendInternal(ctx context.Context, appID uint32, msgType ui
 
 	return nil
 }
-
-// --- Handlers ---
 
 func (c *Coordinator) handleClientFromGC(packet *protocol.Packet) {
 	wrapper := &pb.CMsgGCClient{}

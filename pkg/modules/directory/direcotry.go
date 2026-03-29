@@ -9,6 +9,7 @@ import (
 	"slices"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
+	"github.com/lemon4ksan/g-man/pkg/steam/socket"
 )
 
 type CMServer struct {
@@ -75,10 +76,10 @@ func (d *DirectoryService) GetCMListForConnect(ctx context.Context, cfg CMCfg) (
 }
 
 // GetOptimalCMServer returns the CM server with the lowest load.
-func (d *DirectoryService) GetOptimalCMServer(ctx context.Context) (CMServer, error) {
+func (d *DirectoryService) GetOptimalCMServer(ctx context.Context) (socket.CMServer, error) {
 	cmList, err := d.GetCMListForConnect(ctx, CMCfg{})
 	if err != nil {
-		return CMServer{}, err
+		return socket.CMServer{}, err
 	}
 
 	slices.SortFunc(cmList, func(a, b CMServer) int {
@@ -91,7 +92,13 @@ func (d *DirectoryService) GetOptimalCMServer(ctx context.Context) (CMServer, er
 		return 0
 	})
 
-	return cmList[0], nil
+	cm := cmList[0]
+	return socket.CMServer{
+		Endpoint: cm.Endpoint,
+		Type:     cm.Type,
+		Load:     float64(cm.Load),
+		Realm:    cm.Realm,
+	}, nil
 }
 
 func (d *DirectoryService) GetSteamPipeDomains(ctx context.Context) ([]string, error) {

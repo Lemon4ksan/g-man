@@ -2,9 +2,10 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package tf2schema
+package schema
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -27,50 +28,140 @@ type RawSchema struct {
 		Items                                []*ItemSchema         `json:"items"`
 		Attributes                           []*AttributeSchema    `json:"attributes"`
 		Qualities                            map[string]int        `json:"qualities"`
-		QualityNames                         map[string]string     `json:"qualityNames"`
+		QualityNames                         map[string]string     `json:"qualityNames"` // Note: Some API responses omit this
+		OriginNames                          []*OriginName         `json:"originNames"`
+		ItemSets                             []*ItemSet            `json:"item_sets"`
 		AttributeControlledAttachedParticles []*ParticleEffect     `json:"attribute_controlled_attached_particles"`
-		PaintKits                            map[string]string     `json:"paintkits"`
+		ItemLevels                           []*ItemLevel          `json:"item_levels"`
 		KillEaterScoreTypes                  []*KillEaterScoreType `json:"kill_eater_score_types"`
+		StringLookups                        []*StringLookup       `json:"string_lookups"`
+
+		PaintKits map[string]string `json:"paintkits"` // Injected from protodefs
 	} `json:"schema"`
-	ItemsGame map[string]any `json:"items_game"` // parsed items_game.txt
+
+	ItemsGame map[string]any `json:"items_game"` // Parsed items_game.txt (should be nilled after init)
 }
 
+// ItemSchema represents a single item definition.
 type ItemSchema struct {
-	Defindex      int              `json:"defindex"`
-	Name          string           `json:"name"`
-	ItemName      string           `json:"item_name"`
-	ItemClass     string           `json:"item_class"`
-	ItemQuality   int              `json:"item_quality"`
-	ProperName    bool             `json:"proper_name"`
-	CraftClass    string           `json:"craft_class"`
-	Capabilities  *Capabilities    `json:"capabilities"`
-	UsedByClasses []string         `json:"used_by_classes"`
-	Attributes    []*ItemAttribute `json:"attributes"`
+	Defindex      int             `json:"defindex"`
+	Name          string          `json:"name"`
+	ItemName      string          `json:"item_name"`
+	ItemClass     string          `json:"item_class"`
+	ItemQuality   int             `json:"item_quality"`
+	ProperName    bool            `json:"proper_name"`
+	CraftClass    string          `json:"craft_class"`
+	Capabilities  *Capabilities   `json:"capabilities"`
+	UsedByClasses []string        `json:"used_by_classes"`
+	Attributes    []ItemAttribute `json:"attributes"`
 }
 
+// Capabilities defines what actions can be performed on the item.
 type Capabilities struct {
 	Paintable bool `json:"paintable"`
+	Nameable  bool `json:"nameable"`
+	CanCraft  bool `json:"can_craft_if_purchased"`
 }
 
+// ItemAttribute represents an attribute attached to an item.
+// Memory Optimized: Removed `Value any` to avoid heap allocations.
 type ItemAttribute struct {
 	Name  string `json:"name"`
 	Class string `json:"class"`
-	Value any    `json:"value"`
+	
+	// Steam uses float/int for 99% of attribute values.
+	// We use float64 to safely decode both from JSON.
+	Value float64 `json:"value"`
+	
+	// ValueString is used if the JSON value is a string (e.g., "#ItemDesc").
+	ValueString string `json:"value_string,omitempty"`
 }
 
+// UnmarshalJSON custom unmarshaler to handle dynamic "value" types without allocations.
+func (a *ItemAttribute) UnmarshalJSON(data[]byte) error {
+	// A temporary struct to capture everything except the dynamic "value"
+	type Alias ItemAttribute
+	aux := &struct {
+		*Alias
+		DynamicValue any `json:"value"`
+	}{
+		Alias: (*Alias)(a),
+	}
+
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	switch v := aux.DynamicValue.(type) {
+	case float64:
+		a.Value = v
+	case int:
+		a.Value = float64(v)
+	case string:
+		a.ValueString = v
+	}
+
+	return nil
+}
+
+// AttributeSchema defines what a specific attribute ID means.
 type AttributeSchema struct {
-	Defindex int    `json:"defindex"`
-	Name     string `json:"name"`
+	Defindex        int    `json:"defindex"`
+	Name            string `json:"name"`
+	AttributeClass  string `json:"attribute_class"`
+	Description     string `json:"description_string"`
+	DescriptionFmt  string `json:"description_format"`
+	EffectType      string `json:"effect_type"`
+	Hidden          bool   `json:"hidden"`
+	StoredAsInteger bool   `json:"stored_as_integer"`
 }
 
+// ParticleEffect represents Unusual and Killstreak eye effects.
 type ParticleEffect struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
+	ID               int    `json:"id"`
+	System           string `json:"system"`
+	AttachToRootbone bool   `json:"attach_to_rootbone"`
+	Name             string `json:"name"`
 }
 
+// KillEaterScoreType represents strange parts and counters (e.g., Kills, Headshots).
 type KillEaterScoreType struct {
-	Type     int    `json:"type"`
-	TypeName string `json:"type_name"`
+	Type      int    `json:"type"`
+	TypeName  string `json:"type_name"`
+	LevelData string `json:"level_data"`
+}
+
+// ItemSet defines a collection of items that form a set (e.g., The Saharan Spy).
+type ItemSet struct {
+	ItemSet    string          `json:"item_set"`
+	Name       string          `json:"name"`
+	Items[]string        `json:"items"`
+	Attributes[]ItemAttribute `json:"attributes"`
+}
+
+// OriginName maps an origin ID to its display name (e.g., 0 = Timed Drop, 4 = Crafted).
+type OriginName struct {
+	Origin int    `json:"origin"`
+	Name   string `json:"name"`
+}
+
+// ItemLevel represents strange rank thresholds (e.g., Hale's Own).
+type ItemLevel struct {
+	Name   string `json:"name"`
+	Levels[]struct {
+		Level         int    `json:"level"`
+		RequiredScore int    `json:"required_score"`
+		Name          string `json:"name"`
+	} `json:"levels"`
+}
+
+// StringLookup contains lookup tables for string-based attributes (like Spells!).
+type StringLookup struct {
+	TableName string `json:"table_name"`
+	Strings[]struct {
+		Index  int    `json:"index"`
+		String string `json:"string"`
+	} `json:"strings"`
 }
 
 // Schema is the main type.
@@ -189,14 +280,7 @@ func (s *Schema) buildIndices() {
 		if strings.Contains(it.Name, "Paint Can") && it.Name != "Paint Can" && it.Attributes != nil {
 			if len(it.Attributes) > 0 {
 				var decimal int
-				switch v := it.Attributes[0].Value.(type) {
-				case float64:
-					decimal = int(v)
-				case int:
-					decimal = v
-				default:
-					continue
-				}
+				decimal = int(it.Attributes[0].Value)
 				s.paintByDecimal[decimal] = it.ItemName
 				s.paintByName[strings.ToLower(it.ItemName)] = decimal
 			}
@@ -207,6 +291,7 @@ func (s *Schema) buildIndices() {
 	s.paintByName["legacy paint"] = 5801378
 
 	s.crateSeriesList = s.buildCrateSeriesList()
+	s.Raw.ItemsGame = nil
 }
 
 // buildCrateSeriesList builds the crate series map efficiently.
@@ -218,12 +303,7 @@ func (s *Schema) buildCrateSeriesList() map[int]int {
 		if it.Attributes != nil {
 			for _, attr := range it.Attributes {
 				if attr.Name == "set supply crate series" {
-					switch v := attr.Value.(type) {
-					case float64:
-						series[it.Defindex] = int(v)
-					case int:
-						series[it.Defindex] = v
-					}
+					series[it.Defindex] = int(it.Attributes[0].Value)
 					break
 				}
 			}

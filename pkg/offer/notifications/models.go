@@ -29,26 +29,29 @@ const (
 
 // TradeInfo contains the information needed to generate a notification.
 type TradeInfo struct {
-	OfferID              uint64
-	PartnerSteamID       uint64
-	ReasonType           reason.TradeReason
-	IsCanceledByUser     bool
-	OldState             TradeState
-	DiffValueRef         float64
-	DiffValueKey         string
-	SellKeyPriceRef      float64
-	BannedStatus         map[string]string
-	HighValueNames       []string
-	ManualReviewDisabled bool
+	OfferID        uint64
+	PartnerSteamID uint64
+	ReasonType     reason.TradeReason
+	OldState       TradeState
+
+	// Data for templates
+	IsCanceledByUser bool
+	BannedStatus     map[string]string
+	HighValueNames   []string
+	MissingValue     string // e.g., "1.33 ref" or "1 key, 2 ref"
 }
 
-// ConfigProvider describes the configuration interface for notifications.
+// ConfigProvider provides notification templates and global settings.
 type ConfigProvider interface {
-	GetCustomMessage(key string) string
+	// GetTemplate returns the template string for a given key.
+	// Example keys: "success", "success_escrow", "decline.escrow".
+	GetTemplate(key string) string
+
+	// GetCommandPrefix returns the chat command prefix (e.g., "!").
 	GetCommandPrefix() string
 }
 
-// ChatProvider for sending messages to a partner.
+// ChatProvider defines an interface for sending messages to a Steam user.
 type ChatProvider interface {
 	SendMessage(ctx context.Context, steamID uint64, message string) error
 }

@@ -21,8 +21,8 @@ type Service struct {
 	logger log.Logger
 }
 
-// NewService creates a new instance of the crafting service.
-func NewService(inv InventoryProvider, price PricelistProvider, gc GCProvider, cfg ConfigProvider, logger log.Logger) *Service {
+// New creates a new instance of the crafting service.
+func New(inv InventoryProvider, price PricelistProvider, gc GCProvider, cfg ConfigProvider, logger log.Logger) *Service {
 	return &Service{
 		inv:    inv,
 		price:  price,

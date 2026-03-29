@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package tf2schema
+package schema
 
 import (
 	"slices"
@@ -21,10 +21,10 @@ func minimalRawSchema() *RawSchema {
 			ItemClass:   "supply_crate",
 			ItemQuality: QualityUnique,
 			ProperName:  false,
-			Attributes: []*ItemAttribute{
+			Attributes: []ItemAttribute{
 				{
-					Name:  "set supply crate series",
-					Class: "supply_crate_series",
+					Name:       "set supply crate series",
+					Class:      "supply_crate_series",
 					Value: float64(1),
 				},
 			},
@@ -192,10 +192,15 @@ func minimalRawSchema() *RawSchema {
 			Items                                []*ItemSchema         `json:"items"`
 			Attributes                           []*AttributeSchema    `json:"attributes"`
 			Qualities                            map[string]int        `json:"qualities"`
-			QualityNames                         map[string]string     `json:"qualityNames"`
+			QualityNames                         map[string]string     `json:"qualityNames"` // Note: Some API responses omit this
+			OriginNames                          []*OriginName         `json:"originNames"`
+			ItemSets                             []*ItemSet            `json:"item_sets"`
 			AttributeControlledAttachedParticles []*ParticleEffect     `json:"attribute_controlled_attached_particles"`
-			PaintKits                            map[string]string     `json:"paintkits"`
+			ItemLevels                           []*ItemLevel          `json:"item_levels"`
 			KillEaterScoreTypes                  []*KillEaterScoreType `json:"kill_eater_score_types"`
+			StringLookups                        []*StringLookup       `json:"string_lookups"`
+
+			PaintKits map[string]string `json:"paintkits"` // Injected from protodefs
 		}{
 			Items:                                items,
 			Attributes:                           attributes,

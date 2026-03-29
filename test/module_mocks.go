@@ -11,12 +11,14 @@ import (
 
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/modules"
+	"github.com/lemon4ksan/g-man/pkg/rest"
 	"github.com/lemon4ksan/g-man/pkg/steam/bus"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
+	"github.com/lemon4ksan/g-man/pkg/storage"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -28,6 +30,7 @@ type MockInitContext struct {
 	packetHandlers  map[protocol.EMsg]socket.Handler
 	serviceHandlers map[string]socket.Handler
 	modules         map[string]modules.Module
+	storage         storage.Provider
 }
 
 func NewMockInitContext() *MockInitContext {
@@ -44,12 +47,20 @@ func NewMockInitContext() *MockInitContext {
 func (m *MockInitContext) Bus() *bus.Bus               { return m.eventBus }
 func (m *MockInitContext) Logger() log.Logger          { return m.logger }
 func (m *MockInitContext) Service() service.Requester  { return m.mockService }
+func (m *MockInitContext) Rest() rest.Requester        { return m.mockService }
+func (m *MockInitContext) Storage() storage.Provider   { return m.storage }
 func (m *MockInitContext) MockService() *MockRequester { return m.mockService }
 
 func (m *MockInitContext) SetService(s *MockRequester) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.mockService = s
+}
+
+func (m *MockInitContext) SetStorage(s storage.Provider) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.storage = s
 }
 
 func (m *MockInitContext) RegisterPacketHandler(e protocol.EMsg, h socket.Handler) {
@@ -76,7 +87,7 @@ func (m *MockInitContext) UnregisterServiceHandler(method string) {
 	delete(m.serviceHandlers, method)
 }
 
-func (m *MockInitContext) GetModule(name string) modules.Module {
+func (m *MockInitContext) Module(name string) modules.Module {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.modules[name]

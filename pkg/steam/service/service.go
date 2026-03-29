@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/lemon4ksan/g-man/pkg/rest"
 	"github.com/lemon4ksan/g-man/pkg/steam/api"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
@@ -64,26 +65,36 @@ func (c *Client) Do(ctx context.Context, req *tr.Request) (*tr.Response, error) 
 		req.WithParam("access_token", c.accessToken)
 	}
 
-	apiResp, err := c.transport.Do(ctx, req)
+	resp, err := c.transport.Do(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("transport error: %w", err)
 	}
 
-	// Validate results from both HTTP and Socket layers
-	if meta, ok := apiResp.HTTP(); ok {
+	if err := c.validateEResult(resp); err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+func (c *Client) validateEResult(resp *tr.Response) error {
+	if meta, ok := resp.HTTP(); ok {
 		if meta.StatusCode != http.StatusOK {
-			return nil, api.SteamAPIError{StatusCode: meta.StatusCode}
+			return api.SteamAPIError{StatusCode: meta.StatusCode}
 		}
-		if meta.Result != 0 && meta.Result != protocol.EResult_OK {
-			return nil, api.EResultError{EResult: meta.Result}
+		if meta.Result != protocol.EResult_OK && meta.Result != 0 {
+			return api.EResultError{EResult: meta.Result}
 		}
-	} else if meta, ok := apiResp.Socket(); ok {
+		return nil
+	}
+
+	if meta, ok := resp.Socket(); ok {
 		if meta.Result != protocol.EResult_OK {
-			return nil, api.EResultError{EResult: meta.Result}
+			return api.EResultError{EResult: meta.Result}
 		}
 	}
 
-	return apiResp, nil
+	return nil
 }
 
 // Unified executes a modern Service method using Protobuf.
@@ -113,7 +124,7 @@ func UnifiedExplicit[Resp any](ctx context.Context, c Requester, httpMethod, ifa
 func WebAPI[Resp any](ctx context.Context, c Requester, httpMethod, iface, method string, version int, reqMsg any, opts ...api.CallOption) (*Resp, error) {
 	req := NewWebAPIRequest(httpMethod, iface, method, version)
 	if reqMsg != nil {
-		params, _ := api.StructToValues(reqMsg)
+		params, _ := rest.StructToValues(reqMsg)
 		req.WithParams(params)
 	}
 	return execute[Resp](ctx, c, req, api.FormatJSON, opts...)
@@ -141,7 +152,7 @@ func execute[Resp any](ctx context.Context, c Requester, req *tr.Request, def ap
 	}
 
 	// Handle cases where the caller doesn't expect a response body
-	if reflect.TypeOf((*Resp)(nil)).Elem().Kind() == reflect.Interface {
+	if reflect.TypeFor[Resp]().Kind() == reflect.Interface {
 		return nil, nil
 	}
 
@@ -176,7 +187,7 @@ func inferUnifiedMethod(req proto.Message) (string, string, error) {
 	}
 
 	actualType := t
-	for actualType.Kind() == reflect.Ptr {
+	for actualType.Kind() == reflect.Pointer {
 		actualType = actualType.Elem()
 	}
 

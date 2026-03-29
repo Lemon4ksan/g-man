@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package tf2schema
+package schema
 
 import "strings"
 
@@ -171,6 +171,43 @@ var retiredKeys = map[int]RetiredKeyInfo{
 	5762: {5762, "Limited Late Summer Crate Key"},
 	5791: {5791, "Naughty Winter Crate Key 2014"},
 	5792: {5792, "Nice Winter Crate Key 2014"},
+}
+
+var halloweenSpells = map[string]int{
+	// --- Paint Effects ---
+	"Halloween: Chromatic Corruption (paint)":    1,
+	"Halloween: Die Job (paint)":                 2,
+	"Halloween: Putrescent Pigmentation (paint)": 3,
+	"Halloween: Sinister Staining (paint)":       4,
+	"Halloween: Spectral Spectrum (paint)":       5,
+
+	// --- Footprints ---
+	"Halloween: Bruised Purple Footprints": 10,
+	"Halloween: Corpse Gray Footprints":    11,
+	"Halloween: Gangreen Footprints":       12,
+	"Halloween: Headless Horseshoes":       13,
+	"Halloween: Rotten Orange Footprints":  14,
+	"Halloween: Team Spirit Footprints":    15,
+	"Halloween: Violent Violet Footprints": 16,
+
+	// --- Weapon Effects ---
+	"Halloween: Exorcism":             20,
+	"Halloween: Gourd Grenades":       21,
+	"Halloween: Sentry Quad-Pumpkins": 22,
+	"Halloween: Spectral Flame":       23,
+	"Halloween: Squash Rockets":       24,
+
+	// --- Vocal Effects ---
+	"Scout's Spectral Snarl":        30,
+	"Soldier's Booming Bark":        31,
+	"Pyro's Muffled Moan":           32,
+	"Demoman's Cadaverous Croak":    33,
+	"Heavy's Bottomless Bass":       34,
+	"Engineer's Gravelly Growl":     35,
+	"Medic's Blood-Curdling Bellow": 36,
+	"Sniper's Deep Downunder Drawl": 37,
+	"Spy's Creepy Croon":            38,
+	"Halloween: Voices from Below":  39,
 }
 
 var retiredKeysNames []string

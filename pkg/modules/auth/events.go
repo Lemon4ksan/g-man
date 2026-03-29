@@ -46,9 +46,10 @@ func (e LoggedOnEvent) IsAuthEvent() {}
 // from email or mobile authenticator and call the Callback function.
 type SteamGuardRequiredEvent struct {
 	bus.BaseEvent
-	Is2FA       bool              // True = mobile authenticator (2FA), False = email code
-	EmailDomain string            // For email codes, the domain of the email address (if known)
-	Callback    func(code string) // Function to call with the user-provided code to continue login
+	IsAppConfirm bool              // True = must approve by pressing "confirm" in the mobile app
+	Is2FA        bool              // True = mobile authenticator (2FA), False = email code
+	EmailDomain  string            // For email codes, the domain of the email address (if known)
+	Callback     func(code string) // Function to call with the user-provided code to continue login
 }
 
 func (e SteamGuardRequiredEvent) IsAuthEvent() {}

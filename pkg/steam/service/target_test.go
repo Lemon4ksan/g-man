@@ -17,12 +17,12 @@ import (
 func TestUnifiedTarget_Formatting(t *testing.T) {
 	cases := []struct {
 		name     string
-		target   UnifiedTarget
+		target   *UnifiedTarget
 		expected string
 	}{
 		{
 			name: "Standard Service",
-			target: UnifiedTarget{
+			target: &UnifiedTarget{
 				Interface: "Player",
 				Method:    "GetGameBadgeLevels",
 				Version:   1,
@@ -32,7 +32,7 @@ func TestUnifiedTarget_Formatting(t *testing.T) {
 		},
 		{
 			name: "Already prefixed",
-			target: UnifiedTarget{
+			target: &UnifiedTarget{
 				Interface: "IInventory",
 				Method:    "GetItems",
 				Version:   2,
@@ -42,7 +42,7 @@ func TestUnifiedTarget_Formatting(t *testing.T) {
 		},
 		{
 			name: "Non-Service",
-			target: UnifiedTarget{
+			target: &UnifiedTarget{
 				Interface: "Cloud",
 				Method:    "GetFile",
 				Version:   1,
@@ -62,7 +62,7 @@ func TestUnifiedTarget_Formatting(t *testing.T) {
 }
 
 func TestUnifiedTarget_EMsg(t *testing.T) {
-	target := UnifiedTarget{}
+	target := &UnifiedTarget{}
 
 	if target.EMsg(true) != protocol.EMsg_ServiceMethodCallFromClient {
 		t.Error("wrong EMsg for authed unified request")
@@ -107,7 +107,7 @@ func TestNewUnifiedRequest_Encoding(t *testing.T) {
 }
 
 func TestWebAPITarget(t *testing.T) {
-	target := WebAPITarget{
+	target := &WebAPITarget{
 		HttpMethod: "GET",
 		Interface:  "ISteamUser",
 		Method:     "GetPlayerSummaries",
@@ -122,7 +122,7 @@ func TestWebAPITarget(t *testing.T) {
 
 func TestLegacyTarget(t *testing.T) {
 	emsg := protocol.EMsg_ClientLogon
-	target := LegacyTarget{eMsg: emsg}
+	target := &LegacyTarget{eMsg: emsg}
 
 	if target.EMsg(true) != emsg {
 		t.Error("EMsg mismatch")

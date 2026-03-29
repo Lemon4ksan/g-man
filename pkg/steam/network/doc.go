@@ -21,13 +21,13 @@ Steam messages without needing to know if they are traveling over TCP or WebSock
 
 # Connection Lifecycle
 
-1. A connection is established using a `New...Connection` function.
-2. The function immediately starts a `readLoop` in a background goroutine.
-3. The `readLoop` continuously reads data from the socket. When a full message
-   is received, it calls the `OnNetMessage` callback on the provided `Handler`.
-4. Other parts of the application can send data using the `Send` method.
-5. If the connection is terminated (by the remote peer or an error), the `OnNetClose`
-   callback is invoked, signaling the end of the connection's life.
+ 1. A connection is established using a `New...Connection` function.
+ 2. The function immediately starts a `readLoop` in a background goroutine.
+ 3. The `readLoop` continuously reads data from the socket. When a full message
+    is received, it calls the `OnNetMessage` callback on the provided `Handler`.
+ 4. Other parts of the application can send data using the `Send` method.
+ 5. If the connection is terminated (by the remote peer or an error), the `OnNetClose`
+    callback is invoked, signaling the end of the connection's life.
 
 This event-driven model (via the `Handler` interface) allows for a clean
 separation of network I/O from the business logic of processing messages.

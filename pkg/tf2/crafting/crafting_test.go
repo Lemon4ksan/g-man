@@ -131,7 +131,7 @@ func TestService_KeepMetalSupply(t *testing.T) {
 			}
 			gc := &mockGC{}
 
-			svc := NewService(inv, &mockPrice{}, gc, cfg, log.Discard)
+			svc := New(inv, &mockPrice{}, gc, cfg, log.Discard)
 			err := svc.KeepMetalSupply(context.Background())
 
 			if err != nil {
@@ -152,7 +152,7 @@ func TestService_KeepMetalSupply_ContextCancel(t *testing.T) {
 	inv := &mockInventory{pure: PureCounts{Refined: 10, Reclaimed: 10, Scrap: 0}}
 	cfg := &mockConfig{metalsEnabled: true, minScrap: 10, threshold: 0}
 	gc := &mockGC{}
-	svc := NewService(inv, &mockPrice{}, gc, cfg, log.Discard)
+	svc := New(inv, &mockPrice{}, gc, cfg, log.Discard)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -210,7 +210,7 @@ func TestService_CraftDuplicateWeapons(t *testing.T) {
 			cfg := &mockConfig{weaponsEnabled: tt.weaponsEnabled, allWeapons: tt.allWeapons}
 			gc := &mockGC{}
 
-			svc := NewService(inv, price, gc, cfg, log.Discard)
+			svc := New(inv, price, gc, cfg, log.Discard)
 			err := svc.CraftDuplicateWeapons(context.Background())
 
 			if err != nil {
@@ -277,7 +277,7 @@ func TestService_CraftClassWeapons(t *testing.T) {
 			cfg := &mockConfig{weaponsEnabled: tt.weaponsEnabled, classWeapons: tt.classWeapons}
 			gc := &mockGC{}
 
-			svc := NewService(inv, price, gc, cfg, log.Discard)
+			svc := New(inv, price, gc, cfg, log.Discard)
 			err := svc.CraftClassWeapons(context.Background())
 
 			if err != nil {

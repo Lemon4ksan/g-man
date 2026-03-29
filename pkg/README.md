@@ -6,142 +6,121 @@ These packages form a modular ecosystem. You can import the entire suite to buil
 
 ## 📦 Package Overview
 
-The architecture is divided into logical layers: **Core**, **Modules**, **Game Domains**, **Business Logic**, and **Utilities**.
+The architecture is divided into logical layers: **Core**, **Modules**, **Storage**, **Game Domains**, **Business Logic**, and **Utilities**.
 
 ### 1. ⚙️ Core (`pkg/steam`)
 
-The foundation of the framework. It handles the low-level heavy lifting: network communication, protocol serialization, event routing, and HTTP sessions.
+The foundation of the framework. It handles the low-level heavy lifting: network communication, protocol serialization, event routing, and API orchestration.
 
 | Package | Description |
 | :--- | :--- |
-| **`steam`** | Contains the `Client` orchestrator. It ties the socket, auth, and modules together, managing their lifecycles. |
-| **`steam/socket`** | The TCP/WebSocket connection manager. Handles packet fragmentation, encryption, job tracking, and heartbeats. |
-| **`steam/network`** | The lowest-level physical layer. Implements raw TCP and WebSocket dialing and message framing. |
-| **`steam/bus`** | A high-performance, type-safe **Event Bus**. Allows modules to communicate asynchronously without tight coupling. |
-| **`steam/transport`** | A protocol-agnostic transport layer. Allows seamless switching between HTTP (WebAPI) and TCP (CM) for API calls. |
-| **`steam/api`** | Unified API wrapper. Handles Steam's specific JSON/VDF/Protobuf quirks and `input_protobuf_encoded` logic. |
-| **`steam/protocol`** | Defines packet structures, headers (`MsgHdr`, `MsgHdrProtoBuf`), `EMsg` constants, and Protobuf compilation logic. |
-| **`steam/crypto`** | Implements Steam-specific cryptography (AES-256-CBC, RSA-OAEP for session keys) and TOTP generation. |
-| **`steam/community`** | A specialized HTTP client for `steamcommunity.com`. Handles session cookies, CSRF tokens, and scrapes HTML errors (like Family View or "Sorry!" pages). |
-| **`steam/service`** | The RPC-like commander for official Steam APIs. Translates Go method calls into WebAPI or Unified (Protobuf) requests. |
+| **`steam`** | The `Client` orchestrator. Manages the lifecycle of modules, storage, and authenticated sessions. |
+| **`steam/socket`** | TCP/WebSocket connection manager. Handles packet fragmentation, encryption, and heartbeats. |
+| **`steam/network`** | Low-level physical layer. Implements raw TCP and WebSocket dialing and message framing. |
+| **`steam/bus`** | High-performance, type-safe **Event Bus**. Enables decoupled communication between modules. |
+| **`steam/transport`** | Protocol-agnostic transport layer. Seamlessly switches between HTTP (WebAPI) and TCP (CM). |
+| **`steam/service`** | RPC-like commander. Translates Go method calls into WebAPI or Unified (Protobuf) requests. |
+| **`steam/community`** | Specialized HTTP client for `steamcommunity.com`. Handles session cookies and HTML error scraping. |
 
 ### 2. 🧩 Modules (`pkg/modules`)
 
-Pluggable logic blocks that implement the `Module` interface (`Init`, `StartAuthed`, `Close`). These provide the actual functionality of a Steam user. All modules embed `modules.BaseModule` for zero-boilerplate lifecycle management.
+Pluggable logic blocks that implement the actual functionality of a Steam user. All modules embed `BaseModule` for standardized logging, context, and goroutine management.
 
 | Package | Description |
 | :--- | :--- |
-| **`modules/auth`** | Handles the entire login sequence (password/JWT), 2FA challenges, and `WebSession` creation for community access. |
-| **`modules/guard`** | Steam Guard Mobile Authenticator logic. Handles mobile confirmation polling and auto-acceptance. |
-| **`modules/trading`** | Trade Offer manager. Polls for new offers, manages state changes, and exposes `Accept`/`Decline`/`Cancel` methods. |
-| **`modules/offers`** | Live Trade session manager. Handles real-time trade invitations (proposing, accepting, canceling) via the CM socket. |
-| **`modules/coordinator`** | Game Coordinator (GC) gateway. Handles routing and job management for messages to games like TF2, CS2, or Dota 2. |
-| **`modules/apps`** | Application state manager. Controls the "In-Game" status, tracks player counts, and can kick other playing sessions. |
-| **`modules/friends`** | Manages the friends list, persona state changes (online/offline, avatars), and group invitations. |
-| **`modules/market`** | Steam Community Market integration. Handles creating/canceling buy and sell orders with precise currency formatting. |
-| **`modules/directory`** | Connection Manager Service. Discovers and selects the optimal CM server for the initial connection. |
+| **`modules/auth`** | Handles login flows (Password/JWT), 2FA challenges, and `WebSession` cookie management. |
+| **`modules/guard`** | Steam Guard Mobile Authenticator. Handles confirmation polling and auto-acceptance. |
+| **`modules/trading`** | Asynchronous Trade Offer manager. Polls for offers and manages state transitions. |
+| **`modules/offers`** | Real-time "Live Trade" invitations manager via the CM socket. |
+| **`modules/coordinator`** | Game Coordinator (GC) gateway. Routes messages to specific games (TF2, CS2, Dota 2). |
+| **`modules/apps`** | Application state manager. Controls "In-Game" status and tracks player counts. |
+| **`modules/friends`** | Manages friends list, persona states, and group invitations. |
 
-### 3. 🎮 Game Domains (`pkg/tf2`, etc.)
+### 3. 💾 Storage (`pkg/storage`)
 
-Game-specific logic, schemas, and mathematics. These packages depend on `modules/coordinator` to communicate with the game's internal network.
+Provides persistence capabilities to allow bots to recover state after restarts.
 
 | Package | Description |
 | :--- | :--- |
-| **`tf2`** | The main TF2 module. Handles the GC "Hello" handshake, inventory synchronization (`SOCache`), and game-specific actions. |
-| **`tf2/sku`** | **Stock Keeping Unit**. Converts complex item objects into standardized string identifiers (e.g., `5021;6`) and back. |
-| **`tf2/schema`** | A powerful Schema Manager. Downloads, parses, and indexes `items_game.txt` for O(1) item lookups and normalization. |
-| **`tf2/econ`** | Contains currency arithmetic (Keys/Ref/Rec/Scrap) and trade value difference calculations. |
-| **`tf2/crafting`** | Provides high-level abstractions for crafting metal and weapons based on inventory state. |
+| **`storage`** | Core interfaces for persistence: `AuthStore` (tokens) and `KVStore` (generic data). |
+| **`storage/memory`** | Default ephemeral storage implementation using in-memory maps. |
 
 ### 4. 🧠 Business Logic (`pkg/offer`)
 
-High-level logic for implementing automated trading bots, separated from the core modules.
+High-level logic for implementing complex trading behaviors.
 
 | Package | Description |
 | :--- | :--- |
-| **`offer/reason`** | Defines a comprehensive set of constants for trade acceptance, rejection, or review reasons. |
-| **`offer/review`** | A sophisticated offer reviewer that processes trade metadata to generate human-readable decline messages and admin alerts. |
-| **`offer/notifications`** | A customizable chat responder for sending status updates to trade partners. |
+| **`offer/engine`** | **Trade Middleware Engine**. Implements an "Onion Architecture" chain for offer validation. |
+| **`offer/processor`** | High-level orchestrator. Coordinates the entire trade lifecycle: check -> decide -> act -> notify. |
+| **`offer/notifications`** | Template-based chat responder for sending trade status updates to partners. |
+| **`offer/review`** | Formatter and reporter for sending detailed trade alerts to administrators. |
 
-### 5. 🛠 Utilities
+### 5. 🎮 Game Domains (`pkg/tf2`, etc.)
 
-General-purpose libraries and clients for internal and external services.
+Game-specific logic and schemas.
 
 | Package | Description |
 | :--- | :--- |
-| **`rest`** | A generic, robust HTTP client wrapper using Go Generics. Features JSON helpers and RequestModifier chaining. |
-| **`jobs`** | Concurrency primitives. A thread-safe Job Manager for tracking asynchronous request-response cycles with timeouts. |
-| **`log`** | A structured, asynchronous logging interface with beautiful, zero-allocation console output. |
-| **`openid`** | Implements the Steam OpenID login flow for third-party websites using existing active session cookies. |
+| **`tf2`** | Main TF2 module. Implements **SOCache** for real-time inventory mirroring. |
+| **`tf2/schema`** | Schema Manager. Downloads and indexes `items_game.txt` for O(1) item lookups. |
+| **`tf2/sku`** | Stock Keeping Unit conversion for TF2 items. |
 
 ---
 
 ## 🏗 Architecture & Philosophy
 
-G-man is built on **Dependency Injection**, **Event-Driven Architecture**, and **Composition over Inheritance**.
+G-man is built on **Declarative Configuration**, **Dependency Injection**, and **Event-Driven Design**.
 
-1. **Event-Driven**: Modules rarely call each other directly. Instead, they publish and subscribe to events via the `steam/bus`. For example, `trading` publishes a `NewOfferEvent`, which your bot's logic subscribes to.
-2. **BaseModule Pattern**: To prevent DRY violations, all standard modules embed `modules.BaseModule`, which automatically provides them with a scoped `context.Context`, a pre-configured `log.Logger`, and safe goroutine management (`Wg`).
-3. **Transport Agnosticism**: The `service` package doesn't care if it's talking to Steam via HTTP or a TCP Socket. The `transport` layer abstracts this away.
+1. **Declarative Config**: You don't "add" modules; you describe them in `steam.Config`. The client automatically instantiates and wires them together.
+2. **BaseModule Pattern**: Every module is a "clean citizen". They don't touch global state and manage their own background workers using a provided `context.Context`.
+3. **Middleware-First**: Trade logic is not a mess of `if-else` statements. It's a clean chain of responsibilities (Middlewares) like `Recover` -> `Logger` -> `Blacklist` -> `Pricer`.
+4. **Persistent by Design**: With the `storage` layer, the bot can save Refresh Tokens and offer states, allowing for seamless auto-relogin after a crash or update.
 
-### Example: Building a Client
-
-In G-man, modules are initialized declaratively via the central `steam.Config`.
+### Example: A Production-Ready Client
 
 ```go
 package main
 
 import (
     "context"
+    "time"
 
-    "github.com/lemon4ksan/g-man/pkg/log"
     "github.com/lemon4ksan/g-man/pkg/modules/guard"
     "github.com/lemon4ksan/g-man/pkg/modules/trading"
     "github.com/lemon4ksan/g-man/pkg/steam"
-    "github.com/lemon4ksan/g-man/pkg/modules/directory"
+    "github.com/lemon4ksan/g-man/pkg/storage/memory" // Or your SQLite/Redis provider
 )
 
 func main() {
-    logger := log.New(log.DefaultConfig(log.DebugLevel))
+    // 1. Setup persistence
+    store := memory.New()
 
-    // Define the configuration for the core client and its modules.
-    // If a module's config is nil, that module is simply not loaded.
+    // 2. Configure standard modules declaratively
     cfg := steam.Config{
+        Storage: store,
         Guard: &guard.Config{
-            IdentitySecret: "base64_identity_secret",
-            DeviceID:       "android:12345678-1234-1234-1234-123456789012",
+            IdentitySecret: "...",
             AutoAccept:     true,
-            RateLimit:      2 * time.Second,
         },
         Trading: &trading.Config{
-            PollInterval: 15 * time.Second,
-            Language:     "english",
+            PollInterval: 30 * time.Second,
         },
     }
 
-    // Create the Client. It will automatically instantiate, Init(), 
-    // and inject dependencies into the Guard and Trading modules.
-    client := steam.NewClient(cfg, steam.WithLogger(logger))
+    // 3. Initialize the client
+    client := steam.NewClient(cfg)
 
-    // Find an optimal server
-    server, err := directory.GetOptimalCMServer(context.Background())
-    if err != nil {
-        logger.Error("Failed to get CM server", log.Err(err))
-        return
-    }
-
-    // Connect and Authenticate
-    err = client.ConnectAndLogin(context.Background(), server, steam.LogOnDetails{
-        AccountName: "username",
-        Password:    "password",
-        // G-man will prompt for 2FA via the Event Bus if needed.
+    // 4. Authenticate (will use store to try auto-relogin if RefreshToken exists)
+    err := client.ConnectAndLogin(context.Background(), nil, &steam.LogOnDetails{
+        AccountName: "bot_user",
+        Password:    "bot_pass",
     })
+    
     if err != nil {
-        logger.Error("Login failed", log.Err(err))
-        return
+        panic(err)
     }
 
-    // Block main thread until the client is disconnected or closed.
     client.Wait()
 }
 ```
@@ -151,7 +130,7 @@ func main() {
 When adding new packages or modifying existing ones in `pkg/`:
 
 1. **Public by Default:** Code in `pkg/` is considered public API. Keep interfaces stable and document exported functions.
-2. **No Global State:** Avoid global variables (`var Client *steam.Client`). Use structs and constructors (`New...`).
-3. **Context Aware:** All blocking operations (network I/O, delays, long loops) must accept and respect `context.Context`.
-4. **Interface Segregation:** Define interfaces where the logic is *used* (as a dependency requirement), not where the concrete struct is *defined*.
-5. **Use `rest` for HTTP:** Do not use raw `http.Client`. Use the `pkg/rest` or `pkg/steam/community` wrappers to ensure consistent header injection and error handling.
+2. **No Global State:** Avoid global variables. Use structs and constructors (`New...`).
+3. **Context Aware:** All blocking operations must respect `context.Context` for proper shutdown.
+4. **Embed BaseModule:** All new functional modules in `pkg/modules` should embed `modules.BaseModule`.
+5. **Use `rest` for HTTP:** Avoid raw `http.Client`. Leverage the `pkg/rest` or `pkg/steam/community` wrappers.

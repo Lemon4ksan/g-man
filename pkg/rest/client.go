@@ -8,10 +8,20 @@
 //
 // Example:
 //
+//	type SearchParams struct {
+//		SearchText string `url:"filter"`
+//		Limit      int    `url:"count,omitempty"`
+//		Strict     bool   `url:"strict"`
+//	}
+//
+//	params := SearchParams{SearchText: "G-Man", Strict: true}
+//	values, err := rest.StructToValues(params)
+//	// values now contains: filter=G-Man&strict=true
+//
 //	type User struct { ID int; Name string }
 //	client := rest.NewClient(nil, "https://api.example.com")
 //
-//	user, err := rest.GetJSON[User](ctx, client, "/users/1", nil)
+//	user, err := rest.GetJSON[User](ctx, client, "/users/1", params)
 package rest
 
 import (
@@ -52,7 +62,7 @@ type HTTPDoer interface {
 // Requester defines the requirements for performing raw HTTP requests
 // with path joining and query parameter encoding.
 type Requester interface {
-	Request(ctx context.Context, method, path string, body []byte, query url.Values, mods ...RequestModifier) (*http.Response, error)
+	Request(ctx context.Context, method, path string, body []byte, query any, mods ...RequestModifier) (*http.Response, error)
 }
 
 // RequestModifier is a function that can modify an *http.Request before it is sent.
@@ -105,15 +115,20 @@ func (c *Client) HTTP() HTTPDoer {
 
 // Request builds and executes an HTTP request.
 // The path is joined with the client's base URL, and query values are appended to the URL.
-func (c *Client) Request(ctx context.Context, method, path string, body []byte, query url.Values, mods ...RequestModifier) (*http.Response, error) {
+func (c *Client) Request(ctx context.Context, method, path string, body []byte, query any, mods ...RequestModifier) (*http.Response, error) {
 	rel, err := url.Parse(strings.TrimLeft(path, "/"))
 	if err != nil {
 		return nil, fmt.Errorf("rest: invalid path: %w", err)
 	}
 	u := c.baseURL.ResolveReference(rel)
 
-	if len(query) > 0 {
-		u.RawQuery = query.Encode()
+	qValues, err := StructToValues(query)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(qValues) > 0 {
+		u.RawQuery = qValues.Encode()
 	}
 
 	var bodyReader io.Reader
@@ -144,7 +159,7 @@ func (c *Client) Request(ctx context.Context, method, path string, body []byte, 
 
 // GetJSON performs a GET request and decodes the JSON response body into a new instance of Resp.
 // Returns an *APIError if the response status is not 2xx.
-func GetJSON[Resp any](ctx context.Context, c Requester, path string, query url.Values, mods ...RequestModifier) (*Resp, error) {
+func GetJSON[Resp any](ctx context.Context, c Requester, path string, query any, mods ...RequestModifier) (*Resp, error) {
 	resp, err := c.Request(ctx, http.MethodGet, path, nil, query, mods...)
 	if err != nil {
 		return nil, err
@@ -160,7 +175,7 @@ func GetJSON[Resp any](ctx context.Context, c Requester, path string, query url.
 // PostJSON marshals the payload to JSON, performs a POST request, and decodes the
 // response body into a new instance of Resp.
 // It automatically sets the Content-Type and Accept headers to application/json.
-func PostJSON[Req any, Resp any](ctx context.Context, c Requester, path string, payload Req, query url.Values, mods ...RequestModifier) (*Resp, error) {
+func PostJSON[Req any, Resp any](ctx context.Context, c Requester, path string, payload Req, query any, mods ...RequestModifier) (*Resp, error) {
 	bodyBytes, err := json.Marshal(payload)
 	if err != nil {
 		return nil, fmt.Errorf("rest: failed to marshal payload: %w", err)

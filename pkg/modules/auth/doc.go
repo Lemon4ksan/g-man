@@ -16,16 +16,16 @@ Steam's authentication is historically complex, blending modern OAuth-like
 flows with legacy binary socket handshakes. This package abstracts that
 complexity into a seamless two-phase process:
 
-1. WebAPI Phase (AuthenticationService):
-   Uses the 'service' package (REST over HTTP) to perform a modern JWT-based
-   login. It fetches RSA keys, encrypts the password, handles 2FA/Email Guard
-   challenges, and polls until Steam issues a "Refresh Token".
+ 1. WebAPI Phase (AuthenticationService):
+    Uses the 'service' package (REST over HTTP) to perform a modern JWT-based
+    login. It fetches RSA keys, encrypts the password, handles 2FA/Email Guard
+    challenges, and polls until Steam issues a "Refresh Token".
 
-2. Socket Phase (Authenticator):
-   Takes the Refresh Token from Phase 1 and establishes a persistent TCP/WebSocket
-   connection to a Connection Manager (CM) server. It negotiates the symmetric
-   channel encryption (ChannelEncryptRequest/Response) and sends a `ClientLogOn`
-   message containing the token to finalize the session.
+ 2. Socket Phase (Authenticator):
+    Takes the Refresh Token from Phase 1 and establishes a persistent TCP/WebSocket
+    connection to a Connection Manager (CM) server. It negotiates the symmetric
+    channel encryption (ChannelEncryptRequest/Response) and sends a `ClientLogOn`
+    message containing the token to finalize the session.
 
 # Key Components
 
@@ -41,15 +41,5 @@ complexity into a seamless two-phase process:
     redirection flow to acquire 'sessionid' and 'steamLoginSecure' cookies.
     These cookies are essential for modules like 'market' and 'community' to scrape
     HTML or perform AJAX actions on steamcommunity.com.
-
-# State Management and Concurrency
-
-The Authenticator is designed to be highly concurrent and thread-safe.
-It uses atomic pointers to manage state transitions (e.g., from StateLoggingOn
-to StateLoggedOn) and relies on Go's 'context' to gracefully cancel pending
-network requests if the login fails or is aborted.
-
-Because of its foundational role, the Authenticator is directly injected into
-the 'steam.Client' and does not embed the standard 'BaseModule'.
 */
 package auth

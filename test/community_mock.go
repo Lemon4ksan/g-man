@@ -44,14 +44,21 @@ func (m *MockCommunityRequester) SessionID(baseURL string) string {
 	return m.MockSessionID
 }
 
-func (m *MockCommunityRequester) Request(ctx context.Context, method, path string, body []byte, query url.Values, mods ...rest.RequestModifier) (*http.Response, error) {
+func (m *MockCommunityRequester) Request(ctx context.Context, method, path string, body []byte, query any, mods ...rest.RequestModifier) (*http.Response, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	u, _ := url.Parse(community.BaseURL + path)
-	if len(query) > 0 {
-		u.RawQuery = query.Encode()
+
+	qValues, err := rest.StructToValues(query)
+	if err != nil {
+		return nil, err
 	}
+
+	if len(qValues) > 0 {
+		u.RawQuery = qValues.Encode()
+	}
+
 	urlStr := u.String()
 
 	req, _ := http.NewRequestWithContext(ctx, method, urlStr, bytes.NewReader(body))

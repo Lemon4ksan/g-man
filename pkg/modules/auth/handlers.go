@@ -96,16 +96,16 @@ func (a *Authenticator) handleChannelEncryptResult(packet *protocol.Packet) {
 	a.logger.Info("TCP Encryption established")
 
 	// Get the context and details for the current login attempt
-	loginCtxPtr := a.loginCtx.Load()
+	loginCtx := a.loginCtx.Load().(context.Context)
 	details := a.activeDetails.Load()
 
-	if loginCtxPtr == nil || details == nil {
+	if loginCtx == nil || details == nil {
 		a.failLogin(errors.New("encrypt_result: login context or details are missing"))
 		return
 	}
 
 	// Proceed to send logon credentials over the encrypted channel
-	a.sendLogOn(*loginCtxPtr, details, details.RefreshToken)
+	a.sendLogOn(loginCtx, details)
 }
 
 // handleLogOnResponse handles the final authentication verdict from Steam.
@@ -127,11 +127,6 @@ func (a *Authenticator) handleLogOnResponse(packet *protocol.Packet) {
 		return
 	}
 
-	a.logger.Info("Logon successful",
-		log.Int32("heartbeat_seconds", msg.GetHeartbeatSeconds()),
-		log.Uint32("public_ip", msg.GetPublicIp().GetV4()),
-	)
-
 	// Update session identifiers
 	if ah, ok := packet.Header.(protocol.AuthorizedHeader); ok {
 		sess := a.socket.Session()
@@ -150,12 +145,16 @@ func (a *Authenticator) handleLogOnResponse(packet *protocol.Packet) {
 	}
 	a.socket.StartHeartbeat(interval)
 
-	// Unblock the LogOn() function call successfully!
-	a.succeedLogin()
-
 	a.socket.Bus().Publish(&LoggedOnEvent{
 		SteamID: a.socket.Session().SteamID(),
 	})
+
+	a.succeedLogin()
+
+	a.logger.Info("Logon successful",
+		log.Int32("heartbeat_seconds", msg.GetHeartbeatSeconds()),
+		log.Uint32("public_ip", msg.GetPublicIp().GetV4()),
+	)
 }
 
 // handleLoggedOff handles server-side disconnections (e.g., "Logged in elsewhere").
@@ -175,34 +174,33 @@ func (a *Authenticator) handleLoggedOff(packet *protocol.Packet) {
 }
 
 // sendLogOn constructs and sends the ClientLogon message.
-func (a *Authenticator) sendLogOn(ctx context.Context, details *LogOnDetails, accessToken string) {
+func (a *Authenticator) sendLogOn(ctx context.Context, details *LogOnDetails) {
 	logon := &pb.CMsgClientLogon{
 		ProtocolVersion:           proto.Uint32(details.ProtocolVersion),
 		ClientOsType:              proto.Uint32(uint32(details.ClientOSType)),
 		ClientLanguage:            proto.String(details.ClientLanguage),
 		MachineId:                 details.MachineID,
 		MachineName:               proto.String("g-man"),
-		AccessToken:               proto.String(accessToken),
 		SupportsRateLimitResponse: proto.Bool(true),
 		ObfuscatedPrivateIp: &pb.CMsgIPAddress{
 			Ip: &pb.CMsgIPAddress_V4{V4: a.config.LogonID ^ 0xbaadf00d},
 		},
 	}
 
-	if details.AuthCode != "" {
-		logon.AuthCode = proto.String(details.AuthCode)
-	}
-	if details.TwoFactorCode != "" {
-		logon.TwoFactorCode = proto.String(details.TwoFactorCode)
-	}
-	if details.CellID > 0 {
-		logon.CellId = proto.Uint32(details.CellID)
+	if details.RefreshToken != "" {
+		a.logger.Debug("Logging on with Refresh Token")
+		logon.AccessToken = proto.String(details.RefreshToken)
+		logon.AccountName = nil
+	} else {
+		logon.AccountName = proto.String(details.AccountName)
+		if details.TwoFactorCode != "" {
+			logon.TwoFactorCode = proto.String(details.TwoFactorCode)
+		}
 	}
 
-	a.logger.Info("Sending ClientLogon", log.Uint64("steam_id", details.SteamID))
+	a.logger.Info("Sending ClientLogon")
 
-	// If this send fails, the parent context will be canceled, terminating the login process.
 	if err := a.socket.SendProto(ctx, protocol.EMsg_ClientLogon, logon); err != nil {
-		a.failLogin(fmt.Errorf("failed to send logon message: %w", err))
+		a.failLogin(fmt.Errorf("send logon failed: %w", err))
 	}
 }

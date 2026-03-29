@@ -2,24 +2,23 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package tf2schema provides a comprehensive TF2 item schema manager.
-package tf2schema
+package schema
 
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"runtime/debug"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/andygrunwald/vdf"
 	"github.com/lemon4ksan/g-man/pkg/log"
+	"github.com/lemon4ksan/g-man/pkg/modules"
+	"github.com/lemon4ksan/g-man/pkg/rest"
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/api"
-	"github.com/lemon4ksan/g-man/pkg/steam/bus"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"github.com/mitchellh/mapstructure"
 
@@ -28,98 +27,82 @@ import (
 
 const ModuleName string = "tf2_schema"
 
-// SchemaManagerOption allows functional configuration of SchemaManager.
-type SchemaManagerOption func(*SchemaManager)
-
 type Config struct {
 	UpdateInterval time.Duration // How often to refresh the schema
 	LiteMode       bool          // Prunes unnecessary items_game data to save RAM
 }
 
-// SchemaManager manages the TF2 item schema, keeping it up to date.
-type SchemaManager struct {
-	bus    *bus.Bus
-	client service.Requester
-	logger log.Logger
-	config Config
+func WithModule(cfg Config) steam.Option {
+	return func(c *steam.Client) {
+		c.RegisterModule(New(cfg))
+	}
+}
+
+// Manager manages the TF2 item schema, keeping it up to date.
+// It embeds BaseModule for standardized lifecycle and concurrency management.
+type Manager struct {
+	modules.BaseModule
+
+	config     Config
+	svcClient  service.Requester
+	restClient rest.Requester
 
 	mu     sync.RWMutex
 	schema *Schema
-	ready  atomic.Bool
-
-	cancel context.CancelFunc
-}
-
-// Option allows functional configuration of SchemaManager.
-type Option func(*SchemaManager)
-
-func WithLogger(logger log.Logger) Option {
-	return func(sm *SchemaManager) { sm.logger = logger }
 }
 
 // New creates a manager with the given options.
-func New(cfg Config, opts ...Option) *SchemaManager {
+func New(cfg Config) *Manager {
 	if cfg.UpdateInterval < 1*time.Minute {
 		cfg.UpdateInterval = 24 * time.Hour
 	}
 
-	sm := &SchemaManager{
-		config: cfg,
-		logger: log.Discard,
+	return &Manager{
+		BaseModule: modules.NewBase(ModuleName),
+		config:     cfg,
 	}
-	for _, opt := range opts {
-		opt(sm)
-	}
-
-	return sm
 }
 
-func (m *SchemaManager) Name() string { return ModuleName }
+func (m *Manager) Name() string { return ModuleName }
 
-func (m *SchemaManager) Init(c *steam.Client) error {
-	m.bus = c.Bus()
-	if m.bus == nil {
-		return errors.New("nil bus")
+func (m *Manager) Init(init modules.InitContext) error {
+	if err := m.BaseModule.Init(init); err != nil {
+		return err
 	}
-	m.client = c.Service()
-	if m.client == nil {
-		return errors.New("nil API client")
-	}
+
+	m.svcClient = init.Service()
+	m.restClient = init.Rest()
 	return nil
 }
 
 // Start triggers the initial fetch and sets up the refresh loop.
-func (m *SchemaManager) Start(ctx context.Context) error {
-	m.logger.Info("Initializing TF2 Schema...")
+func (m *Manager) StartAuthed(ctx context.Context, _ modules.AuthContext) error {
+	m.Logger.Info("Starting TF2 Schema loading...")
 
-	loopCtx, cancel := context.WithCancel(ctx)
-	m.cancel = cancel
-
-	// Initial fetch (blocking to ensure modules depending on schema can start)
-	if m.schema == nil {
-		if err := m.Refresh(loopCtx); err != nil {
-			return fmt.Errorf("initial schema fetch failed: %w", err)
-		}
+	// The first run is a blocking one. We need a schematic before the bot starts working.
+	if err := m.Refresh(ctx); err != nil {
+		return fmt.Errorf("initial schema fetch failed: %w", err)
 	}
 
-	m.ready.Store(true)
-	m.bus.Publish(&SchemaReadyEvent{})
+	m.Bus.Publish(&SchemaReadyEvent{})
 
-	go m.refreshLoop(loopCtx)
+	m.Go(func(moduleCtx context.Context) {
+		m.refreshLoop(moduleCtx)
+	})
 
 	return nil
 }
 
 // Get returns the current active schema. Returns nil if not ready.
-func (m *SchemaManager) Get() *Schema {
+func (m *Manager) Get() *Schema {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.schema
 }
 
 // Refresh manually triggers a full schema update from Steam and GitHub sources.
-func (m *SchemaManager) Refresh(ctx context.Context) error {
-	m.logger.Debug("Fetching schema components in parallel...")
+func (m *Manager) Refresh(ctx context.Context) error {
+	m.Logger.Debug("Fetching schema components from Steam and GitHub...")
 
 	var overview map[string]any
 	var items []any
@@ -150,45 +133,76 @@ func (m *SchemaManager) Refresh(ctx context.Context) error {
 	})
 
 	if err := g.Wait(); err != nil {
-		m.bus.Publish(&SchemaUpdateFailedEvent{Error: err})
-		return fmt.Errorf("schema fetch failed: %w", err)
+		m.Bus.Publish(&SchemaUpdateFailedEvent{Error: err})
+		return fmt.Errorf("parallel fetch failed: %w", err)
 	}
 
-	err := m.buildSchema(overview, items, paintkits, itemsGame)
-	if err != nil {
+	if err := m.buildSchema(overview, items, paintkits, itemsGame); err != nil {
 		return err
 	}
 
-	m.logger.Info("TF2 Schema successfully updated")
-	m.bus.Publish(&SchemaUpdatedEvent{Timestamp: time.Now()})
+	m.Logger.Info("TF2 Schema updated successfully", log.Int("items", len(m.schema.itemsByDef)))
+	m.Bus.Publish(&SchemaUpdatedEvent{Timestamp: time.Now()})
 
 	return nil
 }
 
-// buildSchema combines all fetched parts into a unified Schema object.
-func (m *SchemaManager) buildSchema(overview map[string]any, items []any, paintKits map[string]string, itemsGame map[string]any) error {
+func (m *Manager) refreshLoop(ctx context.Context) {
+	ticker := time.NewTicker(m.config.UpdateInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if err := m.Refresh(ctx); err != nil {
+				m.Logger.Error("Scheduled schema refresh failed", log.Err(err))
+			}
+		}
+	}
+}
+
+func (m *Manager) buildSchema(overview map[string]any, items []any, paintKits map[string]string, itemsGame map[string]any) error {
 	raw := &RawSchema{
 		ItemsGame: itemsGame,
 	}
 	raw.Schema.PaintKits = paintKits
 
-	overviewBytes, err := json.Marshal(overview)
-	if err != nil {
-		return fmt.Errorf("failed to encode overview map: %w", err)
-	}
+	overviewBytes, _ := json.Marshal(overview)
 	if err := json.Unmarshal(overviewBytes, &raw.Schema); err != nil {
-		return fmt.Errorf("failed to decode overview into struct: %w", err)
+		return fmt.Errorf("failed to parse schema overview: %w", err)
+	}
+
+	strPool := make(map[string]string)
+	intern := func(s string) string {
+		if s == "" {
+			return ""
+		}
+		if val, ok := strPool[s]; ok {
+			return val
+		}
+		strPool[s] = s
+		return s
 	}
 
 	raw.Schema.Items = make([]*ItemSchema, 0, len(items))
-	for _, itemBytes := range items {
+	for _, it := range items {
 		var item ItemSchema
-		if err := mapstructure.Decode(itemBytes, &item); err != nil {
-			m.logger.Warn("Failed to parse single item schema, skipping", log.Err(err))
-			continue
+		if err := mapstructure.Decode(it, &item); err == nil {
+			item.ItemClass = intern(item.ItemClass)
+			item.CraftClass = intern(item.CraftClass)
+			item.ItemName = intern(item.ItemName)
+
+			for i, class := range item.UsedByClasses {
+				item.UsedByClasses[i] = intern(class)
+			}
+            
+			raw.Schema.Items = append(raw.Schema.Items, &item)
 		}
-		raw.Schema.Items = append(raw.Schema.Items, &item)
 	}
+
+	strPool = nil
 
 	if m.config.LiteMode {
 		m.pruneItemsGame(raw)
@@ -200,12 +214,14 @@ func (m *SchemaManager) buildSchema(overview map[string]any, items []any, paintK
 	m.schema = newSchema
 	m.mu.Unlock()
 
+	debug.FreeOSMemory()
+
 	return nil
 }
 
 // pruneItemsGame deletes unnecessary fields from the massive items_game map
 // to save RAM. Used when LiteMode is true.
-func (m *SchemaManager) pruneItemsGame(raw *RawSchema) {
+func (m *Manager) pruneItemsGame(raw *RawSchema) {
 	if raw.ItemsGame == nil {
 		return
 	}
@@ -226,32 +242,47 @@ func (m *SchemaManager) pruneItemsGame(raw *RawSchema) {
 		delete(raw.ItemsGame, key)
 	}
 
-	m.logger.Debug("LiteMode: pruned items_game data to save memory")
+	m.Logger.Debug("LiteMode: pruned items_game data to save memory")
 }
 
-func (m *SchemaManager) getSchemaOverview(ctx context.Context) (map[string]any, error) {
+func (m *Manager) getSchemaOverview(ctx context.Context) (map[string]any, error) {
 	req := struct {
 		Language string `url:"language"`
 	}{"en"}
-	resp, err := service.WebAPI[map[string]any](ctx, m.client, "GET", "IEconItems_440", "GetSchemaOverview", 1, req)
+
+	resp, err := service.WebAPI[map[string]any](ctx, m.svcClient, "GET", "IEconItems_440", "GetSchemaOverview", 1, req)
+
 	if err != nil {
-		return nil, fmt.Errorf("transport error: %w", err)
+		if m.isForbiddenError(err) {
+			m.Logger.Warn("WebAPI returned 403. Attempting to fetch Overview from community mirror...")
+			return m.fetchFromMirror(ctx, "overview")
+		}
+		return nil, fmt.Errorf("overview fetch failed: %w", err)
 	}
+
 	return *resp, nil
 }
 
-func (m *SchemaManager) getSchemaItems(ctx context.Context) ([]any, error) {
+func (m *Manager) getSchemaItems(ctx context.Context) ([]any, error) {
 	var allItems []any
 	next := 0
+
+	m.Logger.Debug("Fetching items from Steam WebAPI (this may take a while)...")
 
 	for {
 		req := struct {
 			Language string `url:"language"`
 			Start    int    `url:"start"`
 		}{"en", next}
-		resp, err := service.WebAPI[map[string]any](ctx, m.client, "GET", "IEconItems_440", "GetSchemaItems", 1, req)
+
+		resp, err := service.WebAPI[map[string]any](ctx, m.svcClient, "GET", "IEconItems_440", "GetSchemaItems", 1, req)
+
 		if err != nil {
-			return nil, err
+			if m.isForbiddenError(err) {
+				m.Logger.Warn("WebAPI returned 403. Attempting to fetch Items from community mirror...")
+				return m.fetchItemsFromMirror(ctx)
+			}
+			return nil, fmt.Errorf("items fetch failed at offset %d: %w", next, err)
 		}
 
 		result, ok := (*resp)["result"].(map[string]any)
@@ -261,27 +292,33 @@ func (m *SchemaManager) getSchemaItems(ctx context.Context) ([]any, error) {
 
 		if items, ok := result["items"].([]any); ok {
 			allItems = append(allItems, items...)
+			m.Logger.Debug("Items progress", log.Int("count", len(allItems)))
 		}
 
-		if nextVal, ok := result["next"].(float64); ok && nextVal > 0 {
-			next = int(nextVal)
-		} else {
+		nextVal, hasNext := result["next"].(float64)
+		if !hasNext || nextVal <= 0 {
 			break
 		}
+		next = int(nextVal)
 	}
 
 	return allItems, nil
 }
 
-func (m *SchemaManager) getPaintKits(ctx context.Context) (map[string]string, error) {
+func (m *Manager) getPaintKits(ctx context.Context) (map[string]string, error) {
 	url := "https://raw.githubusercontent.com/SteamDatabase/GameTracking-TF2/master/tf/resource/tf_proto_obj_defs_english.txt"
-	req := api.NewHttpRequest("GET", url, nil)
-	resp, err := m.client.Do(ctx, req)
+
+	resp, err := m.restClient.Request(ctx, "GET", url, nil, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to fetch paint kits: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("github returned status: %d", resp.StatusCode)
 	}
 
-	parser := vdf.NewParser(strings.NewReader(string(resp.Body)))
+	parser := vdf.NewParser(resp.Body)
 	parsed, err := parser.Parse()
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse VDF: %w", err)
@@ -326,15 +363,20 @@ func (m *SchemaManager) getPaintKits(ctx context.Context) (map[string]string, er
 	return paintKits, nil
 }
 
-func (m *SchemaManager) getItemsGame(ctx context.Context) (map[string]any, error) {
+func (m *Manager) getItemsGame(ctx context.Context) (map[string]any, error) {
 	url := "https://raw.githubusercontent.com/SteamDatabase/GameTracking-TF2/master/tf/scripts/items/items_game.txt"
-	req := api.NewHttpRequest("GET", url, nil)
-	resp, err := m.client.Do(ctx, req)
+
+	resp, err := m.restClient.Request(ctx, "GET", url, nil, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to fetch items_game.txt: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("github returned status: %d", resp.StatusCode)
 	}
 
-	parser := vdf.NewParser(strings.NewReader(string(resp.Body)))
+	parser := vdf.NewParser(resp.Body)
 	parsed, err := parser.Parse()
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse VDF: %w", err)
@@ -348,18 +390,38 @@ func (m *SchemaManager) getItemsGame(ctx context.Context) (map[string]any, error
 	return itemsGame, nil
 }
 
-func (m *SchemaManager) refreshLoop(ctx context.Context) {
-	ticker := time.NewTicker(m.config.UpdateInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			if err := m.Refresh(ctx); err != nil {
-				m.logger.Error("Scheduled schema refresh failed", log.Err(err))
-			}
-		}
+func (m *Manager) isForbiddenError(err error) bool {
+	if apiErr, ok := err.(api.SteamAPIError); ok && apiErr.StatusCode == 403 {
+		return true
 	}
+	if restErr, ok := err.(*rest.APIError); ok && restErr.StatusCode == 403 {
+		return true
+	}
+	return strings.Contains(err.Error(), "403")
+}
+
+func (m *Manager) fetchFromMirror(ctx context.Context, component string) (map[string]any, error) {
+	var url string
+	switch component {
+	case "overview":
+		url = "https://raw.githubusercontent.com/G-man-bot/tf2-static-schema/master/overview.json"
+	default:
+		return nil, fmt.Errorf("unknown mirror component: %s", component)
+	}
+
+	res, err := rest.GetJSON[map[string]any](ctx, m.restClient, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("mirror fetch failed: %w", err)
+	}
+	return *res, nil
+}
+
+func (m *Manager) fetchItemsFromMirror(ctx context.Context) ([]any, error) {
+	url := "https://raw.githubusercontent.com/G-man-bot/tf2-static-schema/master/items.json"
+
+	res, err := rest.GetJSON[[]any](ctx, m.restClient, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("mirror items fetch failed: %w", err)
+	}
+	return *res, nil
 }

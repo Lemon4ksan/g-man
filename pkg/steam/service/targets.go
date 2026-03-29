@@ -45,7 +45,7 @@ func NewUnifiedRequest(httpMethod, iface, method string, version int, msg any) (
 		return nil, fmt.Errorf("api: failed to encode unified body: %w", err)
 	}
 
-	target := UnifiedTarget{
+	target := &UnifiedTarget{
 		HttpMethod: httpMethod,
 		Interface:  iface,
 		Method:     method,
@@ -55,12 +55,12 @@ func NewUnifiedRequest(httpMethod, iface, method string, version int, msg any) (
 	return tr.NewRequest(target, body), nil
 }
 
-func (u UnifiedTarget) String() string {
+func (u *UnifiedTarget) String() string {
 	return fmt.Sprintf("%s.%s#%d", u.Interface, u.Method, u.Version)
 }
 
 // HTTPMethod returns "POST" if not explicitly set, as Unified Services require a body.
-func (u UnifiedTarget) HTTPMethod() string {
+func (u *UnifiedTarget) HTTPMethod() string {
 	if u.HttpMethod != "" {
 		return u.HttpMethod
 	}
@@ -68,7 +68,7 @@ func (u UnifiedTarget) HTTPMethod() string {
 }
 
 // HTTPPath constructs the Steam URL path, e.g., "IPlayerService/GetNickname/v1".
-func (u UnifiedTarget) HTTPPath() string {
+func (u *UnifiedTarget) HTTPPath() string {
 	iface := u.Interface
 	if !strings.HasPrefix(iface, "I") {
 		iface = "I" + iface
@@ -80,14 +80,25 @@ func (u UnifiedTarget) HTTPPath() string {
 }
 
 // EMsg returns the appropriate EMsg for socket-based service calls.
-func (u UnifiedTarget) EMsg(isAuth bool) protocol.EMsg {
+func (u *UnifiedTarget) EMsg(isAuth bool) protocol.EMsg {
 	if isAuth {
 		return protocol.EMsg_ServiceMethodCallFromClient
 	}
 	return protocol.EMsg_ServiceMethodCallFromClientNonAuthed
 }
 
-func (u UnifiedTarget) ObjectName() string { return u.String() }
+// SetHTTPMethod updates the http method for the target.
+func (u *UnifiedTarget) SetHTTPMethod(method string) {
+	u.HttpMethod = method
+}
+
+// SetVersion updates the api method version for the target.
+func (u *UnifiedTarget) SetVersion(v int) {
+	u.Version = v
+}
+
+// ObjectName returns the name for the socket representation of the target.
+func (u *UnifiedTarget) ObjectName() string { return u.String() }
 
 // WebAPITarget represents a classic JSON/VDF WebAPI call.
 type WebAPITarget struct {
@@ -99,7 +110,7 @@ type WebAPITarget struct {
 
 // NewWebAPIRequest creates a transport request for a standard WebAPI endpoint.
 func NewWebAPIRequest(httpMethod, iface, method string, version int) *tr.Request {
-	return tr.NewRequest(WebAPITarget{
+	return tr.NewRequest(&WebAPITarget{
 		HttpMethod: httpMethod,
 		Interface:  iface,
 		Method:     method,
@@ -107,10 +118,20 @@ func NewWebAPIRequest(httpMethod, iface, method string, version int) *tr.Request
 	}, nil)
 }
 
-func (w WebAPITarget) String() string     { return w.Interface + "/" + w.Method }
-func (w WebAPITarget) HTTPMethod() string { return w.HttpMethod }
-func (w WebAPITarget) HTTPPath() string {
+func (w *WebAPITarget) String() string     { return w.Interface + "/" + w.Method }
+func (w *WebAPITarget) HTTPMethod() string { return w.HttpMethod }
+func (w *WebAPITarget) HTTPPath() string {
 	return fmt.Sprintf("%s/%s/v%d", w.Interface, w.Method, w.Version)
+}
+
+// SetHTTPMethod updates the http method for the target.
+func (w *WebAPITarget) SetHTTPMethod(method string) {
+	w.HttpMethod = method
+}
+
+// SetVersion updates the api method version for the target.
+func (w *WebAPITarget) SetVersion(v int) {
+	w.Version = v
 }
 
 // LegacyTarget represents a raw EMsg-based message used in socket connections.
@@ -128,9 +149,9 @@ func NewLegacyRequest(eMsg protocol.EMsg, msg proto.Message) (*tr.Request, error
 			return nil, fmt.Errorf("api: failed to marshal legacy body: %w", err)
 		}
 	}
-	return tr.NewRequest(LegacyTarget{eMsg}, body), nil
+	return tr.NewRequest(&LegacyTarget{eMsg}, body), nil
 }
 
-func (l LegacyTarget) String() string                 { return l.eMsg.String() }
-func (l LegacyTarget) EMsg(isAuth bool) protocol.EMsg { return l.eMsg }
-func (l LegacyTarget) ObjectName() string             { return "" }
+func (l *LegacyTarget) String() string                 { return l.eMsg.String() }
+func (l *LegacyTarget) EMsg(isAuth bool) protocol.EMsg { return l.eMsg }
+func (l *LegacyTarget) ObjectName() string             { return "" }

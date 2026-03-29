@@ -19,6 +19,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/modules"
 	"github.com/lemon4ksan/g-man/pkg/modules/auth"
+	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/bus"
 	"github.com/lemon4ksan/g-man/pkg/steam/crypto/totp"
 )
@@ -61,9 +62,6 @@ type ConfService interface {
 // Config holds all configuration options for the Guardian.
 // Use DefaultConfig() for production-ready defaults.
 type Config struct {
-	// SteamID is the id of the account the guardian is connected to.
-	SteamID uint64
-
 	// SharedSecret is the TOTP secret used to generate 2FA codes.
 	SharedSecret string
 
@@ -140,6 +138,17 @@ func (c Config) Validate() error {
 	return nil
 }
 
+func WithModule(cfg Config) steam.Option {
+	return func(c *steam.Client) {
+		m, err := New(cfg)
+		if err != nil {
+			c.Logger().Error("Failed to register guardian", log.Err(err))
+		} else {
+			c.RegisterModule(m)
+		}
+	}
+}
+
 // GuardianMetrics tracks operational metrics for monitoring using atomics.
 type GuardianMetrics struct {
 	TotalFetched  atomic.Int64
@@ -153,6 +162,7 @@ type GuardianMetrics struct {
 type Guardian struct {
 	modules.BaseModule
 
+	steamID      uint64
 	service      ConfService
 	config       Config
 	clock        *OffsetClock
@@ -223,6 +233,8 @@ func (g *Guardian) StartAuthed(ctx context.Context, authCtx modules.AuthContext)
 		g.StopPolling()
 	}
 
+	g.steamID = authCtx.SteamID()
+
 	communityClient := authCtx.Community()
 	if communityClient == nil {
 		return errors.New("guard: community client is required")
@@ -269,7 +281,7 @@ func (g *Guardian) StartPolling() error {
 // StopPolling halts the automatic polling loop.
 func (g *Guardian) StopPolling() {
 	if g.State.CompareAndSwap(int32(StatePolling), int32(StateStopped)) {
-		g.pollingWg.Wait() 
+		g.pollingWg.Wait()
 		g.Logger.Info("Polling loop fully terminated")
 		g.Bus.Publish(&StateEvent{New: State(StateStopped)})
 	}
@@ -291,7 +303,7 @@ func (g *Guardian) FetchConfirmations(ctx context.Context) ([]*Confirmation, err
 		return nil, fmt.Errorf("guard: key generation: %w", err)
 	}
 
-	resp, err := g.service.GetConfirmations(ctx, g.config.DeviceID, g.config.SteamID, key, timestamp)
+	resp, err := g.service.GetConfirmations(ctx, g.config.DeviceID, g.steamID, key, timestamp)
 	if err != nil {
 		g.metrics.TotalErrors.Add(1)
 		return nil, err
@@ -339,7 +351,7 @@ func (g *Guardian) respond(ctx context.Context, conf *Confirmation, accept bool)
 		return err
 	}
 
-	err = g.service.RespondToConfirmation(ctx, conf, accept, g.config.DeviceID, g.config.SteamID, key, timestamp)
+	err = g.service.RespondToConfirmation(ctx, conf, accept, g.config.DeviceID, g.steamID, key, timestamp)
 	if err != nil {
 		g.metrics.TotalErrors.Add(1)
 		return err

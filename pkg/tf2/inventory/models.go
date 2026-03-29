@@ -5,6 +5,7 @@
 package inventory
 
 import (
+	"context"
 	"errors"
 )
 
@@ -12,6 +13,20 @@ var (
 	ErrItemNotFound = errors.New("tf2inventory: could not find item in inventory")
 	ErrSteamAPI     = errors.New("tf2inventory: steam api returned error status")
 )
+
+// HistoryStatus represents the result of checking the item's history.
+type HistoryStatus struct {
+	// Recorded reports whether the service knows about this item.
+	Recorded bool
+	// IsDuped reports whether the item is considered a duplicate.
+	IsDuped bool
+}
+
+// DupeChecker defines an interface for any service that can
+// check the history of an item (e.g., backpack.tf, reps.tf).
+type DupeChecker interface {
+	CheckHistory(ctx context.Context, assetID uint64) (HistoryStatus, error)
+}
 
 type PlayerItemsResponse struct {
 	Result struct {

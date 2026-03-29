@@ -5,21 +5,43 @@
 package test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"sync"
 
+	"github.com/lemon4ksan/g-man/pkg/rest"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
 	"google.golang.org/protobuf/proto"
 )
 
+type restCall struct {
+	Method string
+	Path   string
+	Body   []byte
+	Query  any
+}
+
+type restResponse struct {
+	Status int
+	Body   []byte
+	Header http.Header
+}
+
 type MockRequester struct {
-	mu          sync.Mutex
-	Calls       []*tr.Request
+	mu    sync.Mutex
+	Calls []*tr.Request
+
+	restCalls     []restCall
+	restResponses map[string]restResponse
+
 	OnDo        func(req *tr.Request) (*tr.Response, error)
+	OnRest      func(method, path string, body []byte) (*http.Response, error)
 	OnSessionID func(string) string
 
 	ResponseErr  error
@@ -77,6 +99,39 @@ func (m *MockRequester) Do(ctx context.Context, req *tr.Request) (*tr.Response, 
 	}
 
 	return tr.NewResponse(nil, tr.SocketMetadata{Result: protocol.EResult_OK}), nil
+}
+
+func (m *MockRequester) Request(ctx context.Context, method, path string, body []byte, query any, mods ...rest.RequestModifier) (*http.Response, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.restCalls = append(m.restCalls, restCall{method, path, body, query})
+
+	if m.OnRest != nil {
+		return m.OnRest(method, path, body)
+	}
+
+	key := fmt.Sprintf("%s:%s", method, path)
+	if err, ok := m.ResponseErrs[key]; ok {
+		return nil, err
+	}
+
+	respData, ok := m.restResponses[key]
+	if !ok {
+		respData = restResponse{Status: http.StatusOK, Body: []byte("{}")}
+	}
+
+	dummyReq, _ := http.NewRequest(method, path, bytes.NewReader(body))
+	for _, mod := range mods {
+		mod(dummyReq)
+	}
+
+	return &http.Response{
+		StatusCode: respData.Status,
+		Body:       io.NopCloser(bytes.NewReader(respData.Body)),
+		Header:     respData.Header,
+		Request:    dummyReq,
+	}, nil
 }
 
 func (m *MockRequester) SetJSONResponse(iface, method string, resp any) {
@@ -146,14 +201,13 @@ func (m *MockRequester) CallsCount() int {
 	return len(m.Calls)
 }
 
-
 func (m *MockRequester) identifyTarget(target any) string {
 	switch t := target.(type) {
-	case service.UnifiedTarget:
+	case *service.UnifiedTarget:
 		return fmt.Sprintf("%s.%s", t.Interface, t.Method)
-	case service.WebAPITarget:
+	case *service.WebAPITarget:
 		return fmt.Sprintf("%s/%s", t.Interface, t.Method)
-	case service.LegacyTarget:
+	case *service.LegacyTarget:
 		return t.String()
 	case fmt.Stringer:
 		return t.String()

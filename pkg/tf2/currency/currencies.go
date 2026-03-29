@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package currency provides structures for tf2 currencies calculations.
 package currency
 
 import (
@@ -11,15 +12,15 @@ import (
 	"strings"
 )
 
-// Currencies represent a currency object (keys and metal).
-type Currencies struct {
+// Currency represent a currency object (keys and metal).
+type Currency struct {
 	Keys  float64 `json:"keys"`
 	Metal float64 `json:"metal"`
 }
 
-// NewCurrencies creates a new Currencies instance.
-func NewCurrencies(keys, metal float64) *Currencies {
-	c := &Currencies{
+// New creates a new Currencies instance.
+func New(keys, metal float64) *Currency {
+	c := &Currency{
 		Keys:  keys,
 		Metal: metal,
 	}
@@ -29,7 +30,7 @@ func NewCurrencies(keys, metal float64) *Currencies {
 
 // String implements the Stringer interface.
 // Returns a string representation, for example: "1 key, 20.11 ref".
-func (c *Currencies) String() string {
+func (c *Currency) String() string {
 	var parts []string
 
 	if c.Keys != 0 || c.Keys == c.Metal {
@@ -47,7 +48,7 @@ func (c *Currencies) String() string {
 // ToValue returns the value of currencies in scrap metal.
 // Conversion is the cost of one key in refined units.
 // If there are no keys, conversion can be passed as 0.
-func (c *Currencies) ToValue(conversion float64) (float64, error) {
+func (c *Currency) ToValue(conversion float64) (float64, error) {
 	if conversion == 0 && c.Keys != 0 {
 		return 0, errors.New("missing conversion rate for keys in refined")
 	}
@@ -73,10 +74,10 @@ func AddRefined(args ...float64) float64 {
 // ScrapToCurrencies converts scrap metal into a Currencies object.
 // value - the value in scrap.
 // conversion - the key exchange rate in refs (if 0/undefined, returns only metal).
-func ScrapToCurrencies(value, conversion float64) *Currencies {
+func ScrapToCurrencies(value, conversion float64) *Currency {
 	if conversion == 0 {
 		metal := ToRefined(value)
-		return NewCurrencies(0, metal)
+		return New(0, metal)
 	}
 
 	conversionScrap := ToScrap(conversion)
@@ -84,7 +85,7 @@ func ScrapToCurrencies(value, conversion float64) *Currencies {
 	left := value - keys*conversionScrap
 	metal := ToRefined(left)
 
-	return NewCurrencies(keys, metal)
+	return New(keys, metal)
 }
 
 // ToScrap converts refs (refined) to scrap.

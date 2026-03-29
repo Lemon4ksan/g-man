@@ -32,16 +32,14 @@ func NewTwoFactorService(client service.Requester) *TwoFactorService {
 // Crucial for generating valid TOTP codes if the local clock is out of sync.
 func (s *TwoFactorService) QueryTimeOffset(ctx context.Context) (time.Duration, error) {
 	type respStruct struct {
-		Response struct {
-			ServerTime string `json:"server_time"`
-		} `json:"response"`
+		ServerTime string `json:"server_time"`
 	}
 	resp, err := service.WebAPI[respStruct](ctx, s.client, "POST", "ITwoFactorService", "QueryTime", 1, nil)
 	if err != nil {
 		return 0, err
 	}
 
-	serverTime, err := strconv.ParseInt(resp.Response.ServerTime, 10, 64)
+	serverTime, err := strconv.ParseInt(resp.ServerTime, 10, 64)
 	if err != nil {
 		return 0, fmt.Errorf("invalid server time format from steam: %w", err)
 	}

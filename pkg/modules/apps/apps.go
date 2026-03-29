@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package apps provides application management including launching games,
-// tracking player counts, and handling concurrent playing sessions.
 package apps
 
 import (
@@ -15,6 +13,7 @@ import (
 
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/modules"
+	"github.com/lemon4ksan/g-man/pkg/steam"
 	pb "github.com/lemon4ksan/g-man/pkg/steam/protobuf"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
@@ -26,8 +25,13 @@ const ModuleName string = "apps"
 // nonSteamGameID is the special ID used by Steam to represent a "Non-Steam Game" shortcut.
 const nonSteamGameID uint64 = 15190414816125648896
 
+func WithModule() steam.Option {
+    return func(c *steam.Client) {
+        c.RegisterModule(New())
+    }
+}
+
 // Apps manages the "In-Game" status and interacts with Steam's app services.
-// It embeds modules.BaseModule for lifecycle and concurrency management.
 type Apps struct {
 	modules.BaseModule
 
@@ -185,7 +189,6 @@ func (a *Apps) sendGamesPlayed(ctx context.Context, games []*pb.CMsgClientGamesP
 	a.playingAppIDs = newAppIDs
 	return nil
 }
-
 
 // --- Handlers ---
 

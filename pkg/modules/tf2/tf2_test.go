@@ -6,14 +6,17 @@ package tf2
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
+	"errors"
 	"testing"
 	"time"
 
-	"github.com/lemon4ksan/g-man/pkg/log"
-	"github.com/lemon4ksan/g-man/pkg/modules/coordinator"
+	"github.com/lemon4ksan/g-man/pkg/jobs"
+	"github.com/lemon4ksan/g-man/pkg/modules"
+	"github.com/lemon4ksan/g-man/pkg/modules/apps"
 	gc "github.com/lemon4ksan/g-man/pkg/modules/coordinator/protocol"
-	tf2pb "github.com/lemon4ksan/g-man/pkg/tf2/protobuf"
+	pb "github.com/lemon4ksan/g-man/pkg/tf2/protobuf"
 	"github.com/lemon4ksan/g-man/test"
 	"google.golang.org/protobuf/proto"
 )
@@ -23,43 +26,78 @@ const (
 	Item_Key   = 5021
 )
 
-func setupTF2(t *testing.T) (*TF2, *test.MockInitContext, *test.MockCoordinator) {
+type mockCoordinator struct {
+	modules.BaseModule
+	lastSendMsgType uint32
+	lastSendPayload []byte
+
+	onCallRaw func(msgType uint32, payload []byte) (*gc.Packet, error)
+}
+
+func (m *mockCoordinator) Send(ctx context.Context, appID uint32, msgType uint32, msg proto.Message) error {
+	m.lastSendMsgType = msgType
+	m.lastSendPayload, _ = proto.Marshal(msg)
+	return nil
+}
+
+func (m *mockCoordinator) SendRaw(ctx context.Context, appID uint32, msgType uint32, payload []byte) error {
+	m.lastSendMsgType = msgType
+	m.lastSendPayload = payload
+	return nil
+}
+
+func (m *mockCoordinator) Call(ctx context.Context, appID uint32, msgType uint32, msg proto.Message, cb jobs.Callback[*gc.Packet]) error {
+	return nil
+}
+
+func (m *mockCoordinator) CallRaw(ctx context.Context, appID uint32, msgType uint32, payload []byte, cb jobs.Callback[*gc.Packet]) error {
+	m.lastSendMsgType = msgType
+	m.lastSendPayload = payload
+
+	if m.onCallRaw != nil {
+		resp, err := m.onCallRaw(msgType, payload)
+		go cb(resp, err)
+		return nil
+	}
+	return errors.New("onCallRaw not configured")
+}
+
+func setupTF2(t *testing.T) (*TF2, *test.MockInitContext, *mockCoordinator) {
 	t.Helper()
 	ictx := test.NewMockInitContext()
-	mCoord := test.NewMockCoordinator()
-	ictx.SetModule(coordinator.ModuleName, mCoord)
 
-	tf := New(log.Discard)
+	mCoord := &mockCoordinator{}
+	ictx.SetModule("gc", mCoord)
+	ictx.SetModule("apps", apps.New())
+
+	tf := New()
 	if err := tf.Init(ictx); err != nil {
 		t.Fatalf("failed to init TF2: %v", err)
-	}
-
-	if err := tf.Start(t.Context()); err != nil {
-		t.Fatalf("failed to start TF2: %v", err)
 	}
 
 	return tf, ictx, mCoord
 }
 
 func createItemPayload(id uint64, defIndex uint32) []byte {
-	b, _ := proto.Marshal(&tf2pb.CSOEconItem{
+	b, _ := proto.Marshal(&pb.CSOEconItem{
 		Id:       proto.Uint64(id),
 		DefIndex: proto.Uint32(defIndex),
 	})
 	return b
 }
 
-func TestTF2_BackpackEvents(t *testing.T) {
+func TestTF2_SOCacheEvents(t *testing.T) {
 	tf, ictx, _ := setupTF2(t)
 
 	subLoaded := ictx.Bus().Subscribe(&BackpackLoadedEvent{})
 	subAcquired := ictx.Bus().Subscribe(&ItemAcquiredEvent{})
 
-	t.Run("Initial Load", func(t *testing.T) {
-		msg := &tf2pb.CMsgSOCacheSubscribed{
-			Objects: []*tf2pb.CMsgSOCacheSubscribed_SubscribedType{
+	t.Run("Initial Load (CacheSubscribed)", func(t *testing.T) {
+		msg := &pb.CMsgSOCacheSubscribed{
+			Version: proto.Uint64(100),
+			Objects: []*pb.CMsgSOCacheSubscribed_SubscribedType{
 				{
-					TypeId: proto.Int32(1), // Type EconItem
+					TypeId: proto.Int32(SOTypeEconItem),
 					ObjectData: [][]byte{
 						createItemPayload(100, Item_Key),
 						createItemPayload(200, Item_Scrap),
@@ -69,130 +107,111 @@ func TestTF2_BackpackEvents(t *testing.T) {
 		}
 
 		payload, _ := proto.Marshal(msg)
-		tf.backpack.HandleSubscribed(&gc.Packet{Payload: payload})
+		tf.cache.HandleSubscribed(&gc.Packet{Payload: payload}, tf.Logger, tf.Bus)
 
 		select {
-		case <-subLoaded.C():
-			if len(tf.Backpack().Items()) != 2 {
-				t.Errorf("expected 2 items, got %d", len(tf.Backpack().Items()))
+		case ev := <-subLoaded.C():
+			loadedEv := ev.(*BackpackLoadedEvent)
+			if loadedEv.Count != 2 {
+				t.Errorf("expected 2 items, got %d", loadedEv.Count)
 			}
-		case <-time.After(500 * time.Millisecond):
+			if len(tf.cache.GetItems()) != 2 {
+				t.Errorf("cache size mismatch")
+			}
+		case <-time.After(1 * time.Second):
 			t.Fatal("BackpackLoadedEvent not received")
 		}
 	})
 
-	t.Run("Item Acquired", func(t *testing.T) {
-		msg := &tf2pb.CMsgSOSingleObject{
-			TypeId:     proto.Int32(1),
+	t.Run("Item Acquired (SOUpdate Create)", func(t *testing.T) {
+		msg := &pb.CMsgSOSingleObject{
+			TypeId:     proto.Int32(SOTypeEconItem),
 			ObjectData: createItemPayload(300, Item_Scrap),
+			Version:    proto.Uint64(101),
 		}
+
 		payload, _ := proto.Marshal(msg)
-		tf.backpack.HandleCreate(&gc.Packet{Payload: payload})
+
+		pkt := &gc.Packet{
+			MsgType: uint32(pb.ESOMsg_k_ESOMsg_Create),
+			Payload: payload,
+		}
+
+		tf.cache.HandleSOUpdate(pkt, tf.Logger, tf.Bus)
 
 		select {
 		case ev := <-subAcquired.C():
-			if ev.(*ItemAcquiredEvent).Item.ID != 300 {
-				t.Error("wrong item ID in event")
+			acqEv := ev.(*ItemAcquiredEvent)
+			if acqEv.Item.ID != 300 {
+				t.Errorf("expected item ID 300, got %d", acqEv.Item.ID)
 			}
-		case <-time.After(500 * time.Millisecond):
+		case <-time.After(1 * time.Second):
 			t.Fatal("ItemAcquiredEvent not received")
 		}
 	})
 }
 
-func TestTF2_Crafting_BinaryProtocol(t *testing.T) {
+func TestTF2_Crafting(t *testing.T) {
 	tf, _, mCoord := setupTF2(t)
 
-	mCoord.OnCallRaw(uint32(tf2pb.EGCItemMsg_k_EMsgGCCraft), func(p []byte) ([]byte, error) {
+	mCoord.onCallRaw = func(msgType uint32, p []byte) (*gc.Packet, error) {
+		if msgType != uint32(pb.EGCItemMsg_k_EMsgGCCraft) {
+			return nil, errors.New("unexpected msg type")
+		}
+
 		resp := new(bytes.Buffer)
-		binary.Write(resp, binary.LittleEndian, int16(-1))   // Blueprint
+		binary.Write(resp, binary.LittleEndian, int16(-1))   // Blueprint (Custom)
 		binary.Write(resp, binary.LittleEndian, uint32(0))   // Unknown
-		binary.Write(resp, binary.LittleEndian, uint16(1))   // Count
+		binary.Write(resp, binary.LittleEndian, uint16(1))   // Count (1 new item)
 		binary.Write(resp, binary.LittleEndian, uint64(777)) // New Item ID
-		return resp.Bytes(), nil
-	})
 
-	t.Run("Successful Craft", func(t *testing.T) {
+		return &gc.Packet{Payload: resp.Bytes()}, nil
+	}
+
+	t.Run("Successful Craft (Synchronous)", func(t *testing.T) {
 		items := []uint64{100, 200, 300}
-		result, err := tf.Craft(t.Context(), items, -1)
 
+		result, err := tf.Craft(context.Background(), items, -1)
 		if err != nil {
 			t.Fatalf("Craft failed: %v", err)
 		}
+
 		if len(result) != 1 || result[0] != 777 {
-			t.Errorf("expected new item 777, got %v", result)
+			t.Errorf("expected new item [777], got %v", result)
 		}
 
-		sentBody := mCoord.GetLastRawCall(uint32(tf2pb.EGCItemMsg_k_EMsgGCCraft))
+		sentBody := mCoord.lastSendPayload
+		reader := bytes.NewReader(sentBody)
 
 		var recipe int16
-		var count uint16
-		reader := bytes.NewReader(sentBody)
+		var count int16
 		binary.Read(reader, binary.LittleEndian, &recipe)
 		binary.Read(reader, binary.LittleEndian, &count)
 
 		if recipe != -1 || count != 3 {
-			t.Errorf("invalid binary header: recipe=%d, count=%d", recipe, count)
+			t.Errorf("invalid binary header sent to GC: recipe=%d, count=%d", recipe, count)
 		}
 	})
 }
 
-func TestTF2_JobWorker_CombineMetal(t *testing.T) {
+func TestTF2_Actions_SendRaw(t *testing.T) {
 	tf, _, mCoord := setupTF2(t)
 
-	tf.backpack.items[1] = &Item{ID: 1, DefIndex: Item_Scrap}
-	tf.backpack.items[2] = &Item{ID: 2, DefIndex: Item_Scrap}
-	tf.backpack.items[3] = &Item{ID: 3, DefIndex: Item_Scrap}
-
-	tf.state.Store(int32(GCConnected))
-
-	mCoord.OnCallRaw(uint32(tf2pb.EGCItemMsg_k_EMsgGCCraft), func(p []byte) ([]byte, error) {
-		resp := make([]byte, 16)
-		binary.LittleEndian.PutUint16(resp[0:2], uint16(0xFFFF)) // -1
-		binary.LittleEndian.PutUint32(resp[2:6], 0)              // unknown
-		binary.LittleEndian.PutUint16(resp[6:8], 1)              // count 1
-		binary.LittleEndian.PutUint64(resp[8:16], 777)           // new item ID
-
-		return resp, nil
-	})
-
-	t.Run("Queue Metal Combine", func(t *testing.T) {
-		done := tf.EnqueueCombineMetal(Item_Scrap)
-
-		select {
-		case err := <-done:
-			if err != nil {
-				t.Fatalf("worker failed: %v", err)
-			}
-		case <-time.After(1 * time.Second):
-			t.Fatal("JobWorker did not process metal in time")
+	t.Run("RemoveItemName", func(t *testing.T) {
+		err := tf.RemoveItemName(context.Background(), 999)
+		if err != nil {
+			t.Fatalf("RemoveItemName failed: %v", err)
 		}
 
-		sentPayload := mCoord.GetLastRawCall(uint32(tf2pb.EGCItemMsg_k_EMsgGCCraft))
-		if sentPayload == nil {
-			t.Fatal("Craft request was never sent to GC")
+		if mCoord.lastSendMsgType != uint32(pb.EGCItemMsg_k_EMsgGCRemoveItemName) {
+			t.Errorf("expected msg type %d, got %d", pb.EGCItemMsg_k_EMsgGCRemoveItemName, mCoord.lastSendMsgType)
 		}
 
-		if len(sentPayload) != 28 {
-			t.Errorf("expected payload length 28, got %d", len(sentPayload))
-		}
-	})
+		var sentID uint64
+		binary.Read(bytes.NewReader(mCoord.lastSendPayload), binary.LittleEndian, &sentID)
 
-	t.Run("Not Enough Metal", func(t *testing.T) {
-		delete(tf.backpack.items, 3)
-
-		done := tf.EnqueueCombineMetal(Item_Scrap)
-
-		select {
-		case err := <-done:
-			if err == nil {
-				t.Fatal("expected error due to insufficient metal, got nil")
-			}
-			if err.Error() != "not enough items in backpack to craft" {
-				t.Errorf("unexpected error message: %v", err)
-			}
-		case <-time.After(1 * time.Second):
-			t.Fatal("JobWorker did not process failing job in time")
+		if sentID != 999 {
+			t.Errorf("expected to send item ID 999, sent %d", sentID)
 		}
 	})
 }
