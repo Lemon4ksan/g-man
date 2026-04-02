@@ -2,19 +2,12 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package socket provides a flexible, event-driven network socket layer
-// for communicating with Steam Connection Manager (CM) servers.
 package socket
 
 import (
 	"bytes"
-	"compress/gzip"
 	"context"
-	"encoding/binary"
-	"errors"
 	"fmt"
-	"io"
-	"reflect"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -60,31 +53,19 @@ func DefaultDialers() map[string]ConnectionDialer {
 	}
 }
 
-// TypedHandler defines a generic callback for a specific, unmarshaled Protobuf message type.
-type TypedHandler[T proto.Message] func(body T)
-
-// RegisterMsgHandlerTyped provides a type-safe, generic wrapper for registering message handlers.
+// Register provides a type-safe, generic wrapper for registering message handlers.
 // It automatically handles Protobuf unmarshaling and error logging.
 //
 // Example:
 //
-//	RegisterMsgHandlerTyped(s, protocol.EMsg_ClientLogOnResponse, func(resp *pb.CMsgClientLogonResponse) {
-//	   fmt.Println("Logon result:", resp.GetEresult())
-//	})
-func RegisterMsgHandlerTyped[T proto.Message](s *Socket, eMsg protocol.EMsg, handler TypedHandler[T]) {
-	var zero T
-	typ := reflect.TypeOf(zero).Elem()
-
-	wrapper := func(p *protocol.Packet) {
-		body := reflect.New(typ).Interface().(T)
-
-		if err := proto.Unmarshal(p.Payload, body); err != nil {
-			s.logger.Error("Failed to unmarshal", log.Err(err))
-			return
+//	Register(s, eMsg, func() *pb.Response { return new(pb.Response) }, func(r *pb.Response) { ... })
+func Register[T proto.Message](s *Socket, emsg protocol.EMsg, factory func() T, handler func(T)) {
+	s.RegisterMsgHandler(emsg, func(p *protocol.Packet) {
+		msg := factory()
+		if err := proto.Unmarshal(p.Payload, msg); err == nil {
+			handler(msg)
 		}
-		handler(body)
-	}
-	s.RegisterMsgHandler(eMsg, wrapper)
+	})
 }
 
 // Config holds configuration parameters for the Socket.
@@ -146,7 +127,7 @@ func WithBus(b *bus.Bus) Option {
 
 // WithLogger sets a custom logger.
 func WithLogger(l log.Logger) Option {
-	return func(s *Socket) { s.logger = l.WithModule("sock") }
+	return func(s *Socket) { s.logger = l.With(log.Module("sock")) }
 }
 
 // WithSession injects a custom pre-configured session.
@@ -166,9 +147,8 @@ type Socket struct {
 	jobManager *jobs.Manager[*protocol.Packet]
 	session    atomic.Pointer[Session]
 
-	mu         sync.RWMutex
-	connCtx    context.Context    // Context tied to the active connection
-	connCancel context.CancelFunc // Cancels the active connection
+	connCtx    atomic.Value // Context tied to the active connection
+	connCancel atomic.Value // Cancels the active connection
 
 	// Message routing
 	handlersMu        sync.RWMutex
@@ -219,15 +199,21 @@ func NewSocket(cfg Config, opts ...Option) *Socket {
 	s.setState(StateDisconnected)
 
 	s.RegisterMsgHandler(protocol.EMsg_Multi, s.handleMulti)
-	s.RegisterMsgHandler(protocol.EMsg_ServiceMethod, s.handleServiceMethod)
+	s.RegisterMsgHandler(protocol.EMsg_ServiceMethod, s.handleService)
 
 	return s
 }
 
+func (s *Socket) IsConnected() bool {
+	return s.State() == StateConnected
+}
+
+func (s *Socket) CanConnect() bool {
+	return s.state.CompareAndSwap(int32(StateDisconnected), int32(StateConnecting))
+}
+
 // Bus returns the underlying event dispatcher.
 func (s *Socket) Bus() *bus.Bus {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
 	return s.bus
 }
 
@@ -278,14 +264,14 @@ func (s *Socket) RegisterServiceHandler(method string, handler Handler) {
 // This is a non-blocking call that starts background processes. The connection
 // state can be monitored via the event bus or State().
 func (s *Socket) Connect(ctx context.Context, server CMServer) error {
-	if !s.state.CompareAndSwap(int32(StateDisconnected), int32(StateConnecting)) {
-		return errors.New("socket: already connecting or connected")
+	if !s.CanConnect() {
+		return ErrAlreadyConnected
 	}
 
 	dialer, ok := s.config.Dialers[server.Type]
 	if !ok {
 		s.setState(StateDisconnected)
-		return fmt.Errorf("unsupported connection type: %s", server.Type)
+		return fmt.Errorf("%w: %s", ErrUnsupportedType, server.Type)
 	}
 
 	start := time.Now()
@@ -305,10 +291,9 @@ func (s *Socket) Connect(ctx context.Context, server CMServer) error {
 	var ls Session = NewLoggedSession(baseSession, sessionLogger)
 	s.session.Store(&ls)
 
-	s.mu.Lock()
-	s.connCtx, s.connCancel = context.WithCancel(context.Background())
-	connCtx := s.connCtx
-	s.mu.Unlock()
+	connCtx, connCancel := context.WithCancel(context.Background())
+	s.connCtx.Store(connCtx)
+	s.connCancel.Store(connCancel)
 
 	s.startWorkers(connCtx, s.config.WorkerCount)
 
@@ -322,9 +307,7 @@ func (s *Socket) Connect(ctx context.Context, server CMServer) error {
 // StartHeartbeat begins sending periodic heartbeat messages to keep the connection alive.
 // It runs in a background goroutine and stops automatically when the connection is closed.
 func (s *Socket) StartHeartbeat(interval time.Duration) {
-	s.mu.RLock()
-	ctx := s.connCtx
-	s.mu.RUnlock()
+	ctx := s.connCtx.Load().(context.Context)
 
 	if ctx == nil {
 		s.logger.Warn("StartHeartbeat called without an active connection")
@@ -373,11 +356,9 @@ func (s *Socket) Disconnect() {
 
 	s.setState(StateDisconnecting)
 
-	s.mu.Lock()
-	if s.connCancel != nil {
-		s.connCancel()
+	if cancelFunc, ok := s.connCancel.Load().(context.CancelFunc); ok {
+		cancelFunc()
 	}
-	s.mu.Unlock()
 
 	s.workerWg.Wait()
 	s.drainMsgChannel()
@@ -422,10 +403,7 @@ func (s *Socket) setState(new State) State {
 
 func (s *Socket) recoverPanic(emsg protocol.EMsg) {
 	if r := recover(); r != nil {
-		s.logger.Error("Socket recovered from panic",
-			log.String("emsg", emsg.String()),
-			log.Any("panic", r),
-		)
+		s.logger.Error("Socket recovered from panic", log.EMsg(emsg), log.Any("panic", r))
 	}
 }
 
@@ -463,6 +441,11 @@ func (s *Socket) worker(ctx context.Context) {
 // 2. Registered Handler: If a handler for the packet's EMsg exists, it's invoked.
 // 3. Unhandled: Otherwise, the packet is logged as unhandled.
 func (s *Socket) routePacket(packet *protocol.Packet) {
+	l := s.logger.With(
+		log.EMsg(packet.EMsg),
+		log.JobID(packet.GetTargetJobID()),
+	)
+
 	// Update session state if authorized headers are present.
 	if ah, ok := packet.Header.(protocol.AuthorizedHeader); ok {
 		sess := s.Session()
@@ -478,6 +461,7 @@ func (s *Socket) routePacket(packet *protocol.Packet) {
 
 	// Check if this is a response to an ongoing job.
 	if s.handleJobResponse(packet) {
+		l.Debug("Packet routed to job callback")
 		return // Packet consumed by job callback
 	}
 
@@ -487,145 +471,35 @@ func (s *Socket) routePacket(packet *protocol.Packet) {
 	s.handlersMu.RUnlock()
 
 	if ok {
+		l.Debug("Packet routed to handler")
 		func() {
 			defer s.recoverPanic(packet.EMsg)
 			handler(packet)
 		}()
 	} else {
-		s.logger.Debug("Unhandled message", log.String("emsg", packet.EMsg.String()))
+		l.Debug("Unhandled message", log.EMsg(packet.EMsg))
 	}
-}
-
-// handleMulti is the built-in handler for EMsg_Multi, which contains multiple
-// nested or compressed packets.
-func (s *Socket) handleMulti(packet *protocol.Packet) {
-	msg := &pb.CMsgMulti{}
-	if err := proto.Unmarshal(packet.Payload, msg); err != nil {
-		s.logger.Error("Failed to unmarshal CMsgMulti", log.Err(err))
-		return
-	}
-
-	payload := msg.GetMessageBody()
-	if msg.GetSizeUnzipped() > 0 {
-		var err error
-		payload, err = s.decompressPayload(payload, int64(msg.GetSizeUnzipped()))
-		if err != nil {
-			s.logger.Error("Failed to decompress multi payload", log.Err(err))
-			return
-		}
-	}
-
-	if err := s.processMultiPayload(payload); err != nil {
-		s.logger.Error("Error processing multi payload", log.Err(err))
-	}
-}
-
-// handleServiceMethod is the default handler for EMsg_ServiceMethod packets.
-func (s *Socket) handleServiceMethod(packet *protocol.Packet) {
-	header, ok := packet.Header.(*protocol.MsgHdrProtoBuf)
-	if !ok {
-		s.logger.Warn("Received ServiceMethod with non-proto header")
-		return
-	}
-
-	methodName := header.Proto.GetTargetJobName()
-
-	s.serviceHandlersMu.RLock()
-	handler, ok := s.serviceHandlers[methodName]
-	s.serviceHandlersMu.RUnlock()
-
-	if ok {
-		handler(packet)
-	} else {
-		s.logger.Debug("Unhandled ServiceMethod", log.String("method", methodName))
-	}
-}
-
-func (s *Socket) handleJobResponse(packet *protocol.Packet) bool {
-	targetID := packet.GetTargetJobID()
-	if targetID == protocol.NoJob {
-		return false
-	}
-
-	var err error
-	if packet.EMsg == protocol.EMsg_DestJobFailed {
-		err = fmt.Errorf("destination job failed on Steam side")
-	}
-
-	return s.jobManager.Resolve(targetID, packet, err)
-}
-
-func (s *Socket) processSingle(msg io.Reader) {
-	packet, err := protocol.ParsePacket(msg)
-	if err != nil {
-		s.logger.Error("Failed to parse packet", log.Err(err))
-		return
-	}
-
-	select {
-	case s.msgCh <- packet:
-	case <-s.done:
-	}
-}
-
-func (s *Socket) decompressPayload(data network.NetMessage, unzippedSize int64) ([]byte, error) {
-	if unzippedSize > 100*1024*1024 { // 100MB limit to prevent OOM attacks
-		return nil, errors.New("unzipped size too large")
-	}
-
-	gr, err := gzip.NewReader(bytes.NewReader(data))
-	if err != nil {
-		return nil, err
-	}
-	defer gr.Close()
-
-	out := make([]byte, unzippedSize)
-	if _, err := io.ReadFull(gr, out); err != nil {
-		return nil, fmt.Errorf("read full decompressed payload: %w", err)
-	}
-
-	return out, nil
-}
-
-func (s *Socket) processMultiPayload(payload []byte) error {
-	reader := bytes.NewReader(payload)
-	for reader.Len() > 0 {
-		var subSize uint32
-		if err := binary.Read(reader, binary.LittleEndian, &subSize); err != nil {
-			return fmt.Errorf("read size: %w", err)
-		}
-		if subSize == 0 {
-			continue
-		}
-
-		packet, err := protocol.ParsePacket(io.LimitReader(reader, int64(subSize)))
-		if err != nil {
-			s.logger.Error("Failed to parse nested multi packet", log.Err(err))
-			continue
-		}
-
-		select {
-		case s.msgCh <- packet:
-		case <-s.done:
-			return nil
-		}
-	}
-	return nil
 }
 
 func (s *Socket) handleRemoteClose() {
-	s.mu.Lock()
-	if s.connCancel != nil {
-		s.connCancel()
+	if cancelFunc, ok := s.connCancel.Load().(context.CancelFunc); ok {
+		cancelFunc()
 	}
-	s.mu.Unlock()
 
 	old := s.setState(StateDisconnected)
 	if old == StateDisconnecting {
 		s.bus.Publish(&DisconnectedEvent{})
 	} else {
-		s.bus.Publish(&DisconnectedEvent{Error: errors.New("connection closed unexpectedly")})
+		s.bus.Publish(&DisconnectedEvent{Error: fmt.Errorf("%w: connection closed unexpectedly", ErrDisconnected)})
 	}
+}
+
+func (s *Socket) getContext() context.Context {
+	ptr := s.connCtx.Load()
+	if ptr == nil {
+		return context.Background()
+	}
+	return ptr.(context.Context)
 }
 
 // inboundHandler acts as the adapter (or "bridge") between the low-level `network`

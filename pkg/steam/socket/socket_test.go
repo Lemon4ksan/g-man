@@ -384,7 +384,7 @@ func TestSocket_ServiceMethodRouting(t *testing.T) {
 		},
 	}
 
-	sock.handleServiceMethod(packet)
+	sock.handleService(packet)
 
 	select {
 	case <-called:

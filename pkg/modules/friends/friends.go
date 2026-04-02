@@ -23,9 +23,9 @@ import (
 const ModuleName string = "friends"
 
 func WithModule() steam.Option {
-    return func(c *steam.Client) {
-        c.RegisterModule(New())
-    }
+	return func(c *steam.Client) {
+		c.RegisterModule(New())
+	}
 }
 
 // Manager handles friends list synchronization and user status tracking.
@@ -34,7 +34,7 @@ type Manager struct {
 	modules.BaseModule
 
 	// Dependencies
-	client    service.Requester
+	client    service.Doer
 	community community.Requester
 
 	// State
@@ -153,7 +153,7 @@ func (m *Manager) AddFriend(ctx context.Context, steamID uint64) error {
 	req := &pb.CMsgClientAddFriend{
 		SteamidToAdd: &steamID,
 	}
-	_, err := service.Legacy[any](ctx, m.client, protocol.EMsg_ClientAddFriend, req)
+	_, err := service.Legacy[service.NoResponse](ctx, m.client, protocol.EMsg_ClientAddFriend, req)
 	return err
 }
 
@@ -162,7 +162,7 @@ func (m *Manager) RemoveFriend(ctx context.Context, steamID uint64) error {
 	req := &pb.CMsgClientRemoveFriend{
 		Friendid: &steamID,
 	}
-	_, err := service.Legacy[any](ctx, m.client, protocol.EMsg_ClientRemoveFriend, req)
+	_, err := service.Legacy[service.NoResponse](ctx, m.client, protocol.EMsg_ClientRemoveFriend, req)
 	return err
 }
 
@@ -183,7 +183,7 @@ func (m *Manager) InviteToGroups(ctx context.Context, steamID uint64, groupIDs [
 			Group   uint64 `url:"group"`
 		}{1, "groupInvite", m.mySteamID, steamID, groupID}
 
-		_, err := community.PostForm[any](ctx, m.community, "actions/GroupInvite", req)
+		_, err := community.PostForm[service.NoResponse](ctx, m.community, "actions/GroupInvite", req)
 		if err != nil {
 			if strings.Contains(err.Error(), "400") {
 				continue

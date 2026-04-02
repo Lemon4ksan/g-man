@@ -21,13 +21,13 @@ import (
 // AuthenticationService acts as a gateway for Steam's Unified WebAPI authentication endpoints.
 // It handles password encryption and JWT token lifecycle management.
 type AuthenticationService struct {
-	client     service.Requester
+	client     service.Doer
 	deviceConf DeviceConfig
 }
 
 // NewAuthenticationService creates a new service wrapper around a Unified API client.
 // If deviceConf is nil, standard defaults are applied.
-func NewAuthenticationService(ur service.Requester, deviceConf *DeviceConfig) *AuthenticationService {
+func NewAuthenticationService(ur service.Doer, deviceConf *DeviceConfig) *AuthenticationService {
 	conf := DefaultDeviceConfig()
 	if deviceConf != nil {
 		conf = *deviceConf
@@ -138,7 +138,7 @@ func (s *AuthenticationService) UpdateAuthSessionWithSteamGuardCode(ctx context.
 		Code:     proto.String(code),
 		CodeType: codeType.Enum(),
 	}
-	_, err := service.Unified[any](
+	_, err := service.Unified[service.NoResponse](
 		ctx, s.client, req,
 	)
 	return err

@@ -26,9 +26,9 @@ const ModuleName string = "apps"
 const nonSteamGameID uint64 = 15190414816125648896
 
 func WithModule() steam.Option {
-    return func(c *steam.Client) {
-        c.RegisterModule(New())
-    }
+	return func(c *steam.Client) {
+		c.RegisterModule(New())
+	}
 }
 
 // Apps manages the "In-Game" status and interacts with Steam's app services.
@@ -36,7 +36,7 @@ type Apps struct {
 	modules.BaseModule
 
 	// Dependencies
-	client service.Requester
+	client service.Doer
 
 	// Internal State
 	mu             sync.RWMutex
@@ -62,11 +62,10 @@ func (a *Apps) Init(init modules.InitContext) error {
 
 	a.client = init.Service()
 
-	handler := protocol.EMsg_ClientPlayingSessionState
-	init.RegisterPacketHandler(handler, a.handlePlayingSessionState)
+	init.RegisterPacketHandler(protocol.EMsg_ClientPlayingSessionState, a.handlePlayingSessionState)
 
 	a.unregFuncs = append(a.unregFuncs, func() {
-		init.UnregisterPacketHandler(handler)
+		init.UnregisterPacketHandler(protocol.EMsg_ClientPlayingSessionState)
 	})
 
 	return nil
@@ -151,7 +150,7 @@ func (a *Apps) StopPlaying(ctx context.Context) error {
 // KickPlayingSession sends a request to Steam to terminate any other active
 // game-playing sessions on this account (e.g., on another PC).
 func (a *Apps) KickPlayingSession(ctx context.Context) error {
-	_, err := service.Legacy[any](ctx, a.client, protocol.EMsg_ClientKickPlayingSession, &pb.CMsgClientKickPlayingSession{})
+	_, err := service.Legacy[service.NoResponse](ctx, a.client, protocol.EMsg_ClientKickPlayingSession, &pb.CMsgClientKickPlayingSession{})
 	return err
 }
 
@@ -162,7 +161,7 @@ func (a *Apps) sendGamesPlayed(ctx context.Context, games []*pb.CMsgClientGamesP
 		GamesPlayed: games,
 	}
 
-	_, err := service.Legacy[any](ctx, a.client, protocol.EMsg_ClientGamesPlayedWithDataBlob, req)
+	_, err := service.Legacy[service.NoResponse](ctx, a.client, protocol.EMsg_ClientGamesPlayedWithDataBlob, req)
 	if err != nil {
 		return fmt.Errorf("apps: failed to update playing status: %w", err)
 	}

@@ -42,7 +42,7 @@ func NewUnifiedRequest(httpMethod, iface, method string, version int, msg any) (
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("api: failed to encode unified body: %w", err)
+		return nil, fmt.Errorf("failed to encode unified body: %w", err)
 	}
 
 	target := &UnifiedTarget{
@@ -146,7 +146,7 @@ func NewLegacyRequest(eMsg protocol.EMsg, msg proto.Message) (*tr.Request, error
 		var err error
 		body, err = proto.Marshal(msg)
 		if err != nil {
-			return nil, fmt.Errorf("api: failed to marshal legacy body: %w", err)
+			return nil, fmt.Errorf("failed to marshal legacy body: %w", err)
 		}
 	}
 	return tr.NewRequest(&LegacyTarget{eMsg}, body), nil

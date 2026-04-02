@@ -66,12 +66,9 @@ func (t *SocketTransport) Do(ctx context.Context, req *Request) (*Response, erro
 	}
 	isAuth := sess.IsAuthenticated()
 
-
-	token := req.Params().Get("access_token")
-
 	p, err := t.caller.SendSync(ctx,
 		socket.DynamicRaw(target.EMsg(isAuth), target.ObjectName(), req.Body()),
-		socket.WithToken(token),
+		socket.WithToken(req.Token()),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("socket_transport call failed: %w", err)

@@ -26,7 +26,7 @@ type PriceManager struct {
 func NewPriceManager(c *Client, l log.Logger) *PriceManager {
 	return &PriceManager{
 		client: c,
-		logger: l.WithModule("bptf_prices"),
+		logger: l.With(log.Module("bptf_prices")),
 		index:  make(map[string]PriceEntry),
 	}
 }

@@ -220,14 +220,14 @@ func (c *Client) ConnectAndLogin(ctx context.Context, server socket.CMServer, de
 	return nil
 }
 
-// Do implements the [service.Requester] interface.
+// Do implements the [service.Doer] interface.
 // This makes the Client a "smart proxy" that selects the transport on the fly.
 func (c *Client) Do(ctx context.Context, req *tr.Request) (*tr.Response, error) {
 	c.mu.RLock()
 	_, isSocketCompatible := req.Target().(tr.SocketTarget)
 	isConnected := c.socket.State() == socket.StateConnected
-	
-	var selectedRequester service.Requester
+
+	var selectedRequester service.Doer
 	if isConnected && isSocketCompatible {
 		selectedRequester = c.socketAPIClient
 	} else {
@@ -280,7 +280,7 @@ func (c *Client) Logger() log.Logger        { return c.logger }
 func (c *Client) Rest() rest.Requester      { return c.restClient }
 
 // Service returns the client for making HTTP WebAPI, Unified and Legacy requests.
-func (c *Client) Service() service.Requester {
+func (c *Client) Service() service.Doer {
 	return c
 }
 

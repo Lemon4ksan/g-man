@@ -3,7 +3,6 @@ package socket
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/lemon4ksan/g-man/pkg/jobs"
@@ -38,10 +37,11 @@ type PayloadBuilder func(sess Session, buf *bytes.Buffer, sourceJobID uint64, to
 
 // Proto creates a PayloadBuilder to send a Protobuf message.
 func Proto(eMsg protocol.EMsg, req proto.Message) PayloadBuilder {
-	return func(sess Session, buf *bytes.Buffer, sourceJobID uint64, token string) error {
-		pkt, err := buildProtoPacket(sess, eMsg, sourceJobID, req, "", token)
+	return func(sess Session, buf *bytes.Buffer, sourceJobID uint64, token string) (err error) {
+		pkt := newPacket(sess, eMsg, sourceJobID, true, "", token)
+		pkt.Payload, err = proto.Marshal(req)
 		if err != nil {
-			return err
+			return
 		}
 		return pkt.SerializeTo(buf)
 	}
@@ -49,10 +49,11 @@ func Proto(eMsg protocol.EMsg, req proto.Message) PayloadBuilder {
 
 // Unified creates a PayloadBuilder to call the Unified Service (e.g. "Player.GetGameBadgeLevels#1").
 func Unified(method string, req proto.Message) PayloadBuilder {
-	return func(sess Session, buf *bytes.Buffer, sourceJobID uint64, token string) error {
-		pkt, err := buildProtoPacket(sess, protocol.EMsg_ServiceMethodCallFromClient, sourceJobID, req, method, token)
+	return func(sess Session, buf *bytes.Buffer, sourceJobID uint64, token string) (err error) {
+		pkt := newPacket(sess, protocol.EMsg_ServiceMethodCallFromClient, sourceJobID, true, method, token)
+		pkt.Payload, err = proto.Marshal(req)
 		if err != nil {
-			return err
+			return
 		}
 		return pkt.SerializeTo(buf)
 	}
@@ -77,35 +78,10 @@ func Raw(eMsg protocol.EMsg, payload []byte) PayloadBuilder {
 
 // DynamicRaw creates a PayloadBuilder to send both unified and raw messages based on provided arguments.
 func DynamicRaw(eMsg protocol.EMsg, targetName string, payload []byte) PayloadBuilder {
-	return func(sess Session, buf *bytes.Buffer, sourceJobID uint64, token string) error {
-		var steamID uint64
-		var sessionID int32
-		if sess != nil {
-			steamID = sess.SteamID()
-			sessionID = sess.SessionID()
-		}
-
-		if targetName != "" {
-			hdr := protocol.NewMsgHdrProtoBuf(eMsg, steamID, sessionID)
-			hdr.Proto.JobidSource = proto.Uint64(sourceJobID)
-			hdr.Proto.TargetJobName = proto.String(targetName)
-
-			if token != "" {
-				hdr.Proto.WgToken = proto.String(token)
-			}
-
-			pkt := &protocol.Packet{
-				EMsg:    eMsg,
-				IsProto: true,
-				Header:  hdr,
-				Payload: payload,
-			}
-			return pkt.SerializeTo(buf)
-		}
-
-		hdr := protocol.NewMsgHdrExtended(eMsg, steamID, sessionID)
-		hdr.SourceJobID = sourceJobID
-		pkt := &protocol.Packet{EMsg: eMsg, IsProto: false, Header: hdr, Payload: payload}
+	return func(sess Session, buf *bytes.Buffer, sourceJobID uint64, token string) (err error) {
+		isProto := targetName != ""
+		pkt := newPacket(sess, eMsg, sourceJobID, isProto, targetName, token)
+		pkt.Payload = payload
 		return pkt.SerializeTo(buf)
 	}
 }
@@ -119,25 +95,10 @@ func (s *Socket) Send(ctx context.Context, build PayloadBuilder, opts ...SendOpt
 
 	sess := s.Session()
 	if sess == nil {
-		return errors.New("socket is disconnected")
+		return ErrClosed
 	}
 
-	sourceJobID := protocol.NoJob
-	if cfg.Callback != nil {
-		sourceJobID = s.jobManager.NextID()
-		err := s.jobManager.Add(sourceJobID, func(response *protocol.Packet, err error) {
-			var eMsg protocol.EMsg
-			if response != nil {
-				eMsg = response.EMsg
-			}
-			defer s.recoverPanic(eMsg)
-			cfg.Callback(response, err)
-		}, jobs.WithContext[*protocol.Packet](ctx))
-
-		if err != nil {
-			return fmt.Errorf("track job: %w", err)
-		}
-	}
+	jobID := s.registerJob(ctx, cfg.Callback)
 
 	buf := s.bufferPool.Get().(*bytes.Buffer)
 	buf.Reset()
@@ -147,18 +108,18 @@ func (s *Socket) Send(ctx context.Context, build PayloadBuilder, opts ...SendOpt
 		}
 	}()
 
-	if err := build(sess, buf, sourceJobID, cfg.Token); err != nil {
+	if err := build(sess, buf, jobID, cfg.Token); err != nil {
 		if cfg.Callback != nil {
-			s.jobManager.Resolve(sourceJobID, nil, err)
+			s.jobManager.Resolve(jobID, nil, err)
 		}
-		return err
+		return fmt.Errorf("build failed: %w", err)
 	}
 
 	if err := sess.Send(ctx, buf.Bytes()); err != nil {
 		if cfg.Callback != nil {
-			s.jobManager.Resolve(sourceJobID, nil, err)
+			s.jobManager.Resolve(jobID, nil, err)
 		}
-		return err
+		return fmt.Errorf("send failed: %w", err)
 	}
 
 	return nil
@@ -205,31 +166,55 @@ func (s *Socket) SendSync(ctx context.Context, build PayloadBuilder, opts ...Sen
 	}
 }
 
-func buildProtoPacket(sess Session, eMsg protocol.EMsg, jobID uint64, body proto.Message, jobName, token string) (*protocol.Packet, error) {
+// newPacket is a factory method that initializes a protocol.Packet with 
+// correct headers (Proto vs Extended) based on the session state and message type.
+func newPacket(sess Session, eMsg protocol.EMsg, jobID uint64, isProto bool, jobName, token string) *protocol.Packet {
 	var steamID uint64
 	var sessionID int32
 	if sess != nil {
 		steamID = sess.SteamID()
 		sessionID = sess.SessionID()
 	}
+
+	// ClientHello is a special case: it must be sent with 0 IDs even if 
+	// the session objects exist (e.g., during reconnection).
 	if eMsg == protocol.EMsg_ClientHello {
 		steamID, sessionID = 0, 0
 	}
 
-	payload, err := proto.Marshal(body)
-	if err != nil {
-		return nil, err
+	pkt := &protocol.Packet{EMsg: eMsg, IsProto: isProto}
+	if isProto {
+		hdr := protocol.NewMsgHdrProtoBuf(eMsg, steamID, sessionID)
+		hdr.Proto.JobidSource = &jobID
+		if jobName != "" {
+			hdr.Proto.TargetJobName = proto.String(jobName)
+		}
+		if token != "" {
+			hdr.Proto.WgToken = proto.String(token)
+		}
+		pkt.Header = hdr
+	} else {
+		hdr := protocol.NewMsgHdrExtended(eMsg, steamID, sessionID)
+		hdr.SourceJobID = jobID
+		pkt.Header = hdr
 	}
+	return pkt
+}
 
-	hdr := protocol.NewMsgHdrProtoBuf(eMsg, steamID, sessionID)
-	hdr.Proto.JobidSource = proto.Uint64(jobID)
-	if jobName != "" {
-		hdr.Proto.TargetJobName = proto.String(jobName)
+// registerJob assigns a unique Job ID to the request and registers a callback
+// in the job manager. Returns protocol.NoJob (0) if no callback is provided.
+func (s *Socket) registerJob(ctx context.Context, cb jobs.Callback[*protocol.Packet]) uint64 {
+	if cb == nil {
+		return protocol.NoJob
 	}
-
-	if token != "" {
-		hdr.Proto.WgToken = proto.String(token)
-	}
-
-	return &protocol.Packet{EMsg: eMsg, IsProto: true, Header: hdr, Payload: payload}, nil
+	id := s.jobManager.NextID()
+	_ = s.jobManager.Add(id, func(response *protocol.Packet, err error) {
+		var eMsg protocol.EMsg
+		if response != nil {
+			eMsg = response.EMsg
+		}
+		defer s.recoverPanic(eMsg)
+		cb(response, err)
+	}, jobs.WithContext[*protocol.Packet](ctx))
+	return id
 }

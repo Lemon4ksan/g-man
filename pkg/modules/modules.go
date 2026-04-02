@@ -41,7 +41,7 @@ type InitContext interface {
 
 	// Service returns a client for working with the official Steam APIs (Unified, WebAPI, Legacy).
 	// This client is compatible with the functions [service.Unified], [service.WebAPI], etc.
-	Service() service.Requester
+	Service() service.Doer
 
 	// Rest returns a client for making http rest api calls.
 	Rest() rest.Requester
@@ -125,7 +125,7 @@ func (b *BaseModule) Start(ctx context.Context) error {
 }
 
 func (b *BaseModule) Init(ctx InitContext) error {
-	b.Logger = ctx.Logger().WithModule(b.NameStr)
+	b.Logger = ctx.Logger().With(log.Module(b.NameStr))
 	b.Bus = ctx.Bus()
 
 	if b.Ctx == nil || b.Ctx.Err() != nil {

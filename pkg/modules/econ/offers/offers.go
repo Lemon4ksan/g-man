@@ -22,9 +22,9 @@ import (
 const ModuleName string = "offers"
 
 func WithModule() steam.Option {
-    return func(c *steam.Client) {
-        c.RegisterModule(New())
-    }
+	return func(c *steam.Client) {
+		c.RegisterModule(New())
+	}
 }
 
 // Manager handles trade invitations (proposing, accepting, canceling).
@@ -33,7 +33,7 @@ type Manager struct {
 	modules.BaseModule
 
 	// client is used to send Legacy Protobuf messages (EMsgs) to Steam.
-	client service.Requester
+	client service.Doer
 
 	mu         sync.Mutex
 	unregFuncs []func()
@@ -87,7 +87,7 @@ func (m *Manager) Invite(ctx context.Context, otherSteamID uint64) error {
 
 	m.Logger.Info("Sending trade invitation", log.Uint64("target_steam_id", otherSteamID))
 
-	_, err := service.Legacy[any](ctx, m.client, protocol.EMsg_EconTrading_InitiateTradeRequest, req)
+	_, err := service.Legacy[service.NoResponse](ctx, m.client, protocol.EMsg_EconTrading_InitiateTradeRequest, req)
 	if err != nil {
 		return fmt.Errorf("offers: failed to send invitation: %w", err)
 	}
@@ -102,7 +102,7 @@ func (m *Manager) CancelInvitation(ctx context.Context, otherSteamID uint64) err
 
 	m.Logger.Debug("Canceling trade invitation", log.Uint64("target_steam_id", otherSteamID))
 
-	_, err := service.Legacy[any](ctx, m.client, protocol.EMsg_EconTrading_CancelTradeRequest, req)
+	_, err := service.Legacy[service.NoResponse](ctx, m.client, protocol.EMsg_EconTrading_CancelTradeRequest, req)
 	return err
 }
 
@@ -123,7 +123,7 @@ func (m *Manager) RespondToInvite(ctx context.Context, tradeID uint32, accept bo
 		log.Bool("accept", accept),
 	)
 
-	_, err := service.Legacy[any](ctx, m.client, protocol.EMsg_EconTrading_InitiateTradeResponse, req)
+	_, err := service.Legacy[service.NoResponse](ctx, m.client, protocol.EMsg_EconTrading_InitiateTradeResponse, req)
 	return err
 }
 

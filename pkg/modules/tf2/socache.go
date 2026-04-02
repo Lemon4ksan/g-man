@@ -13,6 +13,7 @@ import (
 	gc "github.com/lemon4ksan/g-man/pkg/modules/coordinator/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/bus"
 	pb "github.com/lemon4ksan/g-man/pkg/tf2/protobuf"
+	tf2schema "github.com/lemon4ksan/g-man/pkg/tf2/schema"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -35,7 +36,6 @@ type SOCache struct {
 	version atomic.Uint64
 	ownerID atomic.Uint64
 
-	// Зависимость для отправки запроса Refresh
 	coord CoordinatorProvider
 }
 
@@ -64,6 +64,26 @@ func (c *SOCache) GetItem(id uint64) *Item {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.items[id]
+}
+
+// GetAssetIDsBySKU returns a list of AssetIDs for a given item.
+// If limit > 0, returns up to limit items.
+func (c *SOCache) GetAssetIDsBySKU(schema *tf2schema.Schema, targetSKU string, limit int)[]uint64 {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	var result[]uint64
+	for id, item := range c.items {
+		itemSKU := schema.GetSKUFromEconItem(item.ToEconItem()) 
+		
+		if itemSKU == targetSKU && item.IsTradable {
+			result = append(result, id)
+			if limit > 0 && len(result) >= limit {
+				break
+			}
+		}
+	}
+	return result
 }
 
 // HandleSubscribed processes the initial full synchronization of the cache.

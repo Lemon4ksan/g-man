@@ -52,6 +52,9 @@ var (
 	// ErrJobNotFound is returned when attempting to resolve or wait for
 	// a job ID that does not exist in the manager's registry.
 	ErrJobNotFound = errors.New("job: not found")
+
+	// ErrWaitFor is returned when the WaitFor is called on a job id with no [WithWait] option.
+	ErrWaitFor = errors.New("job was not created with WithWait option")
 )
 
 // Callback defines the function signature for handling completed jobs.
@@ -141,7 +144,7 @@ func WithKeepAlive[T any](keepAlive bool) Option[T] {
 }
 
 // WithWait enables synchronous waiting for this job using the WaitFor method.
-// Without this option, calling WaitFor on the job ID will return an error.
+// Without this option, calling WaitFor on the job ID will return an [ErrWaitFor] error.
 func WithWait[T any]() Option[T] {
 	return func(c *config[T]) { c.wait = true }
 }
@@ -177,14 +180,14 @@ func (m *Manager[T]) Add(id uint64, cb Callback[T], opts ...Option[T]) error {
 	}
 
 	e := &entry[T]{
-		callback: cb,
+		callback:  cb,
+		keepAlive: cfg.keepAlive,
 	}
 
 	if cfg.wait {
 		e.waitCh = make(chan result[T], 1)
 	}
 
-	// Setup Timeout
 	if cfg.timeout > 0 {
 		timer := time.AfterFunc(cfg.timeout, func() {
 			m.Resolve(id, *new(T), ErrJobTimeout)
@@ -192,7 +195,6 @@ func (m *Manager[T]) Add(id uint64, cb Callback[T], opts ...Option[T]) error {
 		e.timerStop = timer.Stop
 	}
 
-	// Setup Context Cancellation (Leak-free using context.AfterFunc)
 	if cfg.ctx != nil && cfg.ctx != context.Background() {
 		stop := context.AfterFunc(cfg.ctx, func() {
 			m.Resolve(id, *new(T), ErrJobCancelled)
@@ -200,9 +202,7 @@ func (m *Manager[T]) Add(id uint64, cb Callback[T], opts ...Option[T]) error {
 		e.ctxStop = stop
 	}
 
-	e.keepAlive = cfg.keepAlive
 	m.jobs[id] = e
-
 	return nil
 }
 
@@ -277,8 +277,7 @@ func (m *Manager[T]) Remove(id uint64) bool {
 
 // WaitFor blocks the current goroutine until the specific job is resolved,
 // the provided ctx is cancelled, or the manager is closed.
-//
-// IMPORTANT: The job must have been created with the WithWait() option.
+// Returns [ErrWaitFor] if the job was made without [WithWait] option.
 //
 // Example:
 //
@@ -296,7 +295,7 @@ func (m *Manager[T]) WaitFor(ctx context.Context, id uint64) (T, error) {
 	}
 
 	if e.waitCh == nil {
-		return *new(T), errors.New("job was not created with WithWait option")
+		return *new(T), ErrWaitFor
 	}
 
 	select {

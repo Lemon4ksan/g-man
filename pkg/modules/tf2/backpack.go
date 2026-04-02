@@ -10,6 +10,7 @@ import (
 
 	"github.com/lemon4ksan/g-man/pkg/log"
 	gc "github.com/lemon4ksan/g-man/pkg/modules/coordinator/protocol"
+	"github.com/lemon4ksan/g-man/pkg/modules/econ"
 	"github.com/lemon4ksan/g-man/pkg/steam/bus"
 
 	pb "github.com/lemon4ksan/g-man/pkg/tf2/protobuf"
@@ -33,6 +34,18 @@ type Item struct {
 	CustomDesc   string
 	IsTradable   bool
 	IsMarketable bool
+}
+
+func (i Item) ToEconItem() *econ.Item {
+	return &econ.Item{
+		AppID:          AppID,
+		ContextID:      2, // For TF2 it's always 2
+		AssetID:        i.ID,
+		Amount:         int64(i.Quantity),
+		Name:           i.CustomName,
+		MarketHashName: "", // Filled later by Schema.GetSKUFromEconItem
+		Tradable:       i.IsTradable,
+	}
 }
 
 type Backpack struct {

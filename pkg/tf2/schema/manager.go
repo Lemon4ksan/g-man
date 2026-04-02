@@ -44,7 +44,7 @@ type Manager struct {
 	modules.BaseModule
 
 	config     Config
-	svcClient  service.Requester
+	svcClient  service.Doer
 	restClient rest.Requester
 
 	mu     sync.RWMutex
@@ -197,7 +197,7 @@ func (m *Manager) buildSchema(overview map[string]any, items []any, paintKits ma
 			for i, class := range item.UsedByClasses {
 				item.UsedByClasses[i] = intern(class)
 			}
-            
+
 			raw.Schema.Items = append(raw.Schema.Items, &item)
 		}
 	}

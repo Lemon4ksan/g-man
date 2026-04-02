@@ -72,14 +72,11 @@ type Logger interface {
 	Error(msg string, fields ...Field)
 
 	// With returns a new Logger instance carrying the provided fields as context.
+	// If a field key is "module" or "component", it is expected to update the module path instead.
 	// Example:
 	//   requestLogger := logger.With(log.String("request_id", "abc-123"))
 	//   requestLogger.Info("Processing") // Includes request_id automatically
 	With(fields ...Field) Logger
-
-	// WithModule returns a new Logger instance with an appended module name.
-	// By default, this creates a tree-like visual structure in the terminal.
-	WithModule(string) Logger
 
 	// Close flushes the asynchronous queue and stops the writer loop.
 	Close() error
@@ -201,27 +198,6 @@ func (l *AsyncLogger) With(fields ...Field) Logger {
 		} else {
 			child.context = append(child.context, f)
 		}
-	}
-
-	return child
-}
-
-// WithModule is a helper that specifically extends the logger's module path.
-// Visually, this creates an indented "tree" line in the console.
-func (l *AsyncLogger) WithModule(mod string) Logger {
-	child := &AsyncLogger{
-		cfg:     l.cfg,
-		queue:   l.queue,
-		wg:      l.wg,
-		path:    make([]string, len(l.path)),
-		context: make([]Field, len(l.context), len(l.context)+1),
-	}
-
-	copy(child.path, l.path)
-	copy(child.context, l.context)
-
-	if len(child.path) == 0 || child.path[len(child.path)-1] != mod {
-		child.path = append(child.path, mod)
 	}
 
 	return child
@@ -524,6 +500,7 @@ func Time(k string, v time.Time) Field         { return Field{Key: k, Value: v} 
 func Err(err error) Field                      { return Field{Key: "error", Value: err} }
 func Any(k string, v any) Field                { return Field{Key: k, Value: v} }
 func Module(name string) Field                 { return Field{Key: "module", Value: name} }
+func Component(name string) Field              { return Field{Key: "component", Value: name} }
 
 // Collections
 func Strings(k string, v []string) Field  { return Field{Key: k, Value: v} }
@@ -565,8 +542,8 @@ func SteamID(k string, v uint64) Field { return Field{Key: k, Value: v} }
 func JobID(v uint64) Field { return Field{Key: "job_id", Value: v} }
 
 // EMsg logs a Steam protocol message type as a readable string.
-func EMsg(k string, v protocol.EMsg) Field {
-	return Field{Key: k, Value: v.String()}
+func EMsg(v protocol.EMsg) Field {
+	return Field{Key: "emsg", Value: v.String()}
 }
 
 // EResult logs a Steam result code as a readable string.

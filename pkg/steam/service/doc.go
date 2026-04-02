@@ -3,11 +3,10 @@
 // license that can be found in the LICENSE file.
 
 /*
-Package service provides a high-level RPC-like commander for interacting with
-Steam's official interfaces. It acts as the "Command Center" of the library,
-abstracting the three primary ways to communicate with Steam.
+Package service provides a high-level RPC-like commander for interacting with Steam's
+official interfaces. It abstracts the three primary ways to communicate with Steam.
 
-# Three Communication Patterns
+# Communication Patterns
 
 1. WebAPI (Classic):
 Standard JSON-based endpoints (e.g., ISteamUser/GetPlayerSummaries). These usually

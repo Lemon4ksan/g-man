@@ -18,7 +18,7 @@ import (
 // Data is lazy-loaded on the first request.
 type PlayerInventory struct {
 	steamID uint64
-	client  service.Requester
+	client  service.Doer
 	logger  log.Logger
 
 	dupeCheckers []DupeChecker
@@ -31,7 +31,7 @@ type PlayerInventory struct {
 
 // New creates an inventory for a specific player.
 // dupeCheckers is a slice of implementations (e.g. [NewBackpackTFChecker]).
-func New(steamID uint64, client service.Requester, dupeCheckers ...DupeChecker) *PlayerInventory {
+func New(steamID uint64, client service.Doer, dupeCheckers ...DupeChecker) *PlayerInventory {
 	return &PlayerInventory{
 		steamID:      steamID,
 		client:       client,

@@ -5,38 +5,11 @@
 package transport
 
 import (
-	"bytes"
 	"context"
 	"net/http"
 	"net/url"
 	"reflect"
-	"sync"
 )
-
-const maxBufferCapacity = 64 * 1024
-
-// bufferPool reduces memory allocations for temporary buffers used in request processing.
-var bufferPool = sync.Pool{
-	New: func() any {
-		return new(bytes.Buffer)
-	},
-}
-
-// GetBytesBuffer retrieves a buffer from the pool.
-func GetBytesBuffer() *bytes.Buffer {
-	buf := bufferPool.Get().(*bytes.Buffer)
-	buf.Reset()
-	return buf
-}
-
-// PutBytesBuffer returns a buffer to the pool.
-func PutBytesBuffer(buf *bytes.Buffer) {
-	// Avoid retaining overly large buffers.
-	if buf.Cap() > maxBufferCapacity {
-		return
-	}
-	bufferPool.Put(buf)
-}
 
 // Transport is the core interface that unifies different network implementations.
 type Transport interface {
@@ -95,6 +68,7 @@ func (r *Request) Target() Target      { return r.target }
 func (r *Request) Body() []byte        { return r.body }
 func (r *Request) Params() url.Values  { return r.params }
 func (r *Request) Header() http.Header { return r.headers }
+func (r *Request) Token() string       { return r.params.Get("access_token") }
 
 // Response represents the result of a Steam API call. It is a protocol-agnostic
 // container for the body and transport-specific metadata.

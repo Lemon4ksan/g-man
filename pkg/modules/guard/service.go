@@ -21,10 +21,10 @@ var rxTradeOfferID = regexp.MustCompile(`id="tradeofferid_(\d+)"`)
 
 // TwoFactorService covers ITwoFactorService methods.
 type TwoFactorService struct {
-	client service.Requester
+	client service.Doer
 }
 
-func NewTwoFactorService(client service.Requester) *TwoFactorService {
+func NewTwoFactorService(client service.Doer) *TwoFactorService {
 	return &TwoFactorService{client: client}
 }
 

@@ -46,7 +46,7 @@ func NewMockInitContext() *MockInitContext {
 
 func (m *MockInitContext) Bus() *bus.Bus               { return m.eventBus }
 func (m *MockInitContext) Logger() log.Logger          { return m.logger }
-func (m *MockInitContext) Service() service.Requester  { return m.mockService }
+func (m *MockInitContext) Service() service.Doer       { return m.mockService }
 func (m *MockInitContext) Rest() rest.Requester        { return m.mockService }
 func (m *MockInitContext) Storage() storage.Provider   { return m.storage }
 func (m *MockInitContext) MockService() *MockRequester { return m.mockService }

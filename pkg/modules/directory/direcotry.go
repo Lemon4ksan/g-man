@@ -30,10 +30,10 @@ type CMCfg struct {
 }
 
 type DirectoryService struct {
-	client service.Requester
+	client service.Doer
 }
 
-func NewDirectoryService(client service.Requester) *DirectoryService {
+func NewDirectoryService(client service.Doer) *DirectoryService {
 	return &DirectoryService{
 		client: client,
 	}

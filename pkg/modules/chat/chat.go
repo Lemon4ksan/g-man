@@ -22,9 +22,9 @@ import (
 const ModuleName string = "chat"
 
 func WithModule() steam.Option {
-    return func(c *steam.Client) {
-        c.RegisterModule(New())
-    }
+	return func(c *steam.Client) {
+		c.RegisterModule(New())
+	}
 }
 
 // Manager handles sending and receiving messages via Steam's Unified Services.
@@ -33,7 +33,7 @@ type Manager struct {
 	modules.BaseModule
 
 	// Dependencies
-	service service.Requester
+	service service.Doer
 	steamID uint64
 
 	mu         sync.Mutex
@@ -97,7 +97,7 @@ func (m *Manager) SendMessage(ctx context.Context, steamID uint64, text string) 
 		Message:        proto.String(text),
 		ContainsBbcode: proto.Bool(true),
 	}
-	_, err := service.Unified[any](ctx, m.service, req)
+	_, err := service.Unified[service.NoResponse](ctx, m.service, req)
 	return err
 }
 
@@ -107,7 +107,7 @@ func (m *Manager) SendTyping(ctx context.Context, steamID uint64) error {
 		Steamid:       proto.Uint64(steamID),
 		ChatEntryType: proto.Int32(ChatEntryTypeTyping),
 	}
-	_, err := service.Unified[any](ctx, m.service, req)
+	_, err := service.Unified[service.NoResponse](ctx, m.service, req)
 	return err
 }
 
@@ -117,7 +117,7 @@ func (m *Manager) AckFriendMessage(ctx context.Context, steamID uint64, timestam
 		SteamidPartner: proto.Uint64(steamID),
 		Timestamp:      proto.Uint32(timestamp),
 	}
-	_, err := service.Unified[any](ctx, m.service, req)
+	_, err := service.Unified[service.NoResponse](ctx, m.service, req)
 	return err
 }
 
@@ -128,7 +128,7 @@ func (m *Manager) SendGroupMessage(ctx context.Context, groupID, chatID uint64, 
 		ChatId:      proto.Uint64(chatID),
 		Message:     proto.String(text),
 	}
-	_, err := service.Unified[any](ctx, m.service, req)
+	_, err := service.Unified[service.NoResponse](ctx, m.service, req)
 	return err
 }
 

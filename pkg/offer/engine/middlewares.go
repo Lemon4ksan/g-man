@@ -5,11 +5,18 @@
 package engine
 
 import (
+	"errors"
 	"fmt"
+	"math"
 	"slices"
 	"time"
 
 	"github.com/lemon4ksan/g-man/pkg/log"
+	"github.com/lemon4ksan/g-man/pkg/modules/tf2"
+	"github.com/lemon4ksan/g-man/pkg/offer/reason"
+	"github.com/lemon4ksan/g-man/pkg/tf2/currency"
+	"github.com/lemon4ksan/g-man/pkg/tf2/econ"
+	"github.com/lemon4ksan/g-man/pkg/tf2/pricedb"
 )
 
 // RecoverMiddleware catches panics in the middleware chain and converts them to errors.
@@ -90,4 +97,159 @@ func EmptyOfferMiddleware() Middleware {
 			return next(ctx)
 		}
 	}
+}
+
+// PricerMiddleware enriches trade context with prices from PriceDB.
+func PricerMiddleware(db *pricedb.Client, logger log.Logger) Middleware {
+	return func(next Handler) Handler {
+		return func(ctx *TradeContext) error {
+			skus := make(map[string]bool)
+			for _, item := range append(ctx.Offer.ItemsToGive, ctx.Offer.ItemsToReceive...) {
+				skus[item.SKU] = true
+			}
+
+			var skuList []string
+			for sku := range skus {
+				skuList = append(skuList, sku)
+			}
+
+			prices, err := db.GetItemsBulk(ctx, skuList)
+			if err != nil {
+				logger.Warn("Failed to fetch prices, marking for review", log.Err(err))
+				ctx.Review("Pricer API is down")
+				return nil
+			}
+
+			priceMap := make(map[string]*pricedb.Price)
+			for _, p := range prices {
+				priceMap[p.SKU] = p
+			}
+
+			ctx.Set("prices", priceMap)
+
+			return next(ctx)
+		}
+	}
+}
+
+// CounterOfferMiddleware automatically adds metal to the trade
+// if the user gives us an item but forgets to put our currency in return.
+func CounterOfferMiddleware(metalMgr *econ.MetalManager, pricer *pricedb.Client, logger log.Logger) Middleware {
+	return func(next Handler) Handler {
+		return func(ctx *TradeContext) error {
+			err := next(ctx)
+
+			if ctx.Verdict.Action == ActionDecline {
+				return err
+			}
+
+			valueDiffScrap := calculateValueDiff(ctx)
+
+			if valueDiffScrap > 0 {
+				changeIDs, err := metalMgr.SelectChange(valueDiffScrap)
+				if err != nil {
+					if errors.Is(err, econ.ErrNotEnoughChange) {
+						logger.Warn("Not enough metal for change, triggering auto-crafting...")
+						// TODO: Smelt scrap / duplicates
+						ctx.Decline("I don't have enough small metal for exact change right now.")
+						return nil
+					}
+					return err
+				}
+
+				ctx.Verdict.Action = ActionCounter
+				ctx.Verdict.Reason = "Added exact change automatically"
+				ctx.Verdict.Data = changeIDs
+			}
+
+			return err
+		}
+	}
+}
+
+func ChangeMiddleware(metalMgr *econ.MetalManager, craftingSvc *tf2.TF2, logger log.Logger) Middleware {
+	return func(next Handler) Handler {
+		return func(ctx *TradeContext) error {
+			if err := next(ctx); err != nil {
+				return err
+			}
+
+			if ctx.Verdict.Action != ActionUndecided {
+				return nil
+			}
+
+			diffVar, ok := ctx.Get("value_diff_scrap")
+			if !ok {
+				return nil
+			}
+
+			diff := diffVar.(int)
+
+			if diff == 0 {
+				ctx.Accept("Correct value provided")
+				return nil
+			}
+
+			if diff > 0 {
+				ids, err := metalMgr.SelectChange(diff)
+				if err != nil {
+					if err := metalMgr.TryToSmeltForChange(ctx, craftingSvc, diff); err == nil {
+						return nil
+					}
+
+					ctx.Decline("I don't have enough small metal to give you change.")
+					return nil
+				}
+
+				ctx.Verdict.Action = ActionCounter
+				ctx.Verdict.Reason = "Added change automatically"
+				ctx.Verdict.Data = ids
+			} else {
+				ctx.Decline(reason.TradeReason(fmt.Sprintf("You are missing %f", currency.ToRefined(math.Abs(float64(diff))))))
+			}
+
+			return nil
+		}
+	}
+}
+
+// calculateValueDiff calculates the difference in value between what we receive and what we give.
+// Result > 0: We were overpaid (need change).
+// Result < 0: We were underpaid (we should reject or request more).
+func calculateValueDiff(ctx *TradeContext) int {
+	pricesRaw, ok := ctx.Get("prices")
+	if !ok {
+		return 0
+	}
+	priceMap := pricesRaw.(map[string]*pricedb.Price)
+
+	keyPriceScrap := 900
+	if keyPrice, ok := priceMap[currency.SKUKey]; ok {
+		// Convert key buy price to scrap
+		keyPriceScrap = int(currency.ToScrap(keyPrice.Buy.Metal))
+	}
+
+	ourTotal := 0
+	theirTotal := 0
+
+	for _, item := range ctx.Offer.ItemsToGive {
+		if p, ok := priceMap[item.SKU]; ok {
+			val := int(p.Sell.Keys)*keyPriceScrap + int(currency.ToScrap(p.Sell.Metal))
+			ourTotal += val
+		}
+	}
+
+	for _, item := range ctx.Offer.ItemsToReceive {
+		if p, ok := priceMap[item.SKU]; ok {
+			val := int(p.Buy.Keys)*keyPriceScrap + int(currency.ToScrap(p.Buy.Metal))
+			theirTotal += val
+		}
+	}
+
+	diff := currency.NewValueDiff(ourTotal, theirTotal, keyPriceScrap)
+
+	ctx.Set("value_diff_scrap", diff.DiffScrap)
+	ctx.Set("is_profitable", diff.IsProfitable())
+
+	return diff.DiffScrap
 }

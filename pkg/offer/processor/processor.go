@@ -49,7 +49,7 @@ func New(ex TradeExecutor, eng *engine.Engine, n *notifications.Manager, r *revi
 		engine:    eng,
 		notif:     n,
 		reviewer:  r,
-		logger:    l.WithModule("processor"),
+		logger:    l.With(log.Module("processor")),
 		queue:     make(chan *trading.TradeOffer, 100),
 		busyItems: make(map[uint64]uint64),
 	}

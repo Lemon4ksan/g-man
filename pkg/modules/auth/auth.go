@@ -94,7 +94,7 @@ type WebAuthenticator interface {
 type Option func(*Authenticator)
 
 func WithLogger(l log.Logger) Option {
-	return func(a *Authenticator) { a.logger = l.WithModule("auth") }
+	return func(a *Authenticator) { a.logger = l.With(log.Module("auth")) }
 }
 
 func WithStorage(store storage.AuthStore) Option {
@@ -252,8 +252,8 @@ func (a *Authenticator) LogOnAnonymous(ctx context.Context, server socket.CMServ
 	a.setState(StateLoggingOn)
 
 	loginCtx, cancel := context.WithCancelCause(ctx)
-	a.loginCtx.Store(&loginCtx)
-	a.loginCancel.Store(&cancel)
+	a.loginCtx.Store(loginCtx)
+	a.loginCancel.Store(cancel)
 
 	anonDetails := &LogOnDetails{
 		ProtocolVersion: ProtocolVersion,

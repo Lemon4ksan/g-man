@@ -18,10 +18,17 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/api"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
+	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
 )
 
 const ModuleName string = "market"
+
+func WithModule(cfg Config) steam.Option {
+	return func(c *steam.Client) {
+		c.RegisterModule(New(cfg))
+	}
+}
 
 // Config contains settings for requests to the Trading Platform.
 type Config struct {
@@ -37,12 +44,6 @@ func DefaultConfig() Config {
 		Country:  "US",
 		Language: "english",
 	}
-}
-
-func WithModule(cfg Config) steam.Option {
-    return func(c *steam.Client) {
-        c.RegisterModule(New(cfg))
-    }
 }
 
 // Manager manages interactions with the Steam Community Market.
@@ -194,7 +195,7 @@ func (m *Manager) CancelBuyOrder(ctx context.Context, buyOrderID uint64) error {
 		BuyOrderID uint64 `url:"buy_orderid"`
 	}{comm.SessionID(community.BaseURL), buyOrderID}
 
-	_, err := community.PostForm[any](ctx, comm, "market/cancelbuyorder", req, withMarketHeaders(""), withOrigin())
+	_, err := community.PostForm[service.NoResponse](ctx, comm, "market/cancelbuyorder", req, withMarketHeaders(""), withOrigin())
 	return err
 }
 
@@ -213,7 +214,7 @@ func (m *Manager) CancelSellOrder(ctx context.Context, listingID uint64) error {
 	}{comm.SessionID(community.BaseURL)}
 
 	path := fmt.Sprintf("market/removelisting/%d", listingID)
-	_, err := community.PostForm[any](ctx, comm, path, req, withMarketHeaders(""), withOrigin())
+	_, err := community.PostForm[service.NoResponse](ctx, comm, path, req, withMarketHeaders(""), withOrigin())
 	return err
 }
 

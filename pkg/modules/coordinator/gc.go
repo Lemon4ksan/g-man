@@ -25,9 +25,9 @@ import (
 const ModuleName string = "gc"
 
 func WithModule() steam.Option {
-    return func(c *steam.Client) {
-        c.RegisterModule(New())
-    }
+	return func(c *steam.Client) {
+		c.RegisterModule(New())
+	}
 }
 
 // GCMessageEvent is triggered when a Game Coordinator message is received.
@@ -42,7 +42,7 @@ type GCMessageEvent struct {
 type Coordinator struct {
 	modules.BaseModule
 
-	client     service.Requester
+	client     service.Doer
 	jobManager *jobs.Manager[*gc.Packet]
 
 	mu         sync.Mutex
@@ -160,7 +160,7 @@ func (c *Coordinator) send(ctx context.Context, appID uint32, msgType uint32, ms
 		log.Uint64("job_id", sourceJobID),
 	)
 
-	_, err = service.Legacy[any](ctx, c.client, protocol.EMsg_ClientToGC, wrapper)
+	_, err = service.Legacy[service.NoResponse](ctx, c.client, protocol.EMsg_ClientToGC, wrapper)
 	if err != nil {
 		if cb != nil {
 			c.jobManager.Resolve(sourceJobID, nil, err)

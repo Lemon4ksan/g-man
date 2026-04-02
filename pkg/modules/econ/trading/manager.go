@@ -82,7 +82,7 @@ type Manager struct {
 	modules.BaseModule
 
 	// Dependencies
-	web       service.Requester
+	web       service.Doer
 	community community.Requester
 	processor *Processor
 	schema    SchemaProvider
@@ -200,7 +200,7 @@ func (m *Manager) AcceptOffer(ctx context.Context, offerID uint64) error {
 		TradeOfferID uint64 `url:"tradeofferid"`
 		ServerID     int    `url:"serverid"`
 	}{offerID, 1}
-	_, err := service.WebAPI[any](ctx, m.web, "POST", "IEconService", "AcceptTradeOffer", 1, req)
+	_, err := service.WebAPI[service.NoResponse](ctx, m.web, "POST", "IEconService", "AcceptTradeOffer", 1, req)
 	return err
 }
 
@@ -212,7 +212,7 @@ func (m *Manager) DeclineOffer(ctx context.Context, offerID uint64) error {
 	req := struct {
 		TradeOfferID uint64 `url:"tradeofferid"`
 	}{offerID}
-	_, err := service.WebAPI[any](ctx, m.web, "POST", "IEconService", "DeclineTradeOffer", 1, req)
+	_, err := service.WebAPI[service.NoResponse](ctx, m.web, "POST", "IEconService", "DeclineTradeOffer", 1, req)
 	return err
 }
 
@@ -224,7 +224,7 @@ func (m *Manager) CancelOffer(ctx context.Context, offerID uint64) error {
 	req := struct {
 		TradeOfferID uint64 `url:"tradeofferid"`
 	}{offerID}
-	_, err := service.WebAPI[any](ctx, m.web, "POST", "IEconService", "CancelTradeOffer", 1, req)
+	_, err := service.WebAPI[service.NoResponse](ctx, m.web, "POST", "IEconService", "CancelTradeOffer", 1, req)
 	return err
 }
 
