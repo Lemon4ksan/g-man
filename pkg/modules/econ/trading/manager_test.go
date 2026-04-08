@@ -193,6 +193,11 @@ func TestManager_GetEscrowDuration(t *testing.T) {
 func TestManager_HandleAuthEvents(t *testing.T) {
 	m, _, _ := setupTrading(t)
 
+	sub := m.Bus.Subscribe(auth.StateEvent{})
+	m.Go(func(ctx context.Context) {
+		m.listenEvents(ctx, sub)
+	})
+
 	if err := m.StartPolling(); err != nil {
 		t.Fatal(err)
 	}
