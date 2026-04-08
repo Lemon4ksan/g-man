@@ -37,22 +37,6 @@ import (
 	"time"
 )
 
-// APIError represents an unsuccessful HTTP response (status code outside 2xx).
-// It captures the raw response body, which often contains error details from the server.
-type APIError struct {
-	// StatusCode is the HTTP status code returned by the server.
-	StatusCode int
-	// Body is the raw response body.
-	Body []byte
-}
-
-func (e *APIError) Error() string {
-	if len(e.Body) > 0 {
-		return fmt.Sprintf("rest: status %d, body: %s", e.StatusCode, string(e.Body))
-	}
-	return fmt.Sprintf("rest: unexpected status code %d", e.StatusCode)
-}
-
 // HTTPDoer is an interface for objects that can execute an [http.Request].
 // It is satisfied by [http.Client].
 type HTTPDoer interface {

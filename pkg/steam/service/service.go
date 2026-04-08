@@ -88,20 +88,26 @@ func (c *Client) Do(ctx context.Context, req *tr.Request) (*tr.Response, error) 
 }
 
 func (c *Client) validateEResult(resp *tr.Response) error {
+	var res protocol.EResult
+
 	if meta, ok := resp.HTTP(); ok {
-		if meta.StatusCode != http.StatusOK {
-			return api.SteamAPIError{StatusCode: meta.StatusCode}
+		if meta.StatusCode == http.StatusUnauthorized {
+			return api.SteamAPIError{StatusCode: meta.StatusCode, Err: api.ErrSessionExpired}
 		}
-		if meta.Result != protocol.EResult_OK && meta.Result != 0 {
-			return api.EResultError{EResult: meta.Result}
+		res = meta.Result
+		if res == 0 {
+			res = protocol.EResult_OK
 		}
-		return nil
+	} else if meta, ok := resp.Socket(); ok {
+		res = meta.Result
 	}
 
-	if meta, ok := resp.Socket(); ok {
-		if meta.Result != protocol.EResult_OK {
-			return api.EResultError{EResult: meta.Result}
-		}
+	if api.IsAuthError(res) {
+		return api.EResultError{EResult: res, Err: api.ErrSessionExpired}
+	}
+
+	if res != protocol.EResult_OK {
+		return api.EResultError{EResult: res}
 	}
 
 	return nil

@@ -12,23 +12,36 @@ import (
 )
 
 var (
-	// ErrNotLoggedIn indicates the session cookie is missing or invalid.
-	ErrNotLoggedIn = errors.New("steam community: not logged in (session expired)")
-
-	// ErrFamilyViewRestricted indicates the account is currently in Family View mode.
-	ErrFamilyViewRestricted = errors.New("steam community: family view restricted")
-
-	// ErrRateLimit indicates Steam is blocking requests due to high frequency.
-	ErrRateLimit = errors.New("steam community: rate limit exceeded")
+	// ErrSessionExpired signals that the current AccessToken or CM
+	// session is no longer valid. This is the trigger for an update.
+	ErrSessionExpired = errors.New("steam: session expired or invalid")
 )
+
+// IsAuthError checks whether EResult is a signal for reauthorization.
+func IsAuthError(res protocol.EResult) bool {
+	switch res {
+	case protocol.EResult_NotLoggedOn, // 21
+		protocol.EResult_Expired,              // 27
+		protocol.EResult_LogonSessionReplaced, // 34
+		protocol.EResult_InvalidPassword,      // 5
+		protocol.EResult_AccountLogonDenied:   // 63
+		return true
+	}
+	return false
+}
 
 // EResultError wraps a Steam EResult code into a Go error.
 type EResultError struct {
 	EResult protocol.EResult
+	Err     error
 }
 
 func (e EResultError) Error() string {
-	return e.EResult.String()
+	return "EMsg: " + e.EResult.String()
+}
+
+func (e EResultError) Unwrap() error {
+	return e.Err
 }
 
 // SteamAPIError represents a structured error returned by Steam's internal
@@ -37,14 +50,18 @@ type SteamAPIError struct {
 	// Message is the human-readable error description from Steam.
 	Message string
 
-	// NeedAuth indicates that the session is invalid and requires a login refresh.
-	NeedAuth bool
-
 	// StatusCode is the raw HTTP status code.
 	StatusCode int
+
+	// Special error that can be unwrapped.
+	Err error
 }
 
 func (e SteamAPIError) Error() string {
-	return fmt.Sprintf("steam API error: %s (need_refresh=%v, status=%d)",
-		e.Message, e.NeedAuth, e.StatusCode)
+	return fmt.Sprintf("steam API error: message=%s, status=%d",
+		e.Message, e.StatusCode)
+}
+
+func (e SteamAPIError) Unwrap() error {
+	return e.Err
 }

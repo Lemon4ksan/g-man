@@ -22,6 +22,14 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/api"
 )
 
+var (
+	// ErrFamilyViewRestricted indicates the account is currently in Family View mode.
+	ErrFamilyViewRestricted = errors.New("steam community: family view restricted")
+
+	// ErrRateLimit indicates Steam is blocking requests due to high frequency.
+	ErrRateLimit = errors.New("steam community: rate limit exceeded")
+)
+
 // Requester defines the requirements for making Community requests.
 // It embeds rest.Requester and adds Steam session management.
 type Requester interface {
@@ -36,11 +44,12 @@ var (
 	rxFamilyView = regexp.MustCompile(`<div id="parental_notice_instructions">Enter your PIN below to exit Family View\.<\/div>`)
 	rxSorry      = regexp.MustCompile(`<h1>Sorry!<\/h1>[\s\S]*?<h3>(.+?)<\/h3>`)
 	rxTradeError = regexp.MustCompile(`<div id="error_msg">\s*([^<]+)\s*<\/div>`)
-	rxApiKey     = regexp.MustCompile(`(?i)[0-9A-F]{32}`)
+	rxApiKey     = regexp.MustCompile(`Key: (?i)[0-9A-F]{32}`)
 )
 
 var (
-	ErrAPITokenNotFound = errors.New("could not find api key or registration form (account might be limited)")
+	// ErrAPITokenNotFound is returned when automatic key registration fails.
+	ErrAPITokenNotFound = errors.New("community: could not find api key or registration form (account might be limited)")
 )
 
 // Client handles communication with Steam Community, backed by a generic REST client.
@@ -115,7 +124,7 @@ func (c *Client) GetOrRegisterAPIKey(ctx context.Context, domain string) (string
 
 	key := rxApiKey.FindString(string(body))
 	if key != "" {
-		return key, nil
+		return key[5:], nil
 	}
 
 	doc, err := goquery.NewDocumentFromReader(bytes.NewReader(body))
@@ -286,28 +295,30 @@ func execute[Resp any](ctx context.Context, c Requester, method, path string, bo
 // authentication failures, rate limits, or parental blocks.
 func checkSteamErrors(statusCode int, header http.Header, body []byte) error {
 	if statusCode == 429 {
-		return api.ErrRateLimit
+		return ErrRateLimit
 	}
 	if statusCode >= 500 {
 		return fmt.Errorf("steam server error: %d", statusCode)
 	}
 
 	// Auth Redirects (302 to login page)
-	if statusCode >= 300 && statusCode <= 399 {
+	if statusCode == http.StatusFound || statusCode == http.StatusSeeOther {
 		loc := header.Get("Location")
-		if strings.Contains(loc, "/login") || strings.Contains(loc, "login.steampowered.com") {
-			return api.ErrNotLoggedIn
+		if strings.Contains(loc, "steam") && strings.Contains(loc, "/login") {
+			return api.ErrSessionExpired
 		}
 	}
 
 	// Parental Control (Family View)
 	if statusCode == 403 && rxFamilyView.Match(body) {
-		return api.ErrFamilyViewRestricted
+		return ErrFamilyViewRestricted
 	}
 
 	// Soft Auth Failure (Page loaded but user is guest)
-	if bytes.Contains(body, []byte("g_steamID = false;")) && bytes.Contains(body, []byte("<title>Sign In</title>")) {
-		return api.ErrNotLoggedIn
+	if bytes.Contains(body, []byte("g_steamID = false;")) ||
+		bytes.Contains(body, []byte(`g_steamID = "0";`)) ||
+		bytes.Contains(body, []byte("<title>Sign In</title>")) {
+		return api.ErrSessionExpired
 	}
 
 	// Generic Steam Error Pages ("Sorry!")

@@ -132,7 +132,7 @@ func WithLogger(l log.Logger) Option {
 
 // WithSession injects a custom pre-configured session.
 func WithSession(session Session) Option {
-	return func(s *Socket) { s.session.Store(&session) }
+	return func(s *Socket) { s.setSession(session) }
 }
 
 // Socket is the core network engine. It orchestrates the connection lifecycle,
@@ -145,7 +145,7 @@ type Socket struct {
 	logger     log.Logger
 	bus        *bus.Bus
 	jobManager *jobs.Manager[*protocol.Packet]
-	session    atomic.Pointer[Session]
+	session    atomic.Pointer[sessionContainer]
 
 	connCtx    atomic.Value // Context tied to the active connection
 	connCancel atomic.Value // Cancels the active connection
@@ -219,11 +219,11 @@ func (s *Socket) Bus() *bus.Bus {
 
 // Session returns the current active session, if any.
 func (s *Socket) Session() Session {
-	sess := s.session.Load()
-	if sess == nil {
+	container := s.session.Load()
+	if container == nil {
 		return nil
 	}
-	return *sess
+	return container.sess
 }
 
 // State returns the current connection state.
@@ -289,7 +289,7 @@ func (s *Socket) Connect(ctx context.Context, server CMServer) error {
 	)
 
 	var ls Session = NewLoggedSession(baseSession, sessionLogger)
-	s.session.Store(&ls)
+	s.setSession(ls)
 
 	connCtx, connCancel := context.WithCancel(context.Background())
 	s.connCtx.Store(connCtx)
@@ -363,7 +363,7 @@ func (s *Socket) Disconnect() {
 	s.workerWg.Wait()
 	s.drainMsgChannel()
 
-	s.session.Store(nil)
+	s.setSession(nil)
 	s.bus.Publish(&DisconnectedEvent{})
 	s.setState(StateDisconnected)
 	s.logger.Info("Client disconnected")
@@ -500,6 +500,18 @@ func (s *Socket) getContext() context.Context {
 		return context.Background()
 	}
 	return ptr.(context.Context)
+}
+
+func (s *Socket) setSession(sess Session) {
+	if sess == nil {
+		s.session.Store(nil)
+		return
+	}
+	s.session.Store(&sessionContainer{sess: sess})
+}
+
+type sessionContainer struct {
+	sess Session
 }
 
 // inboundHandler acts as the adapter (or "bridge") between the low-level `network`

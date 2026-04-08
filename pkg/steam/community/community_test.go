@@ -98,25 +98,25 @@ func TestCommunityClient_ErrorParsing(t *testing.T) {
 		{
 			name:          "Rate Limit",
 			statusCode:    429,
-			expectedError: api.ErrRateLimit,
+			expectedError: ErrRateLimit,
 		},
 		{
 			name:          "Not Logged In (Redirect)",
 			statusCode:    302,
 			location:      "https://steamcommunity.com/login/home",
-			expectedError: api.ErrNotLoggedIn,
+			expectedError: api.ErrSessionExpired,
 		},
 		{
 			name:          "Not Logged In (HTML State)",
 			statusCode:    200,
 			body:          "g_steamID = false; ... <title>Sign In</title>",
-			expectedError: api.ErrNotLoggedIn,
+			expectedError: api.ErrSessionExpired,
 		},
 		{
 			name:          "Family View Restricted",
 			statusCode:    403,
 			body:          `<div id="parental_notice_instructions">Enter your PIN below to exit Family View.</div>`,
-			expectedError: api.ErrFamilyViewRestricted,
+			expectedError: ErrFamilyViewRestricted,
 		},
 		{
 			name:          "Sorry Page with Message",
