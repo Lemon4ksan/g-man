@@ -92,7 +92,6 @@ type Manager struct {
 
 	// Polling synchronization
 	mu             sync.RWMutex
-	pollingWg      sync.WaitGroup
 	knownOffers    map[uint64]econ.TradeOfferState
 	lastSeenOffers map[uint64]time.Time
 
@@ -115,7 +114,6 @@ func New(cfg Config) *Manager {
 	}
 }
 
-// Init initializes the module and sets up event listeners.
 func (m *Manager) Init(init modules.InitContext) error {
 	if err := m.BaseModule.Init(init); err != nil {
 		return err
@@ -128,17 +126,9 @@ func (m *Manager) Init(init modules.InitContext) error {
 		m.Logger.Warn("tf2_schema module not found, cannot resolve SKUs")
 	}
 
-	// Listen for auth events to handle disconnects
-	sub := m.Bus.Subscribe(auth.StateEvent{})
-	m.Go(func(ctx context.Context) {
-		m.listenEvents(ctx, sub)
-	})
-
 	return nil
 }
 
-// StartAuthed is called when a web session is established.
-// It refreshes the community client and restarts the polling loop.
 func (m *Manager) StartAuthed(ctx context.Context, authCtx modules.AuthContext) error {
 	if m.State.Load() == StatePolling {
 		m.StopPolling()
@@ -147,6 +137,12 @@ func (m *Manager) StartAuthed(ctx context.Context, authCtx modules.AuthContext) 
 	m.mu.Lock()
 	m.community = authCtx.Community()
 	m.mu.Unlock()
+
+	// Listen for auth events to handle disconnects
+	sub := m.Bus.Subscribe(auth.StateEvent{})
+	m.Go(func(ctx context.Context) {
+		m.listenEvents(ctx, sub)
+	})
 
 	return m.StartPolling()
 }
@@ -171,9 +167,7 @@ func (m *Manager) StartPolling() error {
 		return ErrManagerPolling
 	}
 
-	m.pollingWg.Add(1)
 	m.Go(func(ctx context.Context) {
-		defer m.pollingWg.Done()
 		m.pollingLoop(ctx)
 	})
 
@@ -184,7 +178,6 @@ func (m *Manager) StartPolling() error {
 // StopPolling halts the trade offer polling loop and waits for completion.
 func (m *Manager) StopPolling() {
 	if m.State.CompareAndSwap(StatePolling, StateStopped) {
-		m.pollingWg.Wait()
 		m.Logger.Info("Trade polling stopped")
 	}
 }
@@ -303,7 +296,9 @@ func (m *Manager) doPoll(ctx context.Context) {
 
 	resp, err := service.WebAPI[respStruct](ctx, m.web, "GET", "IEconService", "GetTradeOffers", 1, req)
 	if err != nil {
-		m.Logger.Warn("Trade poll failed", log.Err(err))
+		if ctx.Err() == nil {
+			m.Logger.Warn("Trade poll failed", log.Err(err))
+		}
 		return
 	}
 

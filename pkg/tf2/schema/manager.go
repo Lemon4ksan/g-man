@@ -104,23 +104,21 @@ func (m *Manager) Get() *Schema {
 func (m *Manager) Refresh(ctx context.Context) error {
 	m.Logger.Debug("Fetching schema components from Steam and GitHub...")
 
-	var overview map[string]any
-	var items []any
+	overview, err := m.getSchemaOverview(ctx)
+	if err != nil {
+		return err
+	}
+
+	items, err := m.getSchemaItems(ctx)
+	if err != nil {
+		return err
+	}
+
 	var paintkits map[string]string
 	var itemsGame map[string]any
 
 	g, gCtx := errgroup.WithContext(ctx)
 
-	g.Go(func() error {
-		var err error
-		overview, err = m.getSchemaOverview(gCtx)
-		return err
-	})
-	g.Go(func() error {
-		var err error
-		items, err = m.getSchemaItems(gCtx)
-		return err
-	})
 	g.Go(func() error {
 		var err error
 		paintkits, err = m.getPaintKits(gCtx)
@@ -131,6 +129,10 @@ func (m *Manager) Refresh(ctx context.Context) error {
 		itemsGame, err = m.getItemsGame(gCtx)
 		return err
 	})
+
+	if err := g.Wait(); err != nil {
+		return err
+	}
 
 	if err := g.Wait(); err != nil {
 		m.Bus.Publish(&SchemaUpdateFailedEvent{Error: err})
@@ -267,22 +269,25 @@ func (m *Manager) getSchemaItems(ctx context.Context) ([]any, error) {
 	var allItems []any
 	next := 0
 
-	m.Logger.Debug("Fetching items from Steam WebAPI (this may take a while)...")
-
 	for {
-		req := struct {
-			Language string `url:"language"`
-			Start    int    `url:"start"`
-		}{"en", next}
+		var resp *map[string]any
 
-		resp, err := service.WebAPI[map[string]any](ctx, m.svcClient, "GET", "IEconItems_440", "GetSchemaItems", 1, req)
+		err := m.withRetry(ctx, func() error {
+			req := struct {
+				Language string `url:"language"`
+				Start    int    `url:"start"`
+			}{"en", next}
+
+			var err error
+			resp, err = service.WebAPI[map[string]any](ctx, m.svcClient, "GET", "IEconItems_440", "GetSchemaItems", 1, req)
+			return err
+		})
 
 		if err != nil {
 			if m.isForbiddenError(err) {
-				m.Logger.Warn("WebAPI returned 403. Attempting to fetch Items from community mirror...")
 				return m.fetchItemsFromMirror(ctx)
 			}
-			return nil, fmt.Errorf("items fetch failed at offset %d: %w", next, err)
+			return nil, err
 		}
 
 		result, ok := (*resp)["result"].(map[string]any)
@@ -424,4 +429,49 @@ func (m *Manager) fetchItemsFromMirror(ctx context.Context) ([]any, error) {
 		return nil, fmt.Errorf("mirror items fetch failed: %w", err)
 	}
 	return *res, nil
+}
+
+func (m *Manager) withRetry(ctx context.Context, operation func() error) error {
+	const maxRetries = 3
+	backoff := 2 * time.Second
+
+	var lastErr error
+	for i := 0; i < maxRetries; i++ {
+		err := operation()
+		if err == nil {
+			return nil
+		}
+
+		lastErr = err
+		if !m.isRetryable(err) {
+			return err
+		}
+
+		m.Logger.Warn("Operation failed, retrying...",
+			log.Err(err),
+			log.Int("attempt", i+1),
+			log.Duration("backoff", backoff),
+		)
+
+		select {
+		case <-time.After(backoff):
+			backoff *= 2
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	return fmt.Errorf("after %d attempts: %w", maxRetries, lastErr)
+}
+
+func (m *Manager) isRetryable(err error) bool {
+	if strings.Contains(err.Error(), "invalid character '<'") {
+		return true
+	}
+	if strings.Contains(err.Error(), "429") {
+		return true
+	}
+	if strings.Contains(err.Error(), "timeout") || strings.Contains(err.Error(), "connection refused") {
+		return true
+	}
+	return false
 }

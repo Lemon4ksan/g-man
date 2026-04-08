@@ -122,7 +122,7 @@ func NewBase(name string) BaseModule {
 func (b *BaseModule) Name() string { return b.NameStr }
 
 func (b *BaseModule) Start(ctx context.Context) error {
-	b.Ctx, b.Cancel = context.WithCancel(context.Background())
+	b.Ctx, b.Cancel = context.WithCancel(ctx)
 	return nil
 }
 
@@ -145,7 +145,6 @@ func (b *BaseModule) Close() error {
 	}
 
 	b.Wg.Wait()
-	b.Wg = sync.WaitGroup{}
 	return nil
 }
 
