@@ -51,19 +51,25 @@ const defaultUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/
 //	// Login to a trading site
 //	siteClient, err := openid.Login(ctx, "https://csgo-trading-site.com/login", cookies)
 func Login(ctx context.Context, targetURL string, steamCookies []*http.Cookie) (*rest.Client, error) {
+	parsedTarget, err := url.Parse(targetURL)
+	if err != nil {
+		return nil, fmt.Errorf("openid: invalid target URL: %w", err)
+	}
+
 	jar, err := cookiejar.New(nil)
 	if err != nil {
 		return nil, fmt.Errorf("openid: failed to create cookie jar: %w", err)
 	}
 
-	steamURL, _ := url.Parse("https://steamcommunity.com")
-	jar.SetCookies(steamURL, steamCookies)
+	steamCommURL, _ := url.Parse("https://steamcommunity.com")
+	steamStoreURL, _ := url.Parse("https://store.steampowered.com")
+	jar.SetCookies(steamCommURL, steamCookies)
+	jar.SetCookies(steamStoreURL, steamCookies)
 
 	httpClient := &http.Client{
 		Jar: jar,
-		// Ensure we follow redirects (which is default, but good to be explicit for OpenID)
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return nil
+			return nil // Ensure we follow redirects
 		},
 	}
 
@@ -76,11 +82,18 @@ func Login(ctx context.Context, targetURL string, steamCookies []*http.Cookie) (
 	}
 	defer resp.Body.Close()
 
+	// Case 1: The site didn't redirect to Steam at all.
+	// Most likely, the site's provided (or cached) cookies are already valid
+	// and we are in the authorized zone of the target service.
+	if resp.Request.URL.Host == parsedTarget.Host {
+		return client, nil
+	}
+
+	// Case 2: We were redirected, but not to where we expected.
 	if resp.Request.URL.Host != "steamcommunity.com" {
 		return nil, fmt.Errorf("%w: ended up at %s", ErrWrongHost, resp.Request.URL.Host)
 	}
 
-	// Read body into memory so we can parse it
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("openid: failed to read response body: %w", err)
@@ -96,7 +109,6 @@ func Login(ctx context.Context, targetURL string, steamCookies []*http.Cookie) (
 		return nil, ErrNotSignedIn
 	}
 
-	// Find the hidden OpenID submission form
 	form := doc.Find("#openidForm")
 	if form.Length() == 0 {
 		return nil, ErrNoForm
@@ -107,21 +119,34 @@ func Login(ctx context.Context, targetURL string, steamCookies []*http.Cookie) (
 	form.Find("input").Each(func(i int, s *goquery.Selection) {
 		name, nameExists := s.Attr("name")
 		value, _ := s.Attr("value")
-		if nameExists {
+		if nameExists && name != "" {
 			formData.Set(name, value)
 		}
 	})
 
+	// Emulates a "Sign In" button press. On some Steam pages,
+	// this value is passed explicitly via the Submit button.
+	if formData.Get("action") == "" {
+		formData.Set("action", "steam_openid_login")
+	}
+
+	// Steam can specify both absolute and relative actions (e.g. "/openid/login")
+	// Therefore, we resolve the path relative to the current page address.
+	currentURL := resp.Request.URL
 	postURL := "https://steamcommunity.com/openid/login"
+
 	if action, exists := form.Attr("action"); exists && action != "" {
-		postURL = action
+		parsedAction, err := url.Parse(action)
+		if err == nil {
+			postURL = currentURL.ResolveReference(parsedAction).String()
+		}
 	}
 
 	// Submit the form back to Steam. Steam will validate and redirect us
 	// back to the third-party site with the OpenID assertion payload.
 	formMod := func(req *http.Request) {
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		req.Header.Set("Referer", resp.Request.URL.String())
+		req.Header.Set("Referer", currentURL.String())
 	}
 
 	postResp, err := client.Request(ctx, http.MethodPost, postURL, []byte(formData.Encode()), nil, formMod)
