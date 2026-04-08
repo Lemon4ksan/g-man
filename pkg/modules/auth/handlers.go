@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/g-man/pkg/log"
+	"github.com/lemon4ksan/g-man/pkg/steam/api"
 	"github.com/lemon4ksan/g-man/pkg/steam/crypto"
 	pb "github.com/lemon4ksan/g-man/pkg/steam/protobuf"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
@@ -119,11 +120,10 @@ func (a *Authenticator) handleLogOnResponse(packet *protocol.Packet) {
 	eresult := protocol.EResult(msg.GetEresult())
 	if eresult != protocol.EResult_OK {
 		a.logger.Error("Logon denied by CM", log.String("eresult", eresult.String()))
-		a.failLogin(fmt.Errorf("steam logon denied: %s", eresult))
 
-		a.socket.Bus().Publish(&LoggedOffEvent{
-			Result: eresult,
-		})
+		a.failLogin(fmt.Errorf("steam logon denied: %w", api.EResultError{EResult: eresult}))
+
+		a.socket.Bus().Publish(&LoggedOffEvent{Result: eresult})
 		return
 	}
 
@@ -164,6 +164,10 @@ func (a *Authenticator) handleLoggedOff(packet *protocol.Packet) {
 
 	eresult := protocol.EResult(resp.GetEresult())
 	a.logger.Warn("Logged off by server", log.String("eresult", eresult.String()))
+
+	if api.IsAuthError(eresult) {
+		a.failLogin(api.ErrSessionExpired) 
+	}
 
 	a.setState(StateDisconnected)
 

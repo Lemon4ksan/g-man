@@ -7,6 +7,7 @@ package auth
 import (
 	pb "github.com/lemon4ksan/g-man/pkg/steam/protobuf"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/steamid"
 )
 
 // DeviceConfig allows customizing how the client presents itself to Steam.
@@ -60,7 +61,7 @@ type LogOnDetails struct {
 	// SteamID can be provided to avoid looking it up during login.
 	// If not provided, it will be extracted from the refresh token or
 	// obtained during authentication.
-	SteamID uint64
+	SteamID steamid.ID
 
 	// AuthCode is the email-based Steam Guard code.
 	// Required when Steam Guard is enabled and not using 2FA.

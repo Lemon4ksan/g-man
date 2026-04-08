@@ -3,12 +3,30 @@
 // license that can be found in the LICENSE file.
 
 /*
-Package auth provides the core authentication flows for the Steam client.
+Package auth implements the complex, multi-stage authentication logic required to
+establish a secure session with Steam.
 
 Unlike standard modules (like 'friends' or 'market') which operate after a
 connection is established, the 'auth' module is responsible for bootstrapping
 the connection itself. It is deeply integrated into the lifecycle of the
 main 'steam.Client'.
+
+# Core Responsibilities
+
+ 1. Credential Encryption: Securely encrypting passwords using Steam's RSA public
+    keys before transmission.
+
+ 2. Multi-Factor Authentication: Handling Steam Guard (Email), Two-Factor (Mobile
+    App), and modern Mobile App Confirmations via an event-driven callback system.
+
+ 3. Token Management: Orchestrating the lifecycle of JWT-based Refresh and Access
+    tokens to provide persistent, long-running sessions.
+
+ 4. Transport Encryption: Handling the TCP handshake (ChannelEncrypt) to establish
+    a symmetric encrypted tunnel with Steam CMs.
+
+ 5. Web Session Synchronization: Executing the OpenID Connect (OIDC) flow to
+    synchronize authentication cookies across all Steam domains (community, store, help).
 
 # The Two-Phase Authentication Flow
 
@@ -27,19 +45,30 @@ complexity into a seamless two-phase process:
     channel encryption (ChannelEncryptRequest/Response) and sends a `ClientLogOn`
     message containing the token to finalize the session.
 
-# Key Components
+# Handling Steam Guard
 
-  - Authenticator: The state machine that orchestrates the entire login process.
-    It manages the transition from HTTP to Sockets, handles reconnection logic,
-    and publishes state changes to the global Event Bus.
+Authentication often requires user interaction. When a challenge is issued,
+the Authenticator emits a SteamGuardRequiredEvent via the event bus.
+This event contains a 'Callback' function. To continue the login, the consumer
+must obtain the code from the user and invoke this callback:
 
-  - AuthenticationService: A stateless wrapper around the 'service' package
-    that implements the gRPC-like 'Authentication' endpoints. It is responsible
-    for RSA encryption and token generation.
+	bus.Subscribe(func(ev *auth.SteamGuardRequiredEvent) {
+		code := promptUserForCode() // e.g., via CLI or UI
+		ev.Callback(code)
+	})
 
-  - WebSession: A specialized HTTP client that performs the OIDC (OpenID Connect)
-    redirection flow to acquire 'sessionid' and 'steamLoginSecure' cookies.
-    These cookies are essential for modules like 'market' and 'community' to scrape
-    HTML or perform AJAX actions on steamcommunity.com.
+# Web Sessions (Fast vs Slow Path)
+
+Steam treats web cookies and socket sessions as related but distinct.
+  - Fast Path: If a valid Access Token is already present (from a mobile or
+    desktop client), the library generates cookies instantly without network roundtrips.
+  - Slow Path: Uses the official OIDC redirection flow (/jwt/finalizelogin) to
+    ensure all Steam domains are correctly synchronized with the session.
+
+# Security and Persistence
+
+To minimize 2FA prompts, it is highly recommended to provide a storage.AuthStore
+implementation. This allows the Authenticator to persist MachineIDs and
+Refresh Tokens, making the client appear as a "Recognized Device" to Steam.
 */
 package auth

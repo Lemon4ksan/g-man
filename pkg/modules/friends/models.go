@@ -9,6 +9,7 @@ import (
 
 	"github.com/lemon4ksan/g-man/pkg/steam/bus"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/steamid"
 )
 
 // PersonaState represents cached information about the user.
@@ -33,7 +34,7 @@ type GetBadgesResponse struct {
 // removes us, or we accept the request.
 type RelationshipChangedEvent struct {
 	bus.BaseEvent
-	SteamID uint64
+	SteamID steamid.ID
 	Old     protocol.EFriendRelationship
 	New     protocol.EFriendRelationship
 }
@@ -43,7 +44,7 @@ func (e *RelationshipChangedEvent) Topic() string { return "friends.relationship
 // PersonaStateUpdatedEvent is called when a friend changes their nickname, avatar, or status (enters the game).
 type PersonaStateUpdatedEvent struct {
 	bus.BaseEvent
-	SteamID uint64
+	SteamID steamid.ID
 	State   *PersonaState
 }
 

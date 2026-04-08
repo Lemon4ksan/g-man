@@ -19,6 +19,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
+	"github.com/lemon4ksan/g-man/pkg/steam/steamid"
 	"github.com/lemon4ksan/g-man/pkg/storage"
 )
 
@@ -68,7 +69,7 @@ type AuthContext interface {
 	Community() community.Requester
 
 	// SteamID returns the steam id of the authorized user.
-	SteamID() uint64
+	SteamID() steamid.ID
 }
 
 // Module defines the contract for pluggable extensions (e.g., Trade, Chat, GC).
@@ -121,6 +122,7 @@ func NewBase(name string) BaseModule {
 func (b *BaseModule) Name() string { return b.NameStr }
 
 func (b *BaseModule) Start(ctx context.Context) error {
+	b.Ctx, b.Cancel = context.WithCancel(context.Background())
 	return nil
 }
 
@@ -129,6 +131,7 @@ func (b *BaseModule) Init(ctx InitContext) error {
 	b.Bus = ctx.Bus()
 
 	if b.Ctx == nil || b.Ctx.Err() != nil {
+		// For tests
 		b.Ctx, b.Cancel = context.WithCancel(context.Background())
 	}
 

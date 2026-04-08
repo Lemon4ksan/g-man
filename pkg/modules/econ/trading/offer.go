@@ -67,7 +67,7 @@ const (
 type ActionDecision struct {
 	Action ActionType
 	Reason string
-	Meta   interface{} // Custom metadata (e.g., specific missing value)
+	Meta   any // Custom metadata (e.g., specific missing value)
 }
 
 // OfferHandler is implemented by your main bot logic.

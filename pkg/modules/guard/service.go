@@ -14,6 +14,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/api"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
+	"github.com/lemon4ksan/g-man/pkg/steam/steamid"
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
 )
 
@@ -58,7 +59,7 @@ func NewMobileConf(client community.Requester) *MobileConf {
 }
 
 // GetConfirmations fetches the list of pending mobile confirmations.
-func (s *MobileConf) GetConfirmations(ctx context.Context, deviceID string, steamID uint64, confKey string, timestamp int64) (*ConfirmationsList, error) {
+func (s *MobileConf) GetConfirmations(ctx context.Context, deviceID string, steamID steamid.ID, confKey string, timestamp int64) (*ConfirmationsList, error) {
 	params := baseParams{
 		DeviceID:  deviceID,
 		SteamID:   steamID,
@@ -71,7 +72,7 @@ func (s *MobileConf) GetConfirmations(ctx context.Context, deviceID string, stea
 }
 
 // GetConfirmationOfferID retrieves the trade offer ID associated with a market listing confirmation.
-func (s *MobileConf) GetConfirmationOfferID(ctx context.Context, confID uint64, deviceID string, steamID uint64, confKey string, timestamp int64) (uint64, error) {
+func (s *MobileConf) GetConfirmationOfferID(ctx context.Context, confID uint64, deviceID string, steamID steamid.ID, confKey string, timestamp int64) (uint64, error) {
 	params := baseParams{
 		DeviceID:  deviceID,
 		SteamID:   steamID,
@@ -99,7 +100,7 @@ func (s *MobileConf) GetConfirmationOfferID(ctx context.Context, confID uint64, 
 }
 
 // RespondToConfirmation accepts or denies a single confirmation.
-func (s *MobileConf) RespondToConfirmation(ctx context.Context, conf *Confirmation, accept bool, deviceID string, steamID uint64, confKey string, timestamp int64) error {
+func (s *MobileConf) RespondToConfirmation(ctx context.Context, conf *Confirmation, accept bool, deviceID string, steamID steamid.ID, confKey string, timestamp int64) error {
 	op := "cancel"
 	if accept {
 		op = "allow"
@@ -134,7 +135,7 @@ func (s *MobileConf) RespondToConfirmation(ctx context.Context, conf *Confirmati
 }
 
 // RespondToMultiple accepts or denies multiple confirmations in a single request.
-func (s *MobileConf) RespondToMultiple(ctx context.Context, confs []*Confirmation, accept bool, deviceID string, steamID uint64, confKey string, timestamp int64) error {
+func (s *MobileConf) RespondToMultiple(ctx context.Context, confs []*Confirmation, accept bool, deviceID string, steamID steamid.ID, confKey string, timestamp int64) error {
 	if len(confs) == 0 {
 		return nil
 	}
@@ -187,13 +188,13 @@ func (s *MobileConf) RespondToMultiple(ctx context.Context, confs []*Confirmatio
 }
 
 type baseParams struct {
-	DeviceID  string `url:"p"`
-	SteamID   uint64 `url:"a"`
-	ConfKey   string `url:"k"`
-	Timestamp int64  `url:"t"`
-	Mode      string `url:"m"`
-	ActionTag string `url:"tag"`
-	Op        string `url:"op,omitempty"`
-	ConfID    uint64 `url:"cid,omitempty"`
-	Nonce     uint64 `url:"ck,omitempty"`
+	DeviceID  string     `url:"p"`
+	SteamID   steamid.ID `url:"a"`
+	ConfKey   string     `url:"k"`
+	Timestamp int64      `url:"t"`
+	Mode      string     `url:"m"`
+	ActionTag string     `url:"tag"`
+	Op        string     `url:"op,omitempty"`
+	ConfID    uint64     `url:"cid,omitempty"`
+	Nonce     uint64     `url:"ck,omitempty"`
 }

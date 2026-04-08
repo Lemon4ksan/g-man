@@ -17,6 +17,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
+	"github.com/lemon4ksan/g-man/pkg/steam/steamid"
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
 	"github.com/lemon4ksan/g-man/pkg/storage"
 	"google.golang.org/protobuf/proto"
@@ -158,10 +159,10 @@ func (m *MockInitContext) MockServiceAccessor() *MockRequester {
 
 type MockAuthContext struct {
 	mockCommunity *MockCommunityRequester
-	steamID       uint64
+	steamID       steamid.ID
 }
 
-func NewMockAuthContext(steamID uint64) *MockAuthContext {
+func NewMockAuthContext(steamID steamid.ID) *MockAuthContext {
 	return &MockAuthContext{
 		mockCommunity: NewMockCommunityRequester(),
 		steamID:       steamID,
@@ -170,7 +171,7 @@ func NewMockAuthContext(steamID uint64) *MockAuthContext {
 
 func (m *MockAuthContext) Community() community.Requester         { return m.mockCommunity }
 func (m *MockAuthContext) MockCommunity() *MockCommunityRequester { return m.mockCommunity }
-func (m *MockAuthContext) SteamID() uint64                        { return m.steamID }
+func (m *MockAuthContext) SteamID() steamid.ID                    { return m.steamID }
 
 func ProtoResponse(msg proto.Message) (*tr.Response, error) {
 	b, err := proto.Marshal(msg)

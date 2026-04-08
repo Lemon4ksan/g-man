@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -22,6 +23,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/bus"
 	"github.com/lemon4ksan/g-man/pkg/steam/crypto/totp"
+	"github.com/lemon4ksan/g-man/pkg/steam/steamid"
 )
 
 const ModuleName string = "guard"
@@ -55,8 +57,9 @@ var (
 )
 
 type ConfService interface {
-	GetConfirmations(ctx context.Context, deviceID string, steamID uint64, confKey string, timestamp int64) (*ConfirmationsList, error)
-	RespondToConfirmation(ctx context.Context, conf *Confirmation, accept bool, deviceID string, steamID uint64, confKey string, timestamp int64) error
+	GetConfirmations(ctx context.Context, deviceID string, steamID steamid.ID, confKey string, timestamp int64) (*ConfirmationsList, error)
+	RespondToConfirmation(ctx context.Context, conf *Confirmation, accept bool, deviceID string, steamID steamid.ID, confKey string, timestamp int64) error
+	RespondToMultiple(ctx context.Context, confs []*Confirmation, accept bool, deviceID string, steamID steamid.ID, confKey string, timestamp int64) error
 }
 
 // Config holds all configuration options for the Guardian.
@@ -125,6 +128,9 @@ func (c Config) Validate() error {
 	if c.DeviceID == "" {
 		return fmt.Errorf("device ID is required")
 	}
+	if !strings.HasPrefix(c.DeviceID, "android:") && !strings.HasPrefix(c.DeviceID, "ios:") {
+		return fmt.Errorf("device ID must start with 'android:' or 'ios:'")
+	}
 	if c.PollInterval <= 0 {
 		return fmt.Errorf("poll interval must be positive")
 	}
@@ -136,6 +142,11 @@ func (c Config) Validate() error {
 			c.MaxBackoff, c.PollInterval)
 	}
 	return nil
+}
+
+func (c Config) String() string {
+	return fmt.Sprintf("GuardConfig{DeviceID: %s, PollInterval: %s, AutoAccept: %v}",
+		maskDeviceID(c.DeviceID), c.PollInterval, c.AutoAccept)
 }
 
 func WithModule(cfg Config) steam.Option {
@@ -162,7 +173,7 @@ type GuardianMetrics struct {
 type Guardian struct {
 	modules.BaseModule
 
-	steamID      uint64
+	steamID      steamid.ID
 	service      ConfService
 	config       Config
 	clock        *OffsetClock
@@ -202,7 +213,6 @@ func (g *Guardian) Metrics() *GuardianMetrics { return g.metrics }
 
 // Init initializes the module dependencies and starts background event listeners.
 func (g *Guardian) Init(init modules.InitContext) error {
-	// Initialize base logic (sets up logger, bus, and module context)
 	if err := g.BaseModule.Init(init); err != nil {
 		return err
 	}
@@ -211,13 +221,9 @@ func (g *Guardian) Init(init modules.InitContext) error {
 		g.twoFactorSvc = NewTwoFactorService(web)
 	}
 
-	// Add context-aware logging metadata
 	g.Logger = g.Logger.With(log.String("device_id", maskDeviceID(g.config.DeviceID)))
-
-	// Subscribe to auth events to handle auto-polling on logon
 	sub := init.Bus().Subscribe(auth.StateEvent{})
 
-	// Use g.Go to run background tasks. It automatically handles the WaitGroup.
 	g.Go(func(ctx context.Context) {
 		g.listenEvents(ctx, sub)
 	})
@@ -326,9 +332,19 @@ func (g *Guardian) Accept(ctx context.Context, conf *Confirmation) error {
 	return g.respond(ctx, conf, true)
 }
 
+// AcceptMultiple accepts multiple confirmations at once (uses multiajaxop).
+func (g *Guardian) AcceptMultiple(ctx context.Context, confs []*Confirmation) error {
+	return g.respondMultiple(ctx, confs, true)
+}
+
 // Cancel declines a single confirmation.
 func (g *Guardian) Cancel(ctx context.Context, conf *Confirmation) error {
 	return g.respond(ctx, conf, false)
+}
+
+// CancelMultiple rejects multiple confirmations at once.
+func (g *Guardian) CancelMultiple(ctx context.Context, confs []*Confirmation) error {
+	return g.respondMultiple(ctx, confs, false)
 }
 
 func (g *Guardian) respond(ctx context.Context, conf *Confirmation, accept bool) error {
@@ -365,6 +381,49 @@ func (g *Guardian) respond(ctx context.Context, conf *Confirmation, accept bool)
 		g.metrics.TotalAccepted.Add(1)
 	} else {
 		g.metrics.TotalRejected.Add(1)
+	}
+	return nil
+}
+
+func (g *Guardian) respondMultiple(ctx context.Context, confs []*Confirmation, accept bool) error {
+	if g.service == nil {
+		return ErrNotAuthenticated
+	}
+	if len(confs) == 0 {
+		return nil
+	}
+
+	if err := g.rateLimiter.Wait(ctx); err != nil {
+		return err
+	}
+
+	tag := "allow"
+	if !accept {
+		tag = "cancel"
+	}
+
+	timestamp := time.Now().Unix()
+	key, err := totp.GenerateConfirmationKey(g.config.IdentitySecret, timestamp, tag)
+	if err != nil {
+		return err
+	}
+
+	err = g.service.RespondToMultiple(ctx, confs, accept, g.config.DeviceID, g.steamID, key, timestamp)
+	if err != nil {
+		g.metrics.TotalErrors.Add(1)
+		return err
+	}
+
+	g.mu.Lock()
+	for _, conf := range confs {
+		delete(g.confirmations, conf.ID)
+	}
+	g.mu.Unlock()
+
+	if accept {
+		g.metrics.TotalAccepted.Add(int64(len(confs)))
+	} else {
+		g.metrics.TotalRejected.Add(int64(len(confs)))
 	}
 	return nil
 }
@@ -417,6 +476,8 @@ func (g *Guardian) pollingLoop(ctx context.Context) {
 }
 
 func (g *Guardian) processFetchedConfirmations(ctx context.Context, confs []*Confirmation) {
+	var toAutoAccept []*Confirmation
+
 	for _, conf := range confs {
 		g.mu.Lock()
 		if _, seen := g.seenIDs[conf.ID]; seen {
@@ -430,17 +491,28 @@ func (g *Guardian) processFetchedConfirmations(ctx context.Context, confs []*Con
 		g.Logger.Info("New confirmation received", log.String("title", conf.Title))
 		g.Bus.Publish(&ConfirmationReceivedEvent{Confirmation: conf})
 
-		// Handle Auto-Accept logic
 		if g.config.AutoAccept && slices.Contains(g.config.AutoAcceptTypes, conf.Type) {
-			// Launch auto-accept in a separate routine managed by the module
-			g.Go(func(workerCtx context.Context) {
+			toAutoAccept = append(toAutoAccept, conf)
+		}
+	}
+
+	if len(toAutoAccept) > 0 {
+		g.Go(func(workerCtx context.Context) {
+			if len(toAutoAccept) == 1 {
+				conf := toAutoAccept[0]
 				if err := g.Accept(workerCtx, conf); err != nil {
 					g.Logger.Error("Auto-accept failed", log.Err(err), log.Uint64("id", conf.ID))
 				} else {
 					g.Logger.Info("Auto-accepted confirmation", log.Uint64("id", conf.ID))
 				}
-			})
-		}
+			} else {
+				if err := g.AcceptMultiple(workerCtx, toAutoAccept); err != nil {
+					g.Logger.Error("Auto-accept multiple failed", log.Err(err), log.Int("count", len(toAutoAccept)))
+				} else {
+					g.Logger.Info("Auto-accepted multiple confirmations", log.Int("count", len(toAutoAccept)))
+				}
+			}
+		})
 	}
 }
 

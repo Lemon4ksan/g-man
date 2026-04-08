@@ -10,6 +10,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	pb "github.com/lemon4ksan/g-man/pkg/steam/protobuf"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/steamid"
 	"github.com/lemon4ksan/g-man/test"
 	"google.golang.org/protobuf/proto"
 )
@@ -183,7 +184,7 @@ func TestManager_HandleFriendsList(t *testing.T) {
 		},
 	})
 
-	events := make(map[uint64]*RelationshipChangedEvent)
+	events := make(map[steamid.ID]*RelationshipChangedEvent)
 	for i := 0; i < 2; i++ {
 		select {
 		case ev := <-sub.C():

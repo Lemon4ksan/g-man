@@ -17,6 +17,7 @@ import (
 	pb "github.com/lemon4ksan/g-man/pkg/steam/protobuf"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
+	"github.com/lemon4ksan/g-man/pkg/steam/steamid"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -39,10 +40,10 @@ type Manager struct {
 
 	// State
 	mu            sync.RWMutex
-	relationships map[uint64]protocol.EFriendRelationship
-	users         map[uint64]*PersonaState
+	relationships map[steamid.ID]protocol.EFriendRelationship
+	users         map[steamid.ID]*PersonaState
 
-	mySteamID  uint64
+	mySteamID  steamid.ID
 	maxFriends int
 
 	unregFuncs []func()
@@ -52,8 +53,8 @@ type Manager struct {
 func New() *Manager {
 	return &Manager{
 		BaseModule:    modules.NewBase(ModuleName),
-		relationships: make(map[uint64]protocol.EFriendRelationship),
-		users:         make(map[uint64]*PersonaState),
+		relationships: make(map[steamid.ID]protocol.EFriendRelationship),
+		users:         make(map[steamid.ID]*PersonaState),
 	}
 }
 
@@ -94,25 +95,25 @@ func (m *Manager) Close() error {
 }
 
 // GetFriend returns cached user information (persona state) for a given SteamID.
-func (m *Manager) GetFriend(steamID uint64) *PersonaState {
+func (m *Manager) GetFriend(steamID steamid.ID) *PersonaState {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.users[steamID]
 }
 
 // IsFriend returns true if the specified SteamID is in our friends list.
-func (m *Manager) IsFriend(steamID uint64) bool {
+func (m *Manager) IsFriend(steamID steamid.ID) bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.relationships[steamID] == protocol.EFriendRelationship_Friend
 }
 
 // GetFriends returns a list of SteamIDs for all users with a "Friend" relationship.
-func (m *Manager) GetFriends() []uint64 {
+func (m *Manager) GetFriends() []steamid.ID {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	friends := make([]uint64, 0, len(m.relationships))
+	friends := make([]steamid.ID, 0, len(m.relationships))
 	for steamID, relation := range m.relationships {
 		if relation == protocol.EFriendRelationship_Friend {
 			friends = append(friends, steamID)
@@ -131,7 +132,7 @@ func (m *Manager) GetMaxFriends(ctx context.Context) (int, error) {
 	m.mu.RUnlock()
 
 	req := struct {
-		SteamID uint64 `url:"steamid"`
+		SteamID steamid.ID `url:"steamid"`
 	}{m.mySteamID}
 
 	resp, err := service.WebAPI[GetBadgesResponse](ctx, m.client, "GET", "IPlayerService", "GetBadges", 1, req)
@@ -168,19 +169,19 @@ func (m *Manager) RemoveFriend(ctx context.Context, steamID uint64) error {
 
 // InviteToGroups sends group invitations to a friend.
 // Standard HTTP 400 errors (already in group/already invited) are ignored.
-func (m *Manager) InviteToGroups(ctx context.Context, steamID uint64, groupIDs []uint64) {
+func (m *Manager) InviteToGroups(ctx context.Context, steamID steamid.ID, groupIDs []uint64) {
 	if !m.IsFriend(steamID) {
-		m.Logger.Debug("Skipping group invite: user is not a friend", log.Uint64("steam_id", steamID))
+		m.Logger.Debug("Skipping group invite: user is not a friend", log.SteamID(steamID.Uint64()))
 		return
 	}
 
 	for _, groupID := range groupIDs {
 		req := struct {
-			JSON    int    `url:"json"`
-			Type    string `url:"type"`
-			Inviter uint64 `url:"inviter"`
-			Invitee uint64 `url:"invitee"`
-			Group   uint64 `url:"group"`
+			JSON    int        `url:"json"`
+			Type    string     `url:"type"`
+			Inviter steamid.ID `url:"inviter"`
+			Invitee steamid.ID `url:"invitee"`
+			Group   uint64     `url:"group"`
 		}{1, "groupInvite", m.mySteamID, steamID, groupID}
 
 		_, err := community.PostForm[service.NoResponse](ctx, m.community, "actions/GroupInvite", req)
@@ -191,7 +192,7 @@ func (m *Manager) InviteToGroups(ctx context.Context, steamID uint64, groupIDs [
 			m.Logger.Warn("Failed to invite to group", log.Uint64("group_id", groupID), log.Err(err))
 			continue
 		}
-		m.Logger.Debug("Invited user to group", log.Uint64("steam_id", steamID), log.Uint64("group_id", groupID))
+		m.Logger.Debug("Invited user to group", log.SteamID(steamID.Uint64()), log.Uint64("group_id", groupID))
 	}
 }
 
@@ -208,7 +209,7 @@ func (m *Manager) handleFriendsList(packet *protocol.Packet) {
 	defer m.mu.Unlock()
 
 	for _, friend := range list.GetFriends() {
-		steamID := friend.GetUlfriendid()
+		steamID := steamid.ID(friend.GetUlfriendid())
 		newRel := protocol.EFriendRelationship(friend.GetEfriendrelationship())
 		oldRel := m.relationships[steamID]
 
@@ -235,7 +236,7 @@ func (m *Manager) handlePersonaState(packet *protocol.Packet) {
 	defer m.mu.Unlock()
 
 	for _, friend := range state.GetFriends() {
-		steamID := friend.GetFriendid()
+		steamID := steamid.ID(friend.GetFriendid())
 
 		user, exists := m.users[steamID]
 		if !exists {

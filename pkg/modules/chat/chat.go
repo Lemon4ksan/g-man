@@ -16,6 +16,7 @@ import (
 	pb "github.com/lemon4ksan/g-man/pkg/steam/protobuf"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
+	"github.com/lemon4ksan/g-man/pkg/steam/steamid"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -34,7 +35,7 @@ type Manager struct {
 
 	// Dependencies
 	service service.Doer
-	steamID uint64
+	steamID steamid.ID
 
 	mu         sync.Mutex
 	unregFuncs []func()
@@ -139,7 +140,7 @@ func (m *Manager) GetRecentMessages(ctx context.Context, steamID uint64, count u
 	m.mu.Unlock()
 
 	req := &pb.CFriendMessages_GetRecentMessages_Request{
-		Steamid1:     proto.Uint64(myID),
+		Steamid1:     proto.Uint64(myID.Uint64()),
 		Steamid2:     proto.Uint64(steamID),
 		Count:        proto.Uint32(count),
 		BbcodeFormat: proto.Bool(true),

@@ -54,6 +54,11 @@ type SteamGuardRequiredEvent struct {
 
 func (e SteamGuardRequiredEvent) IsAuthEvent() {}
 
+// WebSessionReadyEvent is emitted after the successful web session refresh
+type WebSessionReadyEvent struct {
+	bus.BaseEvent
+}
+
 // LoggedOffEvent is emitted after the auth client disconnected from CM server unexpectedly.
 type LoggedOffEvent struct {
 	bus.BaseEvent

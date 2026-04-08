@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/g-man/pkg/modules/auth"
+	"github.com/lemon4ksan/g-man/pkg/steam/steamid"
 	"github.com/lemon4ksan/g-man/test"
 )
 
@@ -31,20 +32,24 @@ func newMockConfService() *mockConfService {
 	}
 }
 
-func (m *mockConfService) GetConfirmations(ctx context.Context, deviceID string, steamID uint64, confKey string, timestamp int64) (*ConfirmationsList, error) {
+func (m *mockConfService) GetConfirmations(ctx context.Context, deviceID string, steamID steamid.ID, confKey string, timestamp int64) (*ConfirmationsList, error) {
 	if m.getConfFunc != nil {
 		return m.getConfFunc()
 	}
 	return &ConfirmationsList{Success: true, Confirmations: []*Confirmation{}}, nil
 }
 
-func (m *mockConfService) RespondToConfirmation(ctx context.Context, conf *Confirmation, accept bool, deviceID string, steamID uint64, confKey string, timestamp int64) error {
+func (m *mockConfService) RespondToConfirmation(ctx context.Context, conf *Confirmation, accept bool, deviceID string, steamID steamid.ID, confKey string, timestamp int64) error {
 	m.respondChan <- confResponseCall{
 		ID:     conf.ID,
 		Accept: accept,
 		Key:    confKey,
 	}
 	return nil
+}
+
+func (m *mockConfService) RespondToMultiple(ctx context.Context, confs []*Confirmation, accept bool, deviceID string, steamID steamid.ID, confKey string, timestamp int64) error {
+	panic("unimplemented")
 }
 
 func validConfig() Config {

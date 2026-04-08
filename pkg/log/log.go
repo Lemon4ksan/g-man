@@ -536,7 +536,7 @@ func IntOpt(k string, v int) Field {
 // Designed for integration with Steam protocol implementations.
 
 // SteamID logs a 64-bit Steam identifier.
-func SteamID(k string, v uint64) Field { return Field{Key: k, Value: v} }
+func SteamID(v uint64) Field { return Field{Key: "steam_id", Value: v} }
 
 // JobID logs an asynchronous correlation ID.
 func JobID(v uint64) Field { return Field{Key: "job_id", Value: v} }

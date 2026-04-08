@@ -19,6 +19,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/api"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
+	"github.com/lemon4ksan/g-man/pkg/steam/steamid"
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
 )
 
@@ -55,7 +56,7 @@ type Manager struct {
 	community community.Requester
 
 	mu      sync.RWMutex
-	steamID uint64
+	steamID steamid.ID
 }
 
 // New creates a new Market module instance.
@@ -81,7 +82,7 @@ func (m *Manager) StartAuthed(ctx context.Context, auth modules.AuthContext) err
 
 	m.Logger.Info("Market module ready",
 		log.Int("currency", int(m.config.Currency)),
-		log.Uint64("steam_id", m.steamID),
+		log.SteamID(m.steamID.Uint64()),
 	)
 	return nil
 }
