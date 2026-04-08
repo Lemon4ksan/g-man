@@ -2,25 +2,28 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package steam provides the main entry point and orchestrator for the Steam library.
 package steam
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/modules"
 	"github.com/lemon4ksan/g-man/pkg/modules/auth"
 	"github.com/lemon4ksan/g-man/pkg/rest"
+	"github.com/lemon4ksan/g-man/pkg/steam/api"
 	"github.com/lemon4ksan/g-man/pkg/steam/bus"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
+	"github.com/lemon4ksan/g-man/pkg/steam/steamid"
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
 	"github.com/lemon4ksan/g-man/pkg/storage"
 	"github.com/lemon4ksan/g-man/pkg/storage/memory"
@@ -99,6 +102,8 @@ type Client struct {
 	cancel context.CancelFunc // Cancels everything on Close()
 	done   chan struct{}      // Closed when fully stopped
 	wg     sync.WaitGroup
+
+	reauthMu sync.Mutex
 }
 
 // NewClient initializes a Steam Client.
@@ -154,8 +159,7 @@ func NewClient(cfg Config, opts ...Option) *Client {
 		}
 	}
 
-	c.wg.Add(1)
-	go c.run()
+	c.wg.Go(c.run)
 
 	return c
 }
@@ -177,23 +181,9 @@ func (c *Client) ConnectAndLogin(ctx context.Context, server socket.CMServer, de
 	c.wg.Go(func() {
 		defer c.startAuthed()
 
-		socketAuthSvc := auth.NewAuthenticationService(c.socketAPIClient, nil)
-		c.logger.Debug("Exchanging saved Refresh Token for Access Token...", log.Uint64("steam_id", details.SteamID))
-
-		resp, err := socketAuthSvc.GenerateAccessTokenForApp(ctx, details.RefreshToken, details.SteamID)
-		if err != nil {
-			c.logger.Warn("Saved token expired or rejected", log.Err(err))
-		} else {
-			details.AccessToken = resp.GetAccessToken()
-			c.logger.Debug("Successfully generated Access Token for CM")
-		}
-
-		err = c.webSession.Authenticate(c.ctx, socketAuthSvc.DeviceConf().PlatformType, details.RefreshToken, details.AccessToken)
-		if err != nil {
-			c.logger.Warn("Web session failed", log.Err(err))
+		if err := c.RefreshSession(ctx); err != nil {
 			return
 		}
-
 		c.logger.Info("Web session ready")
 
 		c.mu.Lock()
@@ -210,10 +200,8 @@ func (c *Client) ConnectAndLogin(ctx context.Context, server socket.CMServer, de
 		c.logger.Info("WebAPI Key acquired automatically", log.String("key", apiKey[:4]+"***"))
 
 		c.mu.Lock()
-		c.unifiedClient.WithAPIKey(apiKey)
-		c.unifiedClient.WithAccessToken(details.AccessToken)
-		c.socketAPIClient.WithAPIKey(apiKey)
-		c.socketAPIClient.WithAccessToken(details.AccessToken)
+		c.unifiedClient = c.unifiedClient.WithAPIKey(apiKey)
+		c.socketAPIClient = c.socketAPIClient.WithAPIKey(apiKey)
 		c.mu.Unlock()
 	})
 
@@ -223,19 +211,61 @@ func (c *Client) ConnectAndLogin(ctx context.Context, server socket.CMServer, de
 // Do implements the [service.Doer] interface.
 // This makes the Client a "smart proxy" that selects the transport on the fly.
 func (c *Client) Do(ctx context.Context, req *tr.Request) (*tr.Response, error) {
-	c.mu.RLock()
-	_, isSocketCompatible := req.Target().(tr.SocketTarget)
-	isConnected := c.socket.State() == socket.StateConnected
+	resp, err := c.performDo(ctx, req)
 
-	var selectedRequester service.Doer
-	if isConnected && isSocketCompatible {
-		selectedRequester = c.socketAPIClient
-	} else {
-		selectedRequester = c.unifiedClient
+	if err != nil && errors.Is(err, api.ErrSessionExpired) {
+		c.logger.Warn("Session expired detected during request, attempting silent refresh...")
+
+		if refreshErr := c.RefreshSession(c.ctx); refreshErr != nil {
+			return nil, fmt.Errorf("session refresh failed: %w", refreshErr)
+		}
+
+		return c.performDo(ctx, req)
 	}
-	c.mu.RUnlock()
 
-	return selectedRequester.Do(ctx, req)
+	return resp, err
+}
+
+// RefreshSession is the central method for refreshing all tokens.
+func (c *Client) RefreshSession(ctx context.Context) error {
+	c.reauthMu.Lock()
+	defer c.reauthMu.Unlock()
+
+	if isAlive, _ := c.webSession.Verify(ctx); isAlive {
+		return nil
+	}
+
+	c.logger.Info("Refreshing Steam session tokens...")
+
+	sess := c.socket.Session()
+	if sess == nil {
+		return errors.New("cannot refresh session: socket is not connected")
+	}
+
+	socketAuthSvc := auth.NewAuthenticationService(c.socketAPIClient, nil)
+	c.logger.Debug("Exchanging saved Refresh Token for Access Token...", log.SteamID(sess.SteamID()))
+
+	resp, err := socketAuthSvc.GenerateAccessTokenForApp(ctx, sess.RefreshToken(), sess.SteamID())
+	if err != nil {
+		return fmt.Errorf("failed to generate access token: %w", err)
+	}
+
+	newAccessToken := resp.GetAccessToken()
+	sess.SetAccessToken(newAccessToken)
+
+	c.mu.Lock()
+	c.unifiedClient = c.unifiedClient.WithAccessToken(newAccessToken)
+	c.socketAPIClient = c.socketAPIClient.WithAccessToken(newAccessToken)
+	c.mu.Unlock()
+
+	err = c.webSession.Authenticate(c.ctx, socketAuthSvc.DeviceConf().PlatformType, sess.RefreshToken(), sess.AccessToken())
+	if err != nil {
+		c.logger.Warn("Web session failed", log.Err(err))
+		return fmt.Errorf("web auth failed during refresh: %w", err)
+	}
+
+	c.bus.Publish(&auth.WebSessionReadyEvent{})
+	return nil
 }
 
 // WithCustomModule allows adding non-standard (user-defined) modules.
@@ -262,6 +292,7 @@ func (c *Client) Disconnect() {
 
 // Close shuts down the client, stops all modules, and releases resources.
 func (c *Client) Close() error {
+	c.state.Store(int32(StateClosed))
 	c.cancel()
 	c.wg.Wait()
 	return nil
@@ -297,9 +328,9 @@ func (c *Client) Community() community.Requester {
 }
 
 // SteamID returns the logged-in SteamID, or 0.
-func (c *Client) SteamID() uint64 {
+func (c *Client) SteamID() steamid.ID {
 	if sess := c.socket.Session(); sess != nil {
-		return sess.SteamID()
+		return steamid.ID(sess.SteamID())
 	}
 	return 0
 }
@@ -324,8 +355,30 @@ func (c *Client) UnregisterServiceHandler(method string) {
 	c.socket.RegisterServiceHandler(method, nil)
 }
 
+func (c *Client) performDo(ctx context.Context, req *tr.Request) (*tr.Response, error) {
+	c.mu.RLock()
+	uClient := c.unifiedClient
+	sClient := c.socketAPIClient
+	isConnected := c.socket.State() == socket.StateConnected
+	c.mu.RUnlock()
+
+	_, isSocketCompatible := req.Target().(tr.SocketTarget)
+
+	var selected service.Doer
+	if isConnected && isSocketCompatible {
+		selected = sClient
+	} else {
+		selected = uClient
+	}
+
+	if selected == nil {
+		return nil, errors.New("no transport available")
+	}
+
+	return selected.Do(ctx, req)
+}
+
 func (c *Client) run() {
-	defer c.wg.Done()
 	c.state.Store(int32(StateRunning))
 
 	// Start all modules
@@ -337,23 +390,48 @@ func (c *Client) run() {
 	}
 	c.mu.RUnlock()
 
-	<-c.ctx.Done()
+	verifyTicker := time.NewTicker(5 * time.Minute)
+	defer verifyTicker.Stop()
 
-	// Close all modules
-	c.mu.RLock()
-	for name, mod := range c.modules {
-		if closer, ok := mod.(interface{ Close() error }); ok {
-			if err := closer.Close(); err != nil {
-				c.logger.Error("Failed to close module", log.String("name", name), log.Err(err))
+	for {
+		select {
+		case <-c.ctx.Done():
+			goto shutdown
+		case <-verifyTicker.C:
+			if c.State() == StateRunning && c.webSession.IsAuthenticated() {
+				go func() {
+					isAlive, _ := c.webSession.Verify(c.ctx)
+					if !isAlive && c.ctx.Err() == nil {
+						c.RefreshSession(c.ctx)
+					}
+				}()
 			}
 		}
 	}
+
+shutdown:
+	c.logger.Debug("Orchestrator shutting down...")
+	c.socket.Disconnect()
+
+	// Close all modules
+	c.mu.RLock()
+	allModules := make([]modules.Module, 0, len(c.modules))
+	for _, m := range c.modules {
+		allModules = append(allModules, m)
+	}
 	c.mu.RUnlock()
+
+	for _, mod := range allModules {
+		if closer, ok := mod.(interface{ Close() error }); ok {
+			if err := closer.Close(); err != nil {
+				c.logger.Error("Failed to close module", log.String("name", mod.Name()), log.Err(err))
+			}
+		}
+	}
 
 	c.socket.Close()
 	c.bus.Close()
 	close(c.done)
-	c.state.Store(int32(StateClosed))
 }
 
 func (c *Client) startAuthed() {
