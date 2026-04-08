@@ -88,15 +88,15 @@ type V1UserResponse struct {
 }
 
 type V1User struct {
-	Name       string                 `json:"name"`
-	Avatar     string                 `json:"avatar"`
-	LastOnline int64                  `json:"last_online,string"`
-	Admin      int                    `json:"admin,omitempty"`
-	Donated    float64                `json:"donated,omitempty"`
-	Premium    int                    `json:"premium,omitempty"`
-	Bans       interface{}            `json:"bans,omitempty"` // Can be complex object or string
-	Trust      UserTrust              `json:"trust,omitempty"`
-	Inventory  map[string]interface{} `json:"inventory,omitempty"`
+	Name       string         `json:"name"`
+	Avatar     string         `json:"avatar"`
+	LastOnline int64          `json:"last_online,string"`
+	Admin      int            `json:"admin,omitempty"`
+	Donated    float64        `json:"donated,omitempty"`
+	Premium    int            `json:"premium,omitempty"`
+	Bans       any            `json:"bans,omitempty"` // Can be complex object or string
+	Trust      UserTrust      `json:"trust"`
+	Inventory  map[string]any `json:"inventory,omitempty"`
 }
 
 type UserTrust struct {
@@ -142,10 +142,10 @@ type NotificationsResponse struct {
 }
 
 type Notification struct {
-	ID      string                 `json:"id"`
-	Type    int                    `json:"type"`
-	Time    int64                  `json:"time"`
-	Unread  int                    `json:"unread"`
-	Message string                 `json:"message"`
-	Bundle  map[string]interface{} `json:"bundle,omitempty"`
+	ID      string         `json:"id"`
+	Type    int            `json:"type"`
+	Time    int64          `json:"time"`
+	Unread  int            `json:"unread"`
+	Message string         `json:"message"`
+	Bundle  map[string]any `json:"bundle,omitempty"`
 }

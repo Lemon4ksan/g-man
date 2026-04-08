@@ -55,7 +55,7 @@ type TF2Item struct {
 }
 
 type TF2Attribute struct {
-	Defindex   int         `json:"defindex"`
-	Value      interface{} `json:"value"` // int or string
-	FloatValue float64     `json:"float_value,omitempty"`
+	Defindex   int     `json:"defindex"`
+	Value      any     `json:"value"` // int or string
+	FloatValue float64 `json:"float_value,omitempty"`
 }
