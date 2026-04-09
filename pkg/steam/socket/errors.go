@@ -3,31 +3,32 @@ package socket
 import (
 	"errors"
 	"fmt"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+
+	"github.com/lemon4ksan/g-man/pkg/steam/socket/protocol"
 )
 
 var (
-	// ErrClosed is returned when an operation is attempted on a Socket that 
+	// ErrClosed is returned when an operation is attempted on a Socket that
 	// has been permanently shut down via Close().
 	ErrClosed = errors.New("socket: instance is permanently closed")
 
-	// ErrDisconnected is returned when sending a message requires an active 
+	// ErrDisconnected is returned when sending a message requires an active
 	// session, but the socket is currently disconnected.
 	ErrDisconnected = errors.New("socket: not connected to any CM server")
 
-	// ErrAlreadyConnecting is returned if Connect() is called while a 
+	// ErrAlreadyConnecting is returned if Connect() is called while a
 	// connection attempt is already in progress.
 	ErrAlreadyConnecting = errors.New("socket: connection attempt already in progress")
 
-	// ErrAlreadyConnected is returned if Connect() is called on a socket 
+	// ErrAlreadyConnected is returned if Connect() is called on a socket
 	// that already has an active session.
 	ErrAlreadyConnected = errors.New("socket: already connected")
 
-	// ErrUnsupportedType is returned when the provided CMServer.Type does 
+	// ErrUnsupportedType is returned when the provided CMServer.Type does
 	// not have a registered dialer in the configuration.
 	ErrUnsupportedType = errors.New("socket: unsupported transport protocol")
 
-	// ErrDecompressionLimit is returned when a Multi-message payload 
+	// ErrDecompressionLimit is returned when a Multi-message payload
 	// exceeds the safety threshold (default 100MB) to prevent OOM attacks.
 	ErrDecompressionLimit = errors.New("socket: decompression limit exceeded")
 )

@@ -7,9 +7,16 @@ package currency
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"strconv"
-	"strings"
+)
+
+type Scrap int
+
+const (
+	ScrapInRec = 3
+	ScrapInRef = 9
 )
 
 // Currency represent a currency object (keys and metal).
@@ -20,17 +27,16 @@ type Currency struct {
 
 // New creates a new Currencies instance.
 func New(keys, metal float64) *Currency {
-	c := &Currency{
-		Keys:  keys,
-		Metal: metal,
-	}
-	c.Metal = ToRefined(ToScrap(c.Metal))
-	return c
+	return &Currency{Keys: keys, Metal: metal}
 }
 
 // String implements the Stringer interface.
 // Returns a string representation, for example: "1 key, 20.11 ref".
 func (c *Currency) String() string {
+	if c.Keys == 0 && c.Metal == 0 {
+		return "0 keys, 0 ref"
+	}
+
 	var parts []string
 
 	if c.Keys != 0 || c.Keys == c.Metal {
@@ -42,75 +48,84 @@ func (c *Currency) String() string {
 		parts = append(parts, metalStr+" ref")
 	}
 
-	return strings.Join(parts, ", ")
+	return c.formatString()
+}
+
+func (c *Currency) formatString() string {
+	var kStr, mStr string
+	if c.Keys > 0 {
+		kStr = fmt.Sprintf("%g key", c.Keys)
+		if c.Keys != 1 {
+			kStr += "s"
+		}
+	}
+	if c.Metal > 0 || c.Keys == 0 {
+		mStr = fmt.Sprintf("%.2f ref", c.Metal)
+	}
+	if kStr != "" && mStr != "" {
+		return kStr + ", " + mStr
+	}
+	return kStr + mStr
 }
 
 // ToValue returns the value of currencies in scrap metal.
 // Conversion is the cost of one key in refined units.
 // If there are no keys, conversion can be passed as 0.
-func (c *Currency) ToValue(conversion float64) (float64, error) {
-	if conversion == 0 && c.Keys != 0 {
-		return 0, errors.New("missing conversion rate for keys in refined")
+func (c *Currency) ToValue(keyPriceRef float64) (Scrap, error) {
+	if keyPriceRef == 0 && c.Keys != 0 {
+		return 0, errors.New("missing conversion rate")
 	}
 
-	value := ToScrap(c.Metal)
+	metalValue := ToScrap(c.Metal)
 	if c.Keys != 0 {
-		value += c.Keys * ToScrap(conversion)
+		keyPriceScrap := ToScrap(keyPriceRef)
+		keyValue := Scrap(math.Round(c.Keys * float64(keyPriceScrap)))
+		return metalValue + keyValue, nil
 	}
-	return value, nil
+	return metalValue, nil
 }
 
 // AddRefined adds the values ​​of the refs.
 func AddRefined(args ...float64) float64 {
-	var value float64 = 0
-
-	for _, refined := range args {
-		value += ToScrap(refined)
+	var total Scrap
+	for _, ref := range args {
+		total += ToScrap(ref)
 	}
-
-	return ToRefined(value)
+	return ToRefined(total)
 }
 
 // ScrapToCurrencies converts scrap metal into a Currencies object.
 // value - the value in scrap.
 // conversion - the key exchange rate in refs (if 0/undefined, returns only metal).
-func ScrapToCurrencies(value, conversion float64) *Currency {
-	if conversion == 0 {
-		metal := ToRefined(value)
-		return New(0, metal)
+func ScrapToCurrencies(total Scrap, keyPriceRef float64) *Currency {
+	if keyPriceRef <= 0 {
+		return New(0, ToRefined(total))
 	}
 
-	conversionScrap := ToScrap(conversion)
-	keys := rounding(value / conversionScrap)
-	left := value - keys*conversionScrap
-	metal := ToRefined(left)
+	keyPriceScrap := ToScrap(keyPriceRef)
+	keys := int(total) / int(keyPriceScrap)
+	leftover := total % Scrap(keyPriceScrap)
 
-	return New(keys, metal)
+	return New(float64(keys), ToRefined(leftover))
 }
 
 // ToScrap converts refs (refined) to scrap.
-func ToScrap(refined float64) float64 {
-	scrap := refined * 9
-	return roundStep(scrap, 0.5)
+func ToScrap(refined float64) Scrap {
+	return Scrap(math.Round(refined * float64(ScrapInRef)))
 }
 
 // ToRefined converts scrap to refs.
-func ToRefined(scrap float64) float64 {
-	refined := scrap / 9
-	return truncate(refined, 2)
+func ToRefined(s Scrap) float64 {
+	return float64(s) / float64(ScrapInRef)
+}
+
+func FormatRefined(s Scrap) string {
+	return fmt.Sprintf("%.2f ref", ToRefined(s))
 }
 
 func truncate(number float64, decimals int) float64 {
 	factor := math.Pow(10, float64(decimals))
 	return rounding(number*factor) / factor
-}
-
-func roundStep(number, step float64) float64 {
-	if step == 0 {
-		step = 1.0
-	}
-	inv := 1.0 / step
-	return math.Round(number*inv) / inv
 }
 
 func rounding(number float64) float64 {

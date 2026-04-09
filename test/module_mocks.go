@@ -9,15 +9,15 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/log"
-	"github.com/lemon4ksan/g-man/pkg/modules"
 	"github.com/lemon4ksan/g-man/pkg/rest"
-	"github.com/lemon4ksan/g-man/pkg/steam/bus"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/id"
+	"github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
-	"github.com/lemon4ksan/g-man/pkg/steam/steamid"
+	"github.com/lemon4ksan/g-man/pkg/steam/socket/protocol"
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
 	"github.com/lemon4ksan/g-man/pkg/storage"
 	"google.golang.org/protobuf/proto"
@@ -30,7 +30,7 @@ type MockInitContext struct {
 	mockService     *MockRequester
 	packetHandlers  map[protocol.EMsg]socket.Handler
 	serviceHandlers map[string]socket.Handler
-	modules         map[string]modules.Module
+	modules         map[string]module.Module
 	storage         storage.Provider
 }
 
@@ -41,7 +41,7 @@ func NewMockInitContext() *MockInitContext {
 		mockService:     NewMockRequester(),
 		packetHandlers:  make(map[protocol.EMsg]socket.Handler),
 		serviceHandlers: make(map[string]socket.Handler),
-		modules:         make(map[string]modules.Module),
+		modules:         make(map[string]module.Module),
 	}
 }
 
@@ -88,7 +88,7 @@ func (m *MockInitContext) UnregisterServiceHandler(method string) {
 	delete(m.serviceHandlers, method)
 }
 
-func (m *MockInitContext) Module(name string) modules.Module {
+func (m *MockInitContext) Module(name string) module.Module {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.modules[name]
@@ -147,7 +147,7 @@ func (m *MockInitContext) EmitPacket(t *testing.T, e protocol.EMsg, msg proto.Me
 	})
 }
 
-func (m *MockInitContext) SetModule(name string, mod modules.Module) {
+func (m *MockInitContext) SetModule(name string, mod module.Module) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.modules[name] = mod
@@ -159,10 +159,10 @@ func (m *MockInitContext) MockServiceAccessor() *MockRequester {
 
 type MockAuthContext struct {
 	mockCommunity *MockCommunityRequester
-	steamID       steamid.ID
+	steamID       id.ID
 }
 
-func NewMockAuthContext(steamID steamid.ID) *MockAuthContext {
+func NewMockAuthContext(steamID id.ID) *MockAuthContext {
 	return &MockAuthContext{
 		mockCommunity: NewMockCommunityRequester(),
 		steamID:       steamID,
@@ -171,7 +171,7 @@ func NewMockAuthContext(steamID steamid.ID) *MockAuthContext {
 
 func (m *MockAuthContext) Community() community.Requester         { return m.mockCommunity }
 func (m *MockAuthContext) MockCommunity() *MockCommunityRequester { return m.mockCommunity }
-func (m *MockAuthContext) SteamID() steamid.ID                    { return m.steamID }
+func (m *MockAuthContext) SteamID() id.ID                         { return m.steamID }
 
 func ProtoResponse(msg proto.Message) (*tr.Response, error) {
 	b, err := proto.Marshal(msg)

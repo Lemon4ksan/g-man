@@ -11,8 +11,8 @@ import (
 	"testing"
 
 	"github.com/lemon4ksan/g-man/pkg/jobs"
-	"github.com/lemon4ksan/g-man/pkg/modules"
-	gc "github.com/lemon4ksan/g-man/pkg/modules/coordinator/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/module"
+	"github.com/lemon4ksan/g-man/pkg/steam/socket/protocol"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -21,7 +21,7 @@ type MockCoordinator struct {
 	sendCalls    map[uint32]proto.Message
 	sendRawCalls map[uint32][]byte
 
-	pendingCalls map[uint32]jobs.Callback[*gc.Packet]
+	pendingCalls map[uint32]jobs.Callback[*protocol.GCPacket]
 	autoReplies  map[uint32]func(payload []byte) ([]byte, error)
 }
 
@@ -29,7 +29,7 @@ func NewMockCoordinator() *MockCoordinator {
 	return &MockCoordinator{
 		sendCalls:    make(map[uint32]proto.Message),
 		sendRawCalls: make(map[uint32][]byte),
-		pendingCalls: make(map[uint32]jobs.Callback[*gc.Packet]),
+		pendingCalls: make(map[uint32]jobs.Callback[*protocol.GCPacket]),
 		autoReplies:  make(map[uint32]func(payload []byte) ([]byte, error)),
 	}
 }
@@ -38,7 +38,7 @@ func (m *MockCoordinator) Name() string {
 	return "gc"
 }
 
-func (m *MockCoordinator) Init(init modules.InitContext) error {
+func (m *MockCoordinator) Init(init module.InitContext) error {
 	return nil
 }
 
@@ -64,7 +64,7 @@ func (m *MockCoordinator) SendRaw(ctx context.Context, appID uint32, msgType uin
 	return nil
 }
 
-func (m *MockCoordinator) Call(ctx context.Context, appID uint32, msgType uint32, msg proto.Message, cb jobs.Callback[*gc.Packet]) error {
+func (m *MockCoordinator) Call(ctx context.Context, appID uint32, msgType uint32, msg proto.Message, cb jobs.Callback[*protocol.GCPacket]) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -75,14 +75,14 @@ func (m *MockCoordinator) Call(ctx context.Context, appID uint32, msgType uint32
 		go func() {
 			b, _ := proto.Marshal(msg)
 			respPayload, err := handler(b)
-			cb(&gc.Packet{MsgType: msgType, Payload: respPayload}, err)
+			cb(&protocol.GCPacket{MsgType: msgType, Payload: respPayload}, err)
 		}()
 	}
 
 	return nil
 }
 
-func (m *MockCoordinator) CallRaw(ctx context.Context, appID uint32, msgType uint32, payload []byte, cb jobs.Callback[*gc.Packet]) error {
+func (m *MockCoordinator) CallRaw(ctx context.Context, appID uint32, msgType uint32, payload []byte, cb jobs.Callback[*protocol.GCPacket]) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -92,7 +92,7 @@ func (m *MockCoordinator) CallRaw(ctx context.Context, appID uint32, msgType uin
 	if handler, ok := m.autoReplies[msgType]; ok {
 		go func() {
 			respPayload, err := handler(payload)
-			cb(&gc.Packet{MsgType: msgType, Payload: respPayload}, err)
+			cb(&protocol.GCPacket{MsgType: msgType, Payload: respPayload}, err)
 		}()
 	}
 
@@ -138,7 +138,7 @@ func (m *MockCoordinator) ReplyToLastCall(msgType uint32, payload []byte, err er
 		return errors.New("no pending call for this msgType")
 	}
 
-	go cb(&gc.Packet{
+	go cb(&protocol.GCPacket{
 		MsgType: msgType,
 		Payload: payload,
 	}, err)

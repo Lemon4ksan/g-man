@@ -15,13 +15,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/log"
-	"github.com/lemon4ksan/g-man/pkg/steam/bus"
-	"github.com/lemon4ksan/g-man/pkg/steam/network"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/socket/internal/network"
+	"github.com/lemon4ksan/g-man/pkg/steam/socket/protocol"
 	"google.golang.org/protobuf/proto"
 
-	pb "github.com/lemon4ksan/g-man/pkg/steam/protobuf"
+	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 )
 
 type mockConnection struct {

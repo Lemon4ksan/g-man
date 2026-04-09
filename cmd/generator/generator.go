@@ -20,8 +20,8 @@ import (
 const (
 	moduleRoot = "github.com/lemon4ksan/g-man"
 
-	steamImportPath = moduleRoot + "/pkg/steam/protobuf"
-	tf2ImportPath   = moduleRoot + "/pkg/tf2/protobuf"
+	steamImportPath = moduleRoot + "/pkg/protobuf/steam"
+	tf2ImportPath   = moduleRoot + "/pkg/protobuf/tf2"
 
 	steamLangURL = "https://api.github.com/repos/SteamRE/SteamKit/contents/Resources/SteamLanguage"
 

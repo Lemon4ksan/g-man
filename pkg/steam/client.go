@@ -13,17 +13,17 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/log"
-	"github.com/lemon4ksan/g-man/pkg/modules"
-	"github.com/lemon4ksan/g-man/pkg/modules/auth"
 	"github.com/lemon4ksan/g-man/pkg/rest"
 	"github.com/lemon4ksan/g-man/pkg/steam/api"
-	"github.com/lemon4ksan/g-man/pkg/steam/bus"
+	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/id"
+	"github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
-	"github.com/lemon4ksan/g-man/pkg/steam/steamid"
+	"github.com/lemon4ksan/g-man/pkg/steam/socket/protocol"
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
 	"github.com/lemon4ksan/g-man/pkg/storage"
 	"github.com/lemon4ksan/g-man/pkg/storage/memory"
@@ -96,7 +96,7 @@ type Client struct {
 	// State & Lifecycle
 	state   atomic.Int32
 	mu      sync.RWMutex
-	modules map[string]modules.Module
+	modules map[string]module.Module
 
 	ctx    context.Context    // Global client context
 	cancel context.CancelFunc // Cancels everything on Close()
@@ -120,7 +120,7 @@ func NewClient(cfg Config, opts ...Option) *Client {
 		logger:  log.Discard,
 		bus:     bus.NewBus(),
 		storage: cfg.Storage,
-		modules: make(map[string]modules.Module),
+		modules: make(map[string]module.Module),
 		ctx:     ctx,
 		cancel:  cancel,
 		done:    make(chan struct{}),
@@ -167,7 +167,7 @@ func NewClient(cfg Config, opts ...Option) *Client {
 // ConnectAndLogin connects to the CM and performs the login sequence.
 func (c *Client) ConnectAndLogin(ctx context.Context, server socket.CMServer, details *auth.LogOnDetails) error {
 	if c.State() == StateClosed {
-		return modules.ErrClientClosed
+		return module.ErrClientClosed
 	}
 
 	if err := c.auth.LogOn(ctx, details, server); err != nil {
@@ -269,14 +269,14 @@ func (c *Client) RefreshSession(ctx context.Context) error {
 }
 
 // WithCustomModule allows adding non-standard (user-defined) modules.
-func (c *Client) RegisterModule(m modules.Module) {
+func (c *Client) RegisterModule(m module.Module) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.modules[m.Name()] = m
 }
 
 // Module returns the registered Module with the given name.
-func (c *Client) Module(name string) modules.Module {
+func (c *Client) Module(name string) module.Module {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.modules[name]
@@ -328,9 +328,9 @@ func (c *Client) Community() community.Requester {
 }
 
 // SteamID returns the logged-in SteamID, or 0.
-func (c *Client) SteamID() steamid.ID {
+func (c *Client) SteamID() id.ID {
 	if sess := c.socket.Session(); sess != nil {
-		return steamid.ID(sess.SteamID())
+		return id.ID(sess.SteamID())
 	}
 	return 0
 }
@@ -415,7 +415,7 @@ shutdown:
 
 	// Close all modules
 	c.mu.RLock()
-	allModules := make([]modules.Module, 0, len(c.modules))
+	allModules := make([]module.Module, 0, len(c.modules))
 	for _, m := range c.modules {
 		allModules = append(allModules, m)
 	}
@@ -436,12 +436,12 @@ shutdown:
 
 func (c *Client) startAuthed() {
 	c.mu.RLock()
-	mods := make(map[string]modules.Module, len(c.modules))
+	mods := make(map[string]module.Module, len(c.modules))
 	maps.Copy(mods, c.modules)
 	c.mu.RUnlock()
 
 	for name, mod := range mods {
-		if authed, ok := mod.(modules.ModuleAuth); ok {
+		if authed, ok := mod.(module.ModuleAuth); ok {
 			if err := authed.StartAuthed(c.ctx, c); err != nil {
 				c.logger.Error("Failed to start authed module", log.String("name", name), log.Err(err))
 			}

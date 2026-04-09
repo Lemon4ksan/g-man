@@ -7,7 +7,7 @@ package schema
 import (
 	"time"
 
-	"github.com/lemon4ksan/g-man/pkg/steam/bus"
+	"github.com/lemon4ksan/g-man/pkg/bus"
 )
 
 type SchemaReadyEvent struct {

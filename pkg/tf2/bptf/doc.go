@@ -24,9 +24,9 @@ The backpack.tf price schema (IGetPrices/v4) is a massive JSON document that
 can exceed 20MB. Parsing this on every trade offer is inefficient.
 
 The 'PriceManager' solves this by:
-  1. Fetching the full pricelist periodically (e.g., every 30 minutes).
-  2. Building a "flat" in-memory reverse index (map[string]PriceEntry).
-  3. Providing O(1) lookups by SKU string (e.g., "5021;6" for Keys).
+ 1. Fetching the full pricelist periodically (e.g., every 30 minutes).
+ 2. Building a "flat" in-memory reverse index (map[string]PriceEntry).
+ 3. Providing O(1) lookups by SKU string (e.g., "5021;6" for Keys).
 
 This allows the bot to evaluate hundreds of items in a trade offer in
 microseconds without any additional network overhead.
@@ -35,22 +35,22 @@ microseconds without any additional network overhead.
 
 The package is organized around the primary backpack.tf API sections:
 
-1. Economy:
-   Access to the global price schema, price history for specific items,
-   and internal currency data (Keys/Ref conversion rates).
+ 1. Economy:
+    Access to the global price schema, price history for specific items,
+    and internal currency data (Keys/Ref conversion rates).
 
-2. Classifieds (Classifieds & Listings):
-   Full lifecycle management of trading listings. Create buy/sell orders,
-   batch delete listings, and manage listing alerts.
+ 2. Classifieds (Classifieds & Listings):
+    Full lifecycle management of trading listings. Create buy/sell orders,
+    batch delete listings, and manage listing alerts.
 
-3. Reputation (Users):
-   Query user data including community bans, trust scores, and inventory
-   values. This is essential for building safety-first trading logic.
+ 3. Reputation (Users):
+    Query user data including community bans, trust scores, and inventory
+    values. This is essential for building safety-first trading logic.
 
-4. Agent (Pulse):
-   Implementation of the "User Agent" heartbeat. Keeping the agent active
-   ensures the bot appears "Online" on the site and automatically bumps
-   its listings to the top of search results.
+ 4. Agent (Pulse):
+    Implementation of the "User Agent" heartbeat. Keeping the agent active
+    ensures the bot appears "Online" on the site and automatically bumps
+    its listings to the top of search results.
 
 # Integration with Trade Engine
 

@@ -26,13 +26,13 @@ type PureStock struct {
 }
 
 // TotalScrap returns the total value of metal in scrap (excluding keys).
-func (p PureStock) TotalScrap() int {
-	return (p.Refined * 9) + (p.Reclaimed * 3) + p.Scrap
+func (p PureStock) TotalScrap() Scrap {
+	return Scrap((p.Refined * 9) + (p.Reclaimed * 3) + p.Scrap)
 }
 
 // TotalRefined returns the total value of metal in refined (float).
 func (p PureStock) TotalRefined() float64 {
-	return float64(p.TotalScrap()) / 9.0
+	return ToRefined(p.TotalScrap())
 }
 
 // FormatStock returns a human-readable string array of pure stock (e.g. ["10 keys", "5.33 ref"]).

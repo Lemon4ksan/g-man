@@ -9,13 +9,13 @@ import (
 )
 
 func TestValueDiff(t *testing.T) {
-	keyPrice := 540
+	var keyPrice Scrap = 540
 
 	tests := []struct {
 		name           string
-		ourScrap       int
-		theirScrap     int
-		keyPrice       int
+		ourScrap       Scrap
+		theirScrap     Scrap
+		keyPrice       Scrap
 		wantProfitable bool
 		wantMissingRef float64
 		wantMissingStr string

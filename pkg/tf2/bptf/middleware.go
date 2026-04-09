@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/g-man/pkg/log"
-	"github.com/lemon4ksan/g-man/pkg/offer/engine"
 	"github.com/lemon4ksan/g-man/pkg/storage/memory"
 	"github.com/lemon4ksan/g-man/pkg/tf2/pricedb"
+	"github.com/lemon4ksan/g-man/pkg/trading/engine"
 )
 
 // SafetyMiddleware checks bans and user trust levels on backpack.tf.

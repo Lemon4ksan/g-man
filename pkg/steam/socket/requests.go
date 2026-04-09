@@ -10,7 +10,7 @@ import (
 	"fmt"
 
 	"github.com/lemon4ksan/g-man/pkg/jobs"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/socket/protocol"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -170,7 +170,7 @@ func (s *Socket) SendSync(ctx context.Context, build PayloadBuilder, opts ...Sen
 	}
 }
 
-// newPacket is a factory method that initializes a protocol.Packet with 
+// newPacket is a factory method that initializes a protocol.Packet with
 // correct headers (Proto vs Extended) based on the session state and message type.
 func newPacket(sess Session, eMsg protocol.EMsg, jobID uint64, isProto bool, jobName, token string) *protocol.Packet {
 	var steamID uint64
@@ -180,7 +180,7 @@ func newPacket(sess Session, eMsg protocol.EMsg, jobID uint64, isProto bool, job
 		sessionID = sess.SessionID()
 	}
 
-	// ClientHello is a special case: it must be sent with 0 IDs even if 
+	// ClientHello is a special case: it must be sent with 0 IDs even if
 	// the session objects exist (e.g., during reconnection).
 	if eMsg == protocol.EMsg_ClientHello {
 		steamID, sessionID = 0, 0

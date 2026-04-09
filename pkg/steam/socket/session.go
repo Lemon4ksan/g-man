@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 
 	"github.com/lemon4ksan/g-man/pkg/log"
-	"github.com/lemon4ksan/g-man/pkg/steam/network"
+	"github.com/lemon4ksan/g-man/pkg/steam/socket/internal/network"
 )
 
 // SessionReader provides read-only access to the Steam session state.

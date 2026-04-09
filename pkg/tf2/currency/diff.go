@@ -4,33 +4,32 @@
 
 package currency
 
-import (
-	"fmt"
-	"math"
-)
+import "fmt"
 
 // ValueDiff represents the difference between our side and their side.
 type ValueDiff struct {
-	OurValueScrap   int
-	TheirValueScrap int
-	DiffScrap       int
-	RateScrap       int // Key price in scrap
+	OurValue   Scrap
+	TheirValue Scrap
+	KeyPrice   Scrap // Key price in scrap
 }
 
 // NewValueDiff calculates the difference in trade value.
 // values are expected to be in Scrap.
-func NewValueDiff(ourScrap, theirScrap, keyPriceScrap int) ValueDiff {
+func NewValueDiff(our, their, keyPrice Scrap) ValueDiff {
 	return ValueDiff{
-		OurValueScrap:   ourScrap,
-		TheirValueScrap: theirScrap,
-		DiffScrap:       theirScrap - ourScrap,
-		RateScrap:       keyPriceScrap,
+		OurValue:   our,
+		TheirValue: their,
+		KeyPrice:   keyPrice,
 	}
+}
+
+func (v ValueDiff) Diff() Scrap {
+	return v.TheirValue - v.OurValue
 }
 
 // IsProfitable returns true if they are paying equal or more than us.
 func (v ValueDiff) IsProfitable() bool {
-	return v.DiffScrap >= 0
+	return v.TheirValue >= v.OurValue
 }
 
 // MissingRefined returns how much metal is missing in Refined format.
@@ -38,7 +37,8 @@ func (v ValueDiff) MissingRefined() float64 {
 	if v.IsProfitable() {
 		return 0
 	}
-	return float64(math.Abs(float64(v.DiffScrap))) / 9.0
+	diff := v.OurValue - v.TheirValue
+	return float64(diff) / 9.0
 }
 
 // MissingString formats the missing amount (e.g., "0.55 ref" or "1 key, 2 ref").
@@ -47,18 +47,23 @@ func (v ValueDiff) MissingString() string {
 		return "0 ref"
 	}
 
-	missing := int(math.Abs(float64(v.DiffScrap)))
+	missingScrap := v.OurValue - v.TheirValue
 
-	if missing >= v.RateScrap && v.RateScrap > 0 {
-		keys := missing / v.RateScrap
-		leftoverScrap := missing % v.RateScrap
-		leftoverRef := float64(leftoverScrap) / 9.0
+	if v.KeyPrice > 0 && missingScrap >= v.KeyPrice {
+		keys := int(missingScrap / v.KeyPrice)
+		leftoverScrap := missingScrap % v.KeyPrice
 
-		if leftoverScrap > 0 {
-			return fmt.Sprintf("%d keys, %.2f ref", keys, leftoverRef)
+		if leftoverScrap == 0 {
+			return fmt.Sprintf("%d keys", keys)
 		}
-		return fmt.Sprintf("%d keys", keys)
+
+		return fmt.Sprintf("%d keys, %s", keys, FormatRefinedForDisplay(leftoverScrap))
 	}
 
-	return fmt.Sprintf("%.2f ref", float64(missing)/9.0)
+	return FormatRefinedForDisplay(missingScrap)
+}
+
+// FormatRefinedForDisplay uses %.2f, which correctly rounds 0.555... to 0.56
+func FormatRefinedForDisplay(s Scrap) string {
+	return fmt.Sprintf("%.2f ref", float64(s)/9.0)
 }

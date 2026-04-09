@@ -23,7 +23,7 @@ func setupSchema(t *testing.T, cfg Config) (*Manager, *test.MockRequester) {
 	init := test.NewMockInitContext()
 	init.SetService(mockAPI)
 
-	sm := New(cfg)
+	sm := NewManager(cfg)
 	if err := sm.Init(init); err != nil {
 		t.Fatalf("failed to init schema manager: %v", err)
 	}
@@ -32,14 +32,14 @@ func setupSchema(t *testing.T, cfg Config) (*Manager, *test.MockRequester) {
 
 func TestNewSchemaManager_ConfigDefaults(t *testing.T) {
 	cfg := Config{UpdateInterval: 10 * time.Second}
-	sm := New(cfg)
+	sm := NewManager(cfg)
 
 	if sm.config.UpdateInterval != 24*time.Hour {
 		t.Errorf("expected 24h interval, got %v", sm.config.UpdateInterval)
 	}
 
 	cfgValid := Config{UpdateInterval: 5 * time.Minute}
-	smValid := New(cfgValid)
+	smValid := NewManager(cfgValid)
 	if smValid.config.UpdateInterval != 5*time.Minute {
 		t.Errorf("expected 5m interval, got %v", smValid.config.UpdateInterval)
 	}
@@ -91,7 +91,7 @@ func TestSchemaManager_Refresh_Success(t *testing.T) {
 		if strings.Contains(path, "proto_obj_defs") {
 			vdf := "\"lang\"\n{\n\t\"Tokens\"\n\t{\n\t\t\"9_12_weapon 12\" \"Nutcracker\"\n\t}\n}\n"
 			return &http.Response{
-				Body: io.NopCloser(strings.NewReader(vdf)),
+				Body:       io.NopCloser(strings.NewReader(vdf)),
 				StatusCode: 200,
 			}, nil
 		}
@@ -99,7 +99,7 @@ func TestSchemaManager_Refresh_Success(t *testing.T) {
 		if strings.Contains(path, "items_game.txt") {
 			vdf := "\"items_game\"\n{\n\t\"valid_key\" \"value\"\n}\n"
 			return &http.Response{
-				Body: io.NopCloser(strings.NewReader(vdf)),
+				Body:       io.NopCloser(strings.NewReader(vdf)),
 				StatusCode: 200,
 			}, nil
 		}

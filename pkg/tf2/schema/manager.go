@@ -15,10 +15,10 @@ import (
 
 	"github.com/andygrunwald/vdf"
 	"github.com/lemon4ksan/g-man/pkg/log"
-	"github.com/lemon4ksan/g-man/pkg/modules"
 	"github.com/lemon4ksan/g-man/pkg/rest"
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/api"
+	"github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"github.com/mitchellh/mapstructure"
 
@@ -34,14 +34,14 @@ type Config struct {
 
 func WithModule(cfg Config) steam.Option {
 	return func(c *steam.Client) {
-		c.RegisterModule(New(cfg))
+		c.RegisterModule(NewManager(cfg))
 	}
 }
 
 // Manager manages the TF2 item schema, keeping it up to date.
 // It embeds BaseModule for standardized lifecycle and concurrency management.
 type Manager struct {
-	modules.BaseModule
+	module.Base
 
 	config     Config
 	svcClient  service.Doer
@@ -51,22 +51,22 @@ type Manager struct {
 	schema *Schema
 }
 
-// New creates a manager with the given options.
-func New(cfg Config) *Manager {
+// NewManager creates a manager with the given options.
+func NewManager(cfg Config) *Manager {
 	if cfg.UpdateInterval < 1*time.Minute {
 		cfg.UpdateInterval = 24 * time.Hour
 	}
 
 	return &Manager{
-		BaseModule: modules.NewBase(ModuleName),
-		config:     cfg,
+		Base:   module.New(ModuleName),
+		config: cfg,
 	}
 }
 
 func (m *Manager) Name() string { return ModuleName }
 
-func (m *Manager) Init(init modules.InitContext) error {
-	if err := m.BaseModule.Init(init); err != nil {
+func (m *Manager) Init(init module.InitContext) error {
+	if err := m.Base.Init(init); err != nil {
 		return err
 	}
 
@@ -76,7 +76,7 @@ func (m *Manager) Init(init modules.InitContext) error {
 }
 
 // Start triggers the initial fetch and sets up the refresh loop.
-func (m *Manager) StartAuthed(ctx context.Context, _ modules.AuthContext) error {
+func (m *Manager) StartAuthed(ctx context.Context, _ module.AuthContext) error {
 	m.Logger.Info("Starting TF2 Schema loading...")
 
 	// The first run is a blocking one. We need a schematic before the bot starts working.
@@ -210,7 +210,7 @@ func (m *Manager) buildSchema(overview map[string]any, items []any, paintKits ma
 		m.pruneItemsGame(raw)
 	}
 
-	newSchema := NewSchema(raw)
+	newSchema := New(raw)
 
 	m.mu.Lock()
 	m.schema = newSchema

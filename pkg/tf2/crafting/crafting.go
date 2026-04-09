@@ -2,200 +2,158 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Crafting module provides abstractions for tf2 item crafting calculations.
 package crafting
 
 import (
 	"context"
+	"fmt"
 	"time"
 
-	"github.com/lemon4ksan/g-man/pkg/log"
+	"github.com/lemon4ksan/g-man/pkg/tf2"
+	"github.com/lemon4ksan/g-man/pkg/tf2/schema"
 )
 
-// Service is responsible for the automatic creation of weapons and metal smelting.
-type Service struct {
-	inv    InventoryProvider
-	price  PricelistProvider
-	gc     GCProvider
-	cfg    ConfigProvider
-	logger log.Logger
+// DefIndex of metals in TF2
+const (
+	DefIndexScrap     uint32 = 5000 // Scrap Metal
+	DefIndexReclaimed uint32 = 5001 // Reclaimed Metal
+	DefIndexRefined   uint32 = 5002 // Refined Metal
+)
+
+// IDs of basic crafting recipes in TF2 (Blueprints)
+const (
+	RecipeSmeltWeapons       int16 = 3   // 2 weapons of the same class -> 1 Scrap
+	RecipeCombineScrap       int16 = 4   // 3 Scrap -> 1 Reclaimed
+	RecipeCombineReclaimed   int16 = 5   // 3 Reclaimed -> 1 Refined
+	RecipeSmeltReclaimed     int16 = 22  // 1 Reclaimed -> 3 Scrap
+	RecipeSmeltRefined       int16 = 23  // 1 Refined -> 3 Reclaimed
+	RecipeRebuildHeadgear    int16 = 8   // 2 hats -> 1 random hat
+	RecipeFabricateToken     int16 = 6   // 3 weapons -> 1 class token
+	RecipeFabricateSlotToken int16 = 7   // 3 weapons -> 1 slot token
+	RecipeCustomDynamic      int16 = 200 // Used for Killstreak Fabricators / Chemistry Sets
+)
+
+type Manager struct {
+	tf2 *tf2.TF2
 }
 
-// New creates a new instance of the crafting service.
-func New(inv InventoryProvider, price PricelistProvider, gc GCProvider, cfg ConfigProvider, logger log.Logger) *Service {
-	return &Service{
-		inv:    inv,
-		price:  price,
-		gc:     gc,
-		cfg:    cfg,
-		logger: logger,
-	}
+func NewManager(tf2 *tf2.TF2) *Manager {
+	return &Manager{tf2: tf2}
 }
 
-// KeepMetalSupply automatically forges and smelts metal to maintain limits.
-func (s *Service) KeepMetalSupply(ctx context.Context) error {
-	if !s.cfg.IsMetalsCraftingEnabled() {
-		return nil
+// CombineMetal automatically converts 3 units of low-grade metal into 1 high-grade metal.
+// For example: 3 Scrap -> 1 Reclaimed. Returns the ID of the created metal.
+func (cm *Manager) CombineMetal(ctx context.Context, metalDefIndex uint32) ([]uint64, error) {
+	items := cm.tf2.Cache().FindCraftableItems(metalDefIndex, 3)
+	if len(items) < 3 {
+		return nil, fmt.Errorf("craft: not enough metal with defindex %d (need 3, got %d)", metalDefIndex, len(items))
 	}
 
-	pure := s.inv.GetPureCounts()
-
-	if pure.Refined <= 0 && pure.Reclaimed <= 3 && pure.Scrap <= 3 {
-		return nil
+	var recipe int16
+	switch metalDefIndex {
+	case DefIndexScrap:
+		recipe = RecipeCombineScrap
+	case DefIndexReclaimed:
+		recipe = RecipeCombineReclaimed
+	default:
+		return nil, fmt.Errorf("craft: invalid metal defindex for combination: %d", metalDefIndex)
 	}
 
-	minScrap, minRec, threshold := s.cfg.GetMetalThresholds()
-	maxRec := minRec + threshold
-	maxScrap := minScrap + threshold
+	return cm.tf2.Craft(ctx, items, recipe)
+}
 
-	var smeltRefined, smeltReclaimed, combineScrap, combineReclaimed int
-
-	if pure.Scrap > maxScrap {
-		combineScrap = (pure.Scrap - maxScrap + 2) / 3
-	} else if pure.Scrap < minScrap {
-		smeltReclaimed = (minScrap - pure.Scrap + 2) / 3
+// SmeltMetal "smelts" 1 high-grade metal into 3 low-grade metals.
+// For example: 1 Refined -> 3 Reclaimed. Returns the IDs of the created metals.
+func (cm *Manager) SmeltMetal(ctx context.Context, metalDefIndex uint32) ([]uint64, error) {
+	items := cm.tf2.Cache().FindCraftableItems(metalDefIndex, 1)
+	if len(items) == 0 {
+		return nil, fmt.Errorf("craft: no metal found with defindex %d", metalDefIndex)
 	}
 
-	projectedReclaimed := pure.Reclaimed + combineScrap - smeltReclaimed
+	var recipe int16
+	switch metalDefIndex {
+	case DefIndexReclaimed:
+		recipe = RecipeSmeltReclaimed
+	case DefIndexRefined:
+		recipe = RecipeSmeltRefined
+	default:
+		return nil, fmt.Errorf("craft: invalid metal defindex for smelting: %d", metalDefIndex)
+	}
 
-	if projectedReclaimed > maxRec {
-		if smeltReclaimed == 0 {
-			combineReclaimed = (projectedReclaimed - maxRec + 2) / 3
+	return cm.tf2.Craft(ctx, items, recipe)
+}
+
+// SmeltWeapons crafts two weapons of the same class into one Scrap Metal.
+// Note: Both weapons must be of the same class in TF2, otherwise the GC will reject the request.
+func (cm *Manager) SmeltWeapons(ctx context.Context, weaponID1, weaponID2 uint64) ([]uint64, error) {
+	return cm.tf2.Craft(ctx, []uint64{weaponID1, weaponID2}, RecipeSmeltWeapons)
+}
+
+// CondenseMetal automatically scans your inventory and "compresses" all available metal:
+// All Scrap items (3 each) are converted to Reclaimed, and all Reclaimed items (3 each) are converted to Refined.
+// Returns the number of successful crafting operations.
+func (cm *Manager) CondenseMetal(ctx context.Context) (int, error) {
+	crafts := 0
+
+	for cm.tf2.Cache().GetMetalCount(DefIndexScrap) >= 3 {
+		if _, err := cm.CombineMetal(ctx, DefIndexScrap); err != nil {
+			return crafts, fmt.Errorf("condense scrap failed after %d crafts: %w", crafts, err)
 		}
-	} else if projectedReclaimed < minRec {
-		if combineScrap == 0 {
-			smeltRefined = (minRec - projectedReclaimed + 2) / 3
-		}
+		crafts++
+		time.Sleep(300 * time.Millisecond)
 	}
 
-	for range combineScrap {
-		s.logger.Debug("Combining 3 Scrap -> 1 Reclaimed")
-		_ = s.gc.CombineMetal(ctx, 5000)
-		if err := s.delay(ctx); err != nil {
-			return err
+	for cm.tf2.Cache().GetMetalCount(DefIndexReclaimed) >= 3 {
+		if _, err := cm.CombineMetal(ctx, DefIndexReclaimed); err != nil {
+			return crafts, fmt.Errorf("condense reclaimed failed after %d crafts: %w", crafts, err)
 		}
+		crafts++
+		time.Sleep(300 * time.Millisecond)
 	}
 
-	for range combineReclaimed {
-		s.logger.Debug("Combining 3 Reclaimed -> 1 Refined")
-		_ = s.gc.CombineMetal(ctx, 5001)
-		if err := s.delay(ctx); err != nil {
-			return err
-		}
-	}
+	return crafts, nil
+}
 
-	for range smeltRefined {
-		s.logger.Debug("Smelting 1 Refined -> 3 Reclaimed")
-		_ = s.gc.SmeltMetal(ctx, 5002)
-		if err := s.delay(ctx); err != nil {
-			return err
+// MakeChange will smelt higher-grade metal until the target is reached.
+// Example: MakeChange(ctx, DefIndexScrap, 1) - if there is no scrap, it will smelt 1 Rec.
+func (cm *Manager) MakeChange(ctx context.Context, targetDefIndex uint32, targetCount int) error {
+	for cm.tf2.Cache().GetMetalCount(targetDefIndex) < targetCount {
+		switch targetDefIndex {
+		case DefIndexScrap:
+			if cm.tf2.Cache().GetMetalCount(DefIndexReclaimed) > 0 {
+				if _, err := cm.SmeltMetal(ctx, DefIndexReclaimed); err != nil {
+					return err
+				}
+			} else {
+				if err := cm.MakeChange(ctx, DefIndexReclaimed, 1); err != nil {
+					return err
+				}
+			}
+		case DefIndexReclaimed:
+			if cm.tf2.Cache().GetMetalCount(DefIndexRefined) > 0 {
+				if _, err := cm.SmeltMetal(ctx, DefIndexRefined); err != nil {
+					return err
+				}
+			} else {
+				return fmt.Errorf("make_change: no refined metal left to smelt")
+			}
+		default:
+			return fmt.Errorf("make_change: cannot smelt this item type")
 		}
-	}
 
-	for range smeltReclaimed {
-		s.logger.Debug("Smelting 1 Reclaimed -> 3 Scrap")
-		_ = s.gc.SmeltMetal(ctx, 5001)
-		if err := s.delay(ctx); err != nil {
-			return err
-		}
+		time.Sleep(500 * time.Millisecond)
 	}
-
 	return nil
 }
 
-// CraftClassWeapons crafts two different weapons of the same class into scrap.
-func (s *Service) CraftClassWeapons(ctx context.Context) error {
-	if !s.cfg.IsWeaponsCraftingEnabled() {
-		return nil
+func (cm *Manager) SmeltClassWeapons(ctx context.Context, s *schema.Schema, class string) ([]uint64, error) {
+	weapons := cm.tf2.Cache().FindWeaponsByClass(s, class)
+
+	if len(weapons) < 2 {
+		return nil, fmt.Errorf("not enough weapons for class %s", class)
 	}
 
-	for class, weapons := range s.cfg.GetCraftWeaponsByClass() {
-		if err := s.craftEachClassWeapons(ctx, class, weapons); err != nil {
-			return err
-		}
-	}
+	itemsToCraft := []uint64{weapons[0].ID, weapons[1].ID}
 
-	return nil
-}
-
-func (s *Service) CraftDuplicateWeapons(ctx context.Context) error {
-	if !s.cfg.IsWeaponsCraftingEnabled() {
-		return nil
-	}
-
-	allWeapons := s.cfg.GetAllCraftWeapons()
-
-	for _, sku := range allWeapons {
-		count := s.inv.GetItemCount(sku)
-
-		if count < 2 || s.price.HasPricedItem(sku) {
-			continue
-		}
-
-		combinations := count / 2
-
-		for range combinations {
-			s.logger.Debug("Crafting duplicate weapon", log.String("sku", sku))
-
-			if err := s.gc.CombineDuplicateWeapon(ctx, sku); err != nil {
-				return err
-			}
-
-			if err := s.delay(ctx); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-func (s *Service) delay(ctx context.Context) error {
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-time.After(200 * time.Millisecond):
-		return nil
-	}
-}
-
-func (s *Service) craftEachClassWeapons(ctx context.Context, className string, weapons []string) error {
-	count := len(weapons)
-
-	for i := range count {
-		wep1 := weapons[i]
-
-		if s.inv.GetItemCount(wep1) != 1 || s.price.HasPricedItem(wep1) {
-			continue
-		}
-
-		for j := range count {
-			if i == j {
-				continue
-			}
-
-			wep2 := weapons[j]
-
-			if s.inv.GetItemCount(wep2) != 1 || s.price.HasPricedItem(wep2) {
-				continue
-			}
-
-			s.logger.Debug("Crafting class weapons",
-				log.String("class_name", className),
-				log.String("weapon_1", wep1),
-				log.String("weapon_2", wep2),
-			)
-
-			if err := s.gc.CombineClassWeapons(ctx, wep1, wep2); err != nil {
-				return err
-			}
-
-			if err := s.delay(ctx); err != nil {
-				return err
-			}
-
-			return nil
-		}
-	}
-	return nil
+	return cm.tf2.Craft(ctx, itemsToCraft, RecipeSmeltWeapons)
 }

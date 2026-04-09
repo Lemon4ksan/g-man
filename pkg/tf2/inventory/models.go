@@ -7,6 +7,8 @@ package inventory
 import (
 	"context"
 	"errors"
+
+	"github.com/lemon4ksan/g-man/pkg/tf2/sku"
 )
 
 var (
@@ -52,6 +54,49 @@ type TF2Item struct {
 	CustomName      string         `json:"custom_name,omitempty"`
 	CustomDesc      string         `json:"custom_desc,omitempty"`
 	Attributes      []TF2Attribute `json:"attributes,omitempty"`
+}
+
+// ToSKU generates an SKU string for an item using inventory data.
+// This allows you to compare items in someone else's inventory with our price list.
+func (it *TF2Item) ToSKU() string {
+	quality := it.Quality
+	defindex := it.Defindex
+	isCraftable := !it.FlagCannotCraft
+
+	effect := 0
+	wear := 0
+	isAustralium := false
+	paintkit := 0
+
+	for _, attr := range it.Attributes {
+		switch attr.Defindex {
+		case 134: // Unusual Effect
+			if val, ok := attr.Value.(float64); ok {
+				effect = int(val)
+			}
+		case 725: // Wear
+			if val, ok := attr.Value.(float64); ok {
+				wear = int(val * 5)
+			}
+		case 2027: // Australium
+			isAustralium = true
+		case 834: // Paintkit
+			if val, ok := attr.Value.(float64); ok {
+				paintkit = int(val)
+			}
+		}
+	}
+
+	str, _ := sku.FromObject(&sku.Item{
+		Defindex:   defindex,
+		Quality:    quality,
+		Craftable:  isCraftable,
+		Australium: isAustralium,
+		Effect:     effect,
+		Wear:       wear,
+		Paintkit:   paintkit,
+	})
+	return str
 }
 
 type TF2Attribute struct {

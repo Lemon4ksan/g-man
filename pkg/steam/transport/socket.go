@@ -9,8 +9,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
+	"github.com/lemon4ksan/g-man/pkg/steam/socket/protocol"
 )
 
 // SocketMetadata holds context-specific information from a socket-based response.

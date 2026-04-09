@@ -75,9 +75,10 @@ func NewClient(httpClient HTTPDoer) *Client {
 }
 
 func (c *Client) WithBaseURL(raw string) *Client {
+	newClient := *c
 	baseURL, _ := url.Parse(strings.TrimRight(raw, "/"))
-	c.baseURL = baseURL
-	return c
+	newClient.baseURL = baseURL
+	return &newClient
 }
 
 // WithHeader returns a new Client instance with an additional default header.

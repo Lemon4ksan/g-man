@@ -12,6 +12,7 @@ import (
 
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
+	"github.com/lemon4ksan/g-man/pkg/tf2/schema"
 )
 
 // PlayerInventory represents a specific player's TF2 inventory.
@@ -19,6 +20,7 @@ import (
 type PlayerInventory struct {
 	steamID uint64
 	client  service.Doer
+	schema  *schema.Schema
 	logger  log.Logger
 
 	dupeCheckers []DupeChecker
@@ -44,6 +46,28 @@ func New(steamID uint64, client service.Doer, dupeCheckers ...DupeChecker) *Play
 func (inv *PlayerInventory) WithLogger(l log.Logger) *PlayerInventory {
 	inv.logger = l
 	return inv
+}
+
+// GetItemsBySKU returns all assets in someone else's inventory that match the specified SKU.
+// This is necessary to check: "Did the partner actually offer the item we agreed on?"
+func (inv *PlayerInventory) GetItemsBySKU(ctx context.Context, targetSKU string) ([]TF2Item, error) {
+	inv.mu.Lock()
+	if !inv.fetched {
+		if err := inv.fetch(ctx); err != nil {
+			inv.mu.Unlock()
+			return nil, err
+		}
+	}
+	items := inv.items
+	inv.mu.Unlock()
+
+	var result []TF2Item
+	for _, it := range items {
+		if it.ToSKU() == targetSKU {
+			result = append(result, it)
+		}
+	}
+	return result, nil
 }
 
 // IsDuped checks whether the item is a duplicate.

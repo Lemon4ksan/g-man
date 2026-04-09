@@ -5,6 +5,7 @@
 package currency
 
 import (
+	"math"
 	"reflect"
 	"testing"
 )
@@ -13,7 +14,7 @@ func TestPureStock_Calculations(t *testing.T) {
 	tests := []struct {
 		name      string
 		stock     PureStock
-		wantScrap int
+		wantScrap Scrap
 		wantRef   float64
 	}{
 		{
@@ -38,11 +39,14 @@ func TestPureStock_Calculations(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.stock.TotalScrap(); got != tt.wantScrap {
-				t.Errorf("TotalScrap() = %v, want %v", got, tt.wantScrap)
+			gotScrap := tt.stock.TotalScrap()
+			if gotScrap != tt.wantScrap {
+				t.Errorf("TotalScrap() = %v, want %v", gotScrap, tt.wantScrap)
 			}
-			if got := tt.stock.TotalRefined(); got != tt.wantRef {
-				t.Errorf("TotalRefined() = %v, want %v", got, tt.wantRef)
+
+			gotRef := tt.stock.TotalRefined()
+			if math.Abs(gotRef-tt.wantRef) >= 0.000001 {
+				t.Errorf("TotalRefined() = %v, want %v", gotRef, tt.wantRef)
 			}
 		})
 	}

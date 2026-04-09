@@ -13,7 +13,7 @@ import (
 func TestToScrap(t *testing.T) {
 	tests := []struct {
 		refined float64
-		want    float64
+		want    currency.Scrap
 	}{
 		{0.11, 1},
 		{0.33, 3},
@@ -33,15 +33,14 @@ func TestToScrap(t *testing.T) {
 
 func TestToRefined(t *testing.T) {
 	tests := []struct {
-		scrap float64
+		scrap currency.Scrap
 		want  float64
 	}{
-		{1, 0.11},
-		{3, 0.33},
-		{9, 1.00},
-		{10, 1.11},
-		{21, 2.33},
-		{450, 50.00},
+		{1, 1.0 / 9.0}, // 0.1111...
+		{3, 3.0 / 9.0}, // 0.3333...
+		{9, 1.0},
+		{10, 10.0 / 9.0}, // 1.1111...
+		{13, 13.0 / 9.0}, // 1.4444...
 	}
 
 	for _, tt := range tests {
@@ -97,7 +96,7 @@ func TestCurrencies_ToValue(t *testing.T) {
 		name    string
 		keys    float64
 		metal   float64
-		want    float64 // in scrap
+		want    currency.Scrap
 		wantErr bool
 	}{
 		{"1 key only", 1, 0, 450, false},
@@ -132,14 +131,14 @@ func TestScrapToCurrencies(t *testing.T) {
 
 	tests := []struct {
 		name  string
-		scrap float64
+		scrap currency.Scrap
 		wantK float64
 		wantM float64
 	}{
 		{"Exactly 1 key", 450, 1, 0},
-		{"1 key and 1 scrap", 451, 1, 0.11},
-		{"Less than 1 key", 100, 0, 11.11},
-		{"Multiple keys", 1000, 2, 11.11}, // (1000 - 900) / 9 = 11.11
+		{"1 key and 1 scrap", 451, 1, 1.0 / 9.0},
+		{"Less than 1 key", 100, 0, 100.0 / 9.0},
+		{"Multiple keys", 1000, 2, 100.0 / 9.0}, // (1000 - 900) / 9 = 11.11
 	}
 
 	for _, tt := range tests {
@@ -156,7 +155,7 @@ func TestScrapToCurrencies(t *testing.T) {
 func TestAddRefined(t *testing.T) {
 	res := currency.AddRefined(1.11, 2.22, 0.11)
 	// 10 + 20 + 1 = 31 scrap = 3.44 ref
-	want := 3.44
+	want := 31.0 / 9.0
 	if res != want {
 		t.Errorf("AddRefined() = %v, want %v", res, want)
 	}
