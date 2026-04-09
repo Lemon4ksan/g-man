@@ -13,7 +13,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/trading/engine"
 	"github.com/lemon4ksan/g-man/pkg/trading/notifications"
 	"github.com/lemon4ksan/g-man/pkg/trading/review"
-	"github.com/lemon4ksan/g-man/pkg/trading/web"
+	trading "github.com/lemon4ksan/g-man/pkg/trading/web"
 )
 
 // TradeExecutor is an interface for executing actions in Steam (Accept/Decline).

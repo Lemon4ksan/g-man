@@ -25,4 +25,4 @@ bot's business logic, which is typically handled by a higher-level `Processor`.
     processor (like the Trade Middleware Engine).
   - Fetches detailed offer contents and escrow duration information.
 */
-package trading
+package web

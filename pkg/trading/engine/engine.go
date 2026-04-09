@@ -7,7 +7,7 @@ package engine
 import (
 	"context"
 
-	"github.com/lemon4ksan/g-man/pkg/trading/web"
+	trading "github.com/lemon4ksan/g-man/pkg/trading/web"
 )
 
 // Handler represents a function that processes a TradeContext.

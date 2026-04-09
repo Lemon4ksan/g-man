@@ -17,7 +17,7 @@ two users are online and agree to trade live.
   - Publishes events for each stage of the live trade lifecycle
     (`TradeProposedEvent`, `TradeResultEvent`, `TradeSessionStartedEvent`).
 */
-package offers
+package live
 
 import (
 	"context"

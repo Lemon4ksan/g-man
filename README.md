@@ -56,6 +56,7 @@ import (
     "github.com/lemon4ksan/g-man/pkg/steam"
     "github.com/lemon4ksan/g-man/pkg/steam/auth"
     "github.com/lemon4ksan/g-man/pkg/storage/memory"
+    trading "github.com/lemon4ksan/g-man/pkg/steam/trading/web"
 )
 
 func main() {

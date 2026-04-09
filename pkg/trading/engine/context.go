@@ -9,7 +9,7 @@ import (
 	"sync"
 
 	"github.com/lemon4ksan/g-man/pkg/trading/reason"
-	"github.com/lemon4ksan/g-man/pkg/trading/web"
+	trading "github.com/lemon4ksan/g-man/pkg/trading/web"
 )
 
 // Action represents the final decision made by the engine regarding a trade.
