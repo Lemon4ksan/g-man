@@ -2,87 +2,94 @@
 
 This directory contains the public API surface of the **G-man** framework.
 
-These packages form a modular ecosystem. You can import the entire suite to build a full-featured Steam bot, or cherry-pick specific packages (like `tf2/sku` or `steam/crypto/totp`) to integrate into your own existing applications.
+These packages form a modular ecosystem. You can import the entire suite to build a full-featured Steam bot, or cherry-pick specific packages (like `tf2/sku` for price parsing or `steam/auth/openid` for third-party logins) to integrate into your own existing applications.
 
 ## 📦 Package Overview
 
-The architecture is divided into logical layers: **Core**, **Modules**, **Storage**, **Game Domains**, **Business Logic**, and **Utilities**.
+The architecture is divided into logical layers: **Core**, **System**, **Game Domains**, **Trading Logic**, and **Infrastructure**.
 
-### 1. ⚙️ Core (`pkg/steam`)
+### 1. ⚙️ Core Layer (`pkg/steam`)
 
-The foundation of the framework. It handles the low-level heavy lifting: network communication, protocol serialization, event routing, and API orchestration.
-
-| Package | Description |
-| :--- | :--- |
-| **`steam`** | The `Client` orchestrator. Manages the lifecycle of modules, storage, and authenticated sessions. |
-| **`steam/socket`** | TCP/WebSocket connection manager. Handles packet fragmentation, encryption, and heartbeats. |
-| **`steam/network`** | Low-level physical layer. Implements raw TCP and WebSocket dialing and message framing. |
-| **`steam/bus`** | High-performance, type-safe **Event Bus**. Enables decoupled communication between modules. |
-| **`steam/transport`** | Protocol-agnostic transport layer. Seamlessly switches between HTTP (WebAPI) and TCP (CM). |
-| **`steam/service`** | RPC-like commander. Translates Go method calls into WebAPI or Unified (Protobuf) requests. |
-| **`steam/community`** | Specialized HTTP client for `steamcommunity.com`. Handles session cookies and HTML error scraping. |
-
-### 2. 🧩 Modules (`pkg/modules`)
-
-Pluggable logic blocks that implement the actual functionality of a Steam user. All modules embed `BaseModule` for standardized logging, context, and goroutine management.
+The foundation of the framework. It handles low-level heavy lifting: network communication, protocol serialization, and API orchestration.
 
 | Package | Description |
 | :--- | :--- |
-| **`modules/auth`** | Handles login flows (Password/JWT), 2FA challenges, and `WebSession` cookie management. |
-| **`modules/guard`** | Steam Guard Mobile Authenticator. Handles confirmation polling and auto-acceptance. |
-| **`modules/trading`** | Asynchronous Trade Offer manager. Polls for offers and manages state transitions. |
-| **`modules/offers`** | Real-time "Live Trade" invitations manager via the CM socket. |
-| **`modules/coordinator`** | Game Coordinator (GC) gateway. Routes messages to specific games (TF2, CS2, Dota 2). |
-| **`modules/apps`** | Application state manager. Controls "In-Game" status and tracks player counts. |
-| **`modules/friends`** | Manages friends list, persona states, and group invitations. |
+| **`steam`** | The main **Orchestrator**. Connects Socket, Auth, and Modules into a single `Client`. |
+| **`steam/socket`** | Stateful CM connection manager. Handles packet routing, job tracking, and GZIP decompression. |
+| **`steam/transport`** | The **Architectural Bridge**. Unifies HTTP (WebAPI) and Socket (CM) into a single `Do` interface. |
+| **`steam/service`** | RPC Commander. Translates Protobuf messages into Unified or Legacy Steam service calls. |
+| **`steam/community`** | Advanced Web client for `steamcommunity.com`. Includes a specialized sub-client for the **Market** and **OpenID** for 3rd-party sites. |
+| **`steam/auth`** | Modern authentication flows. Supports JWT and Refresh Tokens with persistent storage. |
+| **`steam/api`** | Common Steam error types (`EResult`) and universal response unmarshalers (VDF, JSON, Proto). |
+| **`steam/id`** | Robust `SteamID` parser and formatter (supports SID2, SID3, and 64-bit formats). |
 
-### 3. 💾 Storage (`pkg/storage`)
+### 2. 🔌 System & GC (`pkg/steam/sys`)
 
-Provides persistence capabilities to allow bots to recover state after restarts.
-
-| Package | Description |
-| :--- | :--- |
-| **`storage`** | Core interfaces for persistence: `AuthStore` (tokens) and `KVStore` (generic data). |
-| **`storage/memory`** | Default ephemeral storage implementation using in-memory maps. |
-
-### 4. 🧠 Business Logic (`pkg/offer`)
-
-High-level logic for implementing complex trading behaviors.
+Handles internal Steam subsystems and the gateway to game-specific coordinators.
 
 | Package | Description |
 | :--- | :--- |
-| **`offer/engine`** | **Trade Middleware Engine**. Implements an "Onion Architecture" chain for offer validation. |
-| **`offer/processor`** | High-level orchestrator. Coordinates the entire trade lifecycle: check -> decide -> act -> notify. |
-| **`offer/notifications`** | Template-based chat responder for sending trade status updates to partners. |
-| **`offer/review`** | Formatter and reporter for sending detailed trade alerts to administrators. |
+| **`sys/gc`** | Base **Game Coordinator** implementation. Handles GC-Hello handshakes and nested job routing. |
+| **`sys/directory`** | Client for `ISteamDirectory`. Dynamically fetches the best CM server list from Steam. |
+| **`sys/apps`** | Manages "In-Game" status and handles app-specific socket notifications. |
+| **`social`** | Implements the **Friends** list and **Chat** (Persona states, messaging, and relationships). |
 
-### 5. 🎮 Game Domains (`pkg/tf2`, etc.)
+### 3. 🧠 Trading Logic (`pkg/trading`)
 
-Game-specific logic and schemas.
+High-level engine for implementing complex, automated trading behaviors.
 
 | Package | Description |
 | :--- | :--- |
-| **`tf2`** | Main TF2 module. Implements **SOCache** for real-time inventory mirroring. |
-| **`tf2/schema`** | Schema Manager. Downloads and indexes `items_game.txt` for O(1) item lookups. |
-| **`tf2/sku`** | Stock Keeping Unit conversion for TF2 items. |
+| **`trading/engine`** | **Trade Middleware Engine**. Implements an "Onion" chain for request validation (e.g., Blacklist -> Pricer). |
+| **`trading/processor`** | Core lifecycle manager. Coordinates: *Check -> Decide -> Act -> Notify*. |
+| **`trading/review`** | Decision logging and administrative reporting for high-value trades. |
+| **`trading/live`** | Handles real-time "Live Trade" (proto-based) invitations and state. |
+| **`trading/web`** | Handles standard Web-based Trade Offers via the Community API. |
+
+### 4. ⚔️ TF2 Domain (`pkg/tf2`)
+
+Specialized logic for Team Fortress 2 economy and automation.
+
+| Package | Description |
+| :--- | :--- |
+| **`tf2/currency`** | Metal and Key manager. Handles pure currency formatting, counting, and backpack consolidation. |
+| **`tf2/inventory`** | Unified inventory manager. Syncs state via both **WebAPI** and **Game Coordinator** (SOCache). |
+| **`tf2/pricedb`** | PriceDB integration for fetching item prices. |
+| **`tf2/schema`** | Item Schema indexer. Maps `defindex` to names, qualities, and rarities with O(1) lookups. |
+| **`tf2/sku`** | String-based SKU generator and parser for unique item identification. |
+| **`tf2/bptf`** | Integration for the **Backpack.tf** API (Pricing, Listings, and Heartbeats). |
+| **`tf2/crafting`** | Logic for automated smelting, combining, and item crafting. |
+
+### 5. 🛠 Infrastructure & Storage
+
+Common utilities and persistence layers used across the SDK.
+
+| Package | Description |
+| :--- | :--- |
+| **`storage`** | Interface-first persistence. Includes implementations for **SQLite**, **JSON Files**, and **Memory**. |
+| **`bus`** | Internal high-performance **Event Bus** for decoupled module communication. |
+| **`jobs`** | Generic asynchronous callback manager for tracking request-response cycles. |
+| **`rest`** | A robust HTTP client wrapper with built-in retry logic and struct-to-param mapping. |
+| **`crypto`** | Steam-specific cryptography (ECC, RSA) and **TOTP** (2FA) generation. |
+| **`log`** | Structured, module-aware logging system. |
 
 ---
 
 ## 🏗 Architecture & Philosophy
 
-G-man is built on **Declarative Configuration**, **Dependency Injection**, and **Event-Driven Design**.
+G-man is built on **Interface-Driven Design**, **Concurrency Safety**, and **Protocol Agnosticism**.
 
-1. **Declarative Config**: You don't "add" modules; you describe them in `steam.Config`. The client automatically instantiates and wires them together.
-2. **BaseModule Pattern**: Every module is a "clean citizen". They don't touch global state and manage their own background workers using a provided `context.Context`.
-3. **Middleware-First**: Trade logic is not a mess of `if-else` statements. It's a clean chain of responsibilities (Middlewares) like `Recover` -> `Logger` -> `Blacklist` -> `Pricer`.
-4. **Persistent by Design**: With the `storage` layer, the bot can save Refresh Tokens and offer states, allowing for seamless auto-relogin after a crash or update.
+1. **Protocol Agnosticism**: Use `steam.Service()`. The SDK automatically decides whether to send a request via an active Socket (for speed) or fallback to HTTP (if disconnected).
+2. **Atomic State**: All core components (Socket, Session, Auth) use `sync/atomic` and `RWMutex` to ensure they are safe for use in high-throughput concurrent bots.
+3. **Smart Error Handling**: The `community` package detects "Soft Errors" (HTML error pages returning 200 OK) and converts them into typed Go errors like `ErrNotLoggedIn`.
+4. **Middleware-First Trading**: Don't write `if/else` hell. Use `trading/engine` to chain validation logic: `Recover -> Logger -> Blacklist -> InventoryCheck -> PriceCheck`.
 
 ## 🤝 Contributing
 
-When adding new packages or modifying existing ones in `pkg/`:
+When adding new packages or modifying existing ones:
 
-1. **Public by Default:** Code in `pkg/` is considered public API. Keep interfaces stable and document exported functions.
-2. **No Global State:** Avoid global variables. Use structs and constructors (`New...`).
-3. **Context Aware:** All blocking operations must respect `context.Context` for proper shutdown.
-4. **Embed BaseModule:** All new functional modules in `pkg/modules` should embed `modules.BaseModule`.
-5. **Use `rest` for HTTP:** Avoid raw `http.Client`. Leverage the `pkg/rest` or `pkg/steam/community` wrappers.
+1. **Keep `pkg/steam` Lean:** Only core Steam logic belongs here. Game-specific logic goes into `pkg/<game>`.
+2. **Context-Aware:** Every blocking or network operation **must** accept a `context.Context`.
+3. **No Global State:** Use constructors (`NewClient`, `NewSocket`) and inject dependencies.
+4. **Document Exports:** All public-facing functions in `pkg/` must have a docstring for IDE IntelliSense support.
+5. **Interface over Implementation:** Depend on `Requester` or `Doer` interfaces rather than concrete `Client` structs where possible.

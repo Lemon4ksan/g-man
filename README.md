@@ -14,63 +14,59 @@
 
 ---
 
-**G-man** is a next-generation Steam client library architected specifically for high-frequency trading, inventory management, and heavy automation. Built on **Go**, it leaves the limitations of single-threaded Node.js wrappers behind, offering unmatched performance for bot farms of any scale.
-
-It prioritizes **Type Safety**, **Predictable Concurrency**, and **Modular Architecture**.
+**G-man** is a high-performance Steam client library architected for high-frequency trading, complex inventory management, and industrial-scale automation. Written in pure **Go**, it bypasses the limitations of single-threaded environments, offering a thread-safe, modular, and type-safe foundation for modern Steam development.
 
 > [!WARNING]
-> This SDK is currently in **early development (Alpha)**. The API is evolving rapidly. Breaking changes are expected. Production use is at your own risk.
+> This SDK is currently in **early development (Alpha)**. Breaking changes are expected. The API is evolving rapidly and wasn't properly tested. Production use is at your own risk.
 
 ## ⚡ Key Features
 
-* **High-Concurrency Engine:** Native Go routines allow you to handle thousands of events, trade offers, and socket messages simultaneously without blocking.
-* **Polymorphic Transport:** A unique layer that seamlessly switches between **TCP/WebSockets** and **HTTP WebAPI**. Bypass rate limits by routing API calls directly through the authenticated CM socket.
-* **BaseModule Pattern:** Standardized lifecycle for all modules (`Init`, `StartAuthed`, `Close`). Includes built-in support for scoped logging, event bus integration, and safe goroutine management.
-* **Persistence Layer:** Pluggable storage architecture. Automatically save and resume sessions (JWT Refresh Tokens) using Memory, SQLite, or PostgreSQL.
-* **Trade Middleware Engine:** A powerful "Onion" style processing chain for incoming trades (e.g., `Deduplicator` -> `Blacklist` -> `Pricer` -> `EscrowCheck`).
-* **Deep Error Scraping:** Specialized `community` client that detects "soft errors" (Family View, Login redirects, Steam Maintenance) hidden inside HTML responses.
-* **Game Coordinator Native:** First-class support for GC interactions (TF2, CS2, DOTA2) with automatic job tracking, `SOCache` (Shared Objects) management, and Protobuf unmarshaling.
+* **Universal Transport Engine:** A protocol-agnostic layer that unifies **TCP/WebSockets** and **HTTP WebAPI**. Call Unified Services through the most efficient route automatically.
+* **Game Coordinator (GC) Native:** First-class support for TF2, CS2, and Dota 2. Includes job tracking, SOCache (Shared Objects) management, and item-schema parsing.
+* **Stateful Orchestrator:** A centralized `steam.Client` that manages connection lifecycles, background heartbeats, and automatic WebSession/APIKey acquisition.
+* **Trading Middleware:** An "Onion" style engine for processing trade offers. Pipeline your logic through custom processors: `Deduplicator` → `Pricer` → `SecurityCheck` → `Review`.
+* **Deep Error Scraping:** The `community` client detects "soft errors" (Family View, Maintenance, Login Redirects) hidden inside HTML responses, returning typed Go errors.
+* **Pluggable Persistence:** Native support for **Memory**, **JSON**, and **SQLite** storage for sessions, authentication tokens, and price databases.
+* **Extensive Protobuf Support:** Pre-generated definitions for Steam, TF2, CS2, Dota 2, Deadlock, and WebUI.
 
-## 📦 Installation
+## 📂 Project Layout
 
-```bash
-go get github.com/lemon4ksan/g-man@latest
+```text
+pkg/
+├── steam/          # Core: socket, auth, community, transport, unified services
+│   ├── sys/        # System: apps, game coordinator (gc), directory (CM list)
+│   └── social/     # Communication: chat, friends list
+├── trading/        # Business logic: trade engine, notifications, review system
+├── tf2/            # Game-specific: inventory, schema, currency, bptf, sku
+├── protobuf/       # Generated .pb.go files for all Steam games
+├── storage/        # Persistence: SQLite, JSON, Memory providers
+└── bus/            # Internal event system (Event Bus)
 ```
 
 ## 🚀 Quick Start
 
-G-man uses a declarative configuration. You define the modules and storage you need in a single config struct, and the client handles the orchestration.
+G-man uses a centralized orchestrator. You initialize the client with standard dependencies, and it handles the internal wiring.
 
 ```go
 package main
 
 import (
     "context"
-    "time"
-
     "github.com/lemon4ksan/g-man/pkg/log"
-    "github.com/lemon4ksan/g-man/pkg/modules/auth"
-    "github.com/lemon4ksan/g-man/pkg/modules/guard"
-    "github.com/lemon4ksan/g-man/pkg/modules/trading"
     "github.com/lemon4ksan/g-man/pkg/steam"
+    "github.com/lemon4ksan/g-man/pkg/steam/auth"
     "github.com/lemon4ksan/g-man/pkg/storage/memory"
 )
 
 func main() {
     logger := log.New(log.DefaultConfig(log.InfoLevel))
 
-    // Configure the client and its pluggable modules
+    // Setup Orchestrator
     cfg := steam.DefaultConfig()
-    cfg.Storage = memory.New() // Use SQLite or Postgres for production
-
-    // Initialize the Client
+    cfg.Storage = memory.New()
+    
     client := steam.NewClient(cfg,
         steam.WithLogger(logger),
-        guard.WithModule(guard.Config{
-            IdentitySecret: "base64_secret",
-            DeviceID:       "android:uuid",
-            AutoAccept:     true,
-        }),
         trading.WithModule(trading.DefaultConfig()),
     )
 
@@ -86,14 +82,24 @@ func main() {
             }
         }
     }()
-
-    // Connect and Login (will automatically use saved tokens if available)
-    err := client.ConnectAndLogin(context.Background(), nil, &auth.LogOnDetails{
-        AccountName: "username",
-        Password:    "password",
-    })
+    
+    // Get optimal server
+    dir := directory.NewDirectoryService(client.Service())
+    server, err := dir.GetOptimalCMServer(ctx)
     if err != nil {
-        panic(err)
+        logger.Error("Failed to get CM server list", log.Err(err))
+        return
+    }
+
+    details := &auth.LogOnDetails{
+        AccountName: "your_username",
+        Password:    "your_password",
+    }
+    
+    // ConnectAndLogin handles: Socket Connection -> CM Handshake -> 
+    // Auth Sequence -> WebSession Exchange -> API Key Registration
+    if err := client.ConnectAndLogin(context.Background(), server, details); err != nil {
+        logger.Fatal("Login failed", log.Err(err))
     }
 
     client.Wait()
@@ -102,30 +108,37 @@ func main() {
 
 ## 🏗 Roadmap
 
-### Core & Protocol
+### Core Systems
 
-* [x] **Persistence Layer:** Foundation interfaces and memory provider.
+* [x] **Smart Transport:** Automatic routing between Socket and WebAPI.
+* [x] **WebSession Heartbeat:** Background worker to keep cookies and API keys alive.
+* [x] **Persistent Auth:** Automatic re-login using encrypted Refresh Tokens.
+* [x] **Proxy Support:** Integrated SOCKS5/HTTP tunneling for all outbound traffic.
 * [ ] **Database Drivers:** Official support for SQLite (bbolt/sql) and PostgreSQL.
-* [ ] **Proxy Support:** Integrated SOCKS5/HTTP tunnel support for both Socket and WebAPI.
 * [ ] **Steam CDN Support:** Logic for manifest parsing and downloading app metadata/item assets.
-* [ ] **WebSession Auto-Refresh:** Background worker to keep cookies alive via periodic "heartbeat" visits.
 
-### Economy & Trading
+### Game Specifics (TF2)
 
-* [x] **Trade Middleware Engine:** "Chain of Responsibility" implementation.
-* [x] **SOCache Manager:** Real-time inventory mirroring via Game Coordinator.
+* [x] **Inventory Manager:** Unified view of Web and GC inventories.
+* [x] **Currency (Metal) Manager:** High-level smelting and metal stock balancing.
+* [x] **SKU System:** Advanced parser for TF2 item identifiers.
+* [x] **PriceDB:** Pluggable pricing providers (Backpack.tf / Prices.tf).
+
+### Trading Engine
+
+* [x] **Trade Middleware:** Chain-based offer processing.
+* [x] **Live Trading:** Real-time trade window interaction via GC.
 * [ ] **Inventory Manager:** High-level abstractions for item moving and multi-context sync.
-* [ ] **PriceDB Integration:** Generic interface for price providers (Backpack.tf, Prices.tf).
 
 ### Game Domains
 
-* [ ] **TF2 Crafting:** High-level API for mass-smelting and weapon crafting.
+* [x] **TF2 Crafting:** High-level API for mass-smelting and weapon crafting.
 * [ ] **CS2 Support:** Game Coordinator implementation for inventory and match data.
 * [ ] **Dota 2 Support:** GC implementation for item management and lobby control.
 
 ## 🤝 Contributing
 
-G-man is an open-source project. We welcome contributions in the form of bug reports, feature requests, or pull requests. Please see our [Contributing Guide](CONTRIBUTING.md) for more details.
+G-man is an open-source project. We welcome contributions for new game coordinators (CS2/Dota 2) and storage providers. See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## License
 
