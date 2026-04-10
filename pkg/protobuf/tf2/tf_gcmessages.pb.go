@@ -4,7 +4,7 @@
 // 	protoc        v6.33.5
 // source: tf2_gc/tf_gcmessages.proto
 
-package protobuf
+package tf2
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"

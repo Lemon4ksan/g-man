@@ -4,7 +4,7 @@
 // 	protoc        v6.33.5
 // source: webuimessages_storagedevicemanager.proto
 
-package protobuf
+package steam
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"

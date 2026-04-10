@@ -15,13 +15,16 @@ The foundation of the framework. It handles low-level heavy lifting: network com
 | Package | Description |
 | :--- | :--- |
 | **`steam`** | The main **Orchestrator**. Connects Socket, Auth, and Modules into a single `Client`. |
-| **`steam/socket`** | Stateful CM connection manager. Handles packet routing, job tracking, and GZIP decompression. |
-| **`steam/transport`** | The **Architectural Bridge**. Unifies HTTP (WebAPI) and Socket (CM) into a single `Do` interface. |
-| **`steam/service`** | RPC Commander. Translates Protobuf messages into Unified or Legacy Steam service calls. |
-| **`steam/community`** | Advanced Web client for `steamcommunity.com`. Includes a specialized sub-client for the **Market** and **OpenID** for 3rd-party sites. |
-| **`steam/auth`** | Modern authentication flows. Supports JWT and Refresh Tokens with persistent storage. |
 | **`steam/api`** | Common Steam error types (`EResult`) and universal response unmarshalers (VDF, JSON, Proto). |
+| **`steam/auth`** | Modern authentication flows. Supports JWT and Refresh Tokens with persistent storage. |
+| **`steam/community`** | Advanced Web client for `steamcommunity.com`. Includes a specialized sub-client for the **Market** and **OpenID** for 3rd-party sites. |
+| **`steam/guard`** | Steam Guard Mobile Authenticator confirmations and 2FA codes. |
 | **`steam/id`** | Robust `SteamID` parser and formatter (supports SID2, SID3, and 64-bit formats). |
+| **`steam/socket`** | Stateful CM connection manager. Handles packet routing, job tracking, and GZIP decompression. |
+| **`steam/service`** | RPC Commander. Translates Protobuf messages into Unified or Legacy Steam service calls. |
+| **`steam/social`** | Implements the **Friends** list and **Chat** (Persona states, messaging, and relationships). |
+| **`steam/transport`** | The **Architectural Bridge**. Unifies HTTP (WebAPI) and Socket (CM) into a single `Do` interface. |
+| **`steam/webapi`** | Generated wrappers for the Steam Web API. |
 
 ### 2. 🔌 System & GC (`pkg/steam/sys`)
 
@@ -32,7 +35,6 @@ Handles internal Steam subsystems and the gateway to game-specific coordinators.
 | **`sys/gc`** | Base **Game Coordinator** implementation. Handles GC-Hello handshakes and nested job routing. |
 | **`sys/directory`** | Client for `ISteamDirectory`. Dynamically fetches the best CM server list from Steam. |
 | **`sys/apps`** | Manages "In-Game" status and handles app-specific socket notifications. |
-| **`social`** | Implements the **Friends** list and **Chat** (Persona states, messaging, and relationships). |
 
 ### 3. 🧠 Trading Logic (`pkg/trading`)
 

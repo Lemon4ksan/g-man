@@ -4,7 +4,7 @@
 // 	protoc        v6.33.5
 // source: steamnetworkingsockets_messages_udp.proto
 
-package protobuf
+package steam
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"

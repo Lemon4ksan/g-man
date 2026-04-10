@@ -4,7 +4,7 @@
 // 	protoc        v6.33.5
 // source: encrypted_app_ticket.proto
 
-package protobuf
+package steam
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"

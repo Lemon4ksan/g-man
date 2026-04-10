@@ -3929,6 +3929,7 @@ const (
 	EMsg_ClientPeerChunkResponse                                  EMsg = 9903
 	EMsg_ClientLANP2PMax                                          EMsg = 9999
 	EMsg_BaseWatchdogServer                                       EMsg = 10000
+	EMsg_NotifyWatchdog_10000                                     EMsg = 10000
 	EMsg_ClientSiteLicenseBase                                    EMsg = 10100
 	EMsg_ClientSiteLicenseSiteInfoNotification                    EMsg = 10100
 	EMsg_ClientSiteLicenseCheckout                                EMsg = 10101
@@ -5836,7 +5837,6 @@ var EMsg_name = map[EMsg]string{
 	EMsg_ClientPeerChunkRequest:                                   "ClientPeerChunkRequest",
 	EMsg_ClientPeerChunkResponse:                                  "ClientPeerChunkResponse",
 	EMsg_ClientLANP2PMax:                                          "ClientLANP2PMax",
-	EMsg_BaseWatchdogServer:                                       "BaseWatchdogServer",
 	EMsg_ClientSiteLicenseBase:                                    "ClientSiteLicenseBase",
 	EMsg_ClientSiteLicenseCheckout:                                "ClientSiteLicenseCheckout",
 	EMsg_ClientSiteLicenseCheckoutResponse:                        "ClientSiteLicenseCheckoutResponse",
@@ -7308,6 +7308,7 @@ const (
 	EServerType_Console             EServerType = 13
 	EServerType_ASBOBSOLETE         EServerType = 14 // removed
 	EServerType_PICS                EServerType = 14
+	EServerType_Client_15           EServerType = 15 // removed
 	EServerType_BootstrapOBSOLETE   EServerType = 16 // removed
 	EServerType_ContentStats        EServerType = 16
 	EServerType_DP                  EServerType = 17
@@ -7315,6 +7316,7 @@ const (
 	EServerType_SM                  EServerType = 19
 	EServerType_SLC                 EServerType = 20
 	EServerType_UFS                 EServerType = 21
+	EServerType_Util_23             EServerType = 23 // removed
 	EServerType_Community           EServerType = 24
 	EServerType_P2PRelayOBSOLETE    EServerType = 25 // removed
 	EServerType_AppInformation      EServerType = 26

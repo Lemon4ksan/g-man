@@ -4,7 +4,7 @@
 // 	protoc        v6.33.5
 // source: steammessages_unified_test.steamclient.proto
 
-package protobuf
+package steam
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
