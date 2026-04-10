@@ -13,7 +13,7 @@ import (
 	"strconv"
 
 	"github.com/lemon4ksan/g-man/pkg/rest"
-	"github.com/lemon4ksan/g-man/pkg/steam/socket/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 )
 
 // HTTPUserAgent is the user agent string used by the official Steam Client.

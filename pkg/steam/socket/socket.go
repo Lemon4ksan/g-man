@@ -18,9 +18,9 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/jobs"
 	"github.com/lemon4ksan/g-man/pkg/log"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket/internal/network"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket/internal/session"
-	"github.com/lemon4ksan/g-man/pkg/steam/socket/protocol"
 
 	"google.golang.org/protobuf/proto"
 )
@@ -77,13 +77,13 @@ type ConnectionDialer func(nh network.Handler, logger log.Logger, endpoint strin
 func DefaultDialers() map[string]ConnectionDialer {
 	return map[string]ConnectionDialer{
 		"tcp": func(nh network.Handler, l log.Logger, s string) (network.Connection, error) {
-			return network.NewTCPConnection(nh, l, s)
+			return network.NewTCP(nh, l, s)
 		},
 		"websockets": func(nh network.Handler, l log.Logger, s string) (network.Connection, error) {
-			return network.NewWSConnection(nh, l, s)
+			return network.NewWS(nh, l, s, nil)
 		},
 		"netfilter": func(nh network.Handler, l log.Logger, s string) (network.Connection, error) {
-			return network.NewTCPConnection(nh, l, s) // netfilter is effectively TCP
+			return network.NewTCP(nh, l, s) // netfilter is effectively TCP
 		},
 	}
 }

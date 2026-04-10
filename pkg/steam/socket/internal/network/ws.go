@@ -16,11 +16,11 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/log"
 )
 
-var _ Connection = (*WSConnection)(nil)
+var _ Connection = (*WS)(nil)
 
-// WSConnection implements a WebSocket-based connection.
+// WS implements a WebSocket-based connection.
 // It leverages the gorilla/websocket library for handling the WebSocket protocol details.
-type WSConnection struct {
+type WS struct {
 	BaseConnection
 
 	conn    *websocket.Conn
@@ -31,13 +31,15 @@ type WSConnection struct {
 	closeOnce sync.Once  // Ensures Close actions are performed only once.
 }
 
-// NewWSConnection establishes a WebSocket connection to the given endpoint and starts its read loop.
-func NewWSConnection(handler Handler, logger log.Logger, endpoint string) (*WSConnection, error) {
+// NewWS establishes a WebSocket connection to the given endpoint and starts its read loop.
+func NewWS(handler Handler, logger log.Logger, endpoint string, dialer *websocket.Dialer) (*WS, error) {
 	u := url.URL{Scheme: "wss", Host: endpoint, Path: "/cmsocket/"}
 
-	dialer := websocket.Dialer{
-		HandshakeTimeout: 10 * time.Second,
-		Proxy:            http.ProxyFromEnvironment,
+	if dialer == nil {
+		dialer = &websocket.Dialer{
+			HandshakeTimeout: 10 * time.Second,
+			Proxy:            http.ProxyFromEnvironment,
+		}
 	}
 
 	conn, _, err := dialer.Dial(u.String(), nil)
@@ -45,7 +47,7 @@ func NewWSConnection(handler Handler, logger log.Logger, endpoint string) (*WSCo
 		return nil, err
 	}
 
-	w := &WSConnection{
+	w := &WS{
 		BaseConnection: NewBaseConnection("WS"),
 		conn:           conn,
 		handler:        handler,
@@ -56,10 +58,10 @@ func NewWSConnection(handler Handler, logger log.Logger, endpoint string) (*WSCo
 	return w, nil
 }
 
-func (w *WSConnection) Name() string { return "WS" }
+func (w *WS) Name() string { return "WS" }
 
 // Send transmits data as a binary message over the WebSocket connection.
-func (w *WSConnection) Send(ctx context.Context, data []byte) error {
+func (w *WS) Send(ctx context.Context, data []byte) error {
 	w.writeMu.Lock()
 	defer w.writeMu.Unlock()
 
@@ -78,7 +80,7 @@ func (w *WSConnection) Send(ctx context.Context, data []byte) error {
 
 // Close sends a standard WebSocket close frame and terminates the connection.
 // It is safe to call multiple times.
-func (w *WSConnection) Close() error {
+func (w *WS) Close() error {
 	var err error
 	w.closeOnce.Do(func() {
 		w.writeMu.Lock()
@@ -95,7 +97,7 @@ func (w *WSConnection) Close() error {
 }
 
 // readLoop runs in a dedicated goroutine, reading messages from the WebSocket.
-func (w *WSConnection) readLoop() {
+func (w *WS) readLoop() {
 	defer func() {
 		w.Close()
 		w.handler.OnNetClose()

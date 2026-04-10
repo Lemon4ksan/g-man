@@ -16,8 +16,8 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
-	"github.com/lemon4ksan/g-man/pkg/steam/socket/protocol"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -195,8 +195,6 @@ func (m *Manager) InviteToGroups(ctx context.Context, steamID id.ID, groupIDs []
 		m.Logger.Debug("Invited user to group", log.SteamID(steamID.Uint64()), log.Uint64("group_id", groupID))
 	}
 }
-
-// --- Handlers ---
 
 func (m *Manager) handleFriendsList(packet *protocol.Packet) {
 	list := &pb.CMsgClientFriendsList{}

@@ -15,7 +15,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
-	"github.com/lemon4ksan/g-man/pkg/steam/socket/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/sys/gc"
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/tf2"

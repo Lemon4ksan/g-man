@@ -8,7 +8,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/lemon4ksan/g-man/pkg/steam/socket/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 )
 
 var (

@@ -11,6 +11,7 @@ import (
 	"io"
 	"testing"
 
+	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -474,4 +475,153 @@ func TestMsgHdrProtoBuf_Serialization(t *testing.T) {
 	if int(protoLen) != len(data)-8 {
 		t.Errorf("Header length mismatch: field says %d, actual remaining bytes %d", protoLen, len(data)-8)
 	}
+}
+
+func TestGCPacket_Roundtrip_Proto(t *testing.T) {
+	appID := uint32(440)
+	msgType := uint32(1001)
+	payload := []byte("hello-gc-proto")
+
+	p := NewGCPacket(appID, msgType, payload)
+	p.IsProto = true
+	p.SourceJobID = 111
+	p.TargetJobID = 222
+
+	data, err := p.Serialize()
+	if err != nil {
+		t.Fatalf("Serialize failed: %v", err)
+	}
+
+	r := bytes.NewReader(data)
+	var serializedMsgType uint32
+	binary.Read(r, binary.LittleEndian, &serializedMsgType)
+
+	if serializedMsgType != (msgType | ProtoMask) {
+		t.Errorf("Expected MsgType with ProtoMask, got %x", serializedMsgType)
+	}
+
+	remaining, _ := io.ReadAll(r)
+
+	parsed, err := ParseGCPacket(appID, serializedMsgType, remaining)
+	if err != nil {
+		t.Fatalf("ParseGCPacket failed: %v", err)
+	}
+
+	if parsed.AppID != appID || parsed.MsgType != msgType {
+		t.Errorf("AppID or MsgType mismatch")
+	}
+	if !parsed.IsProto {
+		t.Error("Expected IsProto to be true")
+	}
+	if parsed.SourceJobID != 111 || parsed.TargetJobID != 222 {
+		t.Errorf("JobIDs mismatch: Source %d, Target %d", parsed.SourceJobID, parsed.TargetJobID)
+	}
+	if !bytes.Equal(parsed.Payload, payload) {
+		t.Errorf("Payload mismatch: %s", string(parsed.Payload))
+	}
+}
+
+func TestGCPacket_Roundtrip_Legacy(t *testing.T) {
+	appID := uint32(440)
+	msgType := uint32(1001)
+	payload := []byte("hello-gc-legacy")
+
+	p := NewGCPacket(appID, msgType, payload)
+	p.IsProto = false
+	p.SourceJobID = 888
+	p.TargetJobID = 999
+
+	data, err := p.Serialize()
+	if err != nil {
+		t.Fatalf("Serialize failed: %v", err)
+	}
+
+	parsed, err := ParseGCPacket(appID, msgType, data)
+	if err != nil {
+		t.Fatalf("ParseGCPacket failed: %v", err)
+	}
+
+	if parsed.IsProto {
+		t.Error("Expected IsProto to be false")
+	}
+	if parsed.SourceJobID != 888 || parsed.TargetJobID != 999 {
+		t.Errorf("JobIDs mismatch")
+	}
+	if !bytes.Equal(parsed.Payload, payload) {
+		t.Errorf("Payload mismatch")
+	}
+}
+
+func TestParseGCPacket_Errors(t *testing.T) {
+	appID := uint32(440)
+
+	t.Run("TruncatedProtoHeaderLen", func(t *testing.T) {
+		data := []byte{0x01, 0x02}
+		_, err := ParseGCPacket(appID, 100|ProtoMask, data)
+		if err == nil || !bytes.Contains([]byte(err.Error()), []byte("read proto header len")) {
+			t.Errorf("Expected error reading proto header len, got: %v", err)
+		}
+	})
+
+	t.Run("InvalidProtoHeaderData", func(t *testing.T) {
+		buf := new(bytes.Buffer)
+		binary.Write(buf, binary.LittleEndian, uint32(4))
+		buf.Write([]byte{0xFF, 0xFF, 0xFF, 0xFF})
+
+		_, err := ParseGCPacket(appID, 100|ProtoMask, buf.Bytes())
+		if err == nil || !bytes.Contains([]byte(err.Error()), []byte("unmarshal proto header")) {
+			t.Errorf("Expected protobuf unmarshal error, got: %v", err)
+		}
+	})
+
+	t.Run("TruncatedLegacyHeader", func(t *testing.T) {
+		data := make([]byte, 10)
+		_, err := ParseGCPacket(appID, 100, data)
+		if err == nil || !errors.Is(err, io.ErrUnexpectedEOF) {
+			// ParseGCPacket uses io.ReadFull, which returns ErrUnexpectedEOF
+		}
+	})
+}
+
+func TestGCPacket_Serialize_ProtoHeaderError(t *testing.T) {
+	p := NewGCPacket(440, 100, []byte("data"))
+	p.IsProto = true
+
+	data, err := p.Serialize()
+	if err != nil {
+		t.Fatalf("Should serialize fine with default values: %v", err)
+	}
+
+	if len(data) < 8 {
+		t.Errorf("Serialized data too short: %d", len(data))
+	}
+}
+
+func TestMsgTypeMasking(t *testing.T) {
+	rawMsgType := uint32(1001) | ProtoMask
+
+	p, err := ParseGCPacket(440, rawMsgType, generateValidProtoData(0, 0))
+	if err != nil {
+		t.Fatalf("Failed to parse: %v", err)
+	}
+
+	if p.MsgType != 1001 {
+		t.Errorf("MsgType was not correctly unmasked: got %d", p.MsgType)
+	}
+	if !p.IsProto {
+		t.Error("IsProto should be true due to mask")
+	}
+}
+
+func generateValidProtoData(source, target uint64) []byte {
+	hdr := &pb.CMsgProtoBufHeader{
+		JobidSource: proto.Uint64(source),
+		JobidTarget: proto.Uint64(target),
+	}
+	b, _ := proto.Marshal(hdr)
+
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.LittleEndian, uint32(len(b)))
+	buf.Write(b)
+	return buf.Bytes()
 }

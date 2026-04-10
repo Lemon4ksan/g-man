@@ -29,12 +29,12 @@ const (
 )
 
 // Compile-time checks to ensure interface satisfaction.
-var _ Connection = (*TCPConnection)(nil)
-var _ Encryptable = (*TCPConnection)(nil)
+var _ Connection = (*TCP)(nil)
+var _ Encryptable = (*TCP)(nil)
 
-// TCPConnection implements the Connection interface for Steam's custom TCP protocol.
+// TCP implements the Connection interface for Steam's custom TCP protocol.
 // It handles length-prefixed message framing and optional symmetric encryption.
-type TCPConnection struct {
+type TCP struct {
 	BaseConnection
 	conn    net.Conn
 	handler Handler
@@ -45,14 +45,14 @@ type TCPConnection struct {
 	sessionKey []byte
 }
 
-// NewTCPConnection establishes a TCP connection to the given endpoint and starts its read loop.
-func NewTCPConnection(handler Handler, logger log.Logger, endpoint string) (*TCPConnection, error) {
+// NewTCP establishes a TCP connection to the given endpoint and starts its read loop.
+func NewTCP(handler Handler, logger log.Logger, endpoint string) (*TCP, error) {
 	conn, err := net.DialTimeout("tcp", endpoint, 5*time.Second)
 	if err != nil {
 		return nil, err
 	}
 
-	t := &TCPConnection{
+	t := &TCP{
 		BaseConnection: NewBaseConnection("TCP"),
 		conn:           conn,
 		handler:        handler,
@@ -63,10 +63,10 @@ func NewTCPConnection(handler Handler, logger log.Logger, endpoint string) (*TCP
 	return t, nil
 }
 
-func (t *TCPConnection) Name() string { return "TCP" }
+func (t *TCP) Name() string { return "TCP" }
 
 // SetEncryptionKey enables symmetric encryption for all subsequent messages.
-func (t *TCPConnection) SetEncryptionKey(key []byte) {
+func (t *TCP) SetEncryptionKey(key []byte) {
 	t.keyMu.Lock()
 	t.sessionKey = key
 	t.keyMu.Unlock()
@@ -75,7 +75,7 @@ func (t *TCPConnection) SetEncryptionKey(key []byte) {
 
 // Send encrypts (if a key is set) and frames the data before sending it over the TCP socket.
 // The frame format is: [4-byte length][4-byte magic][payload].
-func (t *TCPConnection) Send(ctx context.Context, data []byte) error {
+func (t *TCP) Send(ctx context.Context, data []byte) error {
 	t.keyMu.RLock()
 	key := t.sessionKey
 	t.keyMu.RUnlock()
@@ -111,7 +111,7 @@ func (t *TCPConnection) Send(ctx context.Context, data []byte) error {
 }
 
 // Close terminates the underlying TCP connection.
-func (t *TCPConnection) Close() error {
+func (t *TCP) Close() error {
 	if t.conn == nil {
 		return nil
 	}
@@ -119,7 +119,7 @@ func (t *TCPConnection) Close() error {
 }
 
 // readLoop runs in a dedicated goroutine, continuously reading and decoding packets.
-func (t *TCPConnection) readLoop() {
+func (t *TCP) readLoop() {
 	defer func() {
 		t.conn.Close()
 		t.handler.OnNetClose()

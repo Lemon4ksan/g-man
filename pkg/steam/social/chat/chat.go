@@ -15,8 +15,8 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
-	"github.com/lemon4ksan/g-man/pkg/steam/socket/protocol"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -162,8 +162,6 @@ func (m *Manager) DeleteGroupMessages(ctx context.Context, groupID, chatID uint6
 	_, err := service.Unified[pb.CChatRoom_DeleteChatMessages_Response](ctx, m.service, req)
 	return err
 }
-
-// --- Handlers ---
 
 func (m *Manager) handleIncomingMessage(packet *protocol.Packet) {
 	msg := &pb.CFriendMessages_IncomingMessage_Notification{}

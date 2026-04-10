@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/lemon4ksan/g-man/pkg/steam/socket/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 )
 
 func TestHTTPTransport_ParseEResult(t *testing.T) {

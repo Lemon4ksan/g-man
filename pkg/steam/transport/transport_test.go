@@ -10,8 +10,8 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
-	"github.com/lemon4ksan/g-man/pkg/steam/socket/protocol"
 )
 
 type mockTarget struct {

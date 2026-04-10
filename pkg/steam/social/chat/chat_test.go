@@ -5,11 +5,12 @@
 package chat
 
 import (
+	"errors"
 	"testing"
 	"time"
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
-	"github.com/lemon4ksan/g-man/pkg/steam/socket/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/test/module"
 	"google.golang.org/protobuf/proto"
 )
@@ -201,5 +202,122 @@ func TestChatManager_HandleGroupMessage(t *testing.T) {
 		}
 	case <-time.After(500 * time.Millisecond):
 		t.Fatal("GroupMessageEvent not received")
+	}
+}
+
+func TestChatManager_SendTyping(t *testing.T) {
+	m, ictx := setupChat(t)
+
+	err := m.SendTyping(t.Context(), FriendSteamID)
+	if err != nil {
+		t.Fatalf("SendTyping failed: %v", err)
+	}
+
+	req := &pb.CFriendMessages_SendMessage_Request{}
+	ictx.MockService().GetLastCall(req)
+
+	if req.GetSteamid() != FriendSteamID {
+		t.Errorf("expected steamid %d, got %d", FriendSteamID, req.GetSteamid())
+	}
+	if req.GetChatEntryType() != ChatEntryTypeTyping {
+		t.Errorf("expected type %d (Typing), got %d", ChatEntryTypeTyping, req.GetChatEntryType())
+	}
+}
+
+func TestChatManager_AckFriendMessage(t *testing.T) {
+	m, ictx := setupChat(t)
+	ts := uint32(1700000000)
+
+	err := m.AckFriendMessage(t.Context(), FriendSteamID, ts)
+	if err != nil {
+		t.Fatalf("AckFriendMessage failed: %v", err)
+	}
+
+	req := &pb.CFriendMessages_AckMessage_Notification{}
+	ictx.MockService().GetLastCall(req)
+
+	if req.GetSteamidPartner() != FriendSteamID || req.GetTimestamp() != ts {
+		t.Errorf("AckMessage data mismatch: partner=%d, ts=%d", req.GetSteamidPartner(), req.GetTimestamp())
+	}
+}
+
+func TestChatManager_SendGroupMessage(t *testing.T) {
+	m, ictx := setupChat(t)
+	text := "Hello Group!"
+
+	err := m.SendGroupMessage(t.Context(), ChatGroupID, ChatID, text)
+	if err != nil {
+		t.Fatalf("SendGroupMessage failed: %v", err)
+	}
+
+	req := &pb.CChatRoom_SendChatMessage_Request{}
+	ictx.MockService().GetLastCall(req)
+
+	if req.GetChatGroupId() != ChatGroupID || req.GetChatId() != ChatID || req.GetMessage() != text {
+		t.Errorf("SendGroupMessage data mismatch: %+v", req)
+	}
+}
+
+func TestChatManager_DeleteGroupMessages(t *testing.T) {
+	m, ictx := setupChat(t)
+
+	msgsToDelete := []*pb.CChatRoom_DeleteChatMessages_Request_Message{
+		{ServerTimestamp: proto.Uint32(100), Ordinal: proto.Uint32(1)},
+		{ServerTimestamp: proto.Uint32(101), Ordinal: proto.Uint32(2)},
+	}
+
+	err := m.DeleteGroupMessages(t.Context(), ChatGroupID, ChatID, msgsToDelete)
+	if err != nil {
+		t.Fatalf("DeleteGroupMessages failed: %v", err)
+	}
+
+	req := &pb.CChatRoom_DeleteChatMessages_Request{}
+	ictx.MockService().GetLastCall(req)
+
+	if req.GetChatGroupId() != ChatGroupID || len(req.GetMessages()) != 2 {
+		t.Errorf("DeleteGroupMessages request mismatch: count=%d", len(req.GetMessages()))
+	}
+}
+
+func TestChatManager_ServiceErrors(t *testing.T) {
+	m, ictx := setupChat(t)
+
+	t.Run("SendMessage Failure", func(t *testing.T) {
+		ictx.MockService().ResponseErrs["FriendMessages.SendMessage"] = errors.New("steam_offline")
+
+		err := m.SendMessage(t.Context(), FriendSteamID, "fail")
+		if err == nil {
+			t.Error("expected error but got nil")
+		}
+	})
+
+	t.Run("GetRecentMessages Failure", func(t *testing.T) {
+		ictx.MockService().ResponseErrs["FriendMessages.GetRecentMessages"] = errors.New("access_denied")
+
+		_, err := m.GetRecentMessages(t.Context(), FriendSteamID, 5)
+		if err == nil {
+			t.Error("expected error but got nil")
+		}
+	})
+}
+
+func TestChatManager_MessageTimestamps(t *testing.T) {
+	_, ictx := setupChat(t)
+	subMsg := ictx.Bus().Subscribe(&MessageEvent{})
+
+	fixedTime := int64(1700000000)
+
+	invokeService(t, ictx, "FriendMessagesClient.IncomingMessage#1", &pb.CFriendMessages_IncomingMessage_Notification{
+		SteamidFriend:          proto.Uint64(FriendSteamID),
+		ChatEntryType:          proto.Int32(ChatEntryTypeChatMsg),
+		Message:                proto.String("Time check"),
+		Rtime32ServerTimestamp: proto.Uint32(uint32(fixedTime)),
+	})
+
+	ev := <-subMsg.C()
+	me := ev.(*MessageEvent)
+
+	if me.Timestamp.Unix() != fixedTime {
+		t.Errorf("expected timestamp %d, got %d", fixedTime, me.Timestamp.Unix())
 	}
 }

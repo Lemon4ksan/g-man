@@ -6,7 +6,7 @@ package socket
 
 import (
 	"github.com/lemon4ksan/g-man/pkg/bus"
-	"github.com/lemon4ksan/g-man/pkg/steam/socket/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 )
 
 type SocketEvent interface {

@@ -9,6 +9,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/binary"
+	"errors"
 	"math"
 	"sync"
 	"sync/atomic"
@@ -18,9 +19,9 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/log"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket/internal/network"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket/internal/session"
-	"github.com/lemon4ksan/g-man/pkg/steam/socket/protocol"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -34,6 +35,7 @@ type mockConnection struct {
 	network.BaseConnection
 	sendFunc  func(ctx context.Context, data []byte) error
 	closeFunc func() error
+	sentMsgs  chan []byte
 }
 
 func newMockConnection() *mockConnection {
@@ -41,12 +43,16 @@ func newMockConnection() *mockConnection {
 		BaseConnection: network.NewBaseConnection("mock"),
 		sendFunc:       func(ctx context.Context, data []byte) error { return nil },
 		closeFunc:      func() error { return nil },
+		sentMsgs:       make(chan []byte, 10),
 	}
 }
 
-func (m *mockConnection) Name() string                                { return "MOCK" }
-func (m *mockConnection) Send(ctx context.Context, data []byte) error { return m.sendFunc(ctx, data) }
-func (m *mockConnection) Close() error                                { return m.closeFunc() }
+func (m *mockConnection) Name() string { return "MOCK" }
+func (m *mockConnection) Send(ctx context.Context, data []byte) error {
+	m.sentMsgs <- data
+	return m.sendFunc(ctx, data)
+}
+func (m *mockConnection) Close() error { return m.closeFunc() }
 
 func packProto(eMsg protocol.EMsg, jobId uint64, payload []byte) []byte {
 	buf := new(bytes.Buffer)
@@ -175,9 +181,7 @@ func TestSocket_Routing(t *testing.T) {
 	sock := NewSocket(DefaultTestConfig())
 	defer sock.Close()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	sock.startWorkers(ctx)
+	sock.startWorkers(t.Context())
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
@@ -525,4 +529,107 @@ func TestSocket_InvalidPacket_UnexpectedEOF(t *testing.T) {
 	binary.Write(invalid, binary.LittleEndian, uint32(protocol.EMsg_ClientLogon)|0x80000000)
 
 	sock.processSingle(invalid)
+}
+
+func TestSocket_StartHeartbeat(t *testing.T) {
+	mockConn := newMockConnection()
+	cfg := DefaultTestConfig()
+	cfg.Dialers = map[string]ConnectionDialer{
+		"mock": func(nh network.Handler, l log.Logger, s string) (network.Connection, error) {
+			return mockConn, nil
+		},
+	}
+
+	sock := NewSocket(cfg)
+	defer sock.Close()
+
+	// Подключаемся, чтобы инициализировать connCtx
+	err := sock.Connect(t.Context(), CMServer{Type: "mock", Endpoint: "localhost"})
+	if err != nil {
+		t.Fatalf("Failed to connect: %v", err)
+	}
+
+	// Запускаем Heartbeat с очень коротким интервалом для теста
+	interval := 20 * time.Millisecond
+	sock.StartHeartbeat(interval)
+
+	// Проверяем, что в канал отправки попал EMsg_ClientHeartBeat
+	select {
+	case data := <-mockConn.sentMsgs:
+		pkt, err := protocol.ParsePacket(bytes.NewReader(data))
+		if err != nil {
+			t.Fatalf("Failed to parse sent heartbeat: %v", err)
+		}
+		if pkt.EMsg != protocol.EMsg_ClientHeartBeat {
+			t.Errorf("Expected EMsg_ClientHeartBeat, got %v", pkt.EMsg)
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Error("Timeout: Heartbeat was not sent")
+	}
+}
+
+func TestSocket_InboundHandler(t *testing.T) {
+	sock := NewSocket(DefaultTestConfig())
+	defer sock.Close()
+	sock.startWorkers(t.Context())
+
+	handler := inboundHandler{sock: sock}
+
+	t.Run("OnNetMessage", func(t *testing.T) {
+		called := make(chan bool, 1)
+		sock.RegisterMsgHandler(protocol.EMsg_ClientLogon, func(p *protocol.Packet) {
+			called <- true
+		})
+
+		msg := packProto(protocol.EMsg_ClientLogon, 0, []byte("hello"))
+		handler.OnNetMessage(msg)
+
+		select {
+		case <-called:
+			// Success
+		case <-time.After(100 * time.Millisecond):
+			t.Error("OnNetMessage did not result in handler call")
+		}
+	})
+
+	t.Run("OnNetError", func(t *testing.T) {
+		sub := sock.Bus().Subscribe(NetworkErrorEvent{})
+		defer sub.Unsubscribe()
+
+		testErr := errors.New("network failure")
+		handler.OnNetError(testErr)
+
+		select {
+		case ev := <-sub.C():
+			netErr := ev.(*NetworkErrorEvent)
+			if netErr.Error != testErr {
+				t.Errorf("Expected error %v, got %v", testErr, netErr.Error)
+			}
+		case <-time.After(100 * time.Millisecond):
+			t.Error("OnNetError did not publish NetworkErrorEvent")
+		}
+	})
+
+	t.Run("OnNetClose", func(t *testing.T) {
+		sock.setState(StateConnected)
+
+		sub := sock.Bus().Subscribe(DisconnectedEvent{})
+		defer sub.Unsubscribe()
+
+		handler.OnNetClose()
+
+		if sock.State() != StateDisconnected {
+			t.Errorf("Expected state Disconnected after OnNetClose, got %v", sock.State())
+		}
+
+		select {
+		case ev := <-sub.C():
+			discEv := ev.(*DisconnectedEvent)
+			if discEv.Error == nil {
+				t.Error("Expected error in DisconnectedEvent on unexpected close")
+			}
+		case <-time.After(100 * time.Millisecond):
+			t.Error("OnNetClose did not publish DisconnectedEvent")
+		}
+	})
 }

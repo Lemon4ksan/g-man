@@ -17,9 +17,9 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/rest"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
-	"github.com/lemon4ksan/g-man/pkg/steam/socket/protocol"
 	"github.com/lemon4ksan/g-man/pkg/storage"
 )
 
@@ -116,6 +116,7 @@ type Base struct {
 func New(name string) Base {
 	return Base{
 		NameStr: name,
+		Logger:  log.Discard,
 	}
 }
 

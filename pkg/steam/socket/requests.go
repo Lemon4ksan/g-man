@@ -10,8 +10,8 @@ import (
 	"fmt"
 
 	"github.com/lemon4ksan/g-man/pkg/jobs"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket/internal/session"
-	"github.com/lemon4ksan/g-man/pkg/steam/socket/protocol"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -67,16 +67,8 @@ func Unified(method string, req proto.Message) PayloadBuilder {
 // Raw creates a PayloadBuilder to send a plain byte array (e.g. for encryption).
 func Raw(eMsg protocol.EMsg, payload []byte) PayloadBuilder {
 	return func(sess session.Session, buf *bytes.Buffer, sourceJobID uint64, _ string) error {
-		hdr := protocol.NewMsgHdr(eMsg, protocol.NoJob)
-		hdr.SourceJobID = sourceJobID
-
-		pkt := &protocol.Packet{
-			EMsg:    eMsg,
-			IsProto: false,
-			Header:  hdr,
-			Payload: payload,
-		}
-
+		pkt := newPacket(sess, eMsg, sourceJobID, false, "", "")
+		pkt.Payload = payload
 		return pkt.SerializeTo(buf)
 	}
 }

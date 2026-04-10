@@ -15,8 +15,8 @@ import (
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
-	"github.com/lemon4ksan/g-man/pkg/steam/socket/protocol"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -153,8 +153,6 @@ func (a *Apps) KickPlayingSession(ctx context.Context) error {
 	_, err := service.Legacy[service.NoResponse](ctx, a.client, protocol.EMsg_ClientKickPlayingSession, &pb.CMsgClientKickPlayingSession{})
 	return err
 }
-
-// --- Internal Logic ---
 
 func (a *Apps) sendGamesPlayed(ctx context.Context, games []*pb.CMsgClientGamesPlayed_GamePlayed, newAppIDs []uint32) error {
 	req := &pb.CMsgClientGamesPlayed{

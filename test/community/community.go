@@ -49,7 +49,6 @@ func (m *Mock) Request(ctx context.Context, method, path string, body []byte, qu
 	defer m.mu.Unlock()
 
 	u, _ := url.Parse(community.BaseURL + path)
-
 	qValues, err := rest.StructToValues(query)
 	if err != nil {
 		return nil, err
@@ -62,29 +61,35 @@ func (m *Mock) Request(ctx context.Context, method, path string, body []byte, qu
 	urlStr := u.String()
 
 	req, _ := http.NewRequestWithContext(ctx, method, urlStr, bytes.NewReader(body))
-
 	for _, mod := range mods {
 		mod(req)
 	}
 	m.Calls = append(m.Calls, req)
 
-	if err, ok := m.ResponseErrs[urlStr]; ok && err != nil {
+	key := urlStr
+	if _, ok := m.Responses[key]; !ok {
+		if _, ok := m.Responses[path]; ok {
+			key = path
+		} else if _, ok := m.Responses[""]; ok {
+			key = ""
+		}
+	}
+
+	if err, ok := m.ResponseErrs[key]; ok && err != nil {
 		return nil, err
 	}
 
 	statusCode := http.StatusOK
-	if code, ok := m.StatusCodes[urlStr]; ok {
+	if code, ok := m.StatusCodes[key]; ok {
 		statusCode = code
 	}
 
-	resp := &http.Response{
+	return &http.Response{
 		StatusCode: statusCode,
-		Header:     m.Headers[urlStr],
-		Body:       io.NopCloser(bytes.NewReader(m.Responses[urlStr])),
+		Header:     m.Headers[key],
+		Body:       io.NopCloser(bytes.NewReader(m.Responses[key])),
 		Request:    req,
-	}
-
-	return resp, nil
+	}, nil
 }
 
 func (m *Mock) SetJSONResponse(url string, statusCode int, obj any) {
