@@ -21,6 +21,7 @@
 
 ## ⚡ Key Features
 
+* **True Concurrency**: Unlike single-threaded Node.js libraries, G-man leverages Go's scheduler. Handle 1,000+ accounts or high-frequency trade floods without event-loop lag.
 * **Universal Transport Engine:** A protocol-agnostic layer that unifies **TCP/WebSockets** and **HTTP WebAPI**. Call Unified Services through the most efficient route automatically.
 * **Game Coordinator (GC) Native:** First-class support for TF2, CS2, and Dota 2. Includes job tracking, SOCache (Shared Objects) management, and item-schema parsing.
 * **Stateful Orchestrator:** A centralized `steam.Client` that manages connection lifecycles, background heartbeats, and automatic WebSession/APIKey acquisition.
@@ -28,6 +29,8 @@
 * **Deep Error Scraping:** The `community` client detects "soft errors" (Family View, Maintenance, Login Redirects) hidden inside HTML responses, returning typed Go errors.
 * **Pluggable Persistence:** Native support for **Memory**, **JSON**, and **SQLite** storage for sessions, authentication tokens, and price databases.
 * **Extensive Protobuf Support:** Pre-generated definitions for Steam, TF2, CS2, Dota 2, Deadlock, and WebUI.
+* **Type Safety**: No more `undefined is not a function` in the middle of a $500 trade. Full Protobuf integration ensures your data is valid at compile time.
+* **Binary Efficiency**: Zero-dependency, static binaries. Deploy your bot to a tiny Raspberry Pi with minimal footprint.
 
 ## 📂 Project Layout
 
@@ -107,6 +110,14 @@ func main() {
 }
 ```
 
+## 🛠 Developer Tooling
+
+G-man is built to stay up-to-date. We provide internal CLI generators for:
+
+* **WebAPI**: Automatically syncs with Valve's latest GetSupportedAPIList.
+* **Protobufs**: Sanitizes and compiles raw SteamRE definitions for Go.
+* **SteamLanguage**: Generates type-safe Enums and Stringer implementations from .steamd files.
+
 ## 🏗 Roadmap
 
 ### Core Systems
@@ -137,6 +148,19 @@ func main() {
 * [ ] **CS2 Support:** Game Coordinator implementation for inventory and match data.
 * [ ] **Dota 2 Support:** GC implementation for item management and lobby control.
 
+### Trading Excellence (The "Autobot" Phase)
+
+* [ ] **BPTF Listing Manager:** High-level API for creating, updating, and mass-deleting listings.
+* [ ] **BPTF Price Sync:** Automated background worker to fetch prices and update the internal price database.
+* [ ] **Stock Control:** Implementation of buy/sell limits and automated stock balancing.
+* [ ] **Pure Liquidator:** Automatic metal smelting/combining integrated with the trade flow.
+
+### Industrial Scale & Ops
+
+* [ ] **Prometheus Metrics:** Export trade statistics, profit, and latency data.
+* [ ] **Advanced Proxy Rotation:** Ability to bind different bots to different local IPs/proxies within one process.
+* [ ] **Web Dashboard:** A lightweight embedded UI to monitor bot health and manual offer review.
+
 ## 🤝 Contributing
 
 G-man is an open-source project. We welcome contributions for new game coordinators (CS2/Dota 2) and storage providers. See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
@@ -148,5 +172,5 @@ Distributed under the **BSD-3-Clause** License. See `LICENSE` for more informati
 ---
 
 <div align="center">
-  <sub>Designed for performance. Engineered for profit.</sub>
+  <sub>Prepare for unforeseen consequences... or just prepare for the next Steam Sale.</sub>
 </div>
