@@ -55,9 +55,24 @@ G-man is built with a focus on high performance and maintainability. We follow s
 ### 5. Logging
 
 * **Structured Only:** Do not use `fmt.Println` or the standard `log` package. Use the `pkg/log` package provided in the SDK.
-* **Contextual Fields:** Always include relevant metadata using fields (e.g., `log.Uint64("steam_id", id)`).
+* **Contextual Fields:** Always include relevant metadata using fields (e.g., `log.SteamID(id)`).
 
----
+## 📦 Dependency Policy
+
+We strive to keep the dependency tree as lean as possible.
+
+* **Standard Library First:** Always prefer the Go standard library if it can achieve the task efficiently.
+* **Justification:** Adding a new external dependency requires a strong justification in the PR description.
+* **License Compatibility:** New dependencies must have a permissive license (MIT, BSD, Apache 2.0).
+
+## 💬 Commit Messages
+
+We follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
+
+* `feat:` for new features (e.g., `feat(tf2): add automatic scrap combining`).
+* `fix:` for bug fixes (e.g., `fix(socket): resolve race condition in heartbeat`).
+* `docs:` for documentation changes.
+* `refactor:` for code changes that neither fix a bug nor add a feature.
 
 ## 🧪 Testing
 
@@ -65,7 +80,6 @@ We rely heavily on automated testing to ensure the framework remains stable.
 
 * **Mocking:** Use the `test/` package to mock network requesters and Steam CM responses.
 * **Race Detector:** Always run your tests with the race detector enabled: `go test -race ./...`.
-* **Golden Files:** For complex protocol parsing, use "golden files" to compare actual output against a known-good baseline.
 
 ---
 
