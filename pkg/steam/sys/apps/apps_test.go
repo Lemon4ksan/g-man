@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Lemon4ksan All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 package apps
 
 import (
@@ -8,7 +12,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/bus"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket/protocol"
-	"github.com/lemon4ksan/g-man/test"
+	"github.com/lemon4ksan/g-man/test/module"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -17,10 +21,10 @@ const (
 	AppID_CS2 = 730
 )
 
-func setup(t *testing.T) (*Apps, *test.MockInitContext) {
+func setup(t *testing.T) (*Apps, *module.InitContext) {
 	t.Helper()
 	a := New()
-	ictx := test.NewMockInitContext()
+	ictx := module.NewInitContext()
 
 	if err := a.Init(ictx); err != nil {
 		t.Fatalf("failed to init apps module: %v", err)
@@ -35,7 +39,7 @@ func setup(t *testing.T) (*Apps, *test.MockInitContext) {
 
 func TestApps_InitAndClose(t *testing.T) {
 	a := New()
-	ictx := test.NewMockInitContext()
+	ictx := module.NewInitContext()
 
 	if a.Name() != ModuleName {
 		t.Errorf("expected module name %s, got %s", ModuleName, a.Name())

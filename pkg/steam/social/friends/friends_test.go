@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Lemon4ksan All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 package friends
 
 import (
@@ -11,7 +15,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket/protocol"
-	"github.com/lemon4ksan/g-man/test"
+	"github.com/lemon4ksan/g-man/test/module"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -21,16 +25,16 @@ const (
 	BotSteamID = 76561198000000000
 )
 
-func setupFriends(t *testing.T) (*Manager, *test.MockInitContext) {
+func setupFriends(t *testing.T) (*Manager, *module.InitContext) {
 	t.Helper()
 	m := New()
-	ictx := test.NewMockInitContext()
+	ictx := module.NewInitContext()
 
 	if err := m.Init(ictx); err != nil {
 		t.Fatalf("failed to init friends: %v", err)
 	}
 
-	_ = m.StartAuthed(t.Context(), test.NewMockAuthContext(BotSteamID))
+	_ = m.StartAuthed(t.Context(), module.NewAuthContext(BotSteamID))
 
 	t.Cleanup(func() {
 		_ = m.Close()
@@ -41,7 +45,7 @@ func setupFriends(t *testing.T) (*Manager, *test.MockInitContext) {
 
 func TestManager_InitAndClose(t *testing.T) {
 	m := New()
-	ictx := test.NewMockInitContext()
+	ictx := module.NewInitContext()
 
 	t.Run("Register", func(t *testing.T) {
 		_ = m.Init(ictx)
@@ -135,7 +139,7 @@ func TestManager_AddAndRemoveFriend(t *testing.T) {
 func TestManager_InviteToGroups(t *testing.T) {
 	m, _ := setupFriends(t)
 
-	authCtx := test.NewMockAuthContext(BotSteamID)
+	authCtx := module.NewAuthContext(BotSteamID)
 	comm := authCtx.MockCommunity()
 
 	_ = m.StartAuthed(t.Context(), authCtx)

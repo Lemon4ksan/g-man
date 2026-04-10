@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package test
+package module
 
 import (
 	"encoding/json"
@@ -20,95 +20,97 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/socket/protocol"
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
 	"github.com/lemon4ksan/g-man/pkg/storage"
+	cm "github.com/lemon4ksan/g-man/test/community"
+	"github.com/lemon4ksan/g-man/test/requester"
 	"google.golang.org/protobuf/proto"
 )
 
-type MockInitContext struct {
+type InitContext struct {
 	mu              sync.RWMutex
 	eventBus        *bus.Bus
 	logger          log.Logger
-	mockService     *MockRequester
+	mockService     *requester.Mock
 	packetHandlers  map[protocol.EMsg]socket.Handler
 	serviceHandlers map[string]socket.Handler
 	modules         map[string]module.Module
 	storage         storage.Provider
 }
 
-func NewMockInitContext() *MockInitContext {
-	return &MockInitContext{
+func NewInitContext() *InitContext {
+	return &InitContext{
 		eventBus:        bus.NewBus(),
 		logger:          log.Discard,
-		mockService:     NewMockRequester(),
+		mockService:     requester.New(),
 		packetHandlers:  make(map[protocol.EMsg]socket.Handler),
 		serviceHandlers: make(map[string]socket.Handler),
 		modules:         make(map[string]module.Module),
 	}
 }
 
-func (m *MockInitContext) Bus() *bus.Bus               { return m.eventBus }
-func (m *MockInitContext) Logger() log.Logger          { return m.logger }
-func (m *MockInitContext) Service() service.Doer       { return m.mockService }
-func (m *MockInitContext) Rest() rest.Requester        { return m.mockService }
-func (m *MockInitContext) Storage() storage.Provider   { return m.storage }
-func (m *MockInitContext) MockService() *MockRequester { return m.mockService }
+func (m *InitContext) Bus() *bus.Bus                { return m.eventBus }
+func (m *InitContext) Logger() log.Logger           { return m.logger }
+func (m *InitContext) Service() service.Doer        { return m.mockService }
+func (m *InitContext) Rest() rest.Requester         { return m.mockService }
+func (m *InitContext) Storage() storage.Provider    { return m.storage }
+func (m *InitContext) MockService() *requester.Mock { return m.mockService }
 
-func (m *MockInitContext) SetService(s *MockRequester) {
+func (m *InitContext) SetService(s *requester.Mock) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.mockService = s
 }
 
-func (m *MockInitContext) SetStorage(s storage.Provider) {
+func (m *InitContext) SetStorage(s storage.Provider) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.storage = s
 }
 
-func (m *MockInitContext) RegisterPacketHandler(e protocol.EMsg, h socket.Handler) {
+func (m *InitContext) RegisterPacketHandler(e protocol.EMsg, h socket.Handler) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.packetHandlers[e] = h
 }
 
-func (m *MockInitContext) UnregisterPacketHandler(e protocol.EMsg) {
+func (m *InitContext) UnregisterPacketHandler(e protocol.EMsg) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	delete(m.packetHandlers, e)
 }
 
-func (m *MockInitContext) RegisterServiceHandler(method string, h socket.Handler) {
+func (m *InitContext) RegisterServiceHandler(method string, h socket.Handler) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.serviceHandlers[method] = h
 }
 
-func (m *MockInitContext) UnregisterServiceHandler(method string) {
+func (m *InitContext) UnregisterServiceHandler(method string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	delete(m.serviceHandlers, method)
 }
 
-func (m *MockInitContext) Module(name string) module.Module {
+func (m *InitContext) Module(name string) module.Module {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.modules[name]
 }
 
-func (m *MockInitContext) GetPacketHandler(method protocol.EMsg) (socket.Handler, bool) {
+func (m *InitContext) GetPacketHandler(method protocol.EMsg) (socket.Handler, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	h, ok := m.packetHandlers[method]
 	return h, ok
 }
 
-func (m *MockInitContext) GetServiceHandler(method string) (socket.Handler, bool) {
+func (m *InitContext) GetServiceHandler(method string) (socket.Handler, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	h, ok := m.serviceHandlers[method]
 	return h, ok
 }
 
-func (m *MockInitContext) AssertPacketHandlerRegistered(t *testing.T, e protocol.EMsg) {
+func (m *InitContext) AssertPacketHandlerRegistered(t *testing.T, e protocol.EMsg) {
 	t.Helper()
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -117,7 +119,7 @@ func (m *MockInitContext) AssertPacketHandlerRegistered(t *testing.T, e protocol
 	}
 }
 
-func (m *MockInitContext) AssertPacketHandlerUnregistered(t *testing.T, e protocol.EMsg) {
+func (m *InitContext) AssertPacketHandlerUnregistered(t *testing.T, e protocol.EMsg) {
 	t.Helper()
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -126,7 +128,7 @@ func (m *MockInitContext) AssertPacketHandlerUnregistered(t *testing.T, e protoc
 	}
 }
 
-func (m *MockInitContext) EmitPacket(t *testing.T, e protocol.EMsg, msg proto.Message) {
+func (m *InitContext) EmitPacket(t *testing.T, e protocol.EMsg, msg proto.Message) {
 	t.Helper()
 	m.mu.RLock()
 	handler, ok := m.packetHandlers[e]
@@ -147,31 +149,31 @@ func (m *MockInitContext) EmitPacket(t *testing.T, e protocol.EMsg, msg proto.Me
 	})
 }
 
-func (m *MockInitContext) SetModule(name string, mod module.Module) {
+func (m *InitContext) SetModule(name string, mod module.Module) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.modules[name] = mod
 }
 
-func (m *MockInitContext) MockServiceAccessor() *MockRequester {
+func (m *InitContext) MockServiceAccessor() *requester.Mock {
 	return m.mockService
 }
 
-type MockAuthContext struct {
-	mockCommunity *MockCommunityRequester
+type AuthContext struct {
+	mockCommunity *cm.Mock
 	steamID       id.ID
 }
 
-func NewMockAuthContext(steamID id.ID) *MockAuthContext {
-	return &MockAuthContext{
-		mockCommunity: NewMockCommunityRequester(),
+func NewAuthContext(steamID id.ID) *AuthContext {
+	return &AuthContext{
+		mockCommunity: cm.New(),
 		steamID:       steamID,
 	}
 }
 
-func (m *MockAuthContext) Community() community.Requester         { return m.mockCommunity }
-func (m *MockAuthContext) MockCommunity() *MockCommunityRequester { return m.mockCommunity }
-func (m *MockAuthContext) SteamID() id.ID                         { return m.steamID }
+func (m *AuthContext) Community() community.Requester { return m.mockCommunity }
+func (m *AuthContext) MockCommunity() *cm.Mock        { return m.mockCommunity }
+func (m *AuthContext) SteamID() id.ID                 { return m.steamID }
 
 func ProtoResponse(msg proto.Message) (*tr.Response, error) {
 	b, err := proto.Marshal(msg)

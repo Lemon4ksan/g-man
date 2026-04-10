@@ -8,6 +8,8 @@ package storage
 import (
 	"context"
 	"errors"
+
+	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 )
 
 var (
@@ -18,34 +20,19 @@ var (
 // Provider is the master interface that a storage backend must implement.
 // It acts as a factory for specific domain stores.
 type Provider interface {
-	// AuthStore returns a store dedicated to authentication data (tokens, cookies).
-	AuthStore() AuthStore
+	// Auth returns a store dedicated to authentication data (tokens, cookies).
+	Auth() auth.Store
 
-	// KVStore returns a generic key-value store for arbitrary data.
-	KVStore(namespace string) KVStore
+	// KV returns a generic key-value store for arbitrary data.
+	KV(namespace string) KV
 
 	// Close cleanly shuts down the storage connection.
 	Close() error
 }
 
-// AuthStore specifically handles persisting the Steam authentication state.
-type AuthStore interface {
-	// SaveRefreshToken persists the long-lived OIDC refresh token.
-	SaveRefreshToken(ctx context.Context, accountName, token string) error
-
-	// GetRefreshToken retrieves the refresh token for a specific account.
-	GetRefreshToken(ctx context.Context, accountName string) (string, error)
-
-	SaveMachineID(ctx context.Context, accountName string, machineID []byte) error
-	GetMachineID(ctx context.Context, accountName string) ([]byte, error)
-
-	// Clear removes all authentication data for the specified account.
-	Clear(ctx context.Context, accountName string) error
-}
-
-// KVStore is a generic, string-to-bytes key-value store.
+// KV is a generic, string-to-bytes key-value store.
 // The "namespace" concept allows separating data (e.g., "trading_known_offers" vs "tf2_schema_version").
-type KVStore interface {
+type KV interface {
 	// Set stores a value associated with a key.
 	Set(ctx context.Context, key string, value []byte) error
 

@@ -14,13 +14,14 @@ import (
 	"time"
 
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
-	"github.com/lemon4ksan/g-man/test"
+	"github.com/lemon4ksan/g-man/test/module"
+	"github.com/lemon4ksan/g-man/test/requester"
 )
 
-func setupSchema(t *testing.T, cfg Config) (*Manager, *test.MockRequester) {
+func setupSchema(t *testing.T, cfg Config) (*Manager, *requester.Mock) {
 	t.Helper()
-	mockAPI := test.NewMockRequester()
-	init := test.NewMockInitContext()
+	mockAPI := requester.New()
+	init := module.NewInitContext()
 	init.SetService(mockAPI)
 
 	sm := NewManager(cfg)
@@ -136,23 +137,23 @@ func TestSchemaManager_Refresh_Success(t *testing.T) {
 func TestSchemaManager_Refresh_Failures(t *testing.T) {
 	tests := []struct {
 		name      string
-		mockSetup func(m *test.MockRequester)
+		mockSetup func(m *requester.Mock)
 	}{
 		{
 			name: "Overview WebAPI Error",
-			mockSetup: func(m *test.MockRequester) {
+			mockSetup: func(m *requester.Mock) {
 				m.ResponseErrs["IEconItems_440/GetSchemaOverview"] = errors.New("steam api down")
 			},
 		},
 		{
 			name: "Items WebAPI Error",
-			mockSetup: func(m *test.MockRequester) {
+			mockSetup: func(m *requester.Mock) {
 				m.ResponseErrs["IEconItems_440/GetSchemaItems"] = errors.New("steam api timeout")
 			},
 		},
 		{
 			name: "Github Resource Down",
-			mockSetup: func(m *test.MockRequester) {
+			mockSetup: func(m *requester.Mock) {
 				m.OnDo = func(req *tr.Request) (*tr.Response, error) {
 					if strings.HasPrefix(req.Target().String(), "https://raw.githubusercontent.com") {
 						return nil, errors.New("github connection failed")

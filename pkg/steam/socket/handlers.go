@@ -61,10 +61,7 @@ func (s *Socket) handleJobResponse(packet *protocol.Packet) bool {
 
 	var err error
 	if packet.EMsg == protocol.EMsg_DestJobFailed {
-		err = &SteamError{
-			EMsg:    packet.EMsg,
-			Message: "destination job failed on Steam side",
-		}
+		err = ErrDestJobFailed
 	}
 
 	return s.jobManager.Resolve(targetID, packet, err)

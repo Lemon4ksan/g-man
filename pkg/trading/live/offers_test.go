@@ -10,7 +10,7 @@ import (
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket/protocol"
-	"github.com/lemon4ksan/g-man/test"
+	"github.com/lemon4ksan/g-man/test/module"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -19,10 +19,10 @@ const (
 	TradeID       = 555
 )
 
-func setupOffers(t *testing.T) (*Manager, *test.MockInitContext) {
+func setupOffers(t *testing.T) (*Manager, *module.InitContext) {
 	t.Helper()
 	m := New()
-	ictx := test.NewMockInitContext()
+	ictx := module.NewInitContext()
 
 	if err := m.Init(ictx); err != nil {
 		t.Fatalf("failed to init offers manager: %v", err)
@@ -37,7 +37,7 @@ func setupOffers(t *testing.T) (*Manager, *test.MockInitContext) {
 
 func TestManager_InitAndClose(t *testing.T) {
 	m := New()
-	ictx := test.NewMockInitContext()
+	ictx := module.NewInitContext()
 
 	if m.Name() != ModuleName {
 		t.Errorf("expected %s, got %s", ModuleName, m.Name())

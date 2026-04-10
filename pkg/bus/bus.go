@@ -91,7 +91,7 @@ func NewBus() *Bus {
 // Example:
 //
 //	sub := bus.Subscribe(LoginEvent{}, &DisconnectEvent{})
-func (b *Bus) Subscribe(eventExamples ...Event) *Subscription {
+func (b *Bus) Subscribe(evs ...Event) *Subscription {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -108,7 +108,7 @@ func (b *Bus) Subscribe(eventExamples ...Event) *Subscription {
 		return sub
 	}
 
-	for _, ev := range eventExamples {
+	for _, ev := range evs {
 		t := resolveType(ev)
 
 		// Ensure we don't subscribe to the same type twice for one subscription

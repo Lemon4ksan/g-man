@@ -12,7 +12,7 @@ import (
 
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
-	"github.com/lemon4ksan/g-man/test"
+	"github.com/lemon4ksan/g-man/test/module"
 )
 
 type mockConfService struct {
@@ -62,14 +62,14 @@ func validConfig() Config {
 	return cfg
 }
 
-func setupGuard(t *testing.T, cfg Config) (*Guardian, *test.MockInitContext, *mockConfService) {
+func setupGuard(t *testing.T, cfg Config) (*Guardian, *module.InitContext, *mockConfService) {
 	t.Helper()
 	g, err := New(cfg)
 	if err != nil {
 		t.Fatalf("failed to create Guardian: %v", err)
 	}
 
-	ictx := test.NewMockInitContext()
+	ictx := module.NewInitContext()
 
 	if err := g.Init(ictx); err != nil {
 		t.Fatalf("failed to init Guardian: %v", err)

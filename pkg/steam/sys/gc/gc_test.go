@@ -11,7 +11,7 @@ import (
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket/protocol"
-	"github.com/lemon4ksan/g-man/test"
+	"github.com/lemon4ksan/g-man/test/module"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -20,10 +20,10 @@ const (
 	AppID_CS2 uint32 = 730
 )
 
-func setupCoordinator(t *testing.T) (*Coordinator, *test.MockInitContext) {
+func setupCoordinator(t *testing.T) (*Coordinator, *module.InitContext) {
 	t.Helper()
 	c := New()
-	ictx := test.NewMockInitContext()
+	ictx := module.NewInitContext()
 
 	if err := c.Init(ictx); err != nil {
 		t.Fatalf("failed to init coordinator: %v", err)
@@ -36,7 +36,7 @@ func setupCoordinator(t *testing.T) (*Coordinator, *test.MockInitContext) {
 	return c, ictx
 }
 
-func emitGC(t *testing.T, ictx *test.MockInitContext, appID uint32, msgType uint32, payload []byte, jobID uint64) {
+func emitGC(t *testing.T, ictx *module.InitContext, appID uint32, msgType uint32, payload []byte, jobID uint64) {
 	t.Helper()
 	inner := &protocol.GCPacket{
 		AppID:       appID,
@@ -58,7 +58,7 @@ func emitGC(t *testing.T, ictx *test.MockInitContext, appID uint32, msgType uint
 
 func TestCoordinator_InitAndClose(t *testing.T) {
 	c := New()
-	ictx := test.NewMockInitContext()
+	ictx := module.NewInitContext()
 
 	t.Run("Name", func(t *testing.T) {
 		if c.Name() != ModuleName {

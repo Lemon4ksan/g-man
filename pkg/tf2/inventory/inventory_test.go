@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/lemon4ksan/g-man/test"
+	"github.com/lemon4ksan/g-man/test/requester"
 )
 
 type mockRoundTripper struct {
@@ -34,7 +34,7 @@ func (m *MockDupeChecker) CheckHistory(ctx context.Context, id uint64) (HistoryS
 }
 
 func TestPlayerInventory_IsDuped(t *testing.T) {
-	mockAPI := test.NewMockRequester()
+	mockAPI := requester.New()
 	mockAPI.SetJSONResponse("IEconItems_440", "GetPlayerItems", PlayerItemsResponse{
 		Result: struct {
 			Status           int       `json:"status"`

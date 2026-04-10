@@ -14,10 +14,10 @@ import (
 
 	"github.com/lemon4ksan/g-man/pkg/jobs"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/tf2"
-	"github.com/lemon4ksan/g-man/pkg/steam/module"
+	bm "github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/sys/apps"
-	"github.com/lemon4ksan/g-man/test"
+	"github.com/lemon4ksan/g-man/test/module"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -27,7 +27,7 @@ const (
 )
 
 type mockCoordinator struct {
-	module.Base
+	bm.Base
 	lastSendMsgType uint32
 	lastSendPayload []byte
 
@@ -62,9 +62,9 @@ func (m *mockCoordinator) CallRaw(ctx context.Context, appID uint32, msgType uin
 	return errors.New("onCallRaw not configured")
 }
 
-func setupTF2(t *testing.T) (*TF2, *test.MockInitContext, *mockCoordinator) {
+func setupTF2(t *testing.T) (*TF2, *module.InitContext, *mockCoordinator) {
 	t.Helper()
-	ictx := test.NewMockInitContext()
+	ictx := module.NewInitContext()
 
 	mCoord := &mockCoordinator{}
 	ictx.SetModule("gc", mCoord)

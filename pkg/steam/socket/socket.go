@@ -7,6 +7,7 @@ package socket
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"runtime"
 	"sync"
@@ -18,10 +19,44 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/log"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket/internal/network"
+	"github.com/lemon4ksan/g-man/pkg/steam/socket/internal/session"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket/protocol"
 
 	"google.golang.org/protobuf/proto"
 )
+
+var (
+	// ErrClosed is returned when an operation is attempted on a Socket that
+	// has been permanently shut down via Close().
+	ErrClosed = errors.New("socket: instance is permanently closed")
+
+	// ErrDisconnected is returned when sending a message requires an active
+	// session, but the socket is currently disconnected.
+	ErrDisconnected = errors.New("socket: not connected to any CM server")
+
+	// ErrAlreadyConnecting is returned if Connect() is called while a
+	// connection attempt is already in progress.
+	ErrAlreadyConnecting = errors.New("socket: connection attempt already in progress")
+
+	// ErrAlreadyConnected is returned if Connect() is called on a socket
+	// that already has an active session.
+	ErrAlreadyConnected = errors.New("socket: already connected")
+
+	// ErrUnsupportedType is returned when the provided [CMServer.Type] does
+	// not have a registered dialer in the configuration.
+	ErrUnsupportedType = errors.New("socket: unsupported transport protocol")
+
+	// ErrDecompressionLimit is returned when a Multi-message payload
+	// exceeds the safety threshold (default 100MB) to prevent OOM attacks.
+	ErrDecompressionLimit = errors.New("socket: decompression limit exceeded")
+
+	// ErrDestJobFailed is returned when socket receives EMsg_DestJobFailed message.
+	ErrDestJobFailed = errors.New("socket: destination job failed on Steam side")
+)
+
+// Session represents the complete lifecycle and state of a connection
+// to a Steam Connection Manager (CM).
+type Session = session.Session
 
 // Handler defines a callback function for processing an incoming, fully-parsed Steam packet.
 type Handler func(p *protocol.Packet)
@@ -70,21 +105,17 @@ func Register[T proto.Message](s *Socket, emsg protocol.EMsg, factory func() T, 
 
 // Config holds configuration parameters for the Socket.
 type Config struct {
-	ConnectTimeout time.Duration               // Max time to wait for a network connection to establish.
-	EventChanSize  int                         // Buffer size for the internal message-passing channel.
-	WorkerCount    int                         // Number of parallel workers processing incoming packets.
-	DebugEvents    bool                        // If true, enables verbose event logging.
-	Dialers        map[string]ConnectionDialer // Map of protocol names to dialer functions.
+	EventChanSize int                         // Buffer size for the internal message-passing channel.
+	WorkerCount   int                         // Number of parallel workers processing incoming packets.
+	Dialers       map[string]ConnectionDialer // Map of protocol names to dialer functions.
 }
 
 // DefaultConfig returns the recommended default configuration.
 func DefaultConfig() Config {
 	return Config{
-		ConnectTimeout: 10 * time.Second,
-		EventChanSize:  1000, // Increased to handle bursts of multi-messages
-		WorkerCount:    runtime.NumCPU(),
-		DebugEvents:    true,
-		Dialers:        DefaultDialers(),
+		EventChanSize: 1000, // Increased to handle bursts of multi-messages
+		WorkerCount:   runtime.NumCPU(),
+		Dialers:       DefaultDialers(),
 	}
 }
 
@@ -92,7 +123,6 @@ func DefaultConfig() Config {
 type State int32
 
 const (
-	// StateDisconnected indicates the socket is not connected.
 	StateDisconnected State = iota
 	// StateConnecting indicates the socket is in the process of connecting.
 	StateConnecting
@@ -204,12 +234,9 @@ func NewSocket(cfg Config, opts ...Option) *Socket {
 	return s
 }
 
+// IsConnected checks if current state is [StateConnected].
 func (s *Socket) IsConnected() bool {
 	return s.State() == StateConnected
-}
-
-func (s *Socket) CanConnect() bool {
-	return s.state.CompareAndSwap(int32(StateDisconnected), int32(StateConnecting))
 }
 
 // Bus returns the underlying event dispatcher.
@@ -248,7 +275,7 @@ func (s *Socket) RegisterMsgHandler(eMsg protocol.EMsg, handler Handler) {
 }
 
 // RegisterServiceHandler registers a callback for a specific Unified Service Method.
-// Example method: "Player.GetGameBadgeLevels#1"
+// Example method: "Player.GetGameBadgeLevels#1". Passing nil will remove the existing handler.
 func (s *Socket) RegisterServiceHandler(method string, handler Handler) {
 	s.serviceHandlersMu.Lock()
 	defer s.serviceHandlersMu.Unlock()
@@ -264,7 +291,7 @@ func (s *Socket) RegisterServiceHandler(method string, handler Handler) {
 // This is a non-blocking call that starts background processes. The connection
 // state can be monitored via the event bus or State().
 func (s *Socket) Connect(ctx context.Context, server CMServer) error {
-	if !s.CanConnect() {
+	if !s.canConnect() {
 		return ErrAlreadyConnected
 	}
 
@@ -279,28 +306,22 @@ func (s *Socket) Connect(ctx context.Context, server CMServer) error {
 	conn, err := dialer(inboundHandler{sock: s}, s.logger, server.Endpoint)
 	if err != nil {
 		s.setState(StateDisconnected)
-		return fmt.Errorf("transport dial failed: %w", err)
+		return fmt.Errorf("socket: transport dial failed: %w", err)
 	}
 
-	baseSession := NewBaseSession(conn)
-	sessionLogger := s.logger.With(
-		log.String("endpoint", server.Endpoint),
-		log.Int64("conn_id", conn.ID()),
-	)
-
-	var ls Session = NewLoggedSession(baseSession, sessionLogger)
+	sLog := s.logger.With(log.String("endpoint", server.Endpoint), log.Int64("conn_id", conn.ID()))
+	ls := session.NewLogged(session.New(conn), sLog)
 	s.setSession(ls)
 
 	connCtx, connCancel := context.WithCancel(context.Background())
 	s.connCtx.Store(connCtx)
 	s.connCancel.Store(connCancel)
 
-	s.startWorkers(connCtx, s.config.WorkerCount)
-
 	s.setState(StateConnected)
 	s.bus.Publish(&ConnectedEvent{Server: server.Endpoint})
 	s.logger.Info("Successfully connected", log.Duration("latency", time.Since(start)))
 
+	s.startWorkers(connCtx)
 	return nil
 }
 
@@ -407,8 +428,8 @@ func (s *Socket) recoverPanic(emsg protocol.EMsg) {
 	}
 }
 
-func (s *Socket) startWorkers(ctx context.Context, count int) {
-	for range count {
+func (s *Socket) startWorkers(ctx context.Context) {
+	for range s.config.WorkerCount {
 		s.workerWg.Add(1)
 		go s.worker(ctx)
 	}
@@ -433,6 +454,10 @@ func (s *Socket) worker(ctx context.Context) {
 			return
 		}
 	}
+}
+
+func (s *Socket) canConnect() bool {
+	return s.state.CompareAndSwap(int32(StateDisconnected), int32(StateConnecting))
 }
 
 // routePacket is the central dispatcher for all incoming messages.
@@ -515,7 +540,7 @@ type sessionContainer struct {
 }
 
 // inboundHandler acts as the adapter (or "bridge") between the low-level `network`
-// package and the higher-level `socket` logic. It implements network.Handler.
+// package and the higher-level `socket` logic. It implements [network.Handler].
 type inboundHandler struct {
 	sock *Socket
 }

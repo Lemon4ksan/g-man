@@ -147,7 +147,7 @@ func NewClient(cfg Config, opts ...Option) *Client {
 		authService,
 		cfg.Auth,
 		auth.WithLogger(c.logger),
-		auth.WithStorage(cfg.Storage.AuthStore()),
+		auth.WithStorage(cfg.Storage.Auth()),
 	)
 
 	socketTransport := tr.NewSocketTransport(c.socket)
@@ -441,7 +441,7 @@ func (c *Client) startAuthed() {
 	c.mu.RUnlock()
 
 	for name, mod := range mods {
-		if authed, ok := mod.(module.ModuleAuth); ok {
+		if authed, ok := mod.(module.Auth); ok {
 			if err := authed.StartAuthed(c.ctx, c); err != nil {
 				c.logger.Error("Failed to start authed module", log.String("name", name), log.Err(err))
 			}

@@ -11,7 +11,7 @@ import (
 
 type SocketEvent interface {
 	bus.Event
-	IsSocketEvent()
+	isSocketEvent()
 }
 
 // StateEvent is emitted whenever the socket transitions between states
@@ -22,7 +22,7 @@ type StateEvent struct {
 	New State
 }
 
-func (e StateEvent) IsSocketEvent() {}
+func (e StateEvent) isSocketEvent() {}
 
 // ConnectedEvent is emitted when the socket successfully establishes a transport
 // connection to a Steam CM Server.
@@ -31,7 +31,7 @@ type ConnectedEvent struct {
 	Server string // The endpoint the socket connected to (Host:Port)
 }
 
-func (e ConnectedEvent) IsSocketEvent() {}
+func (e ConnectedEvent) isSocketEvent() {}
 
 // NetworkErrorEvent is emitted when a non-fatal underlying network error occurs
 // during active communication.
@@ -40,7 +40,7 @@ type NetworkErrorEvent struct {
 	Error error
 }
 
-func (e NetworkErrorEvent) IsSocketEvent() {}
+func (e NetworkErrorEvent) isSocketEvent() {}
 
 // DisconnectedEvent is emitted when the socket connection is closed.
 // This can happen intentionally or due to a network/Steam drop.
@@ -56,4 +56,4 @@ type DisconnectedEvent struct {
 	EResult protocol.EResult
 }
 
-func (e DisconnectedEvent) IsSocketEvent() {}
+func (e DisconnectedEvent) isSocketEvent() {}

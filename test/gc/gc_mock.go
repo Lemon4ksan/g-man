@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package test
+package gc
 
 import (
 	"context"
@@ -16,7 +16,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-type MockCoordinator struct {
+type Mock struct {
 	mu           sync.RWMutex
 	sendCalls    map[uint32]proto.Message
 	sendRawCalls map[uint32][]byte
@@ -25,8 +25,8 @@ type MockCoordinator struct {
 	autoReplies  map[uint32]func(payload []byte) ([]byte, error)
 }
 
-func NewMockCoordinator() *MockCoordinator {
-	return &MockCoordinator{
+func New() *Mock {
+	return &Mock{
 		sendCalls:    make(map[uint32]proto.Message),
 		sendRawCalls: make(map[uint32][]byte),
 		pendingCalls: make(map[uint32]jobs.Callback[*protocol.GCPacket]),
@@ -34,37 +34,37 @@ func NewMockCoordinator() *MockCoordinator {
 	}
 }
 
-func (m *MockCoordinator) Name() string {
+func (m *Mock) Name() string {
 	return "gc"
 }
 
-func (m *MockCoordinator) Init(init module.InitContext) error {
+func (m *Mock) Init(init module.InitContext) error {
 	return nil
 }
 
-func (m *MockCoordinator) Start(ctx context.Context) error {
+func (m *Mock) Start(ctx context.Context) error {
 	return nil
 }
 
-func (m *MockCoordinator) Close() error {
+func (m *Mock) Close() error {
 	return nil
 }
 
-func (m *MockCoordinator) Send(ctx context.Context, appID uint32, msgType uint32, msg proto.Message) error {
+func (m *Mock) Send(ctx context.Context, appID uint32, msgType uint32, msg proto.Message) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.sendCalls[msgType] = msg
 	return nil
 }
 
-func (m *MockCoordinator) SendRaw(ctx context.Context, appID uint32, msgType uint32, payload []byte) error {
+func (m *Mock) SendRaw(ctx context.Context, appID uint32, msgType uint32, payload []byte) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.sendRawCalls[msgType] = payload
 	return nil
 }
 
-func (m *MockCoordinator) Call(ctx context.Context, appID uint32, msgType uint32, msg proto.Message, cb jobs.Callback[*protocol.GCPacket]) error {
+func (m *Mock) Call(ctx context.Context, appID uint32, msgType uint32, msg proto.Message, cb jobs.Callback[*protocol.GCPacket]) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -82,7 +82,7 @@ func (m *MockCoordinator) Call(ctx context.Context, appID uint32, msgType uint32
 	return nil
 }
 
-func (m *MockCoordinator) CallRaw(ctx context.Context, appID uint32, msgType uint32, payload []byte, cb jobs.Callback[*protocol.GCPacket]) error {
+func (m *Mock) CallRaw(ctx context.Context, appID uint32, msgType uint32, payload []byte, cb jobs.Callback[*protocol.GCPacket]) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -99,13 +99,13 @@ func (m *MockCoordinator) CallRaw(ctx context.Context, appID uint32, msgType uin
 	return nil
 }
 
-func (m *MockCoordinator) OnCallRaw(msgType uint32, handler func(payload []byte) ([]byte, error)) {
+func (m *Mock) OnCallRaw(msgType uint32, handler func(payload []byte) ([]byte, error)) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.autoReplies[msgType] = handler
 }
 
-func (m *MockCoordinator) AssertSent(t *testing.T, msgType uint32) {
+func (m *Mock) AssertSent(t *testing.T, msgType uint32) {
 	t.Helper()
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -114,7 +114,7 @@ func (m *MockCoordinator) AssertSent(t *testing.T, msgType uint32) {
 	}
 }
 
-func (m *MockCoordinator) AssertSentRaw(t *testing.T, msgType uint32) {
+func (m *Mock) AssertSentRaw(t *testing.T, msgType uint32) {
 	t.Helper()
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -123,13 +123,13 @@ func (m *MockCoordinator) AssertSentRaw(t *testing.T, msgType uint32) {
 	}
 }
 
-func (m *MockCoordinator) GetLastRawCall(msgType uint32) []byte {
+func (m *Mock) GetLastRawCall(msgType uint32) []byte {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.sendRawCalls[msgType]
 }
 
-func (m *MockCoordinator) ReplyToLastCall(msgType uint32, payload []byte, err error) error {
+func (m *Mock) ReplyToLastCall(msgType uint32, payload []byte, err error) error {
 	m.mu.Lock()
 	cb, ok := m.pendingCalls[msgType]
 	m.mu.Unlock()

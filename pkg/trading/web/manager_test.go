@@ -14,7 +14,9 @@ import (
 
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/trading"
-	"github.com/lemon4ksan/g-man/test"
+	"github.com/lemon4ksan/g-man/test/community"
+	"github.com/lemon4ksan/g-man/test/module"
+	"github.com/lemon4ksan/g-man/test/requester"
 )
 
 const (
@@ -22,12 +24,12 @@ const (
 	OtherAccountID = 45678
 )
 
-func setupTrading(t *testing.T) (*Manager, *test.MockRequester, *test.MockCommunityRequester) {
+func setupTrading(t *testing.T) (*Manager, *requester.Mock, *community.Mock) {
 	t.Helper()
-	web := test.NewMockRequester()
-	comm := test.NewMockCommunityRequester()
+	web := requester.New()
+	comm := community.New()
 
-	init := test.NewMockInitContext()
+	init := module.NewInitContext()
 	init.SetService(web)
 
 	m := New(DefaultConfig())

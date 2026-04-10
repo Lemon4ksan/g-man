@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package test
+package community
 
 import (
 	"bytes"
@@ -17,7 +17,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 )
 
-type MockCommunityRequester struct {
+type Mock struct {
 	mu sync.Mutex
 
 	Calls []*http.Request
@@ -30,8 +30,8 @@ type MockCommunityRequester struct {
 	MockSessionID string
 }
 
-func NewMockCommunityRequester() *MockCommunityRequester {
-	return &MockCommunityRequester{
+func New() *Mock {
+	return &Mock{
 		Responses:     make(map[string][]byte),
 		ResponseErrs:  make(map[string]error),
 		StatusCodes:   make(map[string]int),
@@ -40,11 +40,11 @@ func NewMockCommunityRequester() *MockCommunityRequester {
 	}
 }
 
-func (m *MockCommunityRequester) SessionID(baseURL string) string {
+func (m *Mock) SessionID(baseURL string) string {
 	return m.MockSessionID
 }
 
-func (m *MockCommunityRequester) Request(ctx context.Context, method, path string, body []byte, query any, mods ...rest.RequestModifier) (*http.Response, error) {
+func (m *Mock) Request(ctx context.Context, method, path string, body []byte, query any, mods ...rest.RequestModifier) (*http.Response, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -87,7 +87,7 @@ func (m *MockCommunityRequester) Request(ctx context.Context, method, path strin
 	return resp, nil
 }
 
-func (m *MockCommunityRequester) SetJSONResponse(url string, statusCode int, obj any) {
+func (m *Mock) SetJSONResponse(url string, statusCode int, obj any) {
 	b, _ := json.Marshal(obj)
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -95,14 +95,14 @@ func (m *MockCommunityRequester) SetJSONResponse(url string, statusCode int, obj
 	m.StatusCodes[url] = statusCode
 }
 
-func (m *MockCommunityRequester) SetHTMLResponse(url string, statusCode int, html string) {
+func (m *Mock) SetHTMLResponse(url string, statusCode int, html string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.Responses[url] = []byte(html)
 	m.StatusCodes[url] = statusCode
 }
 
-func (m *MockCommunityRequester) SetRedirect(url string, location string) {
+func (m *Mock) SetRedirect(url string, location string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.StatusCodes[url] = http.StatusFound
@@ -111,7 +111,7 @@ func (m *MockCommunityRequester) SetRedirect(url string, location string) {
 	m.Headers[url] = h
 }
 
-func (m *MockCommunityRequester) GetLastCall() *http.Request {
+func (m *Mock) GetLastCall() *http.Request {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if len(m.Calls) == 0 {
@@ -120,13 +120,13 @@ func (m *MockCommunityRequester) GetLastCall() *http.Request {
 	return m.Calls[len(m.Calls)-1]
 }
 
-func (m *MockCommunityRequester) ClearCalls() {
+func (m *Mock) ClearCalls() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.Calls = nil
 }
 
-func (m *MockCommunityRequester) CallsCount() int {
+func (m *Mock) CallsCount() int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return len(m.Calls)

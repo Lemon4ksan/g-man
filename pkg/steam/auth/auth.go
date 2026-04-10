@@ -23,8 +23,6 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket/protocol"
-	"github.com/lemon4ksan/g-man/pkg/storage"
-	"github.com/lemon4ksan/g-man/pkg/storage/memory"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -90,6 +88,21 @@ type WebAuthenticator interface {
 	GenerateAccessTokenForApp(ctx context.Context, refreshToken string, steamID uint64) (*pb.CAuthentication_AccessToken_GenerateForApp_Response, error)
 }
 
+// Store specifically handles persisting the Steam authentication state.
+type Store interface {
+	// SaveRefreshToken persists the long-lived OIDC refresh token.
+	SaveRefreshToken(ctx context.Context, accountName, token string) error
+
+	// GetRefreshToken retrieves the refresh token for a specific account.
+	GetRefreshToken(ctx context.Context, accountName string) (string, error)
+
+	SaveMachineID(ctx context.Context, accountName string, machineID []byte) error
+	GetMachineID(ctx context.Context, accountName string) ([]byte, error)
+
+	// Clear removes all authentication data for the specified account.
+	Clear(ctx context.Context, accountName string) error
+}
+
 // Option defines a functional option for Authenticator.
 type Option func(*Authenticator)
 
@@ -97,8 +110,40 @@ func WithLogger(l log.Logger) Option {
 	return func(a *Authenticator) { a.logger = l.With(log.Module("auth")) }
 }
 
-func WithStorage(store storage.AuthStore) Option {
+// WithStorage sets a persistent storage for authorization
+func WithStorage(store Store) Option {
 	return func(a *Authenticator) { a.store = store }
+}
+
+// ExtractSteamIDFromJWT parses the base64 string and returns the account steam id.
+func ExtractSteamIDFromJWT(token string) id.ID {
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return 0
+	}
+
+	payloadStr := parts[1]
+	if pad := len(payloadStr) % 4; pad != 0 {
+		payloadStr += strings.Repeat("=", 4-pad)
+	}
+
+	payload, err := base64.URLEncoding.DecodeString(payloadStr)
+	if err != nil {
+		payload, err = base64.RawURLEncoding.DecodeString(parts[1])
+		if err != nil {
+			return 0
+		}
+	}
+
+	var claims struct {
+		Sub string `json:"sub"`
+	}
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		return 0
+	}
+
+	steamID, _ := strconv.ParseUint(claims.Sub, 10, 64)
+	return id.ID(steamID)
 }
 
 // Authenticator handles the complex multi-step Steam authentication process.
@@ -119,7 +164,7 @@ type Authenticator struct {
 	loginCtx    atomic.Value
 	loginCancel atomic.Value
 	loginResult chan error
-	store       storage.AuthStore
+	store       Store
 }
 
 func NewAuthenticator(s SocketProvider, service WebAuthenticator, cfg Config, opts ...Option) *Authenticator {
@@ -128,12 +173,10 @@ func NewAuthenticator(s SocketProvider, service WebAuthenticator, cfg Config, op
 		socket:  s,
 		service: service,
 		logger:  log.Discard,
+		store:   nopStore{},
 	}
 	for _, opt := range opts {
 		opt(auth)
-	}
-	if auth.store == nil {
-		auth.store = memory.New().AuthStore()
 	}
 
 	auth.setState(StateDisconnected)
@@ -262,11 +305,12 @@ func (a *Authenticator) LogOnAnonymous(ctx context.Context, server socket.CMServ
 	}
 	defer a.ensureTerminalState()
 
-	a.setState(StateLoggingOn)
+	a.loginResult = make(chan error, 1)
 
-	loginCtx, cancel := context.WithCancelCause(ctx)
+	loginCtx, cancel := context.WithCancel(ctx)
 	a.loginCtx.Store(loginCtx)
 	a.loginCancel.Store(cancel)
+	defer cancel()
 
 	anonDetails := &LogOnDetails{
 		ProtocolVersion: ProtocolVersion,
@@ -274,20 +318,26 @@ func (a *Authenticator) LogOnAnonymous(ctx context.Context, server socket.CMServ
 	}
 	a.activeDetails.Store(anonDetails)
 
+	a.setState(StateLoggingOn)
 	if err := a.socket.Connect(ctx, server); err != nil {
 		return fmt.Errorf("cm connection failed: %w", err)
 	}
 
-	<-loginCtx.Done()
-	err := context.Cause(loginCtx)
-
-	if err == nil || errors.Is(err, context.Canceled) {
-		a.setState(StateLoggedOn)
-		return nil
+	var resultErr error
+	select {
+	case resultErr = <-a.loginResult:
+		// Received response from CM (success or failure)
+	case <-loginCtx.Done():
+		resultErr = loginCtx.Err()
 	}
 
-	a.setState(StateFailed)
-	return err
+	if resultErr != nil {
+		a.setState(StateFailed)
+		return resultErr
+	}
+
+	a.setState(StateLoggedOn)
+	return nil
 }
 
 func (a *Authenticator) tryAcquireState() bool {
@@ -442,38 +492,18 @@ func (a *Authenticator) failLogin(err error) {
 	}
 }
 
-func ExtractSteamIDFromJWT(token string) id.ID {
-	parts := strings.Split(token, ".")
-	if len(parts) != 3 {
-		return 0
-	}
-
-	payloadStr := parts[1]
-	if pad := len(payloadStr) % 4; pad != 0 {
-		payloadStr += strings.Repeat("=", 4-pad)
-	}
-
-	payload, err := base64.URLEncoding.DecodeString(payloadStr)
-	if err != nil {
-		payload, err = base64.RawURLEncoding.DecodeString(parts[1])
-		if err != nil {
-			return 0
-		}
-	}
-
-	var claims struct {
-		Sub string `json:"sub"`
-	}
-	if err := json.Unmarshal(payload, &claims); err != nil {
-		return 0
-	}
-
-	steamID, _ := strconv.ParseUint(claims.Sub, 10, 64)
-	return id.ID(steamID)
-}
-
 func generateMachineID() []byte {
 	var b [42]byte
 	_, _ = rand.Read(b[:])
 	return b[:]
 }
+
+type nopStore struct{}
+
+func (nopStore) SaveRefreshToken(ctx context.Context, acc, tok string) error     { return nil }
+func (nopStore) GetRefreshToken(ctx context.Context, acc string) (string, error) { return "", nil }
+func (nopStore) SaveMachineID(ctx context.Context, acc string, id []byte) error  { return nil }
+func (nopStore) GetMachineID(ctx context.Context, acc string) ([]byte, error)    { return nil, nil }
+func (nopStore) Clear(ctx context.Context, acc string) error                     { return nil }
+
+var defaultStore = nopStore{}

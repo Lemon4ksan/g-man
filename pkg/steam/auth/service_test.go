@@ -14,21 +14,21 @@ import (
 	"testing"
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
-	"github.com/lemon4ksan/g-man/test"
+	"github.com/lemon4ksan/g-man/test/requester"
 	"google.golang.org/protobuf/proto"
 )
 
 const TestTimestamp = 1234567890
 const TestSteamID = 123
 
-func setupAuthService(t *testing.T, conf *DeviceConfig) (*AuthenticationService, *test.MockRequester) {
+func setupAuthService(t *testing.T, conf *DeviceConfig) (*AuthenticationService, *requester.Mock) {
 	t.Helper()
-	mock := test.NewMockRequester()
+	mock := requester.New()
 	svc := NewAuthenticationService(mock, conf)
 	return svc, mock
 }
 
-func mockRSAResponse(t *testing.T, mock *test.MockRequester) *rsa.PrivateKey {
+func mockRSAResponse(t *testing.T, mock *requester.Mock) *rsa.PrivateKey {
 	t.Helper()
 	privKey, err := rsa.GenerateKey(rand.Reader, 1024)
 	if err != nil {

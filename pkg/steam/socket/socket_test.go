@@ -17,12 +17,18 @@ import (
 
 	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/log"
+	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket/internal/network"
+	"github.com/lemon4ksan/g-man/pkg/steam/socket/internal/session"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket/protocol"
 	"google.golang.org/protobuf/proto"
-
-	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 )
+
+func DefaultTestConfig() Config {
+	return Config{
+		EventChanSize: 5,
+	}
+}
 
 type mockConnection struct {
 	network.BaseConnection
@@ -77,7 +83,7 @@ func packBasic(eMsg protocol.EMsg, targetJob, sourceJob uint64, payload []byte) 
 }
 
 func TestSocket_Initialization(t *testing.T) {
-	sock := NewSocket(DefaultConfig())
+	sock := NewSocket(DefaultTestConfig())
 	defer sock.Close()
 
 	if sock.State() != StateDisconnected {
@@ -89,7 +95,7 @@ func TestSocket_Initialization(t *testing.T) {
 }
 
 func TestSocket_HandlersManagement(t *testing.T) {
-	sock := NewSocket(DefaultConfig())
+	sock := NewSocket(DefaultTestConfig())
 	defer sock.Close()
 
 	var called atomic.Bool
@@ -117,7 +123,7 @@ func TestSocket_HandlersManagement(t *testing.T) {
 }
 
 func TestSocket_ConnectAndDisconnect(t *testing.T) {
-	cfg := DefaultConfig()
+	cfg := DefaultTestConfig()
 	cfg.Dialers = map[string]ConnectionDialer{
 		"mock": func(nh network.Handler, l log.Logger, s string) (network.Connection, error) {
 			return newMockConnection(), nil
@@ -166,12 +172,12 @@ func TestSocket_ConnectAndDisconnect(t *testing.T) {
 }
 
 func TestSocket_Routing(t *testing.T) {
-	sock := NewSocket(DefaultConfig())
+	sock := NewSocket(DefaultTestConfig())
 	defer sock.Close()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	sock.startWorkers(ctx, 1)
+	sock.startWorkers(ctx)
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
@@ -204,7 +210,7 @@ func TestSocket_Routing(t *testing.T) {
 }
 
 func TestSocket_JobTracking(t *testing.T) {
-	cfg := DefaultConfig()
+	cfg := DefaultTestConfig()
 
 	conn := newMockConnection()
 	cfg.Dialers = map[string]ConnectionDialer{
@@ -227,7 +233,7 @@ func TestSocket_JobTracking(t *testing.T) {
 	var receivedResp *protocol.Packet
 	var capturedJobID uint64
 
-	builder := func(sess Session, buf *bytes.Buffer, sourceJobID uint64, token string) error {
+	builder := func(sess session.Session, buf *bytes.Buffer, sourceJobID uint64, token string) error {
 		capturedJobID = sourceJobID
 		return Raw(protocol.EMsg_ClientGamesPlayed, []byte("data"))(sess, buf, sourceJobID, token)
 	}
@@ -279,9 +285,9 @@ func TestSocket_JobTracking(t *testing.T) {
 
 func TestSocket_SessionUpdateFromHeader(t *testing.T) {
 	mockConn := newMockConnection()
-	sess := NewBaseSession(mockConn)
+	sess := session.New(mockConn)
 
-	sock := NewSocket(DefaultConfig(), WithSession(sess))
+	sock := NewSocket(DefaultTestConfig(), WithSession(sess))
 	defer sock.Close()
 
 	packet := &protocol.Packet{
@@ -304,8 +310,8 @@ func TestSocket_SessionUpdateFromHeader(t *testing.T) {
 }
 
 func TestSocket_HandleMultiPacket(t *testing.T) {
-	sock := NewSocket(DefaultConfig())
-	sock.startWorkers(t.Context(), 1)
+	sock := NewSocket(DefaultTestConfig())
+	sock.startWorkers(t.Context())
 	defer sock.Close()
 
 	var wg sync.WaitGroup
@@ -365,7 +371,7 @@ func TestSocket_HandleMultiPacket(t *testing.T) {
 }
 
 func TestSocket_ServiceMethodRouting(t *testing.T) {
-	sock := NewSocket(DefaultConfig())
+	sock := NewSocket(DefaultTestConfig())
 	defer sock.Close()
 
 	method := "Player.GetOwnedGames#1"
@@ -395,7 +401,7 @@ func TestSocket_ServiceMethodRouting(t *testing.T) {
 
 func TestSocket_StateTransitions(t *testing.T) {
 	eventBus := bus.NewBus()
-	sock := NewSocket(DefaultConfig(), WithBus(eventBus))
+	sock := NewSocket(DefaultTestConfig(), WithBus(eventBus))
 	defer sock.Close()
 
 	sub := eventBus.Subscribe(StateEvent{})
@@ -415,8 +421,8 @@ func TestSocket_StateTransitions(t *testing.T) {
 }
 
 func TestSocket_ProcessProtobufPacket(t *testing.T) {
-	sock := NewSocket(DefaultConfig())
-	sock.startWorkers(t.Context(), 1)
+	sock := NewSocket(DefaultTestConfig())
+	sock.startWorkers(t.Context())
 	defer sock.Close()
 
 	resCh := make(chan *protocol.Packet, 1)
@@ -450,9 +456,9 @@ func TestSocket_ProcessProtobufPacket(t *testing.T) {
 
 func TestSocket_ProcessExtendedPacket(t *testing.T) {
 	mockConn := newMockConnection()
-	sess := NewBaseSession(mockConn)
-	sock := NewSocket(DefaultConfig(), WithSession(sess))
-	sock.startWorkers(t.Context(), 1)
+	sess := session.New(mockConn)
+	sock := NewSocket(DefaultTestConfig(), WithSession(sess))
+	sock.startWorkers(t.Context())
 	defer sock.Close()
 
 	resCh := make(chan *protocol.Packet, 1)
@@ -481,8 +487,8 @@ func TestSocket_ProcessExtendedPacket(t *testing.T) {
 }
 
 func TestSocket_ProcessBasicCryptoPacket(t *testing.T) {
-	sock := NewSocket(DefaultConfig())
-	sock.startWorkers(t.Context(), 1)
+	sock := NewSocket(DefaultTestConfig())
+	sock.startWorkers(t.Context())
 	defer sock.Close()
 
 	resCh := make(chan *protocol.Packet, 1)
@@ -512,7 +518,7 @@ func TestSocket_ProcessBasicCryptoPacket(t *testing.T) {
 }
 
 func TestSocket_InvalidPacket_UnexpectedEOF(t *testing.T) {
-	sock := NewSocket(DefaultConfig())
+	sock := NewSocket(DefaultTestConfig())
 	defer sock.Close()
 
 	invalid := new(bytes.Buffer)

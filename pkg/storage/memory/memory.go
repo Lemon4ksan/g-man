@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/storage"
 )
 
@@ -31,11 +32,11 @@ func New() *Provider {
 	}
 }
 
-func (p *Provider) AuthStore() storage.AuthStore {
+func (p *Provider) Auth() auth.Store {
 	return p.authStore
 }
 
-func (p *Provider) KVStore(namespace string) storage.KVStore {
+func (p *Provider) KV(namespace string) storage.KV {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 

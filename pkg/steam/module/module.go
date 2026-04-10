@@ -85,8 +85,8 @@ type Module interface {
 	Start(ctx context.Context) error
 }
 
-// ModuleAuth defines the contract for pluggable extensions that require authorized clients.
-type ModuleAuth interface {
+// Auth defines the contract for pluggable extensions that require authorized clients.
+type Auth interface {
 	Module
 
 	// StartAuthed is called after a successful Steam login and WebSession creation.

@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package test
+package requester
 
 import (
 	"bytes"
@@ -33,7 +33,7 @@ type restResponse struct {
 	Header http.Header
 }
 
-type MockRequester struct {
+type Mock struct {
 	mu    sync.Mutex
 	Calls []*tr.Request
 
@@ -52,8 +52,8 @@ type MockRequester struct {
 	rawResponses   map[string][]byte
 }
 
-func NewMockRequester() *MockRequester {
-	return &MockRequester{
+func New() *Mock {
+	return &Mock{
 		ResponseErrs:   make(map[string]error),
 		protoResponses: make(map[string]proto.Message),
 		jsonResponses:  make(map[string]any),
@@ -61,7 +61,7 @@ func NewMockRequester() *MockRequester {
 	}
 }
 
-func (m *MockRequester) Do(ctx context.Context, req *tr.Request) (*tr.Response, error) {
+func (m *Mock) Do(ctx context.Context, req *tr.Request) (*tr.Response, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -101,7 +101,7 @@ func (m *MockRequester) Do(ctx context.Context, req *tr.Request) (*tr.Response, 
 	return tr.NewResponse(nil, tr.SocketMetadata{Result: protocol.EResult_OK}), nil
 }
 
-func (m *MockRequester) Request(ctx context.Context, method, path string, body []byte, query any, mods ...rest.RequestModifier) (*http.Response, error) {
+func (m *Mock) Request(ctx context.Context, method, path string, body []byte, query any, mods ...rest.RequestModifier) (*http.Response, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -134,31 +134,31 @@ func (m *MockRequester) Request(ctx context.Context, method, path string, body [
 	}, nil
 }
 
-func (m *MockRequester) SetJSONResponse(iface, method string, resp any) {
+func (m *Mock) SetJSONResponse(iface, method string, resp any) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.jsonResponses[fmt.Sprintf("%s/%s", iface, method)] = resp
 }
 
-func (m *MockRequester) SetProtoResponse(iface, method string, resp proto.Message) {
+func (m *Mock) SetProtoResponse(iface, method string, resp proto.Message) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.protoResponses[fmt.Sprintf("%s.%s", iface, method)] = resp
 }
 
-func (m *MockRequester) SetLegacyResponse(message protocol.EMsg, resp proto.Message) {
+func (m *Mock) SetLegacyResponse(message protocol.EMsg, resp proto.Message) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.protoResponses[message.String()] = resp
 }
 
-func (m *MockRequester) SetRawResponse(key string, body []byte) {
+func (m *Mock) SetRawResponse(key string, body []byte) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.rawResponses[key] = body
 }
 
-func (m *MockRequester) GetLastRequest() *tr.Request {
+func (m *Mock) GetLastRequest() *tr.Request {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if len(m.Calls) == 0 {
@@ -167,7 +167,7 @@ func (m *MockRequester) GetLastRequest() *tr.Request {
 	return m.Calls[len(m.Calls)-1]
 }
 
-func (m *MockRequester) GetLastCall(out proto.Message) *tr.Request {
+func (m *Mock) GetLastCall(out proto.Message) *tr.Request {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if len(m.Calls) == 0 {
@@ -182,26 +182,26 @@ func (m *MockRequester) GetLastCall(out proto.Message) *tr.Request {
 	return req
 }
 
-func (m *MockRequester) SessionID(targetURI string) string {
+func (m *Mock) SessionID(targetURI string) string {
 	if m.OnSessionID != nil {
 		return m.OnSessionID(targetURI)
 	}
 	return "mock_session_id"
 }
 
-func (m *MockRequester) ClearCalls() {
+func (m *Mock) ClearCalls() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	clear(m.Calls)
 }
 
-func (m *MockRequester) CallsCount() int {
+func (m *Mock) CallsCount() int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return len(m.Calls)
 }
 
-func (m *MockRequester) identifyTarget(target any) string {
+func (m *Mock) identifyTarget(target any) string {
 	switch t := target.(type) {
 	case *service.UnifiedTarget:
 		return fmt.Sprintf("%s.%s", t.Interface, t.Method)

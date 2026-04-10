@@ -10,6 +10,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/storage"
 )
 
@@ -43,11 +44,11 @@ func New(path string) (*Provider, error) {
 	return p, nil
 }
 
-func (p *Provider) AuthStore() storage.AuthStore {
+func (p *Provider) Auth() auth.Store {
 	return &authStore{p}
 }
 
-func (p *Provider) KVStore(namespace string) storage.KVStore {
+func (p *Provider) KV(namespace string) storage.KV {
 	return &kvStore{p, namespace}
 }
 
