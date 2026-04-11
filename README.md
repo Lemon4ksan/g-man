@@ -8,7 +8,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/lemon4ksan/g-man)](https://goreportcard.com/report/github.com/lemon4ksan/g-man)
 [![License](https://img.shields.io/github/license/lemon4ksan/g-man)](LICENSE)
 
-> *"The right bot in the right place can make all the difference in the skins market."*
+> *"The right bot in the wrong place can make all the difference in the skins market."*
 
 </div>
 
@@ -17,7 +17,7 @@
 **G-man** is a high-performance Steam client library architected for high-frequency trading, complex inventory management, and industrial-scale automation. Written in pure **Go**, it bypasses the limitations of single-threaded environments, offering a thread-safe, modular, and type-safe foundation for modern Steam development.
 
 > [!WARNING]
-> This SDK is currently in **early development (Alpha)**. Breaking changes are expected. The API is evolving rapidly and wasn't properly tested. Production use is at your own risk.
+> This SDK is currently in **early development (Alpha)**. Breaking changes are expected. The API is evolving rapidly and is being tested. Production use is at your own risk.
 
 ## ⚡ Key Features
 
@@ -160,6 +160,18 @@ G-man is built to stay up-to-date. We provide internal CLI generators for:
 * [ ] **Prometheus Metrics:** Export trade statistics, profit, and latency data.
 * [ ] **Advanced Proxy Rotation:** Ability to bind different bots to different local IPs/proxies within one process.
 * [ ] **Web Dashboard:** A lightweight embedded UI to monitor bot health and manual offer review.
+
+## ☕ Support the Development
+
+Developing a full-scale Steam SDK takes hundreds of hours and... a considerable amount of effort. If G-MAN has helped you build your trading empire or saved you from the Node.js event-loop nightmare, consider supporting the project.
+
+<div align="center">
+
+[![Trade Offer](https://img.shields.io/badge/Steam-Trade_Offer-blue?style=for-the-badge&logo=steam)](https://steamcommunity.com/tradeoffer/new/?partner=1141078357&token=HjsTJQFX)
+
+> *"Donations... are not a requirement, but... they fulfill the terms of our... agreement."*
+
+</div>
 
 ## 🤝 Contributing
 
