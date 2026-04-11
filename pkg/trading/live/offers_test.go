@@ -9,7 +9,7 @@ import (
 	"time"
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/test/module"
 	"google.golang.org/protobuf/proto"
 )
@@ -43,10 +43,10 @@ func TestManager_InitAndClose(t *testing.T) {
 		t.Errorf("expected %s, got %s", ModuleName, m.Name())
 	}
 
-	expectedEMsgs := []protocol.EMsg{
-		protocol.EMsg_EconTrading_InitiateTradeProposed,
-		protocol.EMsg_EconTrading_InitiateTradeResult,
-		protocol.EMsg_EconTrading_StartSession,
+	expectedEMsgs := []enums.EMsg{
+		enums.EMsg_EconTrading_InitiateTradeProposed,
+		enums.EMsg_EconTrading_InitiateTradeResult,
+		enums.EMsg_EconTrading_StartSession,
 	}
 
 	t.Run("Init", func(t *testing.T) {
@@ -97,10 +97,10 @@ func TestManager_RespondToInvite(t *testing.T) {
 
 	tests := []struct {
 		accept   bool
-		expected protocol.EEconTradeResponse
+		expected enums.EEconTradeResponse
 	}{
-		{accept: true, expected: protocol.EEconTradeResponse_Accepted},
-		{accept: false, expected: protocol.EEconTradeResponse_Declined},
+		{accept: true, expected: enums.EEconTradeResponse_Accepted},
+		{accept: false, expected: enums.EEconTradeResponse_Declined},
 	}
 
 	for _, tt := range tests {
@@ -132,7 +132,7 @@ func TestManager_HandleTradeProposed(t *testing.T) {
 	_, ictx := setupOffers(t)
 	sub := ictx.Bus().Subscribe(&TradeProposedEvent{})
 
-	ictx.EmitPacket(t, protocol.EMsg_EconTrading_InitiateTradeProposed, &pb.CMsgTrading_InitiateTradeRequest{
+	ictx.EmitPacket(t, enums.EMsg_EconTrading_InitiateTradeProposed, &pb.CMsgTrading_InitiateTradeRequest{
 		OtherSteamid:   proto.Uint64(FriendSteamID),
 		TradeRequestId: proto.Uint32(TradeID),
 	})
@@ -152,7 +152,7 @@ func TestManager_HandleTradeProposed(t *testing.T) {
 
 		req := &pb.CMsgTrading_InitiateTradeResponse{}
 		ictx.MockServiceAccessor().GetLastCall(req)
-		if req.GetResponse() != uint32(protocol.EEconTradeResponse_Accepted) {
+		if req.GetResponse() != uint32(enums.EEconTradeResponse_Accepted) {
 			t.Error("Respond(true) should send Accepted response")
 		}
 
@@ -165,9 +165,9 @@ func TestManager_HandleTradeResult(t *testing.T) {
 	_, ictx := setupOffers(t)
 	sub := ictx.Bus().Subscribe(&TradeResultEvent{})
 
-	ictx.EmitPacket(t, protocol.EMsg_EconTrading_InitiateTradeResult, &pb.CMsgTrading_InitiateTradeResponse{
+	ictx.EmitPacket(t, enums.EMsg_EconTrading_InitiateTradeResult, &pb.CMsgTrading_InitiateTradeResponse{
 		OtherSteamid:           proto.Uint64(FriendSteamID),
-		Response:               proto.Uint32(uint32(protocol.EEconTradeResponse_TooSoon)),
+		Response:               proto.Uint32(uint32(enums.EEconTradeResponse_TooSoon)),
 		SteamguardRequiredDays: proto.Uint32(15),
 		NewDeviceCooldownDays:  proto.Uint32(7),
 	})
@@ -175,7 +175,7 @@ func TestManager_HandleTradeResult(t *testing.T) {
 	select {
 	case ev := <-sub.C():
 		res := ev.(*TradeResultEvent)
-		if res.OtherSteamID != FriendSteamID || res.Response != protocol.EEconTradeResponse_TooSoon {
+		if res.OtherSteamID != FriendSteamID || res.Response != enums.EEconTradeResponse_TooSoon {
 			t.Errorf("unexpected event: %+v", res)
 		}
 		if res.SteamGuardRequiredDays != 15 || res.NewDeviceCooldownDays != 7 {
@@ -190,7 +190,7 @@ func TestManager_HandleTradeStarted(t *testing.T) {
 	_, ictx := setupOffers(t)
 	sub := ictx.Bus().Subscribe(&TradeSessionStartedEvent{})
 
-	ictx.EmitPacket(t, protocol.EMsg_EconTrading_StartSession, &pb.CMsgTrading_StartSession{
+	ictx.EmitPacket(t, enums.EMsg_EconTrading_StartSession, &pb.CMsgTrading_StartSession{
 		OtherSteamid: proto.Uint64(FriendSteamID),
 	})
 

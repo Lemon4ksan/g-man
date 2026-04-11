@@ -13,7 +13,7 @@ import (
 	"strconv"
 
 	"github.com/lemon4ksan/g-man/pkg/rest"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 )
 
 // HTTPUserAgent is the user agent string used by the official Steam Client.
@@ -21,9 +21,9 @@ const HTTPUserAgent = "Valve/Steam HTTP Client 1.0"
 
 // HTTPMetadata holds context-specific information from an HTTP response.
 type HTTPMetadata struct {
-	Result     protocol.EResult // EResult code from the 'x-eresult' header.
-	StatusCode int              // Standard HTTP status code (e.g., 200, 404).
-	Header     http.Header      // Full HTTP response headers.
+	Result     enums.EResult // EResult code from the 'x-eresult' header.
+	StatusCode int           // Standard HTTP status code (e.g., 200, 404).
+	Header     http.Header   // Full HTTP response headers.
 }
 
 // HTTPTransport implements the Transport interface for HTTP-based communication.
@@ -101,11 +101,11 @@ func (t *HTTPTransport) Do(ctx context.Context, req *Request) (*Response, error)
 
 // parseEResult extracts the Steam EResult from the 'x-eresult' response header.
 // Returns EResult_OK if the header is missing or invalid.
-func (t *HTTPTransport) parseEResult(resp *http.Response) protocol.EResult {
+func (t *HTTPTransport) parseEResult(resp *http.Response) enums.EResult {
 	if resHeader := resp.Header.Get("x-eresult"); resHeader != "" {
 		if val, err := strconv.Atoi(resHeader); err == nil {
-			return protocol.EResult(val)
+			return enums.EResult(val)
 		}
 	}
-	return protocol.EResult_OK
+	return enums.EResult_OK
 }

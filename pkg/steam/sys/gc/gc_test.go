@@ -11,6 +11,7 @@ import (
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/test/module"
 	"google.golang.org/protobuf/proto"
 )
@@ -49,7 +50,7 @@ func emitGC(t *testing.T, ictx *module.InitContext, appID uint32, msgType uint32
 		t.Fatalf("failed to serialize GC packet: %v", err)
 	}
 
-	ictx.EmitPacket(t, protocol.EMsg_ClientFromGC, &pb.CMsgGCClient{
+	ictx.EmitPacket(t, enums.EMsg_ClientFromGC, &pb.CMsgGCClient{
 		Appid:   proto.Uint32(appID),
 		Msgtype: proto.Uint32(msgType),
 		Payload: gcData,
@@ -68,14 +69,14 @@ func TestCoordinator_InitAndClose(t *testing.T) {
 
 	t.Run("Registration", func(t *testing.T) {
 		_ = c.Init(ictx)
-		if _, ok := ictx.GetPacketHandler(protocol.EMsg_ClientFromGC); !ok {
+		if _, ok := ictx.GetPacketHandler(enums.EMsg_ClientFromGC); !ok {
 			t.Error("EMsg_ClientFromGC handler not registered")
 		}
 	})
 
 	t.Run("Cleanup", func(t *testing.T) {
 		_ = c.Close()
-		if _, ok := ictx.GetPacketHandler(protocol.EMsg_ClientFromGC); ok {
+		if _, ok := ictx.GetPacketHandler(enums.EMsg_ClientFromGC); ok {
 			t.Error("handler should be unregistered after Close")
 		}
 	})

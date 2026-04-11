@@ -16,6 +16,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"google.golang.org/protobuf/proto"
 )
@@ -62,10 +63,10 @@ func (a *Apps) Init(init module.InitContext) error {
 
 	a.client = init.Service()
 
-	init.RegisterPacketHandler(protocol.EMsg_ClientPlayingSessionState, a.handlePlayingSessionState)
+	init.RegisterPacketHandler(enums.EMsg_ClientPlayingSessionState, a.handlePlayingSessionState)
 
 	a.unregFuncs = append(a.unregFuncs, func() {
-		init.UnregisterPacketHandler(protocol.EMsg_ClientPlayingSessionState)
+		init.UnregisterPacketHandler(enums.EMsg_ClientPlayingSessionState)
 	})
 
 	return nil
@@ -90,13 +91,13 @@ func (a *Apps) GetPlayerCount(ctx context.Context, appID uint32) (int32, error) 
 		Appid: proto.Uint32(appID),
 	}
 
-	resp, err := service.Legacy[pb.CMsgDPGetNumberOfCurrentPlayersResponse](ctx, a.client, protocol.EMsg_ClientGetNumberOfCurrentPlayersDP, req)
+	resp, err := service.Legacy[pb.CMsgDPGetNumberOfCurrentPlayersResponse](ctx, a.client, enums.EMsg_ClientGetNumberOfCurrentPlayersDP, req)
 	if err != nil {
 		return 0, fmt.Errorf("apps: failed to get player count: %w", err)
 	}
 
-	eResult := protocol.EResult(resp.GetEresult())
-	if eResult != protocol.EResult_OK {
+	eResult := enums.EResult(resp.GetEresult())
+	if eResult != enums.EResult_OK {
 		return 0, fmt.Errorf("apps: steam error: %s", eResult.String())
 	}
 
@@ -150,7 +151,7 @@ func (a *Apps) StopPlaying(ctx context.Context) error {
 // KickPlayingSession sends a request to Steam to terminate any other active
 // game-playing sessions on this account (e.g., on another PC).
 func (a *Apps) KickPlayingSession(ctx context.Context) error {
-	_, err := service.Legacy[service.NoResponse](ctx, a.client, protocol.EMsg_ClientKickPlayingSession, &pb.CMsgClientKickPlayingSession{})
+	_, err := service.Legacy[service.NoResponse](ctx, a.client, enums.EMsg_ClientKickPlayingSession, &pb.CMsgClientKickPlayingSession{})
 	return err
 }
 
@@ -159,7 +160,7 @@ func (a *Apps) sendGamesPlayed(ctx context.Context, games []*pb.CMsgClientGamesP
 		GamesPlayed: games,
 	}
 
-	_, err := service.Legacy[service.NoResponse](ctx, a.client, protocol.EMsg_ClientGamesPlayedWithDataBlob, req)
+	_, err := service.Legacy[service.NoResponse](ctx, a.client, enums.EMsg_ClientGamesPlayedWithDataBlob, req)
 	if err != nil {
 		return fmt.Errorf("apps: failed to update playing status: %w", err)
 	}

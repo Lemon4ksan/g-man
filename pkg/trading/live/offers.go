@@ -29,6 +29,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"google.golang.org/protobuf/proto"
 )
@@ -68,14 +69,14 @@ func (m *Manager) Init(init module.InitContext) error {
 
 	m.client = init.Service()
 
-	init.RegisterPacketHandler(protocol.EMsg_EconTrading_InitiateTradeProposed, m.handleTradeRequest)
-	init.RegisterPacketHandler(protocol.EMsg_EconTrading_InitiateTradeResult, m.handleTradeResult)
-	init.RegisterPacketHandler(protocol.EMsg_EconTrading_StartSession, m.handleTradeStarted)
+	init.RegisterPacketHandler(enums.EMsg_EconTrading_InitiateTradeProposed, m.handleTradeRequest)
+	init.RegisterPacketHandler(enums.EMsg_EconTrading_InitiateTradeResult, m.handleTradeResult)
+	init.RegisterPacketHandler(enums.EMsg_EconTrading_StartSession, m.handleTradeStarted)
 
 	m.unregFuncs = append(m.unregFuncs, func() {
-		init.UnregisterPacketHandler(protocol.EMsg_EconTrading_InitiateTradeProposed)
-		init.UnregisterPacketHandler(protocol.EMsg_EconTrading_InitiateTradeResult)
-		init.UnregisterPacketHandler(protocol.EMsg_EconTrading_StartSession)
+		init.UnregisterPacketHandler(enums.EMsg_EconTrading_InitiateTradeProposed)
+		init.UnregisterPacketHandler(enums.EMsg_EconTrading_InitiateTradeResult)
+		init.UnregisterPacketHandler(enums.EMsg_EconTrading_StartSession)
 	})
 
 	return nil
@@ -101,7 +102,7 @@ func (m *Manager) Invite(ctx context.Context, otherSteamID uint64) error {
 
 	m.Logger.Info("Sending trade invitation", log.Uint64("target_steam_id", otherSteamID))
 
-	_, err := service.Legacy[service.NoResponse](ctx, m.client, protocol.EMsg_EconTrading_InitiateTradeRequest, req)
+	_, err := service.Legacy[service.NoResponse](ctx, m.client, enums.EMsg_EconTrading_InitiateTradeRequest, req)
 	if err != nil {
 		return fmt.Errorf("offers: failed to send invitation: %w", err)
 	}
@@ -116,15 +117,15 @@ func (m *Manager) CancelInvitation(ctx context.Context, otherSteamID uint64) err
 
 	m.Logger.Debug("Canceling trade invitation", log.Uint64("target_steam_id", otherSteamID))
 
-	_, err := service.Legacy[service.NoResponse](ctx, m.client, protocol.EMsg_EconTrading_CancelTradeRequest, req)
+	_, err := service.Legacy[service.NoResponse](ctx, m.client, enums.EMsg_EconTrading_CancelTradeRequest, req)
 	return err
 }
 
 // RespondToInvite approves or declines an incoming trade invitation.
 func (m *Manager) RespondToInvite(ctx context.Context, tradeID uint32, accept bool) error {
-	responseCode := protocol.EEconTradeResponse_Declined
+	responseCode := enums.EEconTradeResponse_Declined
 	if accept {
-		responseCode = protocol.EEconTradeResponse_Accepted
+		responseCode = enums.EEconTradeResponse_Accepted
 	}
 
 	req := &pb.CMsgTrading_InitiateTradeResponse{
@@ -137,7 +138,7 @@ func (m *Manager) RespondToInvite(ctx context.Context, tradeID uint32, accept bo
 		log.Bool("accept", accept),
 	)
 
-	_, err := service.Legacy[service.NoResponse](ctx, m.client, protocol.EMsg_EconTrading_InitiateTradeResponse, req)
+	_, err := service.Legacy[service.NoResponse](ctx, m.client, enums.EMsg_EconTrading_InitiateTradeResponse, req)
 	return err
 }
 
@@ -167,7 +168,7 @@ func (m *Manager) handleTradeResult(p *protocol.Packet) {
 		return
 	}
 
-	res := protocol.EEconTradeResponse(msg.GetResponse())
+	res := enums.EEconTradeResponse(msg.GetResponse())
 
 	m.Logger.Debug("Trade invitation result",
 		log.Uint64("other_steam_id", msg.GetOtherSteamid()),

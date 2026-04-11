@@ -7,14 +7,14 @@ package auth
 import (
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 )
 
 // DeviceConfig allows customizing how the client presents itself to Steam.
 type DeviceConfig struct {
 	DeviceFriendlyName string
 	PlatformType       pb.EAuthTokenPlatformType
-	OSType             protocol.EOSType
+	OSType             enums.EOSType
 	GamingDeviceType   uint32 // 1 = Desktop, 528 = SteamDeck, etc.
 }
 
@@ -23,7 +23,7 @@ func DefaultDeviceConfig() DeviceConfig {
 	return DeviceConfig{
 		DeviceFriendlyName: "G-man Bot/1.0",
 		PlatformType:       pb.EAuthTokenPlatformType_k_EAuthTokenPlatformType_SteamClient,
-		OSType:             protocol.EOSType_Windows10,
+		OSType:             enums.EOSType_Windows10,
 		GamingDeviceType:   1,
 	}
 }
@@ -95,7 +95,7 @@ func NewLogOnDetails(account, password string) *LogOnDetails {
 	return &LogOnDetails{
 		AccountName:     account,
 		Password:        password,
-		ClientOSType:    uint32(protocol.EOSType_Windows10),
+		ClientOSType:    uint32(enums.EOSType_Windows10),
 		ProtocolVersion: ProtocolVersion,
 		ClientLanguage:  "english",
 	}

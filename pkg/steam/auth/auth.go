@@ -21,7 +21,7 @@ import (
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/api"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
 	"google.golang.org/protobuf/proto"
 )
@@ -71,10 +71,10 @@ func (s State) String() string {
 
 // SocketProvider defines the minimal socket capabilities required by the Authenticator.
 type SocketProvider interface {
-	RegisterMsgHandler(eMsg protocol.EMsg, handler socket.Handler)
+	RegisterMsgHandler(eMsg enums.EMsg, handler socket.Handler)
 	Connect(ctx context.Context, server socket.CMServer) error
-	SendProto(ctx context.Context, eMsg protocol.EMsg, req proto.Message, opts ...socket.SendOption) error
-	SendRaw(ctx context.Context, eMsg protocol.EMsg, payload []byte, opts ...socket.SendOption) error
+	SendProto(ctx context.Context, eMsg enums.EMsg, req proto.Message, opts ...socket.SendOption) error
+	SendRaw(ctx context.Context, eMsg enums.EMsg, payload []byte, opts ...socket.SendOption) error
 	Session() socket.Session
 	StartHeartbeat(time.Duration)
 	Bus() *bus.Bus
@@ -182,10 +182,10 @@ func NewAuthenticator(s SocketProvider, service WebAuthenticator, cfg Config, op
 	auth.setState(StateDisconnected)
 
 	// Register CM Handlers
-	s.RegisterMsgHandler(protocol.EMsg_ChannelEncryptRequest, auth.handleChannelEncryptRequest)
-	s.RegisterMsgHandler(protocol.EMsg_ChannelEncryptResult, auth.handleChannelEncryptResult)
-	s.RegisterMsgHandler(protocol.EMsg_ClientLogOnResponse, auth.handleLogOnResponse)
-	s.RegisterMsgHandler(protocol.EMsg_ClientLoggedOff, auth.handleLoggedOff)
+	s.RegisterMsgHandler(enums.EMsg_ChannelEncryptRequest, auth.handleChannelEncryptRequest)
+	s.RegisterMsgHandler(enums.EMsg_ChannelEncryptResult, auth.handleChannelEncryptResult)
+	s.RegisterMsgHandler(enums.EMsg_ClientLogOnResponse, auth.handleLogOnResponse)
+	s.RegisterMsgHandler(enums.EMsg_ClientLoggedOff, auth.handleLoggedOff)
 
 	return auth
 }
@@ -289,7 +289,7 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 	}
 
 	var eResErr api.EResultError
-	if errors.As(resultErr, &eResErr) && eResErr.EResult == protocol.EResult_InvalidPassword {
+	if errors.As(resultErr, &eResErr) && eResErr.EResult == enums.EResult_InvalidPassword {
 		a.logger.Warn("Session rejected by CM (Invalid Password/Token), clearing local storage")
 		_ = a.store.Clear(ctx, details.AccountName)
 	}
@@ -314,7 +314,7 @@ func (a *Authenticator) LogOnAnonymous(ctx context.Context, server socket.CMServ
 
 	anonDetails := &LogOnDetails{
 		ProtocolVersion: ProtocolVersion,
-		ClientOSType:    uint32(protocol.EOSType_Windows10),
+		ClientOSType:    uint32(enums.EOSType_Windows10),
 	}
 	a.activeDetails.Store(anonDetails)
 
@@ -364,7 +364,7 @@ func (a *Authenticator) validate(details *LogOnDetails) error {
 	}
 
 	if details.ClientOSType == 0 {
-		details.ClientOSType = uint32(protocol.EOSType_Windows10)
+		details.ClientOSType = uint32(enums.EOSType_Windows10)
 	}
 
 	if details.ProtocolVersion == 0 {

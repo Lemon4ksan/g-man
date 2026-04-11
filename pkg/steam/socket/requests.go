@@ -11,6 +11,7 @@ import (
 
 	"github.com/lemon4ksan/g-man/pkg/jobs"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket/internal/session"
 	"google.golang.org/protobuf/proto"
 )
@@ -41,7 +42,7 @@ func WithToken(token string) SendOption {
 type PayloadBuilder func(sess session.Session, buf *bytes.Buffer, sourceJobID uint64, token string) error
 
 // Proto creates a PayloadBuilder to send a Protobuf message.
-func Proto(eMsg protocol.EMsg, req proto.Message) PayloadBuilder {
+func Proto(eMsg enums.EMsg, req proto.Message) PayloadBuilder {
 	return func(sess session.Session, buf *bytes.Buffer, sourceJobID uint64, token string) (err error) {
 		pkt := newPacket(sess, eMsg, sourceJobID, true, "", token)
 		pkt.Payload, err = proto.Marshal(req)
@@ -55,7 +56,7 @@ func Proto(eMsg protocol.EMsg, req proto.Message) PayloadBuilder {
 // Unified creates a PayloadBuilder to call the Unified Service (e.g. "Player.GetGameBadgeLevels#1").
 func Unified(method string, req proto.Message) PayloadBuilder {
 	return func(sess session.Session, buf *bytes.Buffer, sourceJobID uint64, token string) (err error) {
-		pkt := newPacket(sess, protocol.EMsg_ServiceMethodCallFromClient, sourceJobID, true, method, token)
+		pkt := newPacket(sess, enums.EMsg_ServiceMethodCallFromClient, sourceJobID, true, method, token)
 		pkt.Payload, err = proto.Marshal(req)
 		if err != nil {
 			return
@@ -65,7 +66,7 @@ func Unified(method string, req proto.Message) PayloadBuilder {
 }
 
 // Raw creates a PayloadBuilder to send a plain byte array (e.g. for encryption).
-func Raw(eMsg protocol.EMsg, payload []byte) PayloadBuilder {
+func Raw(eMsg enums.EMsg, payload []byte) PayloadBuilder {
 	return func(sess session.Session, buf *bytes.Buffer, sourceJobID uint64, _ string) error {
 		pkt := newPacket(sess, eMsg, sourceJobID, false, "", "")
 		pkt.Payload = payload
@@ -74,7 +75,7 @@ func Raw(eMsg protocol.EMsg, payload []byte) PayloadBuilder {
 }
 
 // DynamicRaw creates a PayloadBuilder to send both unified and raw messages based on provided arguments.
-func DynamicRaw(eMsg protocol.EMsg, targetName string, payload []byte) PayloadBuilder {
+func DynamicRaw(eMsg enums.EMsg, targetName string, payload []byte) PayloadBuilder {
 	return func(sess session.Session, buf *bytes.Buffer, sourceJobID uint64, token string) (err error) {
 		isProto := targetName != ""
 		pkt := newPacket(sess, eMsg, sourceJobID, isProto, targetName, token)
@@ -122,7 +123,7 @@ func (s *Socket) Send(ctx context.Context, build PayloadBuilder, opts ...SendOpt
 	return nil
 }
 
-func (s *Socket) SendProto(ctx context.Context, eMsg protocol.EMsg, req proto.Message, opts ...SendOption) error {
+func (s *Socket) SendProto(ctx context.Context, eMsg enums.EMsg, req proto.Message, opts ...SendOption) error {
 	return s.Send(ctx, Proto(eMsg, req), opts...)
 }
 
@@ -130,7 +131,7 @@ func (s *Socket) SendUnified(ctx context.Context, method string, req proto.Messa
 	return s.Send(ctx, Unified(method, req), opts...)
 }
 
-func (s *Socket) SendRaw(ctx context.Context, eMsg protocol.EMsg, payload []byte, opts ...SendOption) error {
+func (s *Socket) SendRaw(ctx context.Context, eMsg enums.EMsg, payload []byte, opts ...SendOption) error {
 	return s.Send(ctx, Raw(eMsg, payload), opts...)
 }
 
@@ -165,7 +166,7 @@ func (s *Socket) SendSync(ctx context.Context, build PayloadBuilder, opts ...Sen
 
 // newPacket is a factory method that initializes a protocol.Packet with
 // correct headers (Proto vs Extended) based on the session state and message type.
-func newPacket(sess session.Session, eMsg protocol.EMsg, jobID uint64, isProto bool, jobName, token string) *protocol.Packet {
+func newPacket(sess session.Session, eMsg enums.EMsg, jobID uint64, isProto bool, jobName, token string) *protocol.Packet {
 	var steamID uint64
 	var sessionID int32
 	if sess != nil {
@@ -175,7 +176,7 @@ func newPacket(sess session.Session, eMsg protocol.EMsg, jobID uint64, isProto b
 
 	// ClientHello is a special case: it must be sent with 0 IDs even if
 	// the session objects exist (e.g., during reconnection).
-	if eMsg == protocol.EMsg_ClientHello {
+	if eMsg == enums.EMsg_ClientHello {
 		steamID, sessionID = 0, 0
 	}
 
@@ -206,7 +207,7 @@ func (s *Socket) registerJob(ctx context.Context, cb jobs.Callback[*protocol.Pac
 	}
 	id := s.jobManager.NextID()
 	_ = s.jobManager.Add(id, func(response *protocol.Packet, err error) {
-		var eMsg protocol.EMsg
+		var eMsg enums.EMsg
 		if response != nil {
 			eMsg = response.EMsg
 		}

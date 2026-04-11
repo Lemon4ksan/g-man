@@ -19,7 +19,7 @@ const (
 	protoRawDir     = "./protobufs/"
 	webApiJsonInput = "./api.steampowered.com.json"
 
-	steamLangOutput = pkgRoot + "/steam/protocol/enums.go"
+	steamLangOutput = pkgRoot + "/steam/protocol/enums/enums.go"
 
 	steamImport = moduleRoot + "/pkg/protobuf/steam"
 	tf2Import   = moduleRoot + "/pkg/protobuf/tf2"

@@ -14,7 +14,7 @@ import (
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/test/module"
 	"google.golang.org/protobuf/proto"
 )
@@ -49,21 +49,21 @@ func TestManager_InitAndClose(t *testing.T) {
 
 	t.Run("Register", func(t *testing.T) {
 		_ = m.Init(ictx)
-		ictx.AssertPacketHandlerRegistered(t, protocol.EMsg_ClientFriendsList)
-		ictx.AssertPacketHandlerRegistered(t, protocol.EMsg_ClientPersonaState)
+		ictx.AssertPacketHandlerRegistered(t, enums.EMsg_ClientFriendsList)
+		ictx.AssertPacketHandlerRegistered(t, enums.EMsg_ClientPersonaState)
 	})
 
 	t.Run("Unregister", func(t *testing.T) {
 		_ = m.Close()
-		ictx.AssertPacketHandlerUnregistered(t, protocol.EMsg_ClientFriendsList)
+		ictx.AssertPacketHandlerUnregistered(t, enums.EMsg_ClientFriendsList)
 	})
 }
 
 func TestManager_FriendCache(t *testing.T) {
 	m, _ := setupFriends(t)
 
-	m.relationships[FriendID_1] = protocol.EFriendRelationship_Friend
-	m.relationships[FriendID_2] = protocol.EFriendRelationship_RequestRecipient
+	m.relationships[FriendID_1] = enums.EFriendRelationship_Friend
+	m.relationships[FriendID_2] = enums.EFriendRelationship_RequestRecipient
 	m.users[FriendID_1] = &PersonaState{PlayerName: "G-man"}
 
 	t.Run("Status Checks", func(t *testing.T) {
@@ -148,7 +148,7 @@ func TestManager_InviteToGroups(t *testing.T) {
 	comm.SetJSONResponse(inviteURL, 200, map[string]any{"success": true})
 
 	t.Run("Invite Friend", func(t *testing.T) {
-		m.relationships[FriendID_1] = protocol.EFriendRelationship_Friend
+		m.relationships[FriendID_1] = enums.EFriendRelationship_Friend
 
 		m.InviteToGroups(t.Context(), FriendID_1, []uint64{999})
 
@@ -179,12 +179,12 @@ func TestManager_HandleFriendsList(t *testing.T) {
 	m, ictx := setupFriends(t)
 	sub := ictx.Bus().Subscribe(&RelationshipChangedEvent{})
 
-	m.relationships[FriendID_1] = protocol.EFriendRelationship_Friend
+	m.relationships[FriendID_1] = enums.EFriendRelationship_Friend
 
-	ictx.EmitPacket(t, protocol.EMsg_ClientFriendsList, &pb.CMsgClientFriendsList{
+	ictx.EmitPacket(t, enums.EMsg_ClientFriendsList, &pb.CMsgClientFriendsList{
 		Friends: []*pb.CMsgClientFriendsList_Friend{
-			{Ulfriendid: proto.Uint64(FriendID_1), Efriendrelationship: proto.Uint32(uint32(protocol.EFriendRelationship_None))},
-			{Ulfriendid: proto.Uint64(FriendID_2), Efriendrelationship: proto.Uint32(uint32(protocol.EFriendRelationship_Friend))},
+			{Ulfriendid: proto.Uint64(FriendID_1), Efriendrelationship: proto.Uint32(uint32(enums.EFriendRelationship_None))},
+			{Ulfriendid: proto.Uint64(FriendID_2), Efriendrelationship: proto.Uint32(uint32(enums.EFriendRelationship_Friend))},
 		},
 	})
 
@@ -199,10 +199,10 @@ func TestManager_HandleFriendsList(t *testing.T) {
 		}
 	}
 
-	if ev, ok := events[FriendID_1]; !ok || ev.New != protocol.EFriendRelationship_None {
+	if ev, ok := events[FriendID_1]; !ok || ev.New != enums.EFriendRelationship_None {
 		t.Errorf("removal event failed: %+v", ev)
 	}
-	if ev, ok := events[FriendID_2]; !ok || ev.New != protocol.EFriendRelationship_Friend {
+	if ev, ok := events[FriendID_2]; !ok || ev.New != enums.EFriendRelationship_Friend {
 		t.Errorf("addition event failed: %+v", ev)
 	}
 
@@ -215,7 +215,7 @@ func TestManager_HandlePersonaState(t *testing.T) {
 	m, ictx := setupFriends(t)
 	sub := ictx.Bus().Subscribe(&PersonaStateUpdatedEvent{})
 
-	ictx.EmitPacket(t, protocol.EMsg_ClientPersonaState, &pb.CMsgClientPersonaState{
+	ictx.EmitPacket(t, enums.EMsg_ClientPersonaState, &pb.CMsgClientPersonaState{
 		Friends: []*pb.CMsgClientPersonaState_Friend{
 			{Friendid: proto.Uint64(FriendID_1), PlayerName: proto.String("Lemon")},
 		},

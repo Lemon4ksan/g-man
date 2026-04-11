@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -25,7 +26,7 @@ func (infiniteZeros) Read(p []byte) (n int, err error) {
 }
 
 func TestMsgHdr_Roundtrip(t *testing.T) {
-	hdr := NewMsgHdr(EMsg_ChannelEncryptRequest, 456)
+	hdr := NewMsgHdr(enums.EMsg_ChannelEncryptRequest, 456)
 
 	if hdr.GetTargetJob() != 456 {
 		t.Errorf("Expected TargetJobID 456, got %d", hdr.GetTargetJob())
@@ -92,7 +93,7 @@ func TestMsgHdrExtended_DeserializeErrors(t *testing.T) {
 }
 
 func TestMsgHdrProtoBuf_Roundtrip(t *testing.T) {
-	hdr := NewMsgHdrProtoBuf(EMsg(777), 12345, 67890)
+	hdr := NewMsgHdrProtoBuf(enums.EMsg(777), 12345, 67890)
 	hdr.Proto.JobidSource = proto.Uint64(111)
 	hdr.Proto.JobidTarget = proto.Uint64(222)
 	hdr.Proto.Eresult = proto.Int32(2)
@@ -100,7 +101,7 @@ func TestMsgHdrProtoBuf_Roundtrip(t *testing.T) {
 	if hdr.GetSteamID() != 12345 || hdr.GetSessionID() != 67890 {
 		t.Errorf("Getters mismatch")
 	}
-	if hdr.GetEResult() != EResult(2) {
+	if hdr.GetEResult() != enums.EResult(2) {
 		t.Errorf("Expected EResult 2, got %v", hdr.GetEResult())
 	}
 
@@ -141,7 +142,7 @@ func TestParsePacket_Errors(t *testing.T) {
 	})
 
 	t.Run("PayloadTooLarge", func(t *testing.T) {
-		hdr := NewMsgHdr(EMsg_ChannelEncryptRequest, NoJob)
+		hdr := NewMsgHdr(enums.EMsg_ChannelEncryptRequest, NoJob)
 		buf := new(bytes.Buffer)
 		hdr.SerializeTo(buf)
 
@@ -167,9 +168,9 @@ func TestParsePacket_Errors(t *testing.T) {
 
 	t.Run("InvalidProtoHeader", func(t *testing.T) {
 		pkt := &Packet{
-			EMsg:    EMsg(100),
+			EMsg:    enums.EMsg(100),
 			IsProto: true,
-			Header:  NewMsgHdr(EMsg(100), NoJob),
+			Header:  NewMsgHdr(enums.EMsg(100), NoJob),
 		}
 		err := pkt.SerializeTo(new(bytes.Buffer))
 		if !errors.Is(err, ErrInvalidHeader) {
@@ -180,7 +181,7 @@ func TestParsePacket_Errors(t *testing.T) {
 
 func TestParsePacket(t *testing.T) {
 	t.Run("StandardHeader", func(t *testing.T) {
-		hdr := NewMsgHdr(EMsg_ChannelEncryptRequest, 100)
+		hdr := NewMsgHdr(enums.EMsg_ChannelEncryptRequest, 100)
 		buf := new(bytes.Buffer)
 		hdr.SerializeTo(buf)
 		buf.WriteString("payload")
@@ -202,7 +203,7 @@ func TestParsePacket(t *testing.T) {
 	})
 
 	t.Run("ProtoBufHeader", func(t *testing.T) {
-		hdr := NewMsgHdrProtoBuf(EMsg(999), 11, 22)
+		hdr := NewMsgHdrProtoBuf(enums.EMsg(999), 11, 22)
 		buf := new(bytes.Buffer)
 		hdr.SerializeTo(buf)
 		buf.WriteString("protopayload")
@@ -215,7 +216,7 @@ func TestParsePacket(t *testing.T) {
 		if !pkt.IsProto {
 			t.Errorf("Packet should be proto")
 		}
-		if pkt.EMsg != EMsg(999) {
+		if pkt.EMsg != enums.EMsg(999) {
 			t.Errorf("Expected EMsg 999, got %v", pkt.EMsg)
 		}
 		if _, ok := pkt.Header.(*MsgHdrProtoBuf); !ok {
@@ -228,7 +229,7 @@ func TestParsePacket(t *testing.T) {
 }
 
 func TestParsePacket_PayloadTooLarge(t *testing.T) {
-	hdr := NewMsgHdr(EMsg_ChannelEncryptRequest, 1)
+	hdr := NewMsgHdr(enums.EMsg_ChannelEncryptRequest, 1)
 	buf := new(bytes.Buffer)
 	hdr.SerializeTo(buf)
 
@@ -242,7 +243,7 @@ func TestParsePacket_PayloadTooLarge(t *testing.T) {
 }
 
 func TestPacket_Getters(t *testing.T) {
-	hdrProto := NewMsgHdrProtoBuf(EMsg(1), 10, 20)
+	hdrProto := NewMsgHdrProtoBuf(enums.EMsg(1), 10, 20)
 	hdrProto.Proto.Eresult = proto.Int32(5)
 	hdrProto.Proto.JobidSource = proto.Uint64(1)
 	hdrProto.Proto.JobidTarget = proto.Uint64(2)
@@ -254,14 +255,14 @@ func TestPacket_Getters(t *testing.T) {
 	if pktProto.GetSessionID() != 20 {
 		t.Errorf("Expected SessionID 20")
 	}
-	if pktProto.GetEResult() != EResult(5) {
+	if pktProto.GetEResult() != enums.EResult(5) {
 		t.Errorf("Expected EResult 5")
 	}
 	if pktProto.GetSourceJobID() != 1 || pktProto.GetTargetJobID() != 2 {
 		t.Errorf("JobID mismatch")
 	}
 
-	hdrStd := NewMsgHdr(EMsg_ChannelEncryptRequest, 99)
+	hdrStd := NewMsgHdr(enums.EMsg_ChannelEncryptRequest, 99)
 	hdrStd.SourceJobID = 88
 	pktStd := &Packet{Header: hdrStd}
 
@@ -271,7 +272,7 @@ func TestPacket_Getters(t *testing.T) {
 	if pktStd.GetSessionID() != 0 {
 		t.Errorf("Standard header should return 0 for SessionID")
 	}
-	if pktStd.GetEResult() != EResult_Invalid {
+	if pktStd.GetEResult() != enums.EResult_Invalid {
 		t.Errorf("Standard header should return EResult_Invalid, got %v", pktStd.GetEResult())
 	}
 	if pktStd.GetSourceJobID() != 88 || pktStd.GetTargetJobID() != 99 {
@@ -281,9 +282,9 @@ func TestPacket_Getters(t *testing.T) {
 
 func TestPacket_SerializeTo(t *testing.T) {
 	t.Run("ProtoSuccess", func(t *testing.T) {
-		hdr := NewMsgHdrProtoBuf(EMsg(333), 1, 1)
+		hdr := NewMsgHdrProtoBuf(enums.EMsg(333), 1, 1)
 		pkt := &Packet{
-			EMsg:    EMsg(333),
+			EMsg:    enums.EMsg(333),
 			IsProto: true,
 			Header:  hdr,
 			Payload: []byte("data"),
@@ -301,9 +302,9 @@ func TestPacket_SerializeTo(t *testing.T) {
 
 	t.Run("ProtoInvalidHeader", func(t *testing.T) {
 		pkt := &Packet{
-			EMsg:    EMsg(333),
+			EMsg:    enums.EMsg(333),
 			IsProto: true,
-			Header:  NewMsgHdr(EMsg(333), 1), // Invalid header for proto
+			Header:  NewMsgHdr(enums.EMsg(333), 1), // Invalid header for proto
 		}
 		err := pkt.SerializeTo(new(bytes.Buffer))
 		if !errors.Is(err, ErrInvalidHeader) {
@@ -312,9 +313,9 @@ func TestPacket_SerializeTo(t *testing.T) {
 	})
 
 	t.Run("NonProto", func(t *testing.T) {
-		hdr := NewMsgHdr(EMsg_ChannelEncryptRequest, 100)
+		hdr := NewMsgHdr(enums.EMsg_ChannelEncryptRequest, 100)
 		pkt := &Packet{
-			EMsg:    EMsg_ChannelEncryptRequest,
+			EMsg:    enums.EMsg_ChannelEncryptRequest,
 			IsProto: false,
 			Header:  hdr,
 			Payload: []byte("test"),
@@ -339,27 +340,27 @@ func TestPacket_Roundtrip(t *testing.T) {
 		{
 			name: "Standard Handshake Packet",
 			packet: &Packet{
-				EMsg:    EMsg_ChannelEncryptRequest,
+				EMsg:    enums.EMsg_ChannelEncryptRequest,
 				IsProto: false,
-				Header:  NewMsgHdr(EMsg_ChannelEncryptRequest, NoJob),
+				Header:  NewMsgHdr(enums.EMsg_ChannelEncryptRequest, NoJob),
 				Payload: []byte{0x01, 0x02, 0x03, 0x04},
 			},
 		},
 		{
 			name: "Legacy Extended Packet",
 			packet: &Packet{
-				EMsg:    EMsg(555),
+				EMsg:    enums.EMsg(555),
 				IsProto: false,
-				Header:  NewMsgHdrExtended(EMsg(555), 123456, 789),
+				Header:  NewMsgHdrExtended(enums.EMsg(555), 123456, 789),
 				Payload: []byte("legacy-payload"),
 			},
 		},
 		{
 			name: "Modern Proto Packet",
 			packet: &Packet{
-				EMsg:    EMsg(1000),
+				EMsg:    enums.EMsg(1000),
 				IsProto: true,
-				Header:  NewMsgHdrProtoBuf(EMsg(1000), 999, 888),
+				Header:  NewMsgHdrProtoBuf(enums.EMsg(1000), 999, 888),
 				Payload: []byte("proto-payload"),
 			},
 		},
@@ -402,7 +403,7 @@ func TestPacket_Roundtrip(t *testing.T) {
 }
 
 func TestMsgHdr_Serialization(t *testing.T) {
-	hdr := NewMsgHdr(EMsg_ChannelEncryptRequest, 0x1122334455667788)
+	hdr := NewMsgHdr(enums.EMsg_ChannelEncryptRequest, 0x1122334455667788)
 	hdr.SourceJobID = 0xAABBCCDDEE001122
 
 	buf := new(bytes.Buffer)
@@ -415,12 +416,12 @@ func TestMsgHdr_Serialization(t *testing.T) {
 	}
 
 	data := buf.Bytes()
-	emsg := binary.LittleEndian.Uint32(data[0:4])
+	e := binary.LittleEndian.Uint32(data[0:4])
 	target := binary.LittleEndian.Uint64(data[4:12])
 	source := binary.LittleEndian.Uint64(data[12:20])
 
-	if EMsg(emsg) != EMsg_ChannelEncryptRequest {
-		t.Errorf("EMsg mismatch: expected %v, got %v", EMsg_ChannelEncryptRequest, emsg)
+	if enums.EMsg(e) != enums.EMsg_ChannelEncryptRequest {
+		t.Errorf("EMsg mismatch: expected %v, got %v", enums.EMsg_ChannelEncryptRequest, e)
 	}
 	if target != 0x1122334455667788 {
 		t.Errorf("TargetJobID mismatch")
@@ -431,7 +432,7 @@ func TestMsgHdr_Serialization(t *testing.T) {
 }
 
 func TestMsgHdrExtended_Roundtrip(t *testing.T) {
-	original := NewMsgHdrExtended(EMsg(500), 76561197960265728, 12345)
+	original := NewMsgHdrExtended(enums.EMsg(500), 76561197960265728, 12345)
 	original.SourceJobID = 1
 	original.TargetJobID = 2
 
@@ -443,7 +444,7 @@ func TestMsgHdrExtended_Roundtrip(t *testing.T) {
 	var rawEMsg uint32
 	binary.Read(buf, binary.LittleEndian, &rawEMsg)
 
-	decoded := &MsgHdrExtended{EMsg: EMsg(rawEMsg)}
+	decoded := &MsgHdrExtended{EMsg: enums.EMsg(rawEMsg)}
 	if err := decoded.Deserialize(buf); err != nil {
 		t.Fatalf("Deserialize failed: %v", err)
 	}
@@ -457,8 +458,8 @@ func TestMsgHdrExtended_Roundtrip(t *testing.T) {
 }
 
 func TestMsgHdrProtoBuf_Serialization(t *testing.T) {
-	hdr := NewMsgHdrProtoBuf(EMsg(1000), 76561197960265728, 99)
-	hdr.Proto.Eresult = proto.Int32(int32(EResult_OK))
+	hdr := NewMsgHdrProtoBuf(enums.EMsg(1000), 76561197960265728, 99)
+	hdr.Proto.Eresult = proto.Int32(int32(enums.EResult_OK))
 
 	buf := new(bytes.Buffer)
 	if err := hdr.SerializeTo(buf); err != nil {

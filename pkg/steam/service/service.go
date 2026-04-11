@@ -15,7 +15,7 @@ import (
 
 	"github.com/lemon4ksan/g-man/pkg/rest"
 	"github.com/lemon4ksan/g-man/pkg/steam/api"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
 
 	"google.golang.org/protobuf/proto"
@@ -88,7 +88,7 @@ func (c *Client) Do(ctx context.Context, req *tr.Request) (*tr.Response, error) 
 }
 
 func (c *Client) validateEResult(resp *tr.Response) error {
-	var res protocol.EResult
+	var res enums.EResult
 
 	if meta, ok := resp.HTTP(); ok {
 		if meta.StatusCode == http.StatusUnauthorized {
@@ -96,7 +96,7 @@ func (c *Client) validateEResult(resp *tr.Response) error {
 		}
 		res = meta.Result
 		if res == 0 {
-			res = protocol.EResult_OK
+			res = enums.EResult_OK
 		}
 	} else if meta, ok := resp.Socket(); ok {
 		res = meta.Result
@@ -106,7 +106,7 @@ func (c *Client) validateEResult(resp *tr.Response) error {
 		return api.EResultError{EResult: res, Err: api.ErrSessionExpired}
 	}
 
-	if res != protocol.EResult_OK {
+	if res != enums.EResult_OK {
 		return api.EResultError{EResult: res}
 	}
 
@@ -149,7 +149,7 @@ func WebAPI[Resp any](ctx context.Context, d Doer, httpMethod, iface, method str
 
 // Legacy executes a low-level Protobuf request based on an EMsg.
 // This is primarily used for Socket communication.
-func Legacy[Resp any](ctx context.Context, d Doer, eMsg protocol.EMsg, reqMsg proto.Message, opts ...api.CallOption) (*Resp, error) {
+func Legacy[Resp any](ctx context.Context, d Doer, eMsg enums.EMsg, reqMsg proto.Message, opts ...api.CallOption) (*Resp, error) {
 	req, err := NewLegacyRequest(eMsg, reqMsg)
 	if err != nil {
 		return nil, err

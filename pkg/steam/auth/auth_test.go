@@ -16,6 +16,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/bus"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
 	"google.golang.org/protobuf/proto"
 )
@@ -44,31 +45,31 @@ func (m *mockSession) Send(ctx context.Context, data []byte) error { return nil 
 
 type mockSocketProvider struct {
 	mu       sync.Mutex
-	handlers map[protocol.EMsg]socket.Handler
+	handlers map[enums.EMsg]socket.Handler
 	eventBus *bus.Bus
 	sess     *mockSession
 
 	connectErr error
-	sentProtos map[protocol.EMsg]proto.Message
-	sentRaws   map[protocol.EMsg][]byte
+	sentProtos map[enums.EMsg]proto.Message
+	sentRaws   map[enums.EMsg][]byte
 
 	hbStarted  bool
 	hbDuration time.Duration
 
-	onSendProto func(eMsg protocol.EMsg, req proto.Message)
+	onSendProto func(eMsg enums.EMsg, req proto.Message)
 }
 
 func newMockSocket() *mockSocketProvider {
 	return &mockSocketProvider{
-		handlers:   make(map[protocol.EMsg]socket.Handler),
+		handlers:   make(map[enums.EMsg]socket.Handler),
 		eventBus:   bus.NewBus(),
 		sess:       &mockSession{},
-		sentProtos: make(map[protocol.EMsg]proto.Message),
-		sentRaws:   make(map[protocol.EMsg][]byte),
+		sentProtos: make(map[enums.EMsg]proto.Message),
+		sentRaws:   make(map[enums.EMsg][]byte),
 	}
 }
 
-func (m *mockSocketProvider) RegisterMsgHandler(eMsg protocol.EMsg, handler socket.Handler) {
+func (m *mockSocketProvider) RegisterMsgHandler(eMsg enums.EMsg, handler socket.Handler) {
 	m.mu.Lock()
 	m.handlers[eMsg] = handler
 	m.mu.Unlock()
@@ -78,7 +79,7 @@ func (m *mockSocketProvider) Connect(ctx context.Context, server socket.CMServer
 	return m.connectErr
 }
 
-func (m *mockSocketProvider) SendProto(ctx context.Context, eMsg protocol.EMsg, req proto.Message, opts ...socket.SendOption) error {
+func (m *mockSocketProvider) SendProto(ctx context.Context, eMsg enums.EMsg, req proto.Message, opts ...socket.SendOption) error {
 	m.mu.Lock()
 	m.sentProtos[eMsg] = req
 	m.mu.Unlock()
@@ -88,7 +89,7 @@ func (m *mockSocketProvider) SendProto(ctx context.Context, eMsg protocol.EMsg, 
 	return nil
 }
 
-func (m *mockSocketProvider) SendRaw(ctx context.Context, eMsg protocol.EMsg, payload []byte, opts ...socket.SendOption) error {
+func (m *mockSocketProvider) SendRaw(ctx context.Context, eMsg enums.EMsg, payload []byte, opts ...socket.SendOption) error {
 	m.mu.Lock()
 	m.sentRaws[eMsg] = payload
 	m.mu.Unlock()
@@ -104,7 +105,7 @@ func (m *mockSocketProvider) StartHeartbeat(d time.Duration) {
 	m.mu.Unlock()
 }
 
-func (m *mockSocketProvider) simulatePacket(eMsg protocol.EMsg, payload []byte) {
+func (m *mockSocketProvider) simulatePacket(eMsg enums.EMsg, payload []byte) {
 	m.mu.Lock()
 	handler := m.handlers[eMsg]
 	m.mu.Unlock()
@@ -150,17 +151,17 @@ func TestAuthenticator_CryptoHandshake(t *testing.T) {
 		nonce := make([]byte, 16)
 		buf := new(bytes.Buffer)
 		binary.Write(buf, binary.LittleEndian, uint32(ProtocolVersion))
-		binary.Write(buf, binary.LittleEndian, uint32(protocol.EUniverse_Public))
+		binary.Write(buf, binary.LittleEndian, uint32(enums.EUniverse_Public))
 		buf.Write(nonce)
 
-		s.simulatePacket(protocol.EMsg_ChannelEncryptRequest, buf.Bytes())
+		s.simulatePacket(enums.EMsg_ChannelEncryptRequest, buf.Bytes())
 
 		if a.tempKey.Load() == nil {
 			t.Error("tempKey should be stored after request")
 		}
 
 		s.mu.Lock()
-		resp := s.sentRaws[protocol.EMsg_ChannelEncryptResponse]
+		resp := s.sentRaws[enums.EMsg_ChannelEncryptResponse]
 		s.mu.Unlock()
 
 		if resp == nil {
@@ -176,9 +177,9 @@ func TestAuthenticator_CryptoHandshake(t *testing.T) {
 
 	t.Run("Receive ChannelEncryptResult OK", func(t *testing.T) {
 		res := make([]byte, 4)
-		binary.LittleEndian.PutUint32(res, uint32(protocol.EResult_OK))
+		binary.LittleEndian.PutUint32(res, uint32(enums.EResult_OK))
 
-		s.simulatePacket(protocol.EMsg_ChannelEncryptResult, res)
+		s.simulatePacket(enums.EMsg_ChannelEncryptResult, res)
 
 		if !s.sess.IsEncrypted() {
 			t.Error("session key should be applied to socket")
@@ -188,7 +189,7 @@ func TestAuthenticator_CryptoHandshake(t *testing.T) {
 		}
 
 		s.mu.Lock()
-		logonMsg := s.sentProtos[protocol.EMsg_ClientLogon]
+		logonMsg := s.sentProtos[enums.EMsg_ClientLogon]
 		s.mu.Unlock()
 
 		if logonMsg == nil {
@@ -202,14 +203,14 @@ func TestAuthenticator_LogOn_WebSocketFlow(t *testing.T) {
 	w := &mockWebAuth{}
 	a := NewAuthenticator(s, w, DefaultConfig())
 
-	s.onSendProto = func(eMsg protocol.EMsg, req proto.Message) {
-		if eMsg == protocol.EMsg_ClientLogon {
+	s.onSendProto = func(eMsg enums.EMsg, req proto.Message) {
+		if eMsg == enums.EMsg_ClientLogon {
 			resp := &pb.CMsgClientLogonResponse{
-				Eresult:          proto.Int32(int32(protocol.EResult_OK)),
+				Eresult:          proto.Int32(int32(enums.EResult_OK)),
 				HeartbeatSeconds: proto.Int32(30),
 			}
 			data, _ := proto.Marshal(resp)
-			s.simulatePacket(protocol.EMsg_ClientLogOnResponse, data)
+			s.simulatePacket(enums.EMsg_ClientLogOnResponse, data)
 		}
 	}
 
@@ -238,13 +239,13 @@ func TestAuthenticator_LogOn_Failure(t *testing.T) {
 	w := &mockWebAuth{}
 	a := NewAuthenticator(s, w, DefaultConfig())
 
-	s.onSendProto = func(eMsg protocol.EMsg, req proto.Message) {
-		if eMsg == protocol.EMsg_ClientLogon {
+	s.onSendProto = func(eMsg enums.EMsg, req proto.Message) {
+		if eMsg == enums.EMsg_ClientLogon {
 			resp := &pb.CMsgClientLogonResponse{
-				Eresult: proto.Int32(int32(protocol.EResult_InvalidPassword)),
+				Eresult: proto.Int32(int32(enums.EResult_InvalidPassword)),
 			}
 			data, _ := proto.Marshal(resp)
-			s.simulatePacket(protocol.EMsg_ClientLogOnResponse, data)
+			s.simulatePacket(enums.EMsg_ClientLogOnResponse, data)
 		}
 	}
 
@@ -268,10 +269,10 @@ func TestAuthenticator_LogOff_Detection(t *testing.T) {
 	sub := s.Bus().Subscribe(&LoggedOffEvent{})
 
 	resp := &pb.CMsgClientLoggedOff{
-		Eresult: proto.Int32(int32(protocol.EResult_LoggedInElsewhere)),
+		Eresult: proto.Int32(int32(enums.EResult_LoggedInElsewhere)),
 	}
 	data, _ := proto.Marshal(resp)
-	s.simulatePacket(protocol.EMsg_ClientLoggedOff, data)
+	s.simulatePacket(enums.EMsg_ClientLoggedOff, data)
 
 	if a.State() != StateDisconnected {
 		t.Errorf("expected state Disconnected, got %s", a.State())
@@ -280,7 +281,7 @@ func TestAuthenticator_LogOff_Detection(t *testing.T) {
 	select {
 	case ev := <-sub.C():
 		offEv := ev.(*LoggedOffEvent)
-		if offEv.Result != protocol.EResult_LoggedInElsewhere {
+		if offEv.Result != enums.EResult_LoggedInElsewhere {
 			t.Errorf("unexpected logoff result: %v", offEv.Result)
 		}
 	case <-time.After(1 * time.Second):

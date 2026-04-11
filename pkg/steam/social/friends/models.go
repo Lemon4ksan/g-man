@@ -9,7 +9,7 @@ import (
 
 	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 )
 
 // PersonaState represents cached information about the user.
@@ -35,8 +35,8 @@ type GetBadgesResponse struct {
 type RelationshipChangedEvent struct {
 	bus.BaseEvent
 	SteamID id.ID
-	Old     protocol.EFriendRelationship
-	New     protocol.EFriendRelationship
+	Old     enums.EFriendRelationship
+	New     enums.EFriendRelationship
 }
 
 func (e *RelationshipChangedEvent) Topic() string { return "friends.relationship_changed" }

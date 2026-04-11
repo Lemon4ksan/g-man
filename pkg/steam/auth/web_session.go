@@ -20,7 +20,7 @@ import (
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/rest"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 )
 
 // steamDomains are the standard Steam domains that require synchronized cookies.
@@ -256,7 +256,7 @@ func (s *WebSession) executeTransferWithRetry(ctx context.Context, transferURL s
 	var lastErr error
 
 	type transferResult struct {
-		Result protocol.EResult `json:"result"`
+		Result enums.EResult `json:"result"`
 	}
 
 	for range maxRetries {
@@ -266,7 +266,7 @@ func (s *WebSession) executeTransferWithRetry(ctx context.Context, transferURL s
 			continue
 		}
 
-		if resp.Result != protocol.EResult_OK {
+		if resp.Result != enums.EResult_OK {
 			return fmt.Errorf("steam error: %s", resp.Result.String())
 		}
 

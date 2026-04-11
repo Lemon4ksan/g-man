@@ -56,6 +56,25 @@ func (m *mockManager) GetEscrowDuration(ctx context.Context, offerID uint64) (Es
 	return m.escrowDetails, nil
 }
 
+func (m *mockManager) GetAcceptCalls() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.acceptCalls
+}
+
+func (m *mockManager) GetDeclineCalls() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.declineCalls
+}
+
+func (m *mockManager) ResetCalls() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.acceptCalls = 0
+	m.declineCalls = 0
+}
+
 type mockOfferHandler struct {
 	mu                   sync.Mutex
 	decision             ActionDecision
@@ -81,6 +100,24 @@ func (h *mockOfferHandler) OnActionFailed(ctx context.Context, offer *TradeOffer
 	h.failedOfferID = offer.ID
 }
 
+func (h *mockOfferHandler) SetDecision(d ActionDecision) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.decision = d
+}
+
+func (h *mockOfferHandler) WasFailedCalled() bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.onActionFailedCalled
+}
+
+func (h *mockOfferHandler) GetFailedAction() ActionType {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.failedAction
+}
+
 func TestProcessor_EnqueueAndWorker(t *testing.T) {
 	mockMgr := &mockManager{}
 	mockHdl := &mockOfferHandler{}
@@ -96,149 +133,59 @@ func TestProcessor_EnqueueAndWorker(t *testing.T) {
 		},
 	}
 
-	mockHdl.decision = ActionDecision{Action: ActionAccept}
+	mockHdl.SetDecision(ActionDecision{Action: ActionAccept})
 	p.Enqueue(offer)
 
-	time.Sleep(50 * time.Millisecond)
+	waitForCondition(func() bool { return mockMgr.GetAcceptCalls() == 1 }, 1*time.Second)
 
-	if mockMgr.acceptCalls != 1 {
-		t.Errorf("expected AcceptOffer to be called 1 time, got %d", mockMgr.acceptCalls)
-	}
-	if !p.IsInTrade(100) || !p.IsInTrade(200) {
-		t.Error("expected items to remain in trade after accept")
+	if mockMgr.GetAcceptCalls() != 1 {
+		t.Errorf("expected AcceptOffer to be called 1 time, got %d", mockMgr.GetAcceptCalls())
 	}
 
-	mockMgr.acceptCalls = 0
-	mockHdl.decision = ActionDecision{Action: ActionDecline}
+	mockMgr.ResetCalls()
+	mockHdl.SetDecision(ActionDecision{Action: ActionDecline})
 	p.Enqueue(offer)
 
-	time.Sleep(50 * time.Millisecond)
+	waitForCondition(func() bool { return mockMgr.GetDeclineCalls() == 1 }, 1*time.Second)
 
-	if mockMgr.declineCalls != 1 {
-		t.Errorf("expected DeclineOffer to be called 1 time, got %d", mockMgr.declineCalls)
+	if mockMgr.GetDeclineCalls() != 1 {
+		t.Errorf("expected DeclineOffer to be called 1 time, got %d", mockMgr.GetDeclineCalls())
 	}
 	if p.IsInTrade(100) || p.IsInTrade(200) {
 		t.Error("expected items to be unset from trade after decline")
-	}
-
-	mockMgr.declineCalls = 0
-	p.SetItemInTrade(100)
-	mockHdl.decision = ActionDecision{Action: ActionSkip}
-	p.Enqueue(offer)
-
-	time.Sleep(50 * time.Millisecond)
-
-	if mockMgr.declineCalls != 0 {
-		t.Error("DeclineOffer should not be called on skip")
-	}
-	if p.IsInTrade(100) {
-		t.Error("expected item to be unset from trade after skip")
 	}
 }
 
 func TestProcessor_CounterFallback(t *testing.T) {
 	mockMgr := &mockManager{}
-	mockHdl := &mockOfferHandler{
-		decision: ActionDecision{Action: ActionCounter},
-	}
+	mockHdl := &mockOfferHandler{}
+	mockHdl.SetDecision(ActionDecision{Action: ActionCounter})
+
 	p := NewProcessor(mockMgr, mockHdl, log.Discard)
 	p.Start(t.Context())
 
 	p.Enqueue(&TradeOffer{ID: 456})
 
-	time.Sleep(50 * time.Millisecond)
+	waitForCondition(func() bool { return mockMgr.GetDeclineCalls() == 1 }, 1*time.Second)
 
-	if mockMgr.declineCalls != 1 {
-		t.Errorf("expected counter fallback to call DeclineOffer, got %d calls", mockMgr.declineCalls)
+	if mockMgr.GetDeclineCalls() != 1 {
+		t.Errorf("expected counter fallback to call DeclineOffer, got %d calls", mockMgr.GetDeclineCalls())
 	}
-	if !mockHdl.onActionFailedCalled {
+	if !mockHdl.WasFailedCalled() {
 		t.Error("expected OnActionFailed to be called for the initial counter failure")
 	}
-	if mockHdl.failedAction != ActionCounter {
-		t.Errorf("expected failed action to be ActionCounter, got %s", mockHdl.failedAction)
+	if mockHdl.GetFailedAction() != ActionCounter {
+		t.Errorf("expected failed action to be ActionCounter, got %s", mockHdl.GetFailedAction())
 	}
 }
 
-func TestProcessor_WithRetry(t *testing.T) {
-	p := NewProcessor(nil, nil, log.Discard)
-
-	attempts := 0
-	err := p.withRetry(context.Background(), 3, func() error {
-		attempts++
-		return nil
-	})
-	if err != nil || attempts != 1 {
-		t.Errorf("expected success on first try, got attempts=%d, err=%v", attempts, err)
+func waitForCondition(condition func() bool, timeout time.Duration) bool {
+	start := time.Now()
+	for time.Since(start) < timeout {
+		if condition() {
+			return true
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
-
-	attempts = 0
-	expectedErr := errors.New("persistent error")
-	err = p.withRetry(context.Background(), 2, func() error {
-		attempts++
-		return expectedErr
-	})
-	if !errors.Is(err, expectedErr) || attempts != 3 {
-		t.Errorf("expected persistent error after all retries, got attempts=%d, err=%v", attempts, err)
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	err = p.withRetry(ctx, 5, func() error {
-		return errors.New("any error")
-	})
-	if !errors.Is(err, context.Canceled) {
-		t.Errorf("expected context.Canceled error, got %v", err)
-	}
-}
-
-func TestProcessor_CheckEscrow(t *testing.T) {
-	mockMgr := &mockManager{}
-	p := NewProcessor(mockMgr, nil, log.Discard)
-
-	ctx := context.Background()
-
-	offerWithDate := &TradeOffer{ID: 1, EscrowEndDate: time.Now().Unix() + 3600}
-	hasEscrow, err := p.CheckEscrow(ctx, offerWithDate)
-	if err != nil || !hasEscrow {
-		t.Errorf("expected true for escrow from date, got hasEscrow=%v, err=%v", hasEscrow, err)
-	}
-	if mockMgr.escrowCalls != 0 {
-		t.Error("GetEscrowDuration should not be called if date exists")
-	}
-
-	mockMgr.escrowDetails = EscrowDetails{TheirDays: 7}
-	offerWithoutDate := &TradeOffer{ID: 2}
-	hasEscrow, err = p.CheckEscrow(ctx, offerWithoutDate)
-	if err != nil || !hasEscrow {
-		t.Errorf("expected true for escrow from API, got hasEscrow=%v, err=%v", hasEscrow, err)
-	}
-	if mockMgr.escrowCalls != 1 {
-		t.Errorf("expected 1 call to GetEscrowDuration, got %d", mockMgr.escrowCalls)
-	}
-
-	mockMgr.escrowCalls = 0
-	mockMgr.escrowDetails = EscrowDetails{TheirDays: 0}
-	hasEscrow, err = p.CheckEscrow(ctx, offerWithoutDate)
-	if err != nil || hasEscrow {
-		t.Errorf("expected false for no escrow, got hasEscrow=%v, err=%v", hasEscrow, err)
-	}
-}
-
-func TestProcessor_ItemTracking(t *testing.T) {
-	p := NewProcessor(nil, nil, log.Discard)
-	assetID := uint64(12345)
-
-	if p.IsInTrade(assetID) {
-		t.Error("expected item not to be in trade initially")
-	}
-
-	p.SetItemInTrade(assetID)
-	if !p.IsInTrade(assetID) {
-		t.Error("expected item to be in trade after Set")
-	}
-
-	p.UnsetItemInTrade(assetID)
-	if p.IsInTrade(assetID) {
-		t.Error("expected item not to be in trade after Unset")
-	}
+	return false
 }

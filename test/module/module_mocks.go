@@ -16,6 +16,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
@@ -30,7 +31,7 @@ type InitContext struct {
 	eventBus        *bus.Bus
 	logger          log.Logger
 	mockService     *requester.Mock
-	packetHandlers  map[protocol.EMsg]socket.Handler
+	packetHandlers  map[enums.EMsg]socket.Handler
 	serviceHandlers map[string]socket.Handler
 	modules         map[string]module.Module
 	storage         storage.Provider
@@ -41,7 +42,7 @@ func NewInitContext() *InitContext {
 		eventBus:        bus.NewBus(),
 		logger:          log.Discard,
 		mockService:     requester.New(),
-		packetHandlers:  make(map[protocol.EMsg]socket.Handler),
+		packetHandlers:  make(map[enums.EMsg]socket.Handler),
 		serviceHandlers: make(map[string]socket.Handler),
 		modules:         make(map[string]module.Module),
 	}
@@ -66,13 +67,13 @@ func (m *InitContext) SetStorage(s storage.Provider) {
 	m.storage = s
 }
 
-func (m *InitContext) RegisterPacketHandler(e protocol.EMsg, h socket.Handler) {
+func (m *InitContext) RegisterPacketHandler(e enums.EMsg, h socket.Handler) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.packetHandlers[e] = h
 }
 
-func (m *InitContext) UnregisterPacketHandler(e protocol.EMsg) {
+func (m *InitContext) UnregisterPacketHandler(e enums.EMsg) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	delete(m.packetHandlers, e)
@@ -96,7 +97,7 @@ func (m *InitContext) Module(name string) module.Module {
 	return m.modules[name]
 }
 
-func (m *InitContext) GetPacketHandler(method protocol.EMsg) (socket.Handler, bool) {
+func (m *InitContext) GetPacketHandler(method enums.EMsg) (socket.Handler, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	h, ok := m.packetHandlers[method]
@@ -110,7 +111,7 @@ func (m *InitContext) GetServiceHandler(method string) (socket.Handler, bool) {
 	return h, ok
 }
 
-func (m *InitContext) AssertPacketHandlerRegistered(t *testing.T, e protocol.EMsg) {
+func (m *InitContext) AssertPacketHandlerRegistered(t *testing.T, e enums.EMsg) {
 	t.Helper()
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -119,7 +120,7 @@ func (m *InitContext) AssertPacketHandlerRegistered(t *testing.T, e protocol.EMs
 	}
 }
 
-func (m *InitContext) AssertPacketHandlerUnregistered(t *testing.T, e protocol.EMsg) {
+func (m *InitContext) AssertPacketHandlerUnregistered(t *testing.T, e enums.EMsg) {
 	t.Helper()
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -128,7 +129,7 @@ func (m *InitContext) AssertPacketHandlerUnregistered(t *testing.T, e protocol.E
 	}
 }
 
-func (m *InitContext) EmitPacket(t *testing.T, e protocol.EMsg, msg proto.Message) {
+func (m *InitContext) EmitPacket(t *testing.T, e enums.EMsg, msg proto.Message) {
 	t.Helper()
 	m.mu.RLock()
 	handler, ok := m.packetHandlers[e]
@@ -180,7 +181,7 @@ func ProtoResponse(msg proto.Message) (*tr.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	return tr.NewResponse(b, tr.SocketMetadata{Result: protocol.EResult_OK}), nil
+	return tr.NewResponse(b, tr.SocketMetadata{Result: enums.EResult_OK}), nil
 }
 
 func JSONResponse(msg any) (*tr.Response, error) {

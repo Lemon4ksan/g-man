@@ -10,21 +10,22 @@ import (
 	"fmt"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
 )
 
 // SocketMetadata holds context-specific information from a socket-based response.
 type SocketMetadata struct {
-	Result      protocol.EResult // EResult code from the message header.
-	Header      protocol.Header  // The full, parsed packet header.
-	SourceJobID uint64           // The original Job ID that this message is a response to.
+	Result      enums.EResult   // EResult code from the message header.
+	Header      protocol.Header // The full, parsed packet header.
+	SourceJobID uint64          // The original Job ID that this message is a response to.
 }
 
 // SocketTarget is an extension of the Target interface for destinations that can be
 // reached via a persistent socket connection.
 type SocketTarget interface {
 	Target
-	EMsg(isAuth bool) protocol.EMsg
+	EMsg(isAuth bool) enums.EMsg
 	ObjectName() string
 }
 
@@ -74,7 +75,7 @@ func (t *SocketTransport) Do(ctx context.Context, req *Request) (*Response, erro
 		return nil, fmt.Errorf("socket_transport call failed: %w", err)
 	}
 
-	result := protocol.EResult_OK
+	result := enums.EResult_OK
 	var sourceJobID uint64
 
 	if p.Header != nil {

@@ -16,6 +16,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"google.golang.org/protobuf/proto"
 )
@@ -63,10 +64,10 @@ func (c *Coordinator) Init(init module.InitContext) error {
 
 	c.client = init.Service()
 
-	init.RegisterPacketHandler(protocol.EMsg_ClientFromGC, c.handleClientFromGC)
+	init.RegisterPacketHandler(enums.EMsg_ClientFromGC, c.handleClientFromGC)
 
 	c.unregFuncs = append(c.unregFuncs, func() {
-		init.UnregisterPacketHandler(protocol.EMsg_ClientFromGC)
+		init.UnregisterPacketHandler(enums.EMsg_ClientFromGC)
 	})
 
 	return nil
@@ -158,7 +159,7 @@ func (c *Coordinator) send(ctx context.Context, appID uint32, msgType uint32, ms
 		log.Uint64("job_id", sourceJobID),
 	)
 
-	_, err = service.Legacy[service.NoResponse](ctx, c.client, protocol.EMsg_ClientToGC, wrapper)
+	_, err = service.Legacy[service.NoResponse](ctx, c.client, enums.EMsg_ClientToGC, wrapper)
 	if err != nil {
 		if cb != nil {
 			c.jobManager.Resolve(sourceJobID, nil, err)

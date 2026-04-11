@@ -14,7 +14,7 @@ import (
 	"sync"
 
 	"github.com/lemon4ksan/g-man/pkg/rest"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
 	"google.golang.org/protobuf/proto"
@@ -91,14 +91,14 @@ func (m *Mock) Do(ctx context.Context, req *tr.Request) (*tr.Response, error) {
 
 	if msg, ok := m.protoResponses[methodName]; ok {
 		body, _ := proto.Marshal(msg)
-		return tr.NewResponse(body, tr.SocketMetadata{Result: protocol.EResult_OK}), nil
+		return tr.NewResponse(body, tr.SocketMetadata{Result: enums.EResult_OK}), nil
 	}
 
 	if body, ok := m.rawResponses[methodName]; ok {
 		return tr.NewResponse(body, tr.HTTPMetadata{StatusCode: 200}), nil
 	}
 
-	return tr.NewResponse(nil, tr.SocketMetadata{Result: protocol.EResult_OK}), nil
+	return tr.NewResponse(nil, tr.SocketMetadata{Result: enums.EResult_OK}), nil
 }
 
 func (m *Mock) Request(ctx context.Context, method, path string, body []byte, query any, mods ...rest.RequestModifier) (*http.Response, error) {
@@ -146,7 +146,7 @@ func (m *Mock) SetProtoResponse(iface, method string, resp proto.Message) {
 	m.protoResponses[fmt.Sprintf("%s.%s", iface, method)] = resp
 }
 
-func (m *Mock) SetLegacyResponse(message protocol.EMsg, resp proto.Message) {
+func (m *Mock) SetLegacyResponse(message enums.EMsg, resp proto.Message) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.protoResponses[message.String()] = resp

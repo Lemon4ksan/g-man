@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/api"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -64,11 +64,11 @@ func TestUnifiedTarget_Formatting(t *testing.T) {
 func TestUnifiedTarget_EMsg(t *testing.T) {
 	target := &UnifiedTarget{}
 
-	if target.EMsg(true) != protocol.EMsg_ServiceMethodCallFromClient {
+	if target.EMsg(true) != enums.EMsg_ServiceMethodCallFromClient {
 		t.Error("wrong EMsg for authed unified request")
 	}
 
-	if target.EMsg(false) != protocol.EMsg_ServiceMethodCallFromClientNonAuthed {
+	if target.EMsg(false) != enums.EMsg_ServiceMethodCallFromClientNonAuthed {
 		t.Error("wrong EMsg for non-authed unified request")
 	}
 }
@@ -121,7 +121,7 @@ func TestWebAPITarget(t *testing.T) {
 }
 
 func TestLegacyTarget(t *testing.T) {
-	emsg := protocol.EMsg_ClientLogon
+	emsg := enums.EMsg_ClientLogon
 	target := &LegacyTarget{eMsg: emsg}
 
 	if target.EMsg(true) != emsg {

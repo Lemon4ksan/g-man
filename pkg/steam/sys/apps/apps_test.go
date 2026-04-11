@@ -11,7 +11,7 @@ import (
 
 	"github.com/lemon4ksan/g-man/pkg/bus"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/test/module"
 	"google.golang.org/protobuf/proto"
 )
@@ -48,12 +48,12 @@ func TestApps_InitAndClose(t *testing.T) {
 	if err := a.Init(ictx); err != nil {
 		t.Fatalf("Init failed: %v", err)
 	}
-	ictx.AssertPacketHandlerRegistered(t, protocol.EMsg_ClientPlayingSessionState)
+	ictx.AssertPacketHandlerRegistered(t, enums.EMsg_ClientPlayingSessionState)
 
 	if err := a.Close(); err != nil {
 		t.Fatalf("Close failed: %v", err)
 	}
-	ictx.AssertPacketHandlerUnregistered(t, protocol.EMsg_ClientPlayingSessionState)
+	ictx.AssertPacketHandlerUnregistered(t, enums.EMsg_ClientPlayingSessionState)
 }
 
 func TestApps_GetPlayerCount(t *testing.T) {
@@ -61,20 +61,20 @@ func TestApps_GetPlayerCount(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		eresult   protocol.EResult
+		eresult   enums.EResult
 		mockCount int32
 		wantErr   bool
 		wantCount int32
 	}{
 		{
 			name:      "Success",
-			eresult:   protocol.EResult_OK,
+			eresult:   enums.EResult_OK,
 			mockCount: 100500,
 			wantCount: 100500,
 		},
 		{
 			name:    "Access Denied",
-			eresult: protocol.EResult_AccessDenied,
+			eresult: enums.EResult_AccessDenied,
 			wantErr: true,
 		},
 	}
@@ -82,7 +82,7 @@ func TestApps_GetPlayerCount(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ictx.MockServiceAccessor().SetLegacyResponse(
-				protocol.EMsg_ClientGetNumberOfCurrentPlayersDP,
+				enums.EMsg_ClientGetNumberOfCurrentPlayersDP,
 				&pb.CMsgDPGetNumberOfCurrentPlayersResponse{
 					Eresult:     proto.Int32(int32(tt.eresult)),
 					PlayerCount: proto.Int32(tt.mockCount),
@@ -104,7 +104,7 @@ func TestApps_HandlePlayingSessionState(t *testing.T) {
 	a, ictx := setup(t)
 	subState := ictx.Bus().Subscribe(&PlayingStateEvent{})
 
-	ictx.EmitPacket(t, protocol.EMsg_ClientPlayingSessionState, &pb.CMsgClientPlayingSessionState{
+	ictx.EmitPacket(t, enums.EMsg_ClientPlayingSessionState, &pb.CMsgClientPlayingSessionState{
 		PlayingBlocked: proto.Bool(true),
 		PlayingApp:     proto.Uint32(AppID_CS2),
 	})

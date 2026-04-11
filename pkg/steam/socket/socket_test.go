@@ -20,6 +20,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/log"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket/internal/network"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket/internal/session"
 	"google.golang.org/protobuf/proto"
@@ -54,7 +55,7 @@ func (m *mockConnection) Send(ctx context.Context, data []byte) error {
 }
 func (m *mockConnection) Close() error { return m.closeFunc() }
 
-func packProto(eMsg protocol.EMsg, jobId uint64, payload []byte) []byte {
+func packProto(eMsg enums.EMsg, jobId uint64, payload []byte) []byte {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.LittleEndian, uint32(eMsg)|0x80000000)
 	hdr := &pb.CMsgProtoBufHeader{JobidTarget: proto.Uint64(jobId)}
@@ -65,7 +66,7 @@ func packProto(eMsg protocol.EMsg, jobId uint64, payload []byte) []byte {
 	return buf.Bytes()
 }
 
-func packExtended(eMsg protocol.EMsg, steamID uint64, sessionID int32, payload []byte) []byte {
+func packExtended(eMsg enums.EMsg, steamID uint64, sessionID int32, payload []byte) []byte {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.LittleEndian, uint32(eMsg))           // EMsg
 	buf.WriteByte(36)                                              // HeaderSize
@@ -79,7 +80,7 @@ func packExtended(eMsg protocol.EMsg, steamID uint64, sessionID int32, payload [
 	return buf.Bytes()
 }
 
-func packBasic(eMsg protocol.EMsg, targetJob, sourceJob uint64, payload []byte) []byte {
+func packBasic(eMsg enums.EMsg, targetJob, sourceJob uint64, payload []byte) []byte {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.LittleEndian, uint32(eMsg))
 	binary.Write(buf, binary.LittleEndian, targetJob)
@@ -105,12 +106,12 @@ func TestSocket_HandlersManagement(t *testing.T) {
 	defer sock.Close()
 
 	var called atomic.Bool
-	sock.RegisterMsgHandler(protocol.EMsg_ClientLogon, func(p *protocol.Packet) {
+	sock.RegisterMsgHandler(enums.EMsg_ClientLogon, func(p *protocol.Packet) {
 		called.Store(true)
 	})
 
 	sock.handlersMu.RLock()
-	_, exists := sock.handlers[protocol.EMsg_ClientLogon]
+	_, exists := sock.handlers[enums.EMsg_ClientLogon]
 	sock.handlersMu.RUnlock()
 
 	if !exists {
@@ -120,7 +121,7 @@ func TestSocket_HandlersManagement(t *testing.T) {
 	sock.ClearHandlers()
 
 	sock.handlersMu.RLock()
-	_, exists = sock.handlers[protocol.EMsg_ClientLogon]
+	_, exists = sock.handlers[enums.EMsg_ClientLogon]
 	sock.handlersMu.RUnlock()
 
 	if exists {
@@ -186,7 +187,7 @@ func TestSocket_Routing(t *testing.T) {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 
-	sock.RegisterMsgHandler(protocol.EMsg_ClientLogOnResponse, func(p *protocol.Packet) {
+	sock.RegisterMsgHandler(enums.EMsg_ClientLogOnResponse, func(p *protocol.Packet) {
 		if string(p.Payload) != "test_payload" {
 			t.Errorf("Unexpected payload: %s", string(p.Payload))
 		}
@@ -194,7 +195,7 @@ func TestSocket_Routing(t *testing.T) {
 	})
 
 	packet := &protocol.Packet{
-		EMsg:    protocol.EMsg_ClientLogOnResponse,
+		EMsg:    enums.EMsg_ClientLogOnResponse,
 		Payload: []byte("test_payload"),
 	}
 
@@ -239,7 +240,7 @@ func TestSocket_JobTracking(t *testing.T) {
 
 	builder := func(sess session.Session, buf *bytes.Buffer, sourceJobID uint64, token string) error {
 		capturedJobID = sourceJobID
-		return Raw(protocol.EMsg_ClientGamesPlayed, []byte("data"))(sess, buf, sourceJobID, token)
+		return Raw(enums.EMsg_ClientGamesPlayed, []byte("data"))(sess, buf, sourceJobID, token)
 	}
 
 	err := sock.Send(t.Context(), builder,
@@ -258,7 +259,7 @@ func TestSocket_JobTracking(t *testing.T) {
 	}
 
 	respPacket := &protocol.Packet{
-		EMsg: protocol.EMsg_ClientGamesPlayed,
+		EMsg: enums.EMsg_ClientGamesPlayed,
 		Header: &protocol.MsgHdr{
 			TargetJobID: capturedJobID,
 			SourceJobID: protocol.NoJob,
@@ -295,7 +296,7 @@ func TestSocket_SessionUpdateFromHeader(t *testing.T) {
 	defer sock.Close()
 
 	packet := &protocol.Packet{
-		EMsg: protocol.EMsg_ClientLogOnResponse,
+		EMsg: enums.EMsg_ClientLogOnResponse,
 		Header: &protocol.MsgHdrExtended{
 			SteamID:   76561197960287930,
 			SessionID: 123456,
@@ -321,21 +322,21 @@ func TestSocket_HandleMultiPacket(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	sock.RegisterMsgHandler(protocol.EMsg_ClientLogOnResponse, func(p *protocol.Packet) {
+	sock.RegisterMsgHandler(enums.EMsg_ClientLogOnResponse, func(p *protocol.Packet) {
 		if string(p.Payload) != "sub_payload_1" {
 			t.Errorf("Wrong payload 1: %s", string(p.Payload))
 		}
 		wg.Done()
 	})
-	sock.RegisterMsgHandler(protocol.EMsg_ClientPersonaState, func(p *protocol.Packet) {
+	sock.RegisterMsgHandler(enums.EMsg_ClientPersonaState, func(p *protocol.Packet) {
 		if string(p.Payload) != "sub_payload_2" {
 			t.Errorf("Wrong payload 2: %s", string(p.Payload))
 		}
 		wg.Done()
 	})
 
-	subPkt1 := packProto(protocol.EMsg_ClientLogOnResponse, 0, []byte("sub_payload_1"))
-	subPkt2 := packProto(protocol.EMsg_ClientPersonaState, 0, []byte("sub_payload_2"))
+	subPkt1 := packProto(enums.EMsg_ClientLogOnResponse, 0, []byte("sub_payload_1"))
+	subPkt2 := packProto(enums.EMsg_ClientPersonaState, 0, []byte("sub_payload_2"))
 
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.LittleEndian, uint32(len(subPkt1)))
@@ -355,7 +356,7 @@ func TestSocket_HandleMultiPacket(t *testing.T) {
 	multiPayload, _ := proto.Marshal(multiMsg)
 
 	packet := &protocol.Packet{
-		EMsg:    protocol.EMsg_Multi,
+		EMsg:    enums.EMsg_Multi,
 		Payload: multiPayload,
 	}
 
@@ -386,7 +387,7 @@ func TestSocket_ServiceMethodRouting(t *testing.T) {
 	})
 
 	packet := &protocol.Packet{
-		EMsg: protocol.EMsg_ServiceMethodResponse,
+		EMsg: enums.EMsg_ServiceMethodResponse,
 		Header: &protocol.MsgHdrProtoBuf{
 			Proto: &pb.CMsgProtoBufHeader{
 				TargetJobName: proto.String(method),
@@ -430,11 +431,11 @@ func TestSocket_ProcessProtobufPacket(t *testing.T) {
 	defer sock.Close()
 
 	resCh := make(chan *protocol.Packet, 1)
-	sock.RegisterMsgHandler(protocol.EMsg_ClientLogOnResponse, func(p *protocol.Packet) {
+	sock.RegisterMsgHandler(enums.EMsg_ClientLogOnResponse, func(p *protocol.Packet) {
 		resCh <- p
 	})
 
-	raw := packProto(protocol.EMsg_ClientLogOnResponse, 999, []byte("hello_proto"))
+	raw := packProto(enums.EMsg_ClientLogOnResponse, 999, []byte("hello_proto"))
 
 	sock.processSingle(bytes.NewReader(raw))
 
@@ -466,11 +467,11 @@ func TestSocket_ProcessExtendedPacket(t *testing.T) {
 	defer sock.Close()
 
 	resCh := make(chan *protocol.Packet, 1)
-	sock.RegisterMsgHandler(protocol.EMsg_ClientPersonaState, func(p *protocol.Packet) {
+	sock.RegisterMsgHandler(enums.EMsg_ClientPersonaState, func(p *protocol.Packet) {
 		resCh <- p
 	})
 
-	raw := packExtended(protocol.EMsg_ClientPersonaState, 777, 123, []byte("legacy_data"))
+	raw := packExtended(enums.EMsg_ClientPersonaState, 777, 123, []byte("legacy_data"))
 
 	sock.processSingle(bytes.NewReader(raw))
 
@@ -496,11 +497,11 @@ func TestSocket_ProcessBasicCryptoPacket(t *testing.T) {
 	defer sock.Close()
 
 	resCh := make(chan *protocol.Packet, 1)
-	sock.RegisterMsgHandler(protocol.EMsg_ChannelEncryptRequest, func(p *protocol.Packet) {
+	sock.RegisterMsgHandler(enums.EMsg_ChannelEncryptRequest, func(p *protocol.Packet) {
 		resCh <- p
 	})
 
-	raw := packBasic(protocol.EMsg_ChannelEncryptRequest, 111, 222, []byte("crypto_key_here"))
+	raw := packBasic(enums.EMsg_ChannelEncryptRequest, 111, 222, []byte("crypto_key_here"))
 
 	sock.processSingle(bytes.NewReader(raw))
 
@@ -526,7 +527,7 @@ func TestSocket_InvalidPacket_UnexpectedEOF(t *testing.T) {
 	defer sock.Close()
 
 	invalid := new(bytes.Buffer)
-	binary.Write(invalid, binary.LittleEndian, uint32(protocol.EMsg_ClientLogon)|0x80000000)
+	binary.Write(invalid, binary.LittleEndian, uint32(enums.EMsg_ClientLogon)|0x80000000)
 
 	sock.processSingle(invalid)
 }
@@ -560,7 +561,7 @@ func TestSocket_StartHeartbeat(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to parse sent heartbeat: %v", err)
 		}
-		if pkt.EMsg != protocol.EMsg_ClientHeartBeat {
+		if pkt.EMsg != enums.EMsg_ClientHeartBeat {
 			t.Errorf("Expected EMsg_ClientHeartBeat, got %v", pkt.EMsg)
 		}
 	case <-time.After(200 * time.Millisecond):
@@ -577,11 +578,11 @@ func TestSocket_InboundHandler(t *testing.T) {
 
 	t.Run("OnNetMessage", func(t *testing.T) {
 		called := make(chan bool, 1)
-		sock.RegisterMsgHandler(protocol.EMsg_ClientLogon, func(p *protocol.Packet) {
+		sock.RegisterMsgHandler(enums.EMsg_ClientLogon, func(p *protocol.Packet) {
 			called <- true
 		})
 
-		msg := packProto(protocol.EMsg_ClientLogon, 0, []byte("hello"))
+		msg := packProto(enums.EMsg_ClientLogon, 0, []byte("hello"))
 		handler.OnNetMessage(msg)
 
 		select {

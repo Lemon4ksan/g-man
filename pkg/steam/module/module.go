@@ -17,7 +17,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/rest"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
 	"github.com/lemon4ksan/g-man/pkg/storage"
@@ -48,7 +48,7 @@ type InitContext interface {
 	Rest() rest.Requester
 
 	// RegisterPacketHandler registers a handler for low-level EMsg (TCP/UDP).
-	RegisterPacketHandler(eMsg protocol.EMsg, handler socket.Handler)
+	RegisterPacketHandler(eMsg enums.EMsg, handler socket.Handler)
 
 	// RegisterServiceHandler registers a handler for Protobuf services (Unified Services).
 	RegisterServiceHandler(method string, handler socket.Handler)
@@ -57,7 +57,7 @@ type InitContext interface {
 	Module(name string) Module
 
 	// UnregisterPacketHandler removes the handler from socket for freeing memory.
-	UnregisterPacketHandler(eMsg protocol.EMsg)
+	UnregisterPacketHandler(eMsg enums.EMsg)
 
 	// UnregisterServiceHandler removes the service handler from socket for freeing memory.
 	UnregisterServiceHandler(method string)

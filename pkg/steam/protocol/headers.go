@@ -11,6 +11,7 @@ import (
 	"math"
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -32,14 +33,14 @@ const (
 // the initial connection phase and encryption handshake.
 // It does not contain SteamID or SessionID.
 type MsgHdr struct {
-	EMsg        EMsg
+	EMsg        enums.EMsg
 	TargetJobID uint64
 	SourceJobID uint64
 }
 
 // NewMsgHdr creates a new standard message header with the specified EMsg
 // and target job ID. SourceJobID is automatically initialized to [NoJob].
-func NewMsgHdr(eMsg EMsg, targetJobID uint64) *MsgHdr {
+func NewMsgHdr(eMsg enums.EMsg, targetJobID uint64) *MsgHdr {
 	return &MsgHdr{
 		EMsg:        eMsg,
 		TargetJobID: targetJobID,
@@ -88,7 +89,7 @@ const (
 // MsgHdrExtended (Extended Header) is used for legacy Steam messages that require
 // session state (SteamID and SessionID) but do not use Protobuf.
 type MsgHdrExtended struct {
-	EMsg         EMsg
+	EMsg         enums.EMsg
 	HeaderSize   byte   // Always HeaderSizeExtended (36)
 	HeaderVer    uint16 // Always HeaderVersion (2)
 	TargetJobID  uint64
@@ -100,7 +101,7 @@ type MsgHdrExtended struct {
 
 // NewMsgHdrExtended creates an extended header for authorized messages.
 // Both Job IDs are initialized to [NoJob].
-func NewMsgHdrExtended(eMsg EMsg, steamID uint64, sessionID int32) *MsgHdrExtended {
+func NewMsgHdrExtended(eMsg enums.EMsg, steamID uint64, sessionID int32) *MsgHdrExtended {
 	return &MsgHdrExtended{
 		EMsg:         eMsg,
 		HeaderSize:   HeaderSizeExtended,
@@ -163,14 +164,14 @@ func (h *MsgHdrExtended) Deserialize(r io.Reader) error {
 // MsgHdrProtoBuf is the modern Steam header format. It wraps
 // a Protobuf message containing routing and session metadata.
 type MsgHdrProtoBuf struct {
-	EMsg  EMsg
+	EMsg  enums.EMsg
 	Proto *pb.CMsgProtoBufHeader
 }
 
 // NewMsgHdrProtoBuf creates a modern Protobuf-style header.
 // It initializes a default CMsgProtoBufHeader with the provided session info
 // and sets Job IDs to [NoJob].
-func NewMsgHdrProtoBuf(eMsg EMsg, steamID uint64, sessionID int32) *MsgHdrProtoBuf {
+func NewMsgHdrProtoBuf(eMsg enums.EMsg, steamID uint64, sessionID int32) *MsgHdrProtoBuf {
 	return &MsgHdrProtoBuf{
 		EMsg: eMsg,
 		Proto: &pb.CMsgProtoBufHeader{
@@ -189,7 +190,7 @@ func (h *MsgHdrProtoBuf) GetSteamID() uint64  { return h.Proto.GetSteamid() }
 func (h *MsgHdrProtoBuf) GetSessionID() int32 { return h.Proto.GetClientSessionid() }
 
 // GetEResult returns the result code from the header if present.
-func (h *MsgHdrProtoBuf) GetEResult() EResult { return EResult(h.Proto.GetEresult()) }
+func (h *MsgHdrProtoBuf) GetEResult() enums.EResult { return enums.EResult(h.Proto.GetEresult()) }
 
 // SerializeTo marshals the Protobuf header and writes it to the writer,
 // preceded by the EMsg (with ProtoMask set) and the header length.

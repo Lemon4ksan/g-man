@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 )
 
 func TestHTTPTransport_ParseEResult(t *testing.T) {
@@ -19,12 +19,12 @@ func TestHTTPTransport_ParseEResult(t *testing.T) {
 	tests := []struct {
 		name     string
 		header   string
-		expected protocol.EResult
+		expected enums.EResult
 	}{
-		{"With Header OK", "1", protocol.EResult_OK},
-		{"With Header Fail", "2", protocol.EResult_Fail},
-		{"Without Header", "", protocol.EResult_OK},
-		{"Invalid Header", "invalid", protocol.EResult_OK},
+		{"With Header OK", "1", enums.EResult_OK},
+		{"With Header Fail", "2", enums.EResult_Fail},
+		{"Without Header", "", enums.EResult_OK},
+		{"Invalid Header", "invalid", enums.EResult_OK},
 	}
 
 	for _, tt := range tests {
@@ -79,7 +79,7 @@ func TestHTTPTransport_Do(t *testing.T) {
 	if meta.StatusCode != http.StatusOK {
 		t.Errorf("Expected StatusCode 200, got %d", meta.StatusCode)
 	}
-	if meta.Result != protocol.EResult_OK {
+	if meta.Result != enums.EResult_OK {
 		t.Errorf("Expected Result OK, got %v", meta.Result)
 	}
 	if string(resp.Body) != `{"response":{}}` {

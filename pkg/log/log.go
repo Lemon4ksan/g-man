@@ -19,7 +19,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 )
 
 // Level represents the severity of the log message.
@@ -542,12 +542,12 @@ func SteamID(v uint64) Field { return Field{Key: "steam_id", Value: v} }
 func JobID(v uint64) Field { return Field{Key: "job_id", Value: v} }
 
 // EMsg logs a Steam protocol message type as a readable string.
-func EMsg(v protocol.EMsg) Field {
+func EMsg(v enums.EMsg) Field {
 	return Field{Key: "emsg", Value: v.String()}
 }
 
 // EResult logs a Steam result code as a readable string.
-func EResult(v protocol.EResult) Field {
+func EResult(v enums.EResult) Field {
 	return Field{Key: "eresult", Value: v.String()}
 }
 

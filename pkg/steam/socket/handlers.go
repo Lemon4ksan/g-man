@@ -14,6 +14,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/log"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket/internal/network"
 	"google.golang.org/protobuf/proto"
 )
@@ -60,7 +61,7 @@ func (s *Socket) handleJobResponse(packet *protocol.Packet) bool {
 	}
 
 	var err error
-	if packet.EMsg == protocol.EMsg_DestJobFailed {
+	if packet.EMsg == enums.EMsg_DestJobFailed {
 		err = ErrDestJobFailed
 	}
 

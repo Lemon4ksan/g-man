@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
 	"google.golang.org/protobuf/proto"
 )
@@ -80,11 +80,11 @@ func (u *UnifiedTarget) HTTPPath() string {
 }
 
 // EMsg returns the appropriate EMsg for socket-based service calls.
-func (u *UnifiedTarget) EMsg(isAuth bool) protocol.EMsg {
+func (u *UnifiedTarget) EMsg(isAuth bool) enums.EMsg {
 	if isAuth {
-		return protocol.EMsg_ServiceMethodCallFromClient
+		return enums.EMsg_ServiceMethodCallFromClient
 	}
-	return protocol.EMsg_ServiceMethodCallFromClientNonAuthed
+	return enums.EMsg_ServiceMethodCallFromClientNonAuthed
 }
 
 // SetHTTPMethod updates the http method for the target.
@@ -136,11 +136,11 @@ func (w *WebAPITarget) SetVersion(v int) {
 
 // LegacyTarget represents a raw EMsg-based message used in socket connections.
 type LegacyTarget struct {
-	eMsg protocol.EMsg
+	eMsg enums.EMsg
 }
 
 // NewLegacyRequest creates a request identified solely by its EMsg.
-func NewLegacyRequest(eMsg protocol.EMsg, msg proto.Message) (*tr.Request, error) {
+func NewLegacyRequest(eMsg enums.EMsg, msg proto.Message) (*tr.Request, error) {
 	var body []byte
 	if msg != nil {
 		var err error
@@ -152,6 +152,6 @@ func NewLegacyRequest(eMsg protocol.EMsg, msg proto.Message) (*tr.Request, error
 	return tr.NewRequest(&LegacyTarget{eMsg}, body), nil
 }
 
-func (l *LegacyTarget) String() string                 { return l.eMsg.String() }
-func (l *LegacyTarget) EMsg(isAuth bool) protocol.EMsg { return l.eMsg }
-func (l *LegacyTarget) ObjectName() string             { return "" }
+func (l *LegacyTarget) String() string              { return l.eMsg.String() }
+func (l *LegacyTarget) EMsg(isAuth bool) enums.EMsg { return l.eMsg }
+func (l *LegacyTarget) ObjectName() string          { return "" }

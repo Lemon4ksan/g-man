@@ -14,6 +14,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/log"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket/internal/network"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket/internal/session"
 )
@@ -41,7 +42,7 @@ func TestBuilders(t *testing.T) {
 			t.Fatalf("Failed to parse built unified packet: %v", err)
 		}
 
-		if pkt.EMsg != protocol.EMsg_ServiceMethodCallFromClient {
+		if pkt.EMsg != enums.EMsg_ServiceMethodCallFromClient {
 			t.Errorf("Expected EMsg_ServiceMethodCallFromClient, got %v", pkt.EMsg)
 		}
 
@@ -62,7 +63,7 @@ func TestBuilders(t *testing.T) {
 	})
 
 	t.Run("DynamicRaw_WithTarget", func(t *testing.T) {
-		builder := DynamicRaw(protocol.EMsg_ClientLogon, "SomeMethod", []byte("payload"))
+		builder := DynamicRaw(enums.EMsg_ClientLogon, "SomeMethod", []byte("payload"))
 		buf := new(bytes.Buffer)
 		_ = builder(sess, buf, 1, "")
 
@@ -73,7 +74,7 @@ func TestBuilders(t *testing.T) {
 	})
 
 	t.Run("DynamicRaw_NoTarget", func(t *testing.T) {
-		builder := DynamicRaw(protocol.EMsg_ClientLogon, "", []byte("payload"))
+		builder := DynamicRaw(enums.EMsg_ClientLogon, "", []byte("payload"))
 		buf := new(bytes.Buffer)
 		_ = builder(sess, buf, 1, "")
 
@@ -112,14 +113,14 @@ func TestSocket_SendMethods(t *testing.T) {
 
 		data := <-mockConn.sentMsgs
 		pkt, _ := protocol.ParsePacket(bytes.NewReader(data))
-		if pkt.EMsg != protocol.EMsg_ServiceMethodCallFromClient {
+		if pkt.EMsg != enums.EMsg_ServiceMethodCallFromClient {
 			t.Errorf("Unexpected EMsg: %v", pkt.EMsg)
 		}
 	})
 
 	t.Run("SendRaw", func(t *testing.T) {
 		testPayload := []byte("raw_binary_data")
-		err := sock.SendRaw(t.Context(), protocol.EMsg_ClientHeartBeat, testPayload)
+		err := sock.SendRaw(t.Context(), enums.EMsg_ClientHeartBeat, testPayload)
 		if err != nil {
 			t.Fatalf("SendRaw failed: %v", err)
 		}
@@ -196,7 +197,7 @@ func TestSocket_SendSync(t *testing.T) {
 		ctx, cancel := context.WithTimeout(t.Context(), 1*time.Second)
 		defer cancel()
 
-		resp, err := sock.SendSync(ctx, Raw(protocol.EMsg_ClientHeartBeat, []byte("req")))
+		resp, err := sock.SendSync(ctx, Raw(enums.EMsg_ClientHeartBeat, []byte("req")))
 		if err != nil {
 			t.Fatalf("SendSync returned error: %v", err)
 		}
@@ -210,7 +211,7 @@ func TestSocket_SendSync(t *testing.T) {
 		ctx, cancel := context.WithCancel(t.Context())
 		cancel()
 
-		_, err := sock.SendSync(ctx, Raw(protocol.EMsg_ClientHeartBeat, []byte("req")))
+		_, err := sock.SendSync(ctx, Raw(enums.EMsg_ClientHeartBeat, []byte("req")))
 		if !errors.Is(err, context.Canceled) {
 			t.Errorf("Expected context.Canceled, got %v", err)
 		}

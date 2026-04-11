@@ -17,6 +17,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"google.golang.org/protobuf/proto"
 )
@@ -40,7 +41,7 @@ type Manager struct {
 
 	// State
 	mu            sync.RWMutex
-	relationships map[id.ID]protocol.EFriendRelationship
+	relationships map[id.ID]enums.EFriendRelationship
 	users         map[id.ID]*PersonaState
 
 	mySteamID  id.ID
@@ -53,7 +54,7 @@ type Manager struct {
 func New() *Manager {
 	return &Manager{
 		Base:          module.New(ModuleName),
-		relationships: make(map[id.ID]protocol.EFriendRelationship),
+		relationships: make(map[id.ID]enums.EFriendRelationship),
 		users:         make(map[id.ID]*PersonaState),
 	}
 }
@@ -66,12 +67,12 @@ func (m *Manager) Init(init module.InitContext) error {
 
 	m.client = init.Service()
 
-	init.RegisterPacketHandler(protocol.EMsg_ClientFriendsList, m.handleFriendsList)
-	init.RegisterPacketHandler(protocol.EMsg_ClientPersonaState, m.handlePersonaState)
+	init.RegisterPacketHandler(enums.EMsg_ClientFriendsList, m.handleFriendsList)
+	init.RegisterPacketHandler(enums.EMsg_ClientPersonaState, m.handlePersonaState)
 
 	m.unregFuncs = append(m.unregFuncs, func() {
-		init.UnregisterPacketHandler(protocol.EMsg_ClientFriendsList)
-		init.UnregisterPacketHandler(protocol.EMsg_ClientPersonaState)
+		init.UnregisterPacketHandler(enums.EMsg_ClientFriendsList)
+		init.UnregisterPacketHandler(enums.EMsg_ClientPersonaState)
 	})
 
 	return nil
@@ -105,7 +106,7 @@ func (m *Manager) GetFriend(steamID id.ID) *PersonaState {
 func (m *Manager) IsFriend(steamID id.ID) bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	return m.relationships[steamID] == protocol.EFriendRelationship_Friend
+	return m.relationships[steamID] == enums.EFriendRelationship_Friend
 }
 
 // GetFriends returns a list of SteamIDs for all users with a "Friend" relationship.
@@ -115,7 +116,7 @@ func (m *Manager) GetFriends() []id.ID {
 
 	friends := make([]id.ID, 0, len(m.relationships))
 	for steamID, relation := range m.relationships {
-		if relation == protocol.EFriendRelationship_Friend {
+		if relation == enums.EFriendRelationship_Friend {
 			friends = append(friends, steamID)
 		}
 	}
@@ -154,7 +155,7 @@ func (m *Manager) AddFriend(ctx context.Context, steamID uint64) error {
 	req := &pb.CMsgClientAddFriend{
 		SteamidToAdd: &steamID,
 	}
-	_, err := service.Legacy[service.NoResponse](ctx, m.client, protocol.EMsg_ClientAddFriend, req)
+	_, err := service.Legacy[service.NoResponse](ctx, m.client, enums.EMsg_ClientAddFriend, req)
 	return err
 }
 
@@ -163,7 +164,7 @@ func (m *Manager) RemoveFriend(ctx context.Context, steamID uint64) error {
 	req := &pb.CMsgClientRemoveFriend{
 		Friendid: &steamID,
 	}
-	_, err := service.Legacy[service.NoResponse](ctx, m.client, protocol.EMsg_ClientRemoveFriend, req)
+	_, err := service.Legacy[service.NoResponse](ctx, m.client, enums.EMsg_ClientRemoveFriend, req)
 	return err
 }
 
@@ -208,7 +209,7 @@ func (m *Manager) handleFriendsList(packet *protocol.Packet) {
 
 	for _, friend := range list.GetFriends() {
 		steamID := id.ID(friend.GetUlfriendid())
-		newRel := protocol.EFriendRelationship(friend.GetEfriendrelationship())
+		newRel := enums.EFriendRelationship(friend.GetEfriendrelationship())
 		oldRel := m.relationships[steamID]
 
 		m.relationships[steamID] = newRel

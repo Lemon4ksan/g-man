@@ -19,6 +19,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/log"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket/internal/network"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket/internal/session"
 
@@ -94,7 +95,7 @@ func DefaultDialers() map[string]ConnectionDialer {
 // Example:
 //
 //	Register(s, eMsg, func() *pb.Response { return new(pb.Response) }, func(r *pb.Response) { ... })
-func Register[T proto.Message](s *Socket, emsg protocol.EMsg, factory func() T, handler func(T)) {
+func Register[T proto.Message](s *Socket, emsg enums.EMsg, factory func() T, handler func(T)) {
 	s.RegisterMsgHandler(emsg, func(p *protocol.Packet) {
 		msg := factory()
 		if err := proto.Unmarshal(p.Payload, msg); err == nil {
@@ -182,7 +183,7 @@ type Socket struct {
 
 	// Message routing
 	handlersMu        sync.RWMutex
-	handlers          map[protocol.EMsg]Handler
+	handlers          map[enums.EMsg]Handler
 	serviceHandlersMu sync.RWMutex
 	serviceHandlers   map[string]Handler
 
@@ -210,7 +211,7 @@ func NewSocket(cfg Config, opts ...Option) *Socket {
 		logger:          log.Discard,
 		jobManager:      jobs.NewManager[*protocol.Packet](1000),
 		done:            make(chan struct{}),
-		handlers:        make(map[protocol.EMsg]Handler),
+		handlers:        make(map[enums.EMsg]Handler),
 		serviceHandlers: make(map[string]Handler),
 		msgCh:           make(chan *protocol.Packet, cfg.EventChanSize),
 		bufferPool: sync.Pool{
@@ -228,8 +229,8 @@ func NewSocket(cfg Config, opts ...Option) *Socket {
 
 	s.setState(StateDisconnected)
 
-	s.RegisterMsgHandler(protocol.EMsg_Multi, s.handleMulti)
-	s.RegisterMsgHandler(protocol.EMsg_ServiceMethod, s.handleService)
+	s.RegisterMsgHandler(enums.EMsg_Multi, s.handleMulti)
+	s.RegisterMsgHandler(enums.EMsg_ServiceMethod, s.handleService)
 
 	return s
 }
@@ -263,7 +264,7 @@ func (s *Socket) Done() <-chan struct{} { return s.done }
 
 // RegisterMsgHandler registers a callback for a specific EMsg.
 // Passing nil will remove the existing handler.
-func (s *Socket) RegisterMsgHandler(eMsg protocol.EMsg, handler Handler) {
+func (s *Socket) RegisterMsgHandler(eMsg enums.EMsg, handler Handler) {
 	s.handlersMu.Lock()
 	defer s.handlersMu.Unlock()
 
@@ -346,7 +347,7 @@ func (s *Socket) StartHeartbeat(interval time.Duration) {
 				if s.State() != StateConnected {
 					return
 				}
-				s.SendProto(ctx, protocol.EMsg_ClientHeartBeat, &pb.CMsgClientHeartBeat{})
+				s.SendProto(ctx, enums.EMsg_ClientHeartBeat, &pb.CMsgClientHeartBeat{})
 			case <-ctx.Done():
 				s.logger.Debug("Heartbeat stopped due to connection closure")
 				return
@@ -422,7 +423,7 @@ func (s *Socket) setState(new State) State {
 	return old
 }
 
-func (s *Socket) recoverPanic(emsg protocol.EMsg) {
+func (s *Socket) recoverPanic(emsg enums.EMsg) {
 	if r := recover(); r != nil {
 		s.logger.Error("Socket recovered from panic", log.EMsg(emsg), log.Any("panic", r))
 	}

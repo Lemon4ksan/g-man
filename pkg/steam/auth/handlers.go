@@ -19,6 +19,7 @@ import (
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/api"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 
 	"google.golang.org/protobuf/proto"
 )
@@ -66,7 +67,7 @@ func (a *Authenticator) handleChannelEncryptRequest(packet *protocol.Packet) {
 	a.logger.Debug("Sending ChannelEncryptResponse", log.Int("key_size", len(encryptedKey)))
 
 	// This is a network-level response, independent of the user's LogOn context.
-	if err := a.socket.SendRaw(context.Background(), protocol.EMsg_ChannelEncryptResponse, resp.Bytes()); err != nil {
+	if err := a.socket.SendRaw(context.Background(), enums.EMsg_ChannelEncryptResponse, resp.Bytes()); err != nil {
 		a.failLogin(fmt.Errorf("encrypt_request: failed to send response: %w", err))
 	}
 }
@@ -81,7 +82,7 @@ func (a *Authenticator) handleChannelEncryptResult(packet *protocol.Packet) {
 		return
 	}
 
-	if eresult := protocol.EResult(result); eresult != protocol.EResult_OK {
+	if eresult := enums.EResult(result); eresult != enums.EResult_OK {
 		a.failLogin(fmt.Errorf("encryption failed with EResult: %s", eresult))
 		return
 	}
@@ -117,8 +118,8 @@ func (a *Authenticator) handleLogOnResponse(packet *protocol.Packet) {
 		return
 	}
 
-	eresult := protocol.EResult(msg.GetEresult())
-	if eresult != protocol.EResult_OK {
+	eresult := enums.EResult(msg.GetEresult())
+	if eresult != enums.EResult_OK {
 		a.logger.Error("Logon denied by CM", log.String("eresult", eresult.String()))
 
 		a.failLogin(fmt.Errorf("steam logon denied: %w", api.EResultError{EResult: eresult}))
@@ -162,7 +163,7 @@ func (a *Authenticator) handleLoggedOff(packet *protocol.Packet) {
 	resp := &pb.CMsgClientLoggedOff{}
 	_ = proto.Unmarshal(packet.Payload, resp)
 
-	eresult := protocol.EResult(resp.GetEresult())
+	eresult := enums.EResult(resp.GetEresult())
 	a.logger.Warn("Logged off by server", log.String("eresult", eresult.String()))
 
 	if api.IsAuthError(eresult) {
@@ -204,7 +205,7 @@ func (a *Authenticator) sendLogOn(ctx context.Context, details *LogOnDetails) {
 
 	a.logger.Info("Sending ClientLogon")
 
-	if err := a.socket.SendProto(ctx, protocol.EMsg_ClientLogon, logon); err != nil {
+	if err := a.socket.SendProto(ctx, enums.EMsg_ClientLogon, logon); err != nil {
 		a.failLogin(fmt.Errorf("send logon failed: %w", err))
 	}
 }

@@ -8,7 +8,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 )
 
 var (
@@ -18,13 +18,13 @@ var (
 )
 
 // IsAuthError checks whether EResult is a signal for reauthorization.
-func IsAuthError(res protocol.EResult) bool {
+func IsAuthError(res enums.EResult) bool {
 	switch res {
-	case protocol.EResult_NotLoggedOn, // 21
-		protocol.EResult_Expired,              // 27
-		protocol.EResult_LogonSessionReplaced, // 34
-		protocol.EResult_InvalidPassword,      // 5
-		protocol.EResult_AccountLogonDenied:   // 63
+	case enums.EResult_NotLoggedOn, // 21
+		enums.EResult_Expired,              // 27
+		enums.EResult_LogonSessionReplaced, // 34
+		enums.EResult_InvalidPassword,      // 5
+		enums.EResult_AccountLogonDenied:   // 63
 		return true
 	}
 	return false
@@ -32,7 +32,7 @@ func IsAuthError(res protocol.EResult) bool {
 
 // EResultError wraps a Steam EResult code into a Go error.
 type EResultError struct {
-	EResult protocol.EResult
+	EResult enums.EResult
 	Err     error
 }
 

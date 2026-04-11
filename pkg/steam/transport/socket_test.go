@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
 )
 
@@ -49,7 +50,7 @@ func TestSocketTransport_Do(t *testing.T) {
 		mockCbErr   error
 		mockPacket  *protocol.Packet
 		expectErr   bool
-		expectRes   protocol.EResult
+		expectRes   enums.EResult
 	}{
 		{
 			name:      "Invalid Target Type",
@@ -58,38 +59,38 @@ func TestSocketTransport_Do(t *testing.T) {
 		},
 		{
 			name:        "Immediate Call Error",
-			target:      mockSocketTarget{eMsg: protocol.EMsg_ClientLogon},
+			target:      mockSocketTarget{eMsg: enums.EMsg_ClientLogon},
 			mockCallErr: errors.New("socket disconnected"),
 			expectErr:   true,
 		},
 		{
 			name:      "Callback Returns Error",
-			target:    mockSocketTarget{eMsg: protocol.EMsg_ClientLogon},
+			target:    mockSocketTarget{eMsg: enums.EMsg_ClientLogon},
 			mockCbErr: errors.New("timeout"),
 			expectErr: true,
 		},
 		{
 			name:   "Successful Call With Header",
-			target: mockSocketTarget{eMsg: protocol.EMsg_ClientLogon},
+			target: mockSocketTarget{eMsg: enums.EMsg_ClientLogon},
 			mockPacket: &protocol.Packet{
 				Payload: []byte("success"),
 				Header: mockEHeader{
-					result:    protocol.EResult_AccessDenied,
+					result:    enums.EResult_AccessDenied,
 					sourceJob: 12345,
 				},
 			},
 			expectErr: false,
-			expectRes: protocol.EResult_AccessDenied,
+			expectRes: enums.EResult_AccessDenied,
 		},
 		{
 			name:   "Successful Call Without Header",
-			target: mockSocketTarget{eMsg: protocol.EMsg_ClientLogon},
+			target: mockSocketTarget{eMsg: enums.EMsg_ClientLogon},
 			mockPacket: &protocol.Packet{
 				Payload: []byte("success"),
 				Header:  nil,
 			},
 			expectErr: false,
-			expectRes: protocol.EResult_OK,
+			expectRes: enums.EResult_OK,
 		},
 	}
 
@@ -133,7 +134,7 @@ func TestSocketTransport_ContextCancellation(t *testing.T) {
 	}
 
 	ctx, cancel := context.WithCancel(t.Context())
-	target := mockSocketTarget{eMsg: protocol.EMsg_ClientLogon, name: "TestService.Method"}
+	target := mockSocketTarget{eMsg: enums.EMsg_ClientLogon, name: "TestService.Method"}
 	req := NewRequest(target, nil)
 
 	resCh := make(chan error, 1)

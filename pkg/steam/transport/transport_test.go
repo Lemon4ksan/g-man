@@ -10,7 +10,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
 )
 
@@ -31,12 +31,12 @@ func (m mockHTTPTarget) HTTPPath() string   { return m.path }
 
 type mockSocketTarget struct {
 	mockTarget
-	eMsg protocol.EMsg
+	eMsg enums.EMsg
 	name string
 }
 
-func (m mockSocketTarget) EMsg(isAuth bool) protocol.EMsg { return m.eMsg }
-func (m mockSocketTarget) ObjectName() string             { return m.name }
+func (m mockSocketTarget) EMsg(isAuth bool) enums.EMsg { return m.eMsg }
+func (m mockSocketTarget) ObjectName() string          { return m.name }
 
 type mockHTTPDoer struct {
 	doFunc func(req *http.Request) (*http.Response, error)
@@ -56,11 +56,11 @@ func (m *mockSession) SteamID() uint64       { return 12345 }
 func (m *mockSession) SessionID() int32      { return 67890 }
 
 type mockEHeader struct {
-	result    protocol.EResult
+	result    enums.EResult
 	sourceJob uint64
 }
 
-func (m mockEHeader) GetEResult() protocol.EResult  { return m.result }
+func (m mockEHeader) GetEResult() enums.EResult     { return m.result }
 func (m mockEHeader) GetSourceJob() uint64          { return m.sourceJob }
 func (m mockEHeader) GetTargetJob() uint64          { return 0 }
 func (m mockEHeader) SerializeTo(w io.Writer) error { return nil }

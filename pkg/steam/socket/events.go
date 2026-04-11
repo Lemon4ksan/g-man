@@ -6,7 +6,7 @@ package socket
 
 import (
 	"github.com/lemon4ksan/g-man/pkg/bus"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 )
 
 type SocketEvent interface {
@@ -53,7 +53,7 @@ type DisconnectedEvent struct {
 
 	// EResult contains the Steam result code if the disconnection was
 	// initiated by the Steam server (e.g., LoggedOff, InvalidPassword).
-	EResult protocol.EResult
+	EResult enums.EResult
 }
 
 func (e DisconnectedEvent) isSocketEvent() {}

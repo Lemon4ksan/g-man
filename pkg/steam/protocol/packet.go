@@ -12,6 +12,7 @@ import (
 	"io"
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -39,14 +40,14 @@ type AuthorizedHeader interface {
 // EHeader describes a header that has a [EResult].
 type EHeader interface {
 	Header
-	GetEResult() EResult
+	GetEResult() enums.EResult
 }
 
 // Packet represents a parsed message received from or sent to a Steam Connection Manager.
 // It serves as a unified interface regardless of the underlying header format (Standard, Extended, or Protobuf).
 type Packet struct {
 	// EMsg identifies the type of message this packet contains
-	EMsg EMsg
+	EMsg enums.EMsg
 	// IsProto is true if the packet uses a Protobuf-style header.
 	IsProto bool
 	// Header contains metadata about the sender, session and job tracking
@@ -72,7 +73,7 @@ func ParsePacket(r io.Reader) (*Packet, error) {
 		return nil, fmt.Errorf("read emsg: %w", err)
 	}
 
-	eMsg := EMsg(rawEMsg & EMsgMask)
+	eMsg := enums.EMsg(rawEMsg & EMsgMask)
 	isProto := (rawEMsg & ProtoMask) != 0
 
 	var header interface {
@@ -83,9 +84,9 @@ func ParsePacket(r io.Reader) (*Packet, error) {
 	switch {
 	case isProto:
 		header = &MsgHdrProtoBuf{EMsg: eMsg}
-	case eMsg == EMsg_ChannelEncryptRequest ||
-		eMsg == EMsg_ChannelEncryptResponse ||
-		eMsg == EMsg_ChannelEncryptResult:
+	case eMsg == enums.EMsg_ChannelEncryptRequest ||
+		eMsg == enums.EMsg_ChannelEncryptResponse ||
+		eMsg == enums.EMsg_ChannelEncryptResult:
 		header = &MsgHdr{EMsg: eMsg}
 	default:
 		header = &MsgHdrExtended{EMsg: eMsg}
@@ -150,11 +151,11 @@ func (p *Packet) GetSessionID() int32 {
 
 // GetEResult returns the header result code.
 // Returns [EResult_Invalid] if header doesn't implement [EHeader].
-func (p *Packet) GetEResult() EResult {
+func (p *Packet) GetEResult() enums.EResult {
 	if eh, ok := p.Header.(EHeader); ok {
 		return eh.GetEResult()
 	}
-	return EResult_Invalid
+	return enums.EResult_Invalid
 }
 
 // SerializeTo encodes the packet to [io.Writer] for sending.

@@ -14,7 +14,7 @@ import (
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/api"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
 
 	"google.golang.org/protobuf/proto"
@@ -84,7 +84,7 @@ func TestUnifiedClient_Errors(t *testing.T) {
 		transport := &MockTransport{
 			OnDo: func(req *tr.Request) (*tr.Response, error) {
 				return tr.NewResponse(nil, tr.HTTPMetadata{
-					Result:     protocol.EResult_Fail,
+					Result:     enums.EResult_Fail,
 					StatusCode: http.StatusOK,
 				}), nil
 			},
@@ -93,7 +93,7 @@ func TestUnifiedClient_Errors(t *testing.T) {
 		_, err := client.Do(ctx, tr.NewRequest(mockTarget("test"), nil))
 
 		var resErr api.EResultError
-		if !errors.As(err, &resErr) || resErr.EResult != protocol.EResult_Fail {
+		if !errors.As(err, &resErr) || resErr.EResult != enums.EResult_Fail {
 			t.Errorf("expected EResultError Fail, got %v", err)
 		}
 	})
@@ -200,7 +200,7 @@ func TestClient_SocketMetadataValidation(t *testing.T) {
 	t.Run("Socket Success", func(t *testing.T) {
 		transport := &MockTransport{
 			OnDo: func(req *tr.Request) (*tr.Response, error) {
-				return tr.NewResponse(nil, tr.SocketMetadata{Result: protocol.EResult_OK}), nil
+				return tr.NewResponse(nil, tr.SocketMetadata{Result: enums.EResult_OK}), nil
 			},
 		}
 		client := New(transport)
@@ -213,14 +213,14 @@ func TestClient_SocketMetadataValidation(t *testing.T) {
 	t.Run("Socket EResult Fail", func(t *testing.T) {
 		transport := &MockTransport{
 			OnDo: func(req *tr.Request) (*tr.Response, error) {
-				return tr.NewResponse(nil, tr.SocketMetadata{Result: protocol.EResult_AccessDenied}), nil
+				return tr.NewResponse(nil, tr.SocketMetadata{Result: enums.EResult_AccessDenied}), nil
 			},
 		}
 		client := New(transport)
 		_, err := client.Do(ctx, tr.NewRequest(mockTarget("test"), nil))
 
 		var resErr api.EResultError
-		if !errors.As(err, &resErr) || resErr.EResult != protocol.EResult_AccessDenied {
+		if !errors.As(err, &resErr) || resErr.EResult != enums.EResult_AccessDenied {
 			t.Errorf("expected EResult_AccessDenied, got %v", err)
 		}
 	})

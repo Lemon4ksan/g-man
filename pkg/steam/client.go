@@ -21,7 +21,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
@@ -336,7 +336,7 @@ func (c *Client) SteamID() id.ID {
 }
 
 // RegisterPacketHandler is a shortcut to register a socket packet handler.
-func (c *Client) RegisterPacketHandler(eMsg protocol.EMsg, handler socket.Handler) {
+func (c *Client) RegisterPacketHandler(eMsg enums.EMsg, handler socket.Handler) {
 	c.socket.RegisterMsgHandler(eMsg, handler)
 }
 
@@ -346,7 +346,7 @@ func (c *Client) RegisterServiceHandler(method string, handler socket.Handler) {
 }
 
 // UnregisterPacketHandler removes the handler from socket for freeing memory.
-func (c *Client) UnregisterPacketHandler(eMsg protocol.EMsg) {
+func (c *Client) UnregisterPacketHandler(eMsg enums.EMsg) {
 	c.socket.RegisterMsgHandler(eMsg, nil)
 }
 

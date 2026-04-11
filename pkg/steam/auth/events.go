@@ -7,7 +7,7 @@ package auth
 import (
 	"github.com/lemon4ksan/g-man/pkg/bus"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 )
 
 // AuthEvent is a marker interface for all auth events.
@@ -62,7 +62,7 @@ type WebSessionReadyEvent struct {
 // LoggedOffEvent is emitted after the auth client disconnected from CM server unexpectedly.
 type LoggedOffEvent struct {
 	bus.BaseEvent
-	Result protocol.EResult
+	Result enums.EResult
 }
 
 func (e LoggedOffEvent) IsAuthEvent() {}
