@@ -179,6 +179,10 @@ G-man is an open-source project. We welcome contributions for new game coordinat
 
 ## License
 
+This project is **not** affiliated with, maintained by, or endorsed by **Valve Corporation** or any of its subsidiaries. Steam, the Steam logo, and all related Valve properties are trademarks of Valve Corporation.
+
+Use of this SDK is at your own risk. G-MAN is not responsible for issues with your account, including, but not limited to, account suspensions, trade hold delays, or market fluctuations.
+
 Distributed under the **BSD-3-Clause** License. See `LICENSE` for more information.
 
 ---
