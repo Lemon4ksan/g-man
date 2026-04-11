@@ -1,0 +1,55 @@
+{
+	"Lemon4ksan Copyright Header": {
+		"prefix": "header",
+		"body": [
+			"// Copyright (c) 2026 Lemon4ksan All rights reserved.",
+			"// Use of this source code is governed by a BSD-style",
+			"// license that can be found in the LICENSE file.",
+			"",
+			"package ${1:package_name}",
+			"$0"
+		],
+		"description": "Inserts a standard copyright heading"
+	},
+	"Steam Packet Handler": {
+		"prefix": "sphandler",
+		"body": [
+			"func (m *${1:Manager}) handle${2:Name}(packet *protocol.Packet) {",
+			"\tmsg := &pb.C${3:Interface}_${2:Name}_Notification{}",
+			"\tif err := proto.Unmarshal(packet.Payload, msg); err != nil {",
+			"\t\tm.Logger.Error(\"Failed to unmarshal ${2:Name}\", log.Err(err))",
+			"\t\treturn",
+			"\t}",
+			"",
+			"\t$0",
+			"}"
+		],
+		"description": "Creates a template for the Steam incoming packet handler."
+	},
+	"Steam Module Unit Test": {
+		"prefix": "stest",
+		"body": [
+			"func Test${1:Manager}_${2:Function}(t *testing.T) {",
+			"\tm, ictx := setup${1:Manager}(t)",
+			"\tctx := t.Context()",
+			"",
+			"\t$0",
+			"}"
+		],
+		"description": "Creates a test template for a module using InitContext"
+	},
+	"Service Call Unified": {
+		"prefix": "sunified",
+		"body": [
+			"req := &pb.C${1:Interface}_${2:Method}_Request{",
+			"\t$3",
+			"}",
+			"resp, err := service.Unified[pb.C${1:Interface}_${2:Method}_Response](ctx, m.service, req)",
+			"if err != nil {",
+			"\treturn nil, err",
+			"}",
+			"$0"
+		],
+		"description": "Unified service call template"
+	},
+}

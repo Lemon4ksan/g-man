@@ -1,0 +1,38 @@
+{
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+        "source.organizeImports": "explicit"
+    },
+    "editor.rulers": [
+        120
+    ],
+    "editor.tabSize": 4,
+    "editor.insertSpaces": false,
+    "go.useLanguageServer": true,
+    "go.languageServerFlags": [
+        "-remote=auto"
+    ],
+    "go.formatTool": "gofumpt",
+    "go.formatFlags": [
+        "-extra"
+    ],
+    "go.lintTool": "golangci-lint",
+    "go.lintOnSave": "package",
+    "go.lintFlags": [
+        "--fast",
+        "--path-mode=abs",
+        "--config=${workspaceFolder}/.golangci.yml"
+    ],
+    "go.testEnvVars": {
+        "G-MAN_DEBUG": "true"
+    },
+    "search.exclude": {
+        "**/vendor/**": true,
+        "**/*.proto": true,
+        "**/*.pb.go": true
+    },
+    "terminal.integrated.env.windows": {
+        "GOPATH": "${env:GOPATH}",
+        "PATH": "${env:PATH};${env:GOPATH}/bin"
+    },
+}

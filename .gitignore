@@ -17,9 +17,6 @@ profile.cov
 # env file
 .env
 
-# Editor/IDE
-.idea/
-.vscode/
-
 # Generated code
 cmd/**/*.json
+pkg/protobuf/tf2/tf2_gc

@@ -1,0 +1,104 @@
+version: "2"
+
+run:
+  timeout: 5m
+  modules-download-mode: readonly
+
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - gofumpt
+    - goimports
+    - golines
+
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(github.com/lemon4ksan/g-man)
+
+    gofumpt:
+      module-path: github.com/lemon4ksan/g-man
+      extra-rules: true
+
+    goimports:
+      local-prefixes:
+        - github.com/lemon4ksan/g-man
+
+    golines:
+      max-len: 120
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - revive
+    - bodyclose
+    - nilerr
+    - noctx
+    - errorlint
+    - protogetter
+    - gocritic
+    - prealloc
+    - perfsprint
+    - gosec
+    - wsl_v5
+
+  settings:
+    revive:
+      rules:
+        - name: exported
+          severity: warning
+
+    wsl_v5:
+      default: default
+      allow-first-in-block: true
+      allow-whole-block: true
+      branch-max-lines: 3
+      case-max-lines: 5
+      enable:
+        - leading-whitespace
+        - trailing-whitespace
+        - after-block
+        - err
+
+  exclusions:
+    generated: lax
+    presets:
+      - common-false-positives
+      - std-error-handling
+    rules:
+      - linters: [errcheck, revive, staticcheck, protogetter]
+        path: .*(pb\.go|generated\.go)
+
+      # Steam has a lot of conversions from uint64 (SteamID) to strings and back.
+      - linters: [gosec]
+        text: "G115:"
+
+      # For a bot/generator, rights 0644 (instead of 0600) is the norm.
+      - linters: [gosec]
+        text: "G306:|G301:"
+
+      # Steam Protocol requires SHA1. Without it, the library will not work.
+      - linters: [gosec]
+        text: "G401:|G505:"
+
+      # Ignoring the lack of comments in tests (Revive)
+      - linters: [revive]
+        path: "_test\\.go"
+        text: "exported: (exported|comment on exported)"
+
+      # Ignore path issues in CLI
+      - linters: [gosec]
+        text: "G703:|G706:"
+        path: "cmd/.*"
+    paths:
+      - pkg/protobuf/.*
+      - pkg/steam/webapi/.*
+      - pkg/steam/protocol/enums/.*
+      - test/.*
