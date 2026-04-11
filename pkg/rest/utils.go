@@ -27,6 +27,7 @@ func StructToValues(s any) (url.Values, error) {
 	if s == nil {
 		return nil, nil
 	}
+
 	if vals, ok := s.(url.Values); ok {
 		return vals, nil
 	}
@@ -45,6 +46,7 @@ func StructToValues(s any) (url.Values, error) {
 	t := v.Type()
 	for i := range v.NumField() {
 		field := t.Field(i)
+
 		tag := field.Tag.Get("url")
 		if tag == "" || tag == "-" {
 			continue
@@ -60,6 +62,7 @@ func StructToValues(s any) (url.Values, error) {
 		}
 
 		var strValue string
+
 		switch fieldValue.Kind() {
 		case reflect.String:
 			strValue = fieldValue.String()
@@ -74,7 +77,9 @@ func StructToValues(s any) (url.Values, error) {
 		default:
 			return nil, fmt.Errorf("unsupported type for field %s: %s", field.Name, fieldValue.Kind())
 		}
+
 		values.Set(key, strValue)
 	}
+
 	return values, nil
 }

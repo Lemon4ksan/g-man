@@ -49,6 +49,7 @@ func (m *PriceManager) Update(ctx context.Context) error {
 		if len(itemData.Defindexes) == 0 {
 			continue
 		}
+
 		defindex, _ := strconv.Atoi(itemData.Defindexes[0])
 
 		for quality, tradableMap := range itemData.Prices {
@@ -61,7 +62,6 @@ func (m *PriceManager) Update(ctx context.Context) error {
 					isCraftable := craftable == "Craftable"
 
 					for pIndex, entry := range priceIndexMap {
-
 						sItem := &sku.Item{
 							Defindex:  defindex,
 							Quality:   qInt,
@@ -90,6 +90,7 @@ func (m *PriceManager) Update(ctx context.Context) error {
 	m.mu.Unlock()
 
 	m.logger.Info("Bptf index rebuilt", log.Int("unique_skus", len(newIndex)))
+
 	return nil
 }
 
@@ -99,5 +100,6 @@ func (m *PriceManager) GetPrice(sku string) (PriceEntry, bool) {
 	defer m.mu.RUnlock()
 
 	entry, ok := m.index[sku]
+
 	return entry, ok
 }

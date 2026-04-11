@@ -23,6 +23,7 @@ func NewMockHandler() *MockHandler {
 func (m *MockHandler) OnNetMessage(msg NetMessage) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	m.messages = append(m.messages, msg)
 	m.msgChan <- msg
 }
@@ -30,11 +31,13 @@ func (m *MockHandler) OnNetMessage(msg NetMessage) {
 func (m *MockHandler) OnNetError(err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	m.errors = append(m.errors, err)
 }
 
 func (m *MockHandler) OnNetClose() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	m.closedCalled = true
 }

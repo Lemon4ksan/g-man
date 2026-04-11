@@ -45,6 +45,7 @@ func (p PureStock) FormatStock() []string {
 		if p.Keys > 1 {
 			keyStr = "keys"
 		}
+
 		result = append(result, fmt.Sprintf("%d %s", p.Keys, keyStr))
 	}
 

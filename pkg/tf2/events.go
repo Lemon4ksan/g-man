@@ -39,7 +39,7 @@ type ItemUpdatedEvent struct {
 
 type CraftResponseEvent struct {
 	bus.BaseEvent
-	BlueprintID  int16
+	BlueprintID  uint16
 	CreatedItems []uint64
 }
 

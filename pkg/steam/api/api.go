@@ -12,12 +12,12 @@ import (
 	"net/url"
 	"strings"
 
-	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
-
 	"github.com/andygrunwald/vdf"
 	"github.com/mitchellh/mapstructure"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+
+	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
 )
 
 // VDFUnmarshaler is an interface that can be implemented by types
@@ -125,6 +125,7 @@ func (c HttpTarget) HTTPMethod() string {
 	if c.HttpMethod != "" {
 		return c.HttpMethod
 	}
+
 	return "GET"
 }
 
@@ -135,7 +136,7 @@ func (c HttpTarget) HTTPPath() string {
 }
 
 // NewHttpRequest creates a new transport request for a generic HTTP endpoint.
-func NewHttpRequest(httpMethod string, url string, body []byte) *tr.Request {
+func NewHttpRequest(httpMethod, url string, body []byte) *tr.Request {
 	return tr.NewRequest(HttpTarget{HttpMethod: httpMethod, URL: url}, body)
 }
 
@@ -145,13 +146,16 @@ func UnmarshalResponse(data []byte, target any, format ResponseFormat) error {
 	if len(data) == 0 {
 		return nil
 	}
+
 	switch format {
 	case FormatRaw:
 		if ptr, ok := target.(*[]byte); ok {
 			*ptr = append([]byte(nil), data...)
 			return nil
 		}
+
 		return fmt.Errorf("api: FormatRaw requires *[]byte as output type, got %T", target)
+
 	case FormatProtobuf:
 		return UnmarshalProtobuf(data, target)
 	case FormatJSON:
@@ -170,9 +174,11 @@ func UnmarshalProtobuf(data []byte, target any) error {
 	if !ok {
 		return errors.New("api: target is not a proto.Message")
 	}
+
 	if len(data) > 0 && data[0] == '{' {
 		return protojson.UnmarshalOptions{DiscardUnknown: true}.Unmarshal(data, pm)
 	}
+
 	return proto.Unmarshal(data, pm)
 }
 
@@ -185,6 +191,7 @@ func UnmarshalJSON(data []byte, target any) error {
 			return json.Unmarshal(inner, target)
 		}
 	}
+
 	return json.Unmarshal(data, target)
 }
 
@@ -192,6 +199,7 @@ func UnmarshalJSON(data []byte, target any) error {
 // it automatically handles the "response" wrapper.
 func UnmarshalVDFText(data []byte, target any) error {
 	p := vdf.NewParser(bytes.NewReader(data))
+
 	m, err := p.Parse()
 	if err != nil {
 		return err

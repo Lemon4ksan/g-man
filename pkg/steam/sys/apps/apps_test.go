@@ -9,11 +9,12 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/lemon4ksan/g-man/pkg/bus"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/test/module"
-	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -23,6 +24,7 @@ const (
 
 func setup(t *testing.T) (*Apps, *module.InitContext) {
 	t.Helper()
+
 	a := New()
 	ictx := module.NewInitContext()
 
@@ -48,11 +50,13 @@ func TestApps_InitAndClose(t *testing.T) {
 	if err := a.Init(ictx); err != nil {
 		t.Fatalf("Init failed: %v", err)
 	}
+
 	ictx.AssertPacketHandlerRegistered(t, enums.EMsg_ClientPlayingSessionState)
 
 	if err := a.Close(); err != nil {
 		t.Fatalf("Close failed: %v", err)
 	}
+
 	ictx.AssertPacketHandlerUnregistered(t, enums.EMsg_ClientPlayingSessionState)
 }
 
@@ -93,6 +97,7 @@ func TestApps_GetPlayerCount(t *testing.T) {
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("GetPlayerCount() error = %v, wantErr %v", err, tt.wantErr)
 			}
+
 			if count != tt.wantCount {
 				t.Errorf("expected count %d, got %d", tt.wantCount, count)
 			}
@@ -144,10 +149,12 @@ func TestApps_PlayGames_Sequence(t *testing.T) {
 				} else if q, ok := ev.(*AppQuitEvent); ok {
 					ids = append(ids, q.AppID)
 				}
+
 			case <-time.After(500 * time.Millisecond):
 				t.Fatalf("expected %d events, but timed out at %d", count, i)
 			}
 		}
+
 		return ids
 	}
 
@@ -163,6 +170,7 @@ func TestApps_PlayGames_Sequence(t *testing.T) {
 	if !reflect.DeepEqual(launched, expected) {
 		t.Errorf("launched apps mismatch: want %v, got %v", expected, launched)
 	}
+
 	if !reflect.DeepEqual(quit, expected) {
 		t.Errorf("quit apps mismatch: want %v, got %v", expected, quit)
 	}
@@ -180,12 +188,12 @@ func TestApps_PlayCustomGames(t *testing.T) {
 	req := &pb.CMsgClientGamesPlayed{}
 	ictx.MockServiceAccessor().GetLastCall(req)
 
-	if len(req.GamesPlayed) != len(gameNames) {
-		t.Fatalf("expected %d games in request, got %d", len(gameNames), len(req.GamesPlayed))
+	if len(req.GetGamesPlayed()) != len(gameNames) {
+		t.Fatalf("expected %d games in request, got %d", len(gameNames), len(req.GetGamesPlayed()))
 	}
 
 	for i, name := range gameNames {
-		extraInfo := req.GamesPlayed[i].GetGameExtraInfo()
+		extraInfo := req.GetGamesPlayed()[i].GetGameExtraInfo()
 		if extraInfo != name {
 			t.Errorf("game %d: expected name %q, got %q", i, name, extraInfo)
 		}

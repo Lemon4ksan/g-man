@@ -29,7 +29,14 @@ func TestFromString(t *testing.T) {
 			name:  "Unusual Professional Killstreak Australium",
 			input: "655;5;u14;australium;kt-3;strange",
 			want: &sku.Item{
-				Defindex: 655, Quality: 5, Effect: 14, Australium: true, Killstreak: 3, Quality2: 11, Craftable: true, Tradable: true,
+				Defindex:   655,
+				Quality:    5,
+				Effect:     14,
+				Australium: true,
+				Killstreak: 3,
+				Quality2:   11,
+				Craftable:  true,
+				Tradable:   true,
 			},
 		},
 		{
@@ -72,6 +79,7 @@ func TestFromString(t *testing.T) {
 				t.Errorf("FromString() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+
 			if !tt.wantErr && !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("FromString() = %+v, want %+v", got, tt.want)
 			}
@@ -113,6 +121,7 @@ func TestFromObject(t *testing.T) {
 				t.Errorf("FromObject() error = %v", err)
 				return
 			}
+
 			if got != tt.want {
 				t.Errorf("FromObject() = %v, want %v", got, tt.want)
 			}

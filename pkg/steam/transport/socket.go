@@ -65,6 +65,7 @@ func (t *SocketTransport) Do(ctx context.Context, req *Request) (*Response, erro
 	if sess == nil {
 		return nil, errors.New("socket is disconnected")
 	}
+
 	isAuth := sess.IsAuthenticated()
 
 	p, err := t.caller.SendSync(ctx,
@@ -76,12 +77,14 @@ func (t *SocketTransport) Do(ctx context.Context, req *Request) (*Response, erro
 	}
 
 	result := enums.EResult_OK
+
 	var sourceJobID uint64
 
 	if p.Header != nil {
 		if eh, ok := p.Header.(protocol.EHeader); ok {
 			result = eh.GetEResult()
 		}
+
 		sourceJobID = p.GetSourceJobID()
 	}
 

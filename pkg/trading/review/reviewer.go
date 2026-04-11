@@ -7,9 +7,11 @@ package review
 import (
 	"context"
 	"fmt"
-	"github.com/lemon4ksan/g-man/pkg/log"
 	"strings"
 	"time"
+
+	"github.com/lemon4ksan/g-man/pkg/log"
+	"github.com/lemon4ksan/g-man/pkg/steam/id"
 )
 
 type Reviewer struct {
@@ -42,7 +44,13 @@ func (rv *Reviewer) BuildSummary(meta *TradeMetadata, f Formatter) *Report {
 }
 
 // SendDeclinedAlert sends a detailed alert to the admin about why the offer was rejected.
-func (rv *Reviewer) SendDeclinedAlert(ctx context.Context, offerID uint64, partnerID uint64, meta *TradeMetadata, stats BotStatsProvider) error {
+func (rv *Reviewer) SendDeclinedAlert(
+	ctx context.Context,
+	offerID uint64,
+	partnerID id.ID,
+	meta *TradeMetadata,
+	stats BotStatsProvider,
+) error {
 	f := SteamFormatter{}
 	report := rv.BuildSummary(meta, f)
 
@@ -66,7 +74,7 @@ func (rv *Reviewer) SendDeclinedAlert(ctx context.Context, offerID uint64, partn
 
 // SendReviewAlert sends a detailed message to the administrator that the offer
 // is awaiting manual approval and provides instructions on how to proceed.
-func (rv *Reviewer) SendReviewAlert(ctx context.Context, offerID uint64, partnerID uint64, meta *TradeMetadata) error {
+func (rv *Reviewer) SendReviewAlert(ctx context.Context, offerID uint64, partnerID id.ID, meta *TradeMetadata) error {
 	f := SteamFormatter{}
 	report := rv.BuildSummary(meta, f)
 

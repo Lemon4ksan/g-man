@@ -42,21 +42,25 @@ func TestBase_GettersSetters(t *testing.T) {
 	s := session.New(&mockConn{})
 
 	s.SetSteamID(76561197960287930)
+
 	if s.SteamID() != 76561197960287930 {
 		t.Errorf("expected SteamID to be set")
 	}
 
 	s.SetSessionID(12345)
+
 	if s.SessionID() != 12345 {
 		t.Errorf("expected SessionID to be set")
 	}
 
 	s.SetAccessToken("access")
+
 	if s.AccessToken() != "access" {
 		t.Errorf("expected AccessToken to be set")
 	}
 
 	s.SetRefreshToken("refresh")
+
 	if s.RefreshToken() != "refresh" {
 		t.Errorf("expected RefreshToken to be set")
 	}
@@ -80,6 +84,7 @@ func TestBase_IsAuthenticated(t *testing.T) {
 			s := session.New(&mockConn{})
 			s.SetSteamID(tt.steamID)
 			s.SetSessionID(tt.sessionID)
+
 			if got := s.IsAuthenticated(); got != tt.want {
 				t.Errorf("IsAuthenticated() = %v, want %v", got, tt.want)
 			}
@@ -117,6 +122,7 @@ func TestBase_Encryption(t *testing.T) {
 	if !s.SetEncryptionKey(key) {
 		t.Error("SetEncryptionKey should return true for mockConn")
 	}
+
 	if string(conn.key) != "secret" {
 		t.Error("encryption key not passed to connection")
 	}
@@ -128,6 +134,7 @@ func TestLogged_Decorator(t *testing.T) {
 	logged := session.NewLogged(base, log.Discard)
 
 	logged.SetSteamID(100)
+
 	if logged.SteamID() != 100 {
 		t.Error("delegation failed")
 	}
@@ -145,6 +152,7 @@ func TestLogged_Decorator(t *testing.T) {
 	}
 
 	_ = logged.Close()
+
 	if !conn.closed {
 		t.Error("Close delegation failed")
 	}
@@ -157,8 +165,10 @@ func TestBase_Concurrency(t *testing.T) {
 	const iterations = 1000
 
 	wg.Add(2)
+
 	go func() {
 		defer wg.Done()
+
 		for i := 0; i < iterations; i++ {
 			s.SetSteamID(uint64(i))
 			s.SetAccessToken("token")
@@ -167,6 +177,7 @@ func TestBase_Concurrency(t *testing.T) {
 
 	go func() {
 		defer wg.Done()
+
 		for i := 0; i < iterations; i++ {
 			_ = s.SteamID()
 			_ = s.AccessToken()

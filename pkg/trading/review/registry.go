@@ -22,7 +22,13 @@ var reasonRegistry = map[reason.TradeReason]struct {
 		Description: "Offer contains items that'll make us overstocked.",
 		Processor: func(raw any, s SchemaProvider, f Formatter) string {
 			r := raw.(*ReasonOverstocked)
-			return fmt.Sprintf("%s (can buy %d, offered %d)", f.Item(s.GetName(r.SKU, false)), r.AmountCanTrade, r.AmountOffered)
+
+			return fmt.Sprintf(
+				"%s (can buy %d, offered %d)",
+				f.Item(s.GetName(r.SKU, false)),
+				r.AmountCanTrade,
+				r.AmountOffered,
+			)
 		},
 	},
 	reason.ReviewInvalidItems: {
@@ -37,7 +43,8 @@ var reasonRegistry = map[reason.TradeReason]struct {
 		Processor: func(raw any, s SchemaProvider, f Formatter) string {
 			r := raw.(*ReasonDuped)
 			name := s.GetName(r.SKU, false)
-			link := fmt.Sprintf("https://backpack.tf/item/%s", r.AssetID)
+			link := "https://backpack.tf/item/" + r.AssetID
+
 			return fmt.Sprintf("%s - history: %s", f.Item(name), f.Link("view", link))
 		},
 	},

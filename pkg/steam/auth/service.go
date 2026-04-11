@@ -9,13 +9,15 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"math/big"
+
+	"google.golang.org/protobuf/proto"
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/api"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
-	"google.golang.org/protobuf/proto"
 )
 
 // AuthenticationService acts as a gateway for Steam's Unified WebAPI authentication endpoints.
@@ -45,19 +47,26 @@ func (s *AuthenticationService) DeviceConf() DeviceConfig {
 }
 
 // GetPasswordRSAPublicKey retrieves the RSA public key parameters specific to the account.
-func (s *AuthenticationService) GetPasswordRSAPublicKey(ctx context.Context, accountName string) (*pb.CAuthentication_GetPasswordRSAPublicKey_Response, error) {
+func (s *AuthenticationService) GetPasswordRSAPublicKey(
+	ctx context.Context,
+	accountName string,
+) (*pb.CAuthentication_GetPasswordRSAPublicKey_Response, error) {
 	req := &pb.CAuthentication_GetPasswordRSAPublicKey_Request{
 		AccountName: proto.String(accountName),
 	}
 	resp, err := service.Unified[pb.CAuthentication_GetPasswordRSAPublicKey_Response](
 		ctx, s.client, req, api.WithHTTPMethod("GET"),
 	)
+
 	return resp, err
 }
 
 // EncryptPassword securely encrypts the plaintext password using Steam's provided RSA public key.
 // It returns the base64-encoded encrypted password and the timestamp of the key used.
-func (s *AuthenticationService) EncryptPassword(ctx context.Context, accountName, password string) (string, uint64, error) {
+func (s *AuthenticationService) EncryptPassword(
+	ctx context.Context,
+	accountName, password string,
+) (string, uint64, error) {
 	rsaInfo, err := s.GetPasswordRSAPublicKey(ctx, accountName)
 	if err != nil {
 		return "", 0, fmt.Errorf("fetch rsa key: %w", err)
@@ -67,17 +76,17 @@ func (s *AuthenticationService) EncryptPassword(ctx context.Context, accountName
 	expHex := rsaInfo.GetPublickeyExp()
 
 	if modHex == "" || expHex == "" {
-		return "", 0, fmt.Errorf("steam returned empty rsa parameters")
+		return "", 0, errors.New("steam returned empty rsa parameters")
 	}
 
 	mod := new(big.Int)
 	if _, ok := mod.SetString(modHex, 16); !ok {
-		return "", 0, fmt.Errorf("invalid rsa modulus hex string")
+		return "", 0, errors.New("invalid rsa modulus hex string")
 	}
 
 	exp := new(big.Int)
 	if _, ok := exp.SetString(expHex, 16); !ok {
-		return "", 0, fmt.Errorf("invalid rsa exponent hex string")
+		return "", 0, errors.New("invalid rsa exponent hex string")
 	}
 
 	pubKey := &rsa.PublicKey{
@@ -94,7 +103,10 @@ func (s *AuthenticationService) EncryptPassword(ctx context.Context, accountName
 }
 
 // BeginAuthSessionViaCredentials initiates the login flow with Steam.
-func (s *AuthenticationService) BeginAuthSessionViaCredentials(ctx context.Context, accountName, password string, authCode string) (*pb.CAuthentication_BeginAuthSessionViaCredentials_Response, error) {
+func (s *AuthenticationService) BeginAuthSessionViaCredentials(
+	ctx context.Context,
+	accountName, password, authCode string,
+) (*pb.CAuthentication_BeginAuthSessionViaCredentials_Response, error) {
 	encPassword, timestamp, err := s.EncryptPassword(ctx, accountName, password)
 	if err != nil {
 		return nil, err
@@ -120,18 +132,28 @@ func (s *AuthenticationService) BeginAuthSessionViaCredentials(ctx context.Conte
 }
 
 // PollAuthSessionStatus repeatedly checks the status of a pending login (e.g., waiting for Mobile confirmation).
-func (s *AuthenticationService) PollAuthSessionStatus(ctx context.Context, clientID uint64, requestID []byte) (*pb.CAuthentication_PollAuthSessionStatus_Response, error) {
+func (s *AuthenticationService) PollAuthSessionStatus(
+	ctx context.Context,
+	clientID uint64,
+	requestID []byte,
+) (*pb.CAuthentication_PollAuthSessionStatus_Response, error) {
 	req := &pb.CAuthentication_PollAuthSessionStatus_Request{
 		ClientId:  proto.Uint64(clientID),
 		RequestId: requestID,
 	}
+
 	return service.Unified[pb.CAuthentication_PollAuthSessionStatus_Response](
 		ctx, s.client, req,
 	)
 }
 
 // UpdateAuthSessionWithSteamGuardCode submits a 2FA or Email code for an ongoing session.
-func (s *AuthenticationService) UpdateAuthSessionWithSteamGuardCode(ctx context.Context, clientID uint64, steamID uint64, code string, codeType pb.EAuthSessionGuardType) error {
+func (s *AuthenticationService) UpdateAuthSessionWithSteamGuardCode(
+	ctx context.Context,
+	clientID, steamID uint64,
+	code string,
+	codeType pb.EAuthSessionGuardType,
+) error {
 	req := &pb.CAuthentication_UpdateAuthSessionWithSteamGuardCode_Request{
 		ClientId: proto.Uint64(clientID),
 		Steamid:  proto.Uint64(steamID),
@@ -141,16 +163,22 @@ func (s *AuthenticationService) UpdateAuthSessionWithSteamGuardCode(ctx context.
 	_, err := service.Unified[service.NoResponse](
 		ctx, s.client, req,
 	)
+
 	return err
 }
 
 // GenerateAccessTokenForApp exchanges a RefreshToken for a short-lived AccessToken.
-func (s *AuthenticationService) GenerateAccessTokenForApp(ctx context.Context, refreshToken string, steamID uint64) (*pb.CAuthentication_AccessToken_GenerateForApp_Response, error) {
+func (s *AuthenticationService) GenerateAccessTokenForApp(
+	ctx context.Context,
+	refreshToken string,
+	steamID uint64,
+) (*pb.CAuthentication_AccessToken_GenerateForApp_Response, error) {
 	req := &pb.CAuthentication_AccessToken_GenerateForApp_Request{
 		RefreshToken: proto.String(refreshToken),
 		Steamid:      proto.Uint64(steamID),
 		RenewalType:  pb.ETokenRenewalType_k_ETokenRenewalType_None.Enum(),
 	}
+
 	return service.UnifiedExplicit[pb.CAuthentication_AccessToken_GenerateForApp_Response](
 		ctx, s.client, "POST", "Authentication", "GenerateAccessTokenForApp", 1, req,
 	)

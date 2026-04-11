@@ -5,12 +5,15 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 )
 
 const (
@@ -40,30 +43,33 @@ func main() {
 		return
 	}
 
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
 	if strings.Contains(args, "webapi") {
-		buildWebApi()
+		buildWebApi(ctx)
 	}
 
 	if strings.Contains(args, "proto") {
-		buildProto()
+		buildProto(ctx)
 	}
 
 	if strings.Contains(args, "steamlang") {
-		buildSteamLang()
+		buildSteamLang(ctx)
 	}
 
 	if strings.Contains(args, "format") {
-		format()
+		format(ctx)
 	}
 }
 
-func buildWebApi() {
+func buildWebApi(ctx context.Context) {
 	fmt.Println("🚀 Building WebAPI interfaces...")
 	ensureDir(filepath.Dir(webApiOutput))
-	execute("go", []string{"run", "./webapi/main.go", webApiJsonInput, webApiOutput})
+	execute(ctx, "go", []string{"run", "./webapi/main.go", webApiJsonInput, webApiOutput})
 }
 
-func buildProto() {
+func buildProto(ctx context.Context) {
 	fmt.Println("📦 Building Protobufs...")
 
 	absSteamOut, _ := filepath.Abs(steamOut)
@@ -71,7 +77,7 @@ func buildProto() {
 	absSteamSrc, _ := filepath.Abs(filepath.Join(protoRawDir, "steam"))
 	absTf2Src, _ := filepath.Abs(filepath.Join(protoRawDir, "tf2"))
 
-	execute("go", []string{
+	execute(ctx, "go", []string{
 		"run", "./proto/main.go",
 		"-steam_src", absSteamSrc,
 		"-tf2_src", absTf2Src,
@@ -82,25 +88,26 @@ func buildProto() {
 	})
 }
 
-func buildSteamLang() {
+func buildSteamLang(ctx context.Context) {
 	fmt.Println("📜 Building SteamLanguage enums...")
+
 	absOutput, _ := filepath.Abs(steamLangOutput)
 
-	execute("go", []string{
+	execute(ctx, "go", []string{
 		"run", "./steamlang/main.go",
 		"-out", absOutput,
 		"-pkg", "protocol",
 	})
 }
 
-func format() {
+func format(ctx context.Context) {
 	fmt.Println("🧹 Formatting...")
-	execute("go", []string{"fmt", pkgRoot + "/..."})
+	execute(ctx, "go", []string{"fmt", pkgRoot + "/..."})
 }
 
 func ensureDir(path string) {
 	if !fileExists(path) {
-		if err := os.MkdirAll(path, 0755); err != nil {
+		if err := os.MkdirAll(path, 0o755); err != nil {
 			fmt.Printf("Failed to create directory %s: %v\n", path, err)
 			os.Exit(1)
 		}
@@ -112,15 +119,18 @@ func fileExists(path string) bool {
 	if err == nil {
 		return true
 	}
+
 	if errors.Is(err, os.ErrNotExist) {
 		return false
 	}
+
 	return false
 }
 
-func execute(name string, args []string) {
-	cmd := exec.Command(name, args...)
+func execute(ctx context.Context, name string, args []string) {
+	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Stdout = os.Stdout
+
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		fmt.Printf("Command failed: %v\n", err)

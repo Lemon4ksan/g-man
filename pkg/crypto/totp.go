@@ -18,21 +18,24 @@ const (
 	steamChars = "23456789BCDFGHJKMNPQRTVWXY"
 )
 
-// GenerateAuthCode cascading 5-digit login code (2FA)
+// GenerateAuthCode generates a 5-digit Steam Guard code for the given timestamp.
 func GenerateAuthCode(sharedSecret string, timestamp int64) (string, error) {
 	secret, err := decodeSecret(sharedSecret)
 	if err != nil {
 		return "", err
 	}
 
+	// Steam Guard uses 30-second windows
 	t := uint64(timestamp / 30)
 
 	buf := make([]byte, 8)
 	binary.BigEndian.PutUint64(buf, t)
 
-	// HMAC-SHA1
 	mac := hmac.New(sha1.New, secret)
-	mac.Write(buf)
+	if _, err := mac.Write(buf); err != nil {
+		return "", err
+	}
+
 	sum := mac.Sum(nil)
 
 	start := sum[19] & 0x0F
@@ -91,5 +94,6 @@ func decodeSecret(secret string) ([]byte, error) {
 	if isHex, _ := regexp.MatchString(`^[0-9a-fA-F]{40}$`, secret); isHex {
 		return hex.DecodeString(secret)
 	}
+
 	return base64.StdEncoding.DecodeString(secret)
 }

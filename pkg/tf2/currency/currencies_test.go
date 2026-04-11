@@ -108,6 +108,7 @@ func TestCurrencies_ToValue(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := currency.New(tt.keys, tt.metal)
+
 			conversion := conv
 			if tt.wantErr {
 				conversion = 0
@@ -118,6 +119,7 @@ func TestCurrencies_ToValue(t *testing.T) {
 				t.Errorf("ToValue() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+
 			if !tt.wantErr && got != tt.want {
 				t.Errorf("ToValue() = %v, want %v", got, tt.want)
 			}

@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -61,6 +62,7 @@ func NewWebSession(steamID id.ID, logger log.Logger) *WebSession {
 		logger:  logger,
 	}
 	ws.Clear()
+
 	return ws
 }
 
@@ -68,6 +70,7 @@ func NewWebSession(steamID id.ID, logger log.Logger) *WebSession {
 func (s *WebSession) Client() *rest.Client {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+
 	return s.client
 }
 
@@ -75,6 +78,7 @@ func (s *WebSession) Client() *rest.Client {
 func (s *WebSession) IsAuthenticated() bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+
 	return s.isAuth
 }
 
@@ -100,11 +104,13 @@ func (s *WebSession) SessionID(targetURL string) string {
 	if err != nil {
 		return ""
 	}
+
 	for _, cookie := range s.jar.Cookies(u) {
 		if cookie.Name == "sessionid" {
 			return cookie.Value
 		}
 	}
+
 	return ""
 }
 
@@ -113,9 +119,13 @@ func (s *WebSession) SessionID(targetURL string) string {
 // otherwise it executes the full "Slow Path" (finalize/transfer) flow.
 // This method populates the internal CookieJar with 'steamLoginSecure'
 // and 'sessionid' across all Steam domains.
-func (s *WebSession) Authenticate(ctx context.Context, platform pb.EAuthTokenPlatformType, refreshToken, accessToken string) error {
+func (s *WebSession) Authenticate(
+	ctx context.Context,
+	platform pb.EAuthTokenPlatformType,
+	refreshToken, accessToken string,
+) error {
 	if refreshToken == "" {
-		return fmt.Errorf("websession: refresh token is required")
+		return errors.New("websession: refresh token is required")
 	}
 
 	// Clear any old cookies (to avoid conflicts when re-authorizing)
@@ -155,6 +165,7 @@ func (s *WebSession) Verify(ctx context.Context) (bool, error) {
 	if resp.StatusCode != http.StatusOK || resp.Request.URL.Path == "/login/home/" {
 		s.logger.Warn("Web session verification failed (Token expired or revoked by Steam)")
 		s.Clear() // Session is dead, reset local state
+
 		return false, nil
 	}
 
@@ -170,6 +181,7 @@ func (s *WebSession) applyFastPath(accessToken, sessionID string) error {
 	s.mu.Unlock()
 
 	s.logger.Info("Web session authenticated via existing token")
+
 	return nil
 }
 
@@ -218,6 +230,7 @@ func (s *WebSession) authSlowPath(ctx context.Context, refreshToken, sessionID s
 	s.mu.Unlock()
 
 	s.logger.Info("Web session authenticated (Slow Path)")
+
 	return nil
 }
 
@@ -227,6 +240,7 @@ func (s *WebSession) seedCookies(sessionID, secureValue string) {
 
 	for _, domain := range steamDomains {
 		u, _ := url.Parse(domain)
+
 		cookies := []*http.Cookie{
 			{
 				Name:     "sessionid",
@@ -247,12 +261,14 @@ func (s *WebSession) seedCookies(sessionID, secureValue string) {
 				SameSite: http.SameSiteNoneMode, // Required for proper cross-domain auth (e.g., from store to community)
 			})
 		}
+
 		s.jar.SetCookies(u, cookies)
 	}
 }
 
 func (s *WebSession) executeTransferWithRetry(ctx context.Context, transferURL string, params map[string]string) error {
 	const maxRetries = 3
+
 	var lastErr error
 
 	type transferResult struct {
@@ -281,5 +297,6 @@ func generateSessionID() (string, error) {
 	if _, err := io.ReadFull(rand.Reader, b); err != nil {
 		return "", err
 	}
+
 	return hex.EncodeToString(b), nil
 }

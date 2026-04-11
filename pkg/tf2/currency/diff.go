@@ -37,7 +37,9 @@ func (v ValueDiff) MissingRefined() float64 {
 	if v.IsProfitable() {
 		return 0
 	}
+
 	diff := v.OurValue - v.TheirValue
+
 	return float64(diff) / 9.0
 }
 

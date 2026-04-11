@@ -6,8 +6,11 @@ package gc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
+
+	"google.golang.org/protobuf/proto"
 
 	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/jobs"
@@ -18,7 +21,6 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
-	"google.golang.org/protobuf/proto"
 )
 
 const ModuleName string = "gc"
@@ -79,39 +81,58 @@ func (c *Coordinator) Close() error {
 	for _, unreg := range c.unregFuncs {
 		unreg()
 	}
+
 	c.unregFuncs = nil
 	c.mu.Unlock()
 
-	c.jobManager.Close()
+	_ = c.jobManager.Close()
+
 	return c.Base.Close()
 }
 
 // Send sends a message to a Game Coordinator without expecting a response.
-func (c *Coordinator) Send(ctx context.Context, appID uint32, msgType uint32, msg proto.Message) error {
+func (c *Coordinator) Send(ctx context.Context, appID, msgType uint32, msg proto.Message) error {
 	return c.send(ctx, appID, msgType, msg, nil, nil)
 }
 
 // Send fires a raw payload to the GC without waiting for a response.
-func (c *Coordinator) SendRaw(ctx context.Context, appID uint32, msgType uint32, payload []byte) error {
+func (c *Coordinator) SendRaw(ctx context.Context, appID, msgType uint32, payload []byte) error {
 	return c.send(ctx, appID, msgType, nil, payload, nil)
 }
 
 // Call sends a message to a Game Coordinator and registers a callback for the response.
 // The response is matched using the GC's internal JobID system.
-func (c *Coordinator) Call(ctx context.Context, appID uint32, msgType uint32, msg proto.Message, cb jobs.Callback[*protocol.GCPacket]) error {
+func (c *Coordinator) Call(
+	ctx context.Context,
+	appID, msgType uint32,
+	msg proto.Message,
+	cb jobs.Callback[*protocol.GCPacket],
+) error {
 	if cb == nil {
-		return fmt.Errorf("gc: callback is required for Call")
+		return errors.New("gc: callback is required for Call")
 	}
+
 	return c.send(ctx, appID, msgType, msg, nil, cb)
 }
 
 // Call sends a message to the GC and waits for a response with a matching JobID.
-func (c *Coordinator) CallRaw(ctx context.Context, appID uint32, msgType uint32, payload []byte, cb jobs.Callback[*protocol.GCPacket]) error {
+func (c *Coordinator) CallRaw(
+	ctx context.Context,
+	appID, msgType uint32,
+	payload []byte,
+	cb jobs.Callback[*protocol.GCPacket],
+) error {
 	return c.send(ctx, appID, msgType, nil, payload, cb)
 }
 
 // send handles the low-level wrapping of GC messages into Steam CM packets.
-func (c *Coordinator) send(ctx context.Context, appID uint32, msgType uint32, msg proto.Message, payload []byte, cb jobs.Callback[*protocol.GCPacket]) error {
+func (c *Coordinator) send(
+	ctx context.Context,
+	appID, msgType uint32,
+	msg proto.Message,
+	payload []byte,
+	cb jobs.Callback[*protocol.GCPacket],
+) error {
 	var err error
 
 	if msg != nil {
@@ -124,6 +145,7 @@ func (c *Coordinator) send(ctx context.Context, appID uint32, msgType uint32, ms
 	sourceJobID := protocol.NoJob
 	if cb != nil {
 		sourceJobID = c.jobManager.NextID()
+
 		err := c.jobManager.Add(sourceJobID, cb, jobs.WithContext[*protocol.GCPacket](ctx))
 		if err != nil {
 			return fmt.Errorf("gc job track: %w", err)
@@ -144,6 +166,7 @@ func (c *Coordinator) send(ctx context.Context, appID uint32, msgType uint32, ms
 		if cb != nil {
 			c.jobManager.Resolve(sourceJobID, nil, err)
 		}
+
 		return fmt.Errorf("gc serialize: %w", err)
 	}
 
@@ -164,6 +187,7 @@ func (c *Coordinator) send(ctx context.Context, appID uint32, msgType uint32, ms
 		if cb != nil {
 			c.jobManager.Resolve(sourceJobID, nil, err)
 		}
+
 		return fmt.Errorf("gc transport send: %w", err)
 	}
 

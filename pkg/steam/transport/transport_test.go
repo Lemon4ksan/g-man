@@ -77,12 +77,15 @@ func TestRequest_Builder(t *testing.T) {
 	if req.Target().String() != "test_target" {
 		t.Errorf("Expected target to be 'test_target', got '%s'", req.Target().String())
 	}
+
 	if string(req.Body()) != "hello steam" {
 		t.Errorf("Expected body 'hello steam', got '%s'", string(req.Body()))
 	}
+
 	if req.Params().Get("key1") != "val1" || req.Params().Get("key2") != "val2" {
 		t.Errorf("Expected params to be correctly set")
 	}
+
 	if req.Header().Get("X-Token") != "123" {
 		t.Errorf("Expected header X-Token to be '123'")
 	}

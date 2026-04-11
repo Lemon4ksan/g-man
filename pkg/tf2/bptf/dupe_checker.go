@@ -6,11 +6,13 @@ package bptf
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
 
 	"github.com/PuerkitoBio/goquery"
+
 	"github.com/lemon4ksan/g-man/pkg/rest"
 	inv "github.com/lemon4ksan/g-man/pkg/tf2/inventory"
 )
@@ -34,13 +36,15 @@ func (c *BackpackTFChecker) CheckHistory(ctx context.Context, assetID uint64) (i
 	path := "https://backpack.tf/item/" + strconv.FormatUint(assetID, 10)
 
 	resp, err := c.bptfClient.REST().Request(ctx, http.MethodGet, path, nil, nil)
-
 	if err != nil {
-		if apiErr, ok := err.(*rest.APIError); ok && apiErr.StatusCode == http.StatusNotFound {
+		apiErr := &rest.APIError{}
+		if errors.As(err, &apiErr) {
 			return inv.HistoryStatus{Recorded: false}, nil
 		}
+
 		return inv.HistoryStatus{}, fmt.Errorf("bptf dupe check request failed: %w", err)
 	}
+
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {

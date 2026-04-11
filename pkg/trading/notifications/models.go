@@ -7,6 +7,7 @@ package notifications
 import (
 	"context"
 
+	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/trading/reason"
 )
 
@@ -30,7 +31,7 @@ const (
 // TradeInfo contains the information needed to generate a notification.
 type TradeInfo struct {
 	OfferID        uint64
-	PartnerSteamID uint64
+	PartnerSteamID id.ID
 	ReasonType     reason.TradeReason
 	OldState       TradeState
 
@@ -53,5 +54,5 @@ type ConfigProvider interface {
 
 // ChatProvider defines an interface for sending messages to a Steam user.
 type ChatProvider interface {
-	SendMessage(ctx context.Context, steamID uint64, message string) error
+	SendMessage(ctx context.Context, steamID id.ID, message string) error
 }

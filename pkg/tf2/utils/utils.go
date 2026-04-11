@@ -5,7 +5,7 @@
 package utils
 
 import (
-	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -18,7 +18,8 @@ type ProfileLinks struct {
 
 // GenerateLinks creates profile links from a SteamID64.
 func GenerateLinks(steamID uint64) ProfileLinks {
-	idStr := fmt.Sprintf("%d", steamID)
+	idStr := strconv.FormatUint(steamID, 10)
+
 	return ProfileLinks{
 		Steam:    "https://steamcommunity.com/profiles/" + idStr,
 		Bptf:     "https://backpack.tf/profiles/" + idStr,
@@ -31,12 +32,14 @@ func ShortenItemName(name string) string {
 	if name == "" {
 		return ""
 	}
+
 	replacer := strings.NewReplacer(
 		"Non-Craftable", "NC",
 		"Professional Killstreak", "Pro KS",
 		"Specialized Killstreak", "Spec KS",
 		"Killstreak", "KS",
 	)
+
 	return replacer.Replace(name)
 }
 
@@ -55,5 +58,6 @@ func EscapeMarkdown(text string) string {
 		"[", "/",
 		"]", "/",
 	)
+
 	return replacer.Replace(text)
 }

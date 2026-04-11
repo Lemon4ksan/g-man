@@ -10,9 +10,10 @@ import (
 	"encoding/binary"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/tf2"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
-	"google.golang.org/protobuf/proto"
 )
 
 // RemoveItemName removes a custom name from an item.
@@ -44,46 +45,55 @@ func (t *TF2) AcknowledgeItem(ctx context.Context, itemID uint64) error {
 func (t *TF2) sendSimpleItemAction(ctx context.Context, msgType pb.EGCItemMsg, itemID uint64) error {
 	data := make([]byte, 8)
 	binary.LittleEndian.PutUint64(data, itemID)
+
 	return t.gc.SendRaw(ctx, AppID, uint32(msgType), data)
 }
 
 func (t *TF2) AcknowledgeAll(ctx context.Context) error {
 	items := t.cache.GetItems()
-	var unacked []uint64
 
+	var unacked []uint64
 	for _, it := range items {
 		if (it.Inventory>>30)&1 != 0 {
 			unacked = append(unacked, it.ID)
 		}
 	}
 
+	var err error
 	for _, id := range unacked {
-		t.AcknowledgeItem(ctx, id)
+		if err = t.AcknowledgeItem(ctx, id); err != nil {
+			break
+		}
+
 		time.Sleep(100 * time.Millisecond)
 	}
-	return nil
+
+	return err
 }
 
 // SetItemStyle changes the style of a specific item (e.g., Painted or Alt styles).
 func (t *TF2) SetItemStyle(ctx context.Context, itemID uint64, style uint32) error {
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, itemID)
-	binary.Write(buf, binary.LittleEndian, style)
+	_ = binary.Write(buf, binary.LittleEndian, itemID)
+	_ = binary.Write(buf, binary.LittleEndian, style)
+
 	return t.gc.SendRaw(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCSetItemStyle), buf.Bytes())
 }
 
 // SetItemPosition moves an item to a specific slot in the backpack.
-func (t *TF2) SetItemPosition(ctx context.Context, itemID uint64, position uint64) error {
+func (t *TF2) SetItemPosition(ctx context.Context, itemID, position uint64) error {
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, itemID)
-	binary.Write(buf, binary.LittleEndian, position)
+	_ = binary.Write(buf, binary.LittleEndian, itemID)
+	_ = binary.Write(buf, binary.LittleEndian, position)
+
 	return t.gc.SendRaw(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCSetSingleItemPosition), buf.Bytes())
 }
 
 // DeleteItem permanently removes an item from your inventory.
 func (t *TF2) DeleteItem(ctx context.Context, itemID uint64) error {
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, itemID)
+	_ = binary.Write(buf, binary.LittleEndian, itemID)
+
 	return t.gc.SendRaw(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCDelete), buf.Bytes())
 }
 
@@ -92,6 +102,7 @@ func (t *TF2) UseItem(ctx context.Context, itemID uint64) error {
 	req := &pb.CMsgUseItem{
 		ItemId: proto.Uint64(itemID),
 	}
+
 	return t.gc.Send(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCUseItemRequest), req)
 }
 
@@ -100,48 +111,54 @@ func (t *TF2) SortBackpack(ctx context.Context, sortType uint32) error {
 	req := &pb.CMsgSortItems{
 		SortType: proto.Uint32(sortType),
 	}
+
 	return t.gc.Send(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCSortItems), req)
 }
 
 // EquipItem assigns an item to a specific class and slot.
-func (t *TF2) EquipItem(ctx context.Context, itemID uint64, classID uint32, slot uint32) error {
+func (t *TF2) EquipItem(ctx context.Context, itemID uint64, classID, slot uint32) error {
 	req := &pb.CMsgAdjustItemEquippedState{
 		ItemId:   proto.Uint64(itemID),
 		NewClass: proto.Uint32(classID),
 		NewSlot:  proto.Uint32(slot),
 	}
+
 	return t.gc.Send(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCAdjustItemEquippedState), req)
 }
 
 // UnlockCrate uses a key to open a crate.
 func (t *TF2) UnlockCrate(ctx context.Context, keyID, crateID uint64) error {
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, keyID)
-	binary.Write(buf, binary.LittleEndian, crateID)
+	_ = binary.Write(buf, binary.LittleEndian, keyID)
+	_ = binary.Write(buf, binary.LittleEndian, crateID)
+
 	return t.gc.SendRaw(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCUnlockCrate), buf.Bytes())
 }
 
 // WrapItem uses a gift wrap on an item.
 func (t *TF2) WrapItem(ctx context.Context, wrapID, itemID uint64) error {
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, wrapID)
-	binary.Write(buf, binary.LittleEndian, itemID)
+	_ = binary.Write(buf, binary.LittleEndian, wrapID)
+	_ = binary.Write(buf, binary.LittleEndian, itemID)
+
 	return t.gc.SendRaw(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCGiftWrapItem), buf.Bytes())
 }
 
 // DeliverGift sends a wrapped gift to another player.
 func (t *TF2) DeliverGift(ctx context.Context, giftID, targetSteamID uint64) error {
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, giftID)
-	binary.Write(buf, binary.LittleEndian, targetSteamID)
+	_ = binary.Write(buf, binary.LittleEndian, giftID)
+	_ = binary.Write(buf, binary.LittleEndian, targetSteamID)
+
 	return t.gc.SendRaw(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCDeliverGift), buf.Bytes())
 }
 
 // InviteToTrade invites another player to a live trade session.
 func (t *TF2) InviteToTrade(ctx context.Context, steamID uint64) error {
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, uint32(0)) // Unknown/Header
-	binary.Write(buf, binary.LittleEndian, steamID)
+	_ = binary.Write(buf, binary.LittleEndian, uint32(0)) // Unknown/Header
+	_ = binary.Write(buf, binary.LittleEndian, steamID)
+
 	return t.gc.SendRaw(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCTrading_InitiateTradeRequest), buf.Bytes())
 }
 
@@ -158,8 +175,9 @@ func (t *TF2) RespondToTrade(ctx context.Context, tradeID uint32, accept bool) e
 	}
 
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, resp)
-	binary.Write(buf, binary.LittleEndian, tradeID)
+	_ = binary.Write(buf, binary.LittleEndian, resp)
+	_ = binary.Write(buf, binary.LittleEndian, tradeID)
+
 	return t.gc.SendRaw(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCTrading_InitiateTradeResponse), buf.Bytes())
 }
 
@@ -172,24 +190,31 @@ func (t *TF2) CancelTradeRequest(ctx context.Context) error {
 func (t *TF2) Craft(ctx context.Context, items []uint64, recipe int16) ([]uint64, error) {
 	// Format: [Recipe(int16)] [Count(int16)] [ItemID(uint64)]...
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, recipe)
-	binary.Write(buf, binary.LittleEndian, int16(len(items)))
+	_ = binary.Write(buf, binary.LittleEndian, recipe)
+	_ = binary.Write(buf, binary.LittleEndian, int16(len(items)))
+
 	for _, id := range items {
-		binary.Write(buf, binary.LittleEndian, id)
+		_ = binary.Write(buf, binary.LittleEndian, id)
 	}
 
 	resCh := make(chan []uint64, 1)
 	errCh := make(chan error, 1)
 
-	err := t.gc.CallRaw(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCCraft), buf.Bytes(), func(pkt *protocol.GCPacket, err error) {
-		if err != nil {
-			errCh <- err
-			return
-		}
-		newItems := parseCraftResponse(pkt.Payload)
-		resCh <- newItems
-	})
+	err := t.gc.CallRaw(
+		ctx,
+		AppID,
+		uint32(pb.EGCItemMsg_k_EMsgGCCraft),
+		buf.Bytes(),
+		func(pkt *protocol.GCPacket, err error) {
+			if err != nil {
+				errCh <- err
+				return
+			}
 
+			newItems := parseCraftResponse(pkt.Payload)
+			resCh <- newItems
+		},
+	)
 	if err != nil {
 		return nil, err
 	}

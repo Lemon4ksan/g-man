@@ -82,7 +82,8 @@ func TestValueDiff(t *testing.T) {
 			}
 
 			gotMissingRef := diff.MissingRefined()
-			if tt.wantMissingRef > 0 && (gotMissingRef < tt.wantMissingRef-0.0001 || gotMissingRef > tt.wantMissingRef+0.0001) {
+			if tt.wantMissingRef > 0 &&
+				(gotMissingRef < tt.wantMissingRef-0.0001 || gotMissingRef > tt.wantMissingRef+0.0001) {
 				t.Errorf("MissingRefined() = %v, want %v", gotMissingRef, tt.wantMissingRef)
 			}
 

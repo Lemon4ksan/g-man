@@ -84,6 +84,7 @@ func (p *Processor) worker(ctx context.Context) {
 
 func (p *Processor) processSingleOffer(ctx context.Context, offer *TradeOffer) {
 	start := time.Now()
+
 	p.logger.Debug("Handling offer", log.Uint64("offerID", offer.ID))
 
 	// Call your bot's business logic (e.g., check prices, check bans)
@@ -103,6 +104,7 @@ func (p *Processor) processSingleOffer(ctx context.Context, offer *TradeOffer) {
 		// If counter failed, fallback to decline (as per TS logic)
 		if decision.Action == ActionCounter {
 			p.logger.Warn("Counter failed, falling back to decline", log.Uint64("offerID", offer.ID))
+
 			decision.Action = ActionDecline
 			decision.Reason = "COUNTER_INVALID_VALUE_FAILED"
 			_ = p.applyAction(ctx, offer, decision)
@@ -145,14 +147,15 @@ func (p *Processor) CheckEscrow(ctx context.Context, offer *TradeOffer) (bool, e
 
 	err := p.withRetry(ctx, 5, func() error {
 		var fetchErr error
+
 		details, fetchErr = p.manager.GetEscrowDuration(ctx, offer.ID)
 
 		if errors.Is(fetchErr, ErrEscrowNotFound) {
 			return fetchErr
 		}
+
 		return fetchErr
 	})
-
 	if err != nil {
 		return false, fmt.Errorf("escrow check failed after retries: %w", err)
 	}

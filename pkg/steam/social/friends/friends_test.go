@@ -5,18 +5,19 @@
 package friends
 
 import (
-	"fmt"
 	"io"
 	"net/url"
+	"strconv"
 	"testing"
 	"time"
+
+	"google.golang.org/protobuf/proto"
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/test/module"
-	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -27,6 +28,7 @@ const (
 
 func setupFriends(t *testing.T) (*Manager, *module.InitContext) {
 	t.Helper()
+
 	m := New()
 	ictx := module.NewInitContext()
 
@@ -55,6 +57,7 @@ func TestManager_InitAndClose(t *testing.T) {
 
 	t.Run("Unregister", func(t *testing.T) {
 		_ = m.Close()
+
 		ictx.AssertPacketHandlerUnregistered(t, enums.EMsg_ClientFriendsList)
 	})
 }
@@ -70,6 +73,7 @@ func TestManager_FriendCache(t *testing.T) {
 		if !m.IsFriend(FriendID_1) {
 			t.Error("expected IsFriend(FriendID_1) to be true")
 		}
+
 		if m.IsFriend(FriendID_2) {
 			t.Error("RequestRecipient should not be considered a 'Friend'")
 		}
@@ -107,6 +111,7 @@ func TestManager_GetMaxFriends(t *testing.T) {
 	}
 
 	ictx.MockService().ClearCalls()
+
 	maxCached, _ := m.GetMaxFriends(t.Context())
 
 	if maxCached != 750 {
@@ -121,6 +126,7 @@ func TestManager_AddAndRemoveFriend(t *testing.T) {
 		_ = m.AddFriend(t.Context(), FriendID_1)
 		req := &pb.CMsgClientAddFriend{}
 		ictx.MockService().GetLastCall(req)
+
 		if req.GetSteamidToAdd() != FriendID_1 {
 			t.Errorf("wrong steamid in AddFriend request: %d", req.GetSteamidToAdd())
 		}
@@ -130,6 +136,7 @@ func TestManager_AddAndRemoveFriend(t *testing.T) {
 		_ = m.RemoveFriend(t.Context(), FriendID_1)
 		req := &pb.CMsgClientRemoveFriend{}
 		ictx.MockService().GetLastCall(req)
+
 		if req.GetFriendid() != FriendID_1 {
 			t.Errorf("wrong steamid in RemoveFriend request: %d", req.GetFriendid())
 		}
@@ -158,8 +165,9 @@ func TestManager_InviteToGroups(t *testing.T) {
 		}
 
 		data, _ := io.ReadAll(last.Body)
+
 		body, _ := url.ParseQuery(string(data))
-		if body.Get("invitee") != fmt.Sprint(FriendID_1) {
+		if body.Get("invitee") != strconv.Itoa(FriendID_1) {
 			t.Errorf("expected invitee=%d, got %s", FriendID_1, body.Get("invitee"))
 		}
 	})
@@ -183,12 +191,19 @@ func TestManager_HandleFriendsList(t *testing.T) {
 
 	ictx.EmitPacket(t, enums.EMsg_ClientFriendsList, &pb.CMsgClientFriendsList{
 		Friends: []*pb.CMsgClientFriendsList_Friend{
-			{Ulfriendid: proto.Uint64(FriendID_1), Efriendrelationship: proto.Uint32(uint32(enums.EFriendRelationship_None))},
-			{Ulfriendid: proto.Uint64(FriendID_2), Efriendrelationship: proto.Uint32(uint32(enums.EFriendRelationship_Friend))},
+			{
+				Ulfriendid:          proto.Uint64(FriendID_1),
+				Efriendrelationship: proto.Uint32(uint32(enums.EFriendRelationship_None)),
+			},
+			{
+				Ulfriendid:          proto.Uint64(FriendID_2),
+				Efriendrelationship: proto.Uint32(uint32(enums.EFriendRelationship_Friend)),
+			},
 		},
 	})
 
 	events := make(map[id.ID]*RelationshipChangedEvent)
+
 	for i := 0; i < 2; i++ {
 		select {
 		case ev := <-sub.C():
@@ -202,6 +217,7 @@ func TestManager_HandleFriendsList(t *testing.T) {
 	if ev, ok := events[FriendID_1]; !ok || ev.New != enums.EFriendRelationship_None {
 		t.Errorf("removal event failed: %+v", ev)
 	}
+
 	if ev, ok := events[FriendID_2]; !ok || ev.New != enums.EFriendRelationship_Friend {
 		t.Errorf("addition event failed: %+v", ev)
 	}

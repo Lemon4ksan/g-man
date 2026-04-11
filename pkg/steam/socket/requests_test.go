@@ -32,6 +32,7 @@ func TestBuilders(t *testing.T) {
 
 		buf := new(bytes.Buffer)
 		jobID := uint64(888)
+
 		err := builder(sess, buf, jobID, "test_token")
 		if err != nil {
 			t.Fatalf("Unified builder failed: %v", err)
@@ -54,9 +55,11 @@ func TestBuilders(t *testing.T) {
 		if hdr.Proto.GetTargetJobName() != method {
 			t.Errorf("Expected method %s, got %s", method, hdr.Proto.GetTargetJobName())
 		}
+
 		if hdr.Proto.GetWgToken() != "test_token" {
 			t.Errorf("Expected token test_token, got %s", hdr.Proto.GetWgToken())
 		}
+
 		if hdr.Proto.GetJobidSource() != jobID {
 			t.Errorf("Expected jobID %d, got %d", jobID, hdr.Proto.GetJobidSource())
 		}
@@ -89,13 +92,14 @@ func TestSocket_SendMethods(t *testing.T) {
 	mockConn := newMockConnection()
 	cfg := DefaultTestConfig()
 	cfg.Dialers = map[string]ConnectionDialer{
-		"mock": func(nh network.Handler, l log.Logger, s string) (network.Connection, error) {
+		"mock": func(ctx context.Context, nh network.Handler, l log.Logger, s string) (network.Connection, error) {
 			return mockConn, nil
 		},
 	}
 
 	sock := NewSocket(cfg)
 	defer sock.Close()
+
 	err := sock.Connect(t.Context(), CMServer{Type: "mock"})
 	if err != nil {
 		t.Fatalf("Connect failed: %v", err)
@@ -112,6 +116,7 @@ func TestSocket_SendMethods(t *testing.T) {
 		}
 
 		data := <-mockConn.sentMsgs
+
 		pkt, _ := protocol.ParsePacket(bytes.NewReader(data))
 		if pkt.EMsg != enums.EMsg_ServiceMethodCallFromClient {
 			t.Errorf("Unexpected EMsg: %v", pkt.EMsg)
@@ -120,12 +125,14 @@ func TestSocket_SendMethods(t *testing.T) {
 
 	t.Run("SendRaw", func(t *testing.T) {
 		testPayload := []byte("raw_binary_data")
+
 		err := sock.SendRaw(t.Context(), enums.EMsg_ClientHeartBeat, testPayload)
 		if err != nil {
 			t.Fatalf("SendRaw failed: %v", err)
 		}
 
 		data := <-mockConn.sentMsgs
+
 		pkt, err := protocol.ParsePacket(bytes.NewReader(data))
 		if err != nil {
 			t.Fatalf("Failed to parse packet sent by SendRaw: %v", err)
@@ -134,6 +141,7 @@ func TestSocket_SendMethods(t *testing.T) {
 		if !bytes.Equal(pkt.Payload, testPayload) {
 			t.Errorf("Payload mismatch in SendRaw. Expected %q, got %q", testPayload, pkt.Payload)
 		}
+
 		if pkt.IsProto {
 			t.Error("SendRaw should produce non-proto packet")
 		}
@@ -146,9 +154,11 @@ func TestSocket_SendMethods(t *testing.T) {
 		if hdr.SteamID != mockSess.SteamID() {
 			t.Errorf("Expected SteamID %d from session, got %d", mockSess.SteamID(), hdr.SteamID)
 		}
+
 		if hdr.SessionID != mockSess.SessionID() {
 			t.Errorf("Expected SessionID %d from session, got %d", mockSess.SessionID(), hdr.SessionID)
 		}
+
 		if hdr.SourceJobID != protocol.NoJob {
 			t.Errorf("Expected SourceJobID to be NoJob (0), got %d", hdr.SourceJobID)
 		}
@@ -159,13 +169,14 @@ func TestSocket_SendSync(t *testing.T) {
 	mockConn := newMockConnection()
 	cfg := DefaultTestConfig()
 	cfg.Dialers = map[string]ConnectionDialer{
-		"mock": func(nh network.Handler, l log.Logger, s string) (network.Connection, error) {
+		"mock": func(ctx context.Context, nh network.Handler, l log.Logger, s string) (network.Connection, error) {
 			return mockConn, nil
 		},
 	}
 
 	sock := NewSocket(cfg)
 	defer sock.Close()
+
 	_ = sock.Connect(t.Context(), CMServer{Type: "mock"})
 
 	jobIDChan := make(chan uint64, 1)

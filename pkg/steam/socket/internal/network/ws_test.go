@@ -13,9 +13,10 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/lemon4ksan/g-man/pkg/log"
 )
 
 func TestWSConnection_FullCycle(t *testing.T) {
@@ -27,6 +28,7 @@ func TestWSConnection_FullCycle(t *testing.T) {
 			http.NotFound(w, r)
 			return
 		}
+
 		conn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
 			return
@@ -38,6 +40,7 @@ func TestWSConnection_FullCycle(t *testing.T) {
 			if err != nil {
 				break
 			}
+
 			// Echo
 			_ = conn.WriteMessage(mt, message)
 		}
@@ -50,8 +53,9 @@ func TestWSConnection_FullCycle(t *testing.T) {
 		TLSClientConfig: server.Client().Transport.(*http.Transport).TLSClientConfig,
 	}
 
-	client, err := NewWS(handler, log.Discard, endpoint, dialer)
+	client, err := NewWS(t.Context(), handler, log.Discard, endpoint, dialer)
 	require.NoError(t, err)
+
 	defer client.Close()
 
 	testData := []byte("hello steam ws")
@@ -65,7 +69,8 @@ func TestWSConnection_FullCycle(t *testing.T) {
 		t.Fatal("timeout waiting for ws message")
 	}
 
-	client.Close()
+	_ = client.Close()
+
 	time.Sleep(100 * time.Millisecond)
 	handler.mu.Lock()
 	assert.True(t, handler.closedCalled)

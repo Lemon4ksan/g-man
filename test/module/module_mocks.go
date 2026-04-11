@@ -9,6 +9,8 @@ import (
 	"sync"
 	"testing"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/rest"
@@ -23,7 +25,6 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/storage"
 	cm "github.com/lemon4ksan/g-man/test/community"
 	"github.com/lemon4ksan/g-man/test/requester"
-	"google.golang.org/protobuf/proto"
 )
 
 type InitContext struct {
@@ -58,63 +59,76 @@ func (m *InitContext) MockService() *requester.Mock { return m.mockService }
 func (m *InitContext) SetService(s *requester.Mock) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	m.mockService = s
 }
 
 func (m *InitContext) SetStorage(s storage.Provider) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	m.storage = s
 }
 
 func (m *InitContext) RegisterPacketHandler(e enums.EMsg, h socket.Handler) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	m.packetHandlers[e] = h
 }
 
 func (m *InitContext) UnregisterPacketHandler(e enums.EMsg) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	delete(m.packetHandlers, e)
 }
 
 func (m *InitContext) RegisterServiceHandler(method string, h socket.Handler) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	m.serviceHandlers[method] = h
 }
 
 func (m *InitContext) UnregisterServiceHandler(method string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	delete(m.serviceHandlers, method)
 }
 
 func (m *InitContext) Module(name string) module.Module {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
 	return m.modules[name]
 }
 
 func (m *InitContext) GetPacketHandler(method enums.EMsg) (socket.Handler, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
 	h, ok := m.packetHandlers[method]
+
 	return h, ok
 }
 
 func (m *InitContext) GetServiceHandler(method string) (socket.Handler, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
 	h, ok := m.serviceHandlers[method]
+
 	return h, ok
 }
 
 func (m *InitContext) AssertPacketHandlerRegistered(t *testing.T, e enums.EMsg) {
 	t.Helper()
+
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
 	if _, ok := m.packetHandlers[e]; !ok {
 		t.Errorf("expected packet handler for %v to be registered", e)
 	}
@@ -122,8 +136,10 @@ func (m *InitContext) AssertPacketHandlerRegistered(t *testing.T, e enums.EMsg) 
 
 func (m *InitContext) AssertPacketHandlerUnregistered(t *testing.T, e enums.EMsg) {
 	t.Helper()
+
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
 	if _, ok := m.packetHandlers[e]; ok {
 		t.Errorf("expected packet handler for %v to be unregistered", e)
 	}
@@ -153,6 +169,7 @@ func (m *InitContext) EmitPacket(t *testing.T, e enums.EMsg, msg proto.Message) 
 func (m *InitContext) SetModule(name string, mod module.Module) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	m.modules[name] = mod
 }
 
@@ -181,6 +198,7 @@ func ProtoResponse(msg proto.Message) (*tr.Response, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return tr.NewResponse(b, tr.SocketMetadata{Result: enums.EResult_OK}), nil
 }
 
@@ -189,5 +207,6 @@ func JSONResponse(msg any) (*tr.Response, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return tr.NewResponse(b, tr.HTTPMetadata{StatusCode: 200}), nil
 }

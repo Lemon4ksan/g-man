@@ -20,6 +20,7 @@ import (
 
 func setupSchema(t *testing.T, cfg Config) (*Manager, *requester.Mock) {
 	t.Helper()
+
 	mockAPI := requester.New()
 	init := module.NewInitContext()
 	init.SetService(mockAPI)
@@ -28,6 +29,7 @@ func setupSchema(t *testing.T, cfg Config) (*Manager, *requester.Mock) {
 	if err := sm.Init(init); err != nil {
 		t.Fatalf("failed to init schema manager: %v", err)
 	}
+
 	return sm, mockAPI
 }
 
@@ -40,6 +42,7 @@ func TestNewSchemaManager_ConfigDefaults(t *testing.T) {
 	}
 
 	cfgValid := Config{UpdateInterval: 5 * time.Minute}
+
 	smValid := NewManager(cfgValid)
 	if smValid.config.UpdateInterval != 5*time.Minute {
 		t.Errorf("expected 5m interval, got %v", smValid.config.UpdateInterval)
@@ -62,9 +65,11 @@ func TestSchemaManager_LiteModePruning(t *testing.T) {
 	if _, exists := raw.ItemsGame["prefabs"]; exists {
 		t.Error("expected 'prefabs' to be pruned")
 	}
+
 	if _, exists := raw.ItemsGame["equip_conflicts"]; exists {
 		t.Error("expected 'equip_conflicts' to be pruned")
 	}
+
 	if _, exists := raw.ItemsGame["items"]; !exists {
 		t.Error("expected 'items' to be kept")
 	}
@@ -91,6 +96,7 @@ func TestSchemaManager_Refresh_Success(t *testing.T) {
 	mockAPI.OnRest = func(method, path string, body []byte) (*http.Response, error) {
 		if strings.Contains(path, "proto_obj_defs") {
 			vdf := "\"lang\"\n{\n\t\"Tokens\"\n\t{\n\t\t\"9_12_weapon 12\" \"Nutcracker\"\n\t}\n}\n"
+
 			return &http.Response{
 				Body:       io.NopCloser(strings.NewReader(vdf)),
 				StatusCode: 200,
@@ -99,6 +105,7 @@ func TestSchemaManager_Refresh_Success(t *testing.T) {
 
 		if strings.Contains(path, "items_game.txt") {
 			vdf := "\"items_game\"\n{\n\t\"valid_key\" \"value\"\n}\n"
+
 			return &http.Response{
 				Body:       io.NopCloser(strings.NewReader(vdf)),
 				StatusCode: 200,
@@ -122,6 +129,7 @@ func TestSchemaManager_Refresh_Success(t *testing.T) {
 	if len(schema.Raw.Schema.Items) != 1 {
 		t.Fatalf("expected 1 item, got %d", len(schema.Raw.Schema.Items))
 	}
+
 	if schema.Raw.Schema.Items[0].Defindex != 5021 {
 		t.Errorf("expected item defindex 5021, got %d", schema.Raw.Schema.Items[0].Defindex)
 	}
@@ -158,6 +166,7 @@ func TestSchemaManager_Refresh_Failures(t *testing.T) {
 					if strings.HasPrefix(req.Target().String(), "https://raw.githubusercontent.com") {
 						return nil, errors.New("github connection failed")
 					}
+
 					return nil, nil
 				}
 			},
@@ -169,7 +178,11 @@ func TestSchemaManager_Refresh_Failures(t *testing.T) {
 			sm, mockAPI := setupSchema(t, Config{})
 
 			mockAPI.SetJSONResponse("IEconItems_440", "GetSchemaOverview", map[string]any{"result": map[string]any{}})
-			mockAPI.SetJSONResponse("IEconItems_440", "GetSchemaItems", map[string]any{"result": map[string]any{"items": []any{}}})
+			mockAPI.SetJSONResponse(
+				"IEconItems_440",
+				"GetSchemaItems",
+				map[string]any{"result": map[string]any{"items": []any{}}},
+			)
 
 			tt.mockSetup(mockAPI)
 

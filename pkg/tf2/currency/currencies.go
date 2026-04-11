@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"strings"
 )
 
 type Scrap int
@@ -39,33 +40,21 @@ func (c *Currency) String() string {
 
 	var parts []string
 
-	if c.Keys != 0 || c.Keys == c.Metal {
-		parts = append(parts, pluralize("key", c.Keys))
-	}
-
-	if c.Metal != 0 || c.Keys == c.Metal {
-		metalStr := strconv.FormatFloat(truncate(c.Metal, 2), 'f', -1, 64)
-		parts = append(parts, metalStr+" ref")
-	}
-
-	return c.formatString()
-}
-
-func (c *Currency) formatString() string {
-	var kStr, mStr string
-	if c.Keys > 0 {
-		kStr = fmt.Sprintf("%g key", c.Keys)
+	if c.Keys != 0 {
+		kStr := fmt.Sprintf("%g key", c.Keys)
 		if c.Keys != 1 {
 			kStr += "s"
 		}
+
+		parts = append(parts, kStr)
 	}
-	if c.Metal > 0 || c.Keys == 0 {
-		mStr = fmt.Sprintf("%.2f ref", c.Metal)
+
+	if c.Metal != 0 || len(parts) == 0 {
+		metalStr := strconv.FormatFloat(c.Metal, 'f', -1, 64)
+		parts = append(parts, metalStr+" ref")
 	}
-	if kStr != "" && mStr != "" {
-		return kStr + ", " + mStr
-	}
-	return kStr + mStr
+
+	return strings.Join(parts, ", ")
 }
 
 // ToValue returns the value of currencies in scrap metal.
@@ -80,8 +69,10 @@ func (c *Currency) ToValue(keyPriceRef float64) (Scrap, error) {
 	if c.Keys != 0 {
 		keyPriceScrap := ToScrap(keyPriceRef)
 		keyValue := Scrap(math.Round(c.Keys * float64(keyPriceScrap)))
+
 		return metalValue + keyValue, nil
 	}
+
 	return metalValue, nil
 }
 
@@ -91,6 +82,7 @@ func AddRefined(args ...float64) float64 {
 	for _, ref := range args {
 		total += ToScrap(ref)
 	}
+
 	return ToRefined(total)
 }
 
@@ -142,6 +134,7 @@ func rounding(number float64) float64 {
 	if isPositive {
 		return res
 	}
+
 	return -res
 }
 
@@ -150,5 +143,6 @@ func pluralize(word string, count float64) string {
 	if count == 1 {
 		return strCount + " " + word
 	}
+
 	return strCount + " " + word + "s"
 }

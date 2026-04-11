@@ -8,10 +8,11 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/lemon4ksan/g-man/pkg/steam/api"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
+
+	"github.com/lemon4ksan/g-man/pkg/steam/api"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 )
 
 func TestUnifiedTarget_Formatting(t *testing.T) {
@@ -76,10 +77,12 @@ func TestUnifiedTarget_EMsg(t *testing.T) {
 func TestNewUnifiedRequest_Encoding(t *testing.T) {
 	t.Run("Proto encoding", func(t *testing.T) {
 		msg := &emptypb.Empty{}
+
 		req, err := NewUnifiedRequest("POST", "Test", "Method", 1, msg)
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		expected, _ := proto.Marshal(msg)
 		if string(req.Body()) != string(expected) {
 			t.Error("proto body mismatch")
@@ -88,10 +91,12 @@ func TestNewUnifiedRequest_Encoding(t *testing.T) {
 
 	t.Run("JSON encoding", func(t *testing.T) {
 		msg := map[string]string{"foo": "bar"}
+
 		req, err := NewUnifiedRequest("POST", "Test", "Method", 1, msg)
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if string(req.Body()) != `{"foo":"bar"}` {
 			t.Errorf("json body mismatch: %s", string(req.Body()))
 		}
@@ -99,6 +104,7 @@ func TestNewUnifiedRequest_Encoding(t *testing.T) {
 
 	t.Run("Raw bytes", func(t *testing.T) {
 		raw := []byte{0x01, 0x02}
+
 		req, _ := NewUnifiedRequest("POST", "Test", "Method", 1, raw)
 		if string(req.Body()) != string(raw) {
 			t.Error("raw body mismatch")
@@ -142,6 +148,7 @@ func TestRequestModifiers(t *testing.T) {
 	if req.Params().Get("a") != "1" {
 		t.Error("WithParam failed")
 	}
+
 	if req.Params().Get("b") != "2" {
 		t.Error("WithParams failed")
 	}

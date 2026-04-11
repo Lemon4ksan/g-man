@@ -14,14 +14,14 @@ import (
 	"io"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/lemon4ksan/g-man/pkg/crypto"
 	"github.com/lemon4ksan/g-man/pkg/log"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/api"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
-
-	"google.golang.org/protobuf/proto"
 )
 
 // handleChannelEncryptRequest processes the initial TCP handshake from Steam CM.
@@ -30,11 +30,13 @@ func (a *Authenticator) handleChannelEncryptRequest(packet *protocol.Packet) {
 	a.logger.Debug("Received ChannelEncryptRequest", log.Int("size", len(packet.Payload)))
 
 	r := bytes.NewReader(packet.Payload)
+
 	var protocolVer, universe uint32
 	if err := binary.Read(r, binary.LittleEndian, &protocolVer); err != nil {
 		a.failLogin(fmt.Errorf("encrypt_request: failed to read protocol version: %w", err))
 		return
 	}
+
 	if err := binary.Read(r, binary.LittleEndian, &universe); err != nil {
 		a.failLogin(fmt.Errorf("encrypt_request: failed to read universe: %w", err))
 		return
@@ -58,11 +60,11 @@ func (a *Authenticator) handleChannelEncryptRequest(packet *protocol.Packet) {
 
 	// Structure: [ProtocolVersion] [KeySize] [EncryptedKey] [CRC32] [Trailer(0)]
 	resp := new(bytes.Buffer)
-	binary.Write(resp, binary.LittleEndian, protocolVer)
-	binary.Write(resp, binary.LittleEndian, uint32(len(encryptedKey)))
+	_ = binary.Write(resp, binary.LittleEndian, protocolVer)
+	_ = binary.Write(resp, binary.LittleEndian, uint32(len(encryptedKey)))
 	resp.Write(encryptedKey)
-	binary.Write(resp, binary.LittleEndian, crc32.ChecksumIEEE(encryptedKey))
-	binary.Write(resp, binary.LittleEndian, uint32(0))
+	_ = binary.Write(resp, binary.LittleEndian, crc32.ChecksumIEEE(encryptedKey))
+	_ = binary.Write(resp, binary.LittleEndian, uint32(0))
 
 	a.logger.Debug("Sending ChannelEncryptResponse", log.Int("key_size", len(encryptedKey)))
 
@@ -76,6 +78,7 @@ func (a *Authenticator) handleChannelEncryptRequest(packet *protocol.Packet) {
 // If successful, it triggers the token exchange and sends ClientLogon.
 func (a *Authenticator) handleChannelEncryptResult(packet *protocol.Packet) {
 	r := bytes.NewReader(packet.Payload)
+
 	var result uint32
 	if err := binary.Read(r, binary.LittleEndian, &result); err != nil {
 		a.failLogin(fmt.Errorf("encrypt_result: failed to read result code: %w", err))
@@ -125,6 +128,7 @@ func (a *Authenticator) handleLogOnResponse(packet *protocol.Packet) {
 		a.failLogin(fmt.Errorf("steam logon denied: %w", api.EResultError{EResult: eresult}))
 
 		a.socket.Bus().Publish(&LoggedOffEvent{Result: eresult})
+
 		return
 	}
 
@@ -134,6 +138,7 @@ func (a *Authenticator) handleLogOnResponse(packet *protocol.Packet) {
 		if steamID := ah.GetSteamID(); steamID != 0 {
 			sess.SetSteamID(steamID)
 		}
+
 		if sessionID := ah.GetSessionID(); sessionID != 0 {
 			sess.SetSessionID(sessionID)
 		}
@@ -144,6 +149,7 @@ func (a *Authenticator) handleLogOnResponse(packet *protocol.Packet) {
 	if interval <= 0 {
 		interval = 10 * time.Second
 	}
+
 	a.socket.StartHeartbeat(interval)
 
 	a.socket.Bus().Publish(&LoggedOnEvent{
@@ -194,6 +200,7 @@ func (a *Authenticator) sendLogOn(ctx context.Context, details *LogOnDetails) {
 
 	if details.RefreshToken != "" {
 		a.logger.Debug("Logging on with Refresh Token")
+
 		logon.AccessToken = proto.String(details.RefreshToken)
 		logon.AccountName = nil
 	} else {

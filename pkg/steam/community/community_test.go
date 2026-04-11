@@ -28,6 +28,7 @@ func (m *MockHTTPDoer) Do(req *http.Request) (*http.Response, error) {
 func setupCommunity(onDo func(req *http.Request) (*http.Response, error)) *Client {
 	doer := &MockHTTPDoer{OnDo: onDo}
 	sessionFunc := func(uri string) string { return "valid_session_id" }
+
 	return New(doer, sessionFunc, log.Discard)
 }
 
@@ -61,6 +62,7 @@ func TestCommunityClient_SessionIDInjection(t *testing.T) {
 			if !strings.Contains(string(body), "sessionid=valid_session_id") {
 				t.Errorf("sessionid missing in form body: %s", string(body))
 			}
+
 			return &http.Response{
 				StatusCode: http.StatusOK,
 				Body:       io.NopCloser(bytes.NewReader(nil)),
@@ -75,6 +77,7 @@ func TestCommunityClient_SessionIDInjection(t *testing.T) {
 			if req.URL.Query().Get("sessionid") != "valid_session_id" {
 				t.Error("sessionid missing in query params for JSON post")
 			}
+
 			return &http.Response{
 				StatusCode: http.StatusOK,
 				Body:       io.NopCloser(bytes.NewReader(nil)),
@@ -133,6 +136,7 @@ func TestCommunityClient_ErrorParsing(t *testing.T) {
 				if tc.location != "" {
 					header.Set("Location", tc.location)
 				}
+
 				return &http.Response{
 					StatusCode: tc.statusCode,
 					Header:     header,
@@ -167,6 +171,7 @@ func TestCommunityClient_Generics(t *testing.T) {
 			if req.URL.Query().Get("item_id") != "42" {
 				t.Errorf("param item_id missing or wrong: %s", req.URL.Query().Get("item_id"))
 			}
+
 			return &http.Response{
 				StatusCode: http.StatusOK,
 				Body:       io.NopCloser(strings.NewReader(`{"success": true, "id": 100}`)),
@@ -190,6 +195,7 @@ func TestCommunityClient_Generics(t *testing.T) {
 	t.Run("Override Format to VDF", func(t *testing.T) {
 		client := setupCommunity(func(req *http.Request) (*http.Response, error) {
 			vdfData := `"response" { "success" "1" }`
+
 			return &http.Response{
 				StatusCode: http.StatusOK,
 				Body:       io.NopCloser(strings.NewReader(vdfData)),
@@ -199,10 +205,10 @@ func TestCommunityClient_Generics(t *testing.T) {
 		res, err := Get[response](context.Background(), client, "test", nil,
 			api.WithFormat(api.FormatVDF),
 		)
-
 		if err != nil {
 			t.Fatalf("VDF call failed: %v", err)
 		}
+
 		if !res.Success {
 			t.Error("failed to parse VDF via generic call")
 		}

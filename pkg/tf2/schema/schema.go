@@ -82,6 +82,7 @@ type ItemAttribute struct {
 func (a *ItemAttribute) UnmarshalJSON(data []byte) error {
 	// A temporary struct to capture everything except the dynamic "value"
 	type Alias ItemAttribute
+
 	aux := &struct {
 		*Alias
 		DynamicValue any `json:"value"`
@@ -215,6 +216,7 @@ func New(raw *RawSchema) *Schema {
 		paintByName:    make(map[string]int),
 	}
 	s.buildIndices()
+
 	return s
 }
 
@@ -241,10 +243,12 @@ func (s *Schema) buildIndices() {
 
 	// Effect indices (bidirectional) with special cases
 	seenEffects := make(map[string]bool)
+
 	for _, eff := range s.Raw.Schema.AttributeControlledAttachedParticles {
 		if eff.Name == "" {
 			continue
 		}
+
 		if !seenEffects[eff.Name] {
 			s.effByID[eff.ID] = eff.Name
 			s.effByName[strings.ToLower(eff.Name)] = eff.ID
@@ -280,8 +284,8 @@ func (s *Schema) buildIndices() {
 	for _, it := range s.Raw.Schema.Items {
 		if strings.Contains(it.Name, "Paint Can") && it.Name != "Paint Can" && it.Attributes != nil {
 			if len(it.Attributes) > 0 {
-				var decimal int
-				decimal = int(it.Attributes[0].Value)
+				decimal := int(it.Attributes[0].Value)
+
 				s.paintByDecimal[decimal] = it.ItemName
 				s.paintByName[strings.ToLower(it.ItemName)] = decimal
 			}
@@ -319,13 +323,16 @@ func (s *Schema) buildCrateSeriesList() map[int]int {
 				if err != nil {
 					continue
 				}
+
 				if _, ok := series[defindex]; ok {
 					continue
 				}
+
 				itemMap, ok := item.(map[string]any)
 				if !ok {
 					continue
 				}
+
 				if staticAttrs, ok := itemMap["static_attrs"].(map[string]any); ok {
 					if val, ok := staticAttrs["set supply crate series"]; ok {
 						switch v := val.(type) {
@@ -345,6 +352,7 @@ func (s *Schema) buildCrateSeriesList() map[int]int {
 			}
 		}
 	}
+
 	return series
 }
 
@@ -407,12 +415,15 @@ func (s *Schema) GetItemByNameWithThe(name string) *ItemSchema {
 			if it.ItemName == "Name Tag" && it.Defindex == 2093 {
 				continue
 			}
+
 			if it.ItemQuality == 0 {
 				continue
 			}
+
 			return it
 		}
 	}
+
 	return nil
 }
 
@@ -422,6 +433,7 @@ func (s *Schema) GetItemBySKU(itemSku string) *ItemSchema {
 	if err != nil {
 		return nil
 	}
+
 	return s.GetItemByDef(item.Defindex)
 }
 
@@ -430,16 +442,18 @@ func (s *Schema) GetUnusualEffects() []struct {
 	Name string
 	ID   int
 } {
-	var out []struct {
+	out := make([]struct {
 		Name string
 		ID   int
-	}
+	}, 0, len(s.effByID))
+
 	for id, name := range s.effByID {
 		out = append(out, struct {
 			Name string
 			ID   int
 		}{name, id})
 	}
+
 	return out
 }
 
@@ -451,11 +465,13 @@ func (s *Schema) GetPaints() map[string]int {
 // GetPaintableItemDefindexes returns defindexes of items that can be painted.
 func (s *Schema) GetPaintableItemDefindexes() []int {
 	var out []int
+
 	for _, it := range s.Raw.Schema.Items {
 		if it.Capabilities != nil && it.Capabilities.Paintable {
 			out = append(out, it.Defindex)
 		}
 	}
+
 	return out
 }
 
@@ -480,12 +496,15 @@ func (s *Schema) GetStrangeParts() map[string]string {
 		"Contract Points Earned": true, "Contract Points Contributed To Friends": true,
 	}
 	m := make(map[string]string)
+
 	for _, p := range s.Raw.Schema.KillEaterScoreTypes {
 		if partsToExclude[p.TypeName] || p.Type == 0 || p.Type == 97 {
 			continue
 		}
+
 		m[p.TypeName] = fmt.Sprintf("sp%d", p.Type)
 	}
+
 	return m
 }
 
@@ -500,14 +519,17 @@ var weaponsToExclude = map[int]bool{
 // GetCraftableWeaponsSchema returns all craftable weapon items.
 func (s *Schema) GetCraftableWeaponsSchema() []*ItemSchema {
 	var out []*ItemSchema
+
 	for _, it := range s.Raw.Schema.Items {
 		if weaponsToExclude[it.Defindex] {
 			continue
 		}
+
 		if it.ItemQuality == QualityUnique && it.CraftClass == "weapon" {
 			out = append(out, it)
 		}
 	}
+
 	return out
 }
 
@@ -520,7 +542,9 @@ func (s *Schema) GetWeaponsForCraftingByClass(class string) []string {
 	if !validClasses[class] {
 		panic(fmt.Sprintf("invalid class %q", class))
 	}
+
 	var out []string
+
 	for _, it := range s.GetCraftableWeaponsSchema() {
 		for _, uc := range it.UsedByClasses {
 			if uc == class {
@@ -529,28 +553,36 @@ func (s *Schema) GetWeaponsForCraftingByClass(class string) []string {
 			}
 		}
 	}
+
 	return out
 }
 
 // GetCraftableWeaponsForTrading returns SKUs of all craftable weapons.
 func (s *Schema) GetCraftableWeaponsForTrading() []string {
-	var out []string
-	for _, it := range s.GetCraftableWeaponsSchema() {
+	weapons := s.GetCraftableWeaponsSchema()
+
+	out := make([]string, 0, len(weapons))
+	for _, it := range weapons {
 		out = append(out, fmt.Sprintf("%d;6", it.Defindex))
 	}
+
 	return out
 }
 
 // GetUncraftableWeaponsForTrading returns SKUs of non‑craftable weapons.
 func (s *Schema) GetUncraftableWeaponsForTrading() []string {
 	exclude := map[int]bool{348: true, 349: true, 1178: true, 1179: true, 1180: true, 1181: true, 1190: true}
+
 	var out []string
+
 	for _, it := range s.GetCraftableWeaponsSchema() {
 		if exclude[it.Defindex] {
 			continue
 		}
+
 		out = append(out, fmt.Sprintf("%d;6;uncraftable", it.Defindex))
 	}
+
 	return out
 }
 
@@ -664,6 +696,7 @@ func (s *Schema) CheckExistence(item *sku.Item) bool {
 			item.Defindex != 5737 && item.Defindex != 5738 {
 			return false
 		}
+
 		if hasExtraAttr() {
 			return false
 		}
@@ -673,6 +706,7 @@ func (s *Schema) CheckExistence(item *sku.Item) bool {
 		if hasExtraAttr() {
 			return false
 		}
+
 		if schemaItem.ItemClass != "supply_crate" {
 			return false
 		}
@@ -713,46 +747,50 @@ func (s *Schema) GetName(item *sku.Item, proper, usePipeForSkin, scmFormat bool)
 	if !scmFormat && !item.Tradable {
 		parts = append(parts, "Non-Tradable")
 	}
+
 	if !scmFormat && !item.Craftable {
 		parts = append(parts, "Non-Craftable")
 	}
+
 	if item.Quality2 != 0 {
 		qName := s.GetQualityById(item.Quality2)
 		if qName != "" {
 			if !scmFormat && (item.Wear != 0 || item.Paintkit != 0) {
 				qName += "(e)"
 			}
+
 			parts = append(parts, qName)
 		}
 	}
 
 	addPrimaryQuality := false
-	if item.Quality == QualityUnique && item.Quality2 != Quality2None {
-		addPrimaryQuality = true
-	} else if item.Quality != QualityUnique && item.Quality != QualityDecorated && item.Quality != QualityUnusual {
-		addPrimaryQuality = true
-	} else if item.Quality == QualityUnusual && item.Effect == 0 {
-		addPrimaryQuality = true
-	} else if item.Quality == QualityUnusual && scmFormat {
-		addPrimaryQuality = true
-	} else if schemaItem.ItemQuality == QualityUnusual {
+	switch {
+	case item.Quality == QualityUnique && item.Quality2 != Quality2None,
+		item.Quality != QualityUnique && item.Quality != QualityDecorated && item.Quality != QualityUnusual,
+		item.Quality == QualityUnusual && item.Effect == 0,
+		item.Quality == QualityUnusual && scmFormat,
+		schemaItem.ItemQuality == QualityUnusual:
 		addPrimaryQuality = true
 	}
+
 	if addPrimaryQuality {
 		qName := s.GetQualityById(item.Quality)
 		if qName != "" {
 			parts = append(parts, qName)
 		}
 	}
+
 	if !scmFormat && item.Effect != 0 {
 		effName := s.GetEffectById(item.Effect)
 		if effName != "" {
 			parts = append(parts, effName)
 		}
 	}
+
 	if item.Festivized {
 		parts = append(parts, "Festivized")
 	}
+
 	if item.Killstreak > 0 {
 		switch item.Killstreak {
 		case 1:
@@ -763,27 +801,32 @@ func (s *Schema) GetName(item *sku.Item, proper, usePipeForSkin, scmFormat bool)
 			parts = append(parts, "Professional Killstreak")
 		}
 	}
+
 	if item.Target != 0 {
 		targetItem := s.GetItemByDef(item.Target)
 		if targetItem != nil {
 			parts = append(parts, targetItem.ItemName)
 		}
 	}
+
 	if item.OutputQuality != 0 && item.OutputQuality != 6 {
 		oqName := s.GetQualityById(item.OutputQuality)
 		if oqName != "" {
 			parts = append([]string{oqName}, parts...)
 		}
 	}
+
 	if item.Output != 0 {
 		outItem := s.GetItemByDef(item.Output)
 		if outItem != nil {
 			parts = append(parts, outItem.ItemName)
 		}
 	}
+
 	if item.Australium {
 		parts = append(parts, "Australium")
 	}
+
 	if item.Paintkit != 0 {
 		skinName := s.GetSkinById(item.Paintkit)
 		if skinName != "" {
@@ -801,9 +844,11 @@ func (s *Schema) GetName(item *sku.Item, proper, usePipeForSkin, scmFormat bool)
 	} else {
 		baseName = schemaItem.ItemName
 	}
+
 	if proper && len(parts) == 0 && schemaItem.ProperName {
 		baseName = "The " + baseName
 	}
+
 	parts = append(parts, baseName)
 
 	if item.Wear != 0 {
@@ -812,9 +857,11 @@ func (s *Schema) GetName(item *sku.Item, proper, usePipeForSkin, scmFormat bool)
 			parts = append(parts, "("+wears[item.Wear-1]+")")
 		}
 	}
+
 	if item.Crateseries != 0 {
 		if scmFormat {
 			hasSeriesAttr := false
+
 			if schemaItem.Attributes != nil {
 				for _, attr := range schemaItem.Attributes {
 					if attr.Class == "supply_crate_series" {
@@ -823,6 +870,7 @@ func (s *Schema) GetName(item *sku.Item, proper, usePipeForSkin, scmFormat bool)
 					}
 				}
 			}
+
 			if hasSeriesAttr {
 				parts = append(parts, fmt.Sprintf("Series %%23%d", item.Crateseries))
 			}
@@ -832,12 +880,14 @@ func (s *Schema) GetName(item *sku.Item, proper, usePipeForSkin, scmFormat bool)
 	} else if item.Craftnumber != 0 {
 		parts = append(parts, fmt.Sprintf("#%d", item.Craftnumber))
 	}
+
 	if !scmFormat && item.Paint != 0 {
 		paintName := s.GetPaintNameByDecimal(item.Paint)
 		if paintName != "" {
 			parts = append(parts, fmt.Sprintf("(Paint: %s)", paintName))
 		}
 	}
+
 	if scmFormat && schemaItem.ItemName == "Chemistry Set" && item.Output == 6522 {
 		if item.Target != 0 {
 			if series, ok := strangifierChemistrySetSeries[item.Target]; ok {
@@ -845,9 +895,11 @@ func (s *Schema) GetName(item *sku.Item, proper, usePipeForSkin, scmFormat bool)
 			}
 		}
 	}
+
 	if scmFormat && item.Wear != 0 && item.Effect != 0 && item.Quality == QualityDecorated {
 		parts = append([]string{"Unusual"}, parts...)
 	}
+
 	return strings.Join(parts, " ")
 }
 
@@ -875,7 +927,9 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 				item.Quality = schemaItem.ItemQuality
 			}
 		}
+
 		debugLog("return early (strange part)", item)
+
 		return item
 	}
 
@@ -894,12 +948,14 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 			name = strings.TrimSpace(name)
 			item.Wear = val
 			debugLog("wear after", name, item)
+
 			break
 		}
 	}
 
 	// Strange(e)
 	isExplicitElevatedStrange := false
+
 	if strings.Contains(name, "strange(e)") {
 		debugLog("strange(e) before", name, item)
 		item.Quality2 = QualityStrange
@@ -910,8 +966,10 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 	}
 
 	hasStrangePrefix := false
+
 	if strings.Contains(name, "strange") && !strings.Contains(name, "strangifier") {
 		debugLog("strange before", name, item)
+
 		hasStrangePrefix = true
 		name = strings.ReplaceAll(name, "strange", "")
 		name = strings.TrimSpace(name)
@@ -931,6 +989,7 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 	// Untradable
 	name = strings.ReplaceAll(name, "untradeable", "non-tradable")
 	name = strings.ReplaceAll(name, "untradable", "non-tradable")
+
 	name = strings.ReplaceAll(name, "non-tradeable", "non-tradable")
 	if strings.Contains(name, "non-tradable") {
 		debugLog("non-tradable before", name, item)
@@ -948,11 +1007,14 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 		name = strings.TrimSpace(name)
 		item.Defindex = 9258
 		item.Quality = QualityUnusual
+
 		schemaItem := s.GetItemByName(name)
 		if schemaItem != nil {
 			item.Target = schemaItem.Defindex
 		}
+
 		debugLog("unusualifier after", name, item)
+
 		return item
 	}
 
@@ -974,6 +1036,7 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 				name = strings.TrimSpace(name)
 				item.Killstreak = ks.value
 				debugLog("killstreak after", name, item)
+
 				break
 			}
 		}
@@ -1004,11 +1067,13 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 		"vintage tyrolean", "vintage merryweather", "haunted kraken",
 		"haunted forever!", "haunted cremation", "haunted wick",
 	}
+
 	qualitySearch := name
 	for _, ex := range exception {
 		if strings.Contains(name, ex) {
 			qualitySearch = strings.ReplaceAll(name, ex, "")
 			qualitySearch = strings.TrimSpace(qualitySearch)
+
 			break
 		}
 	}
@@ -1019,18 +1084,23 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 				strings.Contains(qualitySearch, "chemistry set") {
 				continue
 			}
+
 			if qName == "community" && strings.HasPrefix(qualitySearch, "community sparkle") {
 				continue
 			}
+
 			if strings.HasPrefix(qualitySearch, qName) {
 				debugLog("quality before", name, item)
 				name = strings.ReplaceAll(name, qName, "")
 				name = strings.TrimSpace(name)
+
 				if item.Quality2 == Quality2None {
 					item.Quality2 = item.Quality
 				}
+
 				item.Quality = qID
 				debugLog("quality after", name, item)
+
 				break
 			}
 		}
@@ -1038,10 +1108,12 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 
 	// Effect detection
 	excludeAtomic := strings.Contains(name, "bonk! atomic punch") || strings.Contains(name, "atomic accolade")
+
 	for effName, effID := range s.effByName {
 		if effName == "" {
 			continue
 		}
+
 		if strings.Contains(name, effName) {
 			// Skip conditions
 			if effName == "stardust" && strings.Contains(name, "starduster") {
@@ -1050,50 +1122,65 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 					continue
 				}
 			}
-			if effName == "showstopper" && !strings.Contains(name, "taunt: ") && !strings.Contains(name, "shred alert") {
+
+			if effName == "showstopper" && !strings.Contains(name, "taunt: ") &&
+				!strings.Contains(name, "shred alert") {
 				continue
 			}
+
 			if effName == "smoking" && (name == "smoking jacket" || strings.Contains(name, "smoking skid lid")) {
 				if !strings.HasPrefix(name, "smoking smoking") {
 					continue
 				}
 			}
+
 			if effName == "haunted ghosts" && strings.Contains(name, "haunted ghosts") && item.Wear != 0 {
 				continue
 			}
+
 			if effName == "pumpkin patch" && strings.Contains(name, "pumpkin patch") && item.Wear != 0 {
 				continue
 			}
+
 			if effName == "stardust" && strings.Contains(name, "stardust") && item.Wear != 0 {
 				continue
 			}
+
 			if effName == "atomic" && (strings.Contains(name, "subatomic") || excludeAtomic) {
 				continue
 			}
+
 			if effName == "spellbound" && (strings.Contains(name, "taunt:") || strings.Contains(name, "shred alert")) {
 				continue
 			}
+
 			if effName == "accursed" && strings.Contains(name, "accursed apparition") {
 				continue
 			}
+
 			if effName == "haunted" && strings.Contains(name, "haunted kraken") {
 				continue
 			}
+
 			if effName == "frostbite" && strings.Contains(name, "frostbite bonnet") {
 				continue
 			}
+
 			if effName == "hot" {
 				if item.Wear == 0 {
 					continue
 				}
+
 				if !strings.Contains(name, "hot ") && (strings.Contains(name, "shotgun") ||
 					strings.Contains(name, "shot ") || strings.Contains(name, "plaid potshotter")) {
 					continue
 				}
+
 				if !strings.HasPrefix(name, "hot ") {
 					continue
 				}
 			}
+
 			if effName == "cool" && item.Wear == 0 {
 				continue
 			}
@@ -1101,6 +1188,7 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 			debugLog("effect before", name, item)
 			name = strings.ReplaceAll(name, effName, "")
 			name = strings.TrimSpace(name)
+
 			item.Effect = effID
 			if effID == 4 {
 				if item.Quality == 0 {
@@ -1110,9 +1198,12 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 				if item.Quality2 == Quality2None {
 					item.Quality2 = item.Quality
 				}
+
 				item.Quality = QualityUnusual
 			}
+
 			debugLog("effect after", name, item)
+
 			break
 		}
 	}
@@ -1125,9 +1216,11 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 				if strings.Contains(name, "mk.ii") && !strings.Contains(pkName, "mk.ii") {
 					continue
 				}
+
 				if strings.Contains(name, "(green)") && !strings.Contains(pkName, "(green)") {
 					continue
 				}
+
 				if strings.Contains(name, "chilly") && !strings.Contains(pkName, "chilly") {
 					continue
 				}
@@ -1150,10 +1243,13 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 						item.Quality = QualityDecorated
 					}
 				}
+
 				if item.Quality == 0 {
 					item.Quality = QualityDecorated
 				}
+
 				debugLog("paintkit after", name, item)
+
 				break
 			}
 		}
@@ -1191,6 +1287,7 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 			case strings.Contains(name, "knife") && knifeSkins[item.Paintkit] != 0:
 				item.Defindex = knifeSkins[item.Paintkit]
 			}
+
 			if oldDefindex != item.Defindex {
 				debugLog("return after skin mapping", name, item)
 				return item
@@ -1203,6 +1300,7 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 		debugLog("paint before loop", name, item)
 		name = strings.ReplaceAll(name, "(paint: ", "")
 		name = strings.ReplaceAll(name, ")", "")
+
 		name = strings.TrimSpace(name)
 		for pName, pVal := range s.paintByName {
 			if strings.Contains(name, pName) {
@@ -1211,6 +1309,7 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 				name = strings.TrimSpace(name)
 				item.Paint = pVal
 				debugLog("paint after", name, item)
+
 				break
 			}
 		}
@@ -1221,11 +1320,13 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 		debugLog("kit fabricator before", name, item)
 		name = strings.ReplaceAll(name, "kit fabricator", "")
 		name = strings.TrimSpace(name)
+
 		if item.Killstreak > 2 {
 			item.Defindex = 20003
 		} else {
 			item.Defindex = 20002
 		}
+
 		if name != "" {
 			schemaItem := s.GetItemByName(name)
 			if schemaItem != nil {
@@ -1238,14 +1339,17 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 				return item
 			}
 		}
+
 		if item.Quality == 0 {
 			item.Quality = QualityUnique
 		}
+
 		if item.Killstreak > 2 {
 			item.Output = 6526
 		} else {
 			item.Output = 6523
 		}
+
 		item.OutputQuality = QualityUnique
 		item.Killstreak = 0
 		debugLog("kit fabricator after", name, item)
@@ -1257,15 +1361,18 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 		debugLog("collector's chemistry set before", name, item)
 		name = strings.ReplaceAll(name, "collector's ", "")
 		name = strings.ReplaceAll(name, "chemistry set", "")
+
 		name = strings.TrimSpace(name)
 		if strings.Contains(name, "festive") && !strings.Contains(name, "a rather festive tree") {
 			item.Defindex = 20007
 		} else {
 			item.Defindex = 20006
 		}
+
 		schemaItem := s.GetItemByName(name)
 		if schemaItem != nil {
 			item.Output = schemaItem.Defindex
+
 			item.OutputQuality = QualityCollectors
 			if item.Quality == 0 {
 				item.Quality = schemaItem.ItemQuality
@@ -1274,6 +1381,7 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 			debugLog("return collector's chemistry set (no target)", name, item)
 			return item
 		}
+
 		debugLog("collector's chemistry set after", name, item)
 	}
 
@@ -1282,6 +1390,7 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 		debugLog("strangifier chemistry set before", name, item)
 		name = strings.ReplaceAll(name, "strangifier chemistry set", "")
 		name = strings.TrimSpace(name)
+
 		schemaItem := s.GetItemByName(name)
 		if schemaItem != nil {
 			item.Defindex = 20000
@@ -1293,6 +1402,7 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 			debugLog("return strangifier chemistry set (no target)", name, item)
 			return item
 		}
+
 		debugLog("strangifier chemistry set after", name, item)
 	}
 
@@ -1302,6 +1412,7 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 		name = strings.ReplaceAll(name, "strangifier", "")
 		name = strings.TrimSpace(name)
 		item.Defindex = 6522
+
 		schemaItem := s.GetItemByName(name)
 		if schemaItem != nil {
 			item.Target = schemaItem.Defindex
@@ -1312,6 +1423,7 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 			debugLog("return strangifier (no target)", name, item)
 			return item
 		}
+
 		debugLog("strangifier after", name, item)
 	}
 
@@ -1322,6 +1434,7 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 
 		name = strings.ReplaceAll(name, "kit", "")
 		name = strings.TrimSpace(name)
+
 		switch kitType {
 		case 1:
 			item.Defindex = 6527
@@ -1330,6 +1443,7 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 		case 3:
 			item.Defindex = 6526
 		}
+
 		if name != "" {
 			schemaItem := s.GetItemByName(name)
 			if schemaItem != nil {
@@ -1339,9 +1453,11 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 				return item
 			}
 		}
+
 		if item.Quality == 0 {
 			item.Quality = QualityUnique
 		}
+
 		debugLog("kit after", name, item)
 	}
 
@@ -1353,17 +1469,21 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 	// War Paint
 	if item.Paintkit != 0 && strings.Contains(name, "war paint") {
 		debugLog("war paint before", name, item)
+
 		searchName := fmt.Sprintf("Paintkit %d", item.Paintkit)
 		if item.Quality == 0 {
 			item.Quality = QualityDecorated
 		}
+
 		for _, it := range s.Raw.Schema.Items {
 			if it.Name == searchName {
 				item.Defindex = it.Defindex
 				break
 			}
 		}
+
 		debugLog("war paint after", name, item)
+
 		return item
 	}
 
@@ -1371,12 +1491,14 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 	name = strings.ReplaceAll(name, " series#", " #")
 
 	var number int
+
 	if strings.Contains(name, "#") {
 		debugLog("with # before", name, item)
 		parts := strings.SplitN(name, "#", 2)
 		name = strings.TrimSpace(parts[0])
 		numberStr := strings.TrimSpace(parts[1])
 		number = atoi(numberStr)
+
 		debugLog("with # after", name, item)
 	}
 
@@ -1386,16 +1508,21 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 		item.Defindex = 5068
 		item.Quality = QualityUnique
 		debugLog("return salvaged crate", name, item)
+
 		return item
 	}
+
 	if strings.Contains(name, "select reserve mann co. supply crate") {
 		item.Defindex = 5660
 		item.Crateseries = 60
 		item.Quality = QualityUnique
+
 		return item
 	}
+
 	if strings.Contains(name, "mann co. supply crate") {
 		debugLog("mann co crate", name, item)
+
 		crateseries := number
 		switch crateseries {
 		case 1, 3, 7, 12, 13, 18, 19, 23, 26, 31, 34, 39, 43, 47, 54, 57, 75:
@@ -1405,20 +1532,26 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 		case 5, 9, 10, 15, 16, 21, 25, 28, 29, 33, 38, 41, 45, 55, 59, 77:
 			item.Defindex = 5045
 		}
+
 		item.Crateseries = crateseries
 		item.Quality = QualityUnique
 		debugLog("return mann co crate", name, item)
+
 		return item
 	}
+
 	if strings.Contains(name, "mann co. supply munition") {
 		debugLog("munition crate", name, item)
+
 		crateseries := number
 		if def, ok := munitionCrate[crateseries]; ok {
 			item.Defindex = def
 		}
+
 		item.Crateseries = crateseries
 		item.Quality = QualityUnique
 		debugLog("return munition crate", name, item)
+
 		return item
 	}
 
@@ -1431,7 +1564,9 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 					if item.Quality == 0 {
 						item.Quality = QualityUnique
 					}
+
 					debugLog("return retired key", name, item)
+
 					return item
 				}
 			}
@@ -1443,6 +1578,7 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 		debugLog("return no schema item", name, item)
 		return item
 	}
+
 	item.Defindex = schemaItem.Defindex
 	if item.Quality == 0 {
 		item.Quality = schemaItem.ItemQuality
@@ -1472,11 +1608,13 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 
 	if schemaItem.ItemClass == "supply_crate" {
 		debugLog("supply_crate before", name, item)
+
 		if series, ok := s.crateSeriesList[item.Defindex]; ok {
 			item.Crateseries = series
 		} else if number != 0 {
 			item.Crateseries = number
 		}
+
 		debugLog("supply_crate after", name, item)
 	} else if number != 0 {
 		debugLog("craftnumber before", name, item)
@@ -1485,16 +1623,19 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 	}
 
 	debugLog("final return", name, item)
+
 	return item
 }
 
 // GetSkuFromName returns the SKU string for the given name.
 func (s *Schema) GetSkuFromName(name string) string {
 	item := s.GetItemObjectFromName(name)
+
 	skuStr, err := sku.FromObject(item)
 	if err != nil {
 		return ""
 	}
+
 	return skuStr
 }
 
@@ -1601,6 +1742,7 @@ func (s *Schema) NormalizeItem(item *sku.Item) {
 	case 20001, 20005, 20008, 20009:
 		item.Defindex = 20000
 	}
+
 	isPromo := s.IsPromoItem(schemaItem)
 
 	// If this is a promotional item, but the quality is NOT Genuine (e.g., Unique),
@@ -1658,6 +1800,7 @@ func (s *Schema) ToJSON() map[string]any {
 func atoi(s string) int {
 	s = strings.TrimSpace(s)
 	val, _ := strconv.Atoi(s)
+
 	return val
 }
 
@@ -1667,5 +1810,6 @@ func containsAny(s string, list []string) bool {
 			return true
 		}
 	}
+
 	return false
 }

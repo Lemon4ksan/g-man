@@ -32,19 +32,24 @@ func (m *MockDupeChecker) CheckHistory(ctx context.Context, id uint64) (inv.Hist
 	if m.Err != nil {
 		return inv.HistoryStatus{}, m.Err
 	}
+
 	return m.Responses[id], nil
 }
 
-func createBptfHTML(hasTable bool, isDuped bool) string {
+func createBptfHTML(hasTable, isDuped bool) string {
 	var sb strings.Builder
 	sb.WriteString("<html><body>")
+
 	if hasTable {
 		sb.WriteString("<table><tr><td>History</td></tr></table>")
+
 		if isDuped {
 			sb.WriteString(`<button id="dupe-modal-btn">Duplicated</button>`)
 		}
 	}
+
 	sb.WriteString("</body></html>")
+
 	return sb.String()
 }
 
@@ -104,6 +109,7 @@ func TestBackpackTFChecker_CheckHistory(t *testing.T) {
 				t.Errorf("CheckHistory() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+
 			if !reflect.DeepEqual(got, tt.wantStatus) {
 				t.Errorf("CheckHistory() = %v, want %v", got, tt.wantStatus)
 			}

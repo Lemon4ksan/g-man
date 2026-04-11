@@ -12,12 +12,12 @@ import (
 	"net/http"
 	"testing"
 
+	"google.golang.org/protobuf/proto"
+
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/api"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
-
-	"google.golang.org/protobuf/proto"
 )
 
 type MockTransport struct {
@@ -44,9 +44,11 @@ func TestUnifiedClient_ParamInjection(t *testing.T) {
 			if req.Params().Get("key") != apiKey {
 				t.Errorf("expected api key %s, got %s", apiKey, req.Params().Get("key"))
 			}
+
 			if req.Params().Get("access_token") != accessToken {
 				t.Errorf("expected access token %s, got %s", accessToken, req.Params().Get("access_token"))
 			}
+
 			return tr.NewResponse([]byte("{}"), tr.HTTPMetadata{StatusCode: http.StatusOK}), nil
 		},
 	}
@@ -56,6 +58,7 @@ func TestUnifiedClient_ParamInjection(t *testing.T) {
 		WithAccessToken(accessToken)
 
 	req := tr.NewRequest(mockTarget("test"), nil)
+
 	_, err := client.Do(ctx, req)
 	if err != nil {
 		t.Fatalf("Do failed: %v", err)
@@ -127,6 +130,7 @@ func TestInferUnifiedMethod(t *testing.T) {
 				t.Errorf("inferUnifiedMethod() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+
 			if iface != tt.iface || method != tt.method {
 				t.Errorf("got (%s, %s), want (%s, %s)", iface, method, tt.iface, tt.method)
 			}
@@ -141,6 +145,7 @@ func TestClient_Immutability(t *testing.T) {
 	if base.apiKey != "" {
 		t.Error("Base client was mutated after WithAPIKey")
 	}
+
 	if derived.apiKey != "key1" {
 		t.Error("Derived client doesn't have the API key")
 	}
@@ -163,11 +168,17 @@ func TestUnified_Success(t *testing.T) {
 			if target.Interface != "Player" || target.Method != "GetNickname" {
 				t.Errorf("Wrong target inferred: %s", target.String())
 			}
+
 			return tr.NewResponse(respData, tr.HTTPMetadata{StatusCode: http.StatusOK}), nil
 		},
 	}
 
-	res, err := Unified[CPlayer_GetNickname_Response](t.Context(), transport, &CPlayer_GetNickname_Request{}, api.WithFormat(api.FormatJSON))
+	res, err := Unified[CPlayer_GetNickname_Response](
+		t.Context(),
+		transport,
+		&CPlayer_GetNickname_Request{},
+		api.WithFormat(api.FormatJSON),
+	)
 	if err != nil {
 		t.Fatalf("Unified call failed: %v", err)
 	}
@@ -189,6 +200,7 @@ func TestExecute_NoResponse(t *testing.T) {
 	if err != nil {
 		t.Errorf("execute with NoResponse failed: %v", err)
 	}
+
 	if res != nil {
 		t.Error("expected nil response for NoResponse type")
 	}
@@ -204,6 +216,7 @@ func TestClient_SocketMetadataValidation(t *testing.T) {
 			},
 		}
 		client := New(transport)
+
 		_, err := client.Do(ctx, tr.NewRequest(mockTarget("test"), nil))
 		if err != nil {
 			t.Errorf("Expected OK for socket EResult_OK, got %v", err)
@@ -228,6 +241,7 @@ func TestClient_SocketMetadataValidation(t *testing.T) {
 
 func TestWebAPI_WithParams(t *testing.T) {
 	ctx := context.Background()
+
 	type TestParams struct {
 		SteamID uint64 `url:"steamid"`
 	}
@@ -237,11 +251,23 @@ func TestWebAPI_WithParams(t *testing.T) {
 			if req.Params().Get("steamid") != "76561197960287930" {
 				t.Errorf("Param not found or wrong value: %s", req.Params().Get("steamid"))
 			}
-			return tr.NewResponse([]byte(`{"response": {"status": "ok"}}`), tr.HTTPMetadata{StatusCode: http.StatusOK}), nil
+
+			return tr.NewResponse(
+				[]byte(`{"response": {"status": "ok"}}`),
+				tr.HTTPMetadata{StatusCode: http.StatusOK},
+			), nil
 		},
 	}
 
-	_, err := WebAPI[any](ctx, transport, "GET", "ISteamUser", "GetPlayerSummaries", 2, &TestParams{SteamID: 76561197960287930})
+	_, err := WebAPI[any](
+		ctx,
+		transport,
+		"GET",
+		"ISteamUser",
+		"GetPlayerSummaries",
+		2,
+		&TestParams{SteamID: 76561197960287930},
+	)
 	if err != nil {
 		t.Errorf("WebAPI failed: %v", err)
 	}

@@ -6,6 +6,7 @@ package rest
 
 import (
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -34,7 +35,8 @@ func NewProxyClient(cfg ProxyConfig) (*http.Client, error) {
 		IdleConnTimeout:       90 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
-		TLSClientConfig:       &tls.Config{InsecureSkipVerify: cfg.InsecureSkipVerify},
+		// #nosec G402 -- InsecureSkipVerify is configurable by the user for proxy compatibility.
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: cfg.InsecureSkipVerify},
 	}
 
 	if cfg.ProxyURL != "" {
@@ -42,6 +44,7 @@ func NewProxyClient(cfg ProxyConfig) (*http.Client, error) {
 		if err != nil {
 			return nil, fmt.Errorf("rest: invalid proxy URL %q: %w", cfg.ProxyURL, err)
 		}
+
 		// Go natively supports http://, https:// и socks5://
 		transport.Proxy = http.ProxyURL(u)
 	}
@@ -62,13 +65,15 @@ type ProxyRotator struct {
 // NewProxyRotator initializes the rotator (Round-Robin).
 func NewProxyRotator(clients ...HTTPDoer) (*ProxyRotator, error) {
 	if len(clients) == 0 {
-		return nil, fmt.Errorf("rest: proxy rotator requires at least one client")
+		return nil, errors.New("rest: proxy rotator requires at least one client")
 	}
+
 	return &ProxyRotator{
 		clients: clients,
 	}, nil
 }
 
+// Do executes an HTTP request using the next available client in the rotation (Round-Robin).
 func (r *ProxyRotator) Do(req *http.Request) (*http.Response, error) {
 	idx := r.current.Add(1) % uint64(len(r.clients))
 	return r.clients[idx].Do(req)

@@ -9,20 +9,23 @@ import (
 	"context"
 	"fmt"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/lemon4ksan/g-man/pkg/jobs"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket/internal/session"
-	"google.golang.org/protobuf/proto"
 )
 
 // SendConfig contains parameters for sending a message.
 type SendConfig struct {
+	// Callback is invoked when a response to this message is received.
 	Callback jobs.Callback[*protocol.Packet]
-	Token    string
+	// Token is an optional WebAPI token for specific service calls.
+	Token string
 }
 
-// SendOption defines a functional option for SendConfig.
+// SendOption defines a functional option for configuring a Send operation.
 type SendOption func(*SendConfig)
 
 // WithCallback adds a callback to asynchronously wait for a response to the sent packet.
@@ -32,6 +35,7 @@ func WithCallback(cb jobs.Callback[*protocol.Packet]) SendOption {
 	}
 }
 
+// WithToken sets an access token for service method calls via the socket.
 func WithToken(token string) SendOption {
 	return func(c *SendConfig) {
 		c.Token = token
@@ -41,50 +45,58 @@ func WithToken(token string) SendOption {
 // PayloadBuilder describes a function that assembles a binary packet body with the required headers.
 type PayloadBuilder func(sess session.Session, buf *bytes.Buffer, sourceJobID uint64, token string) error
 
-// Proto creates a PayloadBuilder to send a Protobuf message.
+// Proto creates a PayloadBuilder to send a Protobuf-encoded message.
 func Proto(eMsg enums.EMsg, req proto.Message) PayloadBuilder {
 	return func(sess session.Session, buf *bytes.Buffer, sourceJobID uint64, token string) (err error) {
 		pkt := newPacket(sess, eMsg, sourceJobID, true, "", token)
+
 		pkt.Payload, err = proto.Marshal(req)
 		if err != nil {
-			return
+			return fmt.Errorf("marshal proto: %w", err)
 		}
+
 		return pkt.SerializeTo(buf)
 	}
 }
 
-// Unified creates a PayloadBuilder to call the Unified Service (e.g. "Player.GetGameBadgeLevels#1").
+// Unified creates a PayloadBuilder to call a Unified Service method (e.g. "Player.GetGameBadgeLevels#1").
 func Unified(method string, req proto.Message) PayloadBuilder {
 	return func(sess session.Session, buf *bytes.Buffer, sourceJobID uint64, token string) (err error) {
 		pkt := newPacket(sess, enums.EMsg_ServiceMethodCallFromClient, sourceJobID, true, method, token)
+
 		pkt.Payload, err = proto.Marshal(req)
 		if err != nil {
-			return
+			return fmt.Errorf("marshal unified proto: %w", err)
 		}
+
 		return pkt.SerializeTo(buf)
 	}
 }
 
-// Raw creates a PayloadBuilder to send a plain byte array (e.g. for encryption).
+// Raw creates a PayloadBuilder to send a plain byte array (e.g. for encryption handshakes).
 func Raw(eMsg enums.EMsg, payload []byte) PayloadBuilder {
 	return func(sess session.Session, buf *bytes.Buffer, sourceJobID uint64, _ string) error {
 		pkt := newPacket(sess, eMsg, sourceJobID, false, "", "")
 		pkt.Payload = payload
+
 		return pkt.SerializeTo(buf)
 	}
 }
 
-// DynamicRaw creates a PayloadBuilder to send both unified and raw messages based on provided arguments.
+// DynamicRaw creates a PayloadBuilder that can send either unified or raw messages
+// based on whether targetName is provided.
 func DynamicRaw(eMsg enums.EMsg, targetName string, payload []byte) PayloadBuilder {
 	return func(sess session.Session, buf *bytes.Buffer, sourceJobID uint64, token string) (err error) {
 		isProto := targetName != ""
 		pkt := newPacket(sess, eMsg, sourceJobID, isProto, targetName, token)
 		pkt.Payload = payload
+
 		return pkt.SerializeTo(buf)
 	}
 }
 
-// Send performs a request to steam connection manager by constructing a payload using the provided builder.
+// Send constructs and transmits a payload to the Steam Connection Manager.
+// It uses a buffer pool to minimize allocations.
 func (s *Socket) Send(ctx context.Context, build PayloadBuilder, opts ...SendOption) error {
 	cfg := &SendConfig{}
 	for _, opt := range opts {
@@ -98,9 +110,15 @@ func (s *Socket) Send(ctx context.Context, build PayloadBuilder, opts ...SendOpt
 
 	jobID := s.registerJob(ctx, cfg.Callback)
 
-	buf := s.bufferPool.Get().(*bytes.Buffer)
+	buf, ok := s.bufferPool.Get().(*bytes.Buffer)
+	if !ok {
+		buf = new(bytes.Buffer)
+	}
+
 	buf.Reset()
+
 	defer func() {
+		// Only put back buffers that haven't grown excessively
 		if buf.Cap() <= 64*1024 {
 			s.bufferPool.Put(buf)
 		}
@@ -110,6 +128,7 @@ func (s *Socket) Send(ctx context.Context, build PayloadBuilder, opts ...SendOpt
 		if cfg.Callback != nil {
 			s.jobManager.Resolve(jobID, nil, err)
 		}
+
 		return fmt.Errorf("build failed: %w", err)
 	}
 
@@ -117,26 +136,29 @@ func (s *Socket) Send(ctx context.Context, build PayloadBuilder, opts ...SendOpt
 		if cfg.Callback != nil {
 			s.jobManager.Resolve(jobID, nil, err)
 		}
+
 		return fmt.Errorf("send failed: %w", err)
 	}
 
 	return nil
 }
 
+// SendProto is a helper for sending Protobuf messages.
 func (s *Socket) SendProto(ctx context.Context, eMsg enums.EMsg, req proto.Message, opts ...SendOption) error {
 	return s.Send(ctx, Proto(eMsg, req), opts...)
 }
 
+// SendUnified is a helper for calling Unified Service methods.
 func (s *Socket) SendUnified(ctx context.Context, method string, req proto.Message, opts ...SendOption) error {
 	return s.Send(ctx, Unified(method, req), opts...)
 }
 
+// SendRaw is a helper for sending raw byte payloads.
 func (s *Socket) SendRaw(ctx context.Context, eMsg enums.EMsg, payload []byte, opts ...SendOption) error {
 	return s.Send(ctx, Raw(eMsg, payload), opts...)
 }
 
-// SendSync is a convenient wrapper around Send for synchronous (blocking) request execution.
-// The method will wait for a response from the server or fail if the context timeout occurs.
+// SendSync performs a synchronous request and waits for a response from the server.
 func (s *Socket) SendSync(ctx context.Context, build PayloadBuilder, opts ...SendOption) (*protocol.Packet, error) {
 	resultCh := make(chan struct {
 		pkt *protocol.Packet
@@ -150,6 +172,7 @@ func (s *Socket) SendSync(ctx context.Context, build PayloadBuilder, opts ...Sen
 		}{pkt, err}
 	})
 
+	// Add callback as the last option
 	opts = append(opts, syncOpt)
 
 	if err := s.Send(ctx, build, opts...); err != nil {
@@ -164,18 +187,25 @@ func (s *Socket) SendSync(ctx context.Context, build PayloadBuilder, opts ...Sen
 	}
 }
 
-// newPacket is a factory method that initializes a protocol.Packet with
-// correct headers (Proto vs Extended) based on the session state and message type.
-func newPacket(sess session.Session, eMsg enums.EMsg, jobID uint64, isProto bool, jobName, token string) *protocol.Packet {
-	var steamID uint64
-	var sessionID int32
+// newPacket initializes a protocol.Packet with headers based on the session state.
+func newPacket(
+	sess session.Session,
+	eMsg enums.EMsg,
+	jobID uint64,
+	isProto bool,
+	jobName, token string,
+) *protocol.Packet {
+	var (
+		steamID   uint64
+		sessionID int32
+	)
+
 	if sess != nil {
 		steamID = sess.SteamID()
 		sessionID = sess.SessionID()
 	}
 
-	// ClientHello is a special case: it must be sent with 0 IDs even if
-	// the session objects exist (e.g., during reconnection).
+	// ClientHello must be sent with 0 IDs even if a session exists (e.g. during reconnect)
 	if eMsg == enums.EMsg_ClientHello {
 		steamID, sessionID = 0, 0
 	}
@@ -183,36 +213,43 @@ func newPacket(sess session.Session, eMsg enums.EMsg, jobID uint64, isProto bool
 	pkt := &protocol.Packet{EMsg: eMsg, IsProto: isProto}
 	if isProto {
 		hdr := protocol.NewMsgHdrProtoBuf(eMsg, steamID, sessionID)
+
 		hdr.Proto.JobidSource = &jobID
 		if jobName != "" {
 			hdr.Proto.TargetJobName = proto.String(jobName)
 		}
+
 		if token != "" {
 			hdr.Proto.WgToken = proto.String(token)
 		}
+
 		pkt.Header = hdr
 	} else {
 		hdr := protocol.NewMsgHdrExtended(eMsg, steamID, sessionID)
 		hdr.SourceJobID = jobID
 		pkt.Header = hdr
 	}
+
 	return pkt
 }
 
-// registerJob assigns a unique Job ID to the request and registers a callback
-// in the job manager. Returns protocol.NoJob (0) if no callback is provided.
+// registerJob registers a callback for an asynchronous response.
 func (s *Socket) registerJob(ctx context.Context, cb jobs.Callback[*protocol.Packet]) uint64 {
 	if cb == nil {
 		return protocol.NoJob
 	}
+
 	id := s.jobManager.NextID()
 	_ = s.jobManager.Add(id, func(response *protocol.Packet, err error) {
 		var eMsg enums.EMsg
 		if response != nil {
 			eMsg = response.EMsg
 		}
+
 		defer s.recoverPanic(eMsg)
+
 		cb(response, err)
 	}, jobs.WithContext[*protocol.Packet](ctx))
+
 	return id
 }

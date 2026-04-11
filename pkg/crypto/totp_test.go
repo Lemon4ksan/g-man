@@ -10,6 +10,7 @@ import (
 )
 
 func TestGenerateAuthCode(t *testing.T) {
+	// #nosec G101 -- Test vector, not a real credential
 	sharedSecret := "q87IsS7v6pY4iV7kG8U9pW7f/E4="
 
 	var timestamp int64 = 1741514400
@@ -23,7 +24,6 @@ func TestGenerateAuthCode(t *testing.T) {
 		t.Errorf("expected code length 5, got %d", len(code))
 	}
 
-	// Код должен состоять только из разрешенных символов
 	for _, char := range code {
 		if !strings.ContainsRune(steamChars, char) {
 			t.Errorf("invalid character %c in code", char)
@@ -32,8 +32,11 @@ func TestGenerateAuthCode(t *testing.T) {
 }
 
 func TestGenerateConfirmationKey(t *testing.T) {
+	// #nosec G101 -- Test vector, not a real credential
 	identitySecret := "v6pY4iV7kG8U9pW7f/E4q87IsS7="
+
 	var timestamp int64 = 1741514400
+
 	tag := "conf"
 
 	key, err := GenerateConfirmationKey(identitySecret, timestamp, tag)
@@ -52,9 +55,9 @@ func TestGenerateConfirmationKey(t *testing.T) {
 
 func TestGetDeviceID(t *testing.T) {
 	var steamID uint64 = 76561197960287930
+
 	deviceID := GetDeviceID(steamID)
 
-	// Формат: android:8-4-4-4-12
 	if !strings.HasPrefix(deviceID, "android:") {
 		t.Errorf("invalid prefix: %s", deviceID)
 	}
@@ -74,7 +77,9 @@ func TestGetDeviceID(t *testing.T) {
 
 func TestDecodeSecret(t *testing.T) {
 	t.Run("Base64", func(t *testing.T) {
+		// #nosec G101 -- Test vector, not a real credential
 		secret := "SGVsbG8=" // Hello
+
 		decoded, err := decodeSecret(secret)
 		if err != nil || string(decoded) != "Hello" {
 			t.Errorf("base64 decode failed: %v", err)
@@ -83,10 +88,12 @@ func TestDecodeSecret(t *testing.T) {
 
 	t.Run("Hex", func(t *testing.T) {
 		hexSecret := "3132333435363738393031323334353637383930"
+
 		decoded, err := decodeSecret(hexSecret)
 		if err != nil {
 			t.Fatalf("hex decode failed: %v", err)
 		}
+
 		if len(decoded) != 20 {
 			t.Errorf("expected 20 bytes, got %d", len(decoded))
 		}

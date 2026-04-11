@@ -62,6 +62,7 @@ func (p *Provider) load() error {
 		if os.IsNotExist(err) {
 			return nil
 		}
+
 		return err
 	}
 
@@ -79,7 +80,7 @@ func (p *Provider) save() error {
 	}
 
 	tmpPath := p.path + ".tmp"
-	if err := os.WriteFile(tmpPath, bytes, 0644); err != nil {
+	if err := os.WriteFile(tmpPath, bytes, 0o644); err != nil {
 		return err
 	}
 
@@ -91,47 +92,59 @@ type authStore struct{ p *Provider }
 func (s *authStore) SaveRefreshToken(ctx context.Context, accountName, token string) error {
 	s.p.mu.Lock()
 	defer s.p.mu.Unlock()
+
 	s.p.data.Auth[accountName] = token
+
 	return s.p.save()
 }
 
 func (s *authStore) GetRefreshToken(ctx context.Context, accountName string) (string, error) {
 	s.p.mu.RLock()
 	defer s.p.mu.RUnlock()
+
 	token, ok := s.p.data.Auth[accountName]
 	if !ok {
 		return "", storage.ErrNotFound
 	}
+
 	return token, nil
 }
 
 func (s *authStore) SaveMachineID(ctx context.Context, accountName string, machineID []byte) error {
 	s.p.mu.Lock()
 	defer s.p.mu.Unlock()
+
 	if s.p.data.Machines == nil {
 		s.p.data.Machines = make(map[string][]byte)
 	}
+
 	s.p.data.Machines[accountName] = append([]byte(nil), machineID...)
+
 	return s.p.save()
 }
 
 func (s *authStore) GetMachineID(ctx context.Context, accountName string) ([]byte, error) {
 	s.p.mu.RLock()
 	defer s.p.mu.RUnlock()
+
 	if s.p.data.Machines == nil {
 		return nil, storage.ErrNotFound
 	}
+
 	machineID, ok := s.p.data.Machines[accountName]
 	if !ok {
 		return nil, storage.ErrNotFound
 	}
+
 	return append([]byte(nil), machineID...), nil
 }
 
 func (s *authStore) Clear(ctx context.Context, accountName string) error {
 	s.p.mu.Lock()
 	defer s.p.mu.Unlock()
+
 	delete(s.p.data.Auth, accountName)
+
 	return s.p.save()
 }
 
@@ -149,6 +162,7 @@ func (s *kvStore) Set(ctx context.Context, key string, value []byte) error {
 	}
 
 	s.p.data.KV[s.namespace][key] = value
+
 	return s.p.save()
 }
 
@@ -177,6 +191,7 @@ func (s *kvStore) Delete(ctx context.Context, key string) error {
 		delete(ns, key)
 		return s.p.save()
 	}
+
 	return nil
 }
 
@@ -188,5 +203,6 @@ func (s *kvStore) Has(ctx context.Context, key string) (bool, error) {
 		_, exists := ns[key]
 		return exists, nil
 	}
+
 	return false, nil
 }

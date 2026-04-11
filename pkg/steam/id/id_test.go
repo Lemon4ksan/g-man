@@ -75,6 +75,7 @@ func TestID_Valid(t *testing.T) {
 	if !id.ID(76561198044393456).Valid() {
 		t.Error("Standard ID should be valid")
 	}
+
 	if id.InvalidID.Valid() {
 		t.Error("InvalidID should be invalid")
 	}
@@ -88,6 +89,7 @@ func TestID_JSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if string(data) != `"76561198044393456"` {
 		t.Errorf("JSON Marshal = %s", string(data))
 	}
@@ -97,6 +99,7 @@ func TestID_JSON(t *testing.T) {
 	if err := json.Unmarshal([]byte(`"76561198044393456"`), &decoded); err != nil {
 		t.Fatal(err)
 	}
+
 	if decoded != sid {
 		t.Errorf("JSON Unmarshal = %v", decoded)
 	}
@@ -105,6 +108,7 @@ func TestID_JSON(t *testing.T) {
 	if err := json.Unmarshal([]byte(`76561198044393456`), &decoded); err != nil {
 		t.Fatal(err)
 	}
+
 	if decoded != sid {
 		t.Errorf("JSON Unmarshal (number) = %v", decoded)
 	}
@@ -119,6 +123,7 @@ func TestResolve(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if got.Uint64() != 76561198044393456 {
 			t.Errorf("Expected same ID back")
 		}
@@ -129,6 +134,7 @@ func TestResolve(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if got.Uint64() != 76561198044393456 {
 			t.Errorf("Expected ID extracted from URL")
 		}
@@ -149,6 +155,7 @@ func TestResolve(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if got.String() != expectedID {
 			t.Errorf("Expected %s, got %v", expectedID, got)
 		}

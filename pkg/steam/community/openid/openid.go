@@ -17,6 +17,7 @@ import (
 	"net/url"
 
 	"github.com/PuerkitoBio/goquery"
+
 	"github.com/lemon4ksan/g-man/pkg/rest"
 )
 
@@ -63,6 +64,7 @@ func Login(ctx context.Context, targetURL string, steamCookies []*http.Cookie) (
 
 	steamCommURL, _ := url.Parse("https://steamcommunity.com")
 	steamStoreURL, _ := url.Parse("https://store.steampowered.com")
+
 	jar.SetCookies(steamCommURL, steamCookies)
 	jar.SetCookies(steamStoreURL, steamCookies)
 
@@ -116,8 +118,10 @@ func Login(ctx context.Context, targetURL string, steamCookies []*http.Cookie) (
 
 	// Extract all hidden input fields from the form
 	formData := url.Values{}
+
 	form.Find("input").Each(func(i int, s *goquery.Selection) {
 		name, nameExists := s.Attr("name")
+
 		value, _ := s.Attr("value")
 		if nameExists && name != "" {
 			formData.Set(name, value)

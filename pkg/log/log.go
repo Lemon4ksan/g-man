@@ -149,7 +149,9 @@ func New(cfg Config) Logger {
 		wg:    &sync.WaitGroup{},
 	}
 	l.wg.Add(1)
+
 	go l.writerLoop()
+
 	return l
 }
 
@@ -166,6 +168,7 @@ func (l *AsyncLogger) Close() error {
 	l.mu.Unlock()
 
 	l.wg.Wait()
+
 	return nil
 }
 
@@ -203,9 +206,16 @@ func (l *AsyncLogger) With(fields ...Field) Logger {
 	return child
 }
 
+// Debug logs a message at the Debug level.
 func (l *AsyncLogger) Debug(msg string, f ...Field) { l.log(DebugLevel, msg, f) }
-func (l *AsyncLogger) Info(msg string, f ...Field)  { l.log(InfoLevel, msg, f) }
-func (l *AsyncLogger) Warn(msg string, f ...Field)  { l.log(WarnLevel, msg, f) }
+
+// Info logs a message at the Info level.
+func (l *AsyncLogger) Info(msg string, f ...Field) { l.log(InfoLevel, msg, f) }
+
+// Warn logs a message at the Warn level.
+func (l *AsyncLogger) Warn(msg string, f ...Field) { l.log(WarnLevel, msg, f) }
+
+// Error logs a message at the Error level.
 func (l *AsyncLogger) Error(msg string, f ...Field) { l.log(ErrorLevel, msg, f) }
 
 func (l *AsyncLogger) log(lvl Level, msg string, fields []Field) {
@@ -221,9 +231,11 @@ func (l *AsyncLogger) log(lvl Level, msg string, fields []Field) {
 
 	// Safe enqueue using RLock to prevent race with Close()
 	l.mu.RLock()
+
 	if l.closed.Load() {
 		l.mu.RUnlock()
 		bufPool.Put(buf)
+
 		return
 	}
 
@@ -234,15 +246,22 @@ func (l *AsyncLogger) log(lvl Level, msg string, fields []Field) {
 		l.dropped.Add(1)
 		bufPool.Put(buf)
 	}
+
 	l.mu.RUnlock()
 }
 
 func (l *AsyncLogger) writerLoop() {
 	defer l.wg.Done()
+
 	for buf := range l.queue {
 		// Report dropped messages periodically or on the next successful write
 		if drops := l.dropped.Swap(0); drops > 0 {
-			warnMsg := fmt.Sprintf("%s[LOGGER WARNING] Dropped %d messages due to full queue%s\n", ansiRedBold, drops, ansiReset)
+			warnMsg := fmt.Sprintf(
+				"%s[LOGGER WARNING] Dropped %d messages due to full queue%s\n",
+				ansiRedBold,
+				drops,
+				ansiReset,
+			)
 			_, _ = l.cfg.Output.Write([]byte(warnMsg))
 		}
 
@@ -254,15 +273,12 @@ func (l *AsyncLogger) writerLoop() {
 // ANSI Escape Codes for terminal coloring
 const (
 	ansiReset   = "\033[0m"
-	ansiDim     = "\033[2m"
-	ansiBold    = "\033[1m"
 	ansiRedBold = "\033[1;31m"
 	ansiGreen   = "\033[32m"
 	ansiYellow  = "\033[33m"
 	ansiBlue    = "\033[34m"
 	ansiMagenta = "\033[35m"
 	ansiCyan    = "\033[36m"
-	ansiWhite   = "\033[37m"
 	ansiGray    = "\033[90m"
 )
 
@@ -287,6 +303,7 @@ func (l *AsyncLogger) format(b *bytes.Buffer, lvl Level, msg string, callFields 
 	b.WriteString(ts)
 	l.writeColor(b, ansiReset)
 	b.WriteByte(' ')
+
 	visibleLen += len(ts) + 1
 
 	// Level
@@ -296,6 +313,7 @@ func (l *AsyncLogger) format(b *bytes.Buffer, lvl Level, msg string, callFields 
 	b.WriteByte(']')
 	l.writeColor(b, ansiReset)
 	b.WriteByte(' ')
+
 	visibleLen += 4 // "[L] "
 
 	// Path / Tree
@@ -307,9 +325,11 @@ func (l *AsyncLogger) format(b *bytes.Buffer, lvl Level, msg string, callFields 
 			b.WriteString(fullPath)
 			l.writeColor(b, ansiReset)
 			b.WriteByte(' ')
+
 			visibleLen += len(fullPath) + 1
 		} else {
 			indent := strings.Repeat("   ", depth-1)
+
 			l.writeColor(b, ansiGray)
 			b.WriteString(indent)
 			b.WriteString("└─ ")
@@ -317,6 +337,7 @@ func (l *AsyncLogger) format(b *bytes.Buffer, lvl Level, msg string, callFields 
 			b.WriteString(l.path[depth-1])
 			l.writeColor(b, ansiReset)
 			b.WriteByte(' ')
+
 			visibleLen += len(indent) + 3 + len(l.path[depth-1]) + 1
 		}
 	}
@@ -332,26 +353,30 @@ func (l *AsyncLogger) format(b *bytes.Buffer, lvl Level, msg string, callFields 
 		return
 	}
 
-	var inline, blocks []Field
-	var inlineStrs, blockStrs []string
+	var (
+		inline, blocks              []Field
+		inlineStrings, blockStrings []string
+	)
 
 	processField := func(f Field) {
 		if f.Key == "" {
 			return
 		}
+
 		valStr := formatValue(f.Value)
 		if len(valStr) > 40 || strings.Contains(valStr, "\n") {
 			blocks = append(blocks, f)
-			blockStrs = append(blockStrs, valStr)
+			blockStrings = append(blockStrings, valStr)
 		} else {
 			inline = append(inline, f)
-			inlineStrs = append(inlineStrs, valStr)
+			inlineStrings = append(inlineStrings, valStr)
 		}
 	}
 
 	for _, f := range l.context {
 		processField(f)
 	}
+
 	for _, f := range callFields {
 		processField(f)
 	}
@@ -370,10 +395,11 @@ func (l *AsyncLogger) format(b *bytes.Buffer, lvl Level, msg string, callFields 
 			l.writeColor(b, ansiGray)
 			b.WriteByte('=')
 			l.writeColor(b, ansiReset)
-			b.WriteString(inlineStrs[i])
+			b.WriteString(inlineStrings[i])
 			b.WriteByte(' ')
 		}
 	}
+
 	b.WriteByte('\n')
 
 	// Write Block Fields
@@ -386,7 +412,7 @@ func (l *AsyncLogger) format(b *bytes.Buffer, lvl Level, msg string, callFields 
 			b.WriteByte(':')
 			l.writeColor(b, ansiReset)
 			b.WriteByte(' ')
-			b.WriteString(blockStrs[i])
+			b.WriteString(blockStrings[i])
 			b.WriteByte('\n')
 		}
 	}
@@ -403,6 +429,7 @@ func (l *AsyncLogger) blockPadding(depth int) int {
 			base += (depth-1)*3 + 3
 		}
 	}
+
 	return base
 }
 
@@ -429,7 +456,9 @@ func formatValue(v any) string {
 		if strings.Contains(val, " ") || strings.Contains(val, "\n") {
 			return strconv.Quote(val)
 		}
+
 		return val
+
 	case int:
 		return strconv.Itoa(val)
 	case int8:
@@ -458,12 +487,16 @@ func formatValue(v any) string {
 		if val {
 			return "true"
 		}
+
 		return "false"
+
 	case []byte:
 		if len(val) > 24 {
 			return fmt.Sprintf("[ %d bytes | preview: %x... ]", len(val), val[:16])
 		}
+
 		return hex.EncodeToString(val)
+
 	case error:
 		return val.Error()
 	case time.Duration:
@@ -482,53 +515,100 @@ var bufPool = sync.Pool{
 	New: func() any { return new(bytes.Buffer) },
 }
 
-// --- Field Helpers (Zero-allocation wrappers) ---
-// These helpers are used to provide structured context to log messages.
+// --- Field Helpers ---
 
-// Basic Types
-func String(k, v string) Field                 { return Field{Key: k, Value: v} }
-func Int(k string, v int) Field                { return Field{Key: k, Value: v} }
-func Int32(k string, v int32) Field            { return Field{Key: k, Value: v} }
-func Int64(k string, v int64) Field            { return Field{Key: k, Value: v} }
-func Uint(k string, v uint) Field              { return Field{Key: k, Value: v} }
-func Uint32(k string, v uint32) Field          { return Field{Key: k, Value: v} }
-func Uint64(k string, v uint64) Field          { return Field{Key: k, Value: v} }
-func Float64(k string, v float64) Field        { return Field{Key: k, Value: v} }
-func Bool(k string, v bool) Field              { return Field{Key: k, Value: v} }
+// String creates a Field for a string value.
+func String(k, v string) Field { return Field{Key: k, Value: v} }
+
+// Int creates a Field for an integer value.
+func Int(k string, v int) Field { return Field{Key: k, Value: v} }
+
+// Int32 creates a Field for an int32 value.
+func Int32(k string, v int32) Field { return Field{Key: k, Value: v} }
+
+// Int64 creates a Field for an int64 value.
+func Int64(k string, v int64) Field { return Field{Key: k, Value: v} }
+
+// Uint creates a Field for an unsigned integer value.
+func Uint(k string, v uint) Field { return Field{Key: k, Value: v} }
+
+// Uint32 creates a Field for a uint32 value.
+func Uint32(k string, v uint32) Field { return Field{Key: k, Value: v} }
+
+// Uint64 creates a Field for a uint64 value.
+func Uint64(k string, v uint64) Field { return Field{Key: k, Value: v} }
+
+// Float64 creates a Field for a float64 value.
+func Float64(k string, v float64) Field { return Field{Key: k, Value: v} }
+
+// Bool creates a Field for a boolean value.
+func Bool(k string, v bool) Field { return Field{Key: k, Value: v} }
+
+// Duration creates a Field for a time.Duration value.
 func Duration(k string, v time.Duration) Field { return Field{Key: k, Value: v} }
-func Time(k string, v time.Time) Field         { return Field{Key: k, Value: v} }
-func Err(err error) Field                      { return Field{Key: "error", Value: err} }
-func Any(k string, v any) Field                { return Field{Key: k, Value: v} }
-func Module(name string) Field                 { return Field{Key: "module", Value: name} }
-func Component(name string) Field              { return Field{Key: "component", Value: name} }
 
-// Collections
-func Strings(k string, v []string) Field  { return Field{Key: k, Value: v} }
-func Ints(k string, v []int) Field        { return Field{Key: k, Value: v} }
-func Uints(k string, v []uint) Field      { return Field{Key: k, Value: v} }
-func Bools(k string, v []bool) Field      { return Field{Key: k, Value: v} }
-func Bytes(k string, v []byte) Field      { return Field{Key: k, Value: v} }
+// Time creates a Field for a time.Time value.
+func Time(k string, v time.Time) Field { return Field{Key: k, Value: v} }
+
+// Err creates a Field for an error.
+func Err(err error) Field { return Field{Key: "error", Value: err} }
+
+// Any creates a Field for an arbitrary value.
+func Any(k string, v any) Field { return Field{Key: k, Value: v} }
+
+// Module creates a Field that defines the module name for the logger.
+func Module(name string) Field { return Field{Key: "module", Value: name} }
+
+// Component creates a Field that defines the component name for the logger.
+func Component(name string) Field { return Field{Key: "component", Value: name} }
+
+// Strings creates a Field for a slice of strings.
+func Strings(k string, v []string) Field { return Field{Key: k, Value: v} }
+
+// Ints creates a Field for a slice of integers.
+func Ints(k string, v []int) Field { return Field{Key: k, Value: v} }
+
+// Uints creates a Field for a slice of unsigned integers.
+func Uints(k string, v []uint) Field { return Field{Key: k, Value: v} }
+
+// Bools creates a Field for a slice of booleans.
+func Bools(k string, v []bool) Field { return Field{Key: k, Value: v} }
+
+// Bytes creates a Field for a slice of bytes (logged as hex).
+func Bytes(k string, v []byte) Field { return Field{Key: k, Value: v} }
+
+// ByteString creates a Field for a slice of bytes logged as a string.
 func ByteString(k string, v []byte) Field { return Field{Key: k, Value: string(v)} }
-func HexF(k string, v []byte) Field       { return Field{Key: k, Value: hex.EncodeToString(v)} }
 
-// Network Helpers
+// HexF creates a Field for a slice of bytes logged as a hex string.
+func HexF(k string, v []byte) Field { return Field{Key: k, Value: hex.EncodeToString(v)} }
+
+// IP creates a Field for a net.IP value.
 func IP(k string, v net.IP) Field { return Field{Key: k, Value: v.String()} }
-func Port(k string, v int) Field  { return Field{Key: k, Value: v} }
-func HostPort(k string, h string, p int) Field {
+
+// Port creates a Field for a network port.
+func Port(k string, v int) Field { return Field{Key: k, Value: v} }
+
+// HostPort creates a Field for a combined host and port.
+func HostPort(k, h string, p int) Field {
 	return Field{Key: k, Value: fmt.Sprintf("%s:%d", h, p)}
 }
 
-// Optionals: These return an empty Field (ignored) if the value is zero-equivalent.
+// StringOpt returns a Field if the value is not empty.
 func StringOpt(k, v string) Field {
 	if v == "" {
 		return Field{}
 	}
+
 	return Field{Key: k, Value: v}
 }
+
+// IntOpt returns a Field if the value is not zero.
 func IntOpt(k string, v int) Field {
 	if v == 0 {
 		return Field{}
 	}
+
 	return Field{Key: k, Value: v}
 }
 
@@ -549,6 +629,24 @@ func EMsg(v enums.EMsg) Field {
 // EResult logs a Steam result code as a readable string.
 func EResult(v enums.EResult) Field {
 	return Field{Key: "eresult", Value: v.String()}
+}
+
+// Mask returns a hidden version of the string (e.g. "account_name" -> "ac...me").
+func Mask(s string) string {
+	if len(s) <= 4 {
+		return "****"
+	}
+
+	return s[:2] + "..." + s[len(s)-2:]
+}
+
+// MaskPath searches the path for sensitive data and masks it.
+func MaskPath(path, sensitive string) string {
+	if sensitive == "" {
+		return path
+	}
+
+	return strings.ReplaceAll(path, sensitive, Mask(sensitive))
 }
 
 // Discard Logger Pattern: Useful for tests or disabling logs.

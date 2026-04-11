@@ -9,10 +9,11 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
-	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
+
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
+	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
 )
 
 type mockTarget struct {
@@ -51,10 +52,12 @@ func TestUnmarshalResponse(t *testing.T) {
 	t.Run("Wrapped JSON", func(t *testing.T) {
 		data := []byte(`{"response": {"name": "G-Man"}}`)
 		target := make(map[string]string)
+
 		err := UnmarshalResponse(data, &target, FormatJSON)
 		if err != nil {
 			t.Fatalf("unmarshal failed: %v", err)
 		}
+
 		if target["name"] != "G-Man" {
 			t.Errorf("expected G-Man, got %s", target["name"])
 		}
@@ -63,10 +66,12 @@ func TestUnmarshalResponse(t *testing.T) {
 	t.Run("Direct JSON", func(t *testing.T) {
 		data := []byte(`{"name": "Gordon"}`)
 		target := make(map[string]string)
+
 		err := UnmarshalResponse(data, &target, FormatJSON)
 		if err != nil {
 			t.Fatalf("unmarshal failed: %v", err)
 		}
+
 		if target["name"] != "Gordon" {
 			t.Errorf("expected Gordon, got %s", target["name"])
 		}
@@ -77,6 +82,7 @@ func TestUnmarshalResponse(t *testing.T) {
 		data, _ := proto.Marshal(msg)
 
 		target := &emptypb.Empty{}
+
 		err := UnmarshalResponse(data, &target, FormatProtobuf)
 		if err != nil {
 			t.Fatalf("unmarshal protobuf failed: %v", err)
@@ -85,15 +91,18 @@ func TestUnmarshalResponse(t *testing.T) {
 
 	t.Run("VDF Text", func(t *testing.T) {
 		data := []byte(`"Player" { "Health" "100" }`)
+
 		var target struct {
 			Player struct {
 				Health string `mapstructure:"Health"`
 			} `mapstructure:"Player"`
 		}
+
 		err := UnmarshalResponse(data, &target, FormatVDF)
 		if err != nil {
 			t.Fatalf("unmarshal VDF failed: %v", err)
 		}
+
 		if target.Player.Health != "100" {
 			t.Errorf("expected 100, got %s", target.Player.Health)
 		}
@@ -101,17 +110,21 @@ func TestUnmarshalResponse(t *testing.T) {
 
 	t.Run("FormatRaw", func(t *testing.T) {
 		data := []byte("raw_binary_data")
+
 		var target []byte
+
 		err := UnmarshalResponse(data, &target, FormatRaw)
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if string(target) != "raw_binary_data" {
 			t.Errorf("expected raw_binary_data, got %s", string(target))
 		}
 
 		// Test error when target is not *[]byte
 		var wrongTarget string
+
 		err = UnmarshalResponse(data, &wrongTarget, FormatRaw)
 		if err == nil {
 			t.Error("expected error for non-slice target in FormatRaw")
@@ -121,6 +134,7 @@ func TestUnmarshalResponse(t *testing.T) {
 	t.Run("Protobuf JSON Detection", func(t *testing.T) {
 		data := []byte(`{}`)
 		target := &emptypb.Empty{}
+
 		err := UnmarshalResponse(data, target, FormatProtobuf)
 		if err != nil {
 			t.Fatalf("failed to unmarshal JSON-encoded protobuf: %v", err)
@@ -129,13 +143,16 @@ func TestUnmarshalResponse(t *testing.T) {
 
 	t.Run("VDF Wrapped", func(t *testing.T) {
 		data := []byte(`"response" { "success" "1" }`)
+
 		var target struct {
 			Success string `mapstructure:"success"`
 		}
+
 		err := UnmarshalResponse(data, &target, FormatVDF)
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if target.Success != "1" {
 			t.Error("failed to unwrap response in VDF")
 		}
@@ -174,6 +191,7 @@ func TestCallOptions(t *testing.T) {
 
 	t.Run("WithHTTPMethod", func(t *testing.T) {
 		WithHTTPMethod("PUT")(req, cfg)
+
 		if target.HttpMethod != "PUT" {
 			t.Error("WithHTTPMethod failed")
 		}
@@ -181,6 +199,7 @@ func TestCallOptions(t *testing.T) {
 
 	t.Run("WithVersion", func(t *testing.T) {
 		WithVersion(5)(req, cfg)
+
 		if target.Version != 5 {
 			t.Error("WithVersion failed")
 		}
@@ -188,6 +207,7 @@ func TestCallOptions(t *testing.T) {
 
 	t.Run("WithFormat", func(t *testing.T) {
 		WithFormat(FormatVDF)(req, cfg)
+
 		if cfg.Format != FormatVDF {
 			t.Error("WithFormat failed")
 		}
@@ -231,6 +251,7 @@ func TestErrorStructures(t *testing.T) {
 		if !errors.Is(err, baseErr) {
 			t.Error("EResultError unwrap failed")
 		}
+
 		if err.Error() == "" {
 			t.Error("empty error string")
 		}
@@ -243,6 +264,7 @@ func TestErrorStructures(t *testing.T) {
 		if !errors.Is(err, baseErr) {
 			t.Error("SteamAPIError unwrap failed")
 		}
+
 		expected := "steam API error: message=fail, status=500"
 		if err.Error() != expected {
 			t.Errorf("expected %s, got %s", expected, err.Error())
@@ -252,10 +274,12 @@ func TestErrorStructures(t *testing.T) {
 
 func TestNewHttpRequest(t *testing.T) {
 	req := NewHttpRequest("POST", "http://example.com/api", []byte("body"))
+
 	target, ok := req.Target().(HttpTarget)
 	if !ok {
 		t.Fatal("target is not HttpTarget")
 	}
+
 	if target.HTTPMethod() != "POST" || target.HTTPPath() != "api" {
 		t.Errorf("NewHttpRequest created invalid target: %+v", target)
 	}

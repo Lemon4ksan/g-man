@@ -9,10 +9,11 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/test/module"
-	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -24,6 +25,7 @@ const (
 
 func setupChat(t *testing.T) (*Manager, *module.InitContext) {
 	t.Helper()
+
 	m := New()
 	ictx := module.NewInitContext()
 
@@ -40,6 +42,7 @@ func setupChat(t *testing.T) (*Manager, *module.InitContext) {
 
 func invokeService(t *testing.T, ictx *module.InitContext, method string, msg proto.Message) {
 	t.Helper()
+
 	handler, ok := ictx.GetServiceHandler(method)
 
 	if !ok {
@@ -65,6 +68,7 @@ func TestChatManager_InitAndClose(t *testing.T) {
 		if _, ok := ictx.GetServiceHandler("FriendMessagesClient.IncomingMessage#1"); !ok {
 			t.Error("FriendMessagesClient handler not registered")
 		}
+
 		if _, ok := ictx.GetServiceHandler("ChatRoomClient.NotifyIncomingChatMessage#1"); !ok {
 			t.Error("ChatRoomClient handler not registered")
 		}
@@ -72,6 +76,7 @@ func TestChatManager_InitAndClose(t *testing.T) {
 
 	t.Run("Cleanup", func(t *testing.T) {
 		_ = m.Close()
+
 		if _, ok := ictx.GetServiceHandler("FriendMessagesClient.IncomingMessage#1"); ok {
 			t.Error("handlers should be removed after Close")
 		}
@@ -93,6 +98,7 @@ func TestChatManager_SendMessage(t *testing.T) {
 	if req.GetSteamid() != FriendSteamID || req.GetMessage() != text {
 		t.Errorf("unexpected request data: %+v", req)
 	}
+
 	if req.GetChatEntryType() != ChatEntryTypeChatMsg {
 		t.Error("should use ChatEntryTypeChatMsg by default")
 	}
@@ -106,9 +112,10 @@ func TestChatManager_GetRecentMessages(t *testing.T) {
 		{Message: proto.String("hi")},
 		{Message: proto.String("how are you?")},
 	}
-	ictx.MockService().SetProtoResponse("FriendMessages", "GetRecentMessages", &pb.CFriendMessages_GetRecentMessages_Response{
-		Messages: mockMsgs,
-	})
+	ictx.MockService().
+		SetProtoResponse("FriendMessages", "GetRecentMessages", &pb.CFriendMessages_GetRecentMessages_Response{
+			Messages: mockMsgs,
+		})
 
 	msgs, err := m.GetRecentMessages(t.Context(), FriendSteamID, 2)
 	if err != nil {
@@ -121,6 +128,7 @@ func TestChatManager_GetRecentMessages(t *testing.T) {
 
 	req := &pb.CFriendMessages_GetRecentMessages_Request{}
 	ictx.MockService().GetLastCall(req)
+
 	if req.GetSteamid1() != BotSteamID || req.GetSteamid2() != FriendSteamID {
 		t.Error("request should include both bot and friend IDs")
 	}
@@ -134,12 +142,17 @@ func TestChatManager_HandleIncomingMessage(t *testing.T) {
 	ts := uint32(time.Now().Unix())
 
 	t.Run("Normal Message", func(t *testing.T) {
-		invokeService(t, ictx, "FriendMessagesClient.IncomingMessage#1", &pb.CFriendMessages_IncomingMessage_Notification{
-			SteamidFriend:          proto.Uint64(FriendSteamID),
-			ChatEntryType:          proto.Int32(ChatEntryTypeChatMsg),
-			Message:                proto.String("Test!"),
-			Rtime32ServerTimestamp: proto.Uint32(ts),
-		})
+		invokeService(
+			t,
+			ictx,
+			"FriendMessagesClient.IncomingMessage#1",
+			&pb.CFriendMessages_IncomingMessage_Notification{
+				SteamidFriend:          proto.Uint64(FriendSteamID),
+				ChatEntryType:          proto.Int32(ChatEntryTypeChatMsg),
+				Message:                proto.String("Test!"),
+				Rtime32ServerTimestamp: proto.Uint32(ts),
+			},
+		)
 
 		select {
 		case ev := <-subMsg.C():
@@ -153,10 +166,15 @@ func TestChatManager_HandleIncomingMessage(t *testing.T) {
 	})
 
 	t.Run("Typing Notification", func(t *testing.T) {
-		invokeService(t, ictx, "FriendMessagesClient.IncomingMessage#1", &pb.CFriendMessages_IncomingMessage_Notification{
-			SteamidFriend: proto.Uint64(FriendSteamID),
-			ChatEntryType: proto.Int32(ChatEntryTypeTyping),
-		})
+		invokeService(
+			t,
+			ictx,
+			"FriendMessagesClient.IncomingMessage#1",
+			&pb.CFriendMessages_IncomingMessage_Notification{
+				SteamidFriend: proto.Uint64(FriendSteamID),
+				ChatEntryType: proto.Int32(ChatEntryTypeTyping),
+			},
+		)
 
 		select {
 		case ev := <-subTyping.C():
@@ -169,10 +187,15 @@ func TestChatManager_HandleIncomingMessage(t *testing.T) {
 	})
 
 	t.Run("Ignore LocalEcho", func(t *testing.T) {
-		invokeService(t, ictx, "FriendMessagesClient.IncomingMessage#1", &pb.CFriendMessages_IncomingMessage_Notification{
-			LocalEcho: proto.Bool(true),
-			Message:   proto.String("Ignore me"),
-		})
+		invokeService(
+			t,
+			ictx,
+			"FriendMessagesClient.IncomingMessage#1",
+			&pb.CFriendMessages_IncomingMessage_Notification{
+				LocalEcho: proto.Bool(true),
+				Message:   proto.String("Ignore me"),
+			},
+		)
 
 		select {
 		case <-subMsg.C():
@@ -219,6 +242,7 @@ func TestChatManager_SendTyping(t *testing.T) {
 	if req.GetSteamid() != FriendSteamID {
 		t.Errorf("expected steamid %d, got %d", FriendSteamID, req.GetSteamid())
 	}
+
 	if req.GetChatEntryType() != ChatEntryTypeTyping {
 		t.Errorf("expected type %d (Typing), got %d", ChatEntryTypeTyping, req.GetChatEntryType())
 	}

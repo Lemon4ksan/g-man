@@ -8,9 +8,10 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/bus"
 )
 
-type GuardEvent interface {
+// Event is the base interface that all guard events must implement.
+type Event interface {
 	bus.Event
-	IsGuardEvent()
+	isGuardEvent()
 }
 
 // StateEvent is emitted whenever the guard transitions between states.
@@ -19,7 +20,7 @@ type StateEvent struct {
 	New State
 }
 
-func (e *StateEvent) IsGuardEvent() {}
+func (e *StateEvent) isGuardEvent() {}
 
 // ConfirmationReceivedEvent is emitted when guardian receives a new confirmation.
 type ConfirmationReceivedEvent struct {
@@ -27,7 +28,7 @@ type ConfirmationReceivedEvent struct {
 	Confirmation *Confirmation
 }
 
-func (e *ConfirmationReceivedEvent) IsGuardEvent() {}
+func (e *ConfirmationReceivedEvent) isGuardEvent() {}
 
 // NeedAuthEvent is emitted when confirmation is returned with NeedAuth field set to True.
 type NeedAuthEvent struct {
@@ -35,4 +36,4 @@ type NeedAuthEvent struct {
 	Message string
 }
 
-func (e *NeedAuthEvent) IsGuardEvent() {}
+func (e *NeedAuthEvent) isGuardEvent() {}

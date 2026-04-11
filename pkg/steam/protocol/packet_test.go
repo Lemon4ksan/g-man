@@ -11,9 +11,10 @@ import (
 	"io"
 	"testing"
 
+	"google.golang.org/protobuf/proto"
+
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
-	"google.golang.org/protobuf/proto"
 )
 
 type infiniteZeros struct{}
@@ -22,6 +23,7 @@ func (infiniteZeros) Read(p []byte) (n int, err error) {
 	for i := range p {
 		p[i] = 0
 	}
+
 	return len(p), nil
 }
 
@@ -31,6 +33,7 @@ func TestMsgHdr_Roundtrip(t *testing.T) {
 	if hdr.GetTargetJob() != 456 {
 		t.Errorf("Expected TargetJobID 456, got %d", hdr.GetTargetJob())
 	}
+
 	if hdr.GetSourceJob() != NoJob {
 		t.Errorf("Expected SourceJobID NoJob, got %d", hdr.GetSourceJob())
 	}
@@ -62,6 +65,7 @@ func TestMsgHdrExtended_DeserializeErrors(t *testing.T) {
 		buf := make([]byte, HeaderSizeExtended-4)
 		buf[0] = 99 // Wrong size
 		hdr := &MsgHdrExtended{}
+
 		err := hdr.Deserialize(bytes.NewReader(buf))
 		if !errors.Is(err, ErrInvalidHeader) {
 			t.Errorf("Expected ErrInvalidHeader for wrong size, got %v", err)
@@ -72,7 +76,9 @@ func TestMsgHdrExtended_DeserializeErrors(t *testing.T) {
 		buf := make([]byte, HeaderSizeExtended-4)
 		buf[0] = HeaderSizeExtended
 		binary.LittleEndian.PutUint16(buf[1:3], 99) // Wrong version
+
 		hdr := &MsgHdrExtended{}
+
 		err := hdr.Deserialize(bytes.NewReader(buf))
 		if !errors.Is(err, ErrInvalidHeader) {
 			t.Errorf("Expected ErrInvalidHeader for wrong version, got %v", err)
@@ -85,6 +91,7 @@ func TestMsgHdrExtended_DeserializeErrors(t *testing.T) {
 		binary.LittleEndian.PutUint16(buf[1:3], HeaderVersion)
 		buf[19] = 0x00 // Wrong canary
 		hdr := &MsgHdrExtended{}
+
 		err := hdr.Deserialize(bytes.NewReader(buf))
 		if !errors.Is(err, ErrInvalidHeader) {
 			t.Errorf("Expected ErrInvalidHeader for wrong canary, got %v", err)
@@ -101,6 +108,7 @@ func TestMsgHdrProtoBuf_Roundtrip(t *testing.T) {
 	if hdr.GetSteamID() != 12345 || hdr.GetSessionID() != 67890 {
 		t.Errorf("Getters mismatch")
 	}
+
 	if hdr.GetEResult() != enums.EResult(2) {
 		t.Errorf("Expected EResult 2, got %v", hdr.GetEResult())
 	}
@@ -124,9 +132,10 @@ func TestMsgHdrProtoBuf_Roundtrip(t *testing.T) {
 
 func TestMsgHdrProtoBuf_HeaderTooLarge(t *testing.T) {
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, uint32(MaxHeaderSize+1))
+	_ = binary.Write(buf, binary.LittleEndian, uint32(MaxHeaderSize+1))
 
 	hdr := &MsgHdrProtoBuf{}
+
 	err := hdr.Deserialize(buf)
 	if !errors.Is(err, ErrHeaderTooLarge) {
 		t.Errorf("Expected ErrHeaderTooLarge, got %v", err)
@@ -144,7 +153,7 @@ func TestParsePacket_Errors(t *testing.T) {
 	t.Run("PayloadTooLarge", func(t *testing.T) {
 		hdr := NewMsgHdr(enums.EMsg_ChannelEncryptRequest, NoJob)
 		buf := new(bytes.Buffer)
-		hdr.SerializeTo(buf)
+		_ = hdr.SerializeTo(buf)
 
 		largeData := io.LimitReader(infiniteZeros{}, int64(MaxPayloadSize+1))
 		reader := io.MultiReader(buf, largeData)
@@ -157,8 +166,8 @@ func TestParsePacket_Errors(t *testing.T) {
 
 	t.Run("InvalidProtoHeaderSize", func(t *testing.T) {
 		buf := new(bytes.Buffer)
-		binary.Write(buf, binary.LittleEndian, uint32(100)|ProtoMask) // EMsg с маской
-		binary.Write(buf, binary.LittleEndian, uint32(MaxHeaderSize+1))
+		_ = binary.Write(buf, binary.LittleEndian, uint32(100)|ProtoMask)
+		_ = binary.Write(buf, binary.LittleEndian, uint32(MaxHeaderSize+1))
 
 		_, err := ParsePacket(buf)
 		if !errors.Is(err, ErrHeaderTooLarge) {
@@ -172,6 +181,7 @@ func TestParsePacket_Errors(t *testing.T) {
 			IsProto: true,
 			Header:  NewMsgHdr(enums.EMsg(100), NoJob),
 		}
+
 		err := pkt.SerializeTo(new(bytes.Buffer))
 		if !errors.Is(err, ErrInvalidHeader) {
 			t.Errorf("Expected ErrInvalidHeader when IsProto=true but header is MsgHdr")
@@ -183,7 +193,7 @@ func TestParsePacket(t *testing.T) {
 	t.Run("StandardHeader", func(t *testing.T) {
 		hdr := NewMsgHdr(enums.EMsg_ChannelEncryptRequest, 100)
 		buf := new(bytes.Buffer)
-		hdr.SerializeTo(buf)
+		_ = hdr.SerializeTo(buf)
 		buf.WriteString("payload")
 
 		pkt, err := ParsePacket(buf)
@@ -194,9 +204,11 @@ func TestParsePacket(t *testing.T) {
 		if pkt.IsProto {
 			t.Errorf("Packet should not be proto")
 		}
+
 		if _, ok := pkt.Header.(*MsgHdr); !ok {
 			t.Errorf("Expected *MsgHdr header type")
 		}
+
 		if string(pkt.Payload) != "payload" {
 			t.Errorf("Expected payload 'payload', got %s", string(pkt.Payload))
 		}
@@ -205,7 +217,7 @@ func TestParsePacket(t *testing.T) {
 	t.Run("ProtoBufHeader", func(t *testing.T) {
 		hdr := NewMsgHdrProtoBuf(enums.EMsg(999), 11, 22)
 		buf := new(bytes.Buffer)
-		hdr.SerializeTo(buf)
+		_ = hdr.SerializeTo(buf)
 		buf.WriteString("protopayload")
 
 		pkt, err := ParsePacket(buf)
@@ -216,12 +228,15 @@ func TestParsePacket(t *testing.T) {
 		if !pkt.IsProto {
 			t.Errorf("Packet should be proto")
 		}
+
 		if pkt.EMsg != enums.EMsg(999) {
 			t.Errorf("Expected EMsg 999, got %v", pkt.EMsg)
 		}
+
 		if _, ok := pkt.Header.(*MsgHdrProtoBuf); !ok {
 			t.Errorf("Expected *MsgHdrProtoBuf header type")
 		}
+
 		if string(pkt.Payload) != "protopayload" {
 			t.Errorf("Payload mismatch")
 		}
@@ -231,7 +246,7 @@ func TestParsePacket(t *testing.T) {
 func TestParsePacket_PayloadTooLarge(t *testing.T) {
 	hdr := NewMsgHdr(enums.EMsg_ChannelEncryptRequest, 1)
 	buf := new(bytes.Buffer)
-	hdr.SerializeTo(buf)
+	_ = hdr.SerializeTo(buf)
 
 	largePayload := bytes.NewReader(make([]byte, MaxPayloadSize+1))
 	reader := io.MultiReader(buf, largePayload)
@@ -252,12 +267,15 @@ func TestPacket_Getters(t *testing.T) {
 	if pktProto.GetSteamID() != 10 {
 		t.Errorf("Expected SteamID 10")
 	}
+
 	if pktProto.GetSessionID() != 20 {
 		t.Errorf("Expected SessionID 20")
 	}
+
 	if pktProto.GetEResult() != enums.EResult(5) {
 		t.Errorf("Expected EResult 5")
 	}
+
 	if pktProto.GetSourceJobID() != 1 || pktProto.GetTargetJobID() != 2 {
 		t.Errorf("JobID mismatch")
 	}
@@ -269,12 +287,15 @@ func TestPacket_Getters(t *testing.T) {
 	if pktStd.GetSteamID() != 0 {
 		t.Errorf("Standard header should return 0 for SteamID")
 	}
+
 	if pktStd.GetSessionID() != 0 {
 		t.Errorf("Standard header should return 0 for SessionID")
 	}
+
 	if pktStd.GetEResult() != enums.EResult_Invalid {
 		t.Errorf("Standard header should return EResult_Invalid, got %v", pktStd.GetEResult())
 	}
+
 	if pktStd.GetSourceJobID() != 88 || pktStd.GetTargetJobID() != 99 {
 		t.Errorf("JobID mismatch for std header")
 	}
@@ -289,6 +310,7 @@ func TestPacket_SerializeTo(t *testing.T) {
 			Header:  hdr,
 			Payload: []byte("data"),
 		}
+
 		buf := new(bytes.Buffer)
 		if err := pkt.SerializeTo(buf); err != nil {
 			t.Fatalf("SerializeTo failed: %v", err)
@@ -306,6 +328,7 @@ func TestPacket_SerializeTo(t *testing.T) {
 			IsProto: true,
 			Header:  NewMsgHdr(enums.EMsg(333), 1), // Invalid header for proto
 		}
+
 		err := pkt.SerializeTo(new(bytes.Buffer))
 		if !errors.Is(err, ErrInvalidHeader) {
 			t.Errorf("Expected ErrInvalidHeader, got %v", err)
@@ -320,6 +343,7 @@ func TestPacket_SerializeTo(t *testing.T) {
 			Header:  hdr,
 			Payload: []byte("test"),
 		}
+
 		buf := new(bytes.Buffer)
 		if err := pkt.SerializeTo(buf); err != nil {
 			t.Fatalf("SerializeTo failed: %v", err)
@@ -369,10 +393,12 @@ func TestPacket_Roundtrip(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			buf := new(bytes.Buffer)
+
 			err := tt.packet.SerializeTo(buf)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("SerializeTo() error = %v, wantErr %v", err, tt.wantErr)
 			}
+
 			if err != nil {
 				return
 			}
@@ -385,9 +411,11 @@ func TestPacket_Roundtrip(t *testing.T) {
 			if parsed.EMsg != tt.packet.EMsg {
 				t.Errorf("EMsg mismatch: got %v, want %v", parsed.EMsg, tt.packet.EMsg)
 			}
+
 			if parsed.IsProto != tt.packet.IsProto {
 				t.Errorf("IsProto mismatch")
 			}
+
 			if !bytes.Equal(parsed.Payload, tt.packet.Payload) {
 				t.Errorf("Payload mismatch: got %v, want %v", parsed.Payload, tt.packet.Payload)
 			}
@@ -395,6 +423,7 @@ func TestPacket_Roundtrip(t *testing.T) {
 			if parsed.GetTargetJobID() != tt.packet.GetTargetJobID() {
 				t.Errorf("TargetJobID mismatch")
 			}
+
 			if parsed.GetSteamID() != tt.packet.GetSteamID() {
 				t.Errorf("SteamID mismatch")
 			}
@@ -423,9 +452,11 @@ func TestMsgHdr_Serialization(t *testing.T) {
 	if enums.EMsg(e) != enums.EMsg_ChannelEncryptRequest {
 		t.Errorf("EMsg mismatch: expected %v, got %v", enums.EMsg_ChannelEncryptRequest, e)
 	}
+
 	if target != 0x1122334455667788 {
 		t.Errorf("TargetJobID mismatch")
 	}
+
 	if source != 0xAABBCCDDEE001122 {
 		t.Errorf("SourceJobID mismatch")
 	}
@@ -442,7 +473,8 @@ func TestMsgHdrExtended_Roundtrip(t *testing.T) {
 	}
 
 	var rawEMsg uint32
-	binary.Read(buf, binary.LittleEndian, &rawEMsg)
+
+	_ = binary.Read(buf, binary.LittleEndian, &rawEMsg)
 
 	decoded := &MsgHdrExtended{EMsg: enums.EMsg(rawEMsg)}
 	if err := decoded.Deserialize(buf); err != nil {
@@ -452,6 +484,7 @@ func TestMsgHdrExtended_Roundtrip(t *testing.T) {
 	if decoded.SteamID != original.SteamID || decoded.SessionID != original.SessionID {
 		t.Errorf("Data mismatch: SteamID %d vs %d", decoded.SteamID, original.SteamID)
 	}
+
 	if decoded.HeaderCanary != HeaderCanary {
 		t.Errorf("Canary corrupted")
 	}
@@ -467,6 +500,7 @@ func TestMsgHdrProtoBuf_Serialization(t *testing.T) {
 	}
 
 	data := buf.Bytes()
+
 	emsgWithMask := binary.LittleEndian.Uint32(data[0:4])
 	if (emsgWithMask & ProtoMask) == 0 {
 		t.Errorf("ProtoMask not set in serialized EMsg")
@@ -494,8 +528,10 @@ func TestGCPacket_Roundtrip_Proto(t *testing.T) {
 	}
 
 	r := bytes.NewReader(data)
+
 	var serializedMsgType uint32
-	binary.Read(r, binary.LittleEndian, &serializedMsgType)
+
+	_ = binary.Read(r, binary.LittleEndian, &serializedMsgType)
 
 	if serializedMsgType != (msgType | ProtoMask) {
 		t.Errorf("Expected MsgType with ProtoMask, got %x", serializedMsgType)
@@ -511,12 +547,15 @@ func TestGCPacket_Roundtrip_Proto(t *testing.T) {
 	if parsed.AppID != appID || parsed.MsgType != msgType {
 		t.Errorf("AppID or MsgType mismatch")
 	}
+
 	if !parsed.IsProto {
 		t.Error("Expected IsProto to be true")
 	}
+
 	if parsed.SourceJobID != 111 || parsed.TargetJobID != 222 {
 		t.Errorf("JobIDs mismatch: Source %d, Target %d", parsed.SourceJobID, parsed.TargetJobID)
 	}
+
 	if !bytes.Equal(parsed.Payload, payload) {
 		t.Errorf("Payload mismatch: %s", string(parsed.Payload))
 	}
@@ -545,9 +584,11 @@ func TestGCPacket_Roundtrip_Legacy(t *testing.T) {
 	if parsed.IsProto {
 		t.Error("Expected IsProto to be false")
 	}
+
 	if parsed.SourceJobID != 888 || parsed.TargetJobID != 999 {
 		t.Errorf("JobIDs mismatch")
 	}
+
 	if !bytes.Equal(parsed.Payload, payload) {
 		t.Errorf("Payload mismatch")
 	}
@@ -558,6 +599,7 @@ func TestParseGCPacket_Errors(t *testing.T) {
 
 	t.Run("TruncatedProtoHeaderLen", func(t *testing.T) {
 		data := []byte{0x01, 0x02}
+
 		_, err := ParseGCPacket(appID, 100|ProtoMask, data)
 		if err == nil || !bytes.Contains([]byte(err.Error()), []byte("read proto header len")) {
 			t.Errorf("Expected error reading proto header len, got: %v", err)
@@ -566,7 +608,7 @@ func TestParseGCPacket_Errors(t *testing.T) {
 
 	t.Run("InvalidProtoHeaderData", func(t *testing.T) {
 		buf := new(bytes.Buffer)
-		binary.Write(buf, binary.LittleEndian, uint32(4))
+		_ = binary.Write(buf, binary.LittleEndian, uint32(4))
 		buf.Write([]byte{0xFF, 0xFF, 0xFF, 0xFF})
 
 		_, err := ParseGCPacket(appID, 100|ProtoMask, buf.Bytes())
@@ -577,6 +619,7 @@ func TestParseGCPacket_Errors(t *testing.T) {
 
 	t.Run("TruncatedLegacyHeader", func(t *testing.T) {
 		data := make([]byte, 10)
+
 		_, err := ParseGCPacket(appID, 100, data)
 		if err == nil || !errors.Is(err, io.ErrUnexpectedEOF) {
 			// ParseGCPacket uses io.ReadFull, which returns ErrUnexpectedEOF
@@ -609,6 +652,7 @@ func TestMsgTypeMasking(t *testing.T) {
 	if p.MsgType != 1001 {
 		t.Errorf("MsgType was not correctly unmasked: got %d", p.MsgType)
 	}
+
 	if !p.IsProto {
 		t.Error("IsProto should be true due to mask")
 	}
@@ -622,7 +666,8 @@ func generateValidProtoData(source, target uint64) []byte {
 	b, _ := proto.Marshal(hdr)
 
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, uint32(len(b)))
+	_ = binary.Write(buf, binary.LittleEndian, uint32(len(b)))
 	buf.Write(b)
+
 	return buf.Bytes()
 }

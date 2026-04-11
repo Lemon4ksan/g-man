@@ -8,10 +8,11 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/test/module"
-	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -21,6 +22,7 @@ const (
 
 func setupOffers(t *testing.T) (*Manager, *module.InitContext) {
 	t.Helper()
+
 	m := New()
 	ictx := module.NewInitContext()
 
@@ -58,6 +60,7 @@ func TestManager_InitAndClose(t *testing.T) {
 
 	t.Run("Close", func(t *testing.T) {
 		_ = m.Close()
+
 		for _, emsg := range expectedEMsgs {
 			ictx.AssertPacketHandlerUnregistered(t, emsg)
 		}
@@ -74,6 +77,7 @@ func TestManager_Invitations(t *testing.T) {
 
 		req := &pb.CMsgTrading_InitiateTradeRequest{}
 		ictx.MockServiceAccessor().GetLastCall(req)
+
 		if req.GetOtherSteamid() != FriendSteamID {
 			t.Errorf("expected target %d, got %d", FriendSteamID, req.GetOtherSteamid())
 		}
@@ -86,6 +90,7 @@ func TestManager_Invitations(t *testing.T) {
 
 		req := &pb.CMsgTrading_CancelTradeRequest{}
 		ictx.MockServiceAccessor().GetLastCall(req)
+
 		if req.GetOtherSteamid() != FriendSteamID {
 			t.Errorf("expected target %d, got %d", FriendSteamID, req.GetOtherSteamid())
 		}
@@ -121,6 +126,7 @@ func TestManager_RespondToInvite(t *testing.T) {
 			if req.GetTradeRequestId() != TradeID {
 				t.Errorf("expected trade ID %d, got %d", TradeID, req.GetTradeRequestId())
 			}
+
 			if req.GetResponse() != uint32(tt.expected) {
 				t.Errorf("expected response %v, got %v", tt.expected, req.GetResponse())
 			}
@@ -152,6 +158,7 @@ func TestManager_HandleTradeProposed(t *testing.T) {
 
 		req := &pb.CMsgTrading_InitiateTradeResponse{}
 		ictx.MockServiceAccessor().GetLastCall(req)
+
 		if req.GetResponse() != uint32(enums.EEconTradeResponse_Accepted) {
 			t.Error("Respond(true) should send Accepted response")
 		}
@@ -178,9 +185,15 @@ func TestManager_HandleTradeResult(t *testing.T) {
 		if res.OtherSteamID != FriendSteamID || res.Response != enums.EEconTradeResponse_TooSoon {
 			t.Errorf("unexpected event: %+v", res)
 		}
+
 		if res.SteamGuardRequiredDays != 15 || res.NewDeviceCooldownDays != 7 {
-			t.Errorf("invalid cooldown info in event: SG=%d, Dev=%d", res.SteamGuardRequiredDays, res.NewDeviceCooldownDays)
+			t.Errorf(
+				"invalid cooldown info in event: SG=%d, Dev=%d",
+				res.SteamGuardRequiredDays,
+				res.NewDeviceCooldownDays,
+			)
 		}
+
 	case <-time.After(500 * time.Millisecond):
 		t.Fatal("TradeResultEvent not received")
 	}

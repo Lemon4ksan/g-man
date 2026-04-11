@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package transport provides a protocol-agnostic abstraction for sending requests
+// to Steam via different communication channels (HTTP and Sockets).
 package transport
 
 import (
@@ -12,13 +14,16 @@ import (
 )
 
 // Transport is the core interface that unifies different network implementations.
+// It allows higher-level services to execute requests without knowing the underlying protocol.
 type Transport interface {
+	// Do executes the given request and returns a protocol-agnostic response.
 	Do(ctx context.Context, req *Request) (*Response, error)
 }
 
 // Target represents the logical destination of a Steam request.
-// It is a marker interface implemented by protocol-specific targets.
+// It is a marker interface implemented by protocol-specific targets (e.g., Unified, WebAPI).
 type Target interface {
+	// String returns a human-readable identifier for the target.
 	String() string
 }
 
@@ -55,6 +60,7 @@ func (r *Request) WithParams(params url.Values) *Request {
 			r.params.Add(k, v)
 		}
 	}
+
 	return r
 }
 
@@ -64,16 +70,27 @@ func (r *Request) WithHeader(key, value string) *Request {
 	return r
 }
 
-func (r *Request) Target() Target      { return r.target }
-func (r *Request) Body() []byte        { return r.body }
-func (r *Request) Params() url.Values  { return r.params }
+// Target returns the request destination.
+func (r *Request) Target() Target { return r.target }
+
+// Body returns the raw binary payload of the request.
+func (r *Request) Body() []byte { return r.body }
+
+// Params returns the query parameters or arguments for the request.
+func (r *Request) Params() url.Values { return r.params }
+
+// Header returns the transport-level headers.
 func (r *Request) Header() http.Header { return r.headers }
-func (r *Request) Token() string       { return r.params.Get("access_token") }
+
+// Token retrieves the access token from the request parameters, if present.
+func (r *Request) Token() string { return r.params.Get("access_token") }
 
 // Response represents the result of a Steam API call. It is a protocol-agnostic
 // container for the body and transport-specific metadata.
 type Response struct {
-	Body     []byte
+	// Body is the raw response payload from the server.
+	Body []byte
+	// metadata holds transport-specific information (e.g., HTTP status, EResult).
 	metadata any
 }
 
@@ -115,14 +132,14 @@ func (r *Response) As(target any) bool {
 	return false
 }
 
-// HTTP is a convenient helper to extract HTTPMetadata.
-func (r *Response) HTTP() (meta HTTPMetadata, ok bool) {
-	meta, ok = r.metadata.(HTTPMetadata)
-	return
+// HTTP is a convenient helper to extract HTTPMetadata from the response.
+func (r *Response) HTTP() (HTTPMetadata, bool) {
+	meta, ok := r.metadata.(HTTPMetadata)
+	return meta, ok
 }
 
-// Socket is a convenient helper to extract SocketMetadata.
-func (r *Response) Socket() (meta SocketMetadata, ok bool) {
-	meta, ok = r.metadata.(SocketMetadata)
-	return
+// Socket is a convenient helper to extract SocketMetadata from the response.
+func (r *Response) Socket() (SocketMetadata, bool) {
+	meta, ok := r.metadata.(SocketMetadata)
+	return meta, ok
 }

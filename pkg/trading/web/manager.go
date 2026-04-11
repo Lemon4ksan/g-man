@@ -172,6 +172,7 @@ func (m *Manager) StartPolling() error {
 	})
 
 	m.Logger.Info("Trade polling started", log.Duration("interval", m.config.PollInterval))
+
 	return nil
 }
 
@@ -189,11 +190,13 @@ func (m *Manager) AcceptOffer(ctx context.Context, offerID uint64) error {
 	if err := m.rateLimiter.Wait(ctx); err != nil {
 		return err
 	}
+
 	req := struct {
 		TradeOfferID uint64 `url:"tradeofferid"`
 		ServerID     int    `url:"serverid"`
 	}{offerID, 1}
 	_, err := service.WebAPI[service.NoResponse](ctx, m.web, "POST", "IEconService", "AcceptTradeOffer", 1, req)
+
 	return err
 }
 
@@ -202,10 +205,12 @@ func (m *Manager) DeclineOffer(ctx context.Context, offerID uint64) error {
 	if err := m.rateLimiter.Wait(ctx); err != nil {
 		return err
 	}
+
 	req := struct {
 		TradeOfferID uint64 `url:"tradeofferid"`
 	}{offerID}
 	_, err := service.WebAPI[service.NoResponse](ctx, m.web, "POST", "IEconService", "DeclineTradeOffer", 1, req)
+
 	return err
 }
 
@@ -214,10 +219,12 @@ func (m *Manager) CancelOffer(ctx context.Context, offerID uint64) error {
 	if err := m.rateLimiter.Wait(ctx); err != nil {
 		return err
 	}
+
 	req := struct {
 		TradeOfferID uint64 `url:"tradeofferid"`
 	}{offerID}
 	_, err := service.WebAPI[service.NoResponse](ctx, m.web, "POST", "IEconService", "CancelTradeOffer", 1, req)
+
 	return err
 }
 
@@ -231,9 +238,11 @@ func (m *Manager) GetOffer(ctx context.Context, offerID uint64) (*TradeOffer, er
 		TradeOfferID uint64 `url:"tradeofferid"`
 		Language     string `url:"language"`
 	}{offerID, m.config.Language}
+
 	type respStruct struct {
 		Offer *TradeOffer `json:"offer"`
 	}
+
 	resp, err := service.WebAPI[respStruct](ctx, m.web, "GET", "IEconService", "GetTradeOffer", 1, req)
 	if err != nil {
 		return nil, err
@@ -251,6 +260,7 @@ func (m *Manager) IsItemInTrade(assetID uint64) bool {
 	if m.processor == nil {
 		return false
 	}
+
 	return m.processor.IsInTrade(assetID)
 }
 
@@ -270,6 +280,7 @@ func (m *Manager) pollingLoop(ctx context.Context) {
 			if m.State.Load() != StatePolling {
 				return
 			}
+
 			m.doPoll(ctx)
 		}
 	}
@@ -299,6 +310,7 @@ func (m *Manager) doPoll(ctx context.Context) {
 		if ctx.Err() == nil {
 			m.Logger.Warn("Trade poll failed", log.Err(err))
 		}
+
 		return
 	}
 
@@ -306,7 +318,10 @@ func (m *Manager) doPoll(ctx context.Context) {
 	defer m.mu.Unlock()
 
 	now := time.Now()
-	allOffers := append(resp.Sent, resp.Received...)
+
+	allOffers := make([]*TradeOffer, len(resp.Sent)+len(resp.Received))
+	copy(allOffers, resp.Sent)
+	copy(allOffers[len(resp.Sent):], resp.Received)
 
 	for _, offer := range allOffers {
 		m.enrichOfferWithSKUs(offer)
@@ -370,6 +385,7 @@ func (m *Manager) gcKnownOffers(now time.Time) {
 
 func (m *Manager) listenEvents(ctx context.Context, sub *bus.Subscription) {
 	defer sub.Unsubscribe()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -378,6 +394,7 @@ func (m *Manager) listenEvents(ctx context.Context, sub *bus.Subscription) {
 			if !ok {
 				return
 			}
+
 			if e, ok := ev.(*auth.StateEvent); ok {
 				if e.New == auth.StateDisconnected {
 					m.StopPolling()

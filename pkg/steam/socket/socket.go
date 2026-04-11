@@ -14,6 +14,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/jobs"
 	"github.com/lemon4ksan/g-man/pkg/log"
@@ -22,8 +24,6 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket/internal/network"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket/internal/session"
-
-	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -71,20 +71,20 @@ type CMServer struct {
 }
 
 // ConnectionDialer defines a function signature for establishing network connections.
-type ConnectionDialer func(nh network.Handler, logger log.Logger, endpoint string) (network.Connection, error)
+type ConnectionDialer func(ctx context.Context, nh network.Handler, logger log.Logger, endpoint string) (network.Connection, error)
 
 // DefaultDialers returns a fresh map of standard transport dialers.
 // Returning a map from a function prevents accidental global state mutation.
 func DefaultDialers() map[string]ConnectionDialer {
 	return map[string]ConnectionDialer{
-		"tcp": func(nh network.Handler, l log.Logger, s string) (network.Connection, error) {
-			return network.NewTCP(nh, l, s)
+		"tcp": func(ctx context.Context, nh network.Handler, l log.Logger, s string) (network.Connection, error) {
+			return network.NewTCP(ctx, nh, l, s)
 		},
-		"websockets": func(nh network.Handler, l log.Logger, s string) (network.Connection, error) {
-			return network.NewWS(nh, l, s, nil)
+		"websockets": func(ctx context.Context, nh network.Handler, l log.Logger, s string) (network.Connection, error) {
+			return network.NewWS(ctx, nh, l, s, nil)
 		},
-		"netfilter": func(nh network.Handler, l log.Logger, s string) (network.Connection, error) {
-			return network.NewTCP(nh, l, s) // netfilter is effectively TCP
+		"netfilter": func(ctx context.Context, nh network.Handler, l log.Logger, s string) (network.Connection, error) {
+			return network.NewTCP(ctx, nh, l, s) // netfilter is effectively TCP
 		},
 	}
 }
@@ -202,6 +202,7 @@ func NewSocket(cfg Config, opts ...Option) *Socket {
 	if cfg.Dialers == nil {
 		cfg.Dialers = DefaultDialers()
 	}
+
 	if cfg.WorkerCount <= 0 {
 		cfg.WorkerCount = 1
 	}
@@ -251,6 +252,7 @@ func (s *Socket) Session() Session {
 	if container == nil {
 		return nil
 	}
+
 	return container.sess
 }
 
@@ -304,7 +306,11 @@ func (s *Socket) Connect(ctx context.Context, server CMServer) error {
 
 	start := time.Now()
 
-	conn, err := dialer(inboundHandler{sock: s}, s.logger, server.Endpoint)
+	connCtx, connCancel := context.WithCancel(context.Background())
+	s.connCtx.Store(connCtx)
+	s.connCancel.Store(connCancel)
+
+	conn, err := dialer(connCtx, inboundHandler{sock: s}, s.logger, server.Endpoint)
 	if err != nil {
 		s.setState(StateDisconnected)
 		return fmt.Errorf("socket: transport dial failed: %w", err)
@@ -314,15 +320,12 @@ func (s *Socket) Connect(ctx context.Context, server CMServer) error {
 	ls := session.NewLogged(session.New(conn), sLog)
 	s.setSession(ls)
 
-	connCtx, connCancel := context.WithCancel(context.Background())
-	s.connCtx.Store(connCtx)
-	s.connCancel.Store(connCancel)
-
 	s.setState(StateConnected)
 	s.bus.Publish(&ConnectedEvent{Server: server.Endpoint})
 	s.logger.Info("Successfully connected", log.Duration("latency", time.Since(start)))
 
 	s.startWorkers(connCtx)
+
 	return nil
 }
 
@@ -338,6 +341,7 @@ func (s *Socket) StartHeartbeat(interval time.Duration) {
 
 	s.workerWg.Go(func() {
 		s.logger.Debug("Heartbeat started", log.Duration("interval", interval))
+
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 
@@ -347,7 +351,11 @@ func (s *Socket) StartHeartbeat(interval time.Duration) {
 				if s.State() != StateConnected {
 					return
 				}
-				s.SendProto(ctx, enums.EMsg_ClientHeartBeat, &pb.CMsgClientHeartBeat{})
+
+				if err := s.SendProto(ctx, enums.EMsg_ClientHeartBeat, &pb.CMsgClientHeartBeat{}); err != nil {
+					s.logger.Warn("Heartbeat failed", log.Err(err))
+				}
+
 			case <-ctx.Done():
 				s.logger.Debug("Heartbeat stopped due to connection closure")
 				return
@@ -394,18 +402,21 @@ func (s *Socket) Disconnect() {
 // Close permanently shuts down the Socket, its workers, and all associated resources.
 // After Close is called, the Socket instance should not be reused.
 func (s *Socket) Close() error {
+	var err error
 	s.closeOnce.Do(func() {
 		s.ClearHandlers()
 		s.Disconnect()
 		close(s.done)     // Signal workers to stop
 		s.workerWg.Wait() // Wait for graceful shutdown
-		s.jobManager.Close()
+		err = s.jobManager.Close()
 	})
-	return nil
+
+	return err
 }
 
 func (s *Socket) drainMsgChannel() {
 	s.logger.Debug("Draining message channel...")
+
 	for {
 		select {
 		case <-s.msgCh:
@@ -420,6 +431,7 @@ func (s *Socket) setState(new State) State {
 	if old != new {
 		s.bus.Publish(&StateEvent{Old: old, New: new})
 	}
+
 	return old
 }
 
@@ -432,6 +444,7 @@ func (s *Socket) recoverPanic(emsg enums.EMsg) {
 func (s *Socket) startWorkers(ctx context.Context) {
 	for range s.config.WorkerCount {
 		s.workerWg.Add(1)
+
 		go s.worker(ctx)
 	}
 }
@@ -440,13 +453,16 @@ func (s *Socket) startWorkers(ctx context.Context) {
 // consuming packets from the message channel and passing them to the router.
 func (s *Socket) worker(ctx context.Context) {
 	defer s.workerWg.Done()
+
 	for {
 		select {
 		case pkt, ok := <-s.msgCh:
 			if !ok {
 				return
 			} // msgCh closed during socket Close()
+
 			s.routePacket(pkt)
+
 		case <-ctx.Done():
 			s.logger.Debug("Worker stopped due to disconnect")
 			return
@@ -479,6 +495,7 @@ func (s *Socket) routePacket(packet *protocol.Packet) {
 			if steamID := ah.GetSteamID(); steamID != 0 {
 				sess.SetSteamID(steamID)
 			}
+
 			if sessionID := ah.GetSessionID(); sessionID != 0 {
 				sess.SetSessionID(sessionID)
 			}
@@ -500,6 +517,7 @@ func (s *Socket) routePacket(packet *protocol.Packet) {
 		l.Debug("Packet routed to handler")
 		func() {
 			defer s.recoverPanic(packet.EMsg)
+
 			handler(packet)
 		}()
 	} else {
@@ -525,6 +543,7 @@ func (s *Socket) getContext() context.Context {
 	if ptr == nil {
 		return context.Background()
 	}
+
 	return ptr.(context.Context)
 }
 
@@ -533,6 +552,7 @@ func (s *Socket) setSession(sess Session) {
 		s.session.Store(nil)
 		return
 	}
+
 	s.session.Store(&sessionContainer{sess: sess})
 }
 

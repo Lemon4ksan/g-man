@@ -13,7 +13,9 @@ import (
 	"strings"
 )
 
-var rxPriceKey = regexp.MustCompile(`^(\d+);([0-9]|[1][0-5])(;((uncraftable)|(untrad(e)?able)|(australium)|(festive)|(strange)|((u|pk|td-|c|od-|oq-|p)\d+)|(w[1-5])|(kt-[1-3])|(n((100)|[1-9]\d?))))*?$|^\d+$`)
+var rxPriceKey = regexp.MustCompile(
+	`^(\d+);([0-9]|[1][0-5])(;((uncraftable)|(untrad(e)?able)|(australium)|(festive)|(strange)|((u|pk|td-|c|od-|oq-|p)\d+)|(w[1-5])|(kt-[1-3])|(n((100)|[1-9]\d?))))*?$|^\d+$`,
+)
 
 // IsValid tests if a string matches the standard TF2 SKU format.
 func IsValid(sku string) bool {
@@ -62,6 +64,7 @@ func FromString(sku string) (*Item, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid defindex: %s", parts[0])
 	}
+
 	item.Defindex = defindex
 
 	// quality
@@ -69,6 +72,7 @@ func FromString(sku string) (*Item, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid quality: %s", parts[1])
 	}
+
 	item.Quality = quality
 
 	// process remaining attributes
@@ -141,45 +145,59 @@ func FromObject(item *Item) (string, error) {
 	if item.Effect != 0 {
 		sku += fmt.Sprintf(";u%d", item.Effect)
 	}
+
 	if item.Australium {
 		sku += ";australium"
 	}
+
 	if !item.Craftable {
 		sku += ";uncraftable"
 	}
+
 	if !item.Tradable {
 		sku += ";untradable"
 	}
+
 	if item.Wear != 0 {
 		sku += fmt.Sprintf(";w%d", item.Wear)
 	}
+
 	if item.Paintkit != 0 {
 		sku += fmt.Sprintf(";pk%d", item.Paintkit)
 	}
+
 	if item.Quality2 == 11 {
 		sku += ";strange"
 	}
+
 	if item.Killstreak != 0 {
 		sku += fmt.Sprintf(";kt-%d", item.Killstreak)
 	}
+
 	if item.Target != 0 {
 		sku += fmt.Sprintf(";td-%d", item.Target)
 	}
+
 	if item.Festivized {
 		sku += ";festive"
 	}
+
 	if item.Craftnumber != 0 {
 		sku += fmt.Sprintf(";n%d", item.Craftnumber)
 	}
+
 	if item.Crateseries != 0 {
 		sku += fmt.Sprintf(";c%d", item.Crateseries)
 	}
+
 	if item.Output != 0 {
 		sku += fmt.Sprintf(";od-%d", item.Output)
 	}
+
 	if item.OutputQuality != 0 {
 		sku += fmt.Sprintf(";oq-%d", item.OutputQuality)
 	}
+
 	if item.Paint != 0 {
 		sku += fmt.Sprintf(";p%d", item.Paint)
 	}

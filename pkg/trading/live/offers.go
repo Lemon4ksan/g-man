@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"sync"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/lemon4ksan/g-man/pkg/log"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam"
@@ -31,7 +33,6 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
-	"google.golang.org/protobuf/proto"
 )
 
 const ModuleName string = "offers"
@@ -88,6 +89,7 @@ func (m *Manager) Close() error {
 	for _, unreg := range m.unregFuncs {
 		unreg()
 	}
+
 	m.unregFuncs = nil
 	m.mu.Unlock()
 
@@ -106,6 +108,7 @@ func (m *Manager) Invite(ctx context.Context, otherSteamID uint64) error {
 	if err != nil {
 		return fmt.Errorf("offers: failed to send invitation: %w", err)
 	}
+
 	return nil
 }
 
@@ -118,6 +121,7 @@ func (m *Manager) CancelInvitation(ctx context.Context, otherSteamID uint64) err
 	m.Logger.Debug("Canceling trade invitation", log.Uint64("target_steam_id", otherSteamID))
 
 	_, err := service.Legacy[service.NoResponse](ctx, m.client, enums.EMsg_EconTrading_CancelTradeRequest, req)
+
 	return err
 }
 
@@ -139,6 +143,7 @@ func (m *Manager) RespondToInvite(ctx context.Context, tradeID uint32, accept bo
 	)
 
 	_, err := service.Legacy[service.NoResponse](ctx, m.client, enums.EMsg_EconTrading_InitiateTradeResponse, req)
+
 	return err
 }
 
@@ -156,7 +161,7 @@ func (m *Manager) handleTradeRequest(p *protocol.Packet) {
 		OtherSteamID: otherID,
 		TradeID:      tradeID,
 		Respond: func(accept bool) {
-			m.RespondToInvite(m.Ctx, tradeID, accept)
+			_ = m.RespondToInvite(m.Ctx, tradeID, accept)
 		},
 	})
 }

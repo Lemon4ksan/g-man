@@ -13,12 +13,13 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/lemon4ksan/g-man/pkg/bus"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
-	"google.golang.org/protobuf/proto"
 )
 
 type mockSession struct {
@@ -79,20 +80,33 @@ func (m *mockSocketProvider) Connect(ctx context.Context, server socket.CMServer
 	return m.connectErr
 }
 
-func (m *mockSocketProvider) SendProto(ctx context.Context, eMsg enums.EMsg, req proto.Message, opts ...socket.SendOption) error {
+func (m *mockSocketProvider) SendProto(
+	ctx context.Context,
+	eMsg enums.EMsg,
+	req proto.Message,
+	opts ...socket.SendOption,
+) error {
 	m.mu.Lock()
 	m.sentProtos[eMsg] = req
 	m.mu.Unlock()
+
 	if m.onSendProto != nil {
 		m.onSendProto(eMsg, req)
 	}
+
 	return nil
 }
 
-func (m *mockSocketProvider) SendRaw(ctx context.Context, eMsg enums.EMsg, payload []byte, opts ...socket.SendOption) error {
+func (m *mockSocketProvider) SendRaw(
+	ctx context.Context,
+	eMsg enums.EMsg,
+	payload []byte,
+	opts ...socket.SendOption,
+) error {
 	m.mu.Lock()
 	m.sentRaws[eMsg] = payload
 	m.mu.Unlock()
+
 	return nil
 }
 
@@ -109,6 +123,7 @@ func (m *mockSocketProvider) simulatePacket(eMsg enums.EMsg, payload []byte) {
 	m.mu.Lock()
 	handler := m.handlers[eMsg]
 	m.mu.Unlock()
+
 	if handler != nil {
 		handler(&protocol.Packet{EMsg: eMsg, Payload: payload})
 	}
@@ -121,16 +136,35 @@ type mockWebAuth struct {
 	err       error
 }
 
-func (m *mockWebAuth) BeginAuthSessionViaCredentials(ctx context.Context, user, pass, _ string) (*pb.CAuthentication_BeginAuthSessionViaCredentials_Response, error) {
+func (m *mockWebAuth) BeginAuthSessionViaCredentials(
+	ctx context.Context,
+	user, pass, _ string,
+) (*pb.CAuthentication_BeginAuthSessionViaCredentials_Response, error) {
 	return m.beginResp, m.err
 }
-func (m *mockWebAuth) PollAuthSessionStatus(ctx context.Context, id uint64, reqID []byte) (*pb.CAuthentication_PollAuthSessionStatus_Response, error) {
+
+func (m *mockWebAuth) PollAuthSessionStatus(
+	ctx context.Context,
+	id uint64,
+	reqID []byte,
+) (*pb.CAuthentication_PollAuthSessionStatus_Response, error) {
 	return m.pollResp, m.err
 }
-func (m *mockWebAuth) UpdateAuthSessionWithSteamGuardCode(ctx context.Context, cID, sID uint64, code string, t pb.EAuthSessionGuardType) error {
+
+func (m *mockWebAuth) UpdateAuthSessionWithSteamGuardCode(
+	ctx context.Context,
+	cID, sID uint64,
+	code string,
+	t pb.EAuthSessionGuardType,
+) error {
 	return m.err
 }
-func (m *mockWebAuth) GenerateAccessTokenForApp(ctx context.Context, refreshToken string, steamID uint64) (*pb.CAuthentication_AccessToken_GenerateForApp_Response, error) {
+
+func (m *mockWebAuth) GenerateAccessTokenForApp(
+	ctx context.Context,
+	refreshToken string,
+	steamID uint64,
+) (*pb.CAuthentication_AccessToken_GenerateForApp_Response, error) {
 	return m.genResp, m.err
 }
 
@@ -150,8 +184,8 @@ func TestAuthenticator_CryptoHandshake(t *testing.T) {
 	t.Run("Receive ChannelEncryptRequest", func(t *testing.T) {
 		nonce := make([]byte, 16)
 		buf := new(bytes.Buffer)
-		binary.Write(buf, binary.LittleEndian, uint32(ProtocolVersion))
-		binary.Write(buf, binary.LittleEndian, uint32(enums.EUniverse_Public))
+		_ = binary.Write(buf, binary.LittleEndian, uint32(ProtocolVersion))
+		_ = binary.Write(buf, binary.LittleEndian, uint32(enums.EUniverse_Public))
 		buf.Write(nonce)
 
 		s.simulatePacket(enums.EMsg_ChannelEncryptRequest, buf.Bytes())
@@ -169,6 +203,7 @@ func TestAuthenticator_CryptoHandshake(t *testing.T) {
 		}
 
 		keyLen := binary.LittleEndian.Uint32(resp[4:8])
+
 		checksum := binary.LittleEndian.Uint32(resp[8+keyLen : 12+keyLen])
 		if checksum != crc32.ChecksumIEEE(resp[8:8+keyLen]) {
 			t.Error("invalid checksum in encrypt response")
@@ -184,6 +219,7 @@ func TestAuthenticator_CryptoHandshake(t *testing.T) {
 		if !s.sess.IsEncrypted() {
 			t.Error("session key should be applied to socket")
 		}
+
 		if a.tempKey.Load() != nil {
 			t.Error("tempKey should be cleared after activation")
 		}
@@ -229,6 +265,7 @@ func TestAuthenticator_LogOn_WebSocketFlow(t *testing.T) {
 	s.mu.Lock()
 	hb := s.hbStarted
 	s.mu.Unlock()
+
 	if !hb {
 		t.Error("heartbeat should be started after successful logon")
 	}
@@ -250,11 +287,12 @@ func TestAuthenticator_LogOn_Failure(t *testing.T) {
 	}
 
 	details := &LogOnDetails{RefreshToken: "bad_token"}
-	err := a.LogOn(context.Background(), details, socket.CMServer{Type: "websockets"})
 
+	err := a.LogOn(context.Background(), details, socket.CMServer{Type: "websockets"})
 	if err == nil {
 		t.Fatal("expected error for invalid password, got nil")
 	}
+
 	if a.State() != StateFailed {
 		t.Errorf("expected state Failed, got %s", a.State())
 	}
@@ -266,6 +304,7 @@ func TestAuthenticator_LogOff_Detection(t *testing.T) {
 	a := NewAuthenticator(s, w, DefaultConfig())
 
 	a.state.Store(int32(StateLoggedOn))
+
 	sub := s.Bus().Subscribe(&LoggedOffEvent{})
 
 	resp := &pb.CMsgClientLoggedOff{

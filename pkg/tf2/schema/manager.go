@@ -7,6 +7,7 @@ package schema
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"runtime/debug"
 	"strings"
@@ -14,15 +15,15 @@ import (
 	"time"
 
 	"github.com/andygrunwald/vdf"
+	"github.com/mitchellh/mapstructure"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/rest"
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/api"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
-	"github.com/mitchellh/mapstructure"
-
-	"golang.org/x/sync/errgroup"
 )
 
 const ModuleName string = "tf2_schema"
@@ -72,6 +73,7 @@ func (m *Manager) Init(init module.InitContext) error {
 
 	m.svcClient = init.Service()
 	m.restClient = init.Rest()
+
 	return nil
 }
 
@@ -97,6 +99,7 @@ func (m *Manager) StartAuthed(ctx context.Context, _ module.AuthContext) error {
 func (m *Manager) Get() *Schema {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
 	return m.schema
 }
 
@@ -114,19 +117,25 @@ func (m *Manager) Refresh(ctx context.Context) error {
 		return err
 	}
 
-	var paintkits map[string]string
-	var itemsGame map[string]any
+	var (
+		paintkits map[string]string
+		itemsGame map[string]any
+	)
 
 	g, gCtx := errgroup.WithContext(ctx)
 
 	g.Go(func() error {
 		var err error
+
 		paintkits, err = m.getPaintKits(gCtx)
+
 		return err
 	})
 	g.Go(func() error {
 		var err error
+
 		itemsGame, err = m.getItemsGame(gCtx)
+
 		return err
 	})
 
@@ -165,7 +174,12 @@ func (m *Manager) refreshLoop(ctx context.Context) {
 	}
 }
 
-func (m *Manager) buildSchema(overview map[string]any, items []any, paintKits map[string]string, itemsGame map[string]any) error {
+func (m *Manager) buildSchema(
+	overview map[string]any,
+	items []any,
+	paintKits map[string]string,
+	itemsGame map[string]any,
+) error {
 	raw := &RawSchema{
 		ItemsGame: itemsGame,
 	}
@@ -181,10 +195,13 @@ func (m *Manager) buildSchema(overview map[string]any, items []any, paintKits ma
 		if s == "" {
 			return ""
 		}
+
 		if val, ok := strPool[s]; ok {
 			return val
 		}
+
 		strPool[s] = s
+
 		return s
 	}
 
@@ -253,12 +270,12 @@ func (m *Manager) getSchemaOverview(ctx context.Context) (map[string]any, error)
 	}{"en"}
 
 	resp, err := service.WebAPI[map[string]any](ctx, m.svcClient, "GET", "IEconItems_440", "GetSchemaOverview", 1, req)
-
 	if err != nil {
 		if m.isForbiddenError(err) {
 			m.Logger.Warn("WebAPI returned 403. Attempting to fetch Overview from community mirror...")
 			return m.fetchFromMirror(ctx, "overview")
 		}
+
 		return nil, fmt.Errorf("overview fetch failed: %w", err)
 	}
 
@@ -267,6 +284,7 @@ func (m *Manager) getSchemaOverview(ctx context.Context) (map[string]any, error)
 
 func (m *Manager) getSchemaItems(ctx context.Context) ([]any, error) {
 	var allItems []any
+
 	next := 0
 
 	for {
@@ -279,14 +297,24 @@ func (m *Manager) getSchemaItems(ctx context.Context) ([]any, error) {
 			}{"en", next}
 
 			var err error
-			resp, err = service.WebAPI[map[string]any](ctx, m.svcClient, "GET", "IEconItems_440", "GetSchemaItems", 1, req)
+
+			resp, err = service.WebAPI[map[string]any](
+				ctx,
+				m.svcClient,
+				"GET",
+				"IEconItems_440",
+				"GetSchemaItems",
+				1,
+				req,
+			)
+
 			return err
 		})
-
 		if err != nil {
 			if m.isForbiddenError(err) {
 				return m.fetchItemsFromMirror(ctx)
 			}
+
 			return nil, err
 		}
 
@@ -304,6 +332,7 @@ func (m *Manager) getSchemaItems(ctx context.Context) ([]any, error) {
 		if !hasNext || nextVal <= 0 {
 			break
 		}
+
 		next = int(nextVal)
 	}
 
@@ -324,6 +353,7 @@ func (m *Manager) getPaintKits(ctx context.Context) (map[string]string, error) {
 	}
 
 	parser := vdf.NewParser(resp.Body)
+
 	parsed, err := parser.Parse()
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse VDF: %w", err)
@@ -331,12 +361,12 @@ func (m *Manager) getPaintKits(ctx context.Context) (map[string]string, error) {
 
 	lang, ok := parsed["lang"].(map[string]any)
 	if !ok {
-		return nil, fmt.Errorf("invalid VDF structure: missing 'lang'")
+		return nil, errors.New("invalid VDF structure: missing 'lang'")
 	}
 
 	tokens, ok := lang["Tokens"].(map[string]any)
 	if !ok {
-		return nil, fmt.Errorf("invalid VDF structure: missing 'Tokens'")
+		return nil, errors.New("invalid VDF structure: missing 'Tokens'")
 	}
 
 	paintKits := make(map[string]string)
@@ -347,18 +377,23 @@ func (m *Manager) getPaintKits(ctx context.Context) (map[string]string, error) {
 		if len(parts) != 2 {
 			continue
 		}
+
 		subparts := strings.Split(parts[0], "_")
 		if len(subparts) != 3 || subparts[0] != "9" {
 			continue
 		}
+
 		def := subparts[1]
+
 		name, ok := val.(string)
 		if !ok {
 			continue
 		}
+
 		if strings.HasPrefix(name, def+":") {
 			continue
 		}
+
 		if !seen[name] {
 			paintKits[def] = name
 			seen[name] = true
@@ -382,6 +417,7 @@ func (m *Manager) getItemsGame(ctx context.Context) (map[string]any, error) {
 	}
 
 	parser := vdf.NewParser(resp.Body)
+
 	parsed, err := parser.Parse()
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse VDF: %w", err)
@@ -389,24 +425,29 @@ func (m *Manager) getItemsGame(ctx context.Context) (map[string]any, error) {
 
 	itemsGame, ok := parsed["items_game"].(map[string]any)
 	if !ok {
-		return nil, fmt.Errorf("missing 'items_game' in VDF")
+		return nil, errors.New("missing 'items_game' in VDF")
 	}
 
 	return itemsGame, nil
 }
 
 func (m *Manager) isForbiddenError(err error) bool {
-	if apiErr, ok := err.(api.SteamAPIError); ok && apiErr.StatusCode == 403 {
+	var apiErr api.SteamAPIError
+	if errors.As(err, &apiErr) {
 		return true
 	}
-	if restErr, ok := err.(*rest.APIError); ok && restErr.StatusCode == 403 {
+
+	restErr := &rest.APIError{}
+	if errors.As(err, &restErr) {
 		return true
 	}
+
 	return strings.Contains(err.Error(), "403")
 }
 
 func (m *Manager) fetchFromMirror(ctx context.Context, component string) (map[string]any, error) {
 	var url string
+
 	switch component {
 	case "overview":
 		url = "https://raw.githubusercontent.com/G-man-bot/tf2-static-schema/master/overview.json"
@@ -418,6 +459,7 @@ func (m *Manager) fetchFromMirror(ctx context.Context, component string) (map[st
 	if err != nil {
 		return nil, fmt.Errorf("mirror fetch failed: %w", err)
 	}
+
 	return *res, nil
 }
 
@@ -428,14 +470,17 @@ func (m *Manager) fetchItemsFromMirror(ctx context.Context) ([]any, error) {
 	if err != nil {
 		return nil, fmt.Errorf("mirror items fetch failed: %w", err)
 	}
+
 	return *res, nil
 }
 
 func (m *Manager) withRetry(ctx context.Context, operation func() error) error {
 	const maxRetries = 3
+
 	backoff := 2 * time.Second
 
 	var lastErr error
+
 	for i := 0; i < maxRetries; i++ {
 		err := operation()
 		if err == nil {
@@ -460,6 +505,7 @@ func (m *Manager) withRetry(ctx context.Context, operation func() error) error {
 			return ctx.Err()
 		}
 	}
+
 	return fmt.Errorf("after %d attempts: %w", maxRetries, lastErr)
 }
 
@@ -467,11 +513,14 @@ func (m *Manager) isRetryable(err error) bool {
 	if strings.Contains(err.Error(), "invalid character '<'") {
 		return true
 	}
+
 	if strings.Contains(err.Error(), "429") {
 		return true
 	}
+
 	if strings.Contains(err.Error(), "timeout") || strings.Contains(err.Error(), "connection refused") {
 		return true
 	}
+
 	return false
 }

@@ -13,9 +13,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/tf2/currency"
 )
 
-var (
-	ErrNotEnoughChange = errors.New("tf2econ: not enough pure metal to make exact change")
-)
+var ErrNotEnoughChange = errors.New("tf2econ: not enough pure metal to make exact change")
 
 type AssetFetcher interface {
 	GetAssetIDs(sku string) []uint64
@@ -69,6 +67,7 @@ func (m *MetalManager) SelectChange(amount currency.Scrap) ([]uint64, error) {
 	availableScrap := m.fetcher.GetAssetIDs(currency.SKUScrap)
 
 	var selected []uint64
+
 	needed := amount
 
 	for needed >= 9 && len(availableRef) > 0 {
@@ -104,6 +103,7 @@ func (m *MetalManager) SelectKeysAndMetal(keys int, metal currency.Scrap) ([]uin
 		if len(availableKeys) < keys {
 			return nil, errors.New("tf2econ: not enough keys in inventory")
 		}
+
 		selected = append(selected, availableKeys[:keys]...)
 	}
 
@@ -112,6 +112,7 @@ func (m *MetalManager) SelectKeysAndMetal(keys int, metal currency.Scrap) ([]uin
 		if err != nil {
 			return nil, err
 		}
+
 		selected = append(selected, metalIDs...)
 	}
 
@@ -127,6 +128,7 @@ func (m *MetalManager) SelectFinalInventory(ctx context.Context, keys int, metal
 		if len(availableKeys) < keys {
 			return nil, fmt.Errorf("not enough keys: need %d, have %d", keys, len(availableKeys))
 		}
+
 		total = append(total, availableKeys[:keys]...)
 	}
 
@@ -135,6 +137,7 @@ func (m *MetalManager) SelectFinalInventory(ctx context.Context, keys int, metal
 		if err != nil {
 			return nil, err
 		}
+
 		total = append(total, metalIDs...)
 	}
 

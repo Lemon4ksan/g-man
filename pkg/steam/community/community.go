@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/rest"
 	"github.com/lemon4ksan/g-man/pkg/steam/api"
@@ -38,18 +39,21 @@ type Requester interface {
 	SessionID(baseURL string) string
 }
 
+// BaseURL is the base url for community requests.
 const BaseURL = "https://steamcommunity.com/"
 
 var (
-	rxFamilyView = regexp.MustCompile(`<div id="parental_notice_instructions">Enter your PIN below to exit Family View\.<\/div>`)
+	rxFamilyView = regexp.MustCompile(
+		`<div id="parental_notice_instructions">Enter your PIN below to exit Family View\.<\/div>`,
+	)
 	rxSorry      = regexp.MustCompile(`<h1>Sorry!<\/h1>[\s\S]*?<h3>(.+?)<\/h3>`)
 	rxTradeError = regexp.MustCompile(`<div id="error_msg">\s*([^<]+)\s*<\/div>`)
 	rxApiKey     = regexp.MustCompile(`Key: (?i)[0-9A-F]{32}`)
 )
 
-var (
-	// ErrAPITokenNotFound is returned when automatic key registration fails.
-	ErrAPITokenNotFound = errors.New("community: could not find api key or registration form (account might be limited)")
+// ErrAPITokenNotFound is returned when automatic key registration fails.
+var ErrAPITokenNotFound = errors.New(
+	"community: could not find api key or registration form (account might be limited)",
 )
 
 // Client handles communication with Steam Community, backed by a generic REST client.
@@ -79,12 +83,19 @@ func (c *Client) SessionID(targetURI string) string {
 	if c.sessionFunc == nil {
 		return ""
 	}
+
 	return c.sessionFunc(targetURI)
 }
 
 // Request implements rest.Requester. It executes the HTTP request and deeply
 // inspects the response for Steam-specific soft errors (like HTML redirects).
-func (c *Client) Request(ctx context.Context, method, path string, body []byte, query any, mods ...rest.RequestModifier) (*http.Response, error) {
+func (c *Client) Request(
+	ctx context.Context,
+	method, path string,
+	body []byte,
+	query any,
+	mods ...rest.RequestModifier,
+) (*http.Response, error) {
 	c.logger.Debug("Community Request", log.String("method", method), log.String("path", path))
 
 	resp, err := c.restClient.Request(ctx, method, path, body, query, mods...)
@@ -95,6 +106,7 @@ func (c *Client) Request(ctx context.Context, method, path string, body []byte, 
 	// We must read the body to check for HTML errors like "Sorry!" or Family View.
 	rawBody, err := io.ReadAll(resp.Body)
 	_ = resp.Body.Close()
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to read community response: %w", err)
 	}
@@ -149,9 +161,16 @@ func (c *Client) registerAPIKey(ctx context.Context, domain string) (string, err
 		"sessionid":    {c.SessionID(BaseURL)},
 	}
 
-	resp, err := c.restClient.Request(ctx, "POST", "dev/registerkey", []byte(formData.Encode()), nil, func(req *http.Request) {
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	})
+	resp, err := c.restClient.Request(
+		ctx,
+		"POST",
+		"dev/registerkey",
+		[]byte(formData.Encode()),
+		nil,
+		func(req *http.Request) {
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		},
+	)
 	if err != nil {
 		return "", fmt.Errorf("registration request failed: %w", err)
 	}
@@ -163,8 +182,10 @@ func (c *Client) registerAPIKey(ctx context.Context, domain string) (string, err
 // Get performs a GET request and unmarshals the resulting JSON into the Resp type.
 func Get[Resp any](ctx context.Context, c Requester, path string, reqMsg any, opts ...api.CallOption) (*Resp, error) {
 	var query url.Values
+
 	if reqMsg != nil {
 		var err error
+
 		query, err = rest.StructToValues(reqMsg)
 		if err != nil {
 			return nil, err
@@ -182,7 +203,10 @@ func Get[Resp any](ctx context.Context, c Requester, path string, reqMsg any, op
 // GetHTML performs a GET request specifically for raw HTML content.
 func GetHTML(ctx context.Context, c Requester, path string, opts ...api.CallOption) ([]byte, error) {
 	myOpts := append([]api.CallOption{
-		api.WithHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"),
+		api.WithHeader(
+			"Accept",
+			"text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+		),
 	}, opts...)
 
 	resp, _, err := perform(ctx, c, http.MethodGet, path, nil, nil, myOpts...)
@@ -196,10 +220,18 @@ func GetHTML(ctx context.Context, c Requester, path string, opts ...api.CallOpti
 
 // PostForm performs a POST request with application/x-www-form-urlencoded data.
 // It automatically injects the "sessionid" into the form parameters.
-func PostForm[Resp any](ctx context.Context, c Requester, path string, reqMsg any, opts ...api.CallOption) (*Resp, error) {
+func PostForm[Resp any](
+	ctx context.Context,
+	c Requester,
+	path string,
+	reqMsg any,
+	opts ...api.CallOption,
+) (*Resp, error) {
 	var params url.Values
+
 	if reqMsg != nil {
 		var err error
+
 		params, err = rest.StructToValues(reqMsg)
 		if err != nil {
 			return nil, err
@@ -224,10 +256,18 @@ func PostForm[Resp any](ctx context.Context, c Requester, path string, reqMsg an
 
 // PostJSON performs a POST request with a JSON body.
 // It automatically injects the "sessionid" into the URL query parameters.
-func PostJSON[Resp any](ctx context.Context, c Requester, path string, reqMsg any, opts ...api.CallOption) (*Resp, error) {
+func PostJSON[Resp any](
+	ctx context.Context,
+	c Requester,
+	path string,
+	reqMsg any,
+	opts ...api.CallOption,
+) (*Resp, error) {
 	var body []byte
+
 	if reqMsg != nil {
 		var err error
+
 		body, err = json.Marshal(reqMsg)
 		if err != nil {
 			return nil, err
@@ -247,7 +287,14 @@ func PostJSON[Resp any](ctx context.Context, c Requester, path string, reqMsg an
 	return execute[Resp](ctx, c, http.MethodPost, path, body, query, myOpts...)
 }
 
-func perform(ctx context.Context, c Requester, method, path string, body []byte, query url.Values, opts ...api.CallOption) (*http.Response, *api.CallConfig, error) {
+func perform(
+	ctx context.Context,
+	c Requester,
+	method, path string,
+	body []byte,
+	query url.Values,
+	opts ...api.CallOption,
+) (*http.Response, *api.CallConfig, error) {
 	trReq := api.NewHttpRequest(method, BaseURL+path, body)
 	if query != nil {
 		trReq.WithParams(query)
@@ -268,10 +315,18 @@ func perform(ctx context.Context, c Requester, method, path string, body []byte,
 	}
 
 	resp, err := c.Request(ctx, method, path, body, trReq.Params(), modifier)
+
 	return resp, cfg, err
 }
 
-func execute[Resp any](ctx context.Context, c Requester, method, path string, body []byte, query url.Values, opts ...api.CallOption) (*Resp, error) {
+func execute[Resp any](
+	ctx context.Context,
+	c Requester,
+	method, path string,
+	body []byte,
+	query url.Values,
+	opts ...api.CallOption,
+) (*Resp, error) {
 	resp, cfg, err := perform(ctx, c, method, path, body, query, opts...)
 	if err != nil {
 		return nil, err
@@ -297,6 +352,7 @@ func checkSteamErrors(statusCode int, header http.Header, body []byte) error {
 	if statusCode == 429 {
 		return ErrRateLimit
 	}
+
 	if statusCode >= 500 {
 		return fmt.Errorf("steam server error: %d", statusCode)
 	}
@@ -326,7 +382,8 @@ func checkSteamErrors(statusCode int, header http.Header, body []byte) error {
 		if matches := rxSorry.FindSubmatch(body); len(matches) > 1 {
 			return fmt.Errorf("steam community error: %s", bytes.TrimSpace(matches[1]))
 		}
-		return fmt.Errorf("unknown steam community error (Sorry page)")
+
+		return errors.New("unknown steam community error (Sorry page)")
 	}
 
 	// Embedded Trade Errors

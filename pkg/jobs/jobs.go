@@ -203,6 +203,7 @@ func (m *Manager[T]) Add(id uint64, cb Callback[T], opts ...Option[T]) error {
 	}
 
 	m.jobs[id] = e
+
 	return nil
 }
 
@@ -228,12 +229,14 @@ func (m *Manager[T]) Resolve(id uint64, response T, err error) bool {
 	if !e.keepAlive {
 		delete(m.jobs, id)
 	}
+
 	m.mu.Unlock()
 
 	// Clean up resources (timers and context watchers)
 	if e.timerStop != nil {
 		e.timerStop()
 	}
+
 	if e.ctxStop != nil {
 		e.ctxStop()
 	}
@@ -241,6 +244,7 @@ func (m *Manager[T]) Resolve(id uint64, response T, err error) bool {
 	// Unblock WaitFor calls
 	if e.waitCh != nil {
 		e.waitCh <- result[T]{val: response, err: err}
+
 		close(e.waitCh)
 	}
 
@@ -248,6 +252,7 @@ func (m *Manager[T]) Resolve(id uint64, response T, err error) bool {
 	if e.callback != nil {
 		go func() {
 			defer func() { _ = recover() }()
+
 			e.callback(response, err)
 		}()
 	}
@@ -303,7 +308,9 @@ func (m *Manager[T]) WaitFor(ctx context.Context, id uint64) (T, error) {
 		if !ok {
 			return *new(T), ErrJobClosed
 		}
+
 		return res.val, res.err
+
 	case <-ctx.Done():
 		return *new(T), ctx.Err()
 	}
@@ -328,12 +335,14 @@ func (m *Manager[T]) Close() error {
 		if e.timerStop != nil {
 			e.timerStop()
 		}
+
 		if e.ctxStop != nil {
 			e.ctxStop()
 		}
 
 		if e.waitCh != nil {
 			e.waitCh <- result[T]{err: ErrJobClosed}
+
 			close(e.waitCh)
 		}
 
@@ -349,5 +358,6 @@ func (m *Manager[T]) Close() error {
 func (m *Manager[T]) Count() int {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
 	return len(m.jobs)
 }

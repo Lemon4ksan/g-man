@@ -5,12 +5,13 @@
 package bptf
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/lemon4ksan/g-man/pkg/log"
+	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/storage/memory"
 	"github.com/lemon4ksan/g-man/pkg/tf2/pricedb"
+	"github.com/lemon4ksan/g-man/pkg/trading"
 	"github.com/lemon4ksan/g-man/pkg/trading/engine"
 )
 
@@ -19,23 +20,24 @@ func SafetyMiddleware(bptfClient *Client, cache *memory.TTLCache, logger log.Log
 	return func(next engine.Handler) engine.Handler {
 		return func(ctx *engine.TradeContext) error {
 			steamID := ctx.Offer.OtherSteamID
-			cacheKey := "bptf_user_" + fmt.Sprint(steamID)
+			cacheKey := "bptf_user_" + steamID.String()
 
 			var user V1User
 
 			if cachedData, ok := cache.Get(cacheKey); ok {
 				user = cachedData.(V1User)
 			} else {
-				resp, err := bptfClient.GetUsersInfo(ctx, []string{fmt.Sprint(steamID)})
+				resp, err := bptfClient.GetUsersInfo(ctx, []id.ID{steamID})
 				if err != nil {
 					logger.Warn("Reputation API error, skipping safety check", log.Err(err))
 					return next(ctx)
 				}
 
-				u, ok := resp.Users[fmt.Sprint(steamID)]
+				u, ok := resp.Users[steamID]
 				if !ok {
 					return next(ctx)
 				}
+
 				user = u
 				cache.Set(cacheKey, user, 2*time.Hour)
 			}
@@ -77,7 +79,9 @@ func BptfFallbackPricerMiddleware(manager *PriceManager) engine.Middleware {
 			existingPricesRaw, _ := ctx.Get("prices")
 			priceMap := existingPricesRaw.(map[string]*pricedb.Price)
 
-			allItems := append(ctx.Offer.ItemsToGive, ctx.Offer.ItemsToReceive...)
+			allItems := make([]*trading.Item, len(ctx.Offer.ItemsToGive)+len(ctx.Offer.ItemsToReceive))
+			copy(allItems, ctx.Offer.ItemsToGive)
+			copy(allItems[len(ctx.Offer.ItemsToGive):], ctx.Offer.ItemsToReceive)
 
 			for _, item := range allItems {
 				if _, ok := priceMap[item.SKU]; ok {

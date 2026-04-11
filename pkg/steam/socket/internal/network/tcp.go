@@ -29,8 +29,10 @@ const (
 )
 
 // Compile-time checks to ensure interface satisfaction.
-var _ Connection = (*TCP)(nil)
-var _ Encryptable = (*TCP)(nil)
+var (
+	_ Connection  = (*TCP)(nil)
+	_ Encryptable = (*TCP)(nil)
+)
 
 // TCP implements the Connection interface for Steam's custom TCP protocol.
 // It handles length-prefixed message framing and optional symmetric encryption.
@@ -46,10 +48,12 @@ type TCP struct {
 }
 
 // NewTCP establishes a TCP connection to the given endpoint and starts its read loop.
-func NewTCP(handler Handler, logger log.Logger, endpoint string) (*TCP, error) {
-	conn, err := net.DialTimeout("tcp", endpoint, 5*time.Second)
+func NewTCP(ctx context.Context, handler Handler, logger log.Logger, endpoint string) (*TCP, error) {
+	dialer := &net.Dialer{}
+
+	conn, err := dialer.DialContext(ctx, "tcp", endpoint)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("tcp: dial failed: %w", err)
 	}
 
 	t := &TCP{
@@ -60,9 +64,11 @@ func NewTCP(handler Handler, logger log.Logger, endpoint string) (*TCP, error) {
 	}
 
 	go t.readLoop()
+
 	return t, nil
 }
 
+// Name returns the "TCP" string.
 func (t *TCP) Name() string { return "TCP" }
 
 // SetEncryptionKey enables symmetric encryption for all subsequent messages.
@@ -88,6 +94,10 @@ func (t *TCP) Send(ctx context.Context, data []byte) error {
 		}
 	}
 
+	if len(data) > 10*1024*1024 {
+		return errors.New("tcp: data exceeds maximum packet size")
+	}
+
 	var header [8]byte
 	binary.LittleEndian.PutUint32(header[0:4], uint32(len(data)))
 	copy(header[4:8], Magic)
@@ -96,9 +106,13 @@ func (t *TCP) Send(ctx context.Context, data []byte) error {
 	defer t.writeMu.Unlock()
 
 	if deadline, ok := ctx.Deadline(); ok {
-		t.conn.SetWriteDeadline(deadline)
+		if err := t.conn.SetWriteDeadline(deadline); err != nil {
+			return err
+		}
 	} else {
-		t.conn.SetWriteDeadline(time.Now().Add(WriteTimeout))
+		if err := t.conn.SetWriteDeadline(time.Now().Add(WriteTimeout)); err != nil {
+			return err
+		}
 	}
 
 	// Use net.Buffers for a "gather write", which is more efficient than two separate writes.
@@ -115,27 +129,33 @@ func (t *TCP) Close() error {
 	if t.conn == nil {
 		return nil
 	}
+
 	return t.conn.Close()
 }
 
 // readLoop runs in a dedicated goroutine, continuously reading and decoding packets.
 func (t *TCP) readLoop() {
 	defer func() {
-		t.conn.Close()
+		_ = t.conn.Close()
 		t.handler.OnNetClose()
 	}()
 
 	reader := bufio.NewReaderSize(t.conn, 64*1024)
+
 	var header [8]byte
 
 	for {
-		t.conn.SetReadDeadline(time.Now().Add(ReadTimeout))
+		if err := t.conn.SetReadDeadline(time.Now().Add(ReadTimeout)); err != nil {
+			t.handler.OnNetError(err)
+			return
+		}
 
 		// Read the fixed-size header first.
 		if _, err := io.ReadFull(reader, header[:]); err != nil {
 			if !isIgnorableError(err) {
 				t.handler.OnNetError(err)
 			}
+
 			return
 		}
 
@@ -163,6 +183,7 @@ func (t *TCP) readLoop() {
 
 		if key != nil {
 			var err error
+
 			payload, err = crypto.SymmetricDecrypt(payload, key, true)
 			if err != nil {
 				t.handler.OnNetError(fmt.Errorf("tcp: decrypt failed: %w", err))

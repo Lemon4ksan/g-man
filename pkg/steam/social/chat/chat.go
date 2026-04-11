@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/lemon4ksan/g-man/pkg/log"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam"
@@ -17,7 +19,6 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
-	"google.golang.org/protobuf/proto"
 )
 
 const ModuleName string = "chat"
@@ -75,6 +76,7 @@ func (m *Manager) StartAuthed(ctx context.Context, auth module.AuthContext) erro
 	m.mu.Lock()
 	m.steamID = auth.SteamID()
 	m.mu.Unlock()
+
 	return nil
 }
 
@@ -84,6 +86,7 @@ func (m *Manager) Close() error {
 	for _, unreg := range m.unregFuncs {
 		unreg()
 	}
+
 	m.unregFuncs = nil
 	m.mu.Unlock()
 
@@ -99,6 +102,7 @@ func (m *Manager) SendMessage(ctx context.Context, steamID uint64, text string) 
 		ContainsBbcode: proto.Bool(true),
 	}
 	_, err := service.Unified[service.NoResponse](ctx, m.service, req)
+
 	return err
 }
 
@@ -109,6 +113,7 @@ func (m *Manager) SendTyping(ctx context.Context, steamID uint64) error {
 		ChatEntryType: proto.Int32(ChatEntryTypeTyping),
 	}
 	_, err := service.Unified[service.NoResponse](ctx, m.service, req)
+
 	return err
 }
 
@@ -119,6 +124,7 @@ func (m *Manager) AckFriendMessage(ctx context.Context, steamID uint64, timestam
 		Timestamp:      proto.Uint32(timestamp),
 	}
 	_, err := service.Unified[service.NoResponse](ctx, m.service, req)
+
 	return err
 }
 
@@ -130,11 +136,16 @@ func (m *Manager) SendGroupMessage(ctx context.Context, groupID, chatID uint64, 
 		Message:     proto.String(text),
 	}
 	_, err := service.Unified[service.NoResponse](ctx, m.service, req)
+
 	return err
 }
 
 // GetRecentMessages retrieves the chat history with a specific friend.
-func (m *Manager) GetRecentMessages(ctx context.Context, steamID uint64, count uint32) ([]*pb.CFriendMessages_GetRecentMessages_Response_FriendMessage, error) {
+func (m *Manager) GetRecentMessages(
+	ctx context.Context,
+	steamID uint64,
+	count uint32,
+) ([]*pb.CFriendMessages_GetRecentMessages_Response_FriendMessage, error) {
 	m.mu.Lock()
 	myID := m.steamID
 	m.mu.Unlock()
@@ -145,21 +156,28 @@ func (m *Manager) GetRecentMessages(ctx context.Context, steamID uint64, count u
 		Count:        proto.Uint32(count),
 		BbcodeFormat: proto.Bool(true),
 	}
+
 	resp, err := service.Unified[pb.CFriendMessages_GetRecentMessages_Response](ctx, m.service, req)
 	if err != nil {
 		return nil, err
 	}
+
 	return resp.GetMessages(), nil
 }
 
 // DeleteGroupMessages removes specific messages from a group chat (requires appropriate permissions).
-func (m *Manager) DeleteGroupMessages(ctx context.Context, groupID, chatID uint64, messages []*pb.CChatRoom_DeleteChatMessages_Request_Message) error {
+func (m *Manager) DeleteGroupMessages(
+	ctx context.Context,
+	groupID, chatID uint64,
+	messages []*pb.CChatRoom_DeleteChatMessages_Request_Message,
+) error {
 	req := &pb.CChatRoom_DeleteChatMessages_Request{
 		ChatGroupId: proto.Uint64(groupID),
 		ChatId:      proto.Uint64(chatID),
 		Messages:    messages,
 	}
 	_, err := service.Unified[pb.CChatRoom_DeleteChatMessages_Response](ctx, m.service, req)
+
 	return err
 }
 

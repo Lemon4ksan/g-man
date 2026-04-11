@@ -76,12 +76,14 @@ func (p *Processor) Enqueue(offer *trading.TradeOffer) {
 
 func (p *Processor) handleOffer(ctx context.Context, offer *trading.TradeOffer) {
 	start := time.Now()
+
 	p.logger.Info("Processing offer", log.Uint64("id", offer.ID))
 
 	if p.isAnyItemBusy(offer) {
 		p.logger.Warn("Offer skipped: items are busy in another trade", log.Uint64("id", offer.ID))
 		return
 	}
+
 	p.lockItems(offer)
 	defer p.unlockItems(offer)
 
@@ -94,30 +96,39 @@ func (p *Processor) handleOffer(ctx context.Context, offer *trading.TradeOffer) 
 	p.executeVerdict(ctx, offer, verdict, time.Since(start))
 }
 
-func (p *Processor) executeVerdict(ctx context.Context, offer *trading.TradeOffer, v *engine.Verdict, duration time.Duration) {
+func (p *Processor) executeVerdict(
+	ctx context.Context,
+	offer *trading.TradeOffer,
+	v *engine.Verdict,
+	duration time.Duration,
+) {
 	switch v.Action {
 	case engine.ActionAccept:
 		if err := p.executor.AcceptOffer(ctx, offer.ID); err == nil {
-			p.notif.SendNotification(ctx, p.makeNotifInfo(offer, notifications.StateAccepted, v))
+			_ = p.notif.SendNotification(ctx, p.makeNotifInfo(offer, notifications.StateAccepted, v))
 		}
 
 	case engine.ActionDecline:
 		if err := p.executor.DeclineOffer(ctx, offer.ID); err == nil {
-			p.notif.SendNotification(ctx, p.makeNotifInfo(offer, notifications.StateDeclined, v))
-			p.reviewer.SendDeclinedAlert(ctx, offer.ID, offer.OtherSteamID, p.makeReviewMeta(v, duration), nil)
+			_ = p.notif.SendNotification(ctx, p.makeNotifInfo(offer, notifications.StateDeclined, v))
+			_ = p.reviewer.SendDeclinedAlert(ctx, offer.ID, offer.OtherSteamID, p.makeReviewMeta(v, duration), nil)
 		}
 
 	case engine.ActionReview:
 		p.logger.Info("Offer sent to manual review", log.Uint64("id", offer.ID))
-		p.notif.SendNotification(ctx, p.makeNotifInfo(offer, notifications.StateActive, v))
-		p.reviewer.SendReviewAlert(ctx, offer.ID, offer.OtherSteamID, p.makeReviewMeta(v, duration))
+		_ = p.notif.SendNotification(ctx, p.makeNotifInfo(offer, notifications.StateActive, v))
+		_ = p.reviewer.SendReviewAlert(ctx, offer.ID, offer.OtherSteamID, p.makeReviewMeta(v, duration))
 
 	case engine.ActionIgnore:
 		p.logger.Debug("Offer ignored by engine", log.Uint64("id", offer.ID))
 	}
 }
 
-func (p *Processor) makeNotifInfo(offer *trading.TradeOffer, state notifications.TradeState, v *engine.Verdict) *notifications.TradeInfo {
+func (p *Processor) makeNotifInfo(
+	offer *trading.TradeOffer,
+	state notifications.TradeState,
+	v *engine.Verdict,
+) *notifications.TradeInfo {
 	return &notifications.TradeInfo{
 		OfferID:        offer.ID,
 		PartnerSteamID: offer.OtherSteamID,
@@ -136,17 +147,20 @@ func (p *Processor) makeReviewMeta(v *engine.Verdict, d time.Duration) *review.T
 func (p *Processor) isAnyItemBusy(offer *trading.TradeOffer) bool {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
+
 	for _, item := range append(offer.ItemsToGive, offer.ItemsToReceive...) {
 		if _, busy := p.busyItems[item.AssetID]; busy {
 			return true
 		}
 	}
+
 	return false
 }
 
 func (p *Processor) lockItems(offer *trading.TradeOffer) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
 	for _, item := range append(offer.ItemsToGive, offer.ItemsToReceive...) {
 		p.busyItems[item.AssetID] = offer.ID
 	}
@@ -155,6 +169,7 @@ func (p *Processor) lockItems(offer *trading.TradeOffer) {
 func (p *Processor) unlockItems(offer *trading.TradeOffer) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
 	for _, item := range append(offer.ItemsToGive, offer.ItemsToReceive...) {
 		delete(p.busyItems, item.AssetID)
 	}

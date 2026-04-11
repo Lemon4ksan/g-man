@@ -20,7 +20,9 @@ var (
 	rxMyEscrow    = regexp.MustCompile(`(?i)g_DaysMyEscrow\s*=\s*(\d+);`)
 
 	ErrCommunityNotReady = errors.New("trading: community client is not ready (bot not logged in)")
-	ErrEscrowNotFound    = errors.New("trading: escrow data not found on the page (Steam might be down or offer is invalid)")
+	ErrEscrowNotFound    = errors.New(
+		"trading: escrow data not found on the page (Steam might be down or offer is invalid)",
+	)
 )
 
 // EscrowDetails contains information about the trade delay (in days).
@@ -44,7 +46,13 @@ func (m *Manager) GetEscrowDuration(ctx context.Context, offerID uint64) (Escrow
 		return EscrowDetails{}, ErrCommunityNotReady
 	}
 
-	resp, err := community.Get[[]byte](ctx, c, fmt.Sprintf("tradeoffer/%d/", offerID), nil, api.WithFormat(api.FormatRaw))
+	resp, err := community.Get[[]byte](
+		ctx,
+		c,
+		fmt.Sprintf("tradeoffer/%d/", offerID),
+		nil,
+		api.WithFormat(api.FormatRaw),
+	)
 	if err != nil {
 		return EscrowDetails{}, fmt.Errorf("failed to fetch offer page: %w", err)
 	}

@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/test/module"
 )
@@ -32,23 +31,47 @@ func newMockConfService() *mockConfService {
 	}
 }
 
-func (m *mockConfService) GetConfirmations(ctx context.Context, deviceID string, steamID id.ID, confKey string, timestamp int64) (*ConfirmationsList, error) {
+func (m *mockConfService) GetConfirmations(
+	ctx context.Context,
+	deviceID string,
+	steamID id.ID,
+	confKey string,
+	timestamp int64,
+) (*ConfirmationsList, error) {
 	if m.getConfFunc != nil {
 		return m.getConfFunc()
 	}
+
 	return &ConfirmationsList{Success: true, Confirmations: []*Confirmation{}}, nil
 }
 
-func (m *mockConfService) RespondToConfirmation(ctx context.Context, conf *Confirmation, accept bool, deviceID string, steamID id.ID, confKey string, timestamp int64) error {
+func (m *mockConfService) RespondToConfirmation(
+	ctx context.Context,
+	conf *Confirmation,
+	accept bool,
+	deviceID string,
+	steamID id.ID,
+	confKey string,
+	timestamp int64,
+) error {
 	m.respondChan <- confResponseCall{
 		ID:     conf.ID,
 		Accept: accept,
 		Key:    confKey,
 	}
+
 	return nil
 }
 
-func (m *mockConfService) RespondToMultiple(ctx context.Context, confs []*Confirmation, accept bool, deviceID string, steamID id.ID, confKey string, timestamp int64) error {
+func (m *mockConfService) RespondToMultiple(
+	ctx context.Context,
+	confs []*Confirmation,
+	accept bool,
+	deviceID string,
+	steamID id.ID,
+	confKey string,
+	timestamp int64,
+) error {
 	panic("unimplemented")
 }
 
@@ -59,11 +82,13 @@ func validConfig() Config {
 	cfg.PollInterval = 10 * time.Millisecond
 	cfg.MaxBackoff = 50 * time.Millisecond
 	cfg.RateLimit = 1 * time.Millisecond
+
 	return cfg
 }
 
 func setupGuard(t *testing.T, cfg Config) (*Guardian, *module.InitContext, *mockConfService) {
 	t.Helper()
+
 	g, err := New(cfg)
 	if err != nil {
 		t.Fatalf("failed to create Guardian: %v", err)
@@ -116,6 +141,7 @@ func TestGuardian_PollingLifecycle(t *testing.T) {
 	}
 
 	g.StopPolling()
+
 	if g.State.Load() != StateStopped {
 		t.Errorf("expected state Stopped, got %d", g.State.Load())
 	}
@@ -133,6 +159,7 @@ func TestGuardian_RestartIdempotency(t *testing.T) {
 
 	for i := 0; i < 3; i++ {
 		_ = g.StartPolling()
+
 		time.Sleep(10 * time.Millisecond)
 	}
 
@@ -168,20 +195,6 @@ func TestGuardian_AutoAccept(t *testing.T) {
 		}
 	case <-time.After(200 * time.Millisecond):
 		t.Fatal("timed out waiting for auto-accept")
-	}
-}
-
-func TestGuardian_HandleStateChange(t *testing.T) {
-	g, _, _ := setupGuard(t, validConfig())
-
-	_ = g.StartPolling()
-
-	g.handleStateChange(&auth.StateEvent{New: auth.StateDisconnected})
-
-	time.Sleep(50 * time.Millisecond)
-
-	if g.State.Load() != StateStopped {
-		t.Errorf("expected state Stopped after disconnect, got %d", g.State.Load())
 	}
 }
 

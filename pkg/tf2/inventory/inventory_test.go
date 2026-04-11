@@ -30,6 +30,7 @@ func (m *MockDupeChecker) CheckHistory(ctx context.Context, id uint64) (HistoryS
 	if m.Err != nil {
 		return HistoryStatus{}, m.Err
 	}
+
 	return m.Responses[id], nil
 }
 

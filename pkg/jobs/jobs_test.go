@@ -17,17 +17,20 @@ func TestManager_AddAndResolve_Callback(t *testing.T) {
 	m := NewManager[string](0)
 	id := m.NextID()
 
-	var gotResponse string
-	var gotErr error
-	var wg sync.WaitGroup
+	var (
+		gotResponse string
+		gotErr      error
+		wg          sync.WaitGroup
+	)
+
 	wg.Add(1)
 
 	err := m.Add(id, func(response string, err error) {
 		gotResponse = response
 		gotErr = err
+
 		wg.Done()
 	})
-
 	if err != nil {
 		t.Fatalf("Add failed: %v", err)
 	}
@@ -46,9 +49,11 @@ func TestManager_AddAndResolve_Callback(t *testing.T) {
 	if gotResponse != "success" {
 		t.Errorf("expected response 'success', got '%s'", gotResponse)
 	}
+
 	if gotErr != nil {
 		t.Errorf("expected no error, got %v", gotErr)
 	}
+
 	if m.Count() != 0 {
 		t.Errorf("expected 0 jobs after resolve, got %d", m.Count())
 	}
@@ -92,6 +97,7 @@ func TestManager_WaitFor_Timeout(t *testing.T) {
 	if !errors.Is(err, ErrJobTimeout) {
 		t.Errorf("expected ErrJobTimeout, got %v", err)
 	}
+
 	if m.Count() != 0 {
 		t.Errorf("expected job to be removed after timeout")
 	}
@@ -103,15 +109,18 @@ func TestManager_ContextCancellation(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	var gotErr error
-	var wg sync.WaitGroup
+	var (
+		gotErr error
+		wg     sync.WaitGroup
+	)
+
 	wg.Add(1)
 
 	err := m.Add(id, func(_ string, err error) {
 		gotErr = err
+
 		wg.Done()
 	}, WithContext[string](ctx))
-
 	if err != nil {
 		t.Fatalf("Add failed: %v", err)
 	}
@@ -122,6 +131,7 @@ func TestManager_ContextCancellation(t *testing.T) {
 	if !errors.Is(gotErr, ErrJobCancelled) {
 		t.Errorf("expected ErrJobCancelled, got %v", gotErr)
 	}
+
 	if m.Count() != 0 {
 		t.Errorf("expected 0 jobs, got %d", m.Count())
 	}
@@ -137,6 +147,7 @@ func TestManager_CapacityLimit(t *testing.T) {
 	if err1 != nil || err2 != nil {
 		t.Errorf("expected first 2 jobs to succeed")
 	}
+
 	if err3 == nil || !strings.Contains(err3.Error(), "capacity reached") {
 		t.Errorf("expected capacity error, got %v", err3)
 	}
@@ -163,6 +174,7 @@ func TestManager_Close(t *testing.T) {
 		if !errors.Is(err, ErrJobClosed) {
 			t.Errorf("expected ErrJobClosed, got %v", err)
 		}
+
 		wg.Done()
 	}
 
@@ -191,8 +203,12 @@ func TestManager_ResolveMultipleTimes(t *testing.T) {
 	id := m.NextID()
 
 	calls := 0
-	var mu sync.Mutex
-	var wg sync.WaitGroup
+
+	var (
+		mu sync.Mutex
+		wg sync.WaitGroup
+	)
+
 	wg.Add(1)
 
 	_ = m.Add(id, func(res string, err error) {
@@ -210,6 +226,7 @@ func TestManager_ResolveMultipleTimes(t *testing.T) {
 
 	mu.Lock()
 	defer mu.Unlock()
+
 	if calls != 1 {
 		t.Errorf("expected callback to be called exactly 1 time, got %d", calls)
 	}

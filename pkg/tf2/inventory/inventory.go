@@ -58,15 +58,18 @@ func (inv *PlayerInventory) GetItemsBySKU(ctx context.Context, targetSKU string)
 			return nil, err
 		}
 	}
+
 	items := inv.items
 	inv.mu.Unlock()
 
 	var result []TF2Item
+
 	for _, it := range items {
 		if it.ToSKU() == targetSKU {
 			result = append(result, it)
 		}
 	}
+
 	return result, nil
 }
 
@@ -79,6 +82,7 @@ func (inv *PlayerInventory) IsDuped(ctx context.Context, assetID uint64) (*bool,
 	if err != nil {
 		return nil, err
 	}
+
 	if recorded {
 		return &duped, nil
 	}
@@ -90,10 +94,12 @@ func (inv *PlayerInventory) IsDuped(ctx context.Context, assetID uint64) (*bool,
 			return nil, err
 		}
 	}
+
 	items := inv.items
 	inv.mu.Unlock()
 
 	var targetItem *TF2Item
+
 	for i := range items {
 		if items[i].ID == assetID {
 			targetItem = &items[i]
@@ -109,6 +115,7 @@ func (inv *PlayerInventory) IsDuped(ctx context.Context, assetID uint64) (*bool,
 	if err != nil {
 		return nil, err
 	}
+
 	if recorded {
 		return &duped, nil
 	}
@@ -116,7 +123,10 @@ func (inv *PlayerInventory) IsDuped(ctx context.Context, assetID uint64) (*bool,
 	return nil, nil
 }
 
-func (inv *PlayerInventory) checkWithServices(ctx context.Context, assetID uint64) (isDuped, isRecorded bool, err error) {
+func (inv *PlayerInventory) checkWithServices(
+	ctx context.Context,
+	assetID uint64,
+) (isDuped, isRecorded bool, err error) {
 	for _, checker := range inv.dupeCheckers {
 		status, checkErr := checker.CheckHistory(ctx, assetID)
 		if checkErr != nil {
@@ -124,18 +134,21 @@ func (inv *PlayerInventory) checkWithServices(ctx context.Context, assetID uint6
 				log.String("service", reflect.TypeOf(checker).Name()),
 				log.Err(checkErr),
 			)
+
 			continue
 		}
 
 		if status.Recorded {
 			isRecorded = true
+
 			if status.IsDuped {
 				isDuped = true
-				return
+				return isDuped, isRecorded, err
 			}
 		}
 	}
-	return
+
+	return isDuped, isRecorded, err
 }
 
 func (inv *PlayerInventory) fetch(ctx context.Context) error {

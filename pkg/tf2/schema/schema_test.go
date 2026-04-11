@@ -217,28 +217,35 @@ func minimalRawSchema() *RawSchema {
 
 func TestNewSchema(t *testing.T) {
 	raw := minimalRawSchema()
+
 	s := New(raw)
 	if s == nil {
 		t.Fatal("NewSchema returned nil")
 	}
+
 	// Verify indices are built
 	if len(s.itemsByDef) != len(raw.Schema.Items) {
 		t.Errorf("expected %d itemsByDef, got %d", len(raw.Schema.Items), len(s.itemsByDef))
 	}
+
 	if len(s.itemsByName) != len(raw.Schema.Items) {
 		t.Errorf("expected %d itemsByName, got %d", len(raw.Schema.Items), len(s.itemsByName))
 	}
+
 	if len(s.attrsByDef) != len(raw.Schema.Attributes) {
 		t.Errorf("expected %d attrsByDef, got %d", len(raw.Schema.Attributes), len(s.attrsByDef))
 	}
+
 	if len(s.qualByID) != len(raw.Schema.Qualities) {
 		t.Errorf("expected %d qualByID, got %d", len(raw.Schema.Qualities), len(s.qualByID))
 	}
+
 	if len(s.qualByName) != len(raw.Schema.Qualities) {
 		t.Errorf("expected %d qualByName, got %d", len(raw.Schema.Qualities), len(s.qualByName))
 	}
 
 	expectedEff := 0
+
 	for _, p := range raw.Schema.AttributeControlledAttachedParticles {
 		if p.Name != "" {
 			expectedEff++
@@ -252,10 +259,12 @@ func TestNewSchema(t *testing.T) {
 
 func TestGetItemByDef(t *testing.T) {
 	s := New(minimalRawSchema())
+
 	item := s.GetItemByDef(5022)
 	if item == nil {
 		t.Fatal("item 5022 not found")
 	}
+
 	if item.Defindex != 5022 {
 		t.Errorf("expected defindex 5022, got %d", item.Defindex)
 	}
@@ -263,13 +272,16 @@ func TestGetItemByDef(t *testing.T) {
 
 func TestGetItemByName(t *testing.T) {
 	s := New(minimalRawSchema())
+
 	item := s.GetItemByName("Mann Co. Supply Crate")
 	if item == nil {
 		t.Fatal("item not found")
 	}
+
 	if item.Defindex != 5022 {
 		t.Errorf("expected defindex 5022, got %d", item.Defindex)
 	}
+
 	// case insensitivity
 	item = s.GetItemByName("mann co. supply crate")
 	if item == nil {
@@ -294,6 +306,7 @@ func TestGetQualityByIdAndName(t *testing.T) {
 		if name := s.GetQualityById(tt.id); name != tt.name {
 			t.Errorf("GetQualityById(%d): expected %s, got %s", tt.id, tt.name, name)
 		}
+
 		if id := s.GetQualityIdByName(tt.name); id != tt.id {
 			t.Errorf("GetQualityIdByName(%s): expected %d, got %d", tt.name, tt.id, id)
 		}
@@ -302,6 +315,7 @@ func TestGetQualityByIdAndName(t *testing.T) {
 	if name := s.GetQualityById(99); name != "" {
 		t.Errorf("expected empty for unknown id, got %s", name)
 	}
+
 	if id := s.GetQualityIdByName("nonexistent"); id != 0 {
 		t.Errorf("expected 0, got %d", id)
 	}
@@ -323,9 +337,11 @@ func TestGetEffectByIdAndName(t *testing.T) {
 		if name := s.GetEffectById(tt.id); name != tt.name {
 			t.Errorf("GetEffectById(%d): expected %s, got %s", tt.id, tt.name, name)
 		}
+
 		if id := s.GetEffectIdByName(tt.name); id != tt.id {
 			t.Errorf("GetEffectIdByName(%s): expected %d, got %d", tt.name, tt.id, id)
 		}
+
 		// Case insensitivity
 		if id := s.GetEffectIdByName(tt.name); id != tt.id {
 			t.Errorf("Case insensitive GetEffectIdByName failed for %s", tt.name)
@@ -343,12 +359,15 @@ func TestGetSkinByIdAndName(t *testing.T) {
 	if name := s.GetSkinById(15013); name != "Pistol Skin" {
 		t.Errorf("expected Pistol Skin, got %s", name)
 	}
+
 	if name := s.GetSkinById(999); name != "" {
 		t.Errorf("expected empty, got %s", name)
 	}
+
 	if id := s.GetSkinIdByName("Pistol Skin"); id != 15013 {
 		t.Errorf("expected 15013, got %d", id)
 	}
+
 	if id := s.GetSkinIdByName("pistol skin"); id != 15013 {
 		t.Errorf("case insensitive failed, got %d", id)
 	}
@@ -365,9 +384,17 @@ func TestCheckExistence(t *testing.T) {
 		{"Valid unique weapon", &sku.Item{Defindex: 5021, Quality: QualityUnique}, true},
 		{"Invalid quality for weapon", &sku.Item{Defindex: 5021, Quality: 0}, false},
 		{"Valid crate with series", &sku.Item{Defindex: 5022, Quality: QualityUnique, Crateseries: 1}, true},
-		{"Invalid crate with extra attrs", &sku.Item{Defindex: 5022, Quality: QualityUnique, Crateseries: 1, Killstreak: 1}, false},
+		{
+			"Invalid crate with extra attrs",
+			&sku.Item{Defindex: 5022, Quality: QualityUnique, Crateseries: 1, Killstreak: 1},
+			false,
+		},
 		{"Valid seriesless crate", &sku.Item{Defindex: 5739, Quality: QualityUnique}, true},
-		{"Invalid seriesless crate with series", &sku.Item{Defindex: 5739, Quality: QualityUnique, Crateseries: 5}, false},
+		{
+			"Invalid seriesless crate with series",
+			&sku.Item{Defindex: 5739, Quality: QualityUnique, Crateseries: 5},
+			false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -390,13 +417,26 @@ func TestGetName_EdgeCases(t *testing.T) {
 		expected  string
 	}{
 		{
-			desc:     "Basic Crate",
-			item:     &sku.Item{Defindex: 5022, Quality: QualityUnique, Crateseries: 1, Craftable: true, Tradable: true},
+			desc: "Basic Crate",
+			item: &sku.Item{
+				Defindex:    5022,
+				Quality:     QualityUnique,
+				Crateseries: 1,
+				Craftable:   true,
+				Tradable:    true,
+			},
 			expected: "Mann Co. Supply Crate #1",
 		},
 		{
-			desc:     "Specialized Killstreak",
-			item:     &sku.Item{Defindex: 5022, Quality: QualityUnique, Crateseries: 1, Killstreak: 2, Craftable: true, Tradable: true},
+			desc: "Specialized Killstreak",
+			item: &sku.Item{
+				Defindex:    5022,
+				Quality:     QualityUnique,
+				Crateseries: 1,
+				Killstreak:  2,
+				Craftable:   true,
+				Tradable:    true,
+			},
 			expected: "Specialized Killstreak Mann Co. Supply Crate #1",
 		},
 		{
@@ -416,8 +456,14 @@ func TestGetName_EdgeCases(t *testing.T) {
 			expected:  "Unusual Scattergun",
 		},
 		{
-			desc:     "Australium",
-			item:     &sku.Item{Defindex: 5021, Quality: QualityUnique, Australium: true, Craftable: true, Tradable: true},
+			desc: "Australium",
+			item: &sku.Item{
+				Defindex:   5021,
+				Quality:    QualityUnique,
+				Australium: true,
+				Craftable:  true,
+				Tradable:   true,
+			},
 			expected: "Australium Scattergun",
 		},
 		{
@@ -431,18 +477,37 @@ func TestGetName_EdgeCases(t *testing.T) {
 			expected: "Non-Tradable Scattergun",
 		},
 		{
-			desc:     "Festivized",
-			item:     &sku.Item{Defindex: 5021, Quality: QualityUnique, Festivized: true, Craftable: true, Tradable: true},
+			desc: "Festivized",
+			item: &sku.Item{
+				Defindex:   5021,
+				Quality:    QualityUnique,
+				Festivized: true,
+				Craftable:  true,
+				Tradable:   true,
+			},
 			expected: "Festivized Scattergun",
 		},
 		{
-			desc:     "Craft Number",
-			item:     &sku.Item{Defindex: 5021, Quality: QualityUnique, Craftnumber: 42, Craftable: true, Tradable: true},
+			desc: "Craft Number",
+			item: &sku.Item{
+				Defindex:    5021,
+				Quality:     QualityUnique,
+				Craftnumber: 42,
+				Craftable:   true,
+				Tradable:    true,
+			},
 			expected: "Scattergun #42",
 		},
 		{
-			desc:     "Elevated Quality (Strange Unusual)",
-			item:     &sku.Item{Defindex: 378, Quality: QualityUnusual, Quality2: 11, Effect: 33, Craftable: true, Tradable: true},
+			desc: "Elevated Quality (Strange Unusual)",
+			item: &sku.Item{
+				Defindex:  378,
+				Quality:   QualityUnusual,
+				Quality2:  11,
+				Effect:    33,
+				Craftable: true,
+				Tradable:  true,
+			},
 			expected: "Strange Orbiting Fire Team Captain",
 		},
 		{
@@ -451,8 +516,15 @@ func TestGetName_EdgeCases(t *testing.T) {
 			expected: "Scattergun Professional Killstreak Kit",
 		},
 		{
-			desc:     "Wear (Factory New Skin)",
-			item:     &sku.Item{Defindex: 15013, Quality: QualityDecorated, Paintkit: 102, Wear: 1, Craftable: true, Tradable: true},
+			desc: "Wear (Factory New Skin)",
+			item: &sku.Item{
+				Defindex:  15013,
+				Quality:   QualityDecorated,
+				Paintkit:  102,
+				Wear:      1,
+				Craftable: true,
+				Tradable:  true,
+			},
 			expected: "Woodsy Widowmaker Pistol (Factory New)",
 		},
 	}
@@ -520,7 +592,14 @@ func TestGetItemObjectFromName_EdgeCases(t *testing.T) {
 		},
 		{
 			"Woodsy Widowmaker Pistol (Field-Tested)",
-			&sku.Item{Defindex: 15013, Quality: QualityDecorated, Paintkit: 102, Wear: 3, Craftable: true, Tradable: true},
+			&sku.Item{
+				Defindex:  15013,
+				Quality:   QualityDecorated,
+				Paintkit:  102,
+				Wear:      3,
+				Craftable: true,
+				Tradable:  true,
+			},
 		},
 	}
 
@@ -571,10 +650,12 @@ func TestGetSkuFromName(t *testing.T) {
 
 func TestCrateSeriesList(t *testing.T) {
 	s := New(minimalRawSchema())
+
 	series := s.GetCrateSeriesList()
 	if val, ok := series[5022]; !ok || val != 1 {
 		t.Errorf("expected series 1 for def 5022, got %v", val)
 	}
+
 	if _, ok := series[5739]; ok {
 		t.Errorf("did not expect def 5739 (seriesless) to be in series list")
 	}
@@ -589,12 +670,14 @@ func TestGetCraftableWeaponsSchema(t *testing.T) {
 	}
 
 	foundScattergun := false
+
 	for _, w := range weapons {
 		if w.Defindex == 5021 {
 			foundScattergun = true
 			break
 		}
 	}
+
 	if !foundScattergun {
 		t.Error("scattergun not found in craftable weapons")
 	}
@@ -602,6 +685,7 @@ func TestGetCraftableWeaponsSchema(t *testing.T) {
 
 func TestGetWeaponsForCraftingByClass(t *testing.T) {
 	s := New(minimalRawSchema())
+
 	skus := s.GetWeaponsForCraftingByClass("Scout")
 	if len(skus) != 1 || skus[0] != "5021;6" {
 		t.Errorf("expected [5021;6], got %v", skus)
@@ -623,12 +707,14 @@ func TestGetUnusualEffects(t *testing.T) {
 	}
 
 	found := false
+
 	for _, e := range effects {
 		if e.Name == "Orbiting Fire" {
 			found = true
 			break
 		}
 	}
+
 	if !found {
 		t.Error("Orbiting Fire not found in effects list")
 	}

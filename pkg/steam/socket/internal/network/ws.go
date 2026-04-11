@@ -6,6 +6,7 @@ package network
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+
 	"github.com/lemon4ksan/g-man/pkg/log"
 )
 
@@ -31,8 +33,14 @@ type WS struct {
 	closeOnce sync.Once  // Ensures Close actions are performed only once.
 }
 
-// NewWS establishes a WebSocket connection to the given endpoint and starts its read loop.
-func NewWS(handler Handler, logger log.Logger, endpoint string, dialer *websocket.Dialer) (*WS, error) {
+// NewWS establishes a WebSocket connection using the provided context.
+func NewWS(
+	ctx context.Context,
+	handler Handler,
+	logger log.Logger,
+	endpoint string,
+	dialer *websocket.Dialer,
+) (*WS, error) {
 	u := url.URL{Scheme: "wss", Host: endpoint, Path: "/cmsocket/"}
 
 	if dialer == nil {
@@ -42,9 +50,13 @@ func NewWS(handler Handler, logger log.Logger, endpoint string, dialer *websocke
 		}
 	}
 
-	conn, _, err := dialer.Dial(u.String(), nil)
+	conn, resp, err := dialer.DialContext(ctx, u.String(), nil)
+	if resp != nil {
+		_ = resp.Body.Close()
+	}
+
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ws: dial failed: %w", err)
 	}
 
 	w := &WS{
@@ -55,9 +67,11 @@ func NewWS(handler Handler, logger log.Logger, endpoint string, dialer *websocke
 	}
 
 	go w.readLoop()
+
 	return w, nil
 }
 
+// Name returns the transport identifier.
 func (w *WS) Name() string { return "WS" }
 
 // Send transmits data as a binary message over the WebSocket connection.
@@ -66,13 +80,18 @@ func (w *WS) Send(ctx context.Context, data []byte) error {
 	defer w.writeMu.Unlock()
 
 	if w.conn == nil {
-		return fmt.Errorf("ws: connection closed")
+		return errors.New("ws: connection closed")
 	}
 
+	var err error
 	if deadline, ok := ctx.Deadline(); ok {
-		w.conn.SetWriteDeadline(deadline)
+		err = w.conn.SetWriteDeadline(deadline)
 	} else {
-		w.conn.SetWriteDeadline(time.Now().Add(WriteTimeout))
+		err = w.conn.SetWriteDeadline(time.Now().Add(WriteTimeout))
+	}
+
+	if err != nil {
+		return err
 	}
 
 	return w.conn.WriteMessage(websocket.BinaryMessage, data)
@@ -82,6 +101,7 @@ func (w *WS) Send(ctx context.Context, data []byte) error {
 // It is safe to call multiple times.
 func (w *WS) Close() error {
 	var err error
+
 	w.closeOnce.Do(func() {
 		w.writeMu.Lock()
 		defer w.writeMu.Unlock()
@@ -93,13 +113,14 @@ func (w *WS) Close() error {
 			err = w.conn.Close()
 		}
 	})
+
 	return err
 }
 
 // readLoop runs in a dedicated goroutine, reading messages from the WebSocket.
 func (w *WS) readLoop() {
 	defer func() {
-		w.Close()
+		_ = w.Close()
 		w.handler.OnNetClose()
 	}()
 
@@ -110,6 +131,7 @@ func (w *WS) readLoop() {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
 				w.handler.OnNetError(err)
 			}
+
 			return
 		}
 

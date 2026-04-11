@@ -77,6 +77,7 @@ func (t *HTTPTransport) Do(ctx context.Context, req *Request) (*Response, error)
 					r.Header.Add(key, val)
 				}
 			}
+
 			r.Header.Set("Accept", "text/html,*/*;q=0.9")
 		},
 	}
@@ -107,5 +108,6 @@ func (t *HTTPTransport) parseEResult(resp *http.Response) enums.EResult {
 			return enums.EResult(val)
 		}
 	}
+
 	return enums.EResult_OK
 }

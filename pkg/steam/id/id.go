@@ -8,6 +8,7 @@ package id
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -26,36 +27,102 @@ const (
 	InvalidID ID = 0
 
 	// Base 64-bit ID for individual accounts in the public universe.
-	individualBase ID = ID((uint64(UniversePublic) << 56) | (uint64(AccountTypeIndividual) << 52) | (1 << 32)) // 76561197960265728
+	individualBase ID = ID(
+		(uint64(UniversePublic) << 56) | (uint64(AccountTypeIndividual) << 52) | (1 << 32),
+	) // 76561197960265728
 )
 
-// Universe defines steam account universe.
+// Universe defines the Steam network universe.
 type Universe uint8
 
 const (
-	UniverseInvalid  Universe = 0
-	UniversePublic   Universe = 1
-	UniverseBeta     Universe = 2
+	// UniverseInvalid represents an uninitialized or invalid universe.
+	UniverseInvalid Universe = 0
+	// UniversePublic is the standard public Steam network.
+	UniversePublic Universe = 1
+	// UniverseBeta is the Steam beta network.
+	UniverseBeta Universe = 2
+	// UniverseInternal is Valve's internal network.
 	UniverseInternal Universe = 3
-	UniverseDev      Universe = 4
+	// UniverseDev is the Steam development network.
+	UniverseDev Universe = 4
 )
 
-// AccountType defines object type, which this ID belongs to.
+// String returns a human-readable representation of the Universe.
+func (u Universe) String() string {
+	switch u {
+	case UniverseInvalid:
+		return "Invalid"
+	case UniversePublic:
+		return "Public"
+	case UniverseBeta:
+		return "Beta"
+	case UniverseInternal:
+		return "Internal"
+	case UniverseDev:
+		return "Dev"
+	default:
+		return fmt.Sprintf("Universe(%d)", u)
+	}
+}
+
+// AccountType defines the type of account an ID belongs to.
 type AccountType uint8
 
 const (
-	AccountTypeInvalid        AccountType = 0
-	AccountTypeIndividual     AccountType = 1
-	AccountTypeMultiseat      AccountType = 2
-	AccountTypeGameServer     AccountType = 3
+	// AccountTypeInvalid represents an invalid or unknown account type.
+	AccountTypeInvalid AccountType = 0
+	// AccountTypeIndividual represents a standard user account.
+	AccountTypeIndividual AccountType = 1
+	// AccountTypeMultiseat represents a shared account (legacy).
+	AccountTypeMultiseat AccountType = 2
+	// AccountTypeGameServer represents an official game server.
+	AccountTypeGameServer AccountType = 3
+	// AccountTypeAnonGameServer represents an anonymous game server.
 	AccountTypeAnonGameServer AccountType = 4
-	AccountTypePending        AccountType = 5
-	AccountTypeContentServer  AccountType = 6
-	AccountTypeClan           AccountType = 7
-	AccountTypeChat           AccountType = 8
-	AccountTypeConsoleUser    AccountType = 9
-	AccountTypeAnonUser       AccountType = 10
+	// AccountTypePending represents a pending account.
+	AccountTypePending AccountType = 5
+	// AccountTypeContentServer represents a Steam content server.
+	AccountTypeContentServer AccountType = 6
+	// AccountTypeClan represents a Steam Group (Clan).
+	AccountTypeClan AccountType = 7
+	// AccountTypeChat represents a Steam chat room.
+	AccountTypeChat AccountType = 8
+	// AccountTypeConsoleUser represents a legacy console user (e.g. PS3).
+	AccountTypeConsoleUser AccountType = 9
+	// AccountTypeAnonUser represents an anonymous user account.
+	AccountTypeAnonUser AccountType = 10
 )
+
+// String returns a human-readable representation of the AccountType.
+func (a AccountType) String() string {
+	switch a {
+	case AccountTypeInvalid:
+		return "Invalid"
+	case AccountTypeIndividual:
+		return "Individual"
+	case AccountTypeMultiseat:
+		return "Multiseat"
+	case AccountTypeGameServer:
+		return "GameServer"
+	case AccountTypeAnonGameServer:
+		return "AnonGameServer"
+	case AccountTypePending:
+		return "Pending"
+	case AccountTypeContentServer:
+		return "ContentServer"
+	case AccountTypeClan:
+		return "Clan"
+	case AccountTypeChat:
+		return "Chat"
+	case AccountTypeConsoleUser:
+		return "ConsoleUser"
+	case AccountTypeAnonUser:
+		return "AnonUser"
+	default:
+		return fmt.Sprintf("AccountType(%d)", a)
+	}
+}
 
 var (
 	reSteam2 = regexp.MustCompile(`^STEAM_([0-5]):([0-1]):([0-9]+)$`)
@@ -86,6 +153,7 @@ func Parse(s string) ID {
 	if m := reSteam2.FindStringSubmatch(s); m != nil {
 		authServer, _ := strconv.ParseUint(m[2], 10, 64)
 		accountID, _ := strconv.ParseUint(m[3], 10, 64)
+
 		return ID(individualBase.Uint64() + (accountID * 2) + authServer)
 	}
 
@@ -122,6 +190,7 @@ func (id ID) Universe() Universe {
 func (id ID) Valid() bool {
 	t := id.Type()
 	u := id.Universe()
+
 	return u > UniverseInvalid && u <= UniverseDev && t > AccountTypeInvalid && t <= AccountTypeAnonUser
 }
 
@@ -173,6 +242,7 @@ func (id *ID) UnmarshalJSON(data []byte) error {
 	}
 
 	*id = ID(val)
+
 	return nil
 }
 
@@ -187,7 +257,7 @@ func Resolve(ctx context.Context, d service.Doer, input string) (ID, error) {
 	// Check if it's a URL
 	matches := reURL.FindStringSubmatch(input)
 	if len(matches) < 2 {
-		return InvalidID, fmt.Errorf("steamid: invalid input format")
+		return InvalidID, errors.New("steamid: invalid input format")
 	}
 
 	slug := matches[1]
@@ -219,7 +289,11 @@ func ResolveVanityURL(ctx context.Context, d service.Doer, vanityURL string) (ID
 	}
 
 	if res.Success != 1 {
-		return InvalidID, fmt.Errorf("steamid: could not resolve vanity URL (success=%d, msg=%s)", res.Success, res.Message)
+		return InvalidID, fmt.Errorf(
+			"steamid: could not resolve vanity URL (success=%d, msg=%s)",
+			res.Success,
+			res.Message,
+		)
 	}
 
 	return Parse(res.SteamID), nil

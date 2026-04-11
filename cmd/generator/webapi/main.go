@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"text/template"
 )
@@ -76,11 +77,12 @@ func {{$funcName}}[Resp any](ctx context.Context, d service.Doer, req *{{$reqStr
 
 func main() {
 	if len(os.Args) < 3 {
-		log.Fatalf("Usage: %s <input_json_file> <output_go_file>", os.Args[0])
+		exe := filepath.Base(os.Args[0])
+		log.Fatalf("Usage: %s <input_json_file> <output_go_file>", exe)
 	}
 
-	inputFile := os.Args[1]
-	outputFile := os.Args[2]
+	inputFile := filepath.Clean(os.Args[1])
+	outputFile := filepath.Clean(os.Args[2])
 
 	data, err := os.ReadFile(inputFile)
 	if err != nil {
@@ -107,7 +109,7 @@ func main() {
 		log.Fatalf("Failed to execute template: %v", err)
 	}
 
-	if err := os.WriteFile(outputFile, buf.Bytes(), 0644); err != nil {
+	if err := os.WriteFile(outputFile, buf.Bytes(), 0o644); err != nil {
 		log.Fatalf("Failed to write output file: %v", err)
 	}
 
@@ -138,6 +140,7 @@ func formatGoName(name string) string {
 			}
 		}
 	}
+
 	return strings.Join(parts, "")
 }
 

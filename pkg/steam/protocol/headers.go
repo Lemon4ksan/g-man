@@ -10,9 +10,10 @@ import (
 	"io"
 	"math"
 
+	"google.golang.org/protobuf/proto"
+
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
-	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -48,7 +49,10 @@ func NewMsgHdr(eMsg enums.EMsg, targetJobID uint64) *MsgHdr {
 	}
 }
 
+// GetSourceJob returns the source JobID.
 func (h *MsgHdr) GetSourceJob() uint64 { return h.SourceJobID }
+
+// GetTargetJob returns the target JobID.
 func (h *MsgHdr) GetTargetJob() uint64 { return h.TargetJobID }
 
 // SerializeTo writes the 20-byte standard header to the provided writer.
@@ -58,16 +62,20 @@ func (h *MsgHdr) SerializeTo(w io.Writer) error {
 	binary.LittleEndian.PutUint64(buf[4:12], h.TargetJobID)
 	binary.LittleEndian.PutUint64(buf[12:20], h.SourceJobID)
 	_, err := w.Write(buf[:])
+
 	return err
 }
 
+// Deserialize reads the standard header fields (excluding EMsg) from the reader.
 func (h *MsgHdr) Deserialize(r io.Reader) error {
 	var jobIDs [16]byte
 	if _, err := io.ReadFull(r, jobIDs[:]); err != nil {
 		return err
 	}
+
 	h.TargetJobID = binary.LittleEndian.Uint64(jobIDs[0:8])
 	h.SourceJobID = binary.LittleEndian.Uint64(jobIDs[8:16])
+
 	return nil
 }
 
@@ -114,10 +122,16 @@ func NewMsgHdrExtended(eMsg enums.EMsg, steamID uint64, sessionID int32) *MsgHdr
 	}
 }
 
+// GetSourceJob returns the source JobID.
 func (h *MsgHdrExtended) GetSourceJob() uint64 { return h.SourceJobID }
+
+// GetTargetJob returns the target JobID.
 func (h *MsgHdrExtended) GetTargetJob() uint64 { return h.TargetJobID }
 
-func (h *MsgHdrExtended) GetSteamID() uint64  { return h.SteamID }
+// GetSteamID returns the SteamID associated with this header.
+func (h *MsgHdrExtended) GetSteamID() uint64 { return h.SteamID }
+
+// GetSessionID returns the SessionID associated with this header.
 func (h *MsgHdrExtended) GetSessionID() int32 { return h.SessionID }
 
 // SerializeTo writes the 36-byte extended header to the provided writer.
@@ -132,32 +146,39 @@ func (h *MsgHdrExtended) SerializeTo(w io.Writer) error {
 	binary.LittleEndian.PutUint64(buf[24:32], h.SteamID)
 	binary.LittleEndian.PutUint32(buf[32:36], uint32(h.SessionID))
 	_, err := w.Write(buf[:])
+
 	return err
 }
 
 // Deserialize reads the extended header fields from an io.Reader.
-// Note: It assumes the EMsg (first 4 bytes) has already been read to determine the header type.
+// Note: It assumes the EMsg (first 4 bytes) has already been read.
 func (h *MsgHdrExtended) Deserialize(r io.Reader) error {
 	var data [HeaderSizeExtended - 4]byte
 	if _, err := io.ReadFull(r, data[:]); err != nil {
 		return err
 	}
+
 	h.HeaderSize = data[0]
 	if h.HeaderSize != HeaderSizeExtended {
 		return fmt.Errorf("%w: invalid header size: %d", ErrInvalidHeader, h.HeaderSize)
 	}
+
 	h.HeaderVer = binary.LittleEndian.Uint16(data[1:3])
 	if h.HeaderVer != HeaderVersion {
 		return fmt.Errorf("%w: invalid header version: %d", ErrInvalidHeader, h.HeaderVer)
 	}
+
 	h.TargetJobID = binary.LittleEndian.Uint64(data[3:11])
 	h.SourceJobID = binary.LittleEndian.Uint64(data[11:19])
+
 	h.HeaderCanary = data[19]
 	if h.HeaderCanary != HeaderCanary {
 		return fmt.Errorf("%w: invalid header canary: %x", ErrInvalidHeader, h.HeaderCanary)
 	}
+
 	h.SteamID = binary.LittleEndian.Uint64(data[20:28])
 	h.SessionID = int32(binary.LittleEndian.Uint32(data[28:32]))
+
 	return nil
 }
 
@@ -183,10 +204,16 @@ func NewMsgHdrProtoBuf(eMsg enums.EMsg, steamID uint64, sessionID int32) *MsgHdr
 	}
 }
 
+// GetSourceJob returns the source JobID from the Protobuf header.
 func (h *MsgHdrProtoBuf) GetSourceJob() uint64 { return h.Proto.GetJobidSource() }
+
+// GetTargetJob returns the target JobID from the Protobuf header.
 func (h *MsgHdrProtoBuf) GetTargetJob() uint64 { return h.Proto.GetJobidTarget() }
 
-func (h *MsgHdrProtoBuf) GetSteamID() uint64  { return h.Proto.GetSteamid() }
+// GetSteamID returns the SteamID from the Protobuf header.
+func (h *MsgHdrProtoBuf) GetSteamID() uint64 { return h.Proto.GetSteamid() }
+
+// GetSessionID returns the SessionID from the Protobuf header.
 func (h *MsgHdrProtoBuf) GetSessionID() int32 { return h.Proto.GetClientSessionid() }
 
 // GetEResult returns the result code from the header if present.
@@ -201,17 +228,20 @@ func (h *MsgHdrProtoBuf) SerializeTo(w io.Writer) error {
 	}
 
 	var buf [8]byte
-	// Set the highest bit to signify this is a Protobuf message
+	// Set the highest bit to signify this is a Protobuf message.
 	binary.LittleEndian.PutUint32(buf[0:4], uint32(h.EMsg)|ProtoMask)
 	binary.LittleEndian.PutUint32(buf[4:8], uint32(len(protoData)))
 
 	if _, err := w.Write(buf[:]); err != nil {
 		return err
 	}
+
 	_, err = w.Write(protoData)
+
 	return err
 }
 
+// Deserialize reads the Protobuf header length and body from the reader.
 func (h *MsgHdrProtoBuf) Deserialize(r io.Reader) error {
 	var hdrLen uint32
 	if err := binary.Read(r, binary.LittleEndian, &hdrLen); err != nil {

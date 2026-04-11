@@ -6,6 +6,7 @@ package crafting
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -50,6 +51,7 @@ func (cm *Manager) CombineMetal(ctx context.Context, metalDefIndex uint32) ([]ui
 	}
 
 	var recipe int16
+
 	switch metalDefIndex {
 	case DefIndexScrap:
 		recipe = RecipeCombineScrap
@@ -71,6 +73,7 @@ func (cm *Manager) SmeltMetal(ctx context.Context, metalDefIndex uint32) ([]uint
 	}
 
 	var recipe int16
+
 	switch metalDefIndex {
 	case DefIndexReclaimed:
 		recipe = RecipeSmeltReclaimed
@@ -99,7 +102,9 @@ func (cm *Manager) CondenseMetal(ctx context.Context) (int, error) {
 		if _, err := cm.CombineMetal(ctx, DefIndexScrap); err != nil {
 			return crafts, fmt.Errorf("condense scrap failed after %d crafts: %w", crafts, err)
 		}
+
 		crafts++
+
 		time.Sleep(300 * time.Millisecond)
 	}
 
@@ -107,7 +112,9 @@ func (cm *Manager) CondenseMetal(ctx context.Context) (int, error) {
 		if _, err := cm.CombineMetal(ctx, DefIndexReclaimed); err != nil {
 			return crafts, fmt.Errorf("condense reclaimed failed after %d crafts: %w", crafts, err)
 		}
+
 		crafts++
+
 		time.Sleep(300 * time.Millisecond)
 	}
 
@@ -129,20 +136,23 @@ func (cm *Manager) MakeChange(ctx context.Context, targetDefIndex uint32, target
 					return err
 				}
 			}
+
 		case DefIndexReclaimed:
 			if cm.tf2.Cache().GetMetalCount(DefIndexRefined) > 0 {
 				if _, err := cm.SmeltMetal(ctx, DefIndexRefined); err != nil {
 					return err
 				}
 			} else {
-				return fmt.Errorf("make_change: no refined metal left to smelt")
+				return errors.New("make_change: no refined metal left to smelt")
 			}
+
 		default:
-			return fmt.Errorf("make_change: cannot smelt this item type")
+			return errors.New("make_change: cannot smelt this item type")
 		}
 
 		time.Sleep(500 * time.Millisecond)
 	}
+
 	return nil
 }
 

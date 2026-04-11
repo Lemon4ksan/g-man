@@ -10,10 +10,11 @@ import (
 	"sync"
 	"testing"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/lemon4ksan/g-man/pkg/jobs"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
-	"google.golang.org/protobuf/proto"
 )
 
 type Mock struct {
@@ -50,21 +51,30 @@ func (m *Mock) Close() error {
 	return nil
 }
 
-func (m *Mock) Send(ctx context.Context, appID uint32, msgType uint32, msg proto.Message) error {
+func (m *Mock) Send(ctx context.Context, appID, msgType uint32, msg proto.Message) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	m.sendCalls[msgType] = msg
+
 	return nil
 }
 
-func (m *Mock) SendRaw(ctx context.Context, appID uint32, msgType uint32, payload []byte) error {
+func (m *Mock) SendRaw(ctx context.Context, appID, msgType uint32, payload []byte) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	m.sendRawCalls[msgType] = payload
+
 	return nil
 }
 
-func (m *Mock) Call(ctx context.Context, appID uint32, msgType uint32, msg proto.Message, cb jobs.Callback[*protocol.GCPacket]) error {
+func (m *Mock) Call(
+	ctx context.Context,
+	appID, msgType uint32,
+	msg proto.Message,
+	cb jobs.Callback[*protocol.GCPacket],
+) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -82,7 +92,12 @@ func (m *Mock) Call(ctx context.Context, appID uint32, msgType uint32, msg proto
 	return nil
 }
 
-func (m *Mock) CallRaw(ctx context.Context, appID uint32, msgType uint32, payload []byte, cb jobs.Callback[*protocol.GCPacket]) error {
+func (m *Mock) CallRaw(
+	ctx context.Context,
+	appID, msgType uint32,
+	payload []byte,
+	cb jobs.Callback[*protocol.GCPacket],
+) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -102,13 +117,16 @@ func (m *Mock) CallRaw(ctx context.Context, appID uint32, msgType uint32, payloa
 func (m *Mock) OnCallRaw(msgType uint32, handler func(payload []byte) ([]byte, error)) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	m.autoReplies[msgType] = handler
 }
 
 func (m *Mock) AssertSent(t *testing.T, msgType uint32) {
 	t.Helper()
+
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
 	if _, ok := m.sendCalls[msgType]; !ok {
 		t.Errorf("expected Protobuf message %d to be sent to GC", msgType)
 	}
@@ -116,8 +134,10 @@ func (m *Mock) AssertSent(t *testing.T, msgType uint32) {
 
 func (m *Mock) AssertSentRaw(t *testing.T, msgType uint32) {
 	t.Helper()
+
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
 	if _, ok := m.sendRawCalls[msgType]; !ok {
 		t.Errorf("expected raw message %d to be sent to GC", msgType)
 	}
@@ -126,6 +146,7 @@ func (m *Mock) AssertSentRaw(t *testing.T, msgType uint32) {
 func (m *Mock) GetLastRawCall(msgType uint32) []byte {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
 	return m.sendRawCalls[msgType]
 }
 

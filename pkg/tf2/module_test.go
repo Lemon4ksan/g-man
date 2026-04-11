@@ -12,13 +12,14 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/lemon4ksan/g-man/pkg/jobs"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/tf2"
 	bm "github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/sys/apps"
 	"github.com/lemon4ksan/g-man/test/module"
-	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -34,36 +35,51 @@ type mockCoordinator struct {
 	onCallRaw func(msgType uint32, payload []byte) (*protocol.GCPacket, error)
 }
 
-func (m *mockCoordinator) Send(ctx context.Context, appID uint32, msgType uint32, msg proto.Message) error {
+func (m *mockCoordinator) Send(ctx context.Context, appID, msgType uint32, msg proto.Message) error {
 	m.lastSendMsgType = msgType
 	m.lastSendPayload, _ = proto.Marshal(msg)
+
 	return nil
 }
 
-func (m *mockCoordinator) SendRaw(ctx context.Context, appID uint32, msgType uint32, payload []byte) error {
+func (m *mockCoordinator) SendRaw(ctx context.Context, appID, msgType uint32, payload []byte) error {
 	m.lastSendMsgType = msgType
 	m.lastSendPayload = payload
+
 	return nil
 }
 
-func (m *mockCoordinator) Call(ctx context.Context, appID uint32, msgType uint32, msg proto.Message, cb jobs.Callback[*protocol.GCPacket]) error {
+func (m *mockCoordinator) Call(
+	ctx context.Context,
+	appID, msgType uint32,
+	msg proto.Message,
+	cb jobs.Callback[*protocol.GCPacket],
+) error {
 	return nil
 }
 
-func (m *mockCoordinator) CallRaw(ctx context.Context, appID uint32, msgType uint32, payload []byte, cb jobs.Callback[*protocol.GCPacket]) error {
+func (m *mockCoordinator) CallRaw(
+	ctx context.Context,
+	appID, msgType uint32,
+	payload []byte,
+	cb jobs.Callback[*protocol.GCPacket],
+) error {
 	m.lastSendMsgType = msgType
 	m.lastSendPayload = payload
 
 	if m.onCallRaw != nil {
 		resp, err := m.onCallRaw(msgType, payload)
 		go cb(resp, err)
+
 		return nil
 	}
+
 	return errors.New("onCallRaw not configured")
 }
 
 func setupTF2(t *testing.T) (*TF2, *module.InitContext, *mockCoordinator) {
 	t.Helper()
+
 	ictx := module.NewInitContext()
 
 	mCoord := &mockCoordinator{}
@@ -83,6 +99,7 @@ func createItemPayload(id uint64, defIndex uint32) []byte {
 		Id:       proto.Uint64(id),
 		DefIndex: proto.Uint32(defIndex),
 	})
+
 	return b
 }
 
@@ -115,9 +132,11 @@ func TestTF2_SOCacheEvents(t *testing.T) {
 			if loadedEv.Count != 2 {
 				t.Errorf("expected 2 items, got %d", loadedEv.Count)
 			}
+
 			if len(tf.cache.GetItems()) != 2 {
 				t.Errorf("cache size mismatch")
 			}
+
 		case <-time.After(1 * time.Second):
 			t.Fatal("BackpackLoadedEvent not received")
 		}
@@ -160,10 +179,10 @@ func TestTF2_Crafting(t *testing.T) {
 		}
 
 		resp := new(bytes.Buffer)
-		binary.Write(resp, binary.LittleEndian, int16(-1))   // Blueprint (Custom)
-		binary.Write(resp, binary.LittleEndian, uint32(0))   // Unknown
-		binary.Write(resp, binary.LittleEndian, uint16(1))   // Count (1 new item)
-		binary.Write(resp, binary.LittleEndian, uint64(777)) // New Item ID
+		_ = binary.Write(resp, binary.LittleEndian, int16(-1))   // Blueprint (Custom)
+		_ = binary.Write(resp, binary.LittleEndian, uint32(0))   // Unknown
+		_ = binary.Write(resp, binary.LittleEndian, uint16(1))   // Count (1 new item)
+		_ = binary.Write(resp, binary.LittleEndian, uint64(777)) // New Item ID
 
 		return &protocol.GCPacket{Payload: resp.Bytes()}, nil
 	}
@@ -183,10 +202,13 @@ func TestTF2_Crafting(t *testing.T) {
 		sentBody := mCoord.lastSendPayload
 		reader := bytes.NewReader(sentBody)
 
-		var recipe int16
-		var count int16
-		binary.Read(reader, binary.LittleEndian, &recipe)
-		binary.Read(reader, binary.LittleEndian, &count)
+		var (
+			recipe int16
+			count  int16
+		)
+
+		_ = binary.Read(reader, binary.LittleEndian, &recipe)
+		_ = binary.Read(reader, binary.LittleEndian, &count)
 
 		if recipe != -1 || count != 3 {
 			t.Errorf("invalid binary header sent to GC: recipe=%d, count=%d", recipe, count)
@@ -208,7 +230,8 @@ func TestTF2_Actions_SendRaw(t *testing.T) {
 		}
 
 		var sentID uint64
-		binary.Read(bytes.NewReader(mCoord.lastSendPayload), binary.LittleEndian, &sentID)
+
+		_ = binary.Read(bytes.NewReader(mCoord.lastSendPayload), binary.LittleEndian, &sentID)
 
 		if sentID != 999 {
 			t.Errorf("expected to send item ID 999, sent %d", sentID)

@@ -8,7 +8,6 @@ package module
 import (
 	"context"
 	"errors"
-
 	"sync"
 	"sync/atomic"
 
@@ -137,6 +136,7 @@ func (b *Base) Init(ctx InitContext) error {
 	}
 
 	b.State.Store(0)
+
 	return nil
 }
 
@@ -146,6 +146,7 @@ func (b *Base) Close() error {
 	}
 
 	b.Wg.Wait()
+
 	return nil
 }
 

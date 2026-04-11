@@ -11,11 +11,9 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 )
 
-var (
-	// ErrSessionExpired signals that the current AccessToken or CM
-	// session is no longer valid. This is the trigger for an update.
-	ErrSessionExpired = errors.New("steam: session expired or invalid")
-)
+// ErrSessionExpired signals that the current AccessToken or CM
+// session is no longer valid. This is the trigger for an update.
+var ErrSessionExpired = errors.New("steam: session expired or invalid")
 
 // IsAuthError checks whether EResult is a signal for reauthorization.
 func IsAuthError(res enums.EResult) bool {
@@ -27,6 +25,7 @@ func IsAuthError(res enums.EResult) bool {
 		enums.EResult_AccountLogonDenied:   // 63
 		return true
 	}
+
 	return false
 }
 

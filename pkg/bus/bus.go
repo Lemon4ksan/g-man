@@ -42,6 +42,7 @@ func resolveType(ev any) reflect.Type {
 	if t != nil && t.Kind() == reflect.Pointer {
 		return t.Elem()
 	}
+
 	return t
 }
 
@@ -105,6 +106,7 @@ func (b *Bus) Subscribe(evs ...Event) *Subscription {
 	if b.closed {
 		sub.closed.Store(true)
 		close(sub.ch)
+
 		return sub
 	}
 
@@ -117,6 +119,7 @@ func (b *Bus) Subscribe(evs ...Event) *Subscription {
 			if b.subs[t] == nil {
 				b.subs[t] = make(map[uint64]*Subscription)
 			}
+
 			b.subs[t][id] = sub
 		}
 	}
@@ -140,10 +143,12 @@ func (b *Bus) SubscribeAll() *Subscription {
 	if b.closed {
 		sub.closed.Store(true)
 		close(sub.ch)
+
 		return sub
 	}
 
 	b.all[id] = sub
+
 	return sub
 }
 
@@ -160,6 +165,7 @@ func (b *Bus) Publish(event Event) {
 	t := resolveType(event)
 
 	b.mu.RLock()
+
 	if b.closed {
 		b.mu.RUnlock()
 		return
@@ -176,6 +182,7 @@ func (b *Bus) Publish(event Event) {
 	for _, sub := range b.all {
 		b.directSend(sub, event)
 	}
+
 	b.mu.RUnlock()
 }
 
@@ -201,6 +208,7 @@ func (b *Bus) Close() error {
 	if b.closed {
 		return nil
 	}
+
 	b.closed = true
 
 	// Collect unique subs to close channels exactly once (a sub can be in multiple maps)
@@ -208,6 +216,7 @@ func (b *Bus) Close() error {
 	for _, m := range b.subs {
 		maps.Copy(unique, m)
 	}
+
 	maps.Copy(unique, b.all)
 
 	for _, s := range unique {
@@ -217,6 +226,7 @@ func (b *Bus) Close() error {
 
 	b.subs = nil
 	b.all = nil
+
 	return nil
 }
 
@@ -232,6 +242,7 @@ func (b *Bus) unsubscribe(sub *Subscription) {
 	for _, t := range sub.types {
 		if typeSubs, ok := b.subs[t]; ok {
 			delete(typeSubs, sub.id)
+
 			if len(typeSubs) == 0 {
 				delete(b.subs, t)
 			}

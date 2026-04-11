@@ -46,6 +46,7 @@ func TestSymmetricEncryptionRoundTrip(t *testing.T) {
 	for i := range key {
 		key[i] = byte(i)
 	}
+
 	plaintext := []byte("secret steam message 2026")
 
 	t.Run("StandardCBC", func(t *testing.T) {
@@ -70,7 +71,6 @@ func TestSymmetricEncryptionRoundTrip(t *testing.T) {
 			t.Fatalf("encryption failed: %v", err)
 		}
 
-		// Проверяем с проверкой HMAC
 		decrypted, err := SymmetricDecrypt(encrypted, key, true)
 		if err != nil {
 			t.Fatalf("decryption with hmac check failed: %v", err)
@@ -88,6 +88,7 @@ func TestSymmetricDecryptECB(t *testing.T) {
 
 	block, _ := aes.NewCipher(key)
 	padded := pkcs7Pad(plaintext, aes.BlockSize)
+
 	encrypted := make([]byte, len(padded))
 	for i := 0; i < len(padded); i += aes.BlockSize {
 		block.Encrypt(encrypted[i:i+aes.BlockSize], padded[i:i+aes.BlockSize])
@@ -112,6 +113,7 @@ func TestMachineID(t *testing.T) {
 	if id[0] != 0x00 {
 		t.Errorf("expected VDF map start 0x00, got 0x%x", id[0])
 	}
+
 	if !bytes.Contains(id, []byte("MessageObject")) {
 		t.Error("machine id does not contain MessageObject")
 	}
@@ -120,6 +122,7 @@ func TestMachineID(t *testing.T) {
 func TestWipe(t *testing.T) {
 	data := []byte{1, 2, 3, 4, 5}
 	Wipe(data)
+
 	for _, b := range data {
 		if b != 0 {
 			t.Error("Wipe did not zero out the memory")

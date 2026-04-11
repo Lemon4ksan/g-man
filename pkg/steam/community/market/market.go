@@ -84,6 +84,7 @@ func (m *Market) StartAuthed(ctx context.Context, auth module.AuthContext) error
 		log.Int("currency", int(m.config.Currency)),
 		log.SteamID(m.steamID.Uint64()),
 	)
+
 	return nil
 }
 
@@ -145,7 +146,12 @@ func (m *Market) CreateBuyOrder(ctx context.Context, opts CreateBuyOrderOptions)
 	}
 
 	sessionID := comm.SessionID(community.BaseURL)
-	referer := fmt.Sprintf("%smarket/listings/%d/%s", community.BaseURL, opts.AppID, url.PathEscape(opts.MarketHashName))
+	referer := fmt.Sprintf(
+		"%smarket/listings/%d/%s",
+		community.BaseURL,
+		opts.AppID,
+		url.PathEscape(opts.MarketHashName),
+	)
 
 	// Format price to Steam's expected decimal string (e.g., "1.50")
 	totalCents := opts.Price * opts.Amount
@@ -178,6 +184,7 @@ func (m *Market) CreateBuyOrder(ctx context.Context, opts CreateBuyOrderOptions)
 	if err != nil {
 		return nil, fmt.Errorf("market: buy order failed: %w", err)
 	}
+
 	return resp, nil
 }
 
@@ -196,7 +203,15 @@ func (m *Market) CancelBuyOrder(ctx context.Context, buyOrderID uint64) error {
 		BuyOrderID uint64 `url:"buy_orderid"`
 	}{comm.SessionID(community.BaseURL), buyOrderID}
 
-	_, err := community.PostForm[service.NoResponse](ctx, comm, "market/cancelbuyorder", req, withMarketHeaders(""), withOrigin())
+	_, err := community.PostForm[service.NoResponse](
+		ctx,
+		comm,
+		"market/cancelbuyorder",
+		req,
+		withMarketHeaders(""),
+		withOrigin(),
+	)
+
 	return err
 }
 
@@ -216,6 +231,7 @@ func (m *Market) CancelSellOrder(ctx context.Context, listingID uint64) error {
 
 	path := fmt.Sprintf("market/removelisting/%d", listingID)
 	_, err := community.PostForm[service.NoResponse](ctx, comm, path, req, withMarketHeaders(""), withOrigin())
+
 	return err
 }
 
@@ -226,9 +242,11 @@ func (m *Market) Search(ctx context.Context, appID uint32, opts SearchOptions) (
 	if opts.Count == 0 {
 		opts.Count = 100
 	}
+
 	if opts.SortColumn == "" {
 		opts.SortColumn = "popular"
 	}
+
 	if opts.SortDir == "" {
 		opts.SortDir = "desc"
 	}
@@ -248,18 +266,24 @@ func (m *Market) Search(ctx context.Context, appID uint32, opts SearchOptions) (
 		AppID              uint32 `url:"appid"`
 		NoRender           string `url:"norender"`
 	}{opts.Query, opts.Start, opts.Count, searchDesc, opts.SortColumn, opts.SortDir, appID, "1"}
+
 	return community.Get[SearchResponse](
 		ctx, m.community, "market/search/render", req, withMarketHeaders(referer),
 	)
 }
 
 // GetPriceOverview gets a quick summary of the item's price.
-func (m *Market) GetPriceOverview(ctx context.Context, appID uint32, marketHashName string) (*PriceOverviewResponse, error) {
+func (m *Market) GetPriceOverview(
+	ctx context.Context,
+	appID uint32,
+	marketHashName string,
+) (*PriceOverviewResponse, error) {
 	req := struct {
 		AppID          uint32       `url:"appid"`
 		Currency       CurrencyCode `url:"currency"`
 		MarketHashName string       `url:"market_hash_name"`
 	}{appID, m.config.Currency, marketHashName}
+
 	return community.Get[PriceOverviewResponse](
 		ctx, m.community, "market/priceoverview", req, withMarketHeaders(""),
 	)
@@ -267,7 +291,12 @@ func (m *Market) GetPriceOverview(ctx context.Context, appID uint32, marketHashN
 
 // GetItemOrdersHistogram gets a histogram of active buy and sell orders.
 // The itemNameID can be obtained by parsing the lot page (usually cached by the bot).
-func (m *Market) GetItemOrdersHistogram(ctx context.Context, appID uint32, marketHashName string, itemNameID uint64) (*ItemOrdersHistogram, error) {
+func (m *Market) GetItemOrdersHistogram(
+	ctx context.Context,
+	appID uint32,
+	marketHashName string,
+	itemNameID uint64,
+) (*ItemOrdersHistogram, error) {
 	referer := fmt.Sprintf("https://steamcommunity.com/market/listings/%d/%s", appID, url.PathEscape(marketHashName))
 
 	req := struct {
@@ -278,7 +307,13 @@ func (m *Market) GetItemOrdersHistogram(ctx context.Context, appID uint32, marke
 		TwoFactor  int          `url:"two_factor"`
 	}{m.config.Country, m.config.Language, m.config.Currency, itemNameID, 0}
 
-	resp, err := community.Get[ItemOrdersHistogramResponse](ctx, m.community, "market/itemordershistogram", req, withMarketHeaders(referer))
+	resp, err := community.Get[ItemOrdersHistogramResponse](
+		ctx,
+		m.community,
+		"market/itemordershistogram",
+		req,
+		withMarketHeaders(referer),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -300,6 +335,7 @@ func (m *Market) GetItemOrdersHistogram(ctx context.Context, appID uint32, marke
 	if resp.HighestBuyOrder != "" {
 		histogram.HighestBuyOrder, _ = strconv.ParseFloat(resp.HighestBuyOrder, 64)
 	}
+
 	if resp.LowestSellOrder != "" {
 		histogram.LowestSellOrder, _ = strconv.ParseFloat(resp.LowestSellOrder, 64)
 	}
@@ -312,11 +348,13 @@ func (m *Market) GetMyListings(ctx context.Context, start, count int) (*MyListin
 	if count == 0 {
 		count = 100
 	}
+
 	req := struct {
 		Start    int `url:"start"`
 		Count    int `url:"count"`
 		NoRender int `url:"norender"`
 	}{start, count, 1}
+
 	return community.Get[MyListingsResponse](ctx, m.community, "market/mylistings", req, withMarketHeaders(""))
 }
 
@@ -335,6 +373,7 @@ func withMarketHeaders(referer string) api.CallOption {
 	return func(req *tr.Request, _ *api.CallConfig) {
 		req.WithHeader("X-Requested-With", "XMLHttpRequest")
 		req.WithHeader("X-Prototype-Version", "1.7")
+
 		if referer != "" {
 			req.WithHeader("Referer", referer)
 		} else {

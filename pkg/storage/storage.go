@@ -12,10 +12,8 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 )
 
-var (
-	// ErrNotFound is returned when a requested key does not exist in the storage.
-	ErrNotFound = errors.New("storage: key not found")
-)
+// ErrNotFound is returned when a requested key does not exist in the storage.
+var ErrNotFound = errors.New("storage: key not found")
 
 // Provider is the master interface that a storage backend must implement.
 // It acts as a factory for specific domain stores.

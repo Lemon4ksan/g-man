@@ -72,16 +72,20 @@ func (m *Manager) resolveTemplate(info *TradeInfo) (key, defaultTpl string, err 
 		return "invalid_trade", defaultTemplates["invalid_trade"], nil
 	case StateDeclined:
 		declineKey := "decline." + string(info.ReasonType)
+
 		defaultDeclineTpl, ok := defaultTemplates[declineKey]
 		if !ok {
 			// Fallback for unknown decline reasons
 			return "decline.general", defaultTemplates["decline.general"], nil
 		}
+
 		return declineKey, defaultDeclineTpl, nil
+
 	case StateCanceled:
 		if info.IsCanceledByUser {
 			return "cancel.by_user", defaultTemplates["cancel.by_user"], nil
 		}
+
 		return "cancel.generic", defaultTemplates["cancel.generic"], nil
 	}
 

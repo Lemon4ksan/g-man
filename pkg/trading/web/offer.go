@@ -8,13 +8,14 @@ import (
 	"context"
 	"time"
 
+	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/trading"
 )
 
 // TradeOffer represents a snapshot of a trade offer at a specific time.
 type TradeOffer struct {
 	ID                 uint64             `json:"tradeofferid,string"`
-	OtherSteamID       uint64             `json:"accountid_other"`
+	OtherSteamID       id.ID              `json:"accountid_other"`
 	Message            string             `json:"message"`
 	ExpirationTime     int64              `json:"expiration_time"`
 	State              trading.OfferState `json:"trade_offer_state"`

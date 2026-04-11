@@ -47,24 +47,28 @@ func (a *Automator) Tick(ctx context.Context) error {
 	if scrapCount < a.minScrap && recCount > 0 {
 		a.logger.Info("Scrap supply low, smelting Reclaimed")
 		_, err := a.manager.SmeltMetal(ctx, DefIndexReclaimed)
+
 		return err
 	}
 
 	if recCount < a.minRec && refCount > 0 {
 		a.logger.Info("Reclaimed supply low, smelting Refined")
 		_, err := a.manager.SmeltMetal(ctx, DefIndexRefined)
+
 		return err
 	}
 
 	if scrapCount > a.maxScrap {
 		a.logger.Info("Too much Scrap, combining into Reclaimed")
 		_, err := a.manager.CombineMetal(ctx, DefIndexScrap)
+
 		return err
 	}
 
 	if recCount > a.maxRec {
 		a.logger.Info("Too much Reclaimed, combining into Refined")
 		_, err := a.manager.CombineMetal(ctx, DefIndexReclaimed)
+
 		return err
 	}
 
@@ -83,6 +87,7 @@ func (a *Automator) CleanInventory(ctx context.Context, s *schema.Schema) error 
 			}
 
 			a.logger.Info("Cleaning inventory: smelting class weapons", log.String("class", class))
+
 			_, err := a.manager.SmeltClassWeapons(ctx, s, class)
 			if err != nil {
 				a.logger.Error("Failed to smelt class weapons", log.Err(err))
@@ -94,5 +99,6 @@ func (a *Automator) CleanInventory(ctx context.Context, s *schema.Schema) error 
 	}
 
 	_, err := a.manager.CondenseMetal(ctx)
+
 	return err
 }

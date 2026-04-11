@@ -13,11 +13,12 @@ import (
 	"net/http"
 	"sync"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/lemon4ksan/g-man/pkg/rest"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
-	"google.golang.org/protobuf/proto"
 )
 
 type restCall struct {
@@ -101,7 +102,13 @@ func (m *Mock) Do(ctx context.Context, req *tr.Request) (*tr.Response, error) {
 	return tr.NewResponse(nil, tr.SocketMetadata{Result: enums.EResult_OK}), nil
 }
 
-func (m *Mock) Request(ctx context.Context, method, path string, body []byte, query any, mods ...rest.RequestModifier) (*http.Response, error) {
+func (m *Mock) Request(
+	ctx context.Context,
+	method, path string,
+	body []byte,
+	query any,
+	mods ...rest.RequestModifier,
+) (*http.Response, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -137,39 +144,46 @@ func (m *Mock) Request(ctx context.Context, method, path string, body []byte, qu
 func (m *Mock) SetJSONResponse(iface, method string, resp any) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	m.jsonResponses[fmt.Sprintf("%s/%s", iface, method)] = resp
 }
 
 func (m *Mock) SetProtoResponse(iface, method string, resp proto.Message) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	m.protoResponses[fmt.Sprintf("%s.%s", iface, method)] = resp
 }
 
 func (m *Mock) SetLegacyResponse(message enums.EMsg, resp proto.Message) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	m.protoResponses[message.String()] = resp
 }
 
 func (m *Mock) SetRawResponse(key string, body []byte) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	m.rawResponses[key] = body
 }
 
 func (m *Mock) GetLastRequest() *tr.Request {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	if len(m.Calls) == 0 {
 		return nil
 	}
+
 	return m.Calls[len(m.Calls)-1]
 }
 
 func (m *Mock) GetLastCall(out proto.Message) *tr.Request {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	if len(m.Calls) == 0 {
 		return nil
 	}
@@ -179,6 +193,7 @@ func (m *Mock) GetLastCall(out proto.Message) *tr.Request {
 	if out != nil && req.Body() != nil {
 		_ = proto.Unmarshal(req.Body(), out)
 	}
+
 	return req
 }
 
@@ -186,18 +201,21 @@ func (m *Mock) SessionID(targetURI string) string {
 	if m.OnSessionID != nil {
 		return m.OnSessionID(targetURI)
 	}
+
 	return "mock_session_id"
 }
 
 func (m *Mock) ClearCalls() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	clear(m.Calls)
 }
 
 func (m *Mock) CallsCount() int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	return len(m.Calls)
 }
 

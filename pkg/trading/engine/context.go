@@ -83,6 +83,7 @@ func NewTradeContext(ctx context.Context, offer *trading.TradeOffer) *TradeConte
 func (c *TradeContext) Set(key string, val any) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
 	c.data[key] = val
 }
 
@@ -90,7 +91,9 @@ func (c *TradeContext) Set(key string, val any) {
 func (c *TradeContext) Get(key string) (any, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
+
 	val, ok := c.data[key]
+
 	return val, ok
 }
 

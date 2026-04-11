@@ -6,7 +6,6 @@ package pricedb
 
 import (
 	"context"
-	"fmt"
 	"net/url"
 
 	"github.com/lemon4ksan/g-man/pkg/rest"
@@ -34,7 +33,7 @@ func NewClient(httpClient rest.HTTPDoer) *Client {
 
 // GetItem fetches the latest price for a specific item SKU.
 func (c *Client) GetItem(ctx context.Context, sku string) (*Price, error) {
-	path := fmt.Sprintf("/api/item/%s", url.PathEscape(sku))
+	path := "/api/item/" + url.PathEscape(sku)
 	return rest.GetJSON[Price](ctx, c.restClient, path, nil)
 }
 
@@ -42,6 +41,7 @@ func (c *Client) GetItem(ctx context.Context, sku string) (*Price, error) {
 func (c *Client) GetItemsBulk(ctx context.Context, skus []string) ([]*Price, error) {
 	req := bulkRequest{SKUs: skus}
 	resp, err := rest.PostJSON[bulkRequest, []*Price](ctx, c.restClient, "/api/items-bulk", req, nil)
+
 	return *resp, err
 }
 
@@ -51,6 +51,7 @@ func (c *Client) Search(ctx context.Context, query string, limit int) (*SearchRe
 		Q     string `url:"q"`
 		Limit int    `url:"limit,omitempty"`
 	}{query, limit}
+
 	return rest.GetJSON[SearchResult](ctx, c.restClient, "/api/search", req)
 }
 
@@ -63,6 +64,7 @@ func (c *Client) GetHistory(ctx context.Context, sku string, start, end int64) (
 		End   int64 `url:"end,omitempty"`
 	}{start, end}
 	resp, err := rest.GetJSON[[]*Price](ctx, c.restClient, path, req)
+
 	return *resp, err
 }
 
@@ -84,6 +86,7 @@ func (c *Client) TriggerPriceCheck(ctx context.Context, sku string) error {
 	path := "/api/autob/items/" + url.PathEscape(sku)
 	// We don't care about the response body, just the HTTP status code
 	_, err := rest.PostJSON[any, any](ctx, c.restClient, path, nil, nil)
+
 	return err
 }
 
@@ -96,6 +99,7 @@ func (c *Client) HealthCheck(ctx context.Context) (*CacheStats, error) {
 func (c *Client) ResolveName(ctx context.Context, name string) (map[string]any, error) {
 	path := "/api/name/" + url.PathEscape(name)
 	resp, err := rest.GetJSON[map[string]any](ctx, c.skuClient, path, nil)
+
 	return *resp, err
 }
 
@@ -103,5 +107,6 @@ func (c *Client) ResolveName(ctx context.Context, name string) (map[string]any, 
 func (c *Client) ResolveSKU(ctx context.Context, sku string) (map[string]any, error) {
 	path := "/api/sku/" + url.PathEscape(sku)
 	resp, err := rest.GetJSON[map[string]any](ctx, c.skuClient, path, nil)
+
 	return *resp, err
 }

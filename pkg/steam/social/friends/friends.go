@@ -10,6 +10,8 @@ import (
 	"strings"
 	"sync"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/lemon4ksan/g-man/pkg/log"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam"
@@ -19,7 +21,6 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
-	"google.golang.org/protobuf/proto"
 )
 
 const ModuleName string = "friends"
@@ -84,6 +85,7 @@ func (m *Manager) StartAuthed(ctx context.Context, auth module.AuthContext) erro
 	m.community = auth.Community()
 	m.mySteamID = auth.SteamID()
 	m.mu.Unlock()
+
 	return nil
 }
 
@@ -92,6 +94,7 @@ func (m *Manager) Close() error {
 	for _, unreg := range m.unregFuncs {
 		unreg()
 	}
+
 	return m.Base.Close()
 }
 
@@ -99,6 +102,7 @@ func (m *Manager) Close() error {
 func (m *Manager) GetFriend(steamID id.ID) *PersonaState {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
 	return m.users[steamID]
 }
 
@@ -106,6 +110,7 @@ func (m *Manager) GetFriend(steamID id.ID) *PersonaState {
 func (m *Manager) IsFriend(steamID id.ID) bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
 	return m.relationships[steamID] == enums.EFriendRelationship_Friend
 }
 
@@ -120,16 +125,19 @@ func (m *Manager) GetFriends() []id.ID {
 			friends = append(friends, steamID)
 		}
 	}
+
 	return friends
 }
 
 // GetMaxFriends calculates the friend limit based on the user's Steam level.
 func (m *Manager) GetMaxFriends(ctx context.Context) (int, error) {
 	m.mu.RLock()
+
 	if m.maxFriends > 0 {
 		defer m.mu.RUnlock()
 		return m.maxFriends, nil
 	}
+
 	m.mu.RUnlock()
 
 	req := struct {
@@ -156,6 +164,7 @@ func (m *Manager) AddFriend(ctx context.Context, steamID uint64) error {
 		SteamidToAdd: &steamID,
 	}
 	_, err := service.Legacy[service.NoResponse](ctx, m.client, enums.EMsg_ClientAddFriend, req)
+
 	return err
 }
 
@@ -165,6 +174,7 @@ func (m *Manager) RemoveFriend(ctx context.Context, steamID uint64) error {
 		Friendid: &steamID,
 	}
 	_, err := service.Legacy[service.NoResponse](ctx, m.client, enums.EMsg_ClientRemoveFriend, req)
+
 	return err
 }
 
@@ -190,9 +200,12 @@ func (m *Manager) InviteToGroups(ctx context.Context, steamID id.ID, groupIDs []
 			if strings.Contains(err.Error(), "400") {
 				continue
 			}
+
 			m.Logger.Warn("Failed to invite to group", log.Uint64("group_id", groupID), log.Err(err))
+
 			continue
 		}
+
 		m.Logger.Debug("Invited user to group", log.SteamID(steamID.Uint64()), log.Uint64("group_id", groupID))
 	}
 }
@@ -246,6 +259,7 @@ func (m *Manager) handlePersonaState(packet *protocol.Packet) {
 		if friend.PlayerName != nil {
 			user.PlayerName = friend.GetPlayerName()
 		}
+
 		if friend.AvatarHash != nil {
 			user.AvatarHash = friend.GetAvatarHash()
 		}

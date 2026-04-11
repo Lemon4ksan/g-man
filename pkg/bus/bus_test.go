@@ -62,9 +62,11 @@ func TestBus_PointerVsValueResolution(t *testing.T) {
 		if !ok {
 			t.Fatalf("Expected *TestEventA, got %T", ev)
 		}
+
 		if ptr.Data != "pointer_data" {
 			t.Errorf("Data mismatch")
 		}
+
 	case <-time.After(100 * time.Millisecond):
 		t.Error("Pointer vs Value type resolution failed: Event lost!")
 	}
@@ -81,6 +83,7 @@ func TestBus_SubscribeAll(t *testing.T) {
 
 	count := 0
 	timeout := time.After(time.Second)
+
 	for count < 2 {
 		select {
 		case <-subAll.C():
@@ -102,6 +105,7 @@ func TestBus_FullBufferDropsEvent(t *testing.T) {
 	}
 
 	count := 0
+
 	for {
 		select {
 		case <-sub.C():
@@ -110,6 +114,7 @@ func TestBus_FullBufferDropsEvent(t *testing.T) {
 			if count != 128 {
 				t.Errorf("Expected exactly 128 buffered events, got %d", count)
 			}
+
 			return
 		}
 	}
@@ -134,12 +139,13 @@ func TestBus_Close(t *testing.T) {
 	sub := b.Subscribe(TestEventA{})
 	subAll := b.SubscribeAll()
 
-	b.Close()
+	_ = b.Close()
 	b.Publish(TestEventA{})
 
 	if _, ok := <-sub.C(); ok {
 		t.Error("Channel was not closed on Bus.Close()")
 	}
+
 	if _, ok := <-subAll.C(); ok {
 		t.Error("SubscribeAll channel was not closed on Bus.Close()")
 	}
@@ -166,6 +172,7 @@ func TestBus_ConcurrentAccess(t *testing.T) {
 				for len(sub.C()) > 0 {
 					<-sub.C()
 				}
+
 				sub.Unsubscribe()
 			}
 		})

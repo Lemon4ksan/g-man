@@ -33,6 +33,7 @@ func TestHTTPTransport_ParseEResult(t *testing.T) {
 			if tt.header != "" {
 				resp.Header.Set("x-eresult", tt.header)
 			}
+
 			result := tr.parseEResult(resp)
 			if result != tt.expected {
 				t.Errorf("Expected EResult %v, got %v", tt.expected, result)
@@ -47,6 +48,7 @@ func TestHTTPTransport_Do(t *testing.T) {
 			if req.Header.Get("Accept") == "" {
 				t.Errorf("Expected Accept header to be set by RequestModifier")
 			}
+
 			if req.Header.Get("User-Agent") == "" {
 				t.Errorf("Expected User-Agent to be set")
 			}
@@ -57,6 +59,7 @@ func TestHTTPTransport_Do(t *testing.T) {
 				Body:       io.NopCloser(bytes.NewReader([]byte(`{"response":{}}`))),
 			}
 			resp.Header.Set("x-eresult", "1")
+
 			return resp, nil
 		},
 	}
@@ -69,8 +72,8 @@ func TestHTTPTransport_Do(t *testing.T) {
 	}
 
 	req := NewRequest(target, []byte("proto_data"))
-	resp, err := tr.Do(t.Context(), req)
 
+	resp, err := tr.Do(t.Context(), req)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -79,9 +82,11 @@ func TestHTTPTransport_Do(t *testing.T) {
 	if meta.StatusCode != http.StatusOK {
 		t.Errorf("Expected StatusCode 200, got %d", meta.StatusCode)
 	}
+
 	if meta.Result != enums.EResult_OK {
 		t.Errorf("Expected Result OK, got %v", meta.Result)
 	}
+
 	if string(resp.Body) != `{"response":{}}` {
 		t.Errorf("Unexpected body: %s", string(resp.Body))
 	}

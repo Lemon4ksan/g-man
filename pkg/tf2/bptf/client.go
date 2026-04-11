@@ -6,10 +6,10 @@ package bptf
 
 import (
 	"context"
-	"strconv"
 	"strings"
 
 	"github.com/lemon4ksan/g-man/pkg/rest"
+	"github.com/lemon4ksan/g-man/pkg/steam/id"
 )
 
 type Client struct {
@@ -26,6 +26,7 @@ func New(httpClient rest.HTTPDoer, apiKey, userToken string) *Client {
 	if apiKey != "" {
 		c = c.WithHeader("X-Api-Key", apiKey)
 	}
+
 	if userToken != "" {
 		c = c.WithHeader("X-Auth-Token", userToken)
 	}
@@ -48,6 +49,7 @@ func (c *Client) GetPricesV4(ctx context.Context, raw int, since int64) (*Prices
 		Raw   int   `url:"raw,omitempty"`
 		Since int64 `url:"since,omitempty"`
 	}{raw, since}
+
 	return rest.GetJSON[PricesResponseV4](ctx, c.restClient, "/IGetPrices/v4", req)
 }
 
@@ -56,6 +58,7 @@ func (c *Client) GetCurrencies(ctx context.Context, raw int) (*CurrenciesRespons
 	req := struct {
 		Raw int `url:"raw,omitempty"`
 	}{raw}
+
 	return rest.GetJSON[CurrenciesResponseV1](ctx, c.restClient, "/IGetCurrencies/v1", req)
 }
 
@@ -72,7 +75,10 @@ func (c *Client) CreateListing(ctx context.Context, listing ListingResolvable) (
 }
 
 // BatchCreateListings allows you to create up to 100 listings in one request.
-func (c *Client) BatchCreateListings(ctx context.Context, listings []ListingResolvable) ([]ListingBatchCreateResult, error) {
+func (c *Client) BatchCreateListings(
+	ctx context.Context,
+	listings []ListingResolvable,
+) ([]ListingBatchCreateResult, error) {
 	resp, err := rest.PostJSON[[]ListingResolvable, []ListingBatchCreateResult](
 		ctx,
 		c.restClient,
@@ -80,52 +86,65 @@ func (c *Client) BatchCreateListings(ctx context.Context, listings []ListingReso
 		listings,
 		nil,
 	)
+
 	return *resp, err
 }
 
 // GetInventoryStatus returns the status of a user's inventory on backpack.tf.
 // It does not trigger a refresh, only returns the current cached state.
-func (c *Client) GetInventoryStatus(ctx context.Context, steamID uint64) (InventoryStatus, error) {
-	path := "/inventory/" + strconv.FormatInt(int64(steamID), 10) + "/status"
+func (c *Client) GetInventoryStatus(ctx context.Context, steamID id.ID) (InventoryStatus, error) {
+	path := "/inventory/" + steamID.String() + "/status"
+
 	resp, err := rest.GetJSON[InventoryStatus](ctx, c.restClient, path, nil)
 	if err != nil {
 		return InventoryStatus{}, err
 	}
+
 	return *resp, nil
 }
 
 // GetInventoryValues returns the total value of a user's inventory.
-func (c *Client) GetInventoryValues(ctx context.Context, steamID uint64) (InventoryValues, error) {
-	path := "/inventory/" + strconv.FormatInt(int64(steamID), 10) + "/values"
+func (c *Client) GetInventoryValues(ctx context.Context, steamID id.ID) (InventoryValues, error) {
+	path := "/inventory/" + steamID.String() + "/values"
+
 	resp, err := rest.GetJSON[InventoryValues](ctx, c.restClient, path, nil)
 	if err != nil {
 		return InventoryValues{}, err
 	}
+
 	return *resp, nil
 }
 
 // RefreshInventory requests backpack.tf to fetch the latest data from Steam.
 // Note: This endpoint is non-blocking and heavily rate-limited.
-func (c *Client) RefreshInventory(ctx context.Context, steamID uint64) (InventoryStatus, error) {
-	path := "/inventory/" + strconv.FormatInt(int64(steamID), 10) + "/refresh"
+func (c *Client) RefreshInventory(ctx context.Context, steamID id.ID) (InventoryStatus, error) {
+	path := "/inventory/" + steamID.String() + "/refresh"
+
 	resp, err := rest.PostJSON[any, InventoryStatus](ctx, c.restClient, path, nil, nil)
 	if err != nil {
 		return InventoryStatus{}, err
 	}
+
 	return *resp, nil
 }
 
 // GetUsersInfo returns detailed information for a list of SteamIDs.
 // bptf accepts a comma-separated list of IDs.
-func (c *Client) GetUsersInfo(ctx context.Context, steamIDs []string) (V1UserResponse, error) {
+func (c *Client) GetUsersInfo(ctx context.Context, steamIDs []id.ID) (V1UserResponse, error) {
+	ids := make([]string, len(steamIDs))
+	for i, id := range steamIDs {
+		ids[i] = id.String()
+	}
+
 	req := struct {
 		SteamIDs string `url:"steamids"`
-	}{SteamIDs: strings.Join(steamIDs, ",")}
+	}{SteamIDs: strings.Join(ids, ",")}
 
 	resp, err := rest.GetJSON[V1UserResponse](ctx, c.restClient, "/users/info/v1", req)
 	if err != nil {
 		return V1UserResponse{}, err
 	}
+
 	return *resp, nil
 }
 
@@ -140,11 +159,12 @@ func (c *Client) GetAlerts(ctx context.Context, skip, limit int) (AlertsResponse
 	if err != nil {
 		return AlertsResponse{}, err
 	}
+
 	return *resp, nil
 }
 
 // CreateAlert creates a new listing alert for a specific item.
-func (c *Client) CreateAlert(ctx context.Context, itemName string, intent string, currency string, min, max int) (Alert, error) {
+func (c *Client) CreateAlert(ctx context.Context, itemName, intent, currency string, min, max int) (Alert, error) {
 	req := struct {
 		ItemName string `url:"item_name"`
 		Intent   string `url:"intent"`
@@ -157,5 +177,6 @@ func (c *Client) CreateAlert(ctx context.Context, itemName string, intent string
 	if err != nil {
 		return Alert{}, err
 	}
+
 	return *resp, nil
 }

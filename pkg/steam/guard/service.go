@@ -6,6 +6,7 @@ package guard
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -35,6 +36,7 @@ func (s *TwoFactorService) QueryTimeOffset(ctx context.Context) (time.Duration, 
 	type respStruct struct {
 		ServerTime string `json:"server_time"`
 	}
+
 	resp, err := service.WebAPI[respStruct](ctx, s.client, "POST", "ITwoFactorService", "QueryTime", 1, nil)
 	if err != nil {
 		return 0, err
@@ -46,6 +48,7 @@ func (s *TwoFactorService) QueryTimeOffset(ctx context.Context) (time.Duration, 
 	}
 
 	diffSeconds := serverTime - time.Now().Unix()
+
 	return time.Duration(diffSeconds) * time.Second, nil
 }
 
@@ -59,7 +62,13 @@ func NewMobileConf(client community.Requester) *MobileConf {
 }
 
 // GetConfirmations fetches the list of pending mobile confirmations.
-func (s *MobileConf) GetConfirmations(ctx context.Context, deviceID string, steamID id.ID, confKey string, timestamp int64) (*ConfirmationsList, error) {
+func (s *MobileConf) GetConfirmations(
+	ctx context.Context,
+	deviceID string,
+	steamID id.ID,
+	confKey string,
+	timestamp int64,
+) (*ConfirmationsList, error) {
 	params := baseParams{
 		DeviceID:  deviceID,
 		SteamID:   steamID,
@@ -68,11 +77,19 @@ func (s *MobileConf) GetConfirmations(ctx context.Context, deviceID string, stea
 		Mode:      "react",
 		ActionTag: "conf",
 	}
+
 	return community.Get[ConfirmationsList](ctx, s.client, "mobileconf/getlist", params)
 }
 
 // GetConfirmationOfferID retrieves the trade offer ID associated with a market listing confirmation.
-func (s *MobileConf) GetConfirmationOfferID(ctx context.Context, confID uint64, deviceID string, steamID id.ID, confKey string, timestamp int64) (uint64, error) {
+func (s *MobileConf) GetConfirmationOfferID(
+	ctx context.Context,
+	confID uint64,
+	deviceID string,
+	steamID id.ID,
+	confKey string,
+	timestamp int64,
+) (uint64, error) {
 	params := baseParams{
 		DeviceID:  deviceID,
 		SteamID:   steamID,
@@ -93,14 +110,22 @@ func (s *MobileConf) GetConfirmationOfferID(ctx context.Context, confID uint64, 
 
 	matches := rxTradeOfferID.FindSubmatch(*respBytes)
 	if len(matches) < 2 {
-		return 0, fmt.Errorf("offer ID not found in confirmation details page")
+		return 0, errors.New("offer ID not found in confirmation details page")
 	}
 
 	return strconv.ParseUint(string(matches[1]), 10, 64)
 }
 
 // RespondToConfirmation accepts or denies a single confirmation.
-func (s *MobileConf) RespondToConfirmation(ctx context.Context, conf *Confirmation, accept bool, deviceID string, steamID id.ID, confKey string, timestamp int64) error {
+func (s *MobileConf) RespondToConfirmation(
+	ctx context.Context,
+	conf *Confirmation,
+	accept bool,
+	deviceID string,
+	steamID id.ID,
+	confKey string,
+	timestamp int64,
+) error {
 	op := "cancel"
 	if accept {
 		op = "allow"
@@ -128,14 +153,22 @@ func (s *MobileConf) RespondToConfirmation(ctx context.Context, conf *Confirmati
 	}
 
 	if !resp.Success {
-		return fmt.Errorf("steam rejected confirmation action")
+		return errors.New("steam rejected confirmation action")
 	}
 
 	return nil
 }
 
 // RespondToMultiple accepts or denies multiple confirmations in a single request.
-func (s *MobileConf) RespondToMultiple(ctx context.Context, confs []*Confirmation, accept bool, deviceID string, steamID id.ID, confKey string, timestamp int64) error {
+func (s *MobileConf) RespondToMultiple(
+	ctx context.Context,
+	confs []*Confirmation,
+	accept bool,
+	deviceID string,
+	steamID id.ID,
+	confKey string,
+	timestamp int64,
+) error {
 	if len(confs) == 0 {
 		return nil
 	}

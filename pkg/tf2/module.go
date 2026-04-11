@@ -10,16 +10,16 @@ import (
 	"sync/atomic"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/jobs"
 	"github.com/lemon4ksan/g-man/pkg/log"
+	pb "github.com/lemon4ksan/g-man/pkg/protobuf/tf2"
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/sys/gc"
-
-	pb "github.com/lemon4ksan/g-man/pkg/protobuf/tf2"
-	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -38,10 +38,10 @@ const (
 
 // CoordinatorProvider defines what TF2 needs from the generic GC module.
 type CoordinatorProvider interface {
-	Send(ctx context.Context, appID uint32, msgType uint32, msg proto.Message) error
-	SendRaw(ctx context.Context, appID uint32, msgType uint32, payload []byte) error
-	Call(ctx context.Context, appID uint32, msgType uint32, msg proto.Message, cb jobs.Callback[*protocol.GCPacket]) error
-	CallRaw(ctx context.Context, appID uint32, msgType uint32, payload []byte, cb jobs.Callback[*protocol.GCPacket]) error
+	Send(ctx context.Context, appID, msgType uint32, msg proto.Message) error
+	SendRaw(ctx context.Context, appID, msgType uint32, payload []byte) error
+	Call(ctx context.Context, appID, msgType uint32, msg proto.Message, cb jobs.Callback[*protocol.GCPacket]) error
+	CallRaw(ctx context.Context, appID, msgType uint32, payload []byte, cb jobs.Callback[*protocol.GCPacket]) error
 }
 
 type AppsProvider interface {
@@ -127,6 +127,7 @@ func (t *TF2) helloLoop(ctx context.Context) {
 			if t.state.Load() == int32(GCConnected) {
 				continue
 			}
+
 			t.sendHello(ctx)
 		}
 	}
@@ -156,6 +157,7 @@ func (t *TF2) messageLoop(ctx context.Context, sub *bus.Subscription) {
 			if !ok {
 				return
 			}
+
 			if msg, ok := ev.(*gc.GCMessageEvent); ok {
 				if msg.Packet.AppID == AppID {
 					t.routePacket(msg.Packet)
@@ -179,11 +181,15 @@ func (t *TF2) routePacket(pkt *protocol.GCPacket) {
 	case pb.EGCItemMsg_k_EMsgGCCraftResponse:
 		t.handleCraftResponse(pkt)
 	}
+
 	// Shared Object (Inventory) Messages
 	switch pb.ESOMsg(pkt.MsgType) {
 	case pb.ESOMsg_k_ESOMsg_CacheSubscribed:
 		t.cache.HandleSubscribed(pkt, t.Logger, t.Bus)
-	case pb.ESOMsg_k_ESOMsg_Create, pb.ESOMsg_k_ESOMsg_Update, pb.ESOMsg_k_ESOMsg_Destroy, pb.ESOMsg_k_ESOMsg_UpdateMultiple:
+	case pb.ESOMsg_k_ESOMsg_Create,
+		pb.ESOMsg_k_ESOMsg_Update,
+		pb.ESOMsg_k_ESOMsg_Destroy,
+		pb.ESOMsg_k_ESOMsg_UpdateMultiple:
 		t.cache.HandleSOUpdate(pkt, t.Logger, t.Bus)
 	}
 }
@@ -223,8 +229,10 @@ func parseCraftResponse(payload []byte) []uint64 {
 		if len(payload) < offset+8 {
 			break
 		}
+
 		items = append(items, binary.LittleEndian.Uint64(payload[offset:]))
 	}
+
 	return items
 }
 
@@ -233,7 +241,7 @@ func (t *TF2) handleCraftResponse(pkt *protocol.GCPacket) {
 	// The specific job callback handles the logic flow.
 	items := parseCraftResponse(pkt.Payload)
 	if len(items) > 0 || len(pkt.Payload) >= 2 {
-		blueprint := int16(binary.LittleEndian.Uint16(pkt.Payload[0:]))
+		blueprint := binary.LittleEndian.Uint16(pkt.Payload[0:])
 		t.Bus.Publish(&CraftResponseEvent{
 			BlueprintID:  blueprint,
 			CreatedItems: items,

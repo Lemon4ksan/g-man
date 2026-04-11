@@ -9,6 +9,7 @@ import (
 	"time"
 )
 
+// ConfirmationsList is the api response structure for confirmations.
 type ConfirmationsList struct {
 	Success       bool            `json:"success"`
 	Confirmations []*Confirmation `json:"conf"`
@@ -44,6 +45,7 @@ const (
 	ConfTypeAccountChange
 )
 
+// String returns a human-readable representation of the confirmation type.
 func (ct ConfirmationType) String() string {
 	switch ct {
 	case ConfTypeGeneric:
@@ -112,6 +114,7 @@ func (c *Confirmation) TimeRemaining() time.Duration {
 	if c.expiresAt.IsZero() {
 		return 2 * time.Minute // Default fallback
 	}
+
 	return time.Until(c.expiresAt)
 }
 
@@ -125,5 +128,6 @@ func truncate(s string, n int) string {
 	if len(s) <= n {
 		return s
 	}
+
 	return s[:n-3] + "..."
 }

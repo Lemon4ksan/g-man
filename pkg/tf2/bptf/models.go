@@ -4,6 +4,8 @@
 
 package bptf
 
+import "github.com/lemon4ksan/g-man/pkg/steam/id"
+
 type PricesResponseV4 struct {
 	Success     int                    `json:"success"`
 	Message     string                 `json:"message,omitempty"`
@@ -84,7 +86,7 @@ type InventoryValues struct {
 }
 
 type V1UserResponse struct {
-	Users map[string]V1User `json:"users"`
+	Users map[id.ID]V1User `json:"users"`
 }
 
 type V1User struct {

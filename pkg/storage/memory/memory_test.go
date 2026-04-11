@@ -6,6 +6,7 @@ package memory_test
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -24,14 +25,16 @@ func TestAuthStore(t *testing.T) {
 		token := "abc-123"
 
 		_ = store.SaveRefreshToken(ctx, account, token)
+
 		got, err := store.GetRefreshToken(ctx, account)
 		if err != nil || got != token {
 			t.Errorf("expected %s, got %s (err: %v)", token, got, err)
 		}
 
 		_ = store.Clear(ctx, account)
+
 		_, err = store.GetRefreshToken(ctx, account)
-		if err != storage.ErrNotFound {
+		if !errors.Is(err, storage.ErrNotFound) {
 			t.Error("expected ErrNotFound after clear")
 		}
 	})
@@ -75,6 +78,7 @@ func TestKVStore_Operations(t *testing.T) {
 
 	t.Run("Set and Get", func(t *testing.T) {
 		_ = kv.Set(ctx, "k", []byte("v"))
+
 		val, _ := kv.Get(ctx, "k")
 		if string(val) != "v" {
 			t.Errorf("got %s", string(val))
@@ -86,6 +90,7 @@ func TestKVStore_Operations(t *testing.T) {
 		if !exists {
 			t.Error("key should exist")
 		}
+
 		exists, _ = kv.Has(ctx, "nonexistent")
 		if exists {
 			t.Error("key should not exist")
@@ -94,8 +99,9 @@ func TestKVStore_Operations(t *testing.T) {
 
 	t.Run("Delete", func(t *testing.T) {
 		_ = kv.Delete(ctx, "k")
+
 		_, err := kv.Get(ctx, "k")
-		if err != storage.ErrNotFound {
+		if !errors.Is(err, storage.ErrNotFound) {
 			t.Error("expected ErrNotFound after delete")
 		}
 	})
@@ -107,6 +113,7 @@ func TestTTLCache(t *testing.T) {
 
 	t.Run("Immediate Get", func(t *testing.T) {
 		cache.Set("key1", "val1", time.Minute)
+
 		val, ok := cache.Get("key1")
 		if !ok || val != "val1" {
 			t.Errorf("expected val1, ok=true; got %v, %v", val, ok)
@@ -143,11 +150,13 @@ func TestMemory_Concurrency(t *testing.T) {
 	ctx := context.Background()
 
 	const iterations = 100
+
 	var wg sync.WaitGroup
 	wg.Add(2)
 
 	go func() {
 		defer wg.Done()
+
 		for i := 0; i < iterations; i++ {
 			_ = kv.Set(ctx, "key", []byte("val"))
 			_, _ = kv.Has(ctx, "key")
@@ -156,6 +165,7 @@ func TestMemory_Concurrency(t *testing.T) {
 
 	go func() {
 		defer wg.Done()
+
 		for i := 0; i < iterations; i++ {
 			_, _ = kv.Get(ctx, "key")
 			_ = kv.Delete(ctx, "key")

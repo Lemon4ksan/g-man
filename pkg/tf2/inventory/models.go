@@ -74,10 +74,12 @@ func (it *TF2Item) ToSKU() string {
 			if val, ok := attr.Value.(float64); ok {
 				effect = int(val)
 			}
+
 		case 725: // Wear
 			if val, ok := attr.Value.(float64); ok {
 				wear = int(val * 5)
 			}
+
 		case 2027: // Australium
 			isAustralium = true
 		case 834: // Paintkit
@@ -96,6 +98,7 @@ func (it *TF2Item) ToSKU() string {
 		Wear:       wear,
 		Paintkit:   paintkit,
 	})
+
 	return str
 }
 

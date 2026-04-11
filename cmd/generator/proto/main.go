@@ -5,13 +5,16 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"syscall"
 )
 
 var (
@@ -26,21 +29,25 @@ var (
 func main() {
 	flag.Parse()
 
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
 	if *steamSrc != "" && *steamOut != "" {
-		buildSteam()
+		buildSteam(ctx)
 	}
 
 	if *tf2Src != "" && *tf2Out != "" {
-		buildTF2()
+		buildTF2(ctx)
 	}
 }
 
-func buildSteam() {
-	_ = os.MkdirAll(*steamOut, 0755)
+func buildSteam(ctx context.Context) {
+	_ = os.MkdirAll(*steamOut, 0o755)
 
 	files, _ := filepath.Glob(filepath.Join(*steamSrc, "*.proto"))
-	var mappings []string
-	var fileNames []string
+
+	fileNames := make([]string, 0, len(files))
+	mappings := make([]string, 0, len(files))
 
 	for _, f := range files {
 		base := filepath.Base(f)
@@ -54,10 +61,10 @@ func buildSteam() {
 		"--go_opt=paths=source_relative",
 	}, append(mappings, fileNames...)...)
 
-	execute(*steamSrc, "protoc", args)
+	execute(ctx, *steamSrc, "protoc", args)
 }
 
-func buildTF2() {
+func buildTF2(ctx context.Context) {
 	fmt.Println("📦 Building TF2 Protobufs (with sanitization)...")
 
 	tempDir, _ := os.MkdirTemp("", "tf2proto_build")
@@ -65,8 +72,9 @@ func buildTF2() {
 
 	tf2Sandbox := filepath.Join(tempDir, "tf2_gc")
 	steamSandbox := filepath.Join(tempDir, "steam")
-	_ = os.MkdirAll(tf2Sandbox, 0755)
-	_ = os.MkdirAll(steamSandbox, 0755)
+
+	_ = os.MkdirAll(tf2Sandbox, 0o755)
+	_ = os.MkdirAll(steamSandbox, 0o755)
 
 	// TF2 protobuffs import files like steammessages.proto.
 	// The compiler needs to see them in the same file structure.
@@ -83,7 +91,7 @@ func buildTF2() {
 		copySanitizeTF2(f, dst, "tf2_gc")
 	}
 
-	_ = os.MkdirAll(*tf2Out, 0755)
+	_ = os.MkdirAll(*tf2Out, 0o755)
 
 	// If one .proto file imports another, protoc-gen-go doesn't know
 	// which Go path (import path) contains the generated code for that file.
@@ -93,6 +101,7 @@ func buildTF2() {
 	for _, f := range steamFiles {
 		mappings = append(mappings, "--go_opt=M"+filepath.Base(f)+"="+*steamImport)
 	}
+
 	for _, f := range tf2Files {
 		base := filepath.Base(f)
 		// We map both the short name and the name with the directory prefix
@@ -119,7 +128,7 @@ func buildTF2() {
 		fmt.Printf("  > Compiling: %s\n", base)
 		// Run protoc from the root of the temporary folder so that the -I (include) paths
 		// match the import structure in the .proto files.
-		execute(tempDir, "protoc", append([]string{
+		execute(ctx, tempDir, "protoc", append([]string{
 			"-I=.",      // Sandbox root
 			"-I=tf2_gc", // For TF2 imports
 			"-I=steam",  // For Steam imports
@@ -129,8 +138,9 @@ func buildTF2() {
 	}
 }
 
-func execute(dir, command string, args []string) {
-	cmd := exec.Command(command, args...)
+func execute(ctx context.Context, dir, command string, args []string) {
+	cmd := exec.CommandContext(ctx, command, args...)
+
 	cmd.Dir = dir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		fmt.Printf("Error in %s: %v\n%s\n", dir, err, string(out))
@@ -144,7 +154,8 @@ func copyFile(src, dst string) {
 		fmt.Printf("Failed to read %s: %v\n", src, err)
 		os.Exit(1)
 	}
-	err = os.WriteFile(dst, data, 0644)
+
+	err = os.WriteFile(dst, data, 0o644)
 	if err != nil {
 		fmt.Printf("Failed to write %s: %v\n", dst, err)
 		os.Exit(1)
@@ -174,8 +185,9 @@ func copySanitizeTF2(src, dst, newPkg string) {
 		if strings.Contains(m, ".google") {
 			return m
 		}
+
 		return string(m[0]) + string(m[2:])
 	})
 
-	os.WriteFile(dst, []byte(content), 0644)
+	_ = os.WriteFile(dst, []byte(content), 0o644)
 }

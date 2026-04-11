@@ -229,6 +229,7 @@ func (g *GraphPoints) UnmarshalJSON(data []byte) error {
 		}
 
 		var p GraphPoint
+
 		_ = json.Unmarshal(rawPoint[0], &p.Price)
 		_ = json.Unmarshal(rawPoint[1], &p.Volume)
 		_ = json.Unmarshal(rawPoint[2], &p.Description)
@@ -236,6 +237,7 @@ func (g *GraphPoints) UnmarshalJSON(data []byte) error {
 	}
 
 	*g = points
+
 	return nil
 }
 
@@ -277,14 +279,19 @@ func (ps *PriceSample) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	var timeStr string
-	var volumeStr string
+	var (
+		timeStr   string
+		volumeStr string
+	)
+
 	if err := json.Unmarshal(rawPriceSample[0], &timeStr); err != nil {
 		return err
 	}
+
 	if err := json.Unmarshal(rawPriceSample[1], &ps.Price); err != nil {
 		return err
 	}
+
 	if err := json.Unmarshal(rawPriceSample[2], &volumeStr); err != nil {
 		return err
 	}
@@ -293,6 +300,7 @@ func (ps *PriceSample) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
+
 	ps.Timestamp = t
 	ps.Volume, _ = strconv.ParseInt(volumeStr, 10, 64)
 

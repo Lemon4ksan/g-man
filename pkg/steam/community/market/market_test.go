@@ -64,6 +64,7 @@ func TestMarket_CreateSellOrder(t *testing.T) {
 	if lastCall.Header.Get("Origin") != "https://steamcommunity.com" {
 		t.Error("missing or invalid Origin header")
 	}
+
 	if !strings.Contains(lastCall.Header.Get("Referer"), "inventory") {
 		t.Error("Referer should point to inventory")
 	}
@@ -88,10 +89,14 @@ func TestMarket_CreateBuyOrder_CurrencyFormatting(t *testing.T) {
 			_ = m.StartAuthed(t.Context(), auth)
 
 			mockComm := auth.MockCommunity()
-			mockComm.SetJSONResponse("https://steamcommunity.com/market/createbuyorder", http.StatusOK, CreateBuyOrderResponse{
-				Success:    true,
-				BuyOrderID: 999,
-			})
+			mockComm.SetJSONResponse(
+				"https://steamcommunity.com/market/createbuyorder",
+				http.StatusOK,
+				CreateBuyOrderResponse{
+					Success:    true,
+					BuyOrderID: 999,
+				},
+			)
 
 			_, err := m.CreateBuyOrder(t.Context(), CreateBuyOrderOptions{
 				AppID:          440,
@@ -104,7 +109,8 @@ func TestMarket_CreateBuyOrder_CurrencyFormatting(t *testing.T) {
 			}
 
 			lastCall := mockComm.GetLastCall()
-			lastCall.ParseForm()
+			_ = lastCall.ParseForm()
+
 			if got := lastCall.Form.Get("price_total"); got != tt.expected {
 				t.Errorf("expected price_total %s, got %s", tt.expected, got)
 			}
@@ -167,6 +173,7 @@ func TestMarket_CancelBuyOrder(t *testing.T) {
 	mockComm := auth.MockCommunity()
 
 	buyOrderID := uint64(123456789)
+
 	mockComm.SetJSONResponse("https://steamcommunity.com/market/cancelbuyorder", http.StatusOK, struct {
 		Success bool `json:"success"`
 	}{Success: true})
@@ -181,10 +188,12 @@ func TestMarket_CancelBuyOrder(t *testing.T) {
 		t.Errorf("expected POST, got %s", lastCall.Method)
 	}
 
-	lastCall.ParseForm()
+	_ = lastCall.ParseForm()
+
 	if got := lastCall.Form.Get("buy_orderid"); got != "123456789" {
 		t.Errorf("expected buy_orderid 123456789, got %s", got)
 	}
+
 	if got := lastCall.Form.Get("sessionid"); got != auth.MockCommunity().MockSessionID {
 		t.Errorf("expected correct sessionid, got %s", got)
 	}
@@ -218,6 +227,7 @@ func TestMarket_GetItemOrdersHistogram(t *testing.T) {
 	if len(res.BuyOrderGraph) != 2 {
 		t.Fatalf("expected 2 points in buy graph, got %d", len(res.BuyOrderGraph))
 	}
+
 	if res.BuyOrderGraph[0].Price != 1.50 || res.BuyOrderGraph[0].Volume != 10 {
 		t.Errorf("invalid graph point data: %+v", res.BuyOrderGraph[0])
 	}
@@ -227,10 +237,12 @@ func TestMarket_GetItemOrdersHistogram(t *testing.T) {
 	}
 
 	lastCall := mockComm.GetLastCall()
+
 	q := lastCall.URL.Query()
 	if q.Get("item_nameid") != "555" {
 		t.Errorf("expected item_nameid 555, got %s", q.Get("item_nameid"))
 	}
+
 	if q.Get("currency") != "1" { // CurrencyCodeUSD
 		t.Errorf("expected currency 1, got %s", q.Get("currency"))
 	}
@@ -264,13 +276,16 @@ func TestMarket_Search(t *testing.T) {
 	}
 
 	lastCall := mockComm.GetLastCall()
+
 	q := lastCall.URL.Query()
 	if q.Get("query") != "key" {
 		t.Errorf("expected query 'key', got %s", q.Get("query"))
 	}
+
 	if q.Get("norender") != "1" {
 		t.Error("expected norender=1 for JSON search")
 	}
+
 	if q.Get("count") != "10" {
 		t.Errorf("expected count 10, got %s", q.Get("count"))
 	}
@@ -299,6 +314,7 @@ func TestMarket_GetMyListings(t *testing.T) {
 	}
 
 	lastCall := mockComm.GetLastCall()
+
 	q := lastCall.URL.Query()
 	if q.Get("start") != "0" || q.Get("count") != "50" {
 		t.Errorf("invalid pagination params: start=%s, count=%s", q.Get("start"), q.Get("count"))

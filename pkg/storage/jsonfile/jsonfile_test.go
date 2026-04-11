@@ -6,6 +6,7 @@ package jsonfile_test
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -79,15 +80,16 @@ func TestAuthStore_MachineID(t *testing.T) {
 
 	t.Run("Not Found", func(t *testing.T) {
 		_, err := store.GetMachineID(ctx, "non_existent")
-		if err != storage.ErrNotFound {
+		if !errors.Is(err, storage.ErrNotFound) {
 			t.Errorf("expected ErrNotFound, got %v", err)
 		}
 	})
 
 	t.Run("Clear", func(t *testing.T) {
 		_ = store.Clear(ctx, account)
+
 		_, err := store.GetRefreshToken(ctx, account)
-		if err != storage.ErrNotFound {
+		if !errors.Is(err, storage.ErrNotFound) {
 			t.Error("expected token to be cleared")
 		}
 	})
@@ -127,6 +129,7 @@ func TestKVStore(t *testing.T) {
 
 		// Set & Get
 		_ = kv1.Set(ctx, key, val)
+
 		got, _ := kv1.Get(ctx, key)
 		if string(got) != string(val) {
 			t.Error("value mismatch")
@@ -140,8 +143,9 @@ func TestKVStore(t *testing.T) {
 
 		// Delete
 		_ = kv1.Delete(ctx, key)
+
 		_, err := kv1.Get(ctx, key)
-		if err != storage.ErrNotFound {
+		if !errors.Is(err, storage.ErrNotFound) {
 			t.Error("key should be deleted")
 		}
 	})
@@ -151,7 +155,7 @@ func TestProvider_EmptyFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "empty.json")
 
-	if err := os.WriteFile(dbPath, []byte(""), 0644); err != nil {
+	if err := os.WriteFile(dbPath, []byte(""), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -169,7 +173,7 @@ func TestProvider_CorruptedFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "corrupted.json")
 
-	if err := os.WriteFile(dbPath, []byte("{ invalid json"), 0644); err != nil {
+	if err := os.WriteFile(dbPath, []byte("{ invalid json"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 

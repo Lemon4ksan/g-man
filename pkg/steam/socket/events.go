@@ -9,7 +9,8 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 )
 
-type SocketEvent interface {
+// Event defines the base interface that socket events must implement.
+type Event interface {
 	bus.Event
 	isSocketEvent()
 }

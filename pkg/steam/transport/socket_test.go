@@ -24,7 +24,11 @@ type mockSocketCaller struct {
 
 func (m *mockSocketCaller) Session() socket.Session { return m.session }
 
-func (m *mockSocketCaller) SendSync(ctx context.Context, build socket.PayloadBuilder, opts ...socket.SendOption) (*protocol.Packet, error) {
+func (m *mockSocketCaller) SendSync(
+	ctx context.Context,
+	build socket.PayloadBuilder,
+	opts ...socket.SendOption,
+) (*protocol.Packet, error) {
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
@@ -117,9 +121,11 @@ func TestSocketTransport_Do(t *testing.T) {
 				if meta.Result != tt.expectRes {
 					t.Errorf("Expected Result %v, got %v", tt.expectRes, meta.Result)
 				}
+
 				if string(resp.Body) != "success" {
 					t.Errorf("Expected body 'success', got '%s'", string(resp.Body))
 				}
+
 				if tt.mockPacket.Header != nil && meta.SourceJobID != 12345 {
 					t.Errorf("Expected SourceJobID 12345, got %d", meta.SourceJobID)
 				}
@@ -138,10 +144,12 @@ func TestSocketTransport_ContextCancellation(t *testing.T) {
 	req := NewRequest(target, nil)
 
 	resCh := make(chan error, 1)
+
 	go func() {
 		_, err := NewSocketTransport(caller).Do(ctx, req)
 		resCh <- err
 	}()
+
 	cancel()
 
 	select {
@@ -149,9 +157,11 @@ func TestSocketTransport_ContextCancellation(t *testing.T) {
 		if err == nil {
 			t.Fatal("Expected error due to cancelled context, got nil")
 		}
+
 		if !errors.Is(err, context.Canceled) {
 			t.Errorf("Expected context.Canceled error, got %v", err)
 		}
+
 	case <-time.After(500 * time.Millisecond):
 		t.Error("Transport is blocking and ignoring context cancellation")
 	}

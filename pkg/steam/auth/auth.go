@@ -16,6 +16,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/log"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
@@ -23,9 +25,9 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
-	"google.golang.org/protobuf/proto"
 )
 
+// ProtocolVersion is the current version of the Steam client protocol used for logon.
 const ProtocolVersion = 65580
 
 // Config defines the configuration for the Authenticator.
@@ -34,6 +36,7 @@ type Config struct {
 	LogonTimeout time.Duration
 }
 
+// DefaultConfig returns the recommended baseline configuration for the Authenticator.
 func DefaultConfig() Config {
 	return Config{
 		LogonID:      uint32(time.Now().Unix()),
@@ -41,17 +44,23 @@ func DefaultConfig() Config {
 	}
 }
 
-// State represents the current authentication state.
+// State represents the current lifecycle stage of the authentication process.
 type State int32
 
 const (
-	StateDisconnected   State = iota
-	StateAuthenticating       // Fetching WebAPI tokens
-	StateLoggingOn            // Exchanging token with CM via Socket
-	StateLoggedOn             // Authentication complete
-	StateFailed               // Terminal failure state
+	// StateDisconnected indicates the authenticator is idle.
+	StateDisconnected State = iota
+	// StateAuthenticating indicates WebAPI tokens are being fetched.
+	StateAuthenticating
+	// StateLoggingOn indicates the token is being exchanged with the CM via Socket.
+	StateLoggingOn
+	// StateLoggedOn indicates the authentication is fully complete.
+	StateLoggedOn
+	// StateFailed indicates a terminal failure in the logon process.
+	StateFailed
 )
 
+// String returns a human-readable representation of the authentication state.
 func (s State) String() string {
 	switch s {
 	case StateDisconnected:
@@ -82,40 +91,51 @@ type SocketProvider interface {
 
 // WebAuthenticator defines the interface for WebAPI-based authentication flows.
 type WebAuthenticator interface {
-	BeginAuthSessionViaCredentials(ctx context.Context, accountName, password string, authCode string) (*pb.CAuthentication_BeginAuthSessionViaCredentials_Response, error)
-	PollAuthSessionStatus(ctx context.Context, clientID uint64, requestID []byte) (*pb.CAuthentication_PollAuthSessionStatus_Response, error)
-	UpdateAuthSessionWithSteamGuardCode(ctx context.Context, clientID, steamID uint64, code string, codeType pb.EAuthSessionGuardType) error
-	GenerateAccessTokenForApp(ctx context.Context, refreshToken string, steamID uint64) (*pb.CAuthentication_AccessToken_GenerateForApp_Response, error)
+	BeginAuthSessionViaCredentials(
+		ctx context.Context,
+		accountName, password, authCode string,
+	) (*pb.CAuthentication_BeginAuthSessionViaCredentials_Response, error)
+	PollAuthSessionStatus(
+		ctx context.Context,
+		clientID uint64,
+		requestID []byte,
+	) (*pb.CAuthentication_PollAuthSessionStatus_Response, error)
+	UpdateAuthSessionWithSteamGuardCode(
+		ctx context.Context,
+		clientID, steamID uint64,
+		code string,
+		codeType pb.EAuthSessionGuardType,
+	) error
+	GenerateAccessTokenForApp(
+		ctx context.Context,
+		refreshToken string,
+		steamID uint64,
+	) (*pb.CAuthentication_AccessToken_GenerateForApp_Response, error)
 }
 
-// Store specifically handles persisting the Steam authentication state.
+// Store handles persisting the Steam authentication state, such as tokens and machine IDs.
 type Store interface {
-	// SaveRefreshToken persists the long-lived OIDC refresh token.
 	SaveRefreshToken(ctx context.Context, accountName, token string) error
-
-	// GetRefreshToken retrieves the refresh token for a specific account.
 	GetRefreshToken(ctx context.Context, accountName string) (string, error)
-
 	SaveMachineID(ctx context.Context, accountName string, machineID []byte) error
 	GetMachineID(ctx context.Context, accountName string) ([]byte, error)
-
-	// Clear removes all authentication data for the specified account.
 	Clear(ctx context.Context, accountName string) error
 }
 
-// Option defines a functional option for Authenticator.
+// Option defines a functional configuration option for Authenticator.
 type Option func(*Authenticator)
 
+// WithLogger sets a custom logger for the Authenticator.
 func WithLogger(l log.Logger) Option {
 	return func(a *Authenticator) { a.logger = l.With(log.Module("auth")) }
 }
 
-// WithStorage sets a persistent storage for authorization
+// WithStorage sets a persistent storage provider for authentication data.
 func WithStorage(store Store) Option {
 	return func(a *Authenticator) { a.store = store }
 }
 
-// ExtractSteamIDFromJWT parses the base64 string and returns the account steam id.
+// ExtractSteamIDFromJWT parses a Steam JWT and returns the embedded SteamID.
 func ExtractSteamIDFromJWT(token string) id.ID {
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
@@ -143,11 +163,11 @@ func ExtractSteamIDFromJWT(token string) id.ID {
 	}
 
 	steamID, _ := strconv.ParseUint(claims.Sub, 10, 64)
+
 	return id.ID(steamID)
 }
 
-// Authenticator handles the complex multi-step Steam authentication process.
-// It manages the transition from HTTP JWT fetch to CM Socket Logon.
+// Authenticator orchestrates the process of logging into Steam.
 type Authenticator struct {
 	config Config
 	state  atomic.Int32
@@ -156,17 +176,16 @@ type Authenticator struct {
 	service WebAuthenticator
 	logger  log.Logger
 
-	// Atomic pointers to avoid locking during frequent reads.
 	activeDetails atomic.Pointer[LogOnDetails]
 	tempKey       atomic.Pointer[[]byte]
 
-	// Active login coordination
 	loginCtx    atomic.Value
 	loginCancel atomic.Value
 	loginResult chan error
 	store       Store
 }
 
+// NewAuthenticator creates a new instance of Authenticator.
 func NewAuthenticator(s SocketProvider, service WebAuthenticator, cfg Config, opts ...Option) *Authenticator {
 	auth := &Authenticator{
 		config:  cfg,
@@ -181,7 +200,6 @@ func NewAuthenticator(s SocketProvider, service WebAuthenticator, cfg Config, op
 
 	auth.setState(StateDisconnected)
 
-	// Register CM Handlers
 	s.RegisterMsgHandler(enums.EMsg_ChannelEncryptRequest, auth.handleChannelEncryptRequest)
 	s.RegisterMsgHandler(enums.EMsg_ChannelEncryptResult, auth.handleChannelEncryptResult)
 	s.RegisterMsgHandler(enums.EMsg_ClientLogOnResponse, auth.handleLogOnResponse)
@@ -190,22 +208,18 @@ func NewAuthenticator(s SocketProvider, service WebAuthenticator, cfg Config, op
 	return auth
 }
 
-func (a *Authenticator) State() State              { return State(a.state.Load()) }
+// State returns the current authentication state.
+func (a *Authenticator) State() State { return State(a.state.Load()) }
+
+// Service returns the underlying WebAuthenticator.
 func (a *Authenticator) Service() WebAuthenticator { return a.service }
 
-// LogOn initiates the login sequence.
-// It is a blocking call that coordinates:
-//  1. RSA Password encryption (if no token provided).
-//  2. WebAPI authentication session start.
-//  3. Steam Guard challenge handling (via event bus).
-//  4. TCP Channel encryption handshake with the CM.
-//  5. Final EMsg_ClientLogon exchange.
-//
-// Returns nil on success (StateLoggedOn) or a terminal error.
+// LogOn initiates the login sequence. It blocks until authentication is complete or fails.
 func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server socket.CMServer) error {
 	if !a.tryAcquireState() {
 		return errors.New("auth: authentication already in progress")
 	}
+
 	defer a.ensureTerminalState()
 
 	if err := a.validate(details); err != nil {
@@ -215,11 +229,14 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 	a.loginResult = make(chan error, 1)
 
 	if len(details.MachineID) == 0 {
-		if savedMachineID, err := a.store.GetMachineID(ctx, details.AccountName); err == nil {
+		savedMachineID, err := a.store.GetMachineID(ctx, details.AccountName)
+		if err == nil && len(savedMachineID) > 0 {
 			a.logger.Debug("Found saved MachineID in storage")
+
 			details.MachineID = savedMachineID
 		} else {
-			a.logger.Info("Generating new MachineID for account (First run on this device)")
+			a.logger.Info("Generating new MachineID for account")
+
 			details.MachineID = generateMachineID()
 			_ = a.store.SaveMachineID(ctx, details.AccountName, details.MachineID)
 		}
@@ -235,6 +252,7 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 	if details.RefreshToken == "" {
 		if token, err := a.store.GetRefreshToken(ctx, details.AccountName); err == nil && token != "" {
 			a.logger.Info("Found saved refresh token in storage")
+
 			details.RefreshToken = token
 		}
 	}
@@ -248,10 +266,12 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 
 	if details.RefreshToken == "" {
 		a.logger.Info("No saved token, performing password authentication via WebAPI")
+
 		refresh, access, steamID, err := a.performPasswordAuth(loginCtx, details)
 		if err != nil {
 			return err
 		}
+
 		details.RefreshToken = refresh
 		details.AccessToken = access
 		details.SteamID = id.ID(steamID)
@@ -259,6 +279,7 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 	}
 
 	a.setState(StateLoggingOn)
+
 	if err := a.socket.Connect(loginCtx, server); err != nil {
 		return fmt.Errorf("cm connection failed: %w", err)
 	}
@@ -267,6 +288,7 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 	if sess == nil {
 		return errors.New("cm socket returned nil session")
 	}
+
 	sess.SetSteamID(details.SteamID.Uint64())
 	sess.SetRefreshToken(details.RefreshToken)
 
@@ -278,7 +300,6 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 	var resultErr error
 	select {
 	case resultErr = <-a.loginResult:
-		// Received response from CM (success or failure)
 	case <-loginCtx.Done():
 		resultErr = loginCtx.Err()
 	}
@@ -295,6 +316,7 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 	}
 
 	a.setState(StateFailed)
+
 	return resultErr
 }
 
@@ -303,12 +325,14 @@ func (a *Authenticator) LogOnAnonymous(ctx context.Context, server socket.CMServ
 	if !a.tryAcquireState() {
 		return errors.New("auth: authentication already in progress")
 	}
+
 	defer a.ensureTerminalState()
 
 	a.loginResult = make(chan error, 1)
 
 	loginCtx, cancel := context.WithCancel(ctx)
 	a.loginCtx.Store(loginCtx)
+
 	a.loginCancel.Store(cancel)
 	defer cancel()
 
@@ -319,6 +343,7 @@ func (a *Authenticator) LogOnAnonymous(ctx context.Context, server socket.CMServ
 	a.activeDetails.Store(anonDetails)
 
 	a.setState(StateLoggingOn)
+
 	if err := a.socket.Connect(ctx, server); err != nil {
 		return fmt.Errorf("cm connection failed: %w", err)
 	}
@@ -326,7 +351,6 @@ func (a *Authenticator) LogOnAnonymous(ctx context.Context, server socket.CMServ
 	var resultErr error
 	select {
 	case resultErr = <-a.loginResult:
-		// Received response from CM (success or failure)
 	case <-loginCtx.Done():
 		resultErr = loginCtx.Err()
 	}
@@ -337,15 +361,18 @@ func (a *Authenticator) LogOnAnonymous(ctx context.Context, server socket.CMServ
 	}
 
 	a.setState(StateLoggedOn)
+
 	return nil
 }
 
 func (a *Authenticator) tryAcquireState() bool {
 	for {
 		current := a.state.Load()
-		if current == int32(StateAuthenticating) || current == int32(StateLoggingOn) || current == int32(StateLoggedOn) {
+		if current == int32(StateAuthenticating) || current == int32(StateLoggingOn) ||
+			current == int32(StateLoggedOn) {
 			return false
 		}
+
 		if a.state.CompareAndSwap(current, int32(StateAuthenticating)) {
 			return true
 		}
@@ -386,7 +413,10 @@ func (a *Authenticator) validate(details *LogOnDetails) error {
 	return nil
 }
 
-func (a *Authenticator) performPasswordAuth(ctx context.Context, details *LogOnDetails) (string, string, uint64, error) {
+func (a *Authenticator) performPasswordAuth(
+	ctx context.Context,
+	details *LogOnDetails,
+) (string, string, uint64, error) {
 	resp, err := a.service.BeginAuthSessionViaCredentials(ctx, details.AccountName, details.Password, details.AuthCode)
 	if err != nil {
 		return "", "", 0, fmt.Errorf("begin session failed: %w", err)
@@ -407,12 +437,17 @@ func (a *Authenticator) performPasswordAuth(ctx context.Context, details *LogOnD
 	return a.pollAuthStatus(ctx, resp.GetClientId(), resp.GetRequestId(), resp.GetSteamid(), interval)
 }
 
-func (a *Authenticator) resolveConfirmation(ctx context.Context, conf *pb.CAuthentication_AllowedConfirmation, resp *pb.CAuthentication_BeginAuthSessionViaCredentials_Response) {
+func (a *Authenticator) resolveConfirmation(
+	ctx context.Context,
+	conf *pb.CAuthentication_AllowedConfirmation,
+	resp *pb.CAuthentication_BeginAuthSessionViaCredentials_Response,
+) {
 	confType := conf.GetConfirmationType()
 	is2FA := confType == pb.EAuthSessionGuardType_k_EAuthSessionGuardType_DeviceCode
 
 	switch confType {
-	case pb.EAuthSessionGuardType_k_EAuthSessionGuardType_EmailCode, pb.EAuthSessionGuardType_k_EAuthSessionGuardType_DeviceCode:
+	case pb.EAuthSessionGuardType_k_EAuthSessionGuardType_EmailCode,
+		pb.EAuthSessionGuardType_k_EAuthSessionGuardType_DeviceCode:
 		msg := "2FA code required"
 		if !is2FA {
 			msg = "Email confirmation required"
@@ -427,8 +462,15 @@ func (a *Authenticator) resolveConfirmation(ctx context.Context, conf *pb.CAuthe
 				if code == "" {
 					return
 				}
+
 				go func() {
-					err := a.service.UpdateAuthSessionWithSteamGuardCode(ctx, resp.GetClientId(), resp.GetSteamid(), code, confType)
+					err := a.service.UpdateAuthSessionWithSteamGuardCode(
+						ctx,
+						resp.GetClientId(),
+						resp.GetSteamid(),
+						code,
+						confType,
+					)
 					if err != nil {
 						a.logger.Error("Failed to submit guard code", log.Err(err))
 						a.failLogin(fmt.Errorf("steam guard rejected: %w", err))
@@ -443,7 +485,13 @@ func (a *Authenticator) resolveConfirmation(ctx context.Context, conf *pb.CAuthe
 	}
 }
 
-func (a *Authenticator) pollAuthStatus(ctx context.Context, clientID uint64, requestID []byte, steamID uint64, interval time.Duration) (string, string, uint64, error) {
+func (a *Authenticator) pollAuthStatus(
+	ctx context.Context,
+	clientID uint64,
+	requestID []byte,
+	steamID uint64,
+	interval time.Duration,
+) (string, string, uint64, error) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
@@ -458,6 +506,7 @@ func (a *Authenticator) pollAuthStatus(ctx context.Context, clientID uint64, req
 				if !strings.Contains(err.Error(), "DuplicateRequest") {
 					a.logger.Debug("Poll status warning", log.Err(err))
 				}
+
 				continue
 			}
 
@@ -486,6 +535,7 @@ func (a *Authenticator) failLogin(err error) {
 	if cancelFunc, ok := a.loginCancel.Load().(context.CancelFunc); ok {
 		cancelFunc()
 	}
+
 	select {
 	case a.loginResult <- err:
 	default:
@@ -494,7 +544,11 @@ func (a *Authenticator) failLogin(err error) {
 
 func generateMachineID() []byte {
 	var b [42]byte
-	_, _ = rand.Read(b[:])
+	if _, err := rand.Read(b[:]); err != nil {
+		// rand.Read rarely fails, but if it does, we return a zeroed ID.
+		return make([]byte, 42)
+	}
+
 	return b[:]
 }
 
@@ -505,5 +559,3 @@ func (nopStore) GetRefreshToken(ctx context.Context, acc string) (string, error)
 func (nopStore) SaveMachineID(ctx context.Context, acc string, id []byte) error  { return nil }
 func (nopStore) GetMachineID(ctx context.Context, acc string) ([]byte, error)    { return nil, nil }
 func (nopStore) Clear(ctx context.Context, acc string) error                     { return nil }
-
-var defaultStore = nopStore{}

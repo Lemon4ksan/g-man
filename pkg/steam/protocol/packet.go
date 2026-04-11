@@ -11,15 +11,21 @@ import (
 	"fmt"
 	"io"
 
+	"google.golang.org/protobuf/proto"
+
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
-	"google.golang.org/protobuf/proto"
 )
 
 var (
-	ErrHeaderTooLarge  = errors.New("proto header too large")
+	// ErrHeaderTooLarge is returned when the target header exceeds the limit.
+	ErrHeaderTooLarge = errors.New("proto header too large")
+
+	// ErrPayloadTooLarge is returned when the target payload exceeds the imit.
 	ErrPayloadTooLarge = errors.New("payload exceeds maximum size")
-	ErrInvalidHeader   = errors.New("invalid header format")
+
+	// ErrInvalidHeader is returned when the invalid header is passed.
+	ErrInvalidHeader = errors.New("invalid header format")
 )
 
 // Header describes the common interface for all Steam message headers.
@@ -100,6 +106,7 @@ func ParsePacket(r io.Reader) (*Packet, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if len(payload) > MaxPayloadSize {
 		return nil, ErrPayloadTooLarge
 	}
@@ -119,6 +126,7 @@ func (p *Packet) GetTargetJobID() uint64 {
 	if p.Header != nil {
 		return p.Header.GetTargetJob()
 	}
+
 	return NoJob
 }
 
@@ -128,6 +136,7 @@ func (p *Packet) GetSourceJobID() uint64 {
 	if p.Header != nil {
 		return p.Header.GetSourceJob()
 	}
+
 	return NoJob
 }
 
@@ -137,6 +146,7 @@ func (p *Packet) GetSteamID() uint64 {
 	if ah, ok := p.Header.(AuthorizedHeader); ok {
 		return ah.GetSteamID()
 	}
+
 	return 0
 }
 
@@ -146,6 +156,7 @@ func (p *Packet) GetSessionID() int32 {
 	if ah, ok := p.Header.(AuthorizedHeader); ok {
 		return ah.GetSessionID()
 	}
+
 	return 0
 }
 
@@ -155,6 +166,7 @@ func (p *Packet) GetEResult() enums.EResult {
 	if eh, ok := p.Header.(EHeader); ok {
 		return eh.GetEResult()
 	}
+
 	return enums.EResult_Invalid
 }
 
@@ -172,6 +184,7 @@ func (p *Packet) SerializeTo(w io.Writer) error {
 	}
 
 	_, err := w.Write(p.Payload)
+
 	return err
 }
 
@@ -202,20 +215,25 @@ func (p *GCPacket) Serialize() ([]byte, error) {
 	if p.IsProto {
 		// Protobuf Header: [MsgType | Mask] [HeaderLength] [ProtoHeader] [Body]
 		msgType := p.MsgType | ProtoMask
-		binary.Write(buf, binary.LittleEndian, msgType)
+		if err := binary.Write(buf, binary.LittleEndian, msgType); err != nil {
+			return nil, err
+		}
 
 		hdr := &pb.CMsgProtoBufHeader{
 			JobidSource: proto.Uint64(p.SourceJobID),
 			JobidTarget: proto.Uint64(p.TargetJobID),
 		}
+
 		hdrBytes, err := proto.Marshal(hdr)
 		if err != nil {
 			return nil, fmt.Errorf("gc: marshal proto header: %w", err)
 		}
 
-		binary.Write(buf, binary.LittleEndian, uint32(len(hdrBytes)))
-		buf.Write(hdrBytes)
+		if err := binary.Write(buf, binary.LittleEndian, uint32(len(hdrBytes))); err != nil {
+			return nil, err
+		}
 
+		buf.Write(hdrBytes)
 	} else {
 		// [HeaderVersion(1)] [TargetJobID] [SourceJobID] [Body]
 		// Note: Legacy GC header structure varies by game, but usually standard 18 bytes
@@ -227,11 +245,12 @@ func (p *GCPacket) Serialize() ([]byte, error) {
 	}
 
 	buf.Write(p.Payload)
+
 	return buf.Bytes(), nil
 }
 
 // ParseGCPacket decodes a raw byte slice from ClientFromGC into a Packet.
-func ParseGCPacket(appID uint32, msgType uint32, data []byte) (*GCPacket, error) {
+func ParseGCPacket(appID, msgType uint32, data []byte) (*GCPacket, error) {
 	p := &GCPacket{
 		AppID:   appID,
 		MsgType: msgType & ^uint32(ProtoMask), // Strip mask
@@ -260,7 +279,6 @@ func ParseGCPacket(appID uint32, msgType uint32, data []byte) (*GCPacket, error)
 
 		p.TargetJobID = hdr.GetJobidTarget()
 		p.SourceJobID = hdr.GetJobidSource()
-
 	} else {
 		// Legacy Header (18 bytes)
 		header := make([]byte, 18)
@@ -275,6 +293,7 @@ func ParseGCPacket(appID uint32, msgType uint32, data []byte) (*GCPacket, error)
 
 	// The rest is payload
 	var err error
+
 	p.Payload, err = io.ReadAll(r)
 	if err != nil {
 		return nil, fmt.Errorf("gc: read payload: %w", err)

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/g-man/pkg/log"
+	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/tf2"
 	"github.com/lemon4ksan/g-man/pkg/tf2/crafting"
 	"github.com/lemon4ksan/g-man/pkg/tf2/currency"
@@ -27,10 +28,15 @@ func RecoverMiddleware(logger log.Logger) Middleware {
 			defer func() {
 				if r := recover(); r != nil {
 					err = fmt.Errorf("panic in trade engine: %v", r)
-					logger.Error("Trade engine recovered from panic", log.Any("panic", r), log.Uint64("offer_id", ctx.Offer.ID))
+					logger.Error(
+						"Trade engine recovered from panic",
+						log.Any("panic", r),
+						log.Uint64("offer_id", ctx.Offer.ID),
+					)
 					ctx.Review("Internal engine error (panic)")
 				}
 			}()
+
 			return next(ctx)
 		}
 	}
@@ -59,7 +65,7 @@ func LoggerMiddleware(logger log.Logger) Middleware {
 }
 
 // BlacklistMiddleware rejects offers from specific SteamIDs.
-func BlacklistMiddleware(blacklist []uint64) Middleware {
+func BlacklistMiddleware(blacklist []id.ID) Middleware {
 	return func(next Handler) Handler {
 		return func(ctx *TradeContext) error {
 			// Check precondition
@@ -108,7 +114,7 @@ func PricerMiddleware(db *pricedb.Client, logger log.Logger) Middleware {
 				skus[item.SKU] = true
 			}
 
-			var skuList []string
+			skuList := make([]string, 0, len(skus))
 			for sku := range skus {
 				skuList = append(skuList, sku)
 			}
@@ -117,6 +123,7 @@ func PricerMiddleware(db *pricedb.Client, logger log.Logger) Middleware {
 			if err != nil {
 				logger.Warn("Failed to fetch prices, marking for review", log.Err(err))
 				ctx.Review("Pricer API is down")
+
 				return nil
 			}
 
@@ -152,8 +159,10 @@ func CounterOfferMiddleware(metalMgr *crafting.MetalManager, pricer *pricedb.Cli
 						logger.Warn("Not enough metal for change, triggering auto-crafting...")
 						// TODO: Smelt scrap / duplicates
 						ctx.Decline("I don't have enough small metal for exact change right now.")
+
 						return nil
 					}
+
 					return err
 				}
 
@@ -198,6 +207,7 @@ func ChangeMiddleware(metalMgr *crafting.MetalManager, craftingSvc *tf2.TF2, log
 					}
 
 					ctx.Decline("I don't have enough small metal to give you change.")
+
 					return nil
 				}
 
@@ -205,7 +215,11 @@ func ChangeMiddleware(metalMgr *crafting.MetalManager, craftingSvc *tf2.TF2, log
 				ctx.Verdict.Reason = "Added change automatically"
 				ctx.Verdict.Data = ids
 			} else {
-				ctx.Decline(reason.TradeReason(fmt.Sprintf("You are missing %f", currency.ToRefined(currency.Scrap(math.Abs(float64(diff)))))))
+				ctx.Decline(
+					reason.TradeReason(
+						fmt.Sprintf("You are missing %f", currency.ToRefined(currency.Scrap(math.Abs(float64(diff))))),
+					),
+				)
 			}
 
 			return nil
@@ -221,6 +235,7 @@ func calculateValueDiff(ctx *TradeContext) currency.Scrap {
 	if !ok {
 		return 0
 	}
+
 	priceMap := pricesRaw.(map[string]*pricedb.Price)
 
 	var keyPriceScrap currency.Scrap = 900

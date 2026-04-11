@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/lemon4ksan/g-man/pkg/log"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam"
@@ -18,7 +20,6 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
-	"google.golang.org/protobuf/proto"
 )
 
 const ModuleName string = "apps"
@@ -78,6 +79,7 @@ func (a *Apps) Close() error {
 	for _, unreg := range a.unregFuncs {
 		unreg()
 	}
+
 	a.unregFuncs = nil
 	a.mu.Unlock()
 
@@ -91,7 +93,12 @@ func (a *Apps) GetPlayerCount(ctx context.Context, appID uint32) (int32, error) 
 		Appid: proto.Uint32(appID),
 	}
 
-	resp, err := service.Legacy[pb.CMsgDPGetNumberOfCurrentPlayersResponse](ctx, a.client, enums.EMsg_ClientGetNumberOfCurrentPlayersDP, req)
+	resp, err := service.Legacy[pb.CMsgDPGetNumberOfCurrentPlayersResponse](
+		ctx,
+		a.client,
+		enums.EMsg_ClientGetNumberOfCurrentPlayersDP,
+		req,
+	)
 	if err != nil {
 		return 0, fmt.Errorf("apps: failed to get player count: %w", err)
 	}
@@ -114,9 +121,11 @@ func (a *Apps) PlayGames(ctx context.Context, appIDs []uint32, forceKick bool) e
 
 	if blocked && forceKick {
 		a.Logger.Info("Playing session is blocked by another client. Attempting to kick...")
+
 		if err := a.KickPlayingSession(ctx); err != nil {
 			a.Logger.Error("Failed to kick other playing session", log.Err(err))
 		}
+
 		// Give Steam a moment to invalidate the other session
 		time.Sleep(500 * time.Millisecond)
 	}
@@ -140,6 +149,7 @@ func (a *Apps) PlayCustomGames(ctx context.Context, names []string) error {
 			GameExtraInfo: proto.String(name),
 		})
 	}
+
 	return a.sendGamesPlayed(ctx, games, nil)
 }
 
@@ -151,11 +161,21 @@ func (a *Apps) StopPlaying(ctx context.Context) error {
 // KickPlayingSession sends a request to Steam to terminate any other active
 // game-playing sessions on this account (e.g., on another PC).
 func (a *Apps) KickPlayingSession(ctx context.Context) error {
-	_, err := service.Legacy[service.NoResponse](ctx, a.client, enums.EMsg_ClientKickPlayingSession, &pb.CMsgClientKickPlayingSession{})
+	_, err := service.Legacy[service.NoResponse](
+		ctx,
+		a.client,
+		enums.EMsg_ClientKickPlayingSession,
+		&pb.CMsgClientKickPlayingSession{},
+	)
+
 	return err
 }
 
-func (a *Apps) sendGamesPlayed(ctx context.Context, games []*pb.CMsgClientGamesPlayed_GamePlayed, newAppIDs []uint32) error {
+func (a *Apps) sendGamesPlayed(
+	ctx context.Context,
+	games []*pb.CMsgClientGamesPlayed_GamePlayed,
+	newAppIDs []uint32,
+) error {
 	req := &pb.CMsgClientGamesPlayed{
 		GamesPlayed: games,
 	}
@@ -185,6 +205,7 @@ func (a *Apps) sendGamesPlayed(ctx context.Context, games []*pb.CMsgClientGamesP
 	}
 
 	a.playingAppIDs = newAppIDs
+
 	return nil
 }
 

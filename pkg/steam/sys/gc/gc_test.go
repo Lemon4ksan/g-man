@@ -9,11 +9,12 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/test/module"
-	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -23,6 +24,7 @@ const (
 
 func setupCoordinator(t *testing.T) (*Coordinator, *module.InitContext) {
 	t.Helper()
+
 	c := New()
 	ictx := module.NewInitContext()
 
@@ -37,14 +39,16 @@ func setupCoordinator(t *testing.T) (*Coordinator, *module.InitContext) {
 	return c, ictx
 }
 
-func emitGC(t *testing.T, ictx *module.InitContext, appID uint32, msgType uint32, payload []byte, jobID uint64) {
+func emitGC(t *testing.T, ictx *module.InitContext, appID, msgType uint32, payload []byte, jobID uint64) {
 	t.Helper()
+
 	inner := &protocol.GCPacket{
 		AppID:       appID,
 		MsgType:     msgType,
 		TargetJobID: jobID,
 		Payload:     payload,
 	}
+
 	gcData, err := inner.Serialize()
 	if err != nil {
 		t.Fatalf("failed to serialize GC packet: %v", err)
@@ -76,6 +80,7 @@ func TestCoordinator_InitAndClose(t *testing.T) {
 
 	t.Run("Cleanup", func(t *testing.T) {
 		_ = c.Close()
+
 		if _, ok := ictx.GetPacketHandler(enums.EMsg_ClientFromGC); ok {
 			t.Error("handler should be unregistered after Close")
 		}
@@ -118,6 +123,7 @@ func TestCoordinator_Call(t *testing.T) {
 		if err != nil {
 			t.Errorf("callback error: %v", err)
 		}
+
 		resultChan <- p
 	})
 	if err != nil {

@@ -14,13 +14,12 @@ import (
 	"crypto/rsa"
 	"crypto/sha1"
 	"crypto/x509"
+	_ "embed"
 	"encoding/hex"
 	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
-
-	_ "embed"
 )
 
 // Public key loaded from system.pem (RSA)
@@ -35,22 +34,25 @@ func init() {
 	if block == nil || block.Type != "PUBLIC KEY" {
 		panic("failed to decode PEM block containing public key")
 	}
+
 	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
 		panic(fmt.Errorf("failed to parse public key: %w", err))
 	}
+
 	var ok bool
+
 	pubKeySystem, ok = pub.(*rsa.PublicKey)
 	if !ok {
 		panic("public key is not RSA")
 	}
 }
 
-// verifySignature verifies an RSA signature using the system public key.
-// algorithm should be "RSA-SHA1" (or any hash supported by crypto/rsa).
-// Currently only SHA1 is implemented; extend as needed.
+// VerifySignature verifies an RSA signature using the system public key.
+// Steam uses RSA-SHA1 for many legacy verification tasks.
 func VerifySignature(data, sig []byte, algorithm string) (bool, error) {
 	var hash []byte
+
 	switch algorithm {
 	case "RSA-SHA1", "":
 		h := sha1.Sum(data)
@@ -58,46 +60,53 @@ func VerifySignature(data, sig []byte, algorithm string) (bool, error) {
 	default:
 		return false, fmt.Errorf("unsupported algorithm: %s", algorithm)
 	}
+
 	err := rsa.VerifyPKCS1v15(pubKeySystem, crypto.SHA1, hash, sig)
 	if err != nil {
 		return false, err
 	}
+
 	return true, nil
 }
 
 // GenerateSessionKey creates a 32-byte random session key, optionally appends a nonce,
-// and encrypts the concatenation with the system public key using RSA-OAEP (SHA1).
-// Returns the plain session key and the encrypted blob.
+// and encrypts it with the system public key using RSA-OAEP (SHA1).
 func GenerateSessionKey(nonce []byte) (sessionKey, encrypted []byte, err error) {
 	sessionKey = make([]byte, 32)
 	if _, err := io.ReadFull(rand.Reader, sessionKey); err != nil {
 		return nil, nil, err
 	}
+
 	toEncrypt := sessionKey
-	if nonce != nil {
-		toEncrypt = append(toEncrypt, nonce...)
+	if len(nonce) > 0 {
+		// Create a new slice to avoid modifying the original sessionKey underlying array
+		toEncrypt = make([]byte, len(sessionKey)+len(nonce))
+		copy(toEncrypt, sessionKey)
+		copy(toEncrypt[len(sessionKey):], nonce)
 	}
-	hash := sha1.New()
-	encrypted, err = rsa.EncryptOAEP(hash, rand.Reader, pubKeySystem, toEncrypt, nil)
+
+	h := sha1.New()
+
+	encrypted, err = rsa.EncryptOAEP(h, rand.Reader, pubKeySystem, toEncrypt, nil)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	return sessionKey, encrypted, nil
 }
 
-// symmetricEncrypt performs AES-256-CBC encryption with a random or provided IV.
-// The IV itself is first encrypted with AES-256-ECB (no padding) and prepended.
-// Input is padded to block size using PKCS7.
+// SymmetricEncrypt performs AES-256-CBC encryption.
+// The IV is encrypted with AES-256-ECB and prepended to the ciphertext.
 func SymmetricEncrypt(input, key, iv []byte) ([]byte, error) {
 	if len(key) != 32 {
 		return nil, errors.New("key must be 32 bytes for AES-256")
 	}
+
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
 	}
 
-	// IV handling
 	if iv == nil {
 		iv = make([]byte, aes.BlockSize)
 		if _, err := io.ReadFull(rand.Reader, iv); err != nil {
@@ -107,20 +116,19 @@ func SymmetricEncrypt(input, key, iv []byte) ([]byte, error) {
 		return nil, errors.New("IV must be 16 bytes")
 	}
 
-	// Encrypt IV with ECB (no padding)
 	ecbIV := make([]byte, aes.BlockSize)
 	block.Encrypt(ecbIV, iv)
 
-	// Pad input to block size with PKCS7
 	paddedInput := pkcs7Pad(input, aes.BlockSize)
 
-	// CBC encryption
 	cbcCipher := cipher.NewCBCEncrypter(block, iv)
 	ciphertext := make([]byte, len(paddedInput))
 	cbcCipher.CryptBlocks(ciphertext, paddedInput)
 
-	// Concatenate: encrypted IV + ciphertext
-	result := append(ecbIV, ciphertext...)
+	result := make([]byte, len(ecbIV)+len(ciphertext))
+	copy(result, ecbIV)
+	copy(result[len(ecbIV):], ciphertext)
+
 	return result, nil
 }
 
@@ -130,6 +138,7 @@ func SymmetricEncryptWithHmacIv(input, key []byte) ([]byte, error) {
 	if len(key) != 32 {
 		return nil, errors.New("key must be 32 bytes")
 	}
+
 	// Generate 3 random bytes
 	random := make([]byte, 3)
 	if _, err := io.ReadFull(rand.Reader, random); err != nil {
@@ -144,7 +153,9 @@ func SymmetricEncryptWithHmacIv(input, key []byte) ([]byte, error) {
 	partialHmac := h.Sum(nil)[:13] // take first 13 bytes (16-3)
 
 	// Build IV: partialHmac (13 bytes) + random (3 bytes)
-	iv := append(partialHmac, random...)
+	iv := make([]byte, 16)
+	copy(iv, partialHmac)
+	copy(iv[13:], random)
 
 	return SymmetricEncrypt(input, key, iv)
 }
@@ -155,9 +166,11 @@ func SymmetricDecrypt(input, key []byte, checkHmac bool) ([]byte, error) {
 	if len(key) != 32 {
 		return nil, errors.New("key must be 32 bytes")
 	}
+
 	if len(input) < aes.BlockSize {
 		return nil, errors.New("input too short")
 	}
+
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -173,6 +186,7 @@ func SymmetricDecrypt(input, key []byte, checkHmac bool) ([]byte, error) {
 	if len(ciphertext)%aes.BlockSize != 0 {
 		return nil, errors.New("ciphertext length is not a multiple of block size")
 	}
+
 	cbcCipher := cipher.NewCBCDecrypter(block, iv)
 	plaintextPadded := make([]byte, len(ciphertext))
 	cbcCipher.CryptBlocks(plaintextPadded, ciphertext)
@@ -188,6 +202,7 @@ func SymmetricDecrypt(input, key []byte, checkHmac bool) ([]byte, error) {
 		if len(iv) != 16 {
 			return nil, errors.New("invalid IV length")
 		}
+
 		partialHmac := iv[:13]
 		random := iv[13:]
 
@@ -195,6 +210,7 @@ func SymmetricDecrypt(input, key []byte, checkHmac bool) ([]byte, error) {
 		h := hmac.New(sha1.New, hmacKey)
 		h.Write(random)
 		h.Write(plaintext)
+
 		expectedPartial := h.Sum(nil)[:13]
 		if !hmac.Equal(partialHmac, expectedPartial) {
 			return nil, errors.New("received invalid HMAC from remote host")
@@ -209,9 +225,11 @@ func SymmetricDecryptECB(input, key []byte) ([]byte, error) {
 	if len(key) != 32 {
 		return nil, errors.New("key must be 32 bytes")
 	}
+
 	if len(input)%aes.BlockSize != 0 {
 		return nil, errors.New("input length is not a multiple of block size")
 	}
+
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -232,8 +250,10 @@ func GenerateRandomMachineID() []byte {
 	randStr := func() string {
 		b := make([]byte, 16)
 		rand.Read(b)
+
 		return hex.EncodeToString(b)
 	}
+
 	return CreateVDFMachineID(randStr(), randStr(), randStr())
 }
 
@@ -243,6 +263,7 @@ func GenerateAccountMachineID(accountName string) []byte {
 	val1 := fmt.Sprintf(format, "BB3", accountName)
 	val2 := fmt.Sprintf(format, "FF2", accountName)
 	val3 := fmt.Sprintf(format, "3B3", accountName)
+
 	return CreateVDFMachineID(val1, val2, val3)
 }
 
@@ -252,6 +273,7 @@ func CreateVDFMachineID(v1, v2, v3 string) []byte {
 	sha1Hex := func(s string) string {
 		h := sha1.New()
 		h.Write([]byte(s))
+
 		return hex.EncodeToString(h.Sum(nil))
 	}
 
@@ -271,23 +293,28 @@ func CreateVDFMachineID(v1, v2, v3 string) []byte {
 	}
 
 	buf.Write([]byte{0x08, 0x08}) // End of maps
+
 	return buf.Bytes()
 }
 
+// Wipe overwrites the given byte slice with zeros to remove sensitive data from memory.
 func Wipe(b []byte) {
 	for i := range b {
 		b[i] = 0
 	}
 }
 
-// pkcs7Pad adds PKCS7 padding to data to achieve the given block size.
+// pkcs7Pad adds PKCS7 padding. Block size is assumed to be small (e.g., 16 or 32).
 func pkcs7Pad(data []byte, blockSize int) []byte {
 	padding := blockSize - (len(data) % blockSize)
 	result := make([]byte, len(data)+padding)
 	copy(result, data)
+
+	p := byte(padding)
 	for i := len(data); i < len(result); i++ {
-		result[i] = byte(padding)
+		result[i] = p
 	}
+
 	return result
 }
 
@@ -296,17 +323,21 @@ func pkcs7Unpad(data []byte, blockSize int) ([]byte, error) {
 	if len(data) == 0 {
 		return nil, errors.New("empty data")
 	}
+
 	if len(data)%blockSize != 0 {
 		return nil, errors.New("data length is not a multiple of block size")
 	}
+
 	padding := int(data[len(data)-1])
 	if padding == 0 || padding > blockSize {
 		return nil, errors.New("invalid padding")
 	}
+
 	for i := range padding {
 		if data[len(data)-1-i] != byte(padding) {
 			return nil, errors.New("invalid padding")
 		}
 	}
+
 	return data[:len(data)-padding], nil
 }

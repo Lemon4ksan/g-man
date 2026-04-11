@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strconv"
 	"testing"
 	"time"
 
@@ -26,6 +27,7 @@ const (
 
 func setupTrading(t *testing.T) (*Manager, *requester.Mock, *community.Mock) {
 	t.Helper()
+
 	web := requester.New()
 	comm := community.New()
 
@@ -54,6 +56,7 @@ func TestManager_Lifecycle(t *testing.T) {
 		if err := m.StartPolling(); err != nil {
 			t.Fatalf("failed to start: %v", err)
 		}
+
 		if m.State.Load() != StatePolling {
 			t.Errorf("expected Polling, got %d", m.State.Load())
 		}
@@ -63,6 +66,7 @@ func TestManager_Lifecycle(t *testing.T) {
 		}
 
 		m.StopPolling()
+
 		if m.State.Load() != StateStopped {
 			t.Errorf("expected Stopped after stop, got %d", m.State.Load())
 		}
@@ -87,7 +91,7 @@ func TestManager_PollingLogic(t *testing.T) {
 			"response": map[string]any{
 				"trade_offers_received": []any{
 					map[string]any{
-						"tradeofferid":      fmt.Sprint(TestOfferID),
+						"tradeofferid":      strconv.Itoa(TestOfferID),
 						"trade_offer_state": int(trading.OfferStateActive),
 						"accountid_other":   OtherAccountID,
 					},
@@ -112,7 +116,7 @@ func TestManager_PollingLogic(t *testing.T) {
 			"response": map[string]any{
 				"trade_offers_received": []any{
 					map[string]any{
-						"tradeofferid":      fmt.Sprint(TestOfferID),
+						"tradeofferid":      strconv.Itoa(TestOfferID),
 						"trade_offer_state": int(trading.OfferStateAccepted),
 					},
 				},
@@ -182,9 +186,11 @@ func TestManager_GetEscrowDuration(t *testing.T) {
 			if err != nil && tt.wantErr != nil && !errors.Is(err, tt.wantErr) {
 				t.Errorf("got error %v, want %v", err, tt.wantErr)
 			}
+
 			if err == nil && tt.wantErr != nil {
 				t.Fatal("expected error, got nil")
 			}
+
 			if err == nil && !reflect.DeepEqual(details, tt.want) {
 				t.Errorf("got details %+v, want %+v", details, tt.want)
 			}

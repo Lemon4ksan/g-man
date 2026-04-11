@@ -24,15 +24,19 @@ func TestClient_Request_URLConstruction(t *testing.T) {
 		if r.URL.Path != "/api/v1/test" {
 			t.Errorf("expected path /api/v1/test, got %s", r.URL.Path)
 		}
+
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
 
 	client := NewClient(nil).WithBaseURL(server.URL)
-	_, err := client.Request(context.Background(), http.MethodGet, "/api/v1/test", nil, nil)
+
+	r, err := client.Request(context.Background(), http.MethodGet, "/api/v1/test", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	_ = r.Body.Close()
 }
 
 func TestClient_Request_GetParams(t *testing.T) {
@@ -41,6 +45,7 @@ func TestClient_Request_GetParams(t *testing.T) {
 		if query.Get("foo") != "bar" || query.Get("baz") != "123" {
 			t.Errorf("unexpected query params: %v", query)
 		}
+
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
@@ -50,10 +55,12 @@ func TestClient_Request_GetParams(t *testing.T) {
 	params.Set("foo", "bar")
 	params.Set("baz", "123")
 
-	_, err := client.Request(context.Background(), http.MethodGet, "/test", nil, params)
+	r, err := client.Request(context.Background(), http.MethodGet, "/test", nil, params)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	_ = r.Body.Close()
 }
 
 func TestClient_Headers(t *testing.T) {
@@ -61,9 +68,11 @@ func TestClient_Headers(t *testing.T) {
 		if r.Header.Get("X-Default") != "default-val" {
 			t.Error("default header missing")
 		}
+
 		if r.Header.Get("X-Custom") != "custom-val" {
 			t.Error("custom modifier header missing")
 		}
+
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
@@ -74,10 +83,12 @@ func TestClient_Headers(t *testing.T) {
 		req.Header.Set("X-Custom", "custom-val")
 	}
 
-	_, err := client.Request(context.Background(), http.MethodGet, "/", nil, nil, mod)
+	r, err := client.Request(context.Background(), http.MethodGet, "/", nil, nil, mod)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	_ = r.Body.Close()
 }
 
 func TestClient_GetJSON(t *testing.T) {
@@ -85,16 +96,17 @@ func TestClient_GetJSON(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(expected)
+		_ = json.NewEncoder(w).Encode(expected)
 	}))
 	defer server.Close()
 
 	client := NewClient(nil).WithBaseURL(server.URL)
-	result, err := GetJSON[testPayload](context.Background(), client, "/json", nil)
 
+	result, err := GetJSON[testPayload](context.Background(), client, "/json", nil)
 	if err != nil {
 		t.Fatalf("GetJSON failed: %v", err)
 	}
+
 	if result.Message != expected.Message || result.Status != expected.Status {
 		t.Errorf("decoded struct mismatch. got %+v, want %+v", result, expected)
 	}
@@ -108,6 +120,7 @@ func TestClient_PostJSON(t *testing.T) {
 		if r.Method != http.MethodPost {
 			t.Errorf("expected POST, got %s", r.Method)
 		}
+
 		if r.Header.Get("Content-Type") != "application/json" {
 			t.Error("expected application/json content type")
 		}
@@ -116,21 +129,23 @@ func TestClient_PostJSON(t *testing.T) {
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Errorf("failed to decode request body: %v", err)
 		}
+
 		if body.Message != input.Message {
 			t.Errorf("request body mismatch: got %s, want %s", body.Message, input.Message)
 		}
 
 		w.WriteHeader(http.StatusAccepted)
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	}))
 	defer server.Close()
 
 	client := NewClient(nil).WithBaseURL(server.URL)
-	result, err := PostJSON[testPayload, testPayload](context.Background(), client, "/post", input, nil)
 
+	result, err := PostJSON[testPayload, testPayload](context.Background(), client, "/post", input, nil)
 	if err != nil {
 		t.Fatalf("PostJSON failed: %v", err)
 	}
+
 	if result.Message != response.Message {
 		t.Errorf("response mismatch: got %s, want %s", result.Message, response.Message)
 	}
@@ -139,16 +154,17 @@ func TestClient_PostJSON(t *testing.T) {
 func TestClient_ErrorStatus(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"error": "not found"}`))
+		_, _ = w.Write([]byte(`{"error": "not found"}`))
 	}))
 	defer server.Close()
 
 	client := NewClient(nil).WithBaseURL(server.URL)
-	_, err := GetJSON[any](context.Background(), client, "/404", nil)
 
+	_, err := GetJSON[any](context.Background(), client, "/404", nil)
 	if err == nil {
 		t.Fatal("expected error on 404 status code, got nil")
 	}
+
 	if !contains(err.Error(), "not found") {
 		t.Errorf("unexpected error message: %v", err)
 	}
@@ -170,12 +186,15 @@ func TestClient_ContextCancellation(t *testing.T) {
 
 	cancel()
 
-	_, err := client.Request(ctx, http.MethodGet, "/", nil, nil)
+	r, err := client.Request(ctx, http.MethodGet, "/", nil, nil)
 	if err == nil {
+		_ = r.Body.Close()
+
 		t.Fatal("expected error for canceled context, got nil")
 	}
 }
 
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || (len(substr) > 0 && (s[:len(substr)] == substr || contains(s[1:], substr))))
+	return len(s) >= len(substr) &&
+		(s == substr || (len(substr) > 0 && (s[:len(substr)] == substr || contains(s[1:], substr))))
 }

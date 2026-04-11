@@ -29,6 +29,7 @@ func (m *mockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		res.Request = req
 		return res, nil
 	}
+
 	if res, ok := m.responses[path]; ok {
 		res.Request = req
 		return res, nil
@@ -63,7 +64,11 @@ func TestLogin(t *testing.T) {
 				formHTML := `<html><body><form id="openidForm" action="/openid/login" method="POST">
 					<input type="hidden" name="openid.mode" value="checkid_setup">
 					</form></body></html>`
-				m.responses[steamLoginURL] = stringResponse(200, formHTML)
+
+				resp1 := stringResponse(200, formHTML)
+				defer resp1.Body.Close()
+
+				m.responses[steamLoginURL] = resp1
 
 				m.responses["steamcommunity.com/openid/login"] = &http.Response{
 					StatusCode: http.StatusFound,
@@ -71,7 +76,10 @@ func TestLogin(t *testing.T) {
 					Body:       io.NopCloser(strings.NewReader("")),
 				}
 
-				m.responses[finalSiteURL] = stringResponse(200, "Success")
+				resp2 := stringResponse(200, "Success")
+				defer resp2.Body.Close()
+
+				m.responses[finalSiteURL] = resp2
 
 				return m
 			},
@@ -81,7 +89,12 @@ func TestLogin(t *testing.T) {
 			name: "AlreadyAuthenticated_NoRedirect",
 			setupMock: func() *mockTransport {
 				m := &mockTransport{responses: make(map[string]*http.Response)}
-				m.responses[targetSite] = stringResponse(200, "Welcome back")
+
+				resp := stringResponse(200, "Welcome back")
+				defer resp.Body.Close()
+
+				m.responses[targetSite] = resp
+
 				return m
 			},
 			wantErr: nil,
@@ -95,7 +108,12 @@ func TestLogin(t *testing.T) {
 					Header:     http.Header{"Location": {steamLoginURL}},
 					Body:       http.NoBody,
 				}
-				m.responses[steamLoginURL] = stringResponse(200, `<form id="loginForm"></form>`)
+
+				resp := stringResponse(200, `<form id="loginForm"></form>`)
+				defer resp.Body.Close()
+
+				m.responses[steamLoginURL] = resp
+
 				return m
 			},
 			wantErr: ErrNotSignedIn,
@@ -109,7 +127,12 @@ func TestLogin(t *testing.T) {
 					Header:     http.Header{"Location": {evilSiteURL}},
 					Body:       io.NopCloser(strings.NewReader("")),
 				}
-				m.responses[evilSiteURL] = stringResponse(200, "Evil content")
+
+				resp := stringResponse(200, "Evil content")
+				defer resp.Body.Close()
+
+				m.responses[evilSiteURL] = resp
+
 				return m
 			},
 			wantErr: ErrWrongHost,
@@ -123,7 +146,12 @@ func TestLogin(t *testing.T) {
 					Header:     http.Header{"Location": {steamLoginURL}},
 					Body:       http.NoBody,
 				}
-				m.responses[steamLoginURL] = stringResponse(200, `<html><body>No form here</body></html>`)
+
+				resp := stringResponse(200, `<html><body>No form here</body></html>`)
+				defer resp.Body.Close()
+
+				m.responses[steamLoginURL] = resp
+
 				return m
 			},
 			wantErr: ErrNoForm,
@@ -136,6 +164,7 @@ func TestLogin(t *testing.T) {
 
 			oldTransport := http.DefaultTransport
 			http.DefaultTransport = mock
+
 			defer func() { http.DefaultTransport = oldTransport }()
 
 			_, err := Login(context.Background(), targetSite, nil)

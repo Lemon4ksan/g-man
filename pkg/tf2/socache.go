@@ -9,14 +9,14 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/log"
+	pb "github.com/lemon4ksan/g-man/pkg/protobuf/tf2"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/tf2/schema"
 	"github.com/lemon4ksan/g-man/pkg/trading"
-
-	pb "github.com/lemon4ksan/g-man/pkg/protobuf/tf2"
-	"google.golang.org/protobuf/proto"
 )
 
 // Item represents a parsed TF2 item.
@@ -100,6 +100,7 @@ func (c *SOCache) GetItems() []*Item {
 	for _, item := range c.items {
 		list = append(list, item)
 	}
+
 	return list
 }
 
@@ -107,6 +108,7 @@ func (c *SOCache) GetItems() []*Item {
 func (c *SOCache) GetItem(id uint64) *Item {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
+
 	return c.items[id]
 }
 
@@ -116,6 +118,7 @@ func (c *SOCache) GetMetal(defIndex uint32, count int) []uint64 {
 	defer c.mu.RUnlock()
 
 	var ids []uint64
+
 	for _, item := range c.items {
 		if item.DefIndex == defIndex && item.IsTradable {
 			ids = append(ids, item.ID)
@@ -124,6 +127,7 @@ func (c *SOCache) GetMetal(defIndex uint32, count int) []uint64 {
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -134,6 +138,7 @@ func (c *SOCache) FindCraftableItems(defIndex uint32, count int) []uint64 {
 	defer c.mu.RUnlock()
 
 	var ids []uint64
+
 	for id, item := range c.items {
 		// CRITICALLY IMPORTANT: We only accept tradable items!
 		// Otherwise, the crafted metal will become non-tradable.
@@ -144,6 +149,7 @@ func (c *SOCache) FindCraftableItems(defIndex uint32, count int) []uint64 {
 			}
 		}
 	}
+
 	return ids
 }
 
@@ -152,6 +158,7 @@ func (c *SOCache) FindWeaponsByClass(s *schema.Schema, class string) []*Item {
 	defer c.mu.RUnlock()
 
 	var result []*Item
+
 	for _, item := range c.items {
 		sch := item.GetSchema(s)
 		if sch != nil && sch.CraftClass == "weapon" && item.IsTradable {
@@ -163,6 +170,7 @@ func (c *SOCache) FindWeaponsByClass(s *schema.Schema, class string) []*Item {
 			}
 		}
 	}
+
 	return result
 }
 
@@ -172,11 +180,13 @@ func (c *SOCache) GetMetalCount(defIndex uint32) int {
 	defer c.mu.RUnlock()
 
 	count := 0
+
 	for _, item := range c.items {
 		if item.DefIndex == defIndex && item.IsTradable {
 			count++
 		}
 	}
+
 	return count
 }
 
@@ -187,6 +197,7 @@ func (c *SOCache) GetAssetIDsBySKU(schema *schema.Schema, targetSKU string, limi
 	defer c.mu.RUnlock()
 
 	var result []uint64
+
 	for id, item := range c.items {
 		itemSKU := schema.GetSKUFromEconItem(item.ToEconItem())
 
@@ -197,6 +208,7 @@ func (c *SOCache) GetAssetIDsBySKU(schema *schema.Schema, targetSKU string, limi
 			}
 		}
 	}
+
 	return result
 }
 
@@ -249,18 +261,21 @@ func (c *SOCache) HandleSOUpdate(pkt *protocol.GCPacket, logger log.Logger, b *b
 			newVersion = msg.GetVersion()
 			c.processObject(msg.GetTypeId(), msg.GetObjectData(), logger, b, false)
 		}
+
 	case pb.ESOMsg_k_ESOMsg_Update:
 		msg := &pb.CMsgSOSingleObject{}
 		if proto.Unmarshal(pkt.Payload, msg) == nil {
 			newVersion = msg.GetVersion()
 			c.processObject(msg.GetTypeId(), msg.GetObjectData(), logger, b, false)
 		}
+
 	case pb.ESOMsg_k_ESOMsg_Destroy:
 		msg := &pb.CMsgSOSingleObject{}
 		if proto.Unmarshal(pkt.Payload, msg) == nil {
 			newVersion = msg.GetVersion()
 			c.processDestroy(msg.GetTypeId(), msg.GetObjectData(), logger, b)
 		}
+
 	case pb.ESOMsg_k_ESOMsg_UpdateMultiple:
 		msg := &pb.CMsgSOMultipleObjects{}
 		if err := proto.Unmarshal(pkt.Payload, msg); err == nil {
@@ -362,6 +377,7 @@ func (c *SOCache) processObject(typeID int32, data []byte, logger log.Logger, b 
 			// TF2 gives you 50 slots by default. Premium gives +250 (300 total).
 			// Backpack expanders add extra slots via bonus_backpack_slots.
 			baseSlots := uint32(50)
+
 			if acc.GetTrialAccount() {
 				c.isPremium = false
 			} else {
@@ -421,10 +437,12 @@ func (c *SOCache) protoToItem(p *pb.CSOEconItem) *Item {
 			// Name is stored in value_bytes
 			item.CustomName = string(attr.GetValueBytes())
 		}
+
 		// Custom Desc (Attribute 112)
 		if attr.GetDefIndex() == 112 {
 			item.CustomDesc = string(attr.GetValueBytes())
 		}
+
 		// Cannot Trade Flag (Attribute 153)
 		if attr.GetDefIndex() == 153 {
 			item.IsTradable = false
