@@ -18,6 +18,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/rest"
 	"github.com/lemon4ksan/g-man/pkg/steam/api"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
+	"github.com/lemon4ksan/g-man/pkg/steam/auth/websession"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
@@ -88,7 +89,7 @@ type Client struct {
 
 	socket     *socket.Socket
 	auth       *auth.Authenticator
-	webSession *auth.WebSession
+	webSession *websession.WebSession
 	community  *community.Client
 
 	restClient      *rest.Client
@@ -174,7 +175,7 @@ func (c *Client) ConnectAndLogin(ctx context.Context, server socket.CMServer, de
 	}
 
 	c.mu.Lock()
-	c.webSession = auth.NewWebSession(details.SteamID, c.logger)
+	c.webSession = websession.New(details.SteamID, c.logger)
 	c.mu.Unlock()
 
 	c.wg.Go(func() {

@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package auth
+package websession
 
 import (
 	"context"
@@ -33,8 +33,8 @@ var steamDomains = []string{
 	"https://s.team", // Short Steam domain, used for sharing and redirects
 }
 
-// WebSessionManager defines the public interface for the web session.
-type WebSessionManager interface {
+// Manager defines the public interface for the web session.
+type Manager interface {
 	Authenticate(ctx context.Context, platform pb.EAuthTokenPlatformType, refreshToken, accessToken string) error
 	IsAuthenticated() bool
 	Verify(ctx context.Context) (bool, error)
@@ -55,8 +55,8 @@ type WebSession struct {
 	isAuth  bool
 }
 
-// NewWebSession creates a new, unauthenticated web session.
-func NewWebSession(steamID id.ID, logger log.Logger) *WebSession {
+// New creates a new, unauthenticated web session.
+func New(steamID id.ID, logger log.Logger) *WebSession {
 	ws := &WebSession{
 		steamID: steamID,
 		logger:  logger,
@@ -66,7 +66,7 @@ func NewWebSession(steamID id.ID, logger log.Logger) *WebSession {
 	return ws
 }
 
-// Client returns the underlying REST requester.
+// Client returns the underlying REST client.
 func (s *WebSession) Client() *rest.Client {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -153,9 +153,10 @@ func (s *WebSession) Verify(ctx context.Context) (bool, error) {
 	}
 
 	s.logger.Debug("Verifying web session state...")
+	client := s.Client()
 
 	// chat/clientinterfaces endpoint is lightweight and reliably returns an error or redirect if the session is dead.
-	resp, err := s.Client().Request(ctx, http.MethodGet, "https://steamcommunity.com/chat/clientinterfaces", nil, nil)
+	resp, err := client.Request(ctx, http.MethodGet, "https://steamcommunity.com/chat/clientinterfaces", nil, nil)
 	if err != nil {
 		return false, fmt.Errorf("verify request failed: %w", err)
 	}
@@ -201,8 +202,10 @@ func (s *WebSession) authSlowPath(ctx context.Context, refreshToken, sessionID s
 		} `json:"transfer_info"`
 	}
 
+	client := s.Client()
+
 	finalRes, err := rest.PostJSON[map[string]string, finalizeResponse](
-		ctx, s.Client(), "https://login.steampowered.com/jwt/finalizelogin", params, nil,
+		ctx, client, "https://login.steampowered.com/jwt/finalizelogin", params, nil,
 	)
 	if err != nil {
 		return fmt.Errorf("websession: finalize login failed: %w", err)
@@ -217,7 +220,7 @@ func (s *WebSession) authSlowPath(ctx context.Context, refreshToken, sessionID s
 		transferParams := map[string]string{"steamID": fmt.Sprintf("%d", s.steamID)}
 		maps.Copy(transferParams, transfer.Params)
 
-		if err := s.executeTransferWithRetry(ctx, transfer.URL, transferParams); err != nil {
+		if err := s.executeTransferWithRetry(ctx, client, transfer.URL, transferParams); err != nil {
 			return fmt.Errorf("transfer failed for %s: %w", transfer.URL, err)
 		}
 	}
@@ -266,7 +269,12 @@ func (s *WebSession) seedCookies(sessionID, secureValue string) {
 	}
 }
 
-func (s *WebSession) executeTransferWithRetry(ctx context.Context, transferURL string, params map[string]string) error {
+func (s *WebSession) executeTransferWithRetry(
+	ctx context.Context,
+	client rest.Requester,
+	transferURL string,
+	params map[string]string,
+) error {
 	const maxRetries = 3
 
 	var lastErr error
@@ -276,7 +284,7 @@ func (s *WebSession) executeTransferWithRetry(ctx context.Context, transferURL s
 	}
 
 	for range maxRetries {
-		resp, err := rest.PostJSON[map[string]string, transferResult](ctx, s.Client(), transferURL, params, nil)
+		resp, err := rest.PostJSON[map[string]string, transferResult](ctx, client, transferURL, params, nil)
 		if err != nil {
 			lastErr = err
 			continue
