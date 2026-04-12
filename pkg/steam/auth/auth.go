@@ -492,6 +492,10 @@ func (a *Authenticator) pollAuthStatus(
 	steamID uint64,
 	interval time.Duration,
 ) (string, string, uint64, error) {
+	// Safety timeout: don't poll forever even if context is long-lived
+	timeout := time.NewTimer(5 * time.Minute)
+	defer timeout.Stop()
+
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
@@ -499,6 +503,9 @@ func (a *Authenticator) pollAuthStatus(
 		select {
 		case <-ctx.Done():
 			return "", "", 0, context.Cause(ctx)
+
+		case <-timeout.C:
+			return "", "", 0, errors.New("auth: polling session timed out after 5 minutes")
 
 		case <-ticker.C:
 			pollRes, err := a.service.PollAuthSessionStatus(ctx, clientID, requestID)
