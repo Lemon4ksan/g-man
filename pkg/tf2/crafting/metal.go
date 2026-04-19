@@ -26,8 +26,8 @@ type MetalManager struct {
 	craft   *Manager
 }
 
-func NewMetalManager(fetcher AssetFetcher, logger log.Logger) *MetalManager {
-	return &MetalManager{fetcher: fetcher, logger: logger}
+func NewMetalManager(fetcher AssetFetcher, craft *Manager, logger log.Logger) *MetalManager {
+	return &MetalManager{fetcher: fetcher, craft: craft, logger: logger}
 }
 
 // SelectMetal selects a metal for exchange.
