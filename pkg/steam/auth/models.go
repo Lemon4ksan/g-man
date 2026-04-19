@@ -15,7 +15,7 @@ type DeviceConfig struct {
 	DeviceFriendlyName string
 	PlatformType       pb.EAuthTokenPlatformType
 	OSType             enums.EOSType
-	GamingDeviceType   uint32 // 1 = Desktop, 528 = SteamDeck, etc.
+	GamingDeviceType   uint32 // 1 = Desktop
 }
 
 // DefaultDeviceConfig returns settings mimicking the official Steam Desktop Client on Windows.

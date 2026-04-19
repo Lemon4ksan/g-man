@@ -49,7 +49,7 @@ func New(tr tr.Transport) *Client {
 	return &Client{transport: tr}
 }
 
-// WithAPIKey sets the WebAPI key (v000x style) for subsequent requests.
+// WithAPIKey returns a copy of the client with the WebAPI key (v000x style) for subsequent requests.
 func (c *Client) WithAPIKey(key string) *Client {
 	clone := *c
 	clone.apiKey = key
@@ -57,7 +57,7 @@ func (c *Client) WithAPIKey(key string) *Client {
 	return &clone
 }
 
-// WithAccessToken sets the modern OAuth2 access token for Unified Services.
+// WithAccessToken returns a copy of the client with the modern OAuth2 access token for Unified Services.
 func (c *Client) WithAccessToken(token string) *Client {
 	clone := *c
 	clone.accessToken = token
@@ -107,11 +107,11 @@ func (c *Client) validateEResult(resp *tr.Response) error {
 	}
 
 	if api.IsAuthError(res) {
-		return api.EResultError{EResult: res, Err: api.ErrSessionExpired}
+		return api.EResultError{Result: res, Err: api.ErrSessionExpired}
 	}
 
 	if res != enums.EResult_OK {
-		return api.EResultError{EResult: res}
+		return api.EResultError{Result: res}
 	}
 
 	return nil
@@ -162,7 +162,10 @@ func WebAPI[Resp any](
 	req := NewWebAPIRequest(httpMethod, iface, method, version)
 
 	if reqMsg != nil {
-		params, _ := rest.StructToValues(reqMsg)
+		params, err := rest.StructToValues(reqMsg)
+		if err != nil {
+			return nil, err
+		}
 		req.WithParams(params)
 	}
 

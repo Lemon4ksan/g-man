@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package market provides functionality to interact with the Steam Community Market,
-// including creating buy/sell orders and managing listings.
 package market
 
 import (
@@ -23,8 +21,10 @@ import (
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
 )
 
+// ModuleName is the unique identifier for the market module.
 const ModuleName string = "market"
 
+// WithModule returns a steam.Option that registers the market module in the client.
 func WithModule(cfg Config) steam.Option {
 	return func(c *steam.Client) {
 		c.RegisterModule(New(cfg))

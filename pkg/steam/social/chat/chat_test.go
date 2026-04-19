@@ -23,7 +23,7 @@ const (
 	ChatID        = 888
 )
 
-func setupChat(t *testing.T) (*Manager, *module.InitContext) {
+func setupChat(t *testing.T) (*Chat, *module.InitContext) {
 	t.Helper()
 
 	m := New()

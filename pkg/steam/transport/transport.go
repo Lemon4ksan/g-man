@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package transport provides a protocol-agnostic abstraction for sending requests
-// to Steam via different communication channels (HTTP and Sockets).
 package transport
 
 import (

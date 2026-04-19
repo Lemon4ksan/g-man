@@ -26,6 +26,7 @@ type TwoFactorService struct {
 	client service.Doer
 }
 
+// NewTwoFactorService creates a new wrapper around unified client.
 func NewTwoFactorService(client service.Doer) *TwoFactorService {
 	return &TwoFactorService{client: client}
 }
@@ -57,6 +58,7 @@ type MobileConf struct {
 	client community.Requester
 }
 
+// NewMobileConf creates a new wrapper around unified client for responding to mobile confirmations.
 func NewMobileConf(client community.Requester) *MobileConf {
 	return &MobileConf{client: client}
 }

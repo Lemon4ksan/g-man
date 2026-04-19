@@ -72,11 +72,11 @@ func TestID_Formatting(t *testing.T) {
 }
 
 func TestID_Valid(t *testing.T) {
-	if !id.ID(76561198044393456).Valid() {
+	if !id.ID(76561198044393456).IsValid() {
 		t.Error("Standard ID should be valid")
 	}
 
-	if id.InvalidID.Valid() {
+	if id.InvalidID.IsValid() {
 		t.Error("InvalidID should be invalid")
 	}
 }

@@ -27,8 +27,8 @@ var (
 	// ErrFamilyViewRestricted indicates the account is currently in Family View mode.
 	ErrFamilyViewRestricted = errors.New("steam community: family view restricted")
 
-	// ErrRateLimit indicates Steam is blocking requests due to high frequency.
-	ErrRateLimit = errors.New("steam community: rate limit exceeded")
+	// ErrRateLimited indicates Steam is blocking requests due to high frequency.
+	ErrRateLimited = errors.New("steam community: rate limit exceeded")
 )
 
 // Requester defines the requirements for making Community requests.
@@ -163,7 +163,7 @@ func (c *Client) registerAPIKey(ctx context.Context, domain string) (string, err
 
 	resp, err := c.restClient.Request(
 		ctx,
-		"POST",
+		http.MethodPost,
 		"dev/registerkey",
 		[]byte(formData.Encode()),
 		nil,
@@ -180,7 +180,7 @@ func (c *Client) registerAPIKey(ctx context.Context, domain string) (string, err
 }
 
 // Get performs a GET request and unmarshals the resulting JSON into the Resp type.
-func Get[Resp any](ctx context.Context, c Requester, path string, reqMsg any, opts ...api.CallOption) (*Resp, error) {
+func Get[Resp any](ctx context.Context, r Requester, path string, reqMsg any, opts ...api.CallOption) (*Resp, error) {
 	var query url.Values
 
 	if reqMsg != nil {
@@ -197,11 +197,11 @@ func Get[Resp any](ctx context.Context, c Requester, path string, reqMsg any, op
 		api.WithHeader("X-Requested-With", "XMLHttpRequest"),
 	}, opts...)
 
-	return execute[Resp](ctx, c, http.MethodGet, path, nil, query, myOpts...)
+	return execute[Resp](ctx, r, http.MethodGet, path, nil, query, myOpts...)
 }
 
 // GetHTML performs a GET request specifically for raw HTML content.
-func GetHTML(ctx context.Context, c Requester, path string, opts ...api.CallOption) ([]byte, error) {
+func GetHTML(ctx context.Context, r Requester, path string, opts ...api.CallOption) ([]byte, error) {
 	myOpts := append([]api.CallOption{
 		api.WithHeader(
 			"Accept",
@@ -209,7 +209,7 @@ func GetHTML(ctx context.Context, c Requester, path string, opts ...api.CallOpti
 		),
 	}, opts...)
 
-	resp, _, err := perform(ctx, c, http.MethodGet, path, nil, nil, myOpts...)
+	resp, _, err := performRequest(ctx, r, http.MethodGet, path, nil, nil, myOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -222,7 +222,7 @@ func GetHTML(ctx context.Context, c Requester, path string, opts ...api.CallOpti
 // It automatically injects the "sessionid" into the form parameters.
 func PostForm[Resp any](
 	ctx context.Context,
-	c Requester,
+	r Requester,
 	path string,
 	reqMsg any,
 	opts ...api.CallOption,
@@ -241,9 +241,7 @@ func PostForm[Resp any](
 	}
 
 	if params.Get("sessionid") == "" {
-		if sid := c.SessionID(BaseURL); sid != "" {
-			params.Set("sessionid", sid)
-		}
+		params.Set("sessionid", r.SessionID(BaseURL))
 	}
 
 	myOpts := append([]api.CallOption{
@@ -251,14 +249,14 @@ func PostForm[Resp any](
 		api.WithHeader("Accept", "application/json, text/javascript; q=0.01"),
 	}, opts...)
 
-	return execute[Resp](ctx, c, http.MethodPost, path, []byte(params.Encode()), nil, myOpts...)
+	return execute[Resp](ctx, r, http.MethodPost, path, []byte(params.Encode()), nil, myOpts...)
 }
 
 // PostJSON performs a POST request with a JSON body.
 // It automatically injects the "sessionid" into the URL query parameters.
 func PostJSON[Resp any](
 	ctx context.Context,
-	c Requester,
+	r Requester,
 	path string,
 	reqMsg any,
 	opts ...api.CallOption,
@@ -275,7 +273,7 @@ func PostJSON[Resp any](
 	}
 
 	var query url.Values
-	if sid := c.SessionID(BaseURL); sid != "" {
+	if sid := r.SessionID(BaseURL); sid != "" {
 		query = url.Values{"sessionid": {sid}}
 	}
 
@@ -284,12 +282,12 @@ func PostJSON[Resp any](
 		api.WithHeader("Accept", "application/json"),
 	}, opts...)
 
-	return execute[Resp](ctx, c, http.MethodPost, path, body, query, myOpts...)
+	return execute[Resp](ctx, r, http.MethodPost, path, body, query, myOpts...)
 }
 
-func perform(
+func performRequest(
 	ctx context.Context,
-	c Requester,
+	r Requester,
 	method, path string,
 	body []byte,
 	query url.Values,
@@ -314,20 +312,20 @@ func perform(
 		}
 	}
 
-	resp, err := c.Request(ctx, method, path, body, trReq.Params(), modifier)
+	resp, err := r.Request(ctx, method, path, body, trReq.Params(), modifier)
 
 	return resp, cfg, err
 }
 
 func execute[Resp any](
 	ctx context.Context,
-	c Requester,
+	r Requester,
 	method, path string,
 	body []byte,
 	query url.Values,
 	opts ...api.CallOption,
 ) (*Resp, error) {
-	resp, cfg, err := perform(ctx, c, method, path, body, query, opts...)
+	resp, cfg, err := performRequest(ctx, r, method, path, body, query, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -349,11 +347,11 @@ func execute[Resp any](
 // checkSteamErrors scrapes the response body and headers to detect
 // authentication failures, rate limits, or parental blocks.
 func checkSteamErrors(statusCode int, header http.Header, body []byte) error {
-	if statusCode == 429 {
-		return ErrRateLimit
+	if statusCode == http.StatusTooManyRequests {
+		return ErrRateLimited
 	}
 
-	if statusCode >= 500 {
+	if statusCode >= http.StatusInternalServerError {
 		return fmt.Errorf("steam server error: %d", statusCode)
 	}
 
@@ -366,7 +364,7 @@ func checkSteamErrors(statusCode int, header http.Header, body []byte) error {
 	}
 
 	// Parental Control (Family View)
-	if statusCode == 403 && rxFamilyView.Match(body) {
+	if statusCode == http.StatusForbidden && rxFamilyView.Match(body) {
 		return ErrFamilyViewRestricted
 	}
 
@@ -394,7 +392,7 @@ func checkSteamErrors(statusCode int, header http.Header, body []byte) error {
 	}
 
 	// Fallback to generic REST API error if status is bad but no Steam error matched
-	if statusCode >= 400 {
+	if statusCode >= http.StatusBadRequest {
 		return &rest.APIError{StatusCode: statusCode, Body: body}
 	}
 

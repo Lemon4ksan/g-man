@@ -30,20 +30,6 @@ import (
 // ProtocolVersion is the current version of the Steam client protocol used for logon.
 const ProtocolVersion = 65580
 
-// Config defines the configuration for the Authenticator.
-type Config struct {
-	LogonID      uint32
-	LogonTimeout time.Duration
-}
-
-// DefaultConfig returns the recommended baseline configuration for the Authenticator.
-func DefaultConfig() Config {
-	return Config{
-		LogonID:      uint32(time.Now().Unix()),
-		LogonTimeout: 30 * time.Second,
-	}
-}
-
 // State represents the current lifecycle stage of the authentication process.
 type State int32
 
@@ -169,8 +155,7 @@ func ExtractSteamIDFromJWT(token string) id.ID {
 
 // Authenticator orchestrates the process of logging into Steam.
 type Authenticator struct {
-	config Config
-	state  atomic.Int32
+	state atomic.Int32
 
 	socket  SocketProvider
 	service WebAuthenticator
@@ -179,18 +164,16 @@ type Authenticator struct {
 	activeDetails atomic.Pointer[LogOnDetails]
 	tempKey       atomic.Pointer[[]byte]
 
-	loginCtx    atomic.Value
 	loginCancel atomic.Value
 	loginResult chan error
 	store       Store
 }
 
 // NewAuthenticator creates a new instance of Authenticator.
-func NewAuthenticator(s SocketProvider, service WebAuthenticator, cfg Config, opts ...Option) *Authenticator {
+func NewAuthenticator(s SocketProvider, svc WebAuthenticator, opts ...Option) *Authenticator {
 	auth := &Authenticator{
-		config:  cfg,
 		socket:  s,
-		service: service,
+		service: svc,
 		logger:  log.Discard,
 		store:   nopStore{},
 	}
@@ -211,9 +194,6 @@ func NewAuthenticator(s SocketProvider, service WebAuthenticator, cfg Config, op
 // State returns the current authentication state.
 func (a *Authenticator) State() State { return State(a.state.Load()) }
 
-// Service returns the underlying WebAuthenticator.
-func (a *Authenticator) Service() WebAuthenticator { return a.service }
-
 // LogOn initiates the login sequence. It blocks until authentication is complete or fails.
 func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server socket.CMServer) error {
 	if !a.tryAcquireState() {
@@ -226,61 +206,23 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 		return err
 	}
 
-	a.loginResult = make(chan error, 1)
-
-	if len(details.MachineID) == 0 {
-		savedMachineID, err := a.store.GetMachineID(ctx, details.AccountName)
-		if err == nil && len(savedMachineID) > 0 {
-			a.logger.Debug("Found saved MachineID in storage")
-
-			details.MachineID = savedMachineID
-		} else {
-			a.logger.Info("Generating new MachineID for account")
-
-			details.MachineID = generateMachineID()
-			_ = a.store.SaveMachineID(ctx, details.AccountName, details.MachineID)
-		}
-	}
-
-	loginCtx, cancel := context.WithCancel(ctx)
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	a.loginCtx.Store(loginCtx)
-	a.loginCancel.Store(cancel)
-	a.activeDetails.Store(details)
-
-	if details.RefreshToken == "" {
-		if token, err := a.store.GetRefreshToken(ctx, details.AccountName); err == nil && token != "" {
-			a.logger.Info("Found saved refresh token in storage")
-
-			details.RefreshToken = token
-		}
+	if len(details.MachineID) == 0 {
+		a.acquireMachineId(ctx, details)
 	}
 
-	if details.RefreshToken != "" && details.SteamID == 0 {
-		details.SteamID = ExtractSteamIDFromJWT(details.RefreshToken)
-		if details.SteamID != 0 {
-			a.logger.Debug("Extracted SteamID from saved token", log.SteamID(details.SteamID.Uint64()))
-		}
-	}
-
-	if details.RefreshToken == "" {
-		a.logger.Info("No saved token, performing password authentication via WebAPI")
-
-		refresh, access, steamID, err := a.performPasswordAuth(loginCtx, details)
-		if err != nil {
-			return err
-		}
-
-		details.RefreshToken = refresh
-		details.AccessToken = access
-		details.SteamID = id.ID(steamID)
-		_ = a.store.SaveRefreshToken(ctx, details.AccountName, refresh)
+	if err := a.acquireAuthToken(ctx, details); err != nil {
+		return err
 	}
 
 	a.setState(StateLoggingOn)
+	a.loginResult = make(chan error, 1)
+	a.loginCancel.Store(cancel)
+	a.activeDetails.Store(details)
 
-	if err := a.socket.Connect(loginCtx, server); err != nil {
+	if err := a.socket.Connect(ctx, server); err != nil {
 		return fmt.Errorf("cm connection failed: %w", err)
 	}
 
@@ -294,14 +236,14 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 
 	if server.Type == "websockets" {
 		a.logger.Debug("WebSocket detected, starting logon sequence immediately")
-		a.sendLogOn(loginCtx, details)
+		a.sendLogOn(ctx, details)
 	}
 
 	var resultErr error
 	select {
 	case resultErr = <-a.loginResult:
-	case <-loginCtx.Done():
-		resultErr = loginCtx.Err()
+	case <-ctx.Done():
+		resultErr = ctx.Err()
 	}
 
 	if resultErr == nil {
@@ -310,12 +252,10 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 	}
 
 	var eResErr api.EResultError
-	if errors.As(resultErr, &eResErr) && eResErr.EResult == enums.EResult_InvalidPassword {
+	if errors.As(resultErr, &eResErr) && eResErr.Result == enums.EResult_InvalidPassword {
 		a.logger.Warn("Session rejected by CM (Invalid Password/Token), clearing local storage")
 		_ = a.store.Clear(ctx, details.AccountName)
 	}
-
-	a.setState(StateFailed)
 
 	return resultErr
 }
@@ -328,21 +268,18 @@ func (a *Authenticator) LogOnAnonymous(ctx context.Context, server socket.CMServ
 
 	defer a.ensureTerminalState()
 
-	a.loginResult = make(chan error, 1)
-
 	loginCtx, cancel := context.WithCancel(ctx)
-	a.loginCtx.Store(loginCtx)
-
-	a.loginCancel.Store(cancel)
 	defer cancel()
 
 	anonDetails := &LogOnDetails{
 		ProtocolVersion: ProtocolVersion,
 		ClientOSType:    uint32(enums.EOSType_Windows10),
 	}
-	a.activeDetails.Store(anonDetails)
 
 	a.setState(StateLoggingOn)
+	a.loginResult = make(chan error, 1)
+	a.loginCancel.Store(cancel)
+	a.activeDetails.Store(anonDetails)
 
 	if err := a.socket.Connect(ctx, server); err != nil {
 		return fmt.Errorf("cm connection failed: %w", err)
@@ -356,7 +293,6 @@ func (a *Authenticator) LogOnAnonymous(ctx context.Context, server socket.CMServ
 	}
 
 	if resultErr != nil {
-		a.setState(StateFailed)
 		return resultErr
 	}
 
@@ -549,13 +485,62 @@ func (a *Authenticator) failLogin(err error) {
 	}
 }
 
-func generateMachineID() []byte {
-	var b [42]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		// rand.Read rarely fails, but if it does, we return a zeroed ID.
-		return make([]byte, 42)
+func (a *Authenticator) acquireMachineId(ctx context.Context, details *LogOnDetails) {
+	saved, err := a.store.GetMachineID(ctx, details.AccountName)
+	if err == nil && len(saved) > 0 {
+		a.logger.Debug("Found saved MachineID in storage")
+
+		details.MachineID = saved
+	} else {
+		a.logger.Info("Generating new MachineID for account")
+
+		details.MachineID = generateMachineID()
+		if err := a.store.SaveMachineID(ctx, details.AccountName, details.MachineID); err != nil {
+			a.logger.Error("Storage save failed", log.Err(err))
+		}
+	}
+}
+
+func (a *Authenticator) acquireAuthToken(ctx context.Context, details *LogOnDetails) error {
+	if details.RefreshToken == "" {
+		token, err := a.store.GetRefreshToken(ctx, details.AccountName)
+		if err == nil && token != "" {
+			a.logger.Info("Found saved refresh token in storage")
+
+			details.RefreshToken = token
+		}
 	}
 
+	if details.SteamID == 0 {
+		details.SteamID = ExtractSteamIDFromJWT(details.RefreshToken)
+		if details.SteamID != 0 {
+			a.logger.Debug("Extracted SteamID from saved token", log.SteamID(details.SteamID.Uint64()))
+		}
+	}
+
+	if details.RefreshToken == "" {
+		a.logger.Info("No saved token, performing password authentication via WebAPI")
+
+		refresh, access, steamID, err := a.performPasswordAuth(ctx, details)
+		if err != nil {
+			return err
+		}
+
+		details.RefreshToken = refresh
+		details.AccessToken = access
+
+		details.SteamID = id.ID(steamID)
+		if err := a.store.SaveRefreshToken(ctx, details.AccountName, refresh); err != nil {
+			a.logger.Error("Storage save failed", log.Err(err))
+		}
+	}
+
+	return nil
+}
+
+func generateMachineID() []byte {
+	var b [42]byte
+	rand.Read(b[:])
 	return b[:]
 }
 

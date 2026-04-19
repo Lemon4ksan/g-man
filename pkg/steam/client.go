@@ -33,7 +33,6 @@ import (
 // Config aggregates configurations for all core subsystems and standard modules.
 type Config struct {
 	Socket  socket.Config
-	Auth    auth.Config
 	Storage storage.Provider
 	HTTP    rest.HTTPDoer // Optional custom HTTP client
 }
@@ -42,7 +41,6 @@ type Config struct {
 func DefaultConfig() Config {
 	return Config{
 		Socket: socket.DefaultConfig(),
-		Auth:   auth.DefaultConfig(),
 	}
 }
 
@@ -145,7 +143,6 @@ func NewClient(cfg Config, opts ...Option) *Client {
 	c.auth = auth.NewAuthenticator(
 		c.socket,
 		authService,
-		cfg.Auth,
 		auth.WithLogger(c.logger),
 		auth.WithStorage(cfg.Storage.Auth()),
 	)

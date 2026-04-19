@@ -23,27 +23,27 @@ import (
 // AuthenticationService acts as a gateway for Steam's Unified WebAPI authentication endpoints.
 // It handles password encryption and JWT token lifecycle management.
 type AuthenticationService struct {
-	client     service.Doer
-	deviceConf DeviceConfig
+	client service.Doer
+	conf   DeviceConfig
 }
 
 // NewAuthenticationService creates a new service wrapper around a Unified API client.
 // If deviceConf is nil, standard defaults are applied.
-func NewAuthenticationService(ur service.Doer, deviceConf *DeviceConfig) *AuthenticationService {
+func NewAuthenticationService(c service.Doer, cfg *DeviceConfig) *AuthenticationService {
 	conf := DefaultDeviceConfig()
-	if deviceConf != nil {
-		conf = *deviceConf
+	if cfg != nil {
+		conf = *cfg
 	}
 
 	return &AuthenticationService{
-		client:     ur,
-		deviceConf: conf,
+		client: c,
+		conf:   conf,
 	}
 }
 
 // DeviceConf returns a copy of the current device configuration used during auth.
 func (s *AuthenticationService) DeviceConf() DeviceConfig {
-	return s.deviceConf
+	return s.conf
 }
 
 // GetPasswordRSAPublicKey retrieves the RSA public key parameters specific to the account.
@@ -187,9 +187,9 @@ func (s *AuthenticationService) GenerateAccessTokenForApp(
 // getDeviceDetails returns the structured device profile.
 func (s *AuthenticationService) getDeviceDetails() *pb.CAuthentication_DeviceDetails {
 	return &pb.CAuthentication_DeviceDetails{
-		DeviceFriendlyName: proto.String(s.deviceConf.DeviceFriendlyName),
-		PlatformType:       s.deviceConf.PlatformType.Enum(),
-		OsType:             proto.Int32(int32(s.deviceConf.OSType)),
-		GamingDeviceType:   proto.Uint32(s.deviceConf.GamingDeviceType),
+		DeviceFriendlyName: proto.String(s.conf.DeviceFriendlyName),
+		PlatformType:       s.conf.PlatformType.Enum(),
+		OsType:             proto.Int32(int32(s.conf.OSType)),
+		GamingDeviceType:   proto.Uint32(s.conf.GamingDeviceType),
 	}
 }

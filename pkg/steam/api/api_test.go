@@ -246,7 +246,7 @@ func TestAuthErrors(t *testing.T) {
 func TestErrorStructures(t *testing.T) {
 	t.Run("EResultError", func(t *testing.T) {
 		baseErr := errors.New("underlying")
-		err := EResultError{EResult: enums.EResult_Busy, Err: baseErr}
+		err := EResultError{Result: enums.EResult_Busy, Err: baseErr}
 
 		if !errors.Is(err, baseErr) {
 			t.Error("EResultError unwrap failed")

@@ -31,12 +31,12 @@ func IsAuthError(res enums.EResult) bool {
 
 // EResultError wraps a Steam EResult code into a Go error.
 type EResultError struct {
-	EResult enums.EResult
-	Err     error
+	Result enums.EResult
+	Err    error
 }
 
 func (e EResultError) Error() string {
-	return "EMsg: " + e.EResult.String()
+	return "EMsg: " + e.Result.String()
 }
 
 func (e EResultError) Unwrap() error {

@@ -42,14 +42,14 @@ func (a *Authenticator) handleChannelEncryptRequest(packet *protocol.Packet) {
 		return
 	}
 
-	nonce := make([]byte, 16)
-	if _, err := io.ReadFull(r, nonce); err != nil {
+	var nonce [16]byte
+	if _, err := io.ReadFull(r, nonce[:]); err != nil {
 		a.failLogin(fmt.Errorf("encrypt_request: failed to read nonce: %w", err))
 		return
 	}
 
 	// Generate symmetric key for this session
-	plainKey, encryptedKey, err := crypto.GenerateSessionKey(nonce)
+	plainKey, encryptedKey, err := crypto.GenerateSessionKey(nonce[:])
 	if err != nil {
 		a.failLogin(fmt.Errorf("encrypt_request: failed to generate session key: %w", err))
 		return
@@ -101,16 +101,15 @@ func (a *Authenticator) handleChannelEncryptResult(packet *protocol.Packet) {
 	a.logger.Info("TCP Encryption established")
 
 	// Get the context and details for the current login attempt
-	loginCtx := a.loginCtx.Load().(context.Context)
 	details := a.activeDetails.Load()
 
-	if loginCtx == nil || details == nil {
+	if details == nil {
 		a.failLogin(errors.New("encrypt_result: login context or details are missing"))
 		return
 	}
 
 	// Proceed to send logon credentials over the encrypted channel
-	a.sendLogOn(loginCtx, details)
+	a.sendLogOn(context.Background(), details)
 }
 
 // handleLogOnResponse handles the final authentication verdict from Steam.
@@ -121,13 +120,12 @@ func (a *Authenticator) handleLogOnResponse(packet *protocol.Packet) {
 		return
 	}
 
-	eresult := enums.EResult(msg.GetEresult())
-	if eresult != enums.EResult_OK {
-		a.logger.Error("Logon denied by CM", log.String("eresult", eresult.String()))
+	if res := enums.EResult(msg.GetEresult()); res != enums.EResult_OK {
+		a.logger.Error("Logon denied by CM", log.EResult(res))
 
-		a.failLogin(fmt.Errorf("steam logon denied: %w", api.EResultError{EResult: eresult}))
+		a.failLogin(fmt.Errorf("steam logon denied: %w", api.EResultError{Result: res}))
 
-		a.socket.Bus().Publish(&LoggedOffEvent{Result: eresult})
+		a.socket.Bus().Publish(&LoggedOffEvent{Result: res})
 
 		return
 	}
@@ -167,12 +165,15 @@ func (a *Authenticator) handleLogOnResponse(packet *protocol.Packet) {
 // handleLoggedOff handles server-side disconnections (e.g., "Logged in elsewhere").
 func (a *Authenticator) handleLoggedOff(packet *protocol.Packet) {
 	resp := &pb.CMsgClientLoggedOff{}
-	_ = proto.Unmarshal(packet.Payload, resp)
+	if err := proto.Unmarshal(packet.Payload, resp); err != nil {
+		a.logger.Error("Unmarshal failed in handleLoggedOff", log.Err(err))
+		return
+	}
 
-	eresult := enums.EResult(resp.GetEresult())
-	a.logger.Warn("Logged off by server", log.String("eresult", eresult.String()))
+	res := enums.EResult(resp.GetEresult())
+	a.logger.Warn("Logged off by server", log.EResult(res))
 
-	if api.IsAuthError(eresult) {
+	if api.IsAuthError(res) {
 		a.failLogin(api.ErrSessionExpired)
 	}
 
@@ -180,7 +181,7 @@ func (a *Authenticator) handleLoggedOff(packet *protocol.Packet) {
 
 	// Propagate the logoff event to other modules
 	a.socket.Bus().Publish(&LoggedOffEvent{
-		Result: eresult,
+		Result: res,
 	})
 }
 
@@ -194,13 +195,11 @@ func (a *Authenticator) sendLogOn(ctx context.Context, details *LogOnDetails) {
 		MachineName:               proto.String("g-man"),
 		SupportsRateLimitResponse: proto.Bool(true),
 		ObfuscatedPrivateIp: &pb.CMsgIPAddress{
-			Ip: &pb.CMsgIPAddress_V4{V4: a.config.LogonID ^ 0xbaadf00d},
+			Ip: &pb.CMsgIPAddress_V4{V4: uint32(time.Now().Unix()) ^ 0xbaadf00d},
 		},
 	}
 
 	if details.RefreshToken != "" {
-		a.logger.Debug("Logging on with Refresh Token")
-
 		logon.AccessToken = proto.String(details.RefreshToken)
 		logon.AccountName = nil
 	} else {
@@ -209,8 +208,6 @@ func (a *Authenticator) sendLogOn(ctx context.Context, details *LogOnDetails) {
 			logon.TwoFactorCode = proto.String(details.TwoFactorCode)
 		}
 	}
-
-	a.logger.Info("Sending ClientLogon")
 
 	if err := a.socket.SendProto(ctx, enums.EMsg_ClientLogon, logon); err != nil {
 		a.failLogin(fmt.Errorf("send logon failed: %w", err))

@@ -101,7 +101,7 @@ func TestCommunityClient_ErrorParsing(t *testing.T) {
 		{
 			name:          "Rate Limit",
 			statusCode:    429,
-			expectedError: ErrRateLimit,
+			expectedError: ErrRateLimited,
 		},
 		{
 			name:          "Not Logged In (Redirect)",

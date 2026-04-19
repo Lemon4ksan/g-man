@@ -171,12 +171,11 @@ func (m *mockWebAuth) GenerateAccessTokenForApp(
 func TestAuthenticator_CryptoHandshake(t *testing.T) {
 	s := newMockSocket()
 	w := &mockWebAuth{}
-	a := NewAuthenticator(s, w, DefaultConfig())
+	a := NewAuthenticator(s, w)
 
-	ctx, cancel := context.WithCancelCause(context.Background())
+	_, cancel := context.WithCancelCause(context.Background())
 	details := &LogOnDetails{RefreshToken: "test_token"}
 
-	a.loginCtx.Store(ctx)
 	a.loginCancel.Store(cancel)
 	a.activeDetails.Store(details)
 	a.state.Store(int32(StateLoggingOn))
@@ -237,7 +236,7 @@ func TestAuthenticator_CryptoHandshake(t *testing.T) {
 func TestAuthenticator_LogOn_WebSocketFlow(t *testing.T) {
 	s := newMockSocket()
 	w := &mockWebAuth{}
-	a := NewAuthenticator(s, w, DefaultConfig())
+	a := NewAuthenticator(s, w)
 
 	s.onSendProto = func(eMsg enums.EMsg, req proto.Message) {
 		if eMsg == enums.EMsg_ClientLogon {
@@ -274,7 +273,7 @@ func TestAuthenticator_LogOn_WebSocketFlow(t *testing.T) {
 func TestAuthenticator_LogOn_Failure(t *testing.T) {
 	s := newMockSocket()
 	w := &mockWebAuth{}
-	a := NewAuthenticator(s, w, DefaultConfig())
+	a := NewAuthenticator(s, w)
 
 	s.onSendProto = func(eMsg enums.EMsg, req proto.Message) {
 		if eMsg == enums.EMsg_ClientLogon {
@@ -301,7 +300,7 @@ func TestAuthenticator_LogOn_Failure(t *testing.T) {
 func TestAuthenticator_LogOff_Detection(t *testing.T) {
 	s := newMockSocket()
 	w := &mockWebAuth{}
-	a := NewAuthenticator(s, w, DefaultConfig())
+	a := NewAuthenticator(s, w)
 
 	a.state.Store(int32(StateLoggedOn))
 

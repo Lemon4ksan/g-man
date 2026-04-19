@@ -255,14 +255,13 @@ func (g *Guardian) StartAuthed(ctx context.Context, authCtx module.AuthContext) 
 		g.StopPolling()
 	}
 
-	g.steamID = authCtx.SteamID()
-
 	communityClient := authCtx.Community()
 	if communityClient == nil {
 		return errors.New("guard: community client is required")
 	}
 
 	g.mu.Lock()
+	g.steamID = authCtx.SteamID()
 	g.service = NewMobileConf(communityClient)
 
 	if g.twoFactorSvc != nil {
@@ -502,13 +501,13 @@ func (g *Guardian) pollingLoop(ctx context.Context) {
 				ticker.Reset(interval)
 			}
 
-			g.processFetchedConfirmations(ctx, confs)
+			g.processFetchedConfirmations(confs)
 			g.cleanupSeenIDs()
 		}
 	}
 }
 
-func (g *Guardian) processFetchedConfirmations(_ context.Context, confs []*Confirmation) {
+func (g *Guardian) processFetchedConfirmations(confs []*Confirmation) {
 	var toAutoAccept []*Confirmation
 
 	for _, conf := range confs {
@@ -531,22 +530,24 @@ func (g *Guardian) processFetchedConfirmations(_ context.Context, confs []*Confi
 		}
 	}
 
-	if len(toAutoAccept) > 0 {
-		g.Go(func(workerCtx context.Context) {
-			var err error
-			if len(toAutoAccept) == 1 {
-				err = g.Accept(workerCtx, toAutoAccept[0])
-			} else {
-				err = g.AcceptMultiple(workerCtx, toAutoAccept)
-			}
-
-			if err != nil {
-				g.Logger.Error("Auto-accept failed", log.Err(err))
-			} else {
-				g.Logger.Info("Auto-accepted confirmations", log.Int("count", len(toAutoAccept)))
-			}
-		})
+	if len(toAutoAccept) == 0 {
+		return
 	}
+
+	g.Go(func(workerCtx context.Context) {
+		var err error
+		if len(toAutoAccept) == 1 {
+			err = g.Accept(workerCtx, toAutoAccept[0])
+		} else {
+			err = g.AcceptMultiple(workerCtx, toAutoAccept)
+		}
+
+		if err != nil {
+			g.Logger.Error("Auto-accept failed", log.Err(err))
+		} else {
+			g.Logger.Info("Auto-accepted confirmations", log.Int("count", len(toAutoAccept)))
+		}
+	})
 }
 
 func (g *Guardian) listenEvents(ctx context.Context, sub *bus.Subscription) {

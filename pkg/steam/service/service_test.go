@@ -96,7 +96,7 @@ func TestUnifiedClient_Errors(t *testing.T) {
 		_, err := client.Do(ctx, tr.NewRequest(mockTarget("test"), nil))
 
 		var resErr api.EResultError
-		if !errors.As(err, &resErr) || resErr.EResult != enums.EResult_Fail {
+		if !errors.As(err, &resErr) || resErr.Result != enums.EResult_Fail {
 			t.Errorf("expected EResultError Fail, got %v", err)
 		}
 	})
@@ -233,7 +233,7 @@ func TestClient_SocketMetadataValidation(t *testing.T) {
 		_, err := client.Do(ctx, tr.NewRequest(mockTarget("test"), nil))
 
 		var resErr api.EResultError
-		if !errors.As(err, &resErr) || resErr.EResult != enums.EResult_AccessDenied {
+		if !errors.As(err, &resErr) || resErr.Result != enums.EResult_AccessDenied {
 			t.Errorf("expected EResult_AccessDenied, got %v", err)
 		}
 	})

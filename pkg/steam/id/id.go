@@ -186,8 +186,8 @@ func (id ID) Universe() Universe {
 	return Universe((uint64(id) >> 56) & 0xFF)
 }
 
-// Valid checks if the ID is within a plausible range.
-func (id ID) Valid() bool {
+// IsValid checks if the ID is within a plausible range.
+func (id ID) IsValid() bool {
 	t := id.Type()
 	u := id.Universe()
 
@@ -250,7 +250,7 @@ func (id *ID) UnmarshalJSON(data []byte) error {
 // If it's a Vanity URL (e.g. /id/lemon4ksan), it uses the service.Doer to resolve it via WebAPI.
 func Resolve(ctx context.Context, d service.Doer, input string) (ID, error) {
 	input = strings.TrimSpace(input)
-	if id := Parse(input); id.Valid() {
+	if id := Parse(input); id.IsValid() {
 		return id, nil
 	}
 
@@ -262,7 +262,7 @@ func Resolve(ctx context.Context, d service.Doer, input string) (ID, error) {
 
 	slug := matches[1]
 	// If the slug is already a 64-bit ID, return it
-	if id := Parse(slug); id.Valid() {
+	if id := Parse(slug); id.IsValid() {
 		return id, nil
 	}
 

@@ -57,14 +57,10 @@ func Login(ctx context.Context, targetURL string, steamCookies []*http.Cookie) (
 		return nil, fmt.Errorf("openid: invalid target URL: %w", err)
 	}
 
-	jar, err := cookiejar.New(nil)
-	if err != nil {
-		return nil, fmt.Errorf("openid: failed to create cookie jar: %w", err)
-	}
-
 	steamCommURL, _ := url.Parse("https://steamcommunity.com")
 	steamStoreURL, _ := url.Parse("https://store.steampowered.com")
 
+	jar, _ := cookiejar.New(nil)
 	jar.SetCookies(steamCommURL, steamCookies)
 	jar.SetCookies(steamStoreURL, steamCookies)
 
@@ -120,10 +116,8 @@ func Login(ctx context.Context, targetURL string, steamCookies []*http.Cookie) (
 	formData := url.Values{}
 
 	form.Find("input").Each(func(i int, s *goquery.Selection) {
-		name, nameExists := s.Attr("name")
-
 		value, _ := s.Attr("value")
-		if nameExists && name != "" {
+		if name, exists := s.Attr("name"); exists && name != "" {
 			formData.Set(name, value)
 		}
 	})
@@ -140,8 +134,7 @@ func Login(ctx context.Context, targetURL string, steamCookies []*http.Cookie) (
 	postURL := "https://steamcommunity.com/openid/login"
 
 	if action, exists := form.Attr("action"); exists && action != "" {
-		parsedAction, err := url.Parse(action)
-		if err == nil {
+		if parsedAction, err := url.Parse(action); err == nil {
 			postURL = currentURL.ResolveReference(parsedAction).String()
 		}
 	}
