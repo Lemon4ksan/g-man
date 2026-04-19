@@ -9,7 +9,7 @@ import (
 	"sync"
 
 	"github.com/lemon4ksan/g-man/pkg/trading/reason"
-	trading "github.com/lemon4ksan/g-man/pkg/trading/web"
+	"github.com/lemon4ksan/g-man/pkg/trading/web/offer"
 )
 
 // Action represents the final decision made by the engine regarding a trade.
@@ -61,7 +61,7 @@ type Verdict struct {
 type TradeContext struct {
 	context.Context
 
-	Offer   *trading.TradeOffer
+	Offer   *offer.TradeOffer
 	Verdict Verdict
 
 	// Metadata storage
@@ -70,7 +70,7 @@ type TradeContext struct {
 }
 
 // NewTradeContext creates a fresh context for an incoming offer.
-func NewTradeContext(ctx context.Context, offer *trading.TradeOffer) *TradeContext {
+func NewTradeContext(ctx context.Context, offer *offer.TradeOffer) *TradeContext {
 	return &TradeContext{
 		Context: ctx,
 		Offer:   offer,

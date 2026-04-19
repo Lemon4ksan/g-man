@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package web
+package processor
 
 import (
 	"context"
@@ -13,12 +13,14 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/g-man/pkg/log"
+	"github.com/lemon4ksan/g-man/pkg/trading/web/escrow"
+	"github.com/lemon4ksan/g-man/pkg/trading/web/offer"
 )
 
 var ErrMaxRetriesReached = errors.New("max retries reached")
 
 type ManagerProvider interface {
-	GetEscrowDuration(ctx context.Context, offerID uint64) (EscrowDetails, error)
+	GetEscrowDuration(ctx context.Context, offerID uint64) (escrow.Details, error)
 	AcceptOffer(ctx context.Context, offerID uint64) error
 	DeclineOffer(ctx context.Context, offerID uint64) error
 }
@@ -28,22 +30,22 @@ type ManagerProvider interface {
 // with inventory and pure calculations.
 type Processor struct {
 	manager ManagerProvider
-	handler OfferHandler
+	handler offer.OfferHandler
 	logger  log.Logger
 
-	queue chan *TradeOffer
+	queue chan *offer.TradeOffer
 
 	// ItemsInTrade tracks assetIDs that are currently involved in active offers.
 	itemsInTrade sync.Map
 }
 
 // NewProcessor creates a new sequential offer processor.
-func NewProcessor(manager ManagerProvider, handler OfferHandler, logger log.Logger) *Processor {
+func NewProcessor(manager ManagerProvider, handler offer.OfferHandler, logger log.Logger) *Processor {
 	return &Processor{
 		manager: manager,
 		handler: handler,
 		logger:  logger,
-		queue:   make(chan *TradeOffer, 500), // Buffered queue for incoming offers
+		queue:   make(chan *offer.TradeOffer, 500), // Buffered queue for incoming offers
 	}
 }
 
@@ -53,7 +55,7 @@ func (p *Processor) Start(ctx context.Context) {
 }
 
 // Enqueue adds an offer to the processing queue if it isn't already handled.
-func (p *Processor) Enqueue(offer *TradeOffer) {
+func (p *Processor) Enqueue(offer *offer.TradeOffer) {
 	// Lock items from this offer immediately so other background tasks know they are pending
 	for _, item := range offer.ItemsToGive {
 		p.SetItemInTrade(item.AssetID)
@@ -82,44 +84,44 @@ func (p *Processor) worker(ctx context.Context) {
 	}
 }
 
-func (p *Processor) processSingleOffer(ctx context.Context, offer *TradeOffer) {
+func (p *Processor) processSingleOffer(ctx context.Context, off *offer.TradeOffer) {
 	start := time.Now()
 
-	p.logger.Debug("Handling offer", log.Uint64("offerID", offer.ID))
+	p.logger.Debug("Handling offer", log.Uint64("offerID", off.ID))
 
 	// Call your bot's business logic (e.g., check prices, check bans)
-	decision, err := p.handler.ProcessOffer(ctx, offer)
+	decision, err := p.handler.ProcessOffer(ctx, off)
 	if err != nil {
-		p.logger.Error("Handler failed to process offer", log.Err(err), log.Uint64("offerID", offer.ID))
+		p.logger.Error("Handler failed to process offer", log.Err(err), log.Uint64("offerID", off.ID))
 		return
 	}
 
 	p.logger.Debug("Handler decision", log.String("action", string(decision.Action)))
 
 	// Execute the action (with retries)
-	err = p.applyAction(ctx, offer, decision)
+	err = p.applyAction(ctx, off, decision)
 	if err != nil {
-		p.handler.OnActionFailed(ctx, offer, decision.Action, decision.Reason, err)
+		p.handler.OnActionFailed(ctx, off, decision.Action, decision.Reason, err)
 
 		// If counter failed, fallback to decline (as per TS logic)
-		if decision.Action == ActionCounter {
-			p.logger.Warn("Counter failed, falling back to decline", log.Uint64("offerID", offer.ID))
+		if decision.Action == offer.ActionCounter {
+			p.logger.Warn("Counter failed, falling back to decline", log.Uint64("offerID", off.ID))
 
-			decision.Action = ActionDecline
+			decision.Action = offer.ActionDecline
 			decision.Reason = "COUNTER_INVALID_VALUE_FAILED"
-			_ = p.applyAction(ctx, offer, decision)
+			_ = p.applyAction(ctx, off, decision)
 		}
 	}
 
 	// Unlock items if skipped or declined
-	if decision.Action == ActionSkip || decision.Action == ActionDecline {
-		for _, item := range offer.ItemsToGive {
+	if decision.Action == offer.ActionSkip || decision.Action == offer.ActionDecline {
+		for _, item := range off.ItemsToGive {
 			p.UnsetItemInTrade(item.AssetID)
 		}
 	}
 
 	timeTaken := time.Since(start)
-	p.logger.Debug("Finished processing offer", log.Uint64("offerID", offer.ID), log.Duration("took", timeTaken))
+	p.logger.Debug("Finished processing offer", log.Uint64("offerID", off.ID), log.Duration("took", timeTaken))
 }
 
 // Item Tracking Helpers
@@ -138,19 +140,19 @@ func (p *Processor) IsInTrade(assetID uint64) bool {
 }
 
 // CheckEscrow checks if the partner has a Trade Hold.
-func (p *Processor) CheckEscrow(ctx context.Context, offer *TradeOffer) (bool, error) {
+func (p *Processor) CheckEscrow(ctx context.Context, offer *offer.TradeOffer) (bool, error) {
 	if offer.EscrowEndDate > 0 {
 		return true, nil
 	}
 
-	var details EscrowDetails
+	var details escrow.Details
 
 	err := p.withRetry(ctx, 5, func() error {
 		var fetchErr error
 
 		details, fetchErr = p.manager.GetEscrowDuration(ctx, offer.ID)
 
-		if errors.Is(fetchErr, ErrEscrowNotFound) {
+		if errors.Is(fetchErr, escrow.ErrEscrowNotFound) {
 			return fetchErr
 		}
 
@@ -169,21 +171,21 @@ func (p *Processor) CheckEscrow(ctx context.Context, offer *TradeOffer) (bool, e
 }
 
 // applyAction executes the decision and handles retries automatically.
-func (p *Processor) applyAction(ctx context.Context, offer *TradeOffer, decision ActionDecision) error {
+func (p *Processor) applyAction(ctx context.Context, off *offer.TradeOffer, decision offer.ActionDecision) error {
 	switch decision.Action {
-	case ActionAccept:
+	case offer.ActionAccept:
 		return p.withRetry(ctx, 5, func() error {
-			return p.manager.AcceptOffer(ctx, offer.ID)
+			return p.manager.AcceptOffer(ctx, off.ID)
 		})
-	case ActionDecline:
+	case offer.ActionDecline:
 		return p.withRetry(ctx, 5, func() error {
-			return p.manager.DeclineOffer(ctx, offer.ID)
+			return p.manager.DeclineOffer(ctx, off.ID)
 		})
-	case ActionCounter:
+	case offer.ActionCounter:
 		// Counter logic is complex, assuming p.manager.CounterOffer exists
 		// return p.manager.CounterOffer(ctx, offer, decision.Meta)
 		return errors.New("counter not fully implemented in manager yet")
-	case ActionSkip:
+	case offer.ActionSkip:
 		return nil
 	default:
 		return errors.New("unknown action type")

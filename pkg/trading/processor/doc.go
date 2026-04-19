@@ -9,7 +9,7 @@ to provide a seamless trade processing pipeline.
 
 # Lifecycle of a Trade Offer
 
-The Processor manages the complete flow of an incoming 'trading.TradeOffer':
+The Processor manages the complete flow of an incoming 'offer.TradeOffer':
  1. Sequential Queueing: Offers are processed one-by-one to prevent inventory
     desynchronization and race conditions.
  2. Asset Locking: Prevents "double-spending" by tracking asset IDs currently

@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
@@ -16,12 +17,16 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam"
+	"github.com/lemon4ksan/g-man/pkg/steam/api"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	schema "github.com/lemon4ksan/g-man/pkg/tf2/schema"
 	"github.com/lemon4ksan/g-man/pkg/trading"
+	"github.com/lemon4ksan/g-man/pkg/trading/web/escrow"
+	"github.com/lemon4ksan/g-man/pkg/trading/web/offer"
+	"github.com/lemon4ksan/g-man/pkg/trading/web/processor"
 )
 
 const ModuleName = "trading"
@@ -84,7 +89,7 @@ type Manager struct {
 	// Dependencies
 	web       service.Doer
 	community community.Requester
-	processor *Processor
+	processor *processor.Processor
 	schema    SchemaProvider
 
 	config Config
@@ -154,8 +159,8 @@ func (m *Manager) Close() error {
 }
 
 // SetOfferHandler injects the business logic for processing trade offers.
-func (m *Manager) SetOfferHandler(ctx context.Context, handler OfferHandler) {
-	m.processor = NewProcessor(m, handler, m.Logger)
+func (m *Manager) SetOfferHandler(ctx context.Context, handler offer.OfferHandler) {
+	m.processor = processor.NewProcessor(m, handler, m.Logger)
 	m.Go(func(moduleCtx context.Context) {
 		m.processor.Start(moduleCtx)
 	})
@@ -182,8 +187,6 @@ func (m *Manager) StopPolling() {
 		m.Logger.Info("Trade polling stopped")
 	}
 }
-
-// --- API Methods ---
 
 // AcceptOffer accepts a trade offer.
 func (m *Manager) AcceptOffer(ctx context.Context, offerID uint64) error {
@@ -229,7 +232,7 @@ func (m *Manager) CancelOffer(ctx context.Context, offerID uint64) error {
 }
 
 // GetOffer fetches details for a single offer.
-func (m *Manager) GetOffer(ctx context.Context, offerID uint64) (*TradeOffer, error) {
+func (m *Manager) GetOffer(ctx context.Context, offerID uint64) (*offer.TradeOffer, error) {
 	if err := m.rateLimiter.Wait(ctx); err != nil {
 		return nil, err
 	}
@@ -240,7 +243,7 @@ func (m *Manager) GetOffer(ctx context.Context, offerID uint64) (*TradeOffer, er
 	}{offerID, m.config.Language}
 
 	type respStruct struct {
-		Offer *TradeOffer `json:"offer"`
+		Offer *offer.TradeOffer `json:"offer"`
 	}
 
 	resp, err := service.WebAPI[respStruct](ctx, m.web, "GET", "IEconService", "GetTradeOffer", 1, req)
@@ -253,6 +256,45 @@ func (m *Manager) GetOffer(ctx context.Context, offerID uint64) (*TradeOffer, er
 	}
 
 	return resp.Offer, nil
+}
+
+// GetEscrowDuration loads the trade page and parses the Trade Hold information.
+func (m *Manager) GetEscrowDuration(ctx context.Context, offerID uint64) (escrow.Details, error) {
+	m.mu.RLock()
+	c := m.community
+	m.mu.RUnlock()
+
+	if c == nil {
+		return escrow.Details{}, escrow.ErrCommunityNotReady
+	}
+
+	resp, err := community.Get[[]byte](
+		ctx,
+		c,
+		fmt.Sprintf("tradeoffer/%d/", offerID),
+		nil,
+		api.WithFormat(api.FormatRaw),
+	)
+	if err != nil {
+		return escrow.Details{}, fmt.Errorf("failed to fetch offer page: %w", err)
+	}
+
+	html := string(*resp)
+
+	theirMatches := escrow.RxTheir.FindStringSubmatch(html)
+	myMatches := escrow.RxMy.FindStringSubmatch(html)
+
+	if len(theirMatches) < 2 || len(myMatches) < 2 {
+		return escrow.Details{}, escrow.ErrEscrowNotFound
+	}
+
+	theirDays, _ := strconv.Atoi(theirMatches[1])
+	myDays, _ := strconv.Atoi(myMatches[1])
+
+	return escrow.Details{
+		TheirDays: theirDays,
+		MyDays:    myDays,
+	}, nil
 }
 
 // IsItemInTrade allows external modules to know whether an item in the offer is already occupied.
@@ -301,8 +343,8 @@ func (m *Manager) doPoll(ctx context.Context) {
 	}{1, 1, 1, 0, time.Now().Add(-24 * time.Hour).Unix()}
 
 	type respStruct struct {
-		Sent     []*TradeOffer `json:"trade_offers_sent"`
-		Received []*TradeOffer `json:"trade_offers_received"`
+		Sent     []*offer.TradeOffer `json:"trade_offers_sent"`
+		Received []*offer.TradeOffer `json:"trade_offers_received"`
 	}
 
 	resp, err := service.WebAPI[respStruct](ctx, m.web, "GET", "IEconService", "GetTradeOffers", 1, req)
@@ -319,7 +361,7 @@ func (m *Manager) doPoll(ctx context.Context) {
 
 	now := time.Now()
 
-	allOffers := make([]*TradeOffer, len(resp.Sent)+len(resp.Received))
+	allOffers := make([]*offer.TradeOffer, len(resp.Sent)+len(resp.Received))
 	copy(allOffers, resp.Sent)
 	copy(allOffers[len(resp.Sent):], resp.Received)
 
@@ -350,7 +392,7 @@ func (m *Manager) doPoll(ctx context.Context) {
 	m.gcKnownOffers(now)
 }
 
-func (m *Manager) enrichOfferWithSKUs(offer *TradeOffer) {
+func (m *Manager) enrichOfferWithSKUs(offer *offer.TradeOffer) {
 	if m.schema == nil {
 		m.Logger.Error("tf2_schema module not found, cannot resolve SKU")
 		return

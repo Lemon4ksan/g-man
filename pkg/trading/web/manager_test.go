@@ -15,6 +15,7 @@ import (
 
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/trading"
+	"github.com/lemon4ksan/g-man/pkg/trading/web/escrow"
 	"github.com/lemon4ksan/g-man/test/community"
 	"github.com/lemon4ksan/g-man/test/module"
 	"github.com/lemon4ksan/g-man/test/requester"
@@ -149,26 +150,26 @@ func TestManager_GetEscrowDuration(t *testing.T) {
 		offerID uint64
 		html    string
 		mockErr error
-		want    EscrowDetails
+		want    escrow.Details
 		wantErr error
 	}{
 		{
 			name:    "Hold 7 days",
 			offerID: 100,
 			html:    genHTML(0, 7),
-			want:    EscrowDetails{MyDays: 0, TheirDays: 7},
+			want:    escrow.Details{MyDays: 0, TheirDays: 7},
 		},
 		{
 			name:    "No hold",
 			offerID: 200,
 			html:    genHTML(0, 0),
-			want:    EscrowDetails{MyDays: 0, TheirDays: 0},
+			want:    escrow.Details{MyDays: 0, TheirDays: 0},
 		},
 		{
 			name:    "Parsing error",
 			offerID: 300,
 			html:    "<html>No data here</html>",
-			wantErr: ErrEscrowNotFound,
+			wantErr: escrow.ErrEscrowNotFound,
 		},
 	}
 

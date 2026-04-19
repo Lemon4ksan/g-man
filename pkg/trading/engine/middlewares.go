@@ -192,7 +192,10 @@ func ChangeMiddleware(metalMgr *crafting.MetalManager, craftingSvc *tf2.TF2, log
 				return nil
 			}
 
-			diff := diffVar.(currency.Scrap)
+			diff, ok := diffVar.(currency.Scrap)
+			if !ok {
+				return errors.New("invalid or missing value_diff_scrap in context")
+			}
 
 			if diff == 0 {
 				ctx.Accept("Correct value provided")
@@ -238,7 +241,7 @@ func calculateValueDiff(ctx *TradeContext) currency.Scrap {
 
 	priceMap := pricesRaw.(map[string]*pricedb.Price)
 
-	var keyPriceScrap currency.Scrap = 900
+	var keyPriceScrap currency.Scrap
 	if keyPrice, ok := priceMap[currency.SKUKey]; ok {
 		// Convert key buy price to scrap
 		keyPriceScrap = currency.ToScrap(keyPrice.Buy.Metal)
