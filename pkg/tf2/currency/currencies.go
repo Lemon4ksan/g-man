@@ -41,6 +41,7 @@ func (c *Currency) String() string {
 	var parts []string
 
 	if c.Keys != 0 {
+		// %g removes extra zeros (1.0 -> "1", 1.5 -> "1.5")
 		kStr := fmt.Sprintf("%g key", c.Keys)
 		if c.Keys != 1 {
 			kStr += "s"
@@ -50,7 +51,11 @@ func (c *Currency) String() string {
 	}
 
 	if c.Metal != 0 || len(parts) == 0 {
-		metalStr := strconv.FormatFloat(c.Metal, 'f', -1, 64)
+		scrap := ToScrap(c.Metal)
+		refined := float64(scrap) / 9.0
+		rounded := math.Round(refined*100) / 100
+		// 1.00 -> "1"
+		metalStr := strconv.FormatFloat(rounded, 'f', -1, 64)
 		parts = append(parts, metalStr+" ref")
 	}
 
@@ -111,38 +116,7 @@ func ToRefined(s Scrap) float64 {
 	return float64(s) / float64(ScrapInRef)
 }
 
+// FormatRefined uses %.2f, which correctly rounds 0.555... to 0.56
 func FormatRefined(s Scrap) string {
-	return fmt.Sprintf("%.2f ref", ToRefined(s))
-}
-
-func truncate(number float64, decimals int) float64 {
-	factor := math.Pow(10, float64(decimals))
-	return rounding(number*factor) / factor
-}
-
-func rounding(number float64) float64 {
-	isPositive := number >= 0
-	absNum := math.Abs(number)
-
-	var res float64
-	if absNum+0.001 > math.Ceil(absNum) {
-		res = math.Round(absNum)
-	} else {
-		res = math.Floor(absNum)
-	}
-
-	if isPositive {
-		return res
-	}
-
-	return -res
-}
-
-func pluralize(word string, count float64) string {
-	strCount := strconv.FormatFloat(count, 'f', -1, 64)
-	if count == 1 {
-		return strCount + " " + word
-	}
-
-	return strCount + " " + word + "s"
+	return fmt.Sprintf("%.2f ref", float64(s)/9.0)
 }

@@ -59,13 +59,8 @@ func (v ValueDiff) MissingString() string {
 			return fmt.Sprintf("%d keys", keys)
 		}
 
-		return fmt.Sprintf("%d keys, %s", keys, FormatRefinedForDisplay(leftoverScrap))
+		return fmt.Sprintf("%d keys, %s", keys, FormatRefined(leftoverScrap))
 	}
 
-	return FormatRefinedForDisplay(missingScrap)
-}
-
-// FormatRefinedForDisplay uses %.2f, which correctly rounds 0.555... to 0.56
-func FormatRefinedForDisplay(s Scrap) string {
-	return fmt.Sprintf("%.2f ref", float64(s)/9.0)
+	return FormatRefined(missingScrap)
 }
