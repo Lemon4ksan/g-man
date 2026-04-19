@@ -24,23 +24,13 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 )
 
-// steamDomains are the standard Steam domains that require synchronized cookies.
-var steamDomains = []string{
+// defaultDomains are the standard Steam domains that require synchronized cookies.
+var defaultDomains = []string{
 	"https://steamcommunity.com",
 	"https://store.steampowered.com",
 	"https://help.steampowered.com",
 	"https://login.steampowered.com",
 	"https://s.team", // Short Steam domain, used for sharing and redirects
-}
-
-// Manager defines the public interface for the web session.
-type Manager interface {
-	Authenticate(ctx context.Context, platform pb.EAuthTokenPlatformType, refreshToken, accessToken string) error
-	IsAuthenticated() bool
-	Verify(ctx context.Context) (bool, error)
-	Client() rest.Requester
-	SessionID(targetURL string) string
-	Clear()
 }
 
 // WebSession handles HTTP-based interactions with Steam Community and Store.
@@ -53,6 +43,7 @@ type WebSession struct {
 	jar     http.CookieJar
 	logger  log.Logger
 	isAuth  bool
+	domains []string
 }
 
 // New creates a new, unauthenticated web session.
@@ -60,10 +51,19 @@ func New(steamID id.ID, logger log.Logger) *WebSession {
 	ws := &WebSession{
 		steamID: steamID,
 		logger:  logger,
+		domains: append([]string{}, defaultDomains...),
 	}
 	ws.Clear()
 
 	return ws
+}
+
+// AddDomains appends additional domains to the session's cookie synchronization list.
+func (s *WebSession) AddDomains(domains ...string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.domains = append(s.domains, domains...)
 }
 
 // Client returns the underlying REST client.
@@ -241,7 +241,7 @@ func (s *WebSession) seedCookies(sessionID, secureValue string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	for _, domain := range steamDomains {
+	for _, domain := range s.domains {
 		u, _ := url.Parse(domain)
 
 		cookies := []*http.Cookie{
