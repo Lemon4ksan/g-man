@@ -35,6 +35,7 @@ type Config struct {
 	Socket  socket.Config
 	Storage storage.Provider
 	HTTP    rest.HTTPDoer // Optional custom HTTP client
+	Device  *auth.DeviceConfig
 }
 
 // DefaultConfig returns the baseline configuration for core systems.
@@ -110,10 +111,6 @@ type Client struct {
 func NewClient(cfg Config, opts ...Option) *Client {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	if cfg.Storage == nil {
-		cfg.Storage = memory.New()
-	}
-
 	c := &Client{
 		cfg:     cfg,
 		logger:  log.Discard,
@@ -129,6 +126,10 @@ func NewClient(cfg Config, opts ...Option) *Client {
 		opt(c)
 	}
 
+	if cfg.Storage == nil {
+		cfg.Storage = memory.New()
+	}
+
 	webTransport := tr.NewHTTPTransport(cfg.HTTP, service.WebAPIBase)
 	c.unifiedClient = service.New(webTransport)
 	c.restClient = rest.NewClient(cfg.HTTP)
@@ -139,10 +140,9 @@ func NewClient(cfg Config, opts ...Option) *Client {
 		socket.WithLogger(c.logger),
 	)
 
-	authService := auth.NewAuthenticationService(c.unifiedClient, nil)
 	c.auth = auth.NewAuthenticator(
 		c.socket,
-		authService,
+		auth.NewAuthenticationService(c.unifiedClient, cfg.Device),
 		auth.WithLogger(c.logger),
 		auth.WithStorage(cfg.Storage.Auth()),
 	)
@@ -186,7 +186,7 @@ func (c *Client) ConnectAndLogin(ctx context.Context, server socket.CMServer, de
 		c.logger.Info("Web session ready")
 
 		c.mu.Lock()
-		comm := community.New(c.webSession.Client().HTTP(), c.webSession.SessionID, c.logger)
+		comm := community.New(c.webSession.Client().HTTP(), c.webSession.SessionID, community.WithLogger(c.logger))
 		c.community = comm
 		c.mu.Unlock()
 

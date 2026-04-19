@@ -18,6 +18,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 
+	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/rest"
 	"github.com/lemon4ksan/g-man/pkg/steam/api"
@@ -63,19 +64,39 @@ type Client struct {
 	logger      log.Logger
 }
 
+// WithLogger sets a custom logger for the client.
+func WithLogger(l log.Logger) bus.Option[*Client] {
+	return func(c *Client) {
+		c.logger = l.With(log.Module("community"))
+	}
+}
+
+// WithRest sets a custom rest client for performing requests.
+func WithRest(r *rest.Client) bus.Option[*Client] {
+	return func(c *Client) {
+		c.restClient = r
+	}
+}
+
 // New creates a new Community Client.
 // It initializes a rest.Client with the required default browser-like headers.
-func New(httpClient rest.HTTPDoer, sessionFunc func(string) string, logger log.Logger) *Client {
+func New(httpClient rest.HTTPDoer, sessionFunc func(string) string, opts ...bus.Option[*Client]) *Client {
 	rc := rest.NewClient(httpClient).
 		WithBaseURL(BaseURL).
 		WithHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36").
 		WithHeader("Origin", BaseURL)
 
-	return &Client{
+	c := &Client{
 		restClient:  rc,
 		sessionFunc: sessionFunc,
-		logger:      logger,
+		logger:      log.Discard,
 	}
+
+	for _, opt := range opts {
+		opt(c)
+	}
+
+	return c
 }
 
 // SessionID retrieves the session identifier for the specified URI.

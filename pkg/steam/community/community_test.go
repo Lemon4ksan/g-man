@@ -13,7 +13,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam/api"
 )
 
@@ -29,7 +28,7 @@ func setupCommunity(onDo func(req *http.Request) (*http.Response, error)) *Clien
 	doer := &MockHTTPDoer{OnDo: onDo}
 	sessionFunc := func(uri string) string { return "valid_session_id" }
 
-	return New(doer, sessionFunc, log.Discard)
+	return New(doer, sessionFunc)
 }
 
 func TestCommunityClient_HeadersInjection(t *testing.T) {
