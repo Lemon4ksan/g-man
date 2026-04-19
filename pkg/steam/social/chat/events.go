@@ -16,18 +16,16 @@ const (
 	ChatEntryTypeLeftConversation = 6
 )
 
-// MessageEvent — новое текстовое ЛС от друга.
 type MessageEvent struct {
 	bus.BaseEvent
 	SenderID  uint64
 	Message   string
 	Timestamp time.Time
-	Ordinal   uint32 // Используется для сортировки сообщений в одну секунду
+	Ordinal   uint32
 }
 
 func (e *MessageEvent) Topic() string { return "chat.message_received" }
 
-// TypingEvent — друг печатает ЛС.
 type TypingEvent struct {
 	bus.BaseEvent
 	SenderID uint64
@@ -35,7 +33,6 @@ type TypingEvent struct {
 
 func (e *TypingEvent) Topic() string { return "chat.typing" }
 
-// GroupMessageEvent — новое сообщение в групповом чате (Chat Room).
 type GroupMessageEvent struct {
 	bus.BaseEvent
 	ChatGroupID uint64
