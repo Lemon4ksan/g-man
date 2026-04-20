@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/g-man/pkg/tf2"
-	"github.com/lemon4ksan/g-man/pkg/tf2/schema"
 )
 
 // DefIndex of metals in TF2
@@ -156,8 +155,8 @@ func (cm *Manager) MakeChange(ctx context.Context, targetDefIndex uint32, target
 	return nil
 }
 
-func (cm *Manager) SmeltClassWeapons(ctx context.Context, s *schema.Schema, class string) ([]uint64, error) {
-	weapons := cm.tf2.Cache().FindWeaponsByClass(s, class)
+func (cm *Manager) SmeltClassWeapons(ctx context.Context, class string) ([]uint64, error) {
+	weapons := cm.tf2.Cache().FindWeaponsByClass(class)
 
 	if len(weapons) < 2 {
 		return nil, fmt.Errorf("not enough weapons for class %s", class)

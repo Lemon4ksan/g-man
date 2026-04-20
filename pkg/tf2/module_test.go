@@ -19,6 +19,7 @@ import (
 	bm "github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/sys/apps"
+	"github.com/lemon4ksan/g-man/pkg/tf2/schema"
 	"github.com/lemon4ksan/g-man/test/module"
 )
 
@@ -85,6 +86,7 @@ func setupTF2(t *testing.T) (*TF2, *module.InitContext, *mockCoordinator) {
 	mCoord := &mockCoordinator{}
 	ictx.SetModule("gc", mCoord)
 	ictx.SetModule("apps", apps.New())
+	ictx.SetModule("tf2_schema", schema.NewManager(schema.Config{}))
 
 	tf := New()
 	if err := tf.Init(ictx); err != nil {
@@ -124,7 +126,7 @@ func TestTF2_SOCacheEvents(t *testing.T) {
 		}
 
 		payload, _ := proto.Marshal(msg)
-		tf.cache.HandleSubscribed(&protocol.GCPacket{Payload: payload}, tf.Logger, tf.Bus)
+		tf.cache.HandleSubscribed(&protocol.GCPacket{Payload: payload})
 
 		select {
 		case ev := <-subLoaded.C():
@@ -156,7 +158,7 @@ func TestTF2_SOCacheEvents(t *testing.T) {
 			Payload: payload,
 		}
 
-		tf.cache.HandleSOUpdate(pkt, tf.Logger, tf.Bus)
+		tf.cache.HandleSOUpdate(pkt)
 
 		select {
 		case ev := <-subAcquired.C():

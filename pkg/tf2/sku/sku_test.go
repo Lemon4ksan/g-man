@@ -116,11 +116,7 @@ func TestFromObject(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := sku.FromObject(tt.item)
-			if err != nil {
-				t.Errorf("FromObject() error = %v", err)
-				return
-			}
+			got := sku.FromObject(tt.item)
 
 			if got != tt.want {
 				t.Errorf("FromObject() = %v, want %v", got, tt.want)
@@ -144,10 +140,7 @@ func TestRoundTrip(t *testing.T) {
 				t.Fatalf("Failed to parse: %v", err)
 			}
 
-			out, err := sku.FromObject(item)
-			if err != nil {
-				t.Fatalf("Failed to stringify: %v", err)
-			}
+			out := sku.FromObject(item)
 
 			if s != out {
 				t.Errorf("Round-trip failed!\nInput:  %s\nOutput: %s", s, out)

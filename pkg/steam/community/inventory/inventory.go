@@ -13,7 +13,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 )
 
-// GetUserInventoryContents recursively parses user inventory using 
+// GetUserInventoryContents recursively parses user inventory using
 // community requester and returns the list of items and currencies
 // with their total count.
 func GetUserInventoryContents(

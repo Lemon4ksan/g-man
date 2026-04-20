@@ -7,7 +7,11 @@ package inventory
 import (
 	"context"
 	"errors"
+	"strconv"
+	"strings"
 
+	"github.com/lemon4ksan/g-man/pkg/steam/community/inventory"
+	"github.com/lemon4ksan/g-man/pkg/tf2/schema"
 	"github.com/lemon4ksan/g-man/pkg/tf2/sku"
 )
 
@@ -56,6 +60,107 @@ type TF2Item struct {
 	Attributes      []TF2Attribute `json:"attributes,omitempty"`
 }
 
+func mapCEconToTF2(econ inventory.CEconItem, s *schema.Schema) TF2Item {
+	asset := econ.Asset
+	desc := econ.Description
+
+	item := TF2Item{
+		ID:         mustParseUint64(asset.AssetID),
+		Attributes: []TF2Attribute{},
+		Quantity:   1,
+	}
+
+	if amount, err := strconv.Atoi(asset.Amount); err == nil {
+		item.Quantity = amount
+	}
+
+	if desc == nil {
+		return item
+	}
+
+	if desc.AppData != nil {
+		if di, ok := desc.AppData["def_index"].(string); ok {
+			item.Defindex = mustParseInt(di)
+		}
+
+		if q, ok := desc.AppData["quality"].(string); ok {
+			item.Quality = mustParseInt(q)
+		}
+	}
+
+	if item.Defindex == 0 || item.Quality == 0 {
+		for _, tag := range desc.Tags {
+			switch tag.Category {
+			case "Quality":
+				if item.Quality == 0 {
+					item.Quality = s.GetQualityIdByName(tag.LocalizedTagName)
+				}
+			case "Type":
+			}
+		}
+	}
+
+	item.FlagCannotTrade = desc.Tradable == 0
+	item.FlagCannotCraft = false
+
+	for _, d := range desc.Descriptions {
+		val := d.Value
+
+		if strings.Contains(val, "( Not Usable in Crafting )") {
+			item.FlagCannotCraft = true
+			continue
+		}
+
+		if effectName, ok := strings.CutPrefix(val, "★ Unusual Effect: "); ok {
+			if effectID := s.GetEffectIdByName(effectName); effectID != 0 {
+				item.Attributes = append(item.Attributes, TF2Attribute{
+					Defindex: 134,
+					Value:    float64(effectID),
+				})
+			}
+
+			continue
+		}
+
+		if strings.Contains(val, "Killstreak Active") {
+			ksLevel := 0
+			switch {
+			case strings.Contains(val, "Professional"):
+				ksLevel = 3
+			case strings.Contains(val, "Specialized"):
+				ksLevel = 2
+			case strings.Contains(val, "Killstreak"):
+				ksLevel = 1
+			}
+
+			if ksLevel > 0 {
+				item.Attributes = append(item.Attributes, TF2Attribute{
+					Defindex: 2025, // Killstreak Tier
+					Value:    float64(ksLevel),
+				})
+			}
+		}
+
+		if paintName, ok := strings.CutPrefix(val, "Paint Color: "); ok {
+			if paintID := s.GetPaintDecimalByName(paintName); paintID != 0 {
+				item.Attributes = append(item.Attributes, TF2Attribute{
+					Defindex: 142, // Paint color
+					Value:    float64(paintID),
+				})
+			}
+		}
+	}
+
+	if strings.Contains(desc.Name, "Australium") && item.Quality == 11 { // Strange + Name
+		item.Attributes = append(item.Attributes, TF2Attribute{
+			Defindex: 2027,
+			Value:    float64(1),
+		})
+	}
+
+	return item
+}
+
 // ToSKU generates an SKU string for an item using inventory data.
 // This allows you to compare items in someone else's inventory with our price list.
 func (it *TF2Item) ToSKU() string {
@@ -89,7 +194,7 @@ func (it *TF2Item) ToSKU() string {
 		}
 	}
 
-	str, _ := sku.FromObject(&sku.Item{
+	return sku.FromObject(&sku.Item{
 		Defindex:   defindex,
 		Quality:    quality,
 		Craftable:  isCraftable,
@@ -98,12 +203,20 @@ func (it *TF2Item) ToSKU() string {
 		Wear:       wear,
 		Paintkit:   paintkit,
 	})
-
-	return str
 }
 
 type TF2Attribute struct {
 	Defindex   int     `json:"defindex"`
 	Value      any     `json:"value"` // int or string
 	FloatValue float64 `json:"float_value,omitempty"`
+}
+
+func mustParseUint64(s string) uint64 {
+	v, _ := strconv.ParseUint(s, 10, 64)
+	return v
+}
+
+func mustParseInt(s string) int {
+	v, _ := strconv.Atoi(s)
+	return v
 }

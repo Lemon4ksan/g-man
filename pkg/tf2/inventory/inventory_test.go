@@ -7,19 +7,10 @@ package inventory
 import (
 	"context"
 	"errors"
-	"net/http"
 	"testing"
 
 	"github.com/lemon4ksan/g-man/test/requester"
 )
-
-type mockRoundTripper struct {
-	fn func(req *http.Request) (*http.Response, error)
-}
-
-func (m *mockRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	return m.fn(req)
-}
 
 type MockDupeChecker struct {
 	Responses map[uint64]HistoryStatus
@@ -58,7 +49,7 @@ func TestPlayerInventory_IsDuped(t *testing.T) {
 		},
 	}
 
-	inv := New(7656119, mockAPI, checker1)
+	inv := New(7656119, mockAPI, []DupeChecker{checker1})
 
 	tests := []struct {
 		name      string
@@ -115,7 +106,7 @@ func TestPlayerInventory_MultipleCheckers(t *testing.T) {
 		},
 	}
 
-	inv := New(7656119, nil, checker1, checker2)
+	inv := New(7656119, nil, []DupeChecker{checker1, checker2})
 
 	got, _ := inv.IsDuped(context.Background(), 100)
 	if got == nil || !*got {

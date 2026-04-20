@@ -197,6 +197,9 @@ type Schema struct {
 
 	// Crate series
 	crateSeriesList map[int]int
+
+	// Name indices without "The "
+	itemsByNameStripped map[string]*ItemSchema
 }
 
 // New creates a Schema from the given raw data and builds all indices.
@@ -223,9 +226,17 @@ func New(raw *RawSchema) *Schema {
 // buildIndices creates all O(1) lookup maps from the raw data.
 func (s *Schema) buildIndices() {
 	// Item indices
+	s.itemsByNameStripped = make(map[string]*ItemSchema)
+
 	for _, item := range s.Raw.Schema.Items {
+		lowName := strings.ToLower(item.ItemName)
 		s.itemsByDef[item.Defindex] = item
-		s.itemsByName[strings.ToLower(item.ItemName)] = item
+		s.itemsByName[lowName] = item
+
+		stripped := strings.TrimPrefix(lowName, "the ")
+		if _, exists := s.itemsByNameStripped[stripped]; !exists {
+			s.itemsByNameStripped[stripped] = item
+		}
 	}
 
 	// Attribute indices
@@ -406,22 +417,12 @@ func (s *Schema) GetItemByNameWithThe(name string) *ItemSchema {
 	name = strings.TrimPrefix(name, "the ")
 	name = strings.TrimSpace(name)
 
-	for _, it := range s.Raw.Schema.Items {
-		itemName := strings.ToLower(it.ItemName)
-		itemName = strings.TrimPrefix(itemName, "the ")
-		itemName = strings.TrimSpace(itemName)
-
-		if name == itemName {
-			if it.ItemName == "Name Tag" && it.Defindex == 2093 {
-				continue
-			}
-
-			if it.ItemQuality == 0 {
-				continue
-			}
-
-			return it
+	if it, ok := s.itemsByNameStripped[name]; ok {
+		if it.ItemName == "Name Tag" && it.Defindex == 2093 {
+			return s.GetItemByDef(2093)
 		}
+
+		return it
 	}
 
 	return nil
@@ -1630,13 +1631,7 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 // GetSkuFromName returns the SKU string for the given name.
 func (s *Schema) GetSkuFromName(name string) string {
 	item := s.GetItemObjectFromName(name)
-
-	skuStr, err := sku.FromObject(item)
-	if err != nil {
-		return ""
-	}
-
-	return skuStr
+	return sku.FromObject(item)
 }
 
 // GetSKUFromEconItem converts a generic Steam WebAPI item into a strict TF2 SKU string.
@@ -1653,6 +1648,7 @@ func (s *Schema) GetSKUFromEconItem(item *trading.Item) string {
 
 	skuItem.Tradable = item.Tradable
 
+	// TODO: skuItem.Craftable = !item.IsNonCraftable()
 	for _, desc := range item.Descriptions {
 		if desc.Value == "( Not Usable in Crafting )" {
 			skuItem.Craftable = false
@@ -1682,12 +1678,7 @@ func (s *Schema) GetSKUFromEconItem(item *trading.Item) string {
 
 	s.NormalizeItem(skuItem)
 
-	str, err := sku.FromObject(skuItem)
-	if err != nil {
-		return "invalid"
-	}
-
-	return str
+	return sku.FromObject(skuItem)
 }
 
 // IsPromoItem checks if the item is a promo version.

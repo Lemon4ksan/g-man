@@ -77,7 +77,7 @@ func (m *PriceManager) Update(ctx context.Context) error {
 							}
 						}
 
-						skuStr, _ := sku.FromObject(sItem)
+						skuStr := sku.FromObject(sItem)
 						newIndex[skuStr] = entry
 					}
 				}

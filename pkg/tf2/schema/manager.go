@@ -481,7 +481,7 @@ func (m *Manager) withRetry(ctx context.Context, operation func() error) error {
 
 	var lastErr error
 
-	for i := 0; i < maxRetries; i++ {
+	for i := range maxRetries {
 		err := operation()
 		if err == nil {
 			return nil

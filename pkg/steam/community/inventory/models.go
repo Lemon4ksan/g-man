@@ -22,6 +22,11 @@ type InventoryDescription struct {
 	BackgroundColor string         `json:"background_color"`
 	IconURL         string         `json:"icon_url"`
 	Tags            []InventoryTag `json:"tags"`
+	AppData         map[string]any `json:"app_data,omitempty"`
+	Descriptions    []struct {
+		Value string `json:"value"`
+		Color string `json:"color,omitempty"`
+	} `json:"descriptions,omitempty"`
 }
 
 type InventoryTag struct {

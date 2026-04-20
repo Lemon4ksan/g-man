@@ -4,6 +4,8 @@
 
 // Package sku implements the TF2 Stock Keeping Unit format.
 // It allows converting complex item attributes into a compact string representation.
+//
+// NOTE: Spells are TBD.
 package sku
 
 import (
@@ -138,69 +140,87 @@ func FromString(sku string) (*Item, error) {
 
 // FromObject converts an Item into its SKU string representation.
 // The output format follows the conventions used in the original JavaScript code.
-func FromObject(item *Item) (string, error) {
-	// base: defindex;quality
-	sku := fmt.Sprintf("%d;%d", item.Defindex, item.Quality)
+func FromObject(item *Item) string {
+	var b strings.Builder
+	b.Grow(64)
+
+	b.WriteString(strconv.Itoa(item.Defindex))
+	b.WriteByte(';')
+	b.WriteString(strconv.Itoa(item.Quality))
 
 	if item.Effect != 0 {
-		sku += fmt.Sprintf(";u%d", item.Effect)
+		b.WriteString(";u")
+		b.WriteString(strconv.Itoa(item.Effect))
 	}
 
 	if item.Australium {
-		sku += ";australium"
+		b.WriteString(";australium")
 	}
 
 	if !item.Craftable {
-		sku += ";uncraftable"
+		b.WriteString(";uncraftable")
 	}
 
 	if !item.Tradable {
-		sku += ";untradable"
+		b.WriteString(";untradable")
 	}
 
 	if item.Wear != 0 {
-		sku += fmt.Sprintf(";w%d", item.Wear)
+		b.WriteByte(';')
+		b.WriteByte('w')
+		b.WriteString(strconv.Itoa(item.Wear))
 	}
 
 	if item.Paintkit != 0 {
-		sku += fmt.Sprintf(";pk%d", item.Paintkit)
+		b.WriteString(";pk")
+		b.WriteString(strconv.Itoa(item.Paintkit))
 	}
 
 	if item.Quality2 == 11 {
-		sku += ";strange"
+		b.WriteString(";strange")
 	}
 
 	if item.Killstreak != 0 {
-		sku += fmt.Sprintf(";kt-%d", item.Killstreak)
+		b.WriteString(";kt-")
+		b.WriteString(strconv.Itoa(item.Killstreak))
 	}
 
 	if item.Target != 0 {
-		sku += fmt.Sprintf(";td-%d", item.Target)
+		b.WriteString(";td-")
+		b.WriteString(strconv.Itoa(item.Target))
 	}
 
 	if item.Festivized {
-		sku += ";festive"
+		b.WriteString(";festive")
 	}
 
 	if item.Craftnumber != 0 {
-		sku += fmt.Sprintf(";n%d", item.Craftnumber)
+		b.WriteByte(';')
+		b.WriteByte('n')
+		b.WriteString(strconv.Itoa(item.Craftnumber))
 	}
 
 	if item.Crateseries != 0 {
-		sku += fmt.Sprintf(";c%d", item.Crateseries)
+		b.WriteByte(';')
+		b.WriteByte('c')
+		b.WriteString(strconv.Itoa(item.Crateseries))
 	}
 
 	if item.Output != 0 {
-		sku += fmt.Sprintf(";od-%d", item.Output)
+		b.WriteString(";od-")
+		b.WriteString(strconv.Itoa(item.Output))
 	}
 
 	if item.OutputQuality != 0 {
-		sku += fmt.Sprintf(";oq-%d", item.OutputQuality)
+		b.WriteString(";oq-")
+		b.WriteString(strconv.Itoa(item.OutputQuality))
 	}
 
 	if item.Paint != 0 {
-		sku += fmt.Sprintf(";p%d", item.Paint)
+		b.WriteByte(';')
+		b.WriteByte('p')
+		b.WriteString(strconv.Itoa(item.Paint))
 	}
 
-	return sku, nil
+	return b.String()
 }

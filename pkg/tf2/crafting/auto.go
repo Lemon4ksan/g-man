@@ -8,8 +8,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/log"
-	"github.com/lemon4ksan/g-man/pkg/tf2/schema"
 )
 
 // Automator is a high-level orchestrator that monitors the state of your
@@ -24,15 +24,29 @@ type Automator struct {
 	maxRec   int
 }
 
-func NewAutomator(mgr *Manager, logger log.Logger) *Automator {
-	return &Automator{
+// WithLogger sets a custom logger for the module.
+func WithLogger(l log.Logger) bus.Option[*Automator] {
+	return func(a *Automator) {
+		a.logger = l
+	}
+}
+
+// NewAutomator creates a new orchestrator for monitoring metal reserve.
+func NewAutomator(mgr *Manager, opts ...bus.Option[*Automator]) *Automator {
+	a := &Automator{
 		manager:  mgr,
-		logger:   logger,
+		logger:   log.Discard,
 		minScrap: 3,
 		minRec:   3,
 		maxScrap: 9,
 		maxRec:   9,
 	}
+
+	for _, opt := range opts {
+		opt(a)
+	}
+
+	return a
 }
 
 // Tick performs one check and one action (if needed).
@@ -76,19 +90,19 @@ func (a *Automator) Tick(ctx context.Context) error {
 }
 
 // CraftExcessWeapons finds duplicate weapons and crafts them into metal.
-func (a *Automator) CleanInventory(ctx context.Context, s *schema.Schema) error {
+func (a *Automator) CleanInventory(ctx context.Context) error {
 	classes := []string{"Scout", "Soldier", "Pyro", "Demoman", "Heavy", "Engineer", "Medic", "Sniper", "Spy"}
 
 	for _, class := range classes {
 		for {
-			weapons := a.manager.tf2.Cache().FindWeaponsByClass(s, class)
+			weapons := a.manager.tf2.Cache().FindWeaponsByClass(class)
 			if len(weapons) < 2 {
 				break
 			}
 
 			a.logger.Info("Cleaning inventory: smelting class weapons", log.String("class", class))
 
-			_, err := a.manager.SmeltClassWeapons(ctx, s, class)
+			_, err := a.manager.SmeltClassWeapons(ctx, class)
 			if err != nil {
 				a.logger.Error("Failed to smelt class weapons", log.Err(err))
 				break

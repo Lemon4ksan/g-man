@@ -166,6 +166,7 @@ func WebAPI[Resp any](
 		if err != nil {
 			return nil, err
 		}
+
 		req.WithParams(params)
 	}
 

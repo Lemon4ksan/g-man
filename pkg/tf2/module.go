@@ -7,6 +7,7 @@ package tf2
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"sync/atomic"
 	"time"
 
@@ -19,7 +20,9 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/sys/apps"
 	"github.com/lemon4ksan/g-man/pkg/steam/sys/gc"
+	"github.com/lemon4ksan/g-man/pkg/tf2/schema"
 )
 
 const (
@@ -60,8 +63,9 @@ type TF2 struct {
 	gc   CoordinatorProvider
 	apps AppsProvider
 
-	state atomic.Int32
-	cache *SOCache
+	state  atomic.Int32
+	cache  *SOCache
+	schema *schema.Manager
 }
 
 func New() *TF2 {
@@ -77,9 +81,28 @@ func (t *TF2) Init(init module.InitContext) error {
 		return err
 	}
 
-	t.gc = init.Module("gc").(CoordinatorProvider)
-	t.apps = init.Module("apps").(AppsProvider)
-	t.cache = NewSOCache(t.gc)
+	gcMod, ok := init.Module(gc.ModuleName).(CoordinatorProvider)
+	if !ok || gcMod == nil {
+		return errors.New("gc module not registered or invalid")
+	}
+
+	t.gc = gcMod
+
+	apps, ok := init.Module(apps.ModuleName).(AppsProvider)
+	if !ok || apps == nil {
+		return errors.New("apps module not registered or invalid")
+	}
+
+	t.apps = apps
+
+	schema, ok := init.Module(schema.ModuleName).(*schema.Manager)
+	if !ok || schema == nil {
+		return errors.New("schema module not registered or invalid")
+	}
+
+	t.schema = schema
+
+	t.cache = NewSOCache(t.gc, WithBus(t.Bus), WithLogger(t.Logger), WithSchema(t.schema.Get()))
 
 	sub := t.Bus.Subscribe(&gc.GCMessageEvent{})
 	t.Go(func(ctx context.Context) {
@@ -138,7 +161,7 @@ func (t *TF2) sendHello(ctx context.Context) {
 		Version: proto.Uint32(65580),
 	}
 
-	err := t.gc.Send(ctx, AppID, 4006, msg)
+	err := t.gc.Send(ctx, AppID, uint32(pb.EGCBaseClientMsg_k_EMsgGCClientHello), msg)
 	if err != nil {
 		t.Logger.Error("Failed to send ClientHello to GC", log.Err(err))
 	} else {
@@ -160,14 +183,14 @@ func (t *TF2) messageLoop(ctx context.Context, sub *bus.Subscription) {
 
 			if msg, ok := ev.(*gc.GCMessageEvent); ok {
 				if msg.Packet.AppID == AppID {
-					t.routePacket(msg.Packet)
+					t.routePacket(ctx, msg.Packet)
 				}
 			}
 		}
 	}
 }
 
-func (t *TF2) routePacket(pkt *protocol.GCPacket) {
+func (t *TF2) routePacket(ctx context.Context, pkt *protocol.GCPacket) {
 	switch pb.EGCBaseClientMsg(pkt.MsgType) {
 	case pb.EGCBaseClientMsg_k_EMsgGCClientWelcome:
 		t.handleWelcome(pkt)
@@ -185,12 +208,16 @@ func (t *TF2) routePacket(pkt *protocol.GCPacket) {
 	// Shared Object (Inventory) Messages
 	switch pb.ESOMsg(pkt.MsgType) {
 	case pb.ESOMsg_k_ESOMsg_CacheSubscribed:
-		t.cache.HandleSubscribed(pkt, t.Logger, t.Bus)
+		t.cache.HandleSubscribed(pkt)
 	case pb.ESOMsg_k_ESOMsg_Create,
 		pb.ESOMsg_k_ESOMsg_Update,
 		pb.ESOMsg_k_ESOMsg_Destroy,
 		pb.ESOMsg_k_ESOMsg_UpdateMultiple:
-		t.cache.HandleSOUpdate(pkt, t.Logger, t.Bus)
+		t.cache.HandleSOUpdate(pkt)
+	case pb.ESOMsg_k_ESOMsg_CacheSubscriptionCheck:
+		t.cache.HandleSOCacheCheck(ctx, pkt)
+	case pb.ESOMsg_k_ESOMsg_CacheSubscribedUpToDate:
+		t.cache.HandleUpToDate(pkt)
 	}
 }
 
