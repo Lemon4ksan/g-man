@@ -251,7 +251,7 @@ func TestSocket_JobTracking(t *testing.T) {
 		capturedJobID uint64
 	)
 
-	builder := func(sess session.Session, buf *bytes.Buffer, sourceJobID uint64, token string) error {
+	builder := func(sess Session, buf *bytes.Buffer, sourceJobID uint64, token string) error {
 		capturedJobID = sourceJobID
 		return Raw(enums.EMsg_ClientGamesPlayed, []byte("data"))(sess, buf, sourceJobID, token)
 	}
@@ -672,4 +672,58 @@ func TestSocket_InboundHandler(t *testing.T) {
 			t.Error("OnNetClose did not publish DisconnectedEvent")
 		}
 	})
+}
+
+type mockConn struct {
+	sentData []byte
+	closed   bool
+	key      []byte
+}
+
+func (m *mockConn) Send(ctx context.Context, data []byte) error {
+	m.sentData = append([]byte(nil), data...)
+	return nil
+}
+
+func (m *mockConn) Name() string { return "MOCK" }
+
+func (m *mockConn) Close() error {
+	m.closed = true
+	return nil
+}
+
+func (m *mockConn) ID() int64 { return 1 }
+
+func (m *mockConn) SetEncryptionKey(key []byte) {
+	m.key = append([]byte(nil), key...)
+}
+
+func TestLogged_Decorator(t *testing.T) {
+	conn := &mockConn{}
+	base := session.New(conn)
+	logged := newLoggedSession(base, log.Discard)
+
+	logged.SetSteamID(100)
+
+	if logged.SteamID() != 100 {
+		t.Error("delegation failed")
+	}
+
+	if err := logged.Send(context.Background(), []byte("test")); err != nil {
+		t.Fatal(err)
+	}
+
+	if string(conn.sentData) != "test" {
+		t.Error("Send delegation failed")
+	}
+
+	if !logged.SetEncryptionKey([]byte("key")) {
+		t.Error("SetEncryptionKey delegation failed")
+	}
+
+	_ = logged.Close()
+
+	if !conn.closed {
+		t.Error("Close delegation failed")
+	}
 }

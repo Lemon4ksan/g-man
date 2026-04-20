@@ -105,7 +105,7 @@ func TestSocket_SendMethods(t *testing.T) {
 		t.Fatalf("Connect failed: %v", err)
 	}
 
-	mockSess := sock.Session().(*session.Logged)
+	mockSess := sock.Session().(*logged)
 	mockSess.SetSteamID(76561197960287930)
 	mockSess.SetSessionID(12345)
 

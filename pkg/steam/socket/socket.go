@@ -55,9 +55,54 @@ var (
 	ErrDestJobFailed = errors.New("socket: destination job failed on Steam side")
 )
 
+// Reader provides read-only access to the Steam session state.
+type Reader interface {
+	// SteamID returns the 64-bit Steam ID assigned to the session.
+	SteamID() uint64
+	// SessionID returns the 32-bit session ID assigned by the CM.
+	SessionID() int32
+	// AccessToken returns the current OAuth2 access token.
+	AccessToken() string
+	// RefreshToken returns the current OAuth2 refresh token.
+	RefreshToken() string
+
+	// IsAuthenticated returns true if the session has been assigned both
+	// a SessionID by the CM and a valid SteamID.
+	IsAuthenticated() bool
+}
+
+// Writer provides message transmission capabilities.
+type Writer interface {
+	// Send writes the provided payload to the underlying network transport.
+	Send(ctx context.Context, data []byte) error
+}
+
+// Mutator provides write access to modify the session's internal state and lifecycle.
+type Mutator interface {
+	// SetSteamID updates the session's Steam ID.
+	SetSteamID(uint64)
+	// SetSessionID updates the session's ID assigned by the CM.
+	SetSessionID(int32)
+	// SetRefreshToken updates the OAuth2 refresh token.
+	SetRefreshToken(string)
+	// SetAccessToken updates the OAuth2 access token.
+	SetAccessToken(string)
+
+	// SetEncryptionKey upgrades the underlying connection to use Steam's
+	// symmetric encryption if the underlying connection supports it.
+	SetEncryptionKey(key []byte) bool
+
+	// Close terminates the underlying network connection.
+	Close() error
+}
+
 // Session represents the complete lifecycle and state of a connection
 // to a Steam Connection Manager (CM).
-type Session = session.Session
+type Session interface {
+	Reader
+	Writer
+	Mutator
+}
 
 // Handler defines a callback function for processing an incoming, fully-parsed Steam packet.
 type Handler func(p *protocol.Packet)
@@ -317,7 +362,7 @@ func (s *Socket) Connect(ctx context.Context, server CMServer) error {
 	}
 
 	sLog := s.logger.With(log.String("endpoint", server.Endpoint), log.Int64("conn_id", conn.ID()))
-	ls := session.NewLogged(session.New(conn), sLog)
+	ls := newLoggedSession(session.New(conn), sLog)
 	s.setSession(ls)
 
 	s.setState(StateConnected)
@@ -580,4 +625,61 @@ func (h inboundHandler) OnNetError(err error) {
 // OnNetClose triggers the socket's disconnect logic when the underlying connection is lost.
 func (h inboundHandler) OnNetClose() {
 	h.sock.handleRemoteClose()
+}
+
+// logged is a Decorator that wraps a Session to provide automatic
+// logging of network and lifecycle events, without modifying the core logic.
+type logged struct {
+	Session
+	logger log.Logger
+}
+
+// newLoggedSession wraps an existing session with logging capabilities.
+func newLoggedSession(s Session, l log.Logger) *logged {
+	return &logged{
+		Session: s,
+		logger:  l,
+	}
+}
+
+// Send intercepts the Send call to add debug logging.
+func (l *logged) Send(ctx context.Context, data []byte) error {
+	l.logger.Debug("Writing to socket",
+		log.Int("size_bytes", len(data)),
+		log.Uint64("steam_id", l.SteamID()),
+	)
+
+	err := l.Session.Send(ctx, data)
+	if err != nil {
+		l.logger.Error("Failed to write to socket",
+			log.Err(err),
+			log.Int("size_bytes", len(data)),
+		)
+	}
+
+	return err
+}
+
+// SetEncryptionKey intercepts the encryption setup to log the event.
+func (l *logged) SetEncryptionKey(key []byte) bool {
+	l.logger.Debug("Applying channel encryption key", log.Int("key_len", len(key)))
+
+	if l.Session.SetEncryptionKey(key) {
+		l.logger.Info("Channel encryption established successfully")
+		return true
+	}
+
+	l.logger.Warn("Channel encryption skipped: connection not encryptable")
+
+	return false
+}
+
+// Close intercepts the Close call to add debug logging.
+func (l *logged) Close() error {
+	l.logger.Debug("Closing session connection",
+		log.Uint64("steam_id", l.SteamID()),
+		log.Int32("session_id", l.SessionID()),
+	)
+
+	return l.Session.Close()
 }

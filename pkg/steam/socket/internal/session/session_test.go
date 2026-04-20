@@ -9,11 +9,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket/internal/session"
 )
 
-// mockConn имитирует сетевое соединение
 type mockConn struct {
 	sentData []byte
 	closed   bool
@@ -125,36 +123,6 @@ func TestBase_Encryption(t *testing.T) {
 
 	if string(conn.key) != "secret" {
 		t.Error("encryption key not passed to connection")
-	}
-}
-
-func TestLogged_Decorator(t *testing.T) {
-	conn := &mockConn{}
-	base := session.New(conn)
-	logged := session.NewLogged(base, log.Discard)
-
-	logged.SetSteamID(100)
-
-	if logged.SteamID() != 100 {
-		t.Error("delegation failed")
-	}
-
-	if err := logged.Send(context.Background(), []byte("test")); err != nil {
-		t.Fatal(err)
-	}
-
-	if string(conn.sentData) != "test" {
-		t.Error("Send delegation failed")
-	}
-
-	if !logged.SetEncryptionKey([]byte("key")) {
-		t.Error("SetEncryptionKey delegation failed")
-	}
-
-	_ = logged.Close()
-
-	if !conn.closed {
-		t.Error("Close delegation failed")
 	}
 }
 
