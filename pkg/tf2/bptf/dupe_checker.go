@@ -14,7 +14,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 
 	"github.com/lemon4ksan/g-man/pkg/rest"
-	inv "github.com/lemon4ksan/g-man/pkg/tf2/inventory"
+	"github.com/lemon4ksan/g-man/pkg/tf2/backpack"
 )
 
 // BackpackTFChecker implements duplicate checking via the backpack.tf website.
@@ -32,37 +32,37 @@ func NewBackpackTFChecker(client *Client) *BackpackTFChecker {
 }
 
 // CheckHistory checks the item's history on the backpack.tf website.
-func (c *BackpackTFChecker) CheckHistory(ctx context.Context, assetID uint64) (inv.HistoryStatus, error) {
+func (c *BackpackTFChecker) CheckHistory(ctx context.Context, assetID uint64) (backpack.HistoryStatus, error) {
 	path := "https://backpack.tf/item/" + strconv.FormatUint(assetID, 10)
 
 	resp, err := c.bptfClient.REST().Request(ctx, http.MethodGet, path, nil, nil)
 	if err != nil {
 		apiErr := &rest.APIError{}
 		if errors.As(err, &apiErr) {
-			return inv.HistoryStatus{Recorded: false}, nil
+			return backpack.HistoryStatus{Recorded: false}, nil
 		}
 
-		return inv.HistoryStatus{}, fmt.Errorf("bptf dupe check request failed: %w", err)
+		return backpack.HistoryStatus{}, fmt.Errorf("bptf dupe check request failed: %w", err)
 	}
 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return inv.HistoryStatus{}, fmt.Errorf("bptf returned unexpected status: %d", resp.StatusCode)
+		return backpack.HistoryStatus{}, fmt.Errorf("bptf returned unexpected status: %d", resp.StatusCode)
 	}
 
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
-		return inv.HistoryStatus{}, fmt.Errorf("failed to parse bptf HTML: %w", err)
+		return backpack.HistoryStatus{}, fmt.Errorf("failed to parse bptf HTML: %w", err)
 	}
 
 	if doc.Find("table").Length() != 1 {
-		return inv.HistoryStatus{Recorded: false}, nil
+		return backpack.HistoryStatus{Recorded: false}, nil
 	}
 
 	isDuped := doc.Find("#dupe-modal-btn").Length() > 0
 
-	return inv.HistoryStatus{
+	return backpack.HistoryStatus{
 		Recorded: true,
 		IsDuped:  isDuped,
 	}, nil

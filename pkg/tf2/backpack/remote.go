@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package inventory
+package backpack
 
 import (
 	"context"
@@ -19,9 +19,9 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/tf2/schema"
 )
 
-// PlayerInventory represents a specific player's TF2 inventory.
+// Remote represents a specific player's TF2 inventory.
 // Data is lazy-loaded on the first request.
-type PlayerInventory struct {
+type Remote struct {
 	steamID   uint64
 	client    service.Doer
 	community community.Requester
@@ -37,28 +37,28 @@ type PlayerInventory struct {
 }
 
 // WithLogger sets a custom logger for the inventory.
-func WithLogger(l log.Logger) bus.Option[*PlayerInventory] {
-	return func(inv *PlayerInventory) {
+func WithLogger(l log.Logger) bus.Option[*Remote] {
+	return func(inv *Remote) {
 		inv.logger = l
 	}
 }
 
 // WithCommunityBackoff sets the community client for fetching inventory when web api fails.
-func WithCommunityBackoff(r community.Requester) bus.Option[*PlayerInventory] {
-	return func(inv *PlayerInventory) {
+func WithCommunityBackoff(r community.Requester) bus.Option[*Remote] {
+	return func(inv *Remote) {
 		inv.community = r
 	}
 }
 
-// New creates an inventory for a specific player.
+// NewRemote creates an inventory for a specific player.
 // dupeCheckers is a slice of implementations (e.g. [NewBackpackTFChecker]).
-func New(
+func NewRemote(
 	steamID uint64,
 	client service.Doer,
 	dupeCheckers []DupeChecker,
-	opts ...bus.Option[*PlayerInventory],
-) *PlayerInventory {
-	p := &PlayerInventory{
+	opts ...bus.Option[*Remote],
+) *Remote {
+	p := &Remote{
 		steamID:      steamID,
 		client:       client,
 		logger:       log.Discard,
@@ -75,17 +75,17 @@ func New(
 
 // GetItemsBySKU returns all assets in someone else's inventory that match the specified SKU.
 // This is necessary to check: "Did the partner actually offer the item we agreed on?"
-func (inv *PlayerInventory) GetItemsBySKU(ctx context.Context, targetSKU string) ([]TF2Item, error) {
-	inv.mu.Lock()
-	if !inv.fetched {
-		if err := inv.fetch(ctx); err != nil {
-			inv.mu.Unlock()
+func (r *Remote) GetItemsBySKU(ctx context.Context, targetSKU string) ([]TF2Item, error) {
+	r.mu.Lock()
+	if !r.fetched {
+		if err := r.fetch(ctx); err != nil {
+			r.mu.Unlock()
 			return nil, err
 		}
 	}
 
-	items := inv.items
-	inv.mu.Unlock()
+	items := r.items
+	r.mu.Unlock()
 
 	var result []TF2Item
 
@@ -102,8 +102,8 @@ func (inv *PlayerInventory) GetItemsBySKU(ctx context.Context, targetSKU string)
 // It queries all registered DupeCheckers in turn.
 // If at least one service considers the item a duplicate, true is returned.
 // If no service knows about the item, nil is returned.
-func (inv *PlayerInventory) IsDuped(ctx context.Context, assetID uint64) (*bool, error) {
-	duped, recorded, err := inv.checkWithServices(ctx, assetID)
+func (r *Remote) IsDuped(ctx context.Context, assetID uint64) (*bool, error) {
+	duped, recorded, err := r.checkWithServices(ctx, assetID)
 	if err != nil {
 		return nil, err
 	}
@@ -112,16 +112,16 @@ func (inv *PlayerInventory) IsDuped(ctx context.Context, assetID uint64) (*bool,
 		return &duped, nil
 	}
 
-	inv.mu.Lock()
-	if !inv.fetched {
-		if err := inv.fetch(ctx); err != nil {
-			inv.mu.Unlock()
+	r.mu.Lock()
+	if !r.fetched {
+		if err := r.fetch(ctx); err != nil {
+			r.mu.Unlock()
 			return nil, err
 		}
 	}
 
-	items := inv.items
-	inv.mu.Unlock()
+	items := r.items
+	r.mu.Unlock()
 
 	var targetItem *TF2Item
 
@@ -136,7 +136,7 @@ func (inv *PlayerInventory) IsDuped(ctx context.Context, assetID uint64) (*bool,
 		return nil, ErrItemNotFound
 	}
 
-	duped, recorded, err = inv.checkWithServices(ctx, targetItem.OriginalID)
+	duped, recorded, err = r.checkWithServices(ctx, targetItem.OriginalID)
 	if err != nil {
 		return nil, err
 	}
@@ -148,14 +148,14 @@ func (inv *PlayerInventory) IsDuped(ctx context.Context, assetID uint64) (*bool,
 	return nil, nil
 }
 
-func (inv *PlayerInventory) checkWithServices(
+func (r *Remote) checkWithServices(
 	ctx context.Context,
 	assetID uint64,
 ) (isDuped, isRecorded bool, err error) {
-	for _, checker := range inv.dupeCheckers {
+	for _, checker := range r.dupeCheckers {
 		status, checkErr := checker.CheckHistory(ctx, assetID)
 		if checkErr != nil {
-			inv.logger.Warn("Dupe checker failed",
+			r.logger.Warn("Dupe checker failed",
 				log.String("service", reflect.TypeOf(checker).Name()),
 				log.Err(checkErr),
 			)
@@ -178,31 +178,31 @@ func (inv *PlayerInventory) checkWithServices(
 	return isDuped, isRecorded, err
 }
 
-func (inv *PlayerInventory) fetch(ctx context.Context) error {
-	err := inv.fetchViaWebAPI(ctx)
+func (r *Remote) fetch(ctx context.Context) error {
+	err := r.fetchViaWebAPI(ctx)
 	if err == nil {
-		inv.logger.Debug("Inventory fetched via WebAPI", log.Uint64("steam_id", inv.steamID))
+		r.logger.Debug("Inventory fetched via WebAPI", log.Uint64("steam_id", r.steamID))
 		return nil
 	}
 
-	if inv.community == nil || inv.community.SessionID("") == "" {
+	if r.community == nil || r.community.SessionID("") == "" {
 		return fmt.Errorf("webapi failed and no community session available: %w", err)
 	}
 
-	inv.logger.Warn("WebAPI failed, attempting Community fallback",
-		log.Uint64("steam_id", inv.steamID),
+	r.logger.Warn("WebAPI failed, attempting Community fallback",
+		log.Uint64("steam_id", r.steamID),
 		log.Err(err),
 	)
 
-	return inv.fetchCommunity(ctx)
+	return r.fetchCommunity(ctx)
 }
 
-func (inv *PlayerInventory) fetchViaWebAPI(ctx context.Context) error {
+func (r *Remote) fetchViaWebAPI(ctx context.Context) error {
 	req := struct {
 		SteamID uint64 `url:"steamid"`
-	}{inv.steamID}
+	}{r.steamID}
 
-	resp, err := service.WebAPI[PlayerItemsResponse](ctx, inv.client, "GET", "IEconItems_440", "GetPlayerItems", 1, req)
+	resp, err := service.WebAPI[PlayerItemsResponse](ctx, r.client, "GET", "IEconItems_440", "GetPlayerItems", 1, req)
 	if err != nil {
 		return err
 	}
@@ -215,16 +215,16 @@ func (inv *PlayerInventory) fetchViaWebAPI(ctx context.Context) error {
 		return fmt.Errorf("steam api error: %s (status %d)", resp.Result.StatusDetail, resp.Result.Status)
 	}
 
-	inv.items = resp.Result.Items
-	inv.slots = resp.Result.NumBackpackSlots
-	inv.fetched = true
+	r.items = resp.Result.Items
+	r.slots = resp.Result.NumBackpackSlots
+	r.fetched = true
 
 	return nil
 }
 
-func (inv *PlayerInventory) fetchCommunity(ctx context.Context) error {
+func (r *Remote) fetchCommunity(ctx context.Context) error {
 	items, currencies, total, err := inventory.GetUserInventoryContents(
-		ctx, inv.community, inv.steamID, 440, 2, false, "english",
+		ctx, r.community, r.steamID, 440, 2, false, "english",
 	)
 	if err != nil {
 		return fmt.Errorf("community fallback failed: %w", err)
@@ -232,16 +232,16 @@ func (inv *PlayerInventory) fetchCommunity(ctx context.Context) error {
 
 	unifiedItems := make([]TF2Item, 0, len(items)+len(currencies))
 	for _, it := range items {
-		unifiedItems = append(unifiedItems, mapCEconToTF2(it, inv.schema))
+		unifiedItems = append(unifiedItems, mapCEconToTF2(it, r.schema))
 	}
 
 	for _, it := range currencies {
-		unifiedItems = append(unifiedItems, mapCEconToTF2(it, inv.schema))
+		unifiedItems = append(unifiedItems, mapCEconToTF2(it, r.schema))
 	}
 
-	inv.items = unifiedItems
-	inv.slots = total
-	inv.fetched = true
+	r.items = unifiedItems
+	r.slots = total
+	r.fetched = true
 
 	return nil
 }

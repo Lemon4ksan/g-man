@@ -113,8 +113,8 @@ type SOCache struct {
 // NewSOCache creates a new empty Shared Object Cache.
 func NewSOCache(coord CoordinatorProvider, opts ...bus.Option[*SOCache]) *SOCache {
 	s := &SOCache{
-		items: make(map[uint64]*Item),
-		coord: coord,
+		items:  make(map[uint64]*Item),
+		coord:  coord,
 		logger: log.Discard,
 	}
 
@@ -127,6 +127,12 @@ func NewSOCache(coord CoordinatorProvider, opts ...bus.Option[*SOCache]) *SOCach
 	}
 
 	return s
+}
+
+func (c *SOCache) GetMaxSlots() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return int(c.slots)
 }
 
 // GetItems returns a snapshot of the current inventory.

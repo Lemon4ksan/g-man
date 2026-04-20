@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file.
 
 /*
-Package inventory provides a mechanism for fetching, parsing, and auditing
+Package backpack provides a mechanism for fetching, parsing, and auditing
 Team Fortress 2 inventories via Steam's public WebAPI.
 
 Unlike the real-time 'tf2.SOCache' (which uses the Game Coordinator socket to
@@ -40,4 +40,4 @@ inventory will not trigger redundant WebAPI calls.
   - Rate Limits: Excessive use may lead to temporary IP bans from Steam. Use
     judiciously during high-frequency trading.
 */
-package inventory
+package backpack

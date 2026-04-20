@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	inv "github.com/lemon4ksan/g-man/pkg/tf2/inventory"
+	"github.com/lemon4ksan/g-man/pkg/tf2/backpack"
 )
 
 type mockRoundTripper struct {
@@ -24,13 +24,13 @@ func (m *mockRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) 
 }
 
 type MockDupeChecker struct {
-	Responses map[uint64]inv.HistoryStatus
+	Responses map[uint64]backpack.HistoryStatus
 	Err       error
 }
 
-func (m *MockDupeChecker) CheckHistory(ctx context.Context, id uint64) (inv.HistoryStatus, error) {
+func (m *MockDupeChecker) CheckHistory(ctx context.Context, id uint64) (backpack.HistoryStatus, error) {
 	if m.Err != nil {
-		return inv.HistoryStatus{}, m.Err
+		return backpack.HistoryStatus{}, m.Err
 	}
 
 	return m.Responses[id], nil
@@ -58,32 +58,32 @@ func TestBackpackTFChecker_CheckHistory(t *testing.T) {
 		name       string
 		statusCode int
 		body       string
-		wantStatus inv.HistoryStatus
+		wantStatus backpack.HistoryStatus
 		wantErr    bool
 	}{
 		{
 			name:       "404 Not Found",
 			statusCode: 404,
-			wantStatus: inv.HistoryStatus{Recorded: false},
+			wantStatus: backpack.HistoryStatus{Recorded: false},
 			wantErr:    true,
 		},
 		{
 			name:       "200 OK, Clean",
 			statusCode: 200,
 			body:       createBptfHTML(true, false),
-			wantStatus: inv.HistoryStatus{Recorded: true, IsDuped: false},
+			wantStatus: backpack.HistoryStatus{Recorded: true, IsDuped: false},
 		},
 		{
 			name:       "200 OK, Duped",
 			statusCode: 200,
 			body:       createBptfHTML(true, true),
-			wantStatus: inv.HistoryStatus{Recorded: true, IsDuped: true},
+			wantStatus: backpack.HistoryStatus{Recorded: true, IsDuped: true},
 		},
 		{
 			name:       "200 OK, No Table (Not recorded)",
 			statusCode: 200,
 			body:       createBptfHTML(false, false),
-			wantStatus: inv.HistoryStatus{Recorded: false},
+			wantStatus: backpack.HistoryStatus{Recorded: false},
 		},
 	}
 

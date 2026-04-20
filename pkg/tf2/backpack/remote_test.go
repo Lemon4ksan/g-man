@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package inventory
+package backpack
 
 import (
 	"context"
@@ -49,7 +49,7 @@ func TestPlayerInventory_IsDuped(t *testing.T) {
 		},
 	}
 
-	inv := New(7656119, mockAPI, []DupeChecker{checker1})
+	inv := NewRemote(7656119, mockAPI, []DupeChecker{checker1})
 
 	tests := []struct {
 		name      string
@@ -106,7 +106,7 @@ func TestPlayerInventory_MultipleCheckers(t *testing.T) {
 		},
 	}
 
-	inv := New(7656119, nil, []DupeChecker{checker1, checker2})
+	inv := NewRemote(7656119, nil, []DupeChecker{checker1, checker2})
 
 	got, _ := inv.IsDuped(context.Background(), 100)
 	if got == nil || !*got {

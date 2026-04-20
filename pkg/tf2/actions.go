@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"fmt"
 	"time"
 
 	"google.golang.org/protobuf/proto"
@@ -227,4 +228,37 @@ func (t *TF2) Craft(ctx context.Context, items []uint64, recipe int16) ([]uint64
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
+}
+
+type ItemPos struct {
+	Id       uint64
+	Position uint32
+}
+
+func (t *TF2) MoveItems(ctx context.Context, items []ItemPos) error {
+	const maxBatchSize = 50
+
+	for i := 0; i < len(items); i += maxBatchSize {
+		end := min(i+maxBatchSize, len(items))
+		batch := items[i:end]
+		req := &pb.CMsgSetItemPositions{}
+
+		for _, item := range batch {
+			req.ItemPositions = append(req.ItemPositions, &pb.CMsgSetItemPositions_ItemPosition{
+				ItemId:   proto.Uint64(item.Id),
+				Position: proto.Uint32(item.Position),
+			})
+		}
+
+		err := t.gc.Send(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCSetItemPositions), req)
+		if err != nil {
+			return fmt.Errorf("failed to send batch %d-%d: %w", i, end, err)
+		}
+
+		if end < len(items) {
+			time.Sleep(200 * time.Millisecond)
+		}
+	}
+
+	return nil
 }
