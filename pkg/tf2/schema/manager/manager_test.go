@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package schema
+package manager
 
 import (
 	"context"
@@ -14,6 +14,7 @@ import (
 	"time"
 
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
+	"github.com/lemon4ksan/g-man/pkg/tf2/schema"
 	"github.com/lemon4ksan/g-man/test/module"
 	"github.com/lemon4ksan/g-man/test/requester"
 )
@@ -25,7 +26,7 @@ func setupSchema(t *testing.T, cfg Config) (*Manager, *requester.Mock) {
 	init := module.NewInitContext()
 	init.SetService(mockAPI)
 
-	sm := NewManager(cfg)
+	sm := New(cfg)
 	if err := sm.Init(init); err != nil {
 		t.Fatalf("failed to init schema manager: %v", err)
 	}
@@ -35,7 +36,7 @@ func setupSchema(t *testing.T, cfg Config) (*Manager, *requester.Mock) {
 
 func TestNewSchemaManager_ConfigDefaults(t *testing.T) {
 	cfg := Config{UpdateInterval: 10 * time.Second}
-	sm := NewManager(cfg)
+	sm := New(cfg)
 
 	if sm.config.UpdateInterval != 24*time.Hour {
 		t.Errorf("expected 24h interval, got %v", sm.config.UpdateInterval)
@@ -43,7 +44,7 @@ func TestNewSchemaManager_ConfigDefaults(t *testing.T) {
 
 	cfgValid := Config{UpdateInterval: 5 * time.Minute}
 
-	smValid := NewManager(cfgValid)
+	smValid := New(cfgValid)
 	if smValid.config.UpdateInterval != 5*time.Minute {
 		t.Errorf("expected 5m interval, got %v", smValid.config.UpdateInterval)
 	}
@@ -52,7 +53,7 @@ func TestNewSchemaManager_ConfigDefaults(t *testing.T) {
 func TestSchemaManager_LiteModePruning(t *testing.T) {
 	sm, _ := setupSchema(t, Config{LiteMode: true})
 
-	raw := &RawSchema{
+	raw := &schema.Raw{
 		ItemsGame: map[string]any{
 			"prefabs":         map[string]any{"test": 1},
 			"items":           map[string]any{"1": "test_item"},
@@ -114,7 +115,7 @@ func TestSchemaManager_Refresh_Success(t *testing.T) {
 
 		return nil, nil
 	}
-	sub := sm.Bus.Subscribe(&SchemaUpdatedEvent{})
+	sub := sm.Bus.Subscribe(&schema.UpdatedEvent{})
 
 	err := sm.Refresh(context.Background())
 	if err != nil {

@@ -13,8 +13,8 @@ import (
 )
 
 // minimalRawSchema creates a minimal raw schema for testing.
-func minimalRawSchema() *RawSchema {
-	items := []*ItemSchema{
+func minimalRawSchema() *Raw {
+	items := []*Item{
 		{
 			Defindex:    5022,
 			Name:        "Mann Co. Supply Crate",
@@ -188,9 +188,9 @@ func minimalRawSchema() *RawSchema {
 		},
 	}
 
-	return &RawSchema{
+	return &Raw{
 		Schema: struct {
-			Items                                []*ItemSchema         `json:"items"`
+			Items                                []*Item               `json:"items"`
 			Attributes                           []*AttributeSchema    `json:"attributes"`
 			Qualities                            map[string]int        `json:"qualities"`
 			QualityNames                         map[string]string     `json:"qualityNames"` // Note: Some API responses omit this
@@ -734,7 +734,7 @@ func TestGetPaintableItemDefindexes(t *testing.T) {
 }
 
 func createMockSchema() *Schema {
-	items := []*ItemSchema{
+	items := []*Item{
 		// Checks for "Upgradeable"
 		{Defindex: 13, Name: "TF_WEAPON_SCATTERGUN", ItemClass: "tf_weapon_scattergun"},
 		{Defindex: 200, Name: "Upgradeable TF_WEAPON_SCATTERGUN", ItemClass: "tf_weapon_scattergun"},
@@ -757,12 +757,12 @@ func createMockSchema() *Schema {
 		{Defindex: 100, ItemName: "Team Captain"},
 	}
 
-	raw := &RawSchema{}
+	raw := &Raw{}
 	raw.Schema.Items = items
 
 	s := &Schema{
 		Raw:             raw,
-		itemsByDef:      make(map[int]*ItemSchema),
+		itemsByDef:      make(map[int]*Item),
 		crateSeriesList: map[int]int{5022: 42},
 	}
 
@@ -778,27 +778,27 @@ func TestSchema_IsPromoItem(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		item     *ItemSchema
+		item     *Item
 		expected bool
 	}{
 		{
 			name:     "Valid Promo Item",
-			item:     &ItemSchema{Name: "Promo AWPer Hand", CraftClass: ""},
+			item:     &Item{Name: "Promo AWPer Hand", CraftClass: ""},
 			expected: true,
 		},
 		{
 			name:     "Has Promo prefix but has CraftClass",
-			item:     &ItemSchema{Name: "Promo Hat", CraftClass: "hat"},
+			item:     &Item{Name: "Promo Hat", CraftClass: "hat"},
 			expected: false,
 		},
 		{
 			name:     "Empty CraftClass but no Promo prefix",
-			item:     &ItemSchema{Name: "AWPer Hand", CraftClass: ""},
+			item:     &Item{Name: "AWPer Hand", CraftClass: ""},
 			expected: false,
 		},
 		{
 			name:     "Regular item",
-			item:     &ItemSchema{Name: "Scattergun", CraftClass: "weapon"},
+			item:     &Item{Name: "Scattergun", CraftClass: "weapon"},
 			expected: false,
 		},
 	}

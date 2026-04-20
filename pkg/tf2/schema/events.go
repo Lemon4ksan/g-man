@@ -10,22 +10,22 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/bus"
 )
 
-type SchemaReadyEvent struct {
+type ReadyEvent struct {
 	bus.BaseEvent
 }
 
-func (e *SchemaReadyEvent) Topic() string { return "schema.ready" }
+func (e *ReadyEvent) Topic() string { return "schema.ready" }
 
-type SchemaUpdatedEvent struct {
+type UpdatedEvent struct {
 	bus.BaseEvent
 	Timestamp time.Time
 }
 
-func (e *SchemaUpdatedEvent) Topic() string { return "schema.updated" }
+func (e *UpdatedEvent) Topic() string { return "schema.updated" }
 
-type SchemaUpdateFailedEvent struct {
+type UpdateFailedEvent struct {
 	bus.BaseEvent
 	Error error
 }
 
-func (e *SchemaUpdateFailedEvent) Topic() string { return "schema.failed" }
+func (e *UpdateFailedEvent) Topic() string { return "schema.failed" }

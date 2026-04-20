@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package schema
+package manager
 
 import (
 	"context"
@@ -24,6 +24,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/api"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
+	"github.com/lemon4ksan/g-man/pkg/tf2/schema"
 )
 
 const ModuleName string = "tf2_schema"
@@ -35,7 +36,7 @@ type Config struct {
 
 func WithModule(cfg Config) steam.Option {
 	return func(c *steam.Client) {
-		c.RegisterModule(NewManager(cfg))
+		c.RegisterModule(New(cfg))
 	}
 }
 
@@ -49,11 +50,11 @@ type Manager struct {
 	restClient rest.Requester
 
 	mu     sync.RWMutex
-	schema *Schema
+	schema *schema.Schema
 }
 
-// NewManager creates a manager with the given options.
-func NewManager(cfg Config) *Manager {
+// New creates a manager with the given options.
+func New(cfg Config) *Manager {
 	if cfg.UpdateInterval < 1*time.Minute {
 		cfg.UpdateInterval = 24 * time.Hour
 	}
@@ -86,7 +87,7 @@ func (m *Manager) StartAuthed(ctx context.Context, _ module.AuthContext) error {
 		return fmt.Errorf("initial schema fetch failed: %w", err)
 	}
 
-	m.Bus.Publish(&SchemaReadyEvent{})
+	m.Bus.Publish(&schema.ReadyEvent{})
 
 	m.Go(func(moduleCtx context.Context) {
 		m.refreshLoop(moduleCtx)
@@ -96,7 +97,7 @@ func (m *Manager) StartAuthed(ctx context.Context, _ module.AuthContext) error {
 }
 
 // Get returns the current active schema. Returns nil if not ready.
-func (m *Manager) Get() *Schema {
+func (m *Manager) Get() *schema.Schema {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -144,7 +145,7 @@ func (m *Manager) Refresh(ctx context.Context) error {
 	}
 
 	if err := g.Wait(); err != nil {
-		m.Bus.Publish(&SchemaUpdateFailedEvent{Error: err})
+		m.Bus.Publish(&schema.UpdateFailedEvent{Error: err})
 		return fmt.Errorf("parallel fetch failed: %w", err)
 	}
 
@@ -152,8 +153,8 @@ func (m *Manager) Refresh(ctx context.Context) error {
 		return err
 	}
 
-	m.Logger.Info("TF2 Schema updated successfully", log.Int("items", len(m.schema.itemsByDef)))
-	m.Bus.Publish(&SchemaUpdatedEvent{Timestamp: time.Now()})
+	m.Logger.Info("TF2 Schema updated successfully", log.Int("items", len(m.schema.Raw.ItemsGame)))
+	m.Bus.Publish(&schema.UpdatedEvent{Timestamp: time.Now()})
 
 	return nil
 }
@@ -180,7 +181,7 @@ func (m *Manager) buildSchema(
 	paintKits map[string]string,
 	itemsGame map[string]any,
 ) error {
-	raw := &RawSchema{
+	raw := &schema.Raw{
 		ItemsGame: itemsGame,
 	}
 	raw.Schema.PaintKits = paintKits
@@ -205,9 +206,9 @@ func (m *Manager) buildSchema(
 		return s
 	}
 
-	raw.Schema.Items = make([]*ItemSchema, 0, len(items))
+	raw.Schema.Items = make([]*schema.Item, 0, len(items))
 	for _, it := range items {
-		var item ItemSchema
+		var item schema.Item
 		if err := mapstructure.Decode(it, &item); err == nil {
 			item.ItemClass = intern(item.ItemClass)
 			item.CraftClass = intern(item.CraftClass)
@@ -227,7 +228,7 @@ func (m *Manager) buildSchema(
 		m.pruneItemsGame(raw)
 	}
 
-	newSchema := New(raw)
+	newSchema := schema.New(raw)
 
 	m.mu.Lock()
 	m.schema = newSchema
@@ -240,7 +241,7 @@ func (m *Manager) buildSchema(
 
 // pruneItemsGame deletes unnecessary fields from the massive items_game map
 // to save RAM. Used when LiteMode is true.
-func (m *Manager) pruneItemsGame(raw *RawSchema) {
+func (m *Manager) pruneItemsGame(raw *schema.Raw) {
 	if raw.ItemsGame == nil {
 		return
 	}

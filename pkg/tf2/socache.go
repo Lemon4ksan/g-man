@@ -41,7 +41,7 @@ type Item struct {
 }
 
 // GetSchema returns data about an item from the provided schema.
-func (i *Item) GetSchema(s *schema.Schema) *schema.ItemSchema {
+func (i *Item) GetSchema(s *schema.Schema) *schema.Item {
 	return s.GetItemByDef(int(i.DefIndex))
 }
 

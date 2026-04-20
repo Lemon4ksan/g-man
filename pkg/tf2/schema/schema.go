@@ -24,9 +24,9 @@ var debugLog = func(v ...any) {
 	}
 }
 
-type RawSchema struct {
+type Raw struct {
 	Schema struct {
-		Items                                []*ItemSchema         `json:"items"`
+		Items                                []*Item               `json:"items"`
 		Attributes                           []*AttributeSchema    `json:"attributes"`
 		Qualities                            map[string]int        `json:"qualities"`
 		QualityNames                         map[string]string     `json:"qualityNames"` // Note: Some API responses omit this
@@ -43,8 +43,8 @@ type RawSchema struct {
 	ItemsGame map[string]any `json:"items_game"` // Parsed items_game.txt (should be nilled after init)
 }
 
-// ItemSchema represents a single item definition.
-type ItemSchema struct {
+// Item represents a single item definition.
+type Item struct {
 	Defindex      int             `json:"defindex"`
 	Name          string          `json:"name"`
 	ItemName      string          `json:"item_name"`
@@ -169,12 +169,12 @@ type StringLookup struct {
 // Schema is the main type.
 type Schema struct {
 	Version string
-	Raw     *RawSchema
+	Raw     *Raw
 	Time    time.Time
 
 	// Primary indices - O(1) lookups
-	itemsByDef  map[int]*ItemSchema
-	itemsByName map[string]*ItemSchema
+	itemsByDef  map[int]*Item
+	itemsByName map[string]*Item
 
 	// Attribute indices - O(1) lookups
 	attrsByDef map[int]*AttributeSchema
@@ -199,15 +199,15 @@ type Schema struct {
 	crateSeriesList map[int]int
 
 	// Name indices without "The "
-	itemsByNameStripped map[string]*ItemSchema
+	itemsByNameStripped map[string]*Item
 }
 
 // New creates a Schema from the given raw data and builds all indices.
-func New(raw *RawSchema) *Schema {
+func New(raw *Raw) *Schema {
 	s := &Schema{
 		Raw:            raw,
-		itemsByDef:     make(map[int]*ItemSchema),
-		itemsByName:    make(map[string]*ItemSchema),
+		itemsByDef:     make(map[int]*Item),
+		itemsByName:    make(map[string]*Item),
 		attrsByDef:     make(map[int]*AttributeSchema),
 		qualByID:       make(map[int]string),
 		qualByName:     make(map[string]int),
@@ -226,7 +226,7 @@ func New(raw *RawSchema) *Schema {
 // buildIndices creates all O(1) lookup maps from the raw data.
 func (s *Schema) buildIndices() {
 	// Item indices
-	s.itemsByNameStripped = make(map[string]*ItemSchema)
+	s.itemsByNameStripped = make(map[string]*Item)
 
 	for _, item := range s.Raw.Schema.Items {
 		lowName := strings.ToLower(item.ItemName)
@@ -367,11 +367,11 @@ func (s *Schema) buildCrateSeriesList() map[int]int {
 	return series
 }
 
-func (s *Schema) GetItemByDef(def int) *ItemSchema {
+func (s *Schema) GetItemByDef(def int) *Item {
 	return s.itemsByDef[def]
 }
 
-func (s *Schema) GetItemByName(name string) *ItemSchema {
+func (s *Schema) GetItemByName(name string) *Item {
 	return s.itemsByName[strings.ToLower(name)]
 }
 
@@ -412,7 +412,7 @@ func (s *Schema) GetPaintDecimalByName(name string) int {
 }
 
 // GetItemByNameWithThe tries to find an item after stripping "The " from the name.
-func (s *Schema) GetItemByNameWithThe(name string) *ItemSchema {
+func (s *Schema) GetItemByNameWithThe(name string) *Item {
 	name = strings.ToLower(name)
 	name = strings.TrimPrefix(name, "the ")
 	name = strings.TrimSpace(name)
@@ -429,7 +429,7 @@ func (s *Schema) GetItemByNameWithThe(name string) *ItemSchema {
 }
 
 // GetItemBySKU returns the item for a given SKU string.
-func (s *Schema) GetItemBySKU(itemSku string) *ItemSchema {
+func (s *Schema) GetItemBySKU(itemSku string) *Item {
 	item, err := sku.FromString(itemSku)
 	if err != nil {
 		return nil
@@ -518,8 +518,8 @@ var weaponsToExclude = map[int]bool{
 }
 
 // GetCraftableWeaponsSchema returns all craftable weapon items.
-func (s *Schema) GetCraftableWeaponsSchema() []*ItemSchema {
-	var out []*ItemSchema
+func (s *Schema) GetCraftableWeaponsSchema() []*Item {
+	var out []*Item
 
 	for _, it := range s.Raw.Schema.Items {
 		if weaponsToExclude[it.Defindex] {
@@ -1682,7 +1682,7 @@ func (s *Schema) GetSKUFromEconItem(item *trading.Item) string {
 }
 
 // IsPromoItem checks if the item is a promo version.
-func (s *Schema) IsPromoItem(it *ItemSchema) bool {
+func (s *Schema) IsPromoItem(it *Item) bool {
 	return strings.HasPrefix(it.Name, "Promo ") && it.CraftClass == ""
 }
 

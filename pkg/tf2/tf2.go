@@ -22,7 +22,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/sys/apps"
 	"github.com/lemon4ksan/g-man/pkg/steam/sys/gc"
-	"github.com/lemon4ksan/g-man/pkg/tf2/schema"
+	"github.com/lemon4ksan/g-man/pkg/tf2/schema/manager"
 )
 
 const (
@@ -65,7 +65,7 @@ type TF2 struct {
 
 	state  atomic.Int32
 	cache  *SOCache
-	schema *schema.Manager
+	schema *manager.Manager
 }
 
 func New() *TF2 {
@@ -95,7 +95,7 @@ func (t *TF2) Init(init module.InitContext) error {
 
 	t.apps = apps
 
-	schema, ok := init.Module(schema.ModuleName).(*schema.Manager)
+	schema, ok := init.Module(manager.ModuleName).(*manager.Manager)
 	if !ok || schema == nil {
 		return errors.New("schema module not registered or invalid")
 	}

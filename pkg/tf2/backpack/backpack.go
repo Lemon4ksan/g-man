@@ -15,7 +15,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/tf2"
 	"github.com/lemon4ksan/g-man/pkg/tf2/currency"
-	"github.com/lemon4ksan/g-man/pkg/tf2/schema"
+	"github.com/lemon4ksan/g-man/pkg/tf2/schema/manager"
 )
 
 const ModuleName = "backpack"
@@ -54,9 +54,9 @@ func PositionOf(page, slot int) uint32 {
 type Backpack struct {
 	module.Base
 
-	busy   BusyProvider
-	tf2    *tf2.TF2
-	schema *schema.Manager
+	busy    BusyProvider
+	tf2     *tf2.TF2
+	manager *manager.Manager
 
 	mu    sync.RWMutex
 	items map[uint64]*tf2.Item
@@ -78,7 +78,7 @@ func (m *Backpack) Init(init module.InitContext) error {
 	}
 
 	m.tf2 = init.Module(tf2.ModuleName).(*tf2.TF2)
-	m.schema = init.Module(schema.ModuleName).(*schema.Manager)
+	m.manager = init.Module(manager.ModuleName).(*manager.Manager)
 
 	return nil
 }
@@ -98,7 +98,7 @@ func (m *Backpack) GetItemsBySKU(targetSKU string) []uint64 {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	s := m.schema.Get()
+	s := m.manager.Get()
 
 	var result []uint64
 
@@ -161,7 +161,7 @@ func (m *Backpack) ApplyLayout(ctx context.Context, layout Layout) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	s := m.schema.Get()
+	s := m.manager.Get()
 	if s == nil {
 		return errors.New("schema not ready")
 	}
@@ -238,7 +238,7 @@ func (m *Backpack) handleEvent(ev bus.Event) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	s := m.schema.Get()
+	s := m.manager.Get()
 
 	switch e := ev.(type) {
 	case *tf2.BackpackLoadedEvent:
@@ -266,7 +266,7 @@ func (m *Backpack) handleEvent(ev bus.Event) {
 
 func (m *Backpack) syncWithCache() {
 	cache := m.tf2.Cache()
-	s := m.schema.Get()
+	s := m.manager.Get()
 
 	m.items = make(map[uint64]*tf2.Item)
 	m.skus = make(map[uint64]string)
