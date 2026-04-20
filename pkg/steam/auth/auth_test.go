@@ -63,7 +63,7 @@ type mockSocketProvider struct {
 func newMockSocket() *mockSocketProvider {
 	return &mockSocketProvider{
 		handlers:   make(map[enums.EMsg]socket.Handler),
-		eventBus:   bus.NewBus(),
+		eventBus:   bus.New(),
 		sess:       &mockSession{},
 		sentProtos: make(map[enums.EMsg]proto.Message),
 		sentRaws:   make(map[enums.EMsg][]byte),

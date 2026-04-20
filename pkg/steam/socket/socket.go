@@ -225,7 +225,7 @@ func NewSocket(cfg Config, opts ...Option) *Socket {
 	}
 
 	if s.bus == nil {
-		s.bus = bus.NewBus()
+		s.bus = bus.New()
 	}
 
 	s.setState(StateDisconnected)

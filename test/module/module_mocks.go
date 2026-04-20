@@ -40,7 +40,7 @@ type InitContext struct {
 
 func NewInitContext() *InitContext {
 	return &InitContext{
-		eventBus:        bus.NewBus(),
+		eventBus:        bus.New(),
 		logger:          log.Discard,
 		mockService:     requester.New(),
 		packetHandlers:  make(map[enums.EMsg]socket.Handler),

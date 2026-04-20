@@ -115,10 +115,15 @@ func NewSOCache(coord CoordinatorProvider, opts ...bus.Option[*SOCache]) *SOCach
 	s := &SOCache{
 		items: make(map[uint64]*Item),
 		coord: coord,
+		logger: log.Discard,
 	}
 
 	for _, opt := range opts {
 		opt(s)
+	}
+
+	if s.bus == nil {
+		s.bus = bus.New()
 	}
 
 	return s

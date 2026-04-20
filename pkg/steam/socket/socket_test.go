@@ -145,7 +145,7 @@ func TestSocket_ConnectAndDisconnect(t *testing.T) {
 		},
 	}
 
-	eventBus := bus.NewBus()
+	eventBus := bus.New()
 
 	sock := NewSocket(cfg, WithBus(eventBus))
 	defer sock.Close()
@@ -427,7 +427,7 @@ func TestSocket_ServiceMethodRouting(t *testing.T) {
 }
 
 func TestSocket_StateTransitions(t *testing.T) {
-	eventBus := bus.NewBus()
+	eventBus := bus.New()
 
 	sock := NewSocket(DefaultTestConfig(), WithBus(eventBus))
 	defer sock.Close()

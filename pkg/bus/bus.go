@@ -78,8 +78,8 @@ type Bus struct {
 	closed bool
 }
 
-// NewBus initializes a new Event Bus.
-func NewBus() *Bus {
+// New initializes a new Event Bus.
+func New() *Bus {
 	return &Bus{
 		subs: make(map[reflect.Type]map[uint64]*Subscription),
 		all:  make(map[uint64]*Subscription),

@@ -114,7 +114,7 @@ func NewClient(cfg Config, opts ...Option) *Client {
 	c := &Client{
 		cfg:     cfg,
 		logger:  log.Discard,
-		bus:     bus.NewBus(),
+		bus:     bus.New(),
 		storage: cfg.Storage,
 		modules: make(map[string]module.Module),
 		ctx:     ctx,

@@ -21,7 +21,7 @@ type TestEventB struct {
 }
 
 func TestBus_SubscribeAndPublish(t *testing.T) {
-	b := NewBus()
+	b := New()
 	defer b.Close()
 
 	subA := b.Subscribe(TestEventA{})
@@ -50,7 +50,7 @@ func TestBus_SubscribeAndPublish(t *testing.T) {
 }
 
 func TestBus_PointerVsValueResolution(t *testing.T) {
-	b := NewBus()
+	b := New()
 	defer b.Close()
 
 	sub := b.Subscribe(TestEventA{})
@@ -73,7 +73,7 @@ func TestBus_PointerVsValueResolution(t *testing.T) {
 }
 
 func TestBus_SubscribeAll(t *testing.T) {
-	b := NewBus()
+	b := New()
 	defer b.Close()
 
 	subAll := b.SubscribeAll()
@@ -95,7 +95,7 @@ func TestBus_SubscribeAll(t *testing.T) {
 }
 
 func TestBus_FullBufferDropsEvent(t *testing.T) {
-	b := NewBus()
+	b := New()
 	defer b.Close()
 
 	sub := b.Subscribe(TestEventA{})
@@ -121,7 +121,7 @@ func TestBus_FullBufferDropsEvent(t *testing.T) {
 }
 
 func TestBus_Unsubscribe(t *testing.T) {
-	b := NewBus()
+	b := New()
 
 	sub := b.Subscribe(TestEventA{})
 
@@ -135,7 +135,7 @@ func TestBus_Unsubscribe(t *testing.T) {
 }
 
 func TestBus_Close(t *testing.T) {
-	b := NewBus()
+	b := New()
 	sub := b.Subscribe(TestEventA{})
 	subAll := b.SubscribeAll()
 
@@ -157,7 +157,7 @@ func TestBus_Close(t *testing.T) {
 }
 
 func TestBus_ConcurrentAccess(t *testing.T) {
-	b := NewBus()
+	b := New()
 	defer b.Close()
 
 	var wg sync.WaitGroup
