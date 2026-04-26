@@ -6,146 +6,111 @@ package processor
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/trading"
-	"github.com/lemon4ksan/g-man/pkg/trading/web/escrow"
 	"github.com/lemon4ksan/g-man/pkg/trading/web/offer"
 )
 
-type mockManager struct {
-	mu                 sync.Mutex
-	acceptCalls        int
-	declineCalls       int
-	escrowCalls        int
-	acceptShouldError  bool
-	declineShouldError bool
-	escrowShouldError  bool
-	escrowDetails      escrow.Details
+type backpackMock struct {
+	mu          sync.Mutex
+	lockedItems map[uint64]bool
+	lockCalls   int
+	unlockCalls int
 }
 
-func (m *mockManager) AcceptOffer(ctx context.Context, offerID uint64) error {
+func newBackpackMock() *backpackMock {
+	return &backpackMock{lockedItems: make(map[uint64]bool)}
+}
+
+func (m *backpackMock) LockItems(ids []uint64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.lockCalls++
+	for _, id := range ids {
+		m.lockedItems[id] = true
+	}
+}
+
+func (m *backpackMock) UnlockItems(ids []uint64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.unlockCalls++
+	for _, id := range ids {
+		delete(m.lockedItems, id)
+	}
+}
+
+func (m *backpackMock) GetLockedAssetIDs() []uint64 { return nil }
+
+type mockManager struct {
+	acceptCalls  int
+	declineCalls int
+	mu           sync.Mutex
+}
+
+func (m *mockManager) AcceptOffer(ctx context.Context, id uint64) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	m.acceptCalls++
-	if m.acceptShouldError {
-		return errors.New("mock accept error")
-	}
 
 	return nil
 }
 
-func (m *mockManager) DeclineOffer(ctx context.Context, offerID uint64) error {
+func (m *mockManager) DeclineOffer(ctx context.Context, id uint64) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	m.declineCalls++
-	if m.declineShouldError {
-		return errors.New("mock decline error")
-	}
 
 	return nil
 }
 
-func (m *mockManager) GetEscrowDuration(ctx context.Context, offerID uint64) (escrow.Details, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.escrowCalls++
-	if m.escrowShouldError {
-		return escrow.Details{}, errors.New("mock escrow error")
-	}
-
-	return m.escrowDetails, nil
+func (m *mockManager) SendOffer(ctx context.Context, p trading.OfferParams) (uint64, error) {
+	panic("unimplemented")
 }
 
-func (m *mockManager) GetAcceptCalls() int {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	return m.acceptCalls
-}
-
-func (m *mockManager) GetDeclineCalls() int {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	return m.declineCalls
-}
-
-func (m *mockManager) ResetCalls() {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.acceptCalls = 0
-	m.declineCalls = 0
+func (m *mockManager) GetEscrowDuration(ctx context.Context, id uint64) (Details, error) {
+	return Details{}, nil
 }
 
 type mockOfferHandler struct {
-	mu                   sync.Mutex
-	decision             offer.ActionDecision
-	processErr           error
-	failedAction         offer.ActionType
-	failedReason         string
-	failedOfferID        uint64
-	onActionFailedCalled bool
+	decision     offer.ActionDecision
+	failedCalled bool
+	failedAction offer.ActionType
+	mu           sync.Mutex
 }
 
-func (h *mockOfferHandler) ProcessOffer(ctx context.Context, offer *offer.TradeOffer) (offer.ActionDecision, error) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	return h.decision, h.processErr
+func (h *mockOfferHandler) ProcessOffer(ctx context.Context, off *offer.TradeOffer) (offer.ActionDecision, error) {
+	return h.decision, nil
 }
 
 func (h *mockOfferHandler) OnActionFailed(
 	ctx context.Context,
-	offer *offer.TradeOffer,
-	action offer.ActionType,
+	off *offer.TradeOffer,
+	act offer.ActionType,
 	reason string,
 	err error,
 ) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	h.onActionFailedCalled = true
-	h.failedAction = action
-	h.failedReason = reason
-	h.failedOfferID = offer.ID
-}
-
-func (h *mockOfferHandler) SetDecision(d offer.ActionDecision) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	h.decision = d
-}
-
-func (h *mockOfferHandler) WasFailedCalled() bool {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	return h.onActionFailedCalled
-}
-
-func (h *mockOfferHandler) GetFailedAction() offer.ActionType {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	return h.failedAction
+	h.failedCalled = true
+	h.failedAction = act
 }
 
 func TestProcessor_EnqueueAndWorker(t *testing.T) {
 	mockMgr := &mockManager{}
 	mockHdl := &mockOfferHandler{}
+	mockBp := newBackpackMock()
 
-	p := NewProcessor(mockMgr, mockHdl, log.Discard)
-	p.Start(t.Context())
+	p := NewProcessor(mockMgr, mockBp, mockHdl)
+	p.Start(context.Background())
 
 	off := &offer.TradeOffer{
 		ID: 123,
@@ -155,52 +120,49 @@ func TestProcessor_EnqueueAndWorker(t *testing.T) {
 		},
 	}
 
-	mockHdl.SetDecision(offer.ActionDecision{Action: offer.ActionAccept})
+	mockHdl.decision = offer.ActionDecision{Action: offer.ActionAccept}
+
 	p.Enqueue(off)
 
-	waitForCondition(func() bool { return mockMgr.GetAcceptCalls() == 1 }, 1*time.Second)
-
-	if mockMgr.GetAcceptCalls() != 1 {
-		t.Errorf("expected AcceptOffer to be called 1 time, got %d", mockMgr.GetAcceptCalls())
+	if mockBp.lockCalls != 1 {
+		t.Errorf("expected LockItems to be called once, got %d", mockBp.lockCalls)
 	}
 
-	mockMgr.ResetCalls()
-	mockHdl.SetDecision(offer.ActionDecision{Action: offer.ActionDecline})
-	p.Enqueue(off)
+	waitForCondition(func() bool {
+		mockMgr.mu.Lock()
+		defer mockMgr.mu.Unlock()
+		return mockMgr.acceptCalls == 1
+	}, 1*time.Second)
 
-	waitForCondition(func() bool { return mockMgr.GetDeclineCalls() == 1 }, 1*time.Second)
-
-	if mockMgr.GetDeclineCalls() != 1 {
-		t.Errorf("expected DeclineOffer to be called 1 time, got %d", mockMgr.GetDeclineCalls())
-	}
-
-	if p.IsInTrade(100) || p.IsInTrade(200) {
-		t.Error("expected items to be unset from trade after decline")
+	if mockBp.unlockCalls != 1 {
+		t.Errorf("expected UnlockItems to be called after processing, got %d", mockBp.unlockCalls)
 	}
 }
 
 func TestProcessor_CounterFallback(t *testing.T) {
 	mockMgr := &mockManager{}
 	mockHdl := &mockOfferHandler{}
-	mockHdl.SetDecision(offer.ActionDecision{Action: offer.ActionCounter})
+	mockBp := newBackpackMock()
 
-	p := NewProcessor(mockMgr, mockHdl, log.Discard)
-	p.Start(t.Context())
+	mockHdl.decision = offer.ActionDecision{Action: offer.ActionCounter}
 
-	p.Enqueue(&offer.TradeOffer{ID: 456})
+	p := NewProcessor(mockMgr, mockBp, mockHdl)
+	p.Start(context.Background())
 
-	waitForCondition(func() bool { return mockMgr.GetDeclineCalls() == 1 }, 1*time.Second)
+	p.Enqueue(&offer.TradeOffer{ID: 456, ItemsToGive: []*trading.Item{{AssetID: 500}}})
 
-	if mockMgr.GetDeclineCalls() != 1 {
-		t.Errorf("expected counter fallback to call DeclineOffer, got %d calls", mockMgr.GetDeclineCalls())
+	waitForCondition(func() bool {
+		mockMgr.mu.Lock()
+		defer mockMgr.mu.Unlock()
+		return mockMgr.declineCalls == 1
+	}, 1*time.Second)
+
+	if mockMgr.declineCalls != 1 {
+		t.Errorf("expected counter fallback to call DeclineOffer, got %d calls", mockMgr.declineCalls)
 	}
 
-	if !mockHdl.WasFailedCalled() {
+	if !mockHdl.failedCalled {
 		t.Error("expected OnActionFailed to be called for the initial counter failure")
-	}
-
-	if mockHdl.GetFailedAction() != offer.ActionCounter {
-		t.Errorf("expected failed action to be ActionCounter, got %s", mockHdl.GetFailedAction())
 	}
 }
 

@@ -4,6 +4,8 @@
 
 package trading
 
+import "github.com/lemon4ksan/g-man/pkg/steam/id"
+
 type OfferState int32
 
 const (
@@ -19,6 +21,15 @@ const (
 	OfferStateCanceledBySecondFactor   OfferState = 10
 	OfferStateInEscrow                 OfferState = 11
 )
+
+type OfferParams struct {
+	PartnerID      id.ID
+	Token          string
+	Message        string
+	ItemsToGive    []*Item
+	ItemsToReceive []*Item
+	CounteredID    uint64
+}
 
 type Attribute struct {
 	Defindex   int     `json:"defindex"`

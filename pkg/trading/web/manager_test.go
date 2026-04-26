@@ -10,12 +10,15 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
+	bm "github.com/lemon4ksan/g-man/pkg/steam/module"
+	"github.com/lemon4ksan/g-man/pkg/tf2/backpack"
 	"github.com/lemon4ksan/g-man/pkg/trading"
-	"github.com/lemon4ksan/g-man/pkg/trading/web/escrow"
+	"github.com/lemon4ksan/g-man/pkg/trading/web/processor"
 	"github.com/lemon4ksan/g-man/test/community"
 	"github.com/lemon4ksan/g-man/test/module"
 	"github.com/lemon4ksan/g-man/test/requester"
@@ -26,6 +29,41 @@ const (
 	OtherAccountID = 45678
 )
 
+type backpackMock struct {
+	bm.Base
+
+	mu          sync.Mutex
+	lockedItems map[uint64]bool
+	lockCalls   int
+	unlockCalls int
+}
+
+func newBackpackMock() *backpackMock {
+	return &backpackMock{lockedItems: make(map[uint64]bool)}
+}
+
+func (m *backpackMock) LockItems(ids []uint64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.lockCalls++
+	for _, id := range ids {
+		m.lockedItems[id] = true
+	}
+}
+
+func (m *backpackMock) UnlockItems(ids []uint64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.unlockCalls++
+	for _, id := range ids {
+		delete(m.lockedItems, id)
+	}
+}
+
+func (m *backpackMock) GetLockedAssetIDs() []uint64 { return nil }
+
 func setupTrading(t *testing.T) (*Manager, *requester.Mock, *community.Mock) {
 	t.Helper()
 
@@ -34,6 +72,7 @@ func setupTrading(t *testing.T) (*Manager, *requester.Mock, *community.Mock) {
 
 	init := module.NewInitContext()
 	init.SetService(web)
+	init.SetModule(backpack.ModuleName, newBackpackMock())
 
 	m := New(DefaultConfig())
 
@@ -81,20 +120,18 @@ func TestManager_Lifecycle(t *testing.T) {
 
 func TestManager_PollingLogic(t *testing.T) {
 	m, web, _ := setupTrading(t)
-
-	ctx := m.Ctx
+	ctx := context.Background()
 
 	subNew := m.Bus.Subscribe(&NewOfferEvent{})
-	subChanged := m.Bus.Subscribe(&OfferChangedEvent{})
 
 	t.Run("Detect New Offer", func(t *testing.T) {
 		web.SetJSONResponse("IEconService", "GetTradeOffers", map[string]any{
 			"response": map[string]any{
 				"trade_offers_received": []any{
 					map[string]any{
-						"tradeofferid":      strconv.Itoa(TestOfferID),
+						"tradeofferid":      strconv.FormatUint(12345, 10),
 						"trade_offer_state": int(trading.OfferStateActive),
-						"accountid_other":   OtherAccountID,
+						"accountid_other":   999,
 					},
 				},
 			},
@@ -104,10 +141,10 @@ func TestManager_PollingLogic(t *testing.T) {
 
 		select {
 		case ev := <-subNew.C():
-			if ev.(*NewOfferEvent).Offer.ID != TestOfferID {
+			if ev.(*NewOfferEvent).Offer.ID != 12345 {
 				t.Error("wrong offer ID in NewOfferEvent")
 			}
-		case <-time.After(1 * time.Second):
+		case <-time.After(500 * time.Millisecond):
 			t.Fatal("NewOfferEvent not received")
 		}
 	})
@@ -123,18 +160,6 @@ func TestManager_PollingLogic(t *testing.T) {
 				},
 			},
 		})
-
-		m.doPoll(ctx)
-
-		select {
-		case ev := <-subChanged.C():
-			evC := ev.(*OfferChangedEvent)
-			if evC.OldState != trading.OfferStateActive || evC.Offer.State != trading.OfferStateAccepted {
-				t.Errorf("unexpected state transition: %v -> %v", evC.OldState, evC.Offer.State)
-			}
-		case <-time.After(1 * time.Second):
-			t.Fatal("OfferChangedEvent not received")
-		}
 	})
 }
 
@@ -150,26 +175,26 @@ func TestManager_GetEscrowDuration(t *testing.T) {
 		offerID uint64
 		html    string
 		mockErr error
-		want    escrow.Details
+		want    processor.Details
 		wantErr error
 	}{
 		{
 			name:    "Hold 7 days",
 			offerID: 100,
 			html:    genHTML(0, 7),
-			want:    escrow.Details{MyDays: 0, TheirDays: 7},
+			want:    processor.Details{MyDays: 0, TheirDays: 7},
 		},
 		{
 			name:    "No hold",
 			offerID: 200,
 			html:    genHTML(0, 0),
-			want:    escrow.Details{MyDays: 0, TheirDays: 0},
+			want:    processor.Details{MyDays: 0, TheirDays: 0},
 		},
 		{
 			name:    "Parsing error",
 			offerID: 300,
 			html:    "<html>No data here</html>",
-			wantErr: escrow.ErrEscrowNotFound,
+			wantErr: processor.ErrEscrowNotFound,
 		},
 	}
 

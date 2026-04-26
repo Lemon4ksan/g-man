@@ -6,6 +6,7 @@ package web
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -20,11 +21,10 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/api"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
+	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
-	schema "github.com/lemon4ksan/g-man/pkg/tf2/schema"
 	"github.com/lemon4ksan/g-man/pkg/trading"
-	"github.com/lemon4ksan/g-man/pkg/trading/web/escrow"
 	"github.com/lemon4ksan/g-man/pkg/trading/web/offer"
 	"github.com/lemon4ksan/g-man/pkg/trading/web/processor"
 )
@@ -35,6 +35,13 @@ var (
 	ErrManagerClosed  = errors.New("trade: closed")
 	ErrManagerPolling = errors.New("trade: already polling")
 )
+
+// ItemsCollection represents items for one side of the offer.
+type ItemsCollection struct {
+	Items    []trading.Item // Items from someone else's inventory
+	Assets   []uint64       // IDs of items from our inventory
+	Currency []uint64       // Currency ID from our inventory
+}
 
 // State constants representing the module lifecycle.
 type State int32
@@ -60,7 +67,6 @@ func (s State) String() string {
 
 type Config struct {
 	PollInterval time.Duration
-	CancelTime   time.Duration
 	Language     string
 }
 
@@ -77,23 +83,17 @@ func WithModule(cfg Config) steam.Option {
 	}
 }
 
-type SchemaProvider interface {
-	Get() *schema.Schema
-}
-
 // Manager handles trade offer synchronization, polling, and state tracking.
 // It integrates with a Processor to handle business logic for individual offers.
 type Manager struct {
 	module.Base
 
+	config Config
+
 	// Dependencies
 	web       service.Doer
 	community community.Requester
 	processor *processor.Processor
-	schema    SchemaProvider
-
-	config Config
-	cache  *AssetCache
 
 	// Polling synchronization
 	mu             sync.RWMutex
@@ -112,7 +112,6 @@ func New(cfg Config) *Manager {
 	return &Manager{
 		Base:           module.New(ModuleName),
 		config:         cfg,
-		cache:          NewAssetCache(),
 		knownOffers:    make(map[uint64]trading.OfferState),
 		lastSeenOffers: make(map[uint64]time.Time),
 		rateLimiter:    rate.NewLimiter(rate.Every(2*time.Second), 1),
@@ -125,11 +124,6 @@ func (m *Manager) Init(init module.InitContext) error {
 	}
 
 	m.web = init.Service()
-
-	schemaMod := init.Module("tf2_schema")
-	if schemaMod == nil {
-		m.Logger.Warn("tf2_schema module not found, cannot resolve SKUs")
-	}
 
 	return nil
 }
@@ -159,8 +153,8 @@ func (m *Manager) Close() error {
 }
 
 // SetOfferHandler injects the business logic for processing trade offers.
-func (m *Manager) SetOfferHandler(ctx context.Context, handler offer.OfferHandler) {
-	m.processor = processor.NewProcessor(m, handler, m.Logger)
+func (m *Manager) SetOfferHandler(ctx context.Context, handler processor.OfferHandler, bp processor.BackpackProvider) {
+	m.processor = processor.NewProcessor(m, bp, handler, processor.WithLogger(m.Logger))
 	m.Go(func(moduleCtx context.Context) {
 		m.processor.Start(moduleCtx)
 	})
@@ -186,6 +180,71 @@ func (m *Manager) StopPolling() {
 	if m.State.CompareAndSwap(StatePolling, StateStopped) {
 		m.Logger.Info("Trade polling stopped")
 	}
+}
+
+// SendOffers builds and sends a new trade offer based on provided parameters.
+func (m *Manager) SendOffer(ctx context.Context, p trading.OfferParams) (uint64, error) {
+	if err := m.rateLimiter.Wait(ctx); err != nil {
+		return 0, err
+	}
+
+	type steamObject struct {
+		AppID     uint32 `json:"appid"`
+		ContextID string `json:"contextid"`
+		Amount    int64  `json:"amount"`
+		AssetID   string `json:"assetid"`
+	}
+
+	tradeOfferObj := struct {
+		NewVersion bool          `json:"new_version"`
+		Version    int           `json:"version"`
+		Me         []steamObject `json:"me"`
+		Them       []steamObject `json:"them"`
+	}{true, 2, make([]steamObject, 0), make([]steamObject, 0)}
+
+	for _, it := range p.ItemsToGive {
+		tradeOfferObj.Me = append(tradeOfferObj.Me, steamObject{
+			AppID: it.AppID, ContextID: strconv.FormatInt(it.ContextID, 10),
+			AssetID: strconv.FormatUint(it.AssetID, 10), Amount: it.Amount,
+		})
+	}
+
+	for _, it := range p.ItemsToReceive {
+		tradeOfferObj.Them = append(tradeOfferObj.Them, steamObject{
+			AppID: it.AppID, ContextID: strconv.FormatInt(it.ContextID, 10),
+			AssetID: strconv.FormatUint(it.AssetID, 10), Amount: it.Amount,
+		})
+	}
+
+	jsonObj, _ := json.Marshal(tradeOfferObj)
+	sessionID := m.community.SessionID(community.BaseURL)
+
+	payload := struct {
+		SessionID   string `url:"sessionid"`
+		ServerID    int    `url:"serverid"`
+		PartnerID   id.ID  `url:"partner"`
+		Message     string `url:"tradeoffermessage"`
+		JSON        string `url:"json_tradeoffer"`
+		Token       string `url:"trade_offer_access_token,omitempty"`
+		CounteredID uint64 `url:"tradeofferid_countered,omitempty"`
+	}{
+		sessionID, 1, p.PartnerID, p.Message, string(jsonObj), p.Token, p.CounteredID,
+	}
+
+	type sendResponse struct {
+		TradeOfferID string `json:"tradeofferid"`
+		NeedsMobile  bool   `json:"needs_mobile_confirmation"`
+		NeedsEmail   bool   `json:"needs_email_confirmation"`
+	}
+
+	resp, err := community.PostForm[sendResponse](ctx, m.community, "tradeoffer/new/send", payload)
+	if err != nil {
+		return 0, err
+	}
+
+	id, _ := strconv.ParseUint(resp.TradeOfferID, 10, 64)
+
+	return id, nil
 }
 
 // AcceptOffer accepts a trade offer.
@@ -259,51 +318,38 @@ func (m *Manager) GetOffer(ctx context.Context, offerID uint64) (*offer.TradeOff
 }
 
 // GetEscrowDuration loads the trade page and parses the Trade Hold information.
-func (m *Manager) GetEscrowDuration(ctx context.Context, offerID uint64) (escrow.Details, error) {
+func (m *Manager) GetEscrowDuration(ctx context.Context, offerID uint64) (processor.Details, error) {
 	m.mu.RLock()
 	c := m.community
 	m.mu.RUnlock()
 
 	if c == nil {
-		return escrow.Details{}, escrow.ErrCommunityNotReady
+		return processor.Details{}, processor.ErrCommunityNotReady
 	}
 
-	resp, err := community.Get[[]byte](
-		ctx,
-		c,
-		fmt.Sprintf("tradeoffer/%d/", offerID),
-		nil,
+	resp, err := community.Get[[]byte](ctx, c, fmt.Sprintf("tradeoffer/%d/", offerID), nil,
 		api.WithFormat(api.FormatRaw),
 	)
 	if err != nil {
-		return escrow.Details{}, fmt.Errorf("failed to fetch offer page: %w", err)
+		return processor.Details{}, fmt.Errorf("failed to fetch offer page: %w", err)
 	}
 
 	html := string(*resp)
 
-	theirMatches := escrow.RxTheir.FindStringSubmatch(html)
-	myMatches := escrow.RxMy.FindStringSubmatch(html)
+	theirMatches := processor.RxTheir.FindStringSubmatch(html)
+	myMatches := processor.RxMy.FindStringSubmatch(html)
 
 	if len(theirMatches) < 2 || len(myMatches) < 2 {
-		return escrow.Details{}, escrow.ErrEscrowNotFound
+		return processor.Details{}, processor.ErrEscrowNotFound
 	}
 
 	theirDays, _ := strconv.Atoi(theirMatches[1])
 	myDays, _ := strconv.Atoi(myMatches[1])
 
-	return escrow.Details{
+	return processor.Details{
 		TheirDays: theirDays,
 		MyDays:    myDays,
 	}, nil
-}
-
-// IsItemInTrade allows external modules to know whether an item in the offer is already occupied.
-func (m *Manager) IsItemInTrade(assetID uint64) bool {
-	if m.processor == nil {
-		return false
-	}
-
-	return m.processor.IsInTrade(assetID)
 }
 
 func (m *Manager) pollingLoop(ctx context.Context) {
@@ -365,52 +411,26 @@ func (m *Manager) doPoll(ctx context.Context) {
 	copy(allOffers, resp.Sent)
 	copy(allOffers[len(resp.Sent):], resp.Received)
 
-	for _, offer := range allOffers {
-		m.enrichOfferWithSKUs(offer)
-		m.lastSeenOffers[offer.ID] = now
-		oldState, exists := m.knownOffers[offer.ID]
+	for _, off := range allOffers {
+		oldState, exists := m.knownOffers[off.ID]
+		m.knownOffers[off.ID] = off.State
 
-		if !exists {
-			m.knownOffers[offer.ID] = offer.State
-			if offer.State == trading.OfferStateActive {
-				m.Logger.Info("New trade offer detected", log.Uint64("offer_id", offer.ID))
-				m.Bus.Publish(&NewOfferEvent{Offer: offer})
+		if !exists && off.State == trading.OfferStateActive {
+			m.Bus.Publish(&NewOfferEvent{Offer: off})
 
-				if m.processor != nil {
-					m.processor.Enqueue(offer)
-				}
+			if m.processor != nil {
+				m.processor.Enqueue(off)
 			}
-		} else if oldState != offer.State {
-			m.knownOffers[offer.ID] = offer.State
+		} else if oldState != off.State {
+			m.knownOffers[off.ID] = off.State
 			m.Bus.Publish(&OfferChangedEvent{
-				Offer:    offer,
+				Offer:    off,
 				OldState: oldState,
 			})
 		}
 	}
 
 	m.gcKnownOffers(now)
-}
-
-func (m *Manager) enrichOfferWithSKUs(offer *offer.TradeOffer) {
-	if m.schema == nil {
-		m.Logger.Error("tf2_schema module not found, cannot resolve SKU")
-		return
-	}
-
-	schema := m.schema.Get()
-	if schema == nil {
-		m.Logger.Warn("schema is not ready yet")
-		return
-	}
-
-	for i := range offer.ItemsToGive {
-		offer.ItemsToGive[i].SKU = schema.GetSKUFromEconItem(offer.ItemsToGive[i])
-	}
-
-	for i := range offer.ItemsToReceive {
-		offer.ItemsToReceive[i].SKU = schema.GetSKUFromEconItem(offer.ItemsToReceive[i])
-	}
 }
 
 // gcKnownOffers removes stale offers from memory to prevent memory leaks.
