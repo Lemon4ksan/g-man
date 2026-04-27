@@ -7,7 +7,9 @@ package socket
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"syscall"
 
 	"google.golang.org/protobuf/proto"
 
@@ -109,34 +111,22 @@ func (s *Socket) Send(ctx context.Context, build PayloadBuilder, opts ...SendOpt
 
 	jobID := s.registerJob(ctx, cfg.Callback)
 
-	buf, ok := s.bufferPool.Get().(*bytes.Buffer)
-	if !ok {
-		buf = new(bytes.Buffer)
-	}
-
-	buf.Reset()
-
-	defer func() {
-		// Only put back buffers that haven't grown excessively
-		if buf.Cap() <= 64*1024 {
-			s.bufferPool.Put(buf)
-		}
-	}()
+	buf := s.getBuffer()
+	defer s.putBuffer(buf)
 
 	if err := build(sess, buf, jobID, cfg.Token); err != nil {
-		if cfg.Callback != nil {
-			s.jobManager.Resolve(jobID, nil, err)
-		}
-
+		s.abortJob(jobID, err, cfg.Callback)
 		return fmt.Errorf("build failed: %w", err)
 	}
 
 	if err := sess.Send(ctx, buf.Bytes()); err != nil {
-		if cfg.Callback != nil {
-			s.jobManager.Resolve(jobID, nil, err)
+		if isFatalNetworkError(err) {
+			s.handleRemoteClose()
 		}
 
-		return fmt.Errorf("send failed: %w", err)
+		s.abortJob(jobID, err, cfg.Callback)
+
+		return fmt.Errorf("api: send failed: %w", err)
 	}
 
 	return nil
@@ -158,30 +148,29 @@ func (s *Socket) SendRaw(ctx context.Context, eMsg enums.EMsg, payload []byte, o
 }
 
 // SendSync performs a synchronous request and waits for a response from the server.
+// This method blocks until a response is received or the context is cancelled.
+// If the server never responds (e.g., due to a silent drop), this will block
+// until the context timeout. It is highly recommended to use a context with a timeout.
 func (s *Socket) SendSync(ctx context.Context, build PayloadBuilder, opts ...SendOption) (*protocol.Packet, error) {
-	resultCh := make(chan struct {
+	type result struct {
 		pkt *protocol.Packet
 		err error
-	}, 1)
+	}
 
-	syncOpt := WithCallback(func(pkt *protocol.Packet, err error) {
-		resultCh <- struct {
-			pkt *protocol.Packet
-			err error
-		}{pkt, err}
-	})
+	resCh := make(chan result, 1)
 
-	// Add callback as the last option
-	opts = append(opts, syncOpt)
+	cb := func(pkt *protocol.Packet, err error) {
+		resCh <- result{pkt, err}
+	}
 
-	if err := s.Send(ctx, build, opts...); err != nil {
+	if err := s.Send(ctx, build, append(opts, WithCallback(cb))...); err != nil {
 		return nil, err
 	}
 
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
-	case res := <-resultCh:
+	case res := <-resCh:
 		return res.pkt, res.err
 	}
 }
@@ -199,14 +188,10 @@ func newPacket(
 		sessionID int32
 	)
 
-	if sess != nil {
+	// ClientHello must be sent with 0 IDs even if a session exists (e.g. during reconnect)
+	if sess != nil && eMsg != enums.EMsg_ClientHello {
 		steamID = sess.SteamID()
 		sessionID = sess.SessionID()
-	}
-
-	// ClientHello must be sent with 0 IDs even if a session exists (e.g. during reconnect)
-	if eMsg == enums.EMsg_ClientHello {
-		steamID, sessionID = 0, 0
 	}
 
 	pkt := &protocol.Packet{EMsg: eMsg, IsProto: isProto}
@@ -238,8 +223,23 @@ func (s *Socket) registerJob(ctx context.Context, cb jobs.Callback[*protocol.Pac
 		return protocol.NoJob
 	}
 
+	combinedCtx, cancel := context.WithCancel(ctx)
+
+	socketCtx := s.getContext()
+	go func() {
+		select {
+		case <-combinedCtx.Done():
+		case <-socketCtx.Done():
+			cancel()
+		case <-s.done:
+			cancel()
+		}
+	}()
+
 	id := s.jobManager.NextID()
 	_ = s.jobManager.Add(id, func(response *protocol.Packet, err error) {
+		defer cancel()
+
 		var eMsg enums.EMsg
 		if response != nil {
 			eMsg = response.EMsg
@@ -248,7 +248,46 @@ func (s *Socket) registerJob(ctx context.Context, cb jobs.Callback[*protocol.Pac
 		defer s.recoverPanic(eMsg)
 
 		cb(response, err)
-	}, jobs.WithContext[*protocol.Packet](ctx))
+	}, jobs.WithContext[*protocol.Packet](combinedCtx))
 
 	return id
+}
+
+func (s *Socket) abortJob(id uint64, err error, cb jobs.Callback[*protocol.Packet]) {
+	if cb != nil && id != protocol.NoJob {
+		s.jobManager.Resolve(id, nil, err)
+	}
+}
+
+func (s *Socket) getBuffer() *bytes.Buffer {
+	buf, ok := s.bufferPool.Get().(*bytes.Buffer)
+	if !ok {
+		return new(bytes.Buffer)
+	}
+
+	buf.Reset()
+
+	return buf
+}
+
+func (s *Socket) putBuffer(buf *bytes.Buffer) {
+	if buf.Cap() <= 64*1024 {
+		s.bufferPool.Put(buf)
+	}
+}
+
+func isFatalNetworkError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	var errno syscall.Errno
+	if errors.As(err, &errno) {
+		switch errno {
+		case syscall.ECONNRESET, syscall.EPIPE, syscall.ECONNABORTED, syscall.ETIMEDOUT:
+			return true
+		}
+	}
+
+	return false
 }

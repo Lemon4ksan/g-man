@@ -34,9 +34,12 @@ type Handler interface {
 // Connection defines the standard interface that all network connection types must implement.
 // It provides methods for sending data, closing the connection, and identification.
 type Connection interface {
-	// Send transmits the provided data over the connection.
-	// It is the responsibility of the implementation to handle message framing and encryption.
-	// This method must be safe for concurrent use.
+	// Send transmits the provided data over the connection. It is
+	// the responsibility of the implementation to handle message
+	// framing and encryption. This method must be safe for concurrent use.
+	//
+	// Implementation must respect the context; if the context is cancelled before
+	// the write is complete, the operation must return ctx.Err().
 	Send(ctx context.Context, data []byte) error
 
 	// Close gracefully terminates the connection and releases any associated resources.

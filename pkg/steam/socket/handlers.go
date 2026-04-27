@@ -10,6 +10,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"time"
 
 	"google.golang.org/protobuf/proto"
 
@@ -27,11 +28,22 @@ func (s *Socket) processSingle(msg io.Reader) {
 		return
 	}
 
-	ctx := s.getContext()
 	select {
 	case s.msgCh <- packet:
-	case <-ctx.Done():
 	case <-s.done:
+	default:
+		s.logger.Warn("Packet dropped: msgCh saturated",
+			log.EMsg(packet.EMsg),
+			log.Int("chan_cap", cap(s.msgCh)),
+			log.Int("chan_len", len(s.msgCh)))
+
+		if packet.GetTargetJobID() != protocol.NoJob {
+			select {
+			case s.msgCh <- packet:
+			case <-time.After(100 * time.Millisecond):
+				s.logger.Error("Job response dropped due to congestion", log.JobID(packet.GetTargetJobID()))
+			}
+		}
 	}
 }
 
@@ -69,8 +81,10 @@ func (s *Socket) handleJobResponse(packet *protocol.Packet) bool {
 	return s.jobManager.Resolve(targetID, packet, err)
 }
 
-// handleMulti is the built-in handler for EMsg_Multi, which contains multiple
-// nested or compressed packets.
+// handleMulti is the built-in handler for EMsg_Multi, which contains
+// multiple nested or compressed packets. This handler automatically
+// flattens nested packets and re-injects them into the processing queue.
+// The order of packets within a Multi-message is preserved during re-injection.
 func (s *Socket) handleMulti(packet *protocol.Packet) {
 	msg := &pb.CMsgMulti{}
 	if err := proto.Unmarshal(packet.Payload, msg); err != nil {
@@ -95,6 +109,10 @@ func (s *Socket) handleMulti(packet *protocol.Packet) {
 		}
 	}
 
+	var dispatched int
+
+	ctx := s.getContext()
+
 	reader := bytes.NewReader(payload)
 	for reader.Len() > 0 {
 		var subSize uint32
@@ -107,11 +125,20 @@ func (s *Socket) handleMulti(packet *protocol.Packet) {
 			continue
 		}
 
-		s.routePacket(pkt)
+		select {
+		case s.msgCh <- pkt:
+			dispatched++
+		case <-ctx.Done():
+			return
+		default:
+			s.logger.Warn("Multi sub-packet dropped: msgCh full",
+				log.Int("dispatched", dispatched))
+			return
+		}
 	}
 }
 
-// unzip handles GZIP decompression for Steam Multi-messages.
+// decompressPayload handles GZIP decompression for Steam Multi-messages.
 // It enforces a maximum unzipped size to prevent memory exhaustion (Zip Bombs).
 func (s *Socket) decompressPayload(data network.NetMessage, unzippedSize int64) ([]byte, error) {
 	if unzippedSize > 100*1024*1024 { // 100MB limit to prevent OOM attacks

@@ -76,7 +76,7 @@ func (m *mockSocketProvider) RegisterMsgHandler(eMsg enums.EMsg, handler socket.
 	m.mu.Unlock()
 }
 
-func (m *mockSocketProvider) Connect(ctx context.Context, server socket.CMServer) error {
+func (m *mockSocketProvider) Connect(server socket.CMServer) error {
 	return m.connectErr
 }
 

@@ -67,7 +67,7 @@ func (s State) String() string {
 // SocketProvider defines the minimal socket capabilities required by the Authenticator.
 type SocketProvider interface {
 	RegisterMsgHandler(eMsg enums.EMsg, handler socket.Handler)
-	Connect(ctx context.Context, server socket.CMServer) error
+	Connect(server socket.CMServer) error
 	SendProto(ctx context.Context, eMsg enums.EMsg, req proto.Message, opts ...socket.SendOption) error
 	SendRaw(ctx context.Context, eMsg enums.EMsg, payload []byte, opts ...socket.SendOption) error
 	Session() socket.Session
@@ -222,7 +222,7 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 	a.loginCancel.Store(cancel)
 	a.activeDetails.Store(details)
 
-	if err := a.socket.Connect(ctx, server); err != nil {
+	if err := a.socket.Connect(server); err != nil {
 		return fmt.Errorf("cm connection failed: %w", err)
 	}
 
@@ -281,7 +281,7 @@ func (a *Authenticator) LogOnAnonymous(ctx context.Context, server socket.CMServ
 	a.loginCancel.Store(cancel)
 	a.activeDetails.Store(anonDetails)
 
-	if err := a.socket.Connect(ctx, server); err != nil {
+	if err := a.socket.Connect(server); err != nil {
 		return fmt.Errorf("cm connection failed: %w", err)
 	}
 

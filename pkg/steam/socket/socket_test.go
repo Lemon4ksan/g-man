@@ -13,6 +13,7 @@ import (
 	"math"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
@@ -153,7 +154,7 @@ func TestSocket_ConnectAndDisconnect(t *testing.T) {
 	sub := eventBus.Subscribe(ConnectedEvent{}, DisconnectedEvent{})
 	defer sub.Unsubscribe()
 
-	err := sock.Connect(t.Context(), CMServer{Type: "mock", Endpoint: "localhost:1234"})
+	err := sock.Connect(CMServer{Type: "mock", Endpoint: "localhost:1234"})
 	if err != nil {
 		t.Fatalf("Connect failed: %v", err)
 	}
@@ -191,7 +192,7 @@ func TestSocket_Routing(t *testing.T) {
 	sock := NewSocket(DefaultTestConfig())
 	defer sock.Close()
 
-	sock.startWorkers(t.Context())
+	sock.startWorkers()
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
@@ -238,7 +239,7 @@ func TestSocket_JobTracking(t *testing.T) {
 	sock := NewSocket(cfg)
 	defer sock.Close()
 
-	if err := sock.Connect(t.Context(), CMServer{Type: "mock"}); err != nil {
+	if err := sock.Connect(CMServer{Type: "mock"}); err != nil {
 		t.Fatalf("Connect failed: %v", err)
 	}
 
@@ -334,7 +335,7 @@ func TestSocket_SessionUpdateFromHeader(t *testing.T) {
 func TestSocket_HandleMultiPacket(t *testing.T) {
 	sock := NewSocket(DefaultTestConfig())
 
-	sock.startWorkers(t.Context())
+	sock.startWorkers()
 	defer sock.Close()
 
 	var wg sync.WaitGroup
@@ -451,7 +452,7 @@ func TestSocket_StateTransitions(t *testing.T) {
 func TestSocket_ProcessProtobufPacket(t *testing.T) {
 	sock := NewSocket(DefaultTestConfig())
 
-	sock.startWorkers(t.Context())
+	sock.startWorkers()
 	defer sock.Close()
 
 	resCh := make(chan *protocol.Packet, 1)
@@ -492,7 +493,7 @@ func TestSocket_ProcessExtendedPacket(t *testing.T) {
 	sess := session.New(mockConn)
 	sock := NewSocket(DefaultTestConfig(), WithSession(sess))
 
-	sock.startWorkers(t.Context())
+	sock.startWorkers()
 	defer sock.Close()
 
 	resCh := make(chan *protocol.Packet, 1)
@@ -527,7 +528,7 @@ func TestSocket_ProcessExtendedPacket(t *testing.T) {
 func TestSocket_ProcessBasicCryptoPacket(t *testing.T) {
 	sock := NewSocket(DefaultTestConfig())
 
-	sock.startWorkers(t.Context())
+	sock.startWorkers()
 	defer sock.Close()
 
 	resCh := make(chan *protocol.Packet, 1)
@@ -582,7 +583,7 @@ func TestSocket_StartHeartbeat(t *testing.T) {
 	sock := NewSocket(cfg)
 	defer sock.Close()
 
-	err := sock.Connect(t.Context(), CMServer{Type: "mock", Endpoint: "localhost"})
+	err := sock.Connect(CMServer{Type: "mock", Endpoint: "localhost"})
 	if err != nil {
 		t.Fatalf("Failed to connect: %v", err)
 	}
@@ -610,7 +611,7 @@ func TestSocket_InboundHandler(t *testing.T) {
 	sock := NewSocket(DefaultTestConfig())
 	defer sock.Close()
 
-	sock.startWorkers(t.Context())
+	sock.startWorkers()
 
 	handler := inboundHandler{sock: sock}
 
@@ -672,6 +673,248 @@ func TestSocket_InboundHandler(t *testing.T) {
 			t.Error("OnNetClose did not publish DisconnectedEvent")
 		}
 	})
+}
+
+func TestSocket_ConnectErrors(t *testing.T) {
+	cfg := DefaultTestConfig()
+
+	sock := NewSocket(cfg)
+	defer sock.Close()
+
+	t.Run("Unsupported Type", func(t *testing.T) {
+		err := sock.Connect(CMServer{Type: "unknown"})
+		if !errors.Is(err, ErrUnsupportedType) {
+			t.Errorf("expected ErrUnsupportedType, got %v", err)
+		}
+	})
+
+	t.Run("Already Connected", func(t *testing.T) {
+		sock.setState(StateConnected)
+
+		err := sock.Connect(CMServer{Type: "tcp"})
+		if !errors.Is(err, ErrAlreadyConnected) {
+			t.Errorf("expected ErrAlreadyConnected, got %v", err)
+		}
+
+		sock.setState(StateDisconnected)
+	})
+
+	t.Run("Already Connecting", func(t *testing.T) {
+		sock.setState(StateConnecting)
+
+		err := sock.Connect(CMServer{Type: "tcp"})
+		if !errors.Is(err, ErrAlreadyConnecting) {
+			t.Errorf("expected ErrAlreadyConnecting, got %v", err)
+		}
+
+		sock.setState(StateDisconnected)
+	})
+}
+
+func TestSocket_DecompressionSafety(t *testing.T) {
+	sock := NewSocket(DefaultTestConfig())
+	defer sock.Close()
+
+	t.Run("Zip Bomb Protection", func(t *testing.T) {
+		multi := &pb.CMsgMulti{
+			SizeUnzipped: proto.Uint32(101 * 1024 * 1024),
+			MessageBody:  []byte("some data"),
+		}
+		data, _ := proto.Marshal(multi)
+		pkt := &protocol.Packet{EMsg: enums.EMsg_Multi, Payload: data}
+
+		sock.handleMulti(pkt)
+	})
+
+	t.Run("Corrupt Gzip Data", func(t *testing.T) {
+		multi := &pb.CMsgMulti{
+			SizeUnzipped: proto.Uint32(100),
+			MessageBody:  []byte("not a gzip"),
+		}
+		data, _ := proto.Marshal(multi)
+		pkt := &protocol.Packet{EMsg: enums.EMsg_Multi, Payload: data}
+		sock.handleMulti(pkt)
+	})
+}
+
+func TestSocket_SendSync_Timeout(t *testing.T) {
+	mockConn := newMockConnection()
+	cfg := DefaultTestConfig()
+	cfg.Dialers = map[string]ConnectionDialer{
+		"mock": func(ctx context.Context, nh network.Handler, l log.Logger, s string) (network.Connection, error) {
+			return mockConn, nil
+		},
+	}
+
+	sock := NewSocket(cfg)
+	defer sock.Close()
+
+	_ = sock.Connect(CMServer{Type: "mock"})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+
+	_, err := sock.SendSync(ctx, Raw(enums.EMsg_ClientLogon, []byte{1}))
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Errorf("expected context deadline exceeded, got %v", err)
+	}
+}
+
+func TestSocket_ChannelSaturation(t *testing.T) {
+	cfg := DefaultTestConfig()
+	cfg.EventChanSize = 1
+
+	sock := NewSocket(cfg)
+	defer sock.Close()
+
+	sock.msgCh <- &protocol.Packet{EMsg: enums.EMsg_ClientLogon}
+
+	sock.processSingle(bytes.NewReader(packProto(enums.EMsg_ClientLogon, 0, []byte{1})))
+
+	jobPkt := packProto(enums.EMsg_ClientLogon, 123, []byte{1})
+	go sock.processSingle(bytes.NewReader(jobPkt))
+
+	time.Sleep(10 * time.Millisecond)
+	<-sock.msgCh
+}
+
+func TestSocket_ReconnectLoop_MaxAttempts(t *testing.T) {
+	cfg := DefaultTestConfig()
+	cfg.ReconnectPolicy = ReconnectPolicy{
+		MaxAttempts:    2,
+		InitialBackoff: 1 * time.Millisecond,
+		MaxBackoff:     5 * time.Millisecond,
+		BackoffFactor:  1.1,
+		ServerSelector: func(s []CMServer) CMServer { return CMServer{Type: "fail"} },
+	}
+	cfg.Dialers = map[string]ConnectionDialer{
+		"fail": func(ctx context.Context, nh network.Handler, l log.Logger, s string) (network.Connection, error) {
+			return nil, errors.New("dial failed")
+		},
+	}
+
+	sock := NewSocket(cfg)
+	defer sock.Close()
+
+	sock.reconnectLoop()
+
+	if sock.State() != StateDisconnected {
+		t.Error("socket should be disconnected after failed reconnect loop")
+	}
+}
+
+func TestSocket_PanicRecovery(t *testing.T) {
+	sock := NewSocket(DefaultTestConfig())
+	defer sock.Close()
+
+	sock.RegisterMsgHandler(enums.EMsg_ClientLogon, func(p *protocol.Packet) {
+		panic("test panic")
+	})
+
+	sock.routePacket(&protocol.Packet{EMsg: enums.EMsg_ClientLogon})
+}
+
+func TestSocket_DestJobFailed(t *testing.T) {
+	sock := NewSocket(DefaultTestConfig())
+	defer sock.Close()
+
+	resCh := make(chan error, 1)
+	id := sock.jobManager.NextID()
+	_ = sock.jobManager.Add(id, func(p *protocol.Packet, err error) {
+		resCh <- err
+	})
+
+	failPkt := &protocol.Packet{
+		EMsg:   enums.EMsg_DestJobFailed,
+		Header: &protocol.MsgHdr{TargetJobID: id},
+	}
+
+	sock.handleJobResponse(failPkt)
+
+	err := <-resCh
+	if !errors.Is(err, ErrDestJobFailed) {
+		t.Errorf("expected ErrDestJobFailed, got %v", err)
+	}
+}
+
+func TestSocket_IsFatalNetworkError(t *testing.T) {
+	tests := []struct {
+		err      error
+		expected bool
+	}{
+		{syscall.ECONNRESET, true},
+		{syscall.EPIPE, true},
+		{syscall.ETIMEDOUT, true},
+		{errors.New("other"), false},
+		{nil, false},
+	}
+
+	for _, tt := range tests {
+		if isFatalNetworkError(tt.err) != tt.expected {
+			t.Errorf("isFatalNetworkError(%v) = %v, want %v", tt.err, !tt.expected, tt.expected)
+		}
+	}
+}
+
+func TestSocket_Heartbeat_EdgeCases(t *testing.T) {
+	sock := NewSocket(DefaultTestConfig())
+	defer sock.Close()
+
+	t.Run("Start without connection", func(t *testing.T) {
+		sock.StartHeartbeat(time.Second)
+
+		if sock.heartbeatActive.Load() {
+			t.Error("heartbeat should not be active without connection")
+		}
+	})
+
+	t.Run("Duplicate start", func(t *testing.T) {
+		sock.heartbeatActive.Store(true)
+		sock.StartHeartbeat(time.Second)
+	})
+}
+
+func TestRegisterHelper(t *testing.T) {
+	sock := NewSocket(DefaultTestConfig())
+	defer sock.Close()
+
+	called := false
+	Register[*pb.CMsgClientLogonResponse](sock, enums.EMsg_ClientLogOnResponse,
+		func() *pb.CMsgClientLogonResponse { return new(pb.CMsgClientLogonResponse) },
+		func(m *pb.CMsgClientLogonResponse) { called = true },
+	)
+
+	payload, _ := proto.Marshal(&pb.CMsgClientLogonResponse{Eresult: proto.Int32(1)})
+	sock.routePacket(&protocol.Packet{
+		EMsg:    enums.EMsg_ClientLogOnResponse,
+		Payload: payload,
+	})
+
+	if !called {
+		t.Error("Register helper handler was not called")
+	}
+}
+
+func TestSocket_SendErrors(t *testing.T) {
+	sock := NewSocket(DefaultTestConfig())
+
+	err := sock.Send(context.Background(), nil)
+	if !errors.Is(err, ErrClosed) {
+		t.Errorf("expected ErrClosed for nil session, got %v", err)
+	}
+
+	mockConn := newMockConnection()
+	sock.setSession(session.New(mockConn))
+	sock.setState(StateConnected)
+
+	builderErr := errors.New("build fail")
+
+	err = sock.Send(context.Background(), func(sess Session, buf *bytes.Buffer, id uint64, t string) error {
+		return builderErr
+	})
+	if !errors.Is(err, builderErr) {
+		t.Errorf("expected builder error, got %v", err)
+	}
 }
 
 type mockConn struct {

@@ -55,8 +55,8 @@ var (
 	ErrDestJobFailed = errors.New("socket: destination job failed on Steam side")
 )
 
-// Reader provides read-only access to the Steam session state.
-type Reader interface {
+// SessionView provides read-only access to the Steam session state.
+type SessionView interface {
 	// SteamID returns the 64-bit Steam ID assigned to the session.
 	SteamID() uint64
 	// SessionID returns the 32-bit session ID assigned by the CM.
@@ -71,14 +71,14 @@ type Reader interface {
 	IsAuthenticated() bool
 }
 
-// Writer provides message transmission capabilities.
-type Writer interface {
+// SessionWriter provides message transmission capabilities.
+type SessionWriter interface {
 	// Send writes the provided payload to the underlying network transport.
 	Send(ctx context.Context, data []byte) error
 }
 
-// Mutator provides write access to modify the session's internal state and lifecycle.
-type Mutator interface {
+// SessionController provides write access to modify the session's internal state and lifecycle.
+type SessionController interface {
 	// SetSteamID updates the session's Steam ID.
 	SetSteamID(uint64)
 	// SetSessionID updates the session's ID assigned by the CM.
@@ -99,9 +99,9 @@ type Mutator interface {
 // Session represents the complete lifecycle and state of a connection
 // to a Steam Connection Manager (CM).
 type Session interface {
-	Reader
-	Writer
-	Mutator
+	SessionView
+	SessionWriter
+	SessionController
 }
 
 // Handler defines a callback function for processing an incoming, fully-parsed Steam packet.
@@ -149,19 +149,51 @@ func Register[T proto.Message](s *Socket, emsg enums.EMsg, factory func() T, han
 	})
 }
 
+// ReconnectPolicy defines how to respond to network issues.
+type ReconnectPolicy struct {
+	MaxAttempts    int
+	InitialBackoff time.Duration
+	MaxBackoff     time.Duration
+	BackoffFactor  float64
+	ServerSelector func([]CMServer) CMServer // Round-robin / lowest load
+}
+
+// DefaultReconnectPolicy returns the recommended default configuration.
+func DefaultReconnectPolicy() ReconnectPolicy {
+	return ReconnectPolicy{
+		MaxAttempts:    10,
+		InitialBackoff: 1 * time.Second,
+		MaxBackoff:     30 * time.Second,
+		BackoffFactor:  2.0,
+		ServerSelector: func(servers []CMServer) CMServer {
+			if len(servers) == 0 {
+				return CMServer{}
+			}
+
+			return servers[0]
+		},
+	}
+}
+
 // Config holds configuration parameters for the Socket.
 type Config struct {
-	EventChanSize int                         // Buffer size for the internal message-passing channel.
-	WorkerCount   int                         // Number of parallel workers processing incoming packets.
-	Dialers       map[string]ConnectionDialer // Map of protocol names to dialer functions.
+	EventChanSize   int                         // Buffer size for the internal message-passing channel.
+	WorkerCount     int                         // Number of parallel workers processing incoming packets.
+	MaxJobs         int                         // Maximum concurrent jobs.
+	Dialers         map[string]ConnectionDialer // Map of protocol names to dialer functions.
+	ReconnectPolicy ReconnectPolicy
+	ConnectTimeout  time.Duration
 }
 
 // DefaultConfig returns the recommended default configuration.
 func DefaultConfig() Config {
 	return Config{
-		EventChanSize: 1000, // Increased to handle bursts of multi-messages
-		WorkerCount:   runtime.NumCPU(),
-		Dialers:       DefaultDialers(),
+		EventChanSize:   1000, // Increased to handle bursts of multi-messages
+		MaxJobs:         1000,
+		WorkerCount:     runtime.NumCPU(),
+		Dialers:         DefaultDialers(),
+		ReconnectPolicy: DefaultReconnectPolicy(),
+		ConnectTimeout:  30 * time.Second,
 	}
 }
 
@@ -169,6 +201,7 @@ func DefaultConfig() Config {
 type State int32
 
 const (
+	// StateDisconnected indicates the socket is in it's default not connected state.
 	StateDisconnected State = iota
 	// StateConnecting indicates the socket is in the process of connecting.
 	StateConnecting
@@ -223,8 +256,9 @@ type Socket struct {
 	jobManager *jobs.Manager[*protocol.Packet]
 	session    atomic.Pointer[sessionContainer]
 
-	connCtx    atomic.Value // Context tied to the active connection
-	connCancel atomic.Value // Cancels the active connection
+	ctx             atomic.Value // Context tied to the active connection
+	cancel          atomic.Value // Cancels the active connection
+	heartbeatActive atomic.Bool
 
 	// Message routing
 	handlersMu        sync.RWMutex
@@ -240,6 +274,10 @@ type Socket struct {
 	// Socket lifecycle
 	closeOnce sync.Once
 	done      chan struct{}
+
+	serversMu  sync.RWMutex
+	servers    []CMServer
+	lastServer CMServer
 }
 
 // NewSocket initializes a new Socket instance with the given config and options.
@@ -255,7 +293,7 @@ func NewSocket(cfg Config, opts ...Option) *Socket {
 	s := &Socket{
 		config:          cfg,
 		logger:          log.Discard,
-		jobManager:      jobs.NewManager[*protocol.Packet](1000),
+		jobManager:      jobs.NewManager[*protocol.Packet](cfg.MaxJobs),
 		done:            make(chan struct{}),
 		handlers:        make(map[enums.EMsg]Handler),
 		serviceHandlers: make(map[string]Handler),
@@ -279,6 +317,14 @@ func NewSocket(cfg Config, opts ...Option) *Socket {
 	s.RegisterMsgHandler(enums.EMsg_ServiceMethod, s.handleService)
 
 	return s
+}
+
+// UpdateServers updates the list of available CM servers.
+func (s *Socket) UpdateServers(servers []CMServer) {
+	s.serversMu.Lock()
+	defer s.serversMu.Unlock()
+
+	s.servers = servers
 }
 
 // IsConnected checks if current state is [StateConnected].
@@ -336,12 +382,19 @@ func (s *Socket) RegisterServiceHandler(method string, handler Handler) {
 }
 
 // Connect attempts to establish a connection to the provided CM server.
-// This is a non-blocking call that starts background processes. The connection
-// state can be monitored via the event bus or State().
-func (s *Socket) Connect(ctx context.Context, server CMServer) error {
-	if !s.canConnect() {
+// This is a non-blocking call that starts background processes.
+// The connection state can be monitored via the event bus or State().
+// Any existing connection will be closed before a new one is established.
+func (s *Socket) Connect(server CMServer) error {
+	if s.State() == StateConnected {
 		return ErrAlreadyConnected
 	}
+
+	if !s.state.CompareAndSwap(int32(StateDisconnected), int32(StateConnecting)) {
+		return ErrAlreadyConnecting
+	}
+
+	s.lastServer = server
 
 	dialer, ok := s.config.Dialers[server.Type]
 	if !ok {
@@ -352,10 +405,13 @@ func (s *Socket) Connect(ctx context.Context, server CMServer) error {
 	start := time.Now()
 
 	connCtx, connCancel := context.WithCancel(context.Background())
-	s.connCtx.Store(connCtx)
-	s.connCancel.Store(connCancel)
+	s.ctx.Store(connCtx)
+	s.cancel.Store(connCancel)
 
-	conn, err := dialer(connCtx, inboundHandler{sock: s}, s.logger, server.Endpoint)
+	dialCtx, dialCancel := context.WithTimeout(connCtx, s.config.ConnectTimeout)
+	defer dialCancel()
+
+	conn, err := dialer(dialCtx, inboundHandler{sock: s}, s.logger, server.Endpoint)
 	if err != nil {
 		s.setState(StateDisconnected)
 		return fmt.Errorf("socket: transport dial failed: %w", err)
@@ -369,22 +425,31 @@ func (s *Socket) Connect(ctx context.Context, server CMServer) error {
 	s.bus.Publish(&ConnectedEvent{Server: server.Endpoint})
 	s.logger.Info("Successfully connected", log.Duration("latency", time.Since(start)))
 
-	s.startWorkers(connCtx)
+	s.startWorkers()
 
 	return nil
 }
 
 // StartHeartbeat begins sending periodic heartbeat messages to keep the connection alive.
-// It runs in a background goroutine and stops automatically when the connection is closed.
+// It runs in a background goroutine and stops automatically when the connection is closed
+// or the context is cancelled. Only one heartbeat loop can be active at a time. Calling
+// this while a heartbeat is already running will result in no-op.
 func (s *Socket) StartHeartbeat(interval time.Duration) {
-	ctx := s.connCtx.Load().(context.Context)
+	if !s.heartbeatActive.CompareAndSwap(false, true) {
+		s.logger.Warn("Heartbeat already active, ignoring duplicate start")
+		return
+	}
 
-	if ctx == nil {
+	ctx, ok := s.ctx.Load().(context.Context)
+	if !ok || ctx == nil {
+		s.heartbeatActive.Store(false)
 		s.logger.Warn("StartHeartbeat called without an active connection")
 		return
 	}
 
 	s.workerWg.Go(func() {
+		defer s.heartbeatActive.Store(false)
+
 		s.logger.Debug("Heartbeat started", log.Duration("interval", interval))
 
 		ticker := time.NewTicker(interval)
@@ -422,8 +487,8 @@ func (s *Socket) ClearHandlers() {
 	s.serviceHandlersMu.Unlock()
 }
 
-// Disconnect gracefully closes the current active connection, waits for workers to finish,
-// and resets the session.
+// Disconnect gracefully closes the current active connection,
+// waits for workers to finish, and resets the session.
 func (s *Socket) Disconnect() {
 	if s.State() == StateDisconnected {
 		return
@@ -431,16 +496,19 @@ func (s *Socket) Disconnect() {
 
 	s.setState(StateDisconnecting)
 
-	if cancelFunc, ok := s.connCancel.Load().(context.CancelFunc); ok {
+	if cancelFunc, ok := s.cancel.Load().(context.CancelFunc); ok {
 		cancelFunc()
 	}
 
-	s.workerWg.Wait()
-	s.drainMsgChannel()
+	if sess := s.Session(); sess != nil {
+		_ = sess.Close()
+	}
 
+	s.drainMsgChannel()
 	s.setSession(nil)
-	s.bus.Publish(&DisconnectedEvent{})
 	s.setState(StateDisconnected)
+
+	s.bus.Publish(&DisconnectedEvent{})
 	s.logger.Info("Client disconnected")
 }
 
@@ -451,12 +519,39 @@ func (s *Socket) Close() error {
 	s.closeOnce.Do(func() {
 		s.ClearHandlers()
 		s.Disconnect()
-		close(s.done)     // Signal workers to stop
-		s.workerWg.Wait() // Wait for graceful shutdown
+		close(s.done)
+		s.workerWg.Wait()
 		err = s.jobManager.Close()
 	})
 
 	return err
+}
+
+func (s *Socket) getContext() context.Context {
+	ptr := s.ctx.Load()
+	if ptr == nil {
+		return context.Background()
+	}
+
+	return ptr.(context.Context)
+}
+
+func (s *Socket) setSession(sess Session) {
+	if sess == nil {
+		s.session.Store(nil)
+		return
+	}
+
+	s.session.Store(&sessionContainer{sess: sess})
+}
+
+func (s *Socket) setState(new State) State {
+	old := State(s.state.Swap(int32(new)))
+	if old != new {
+		s.bus.Publish(&StateEvent{Old: old, New: new})
+	}
+
+	return old
 }
 
 func (s *Socket) drainMsgChannel() {
@@ -471,72 +566,42 @@ func (s *Socket) drainMsgChannel() {
 	}
 }
 
-func (s *Socket) setState(new State) State {
-	old := State(s.state.Swap(int32(new)))
-	if old != new {
-		s.bus.Publish(&StateEvent{Old: old, New: new})
-	}
-
-	return old
-}
-
 func (s *Socket) recoverPanic(emsg enums.EMsg) {
 	if r := recover(); r != nil {
 		s.logger.Error("Socket recovered from panic", log.EMsg(emsg), log.Any("panic", r))
 	}
 }
 
-func (s *Socket) startWorkers(ctx context.Context) {
+func (s *Socket) startWorkers() {
 	for range s.config.WorkerCount {
-		s.workerWg.Add(1)
-
-		go s.worker(ctx)
+		s.workerWg.Go(s.worker)
 	}
 }
 
-// worker is the core of the concurrent processing model. It runs in a loop,
-// consuming packets from the message channel and passing them to the router.
-func (s *Socket) worker(ctx context.Context) {
-	defer s.workerWg.Done()
-
+func (s *Socket) worker() {
 	for {
 		select {
 		case pkt, ok := <-s.msgCh:
 			if !ok {
 				return
-			} // msgCh closed during socket Close()
+			}
 
 			s.routePacket(pkt)
 
-		case <-ctx.Done():
-			s.logger.Debug("Worker stopped due to disconnect")
-			return
 		case <-s.done:
-			s.logger.Debug("Worker stopped due to socket close")
 			return
 		}
 	}
 }
 
-func (s *Socket) canConnect() bool {
-	return s.state.CompareAndSwap(int32(StateDisconnected), int32(StateConnecting))
-}
-
-// routePacket is the central dispatcher for all incoming messages.
-// It prioritizes routing in the following order:
-// 1. Job Response: If the packet has a target Job ID, it's resolved.
-// 2. Registered Handler: If a handler for the packet's EMsg exists, it's invoked.
-// 3. Unhandled: Otherwise, the packet is logged as unhandled.
 func (s *Socket) routePacket(packet *protocol.Packet) {
 	l := s.logger.With(
 		log.EMsg(packet.EMsg),
 		log.JobID(packet.GetTargetJobID()),
 	)
 
-	// Update session state if authorized headers are present.
 	if ah, ok := packet.Header.(protocol.AuthorizedHeader); ok {
-		sess := s.Session()
-		if sess != nil {
+		if sess := s.Session(); sess != nil {
 			if steamID := ah.GetSteamID(); steamID != 0 {
 				sess.SetSteamID(steamID)
 			}
@@ -547,13 +612,11 @@ func (s *Socket) routePacket(packet *protocol.Packet) {
 		}
 	}
 
-	// Check if this is a response to an ongoing job.
 	if s.handleJobResponse(packet) {
 		l.Debug("Packet routed to job callback")
-		return // Packet consumed by job callback
+		return
 	}
 
-	// Route to registered generic handlers (including Multi and ServiceMethods).
 	s.handlersMu.RLock()
 	handler, ok := s.handlers[packet.EMsg]
 	s.handlersMu.RUnlock()
@@ -571,70 +634,102 @@ func (s *Socket) routePacket(packet *protocol.Packet) {
 }
 
 func (s *Socket) handleRemoteClose() {
-	if cancelFunc, ok := s.connCancel.Load().(context.CancelFunc); ok {
-		cancelFunc()
-	}
-
 	old := s.setState(StateDisconnected)
-	if old == StateDisconnecting {
-		s.bus.Publish(&DisconnectedEvent{})
-	} else {
-		s.bus.Publish(&DisconnectedEvent{Error: fmt.Errorf("%w: connection closed unexpectedly", ErrDisconnected)})
-	}
-}
-
-func (s *Socket) getContext() context.Context {
-	ptr := s.connCtx.Load()
-	if ptr == nil {
-		return context.Background()
-	}
-
-	return ptr.(context.Context)
-}
-
-func (s *Socket) setSession(sess Session) {
-	if sess == nil {
-		s.session.Store(nil)
+	if old == StateDisconnecting || old == StateDisconnected {
 		return
 	}
 
-	s.session.Store(&sessionContainer{sess: sess})
+	if cancelFunc, ok := s.cancel.Load().(context.CancelFunc); ok {
+		cancelFunc()
+	}
+
+	s.bus.Publish(&DisconnectedEvent{
+		Error: fmt.Errorf("%w: remote host closed connection", ErrDisconnected),
+	})
+
+	if s.config.ReconnectPolicy.MaxAttempts > 0 {
+		s.workerWg.Go(s.reconnectLoop)
+	}
+}
+
+func (s *Socket) reconnectLoop() {
+	policy := s.config.ReconnectPolicy
+	backoff := policy.InitialBackoff
+
+	s.logger.Info("Starting reconnection loop")
+
+	for attempt := 1; attempt <= policy.MaxAttempts; attempt++ {
+		select {
+		case <-s.done:
+			return
+		default:
+		}
+
+		s.serversMu.RLock()
+		targetServer := policy.ServerSelector(s.servers)
+		s.serversMu.RUnlock()
+
+		if targetServer.Endpoint == "" {
+			targetServer = s.lastServer
+		}
+
+		s.bus.Publish(&ReconnectAttemptEvent{
+			Attempt: attempt,
+			Delay:   backoff,
+		})
+
+		s.logger.Debug("Reconnection attempt",
+			log.Int("attempt", attempt),
+			log.Duration("delay", backoff),
+			log.String("endpoint", targetServer.Endpoint),
+		)
+
+		if err := s.Connect(targetServer); err == nil {
+			s.logger.Info("Successfully reconnected", log.Int("attempts", attempt))
+			return
+		}
+
+		timer := time.NewTimer(backoff)
+		select {
+		case <-timer.C:
+			backoff = min(time.Duration(float64(backoff)*policy.BackoffFactor), policy.MaxBackoff)
+		case <-s.done:
+			timer.Stop()
+			s.logger.Debug("Reconnection loop aborted: socket closed")
+			return
+		}
+	}
+
+	s.logger.Error("Reconnection failed after maximum attempts", log.Int("max_attempts", policy.MaxAttempts))
+	s.setState(StateDisconnected)
 }
 
 type sessionContainer struct {
 	sess Session
 }
 
-// inboundHandler acts as the adapter (or "bridge") between the low-level `network`
-// package and the higher-level `socket` logic. It implements [network.Handler].
 type inboundHandler struct {
 	sock *Socket
 }
 
-// OnNetMessage translates a raw network message into a logical packet and queues it for processing.
 func (h inboundHandler) OnNetMessage(msg network.NetMessage) {
 	h.sock.processSingle(bytes.NewReader(msg))
 }
 
-// OnNetError pushes a network-layer error onto the event bus.
 func (h inboundHandler) OnNetError(err error) {
 	h.sock.logger.Error("Network error", log.Err(err))
 	h.sock.bus.Publish(&NetworkErrorEvent{Error: err})
 }
 
-// OnNetClose triggers the socket's disconnect logic when the underlying connection is lost.
 func (h inboundHandler) OnNetClose() {
 	h.sock.handleRemoteClose()
 }
 
-// logged is a Decorator that wraps a Session to provide automatic
-// logging of network and lifecycle events, without modifying the core logic.
 type logged struct {
 	Session
 	logger log.Logger
 }
 
-// newLoggedSession wraps an existing session with logging capabilities.
 func newLoggedSession(s Session, l log.Logger) *logged {
 	return &logged{
 		Session: s,
@@ -642,7 +737,6 @@ func newLoggedSession(s Session, l log.Logger) *logged {
 	}
 }
 
-// Send intercepts the Send call to add debug logging.
 func (l *logged) Send(ctx context.Context, data []byte) error {
 	l.logger.Debug("Writing to socket",
 		log.Int("size_bytes", len(data)),
@@ -660,7 +754,6 @@ func (l *logged) Send(ctx context.Context, data []byte) error {
 	return err
 }
 
-// SetEncryptionKey intercepts the encryption setup to log the event.
 func (l *logged) SetEncryptionKey(key []byte) bool {
 	l.logger.Debug("Applying channel encryption key", log.Int("key_len", len(key)))
 
@@ -674,7 +767,6 @@ func (l *logged) SetEncryptionKey(key []byte) bool {
 	return false
 }
 
-// Close intercepts the Close call to add debug logging.
 func (l *logged) Close() error {
 	l.logger.Debug("Closing session connection",
 		log.Uint64("steam_id", l.SteamID()),

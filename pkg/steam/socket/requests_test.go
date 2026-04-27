@@ -100,7 +100,7 @@ func TestSocket_SendMethods(t *testing.T) {
 	sock := NewSocket(cfg)
 	defer sock.Close()
 
-	err := sock.Connect(t.Context(), CMServer{Type: "mock"})
+	err := sock.Connect(CMServer{Type: "mock"})
 	if err != nil {
 		t.Fatalf("Connect failed: %v", err)
 	}
@@ -177,7 +177,7 @@ func TestSocket_SendSync(t *testing.T) {
 	sock := NewSocket(cfg)
 	defer sock.Close()
 
-	_ = sock.Connect(t.Context(), CMServer{Type: "mock"})
+	_ = sock.Connect(CMServer{Type: "mock"})
 
 	jobIDChan := make(chan uint64, 1)
 
