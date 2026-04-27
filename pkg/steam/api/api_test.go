@@ -5,6 +5,8 @@
 package api
 
 import (
+	"bytes"
+	"encoding/binary"
 	"errors"
 	"net/url"
 	"testing"
@@ -282,5 +284,75 @@ func TestNewHttpRequest(t *testing.T) {
 
 	if target.HTTPMethod() != "POST" || target.HTTPPath() != "api" {
 		t.Errorf("NewHttpRequest created invalid target: %+v", target)
+	}
+}
+
+func TestUnmarshalProtobuf_WrongType(t *testing.T) {
+	err := UnmarshalProtobuf([]byte("{}"), "not a proto message")
+	if err == nil {
+		t.Error("expected error for non-proto target")
+	}
+}
+
+func TestUnmarshalVDFText_Invalid(t *testing.T) {
+	err := UnmarshalVDFText([]byte("invalid vdf {"), &struct{}{})
+	if err == nil {
+		t.Error("expected error for invalid VDF text")
+	}
+}
+
+func TestOptions_NonCompatibleTarget(t *testing.T) {
+	req := NewHttpRequest("GET", "http://a.b", nil)
+
+	WithVersion(2)(req, &CallConfig{})
+	WithHTTPMethod("POST")(req, &CallConfig{})
+}
+
+func TestUnmarshalResponse_BinaryKV(t *testing.T) {
+	buf := new(bytes.Buffer)
+	buf.WriteByte(kvTypeNone)
+	encodeCString(buf, "data")
+	buf.WriteByte(kvTypeInt32)
+	encodeCString(buf, "id")
+	binary.Write(buf, binary.LittleEndian, int32(123))
+	buf.WriteByte(kvTypeEnd)
+	buf.WriteByte(kvTypeEnd)
+
+	var target struct {
+		Data struct {
+			ID int `mapstructure:"id"`
+		} `mapstructure:"data"`
+	}
+
+	err := UnmarshalResponse(buf.Bytes(), &target, FormatBinaryKV)
+	if err != nil {
+		t.Fatalf("BinaryKV unmarshal failed: %v", err)
+	}
+
+	if target.Data.ID != 123 {
+		t.Errorf("expected 123, got %d", target.Data.ID)
+	}
+}
+
+func TestConvertToSliceIfNeeded_NotAllNumeric(t *testing.T) {
+	obj := map[string]any{
+		"0": "a",
+		"2": "b",
+	}
+
+	res := convertToSliceIfNeeded(obj)
+	if _, ok := res.(map[string]any); !ok {
+		t.Error("expected map, got slice (gaps in indices should prevent slice conversion)")
+	}
+}
+
+func TestReadWideString_ZeroTerminator(t *testing.T) {
+	p := &bvdfParser{
+		data: []byte{0x61, 0x00, 0x00, 0x00}, // 'a' + null terminator
+	}
+
+	str, err := p.readWideString()
+	if err != nil || str != "a" {
+		t.Errorf("expected 'a', got %s (err: %v)", str, err)
 	}
 }

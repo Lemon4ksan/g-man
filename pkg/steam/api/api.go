@@ -40,6 +40,8 @@ const (
 	FormatJSON
 	// FormatVDF parses KeyValues/VDF text format.
 	FormatVDF
+	// FormatBinaryKV parses Binary KeyValues, which is a Valve-proprietary format
+	FormatBinaryKV
 )
 
 // CallConfig holds internal configuration for an API call.
@@ -162,6 +164,8 @@ func UnmarshalResponse(data []byte, target any, format ResponseFormat) error {
 		return UnmarshalJSON(data, target)
 	case FormatVDF:
 		return UnmarshalVDFText(data, target)
+	case FormatBinaryKV:
+		return UnmarshalBinaryKV(data, target)
 	default:
 		return fmt.Errorf("api: unsupported format %v", format)
 	}
@@ -221,4 +225,32 @@ func UnmarshalVDFText(data []byte, target any) error {
 	}
 
 	return decoder.Decode(m)
+}
+
+// UnmarshalBinaryKV parses a byte array in Binary KeyValues ​​format into map[string]any.
+func UnmarshalBinaryKV(data []byte, target any) error {
+	p := &bvdfParser{data: data, offset: 0}
+
+	res, err := p.parse()
+	if err != nil {
+		return err
+	}
+
+	parsed, ok := res.(map[string]any)
+	if !ok {
+		return errors.New("api: root of binary vdf is not an object")
+	}
+
+	config := &mapstructure.DecoderConfig{
+		WeaklyTypedInput: true,
+		Result:           target,
+		Squash:           true,
+	}
+
+	decoder, err := mapstructure.NewDecoder(config)
+	if err != nil {
+		return err
+	}
+
+	return decoder.Decode(parsed)
 }

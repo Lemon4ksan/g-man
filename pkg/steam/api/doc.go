@@ -14,8 +14,6 @@ handling Steam's inconsistent response formats and parameter requirements.
     object. This package automatically detects and unwraps it during decoding.
   - Functional Options: A flexible API for building requests using [WithHTTPMethod],
     [WithVersion], and custom headers.
-  - Parameter Marshalling: Automatically converts Go structs into URL-encoded query
-    parameters via reflect-based tags.
 
 # Response Unwrapping
 
@@ -45,7 +43,7 @@ the result into a Go struct:
 	req := tr.NewRequest(target, nil)
 
 	// Configure and execute (pseudo-code)
-	err := client.Do(req, target,
+	err := client.Do(req,
 		api.WithQueryParam("steamids", "76561198..."),
 		api.WithFormat(api.FormatJSON),
 	)
