@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"sync/atomic"
@@ -55,26 +56,153 @@ func NewProxyClient(cfg ProxyConfig) (*http.Client, error) {
 	}, nil
 }
 
+// ProxyRotatorConfig defines proxy health checking parameters.
+type ProxyRotatorConfig struct {
+	MaxFails   uint32        // How many errors in a row are allowed before shutdown (for example, 3)
+	RetryAfter time.Duration // The time for which the proxy is excluded from the list (for example, 1 minute)
+}
+
+type trackedClient struct {
+	client      HTTPDoer
+	failCount   atomic.Uint32
+	unhealthy   atomic.Bool
+	recoveredAt atomic.Int64
+}
+
 // ProxyRotator allows distributing requests between multiple proxies.
 // Implements the HTTPDoer interface, so it can be passed to [NewClient].
 type ProxyRotator struct {
-	clients []HTTPDoer
+	clients []*trackedClient
+	config  ProxyRotatorConfig
 	current atomic.Uint64
 }
 
 // NewProxyRotator initializes the rotator (Round-Robin).
-func NewProxyRotator(clients ...HTTPDoer) (*ProxyRotator, error) {
+func NewProxyRotator(config ProxyRotatorConfig, clients ...HTTPDoer) (*ProxyRotator, error) {
 	if len(clients) == 0 {
 		return nil, errors.New("rest: proxy rotator requires at least one client")
 	}
 
+	if config.MaxFails == 0 {
+		config.MaxFails = 3
+	}
+
+	if config.RetryAfter == 0 {
+		config.RetryAfter = 30 * time.Second
+	}
+
+	tracked := make([]*trackedClient, len(clients))
+	for i, c := range clients {
+		tracked[i] = &trackedClient{client: c}
+	}
+
 	return &ProxyRotator{
-		clients: clients,
+		clients: tracked,
+		config:  config,
 	}, nil
 }
 
 // Do executes an HTTP request using the next available client in the rotation (Round-Robin).
 func (r *ProxyRotator) Do(req *http.Request) (*http.Response, error) {
-	idx := r.current.Add(1) % uint64(len(r.clients))
-	return r.clients[idx].Do(req)
+	var lastErr error
+
+	n := uint64(len(r.clients))
+
+	for range n {
+		idx := r.current.Add(1) % n
+		tc := r.clients[idx]
+
+		if !r.isAvailable(tc) {
+			continue
+		}
+
+		resp, err := tc.client.Do(req)
+
+		if r.isProxyFault(resp, err) {
+			r.markFailed(tc)
+
+			lastErr = err
+			if err == nil && resp != nil {
+				resp.Body.Close()
+				lastErr = fmt.Errorf("rest: proxy returned status %d", resp.StatusCode)
+			}
+
+			continue // Ретрай с другим прокси
+		}
+
+		// Если это не ошибка прокси (т.е. успех или логическая ошибка сервера вроде 404)
+		r.markSuccess(tc)
+
+		return resp, err
+	}
+
+	if lastErr != nil {
+		return nil, fmt.Errorf("rest: all proxies failed, last error: %w", lastErr)
+	}
+
+	return nil, errors.New("rest: no healthy proxies available")
+}
+
+// isAvailable проверяет, можно ли использовать прокси сейчас.
+func (r *ProxyRotator) isAvailable(tc *trackedClient) bool {
+	if !tc.unhealthy.Load() {
+		return true
+	}
+
+	// Если прокси "болен", проверяем, не пора ли дать ему шанс (cooldown)
+	if time.Now().UnixNano() >= tc.recoveredAt.Load() {
+		return true
+	}
+
+	return false
+}
+
+func (r *ProxyRotator) markFailed(tc *trackedClient) {
+	fails := tc.failCount.Add(1)
+	if fails >= r.config.MaxFails {
+		tc.unhealthy.Store(true)
+		// Устанавливаем время восстановления
+		recoveryTime := time.Now().Add(r.config.RetryAfter).UnixNano()
+		tc.recoveredAt.Store(recoveryTime)
+	}
+}
+
+func (r *ProxyRotator) markSuccess(tc *trackedClient) {
+	tc.failCount.Store(0)
+	tc.unhealthy.Store(false)
+}
+
+func (r *ProxyRotator) isProxyFault(resp *http.Response, err error) bool {
+	// 1. Сетевые ошибки (тайм-аут, разрыв соединения, отказ прокси)
+	if err != nil {
+		var netErr net.Error
+		if errors.As(err, &netErr) {
+			return true // Любая сетевая ошибка на этапе проксирования — вина прокси
+		}
+
+		return true // По умолчанию считаем сетевые ошибки проблемами канала
+	}
+
+	if resp != nil {
+		// 2. Ошибка авторизации прокси (из вашего APIError логики)
+		if resp.StatusCode == http.StatusProxyAuthRequired { // 407
+			return true
+		}
+
+		// 3. Бан по IP или слишком много запросов
+		// В контексте ботов 429 — это сигнал сменить прокси.
+		if resp.StatusCode == http.StatusTooManyRequests { // 429
+			return true
+		}
+
+		// 4. Ошибки шлюза (часто возвращаются самими прокси-серверами,
+		// когда они не могут достучаться до Steam)
+		if resp.StatusCode == http.StatusBadGateway ||
+			resp.StatusCode == http.StatusGatewayTimeout ||
+			resp.StatusCode == http.StatusServiceUnavailable {
+			return true
+		}
+	}
+
+	return false
 }
