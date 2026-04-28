@@ -32,9 +32,7 @@ func GenerateAuthCode(sharedSecret string, timestamp int64) (string, error) {
 	binary.BigEndian.PutUint64(buf, t)
 
 	mac := hmac.New(sha1.New, secret)
-	if _, err := mac.Write(buf); err != nil {
-		return "", err
-	}
+	_, _ = mac.Write(buf)
 
 	sum := mac.Sum(nil)
 

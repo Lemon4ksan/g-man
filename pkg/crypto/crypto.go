@@ -6,7 +6,6 @@ package crypto
 
 import (
 	"bytes"
-	"crypto"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/hmac"
@@ -29,44 +28,7 @@ var pubKeySystem *rsa.PublicKey
 var systemPem []byte
 
 func init() {
-	// Read and parse the PEM file (expected to be in the same directory)
-	block, _ := pem.Decode(systemPem)
-	if block == nil || block.Type != "PUBLIC KEY" {
-		panic("failed to decode PEM block containing public key")
-	}
-
-	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
-	if err != nil {
-		panic(fmt.Errorf("failed to parse public key: %w", err))
-	}
-
-	var ok bool
-
-	pubKeySystem, ok = pub.(*rsa.PublicKey)
-	if !ok {
-		panic("public key is not RSA")
-	}
-}
-
-// VerifySignature verifies an RSA signature using the system public key.
-// Steam uses RSA-SHA1 for many legacy verification tasks.
-func VerifySignature(data, sig []byte, algorithm string) (bool, error) {
-	var hash []byte
-
-	switch algorithm {
-	case "RSA-SHA1", "":
-		h := sha1.Sum(data)
-		hash = h[:]
-	default:
-		return false, fmt.Errorf("unsupported algorithm: %s", algorithm)
-	}
-
-	err := rsa.VerifyPKCS1v15(pubKeySystem, crypto.SHA1, hash, sig)
-	if err != nil {
-		return false, err
-	}
-
-	return true, nil
+	mustParsePublicKey(systemPem)
 }
 
 // GenerateSessionKey creates a 32-byte random session key, optionally appends a nonce,
@@ -102,10 +64,7 @@ func SymmetricEncrypt(input, key, iv []byte) ([]byte, error) {
 		return nil, errors.New("key must be 32 bytes for AES-256")
 	}
 
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
+	block, _ := aes.NewCipher(key)
 
 	if iv == nil {
 		iv = make([]byte, aes.BlockSize)
@@ -171,10 +130,7 @@ func SymmetricDecrypt(input, key []byte, checkHmac bool) ([]byte, error) {
 		return nil, errors.New("input too short")
 	}
 
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
+	block, _ := aes.NewCipher(key)
 
 	// Decrypt first 16 bytes (encrypted IV) with ECB (no padding)
 	encIV := input[:aes.BlockSize]
@@ -198,11 +154,6 @@ func SymmetricDecrypt(input, key []byte, checkHmac bool) ([]byte, error) {
 	}
 
 	if checkHmac {
-		// IV structure: first 13 bytes = partial HMAC, last 3 bytes = random
-		if len(iv) != 16 {
-			return nil, errors.New("invalid IV length")
-		}
-
 		partialHmac := iv[:13]
 		random := iv[13:]
 
@@ -230,10 +181,7 @@ func SymmetricDecryptECB(input, key []byte) ([]byte, error) {
 		return nil, errors.New("input length is not a multiple of block size")
 	}
 
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
+	block, _ := aes.NewCipher(key)
 
 	// ECB mode: decrypt block by block
 	plaintext := make([]byte, len(input))
@@ -243,18 +191,6 @@ func SymmetricDecryptECB(input, key []byte) ([]byte, error) {
 
 	// Remove PKCS7 padding
 	return pkcs7Unpad(plaintext, aes.BlockSize)
-}
-
-// GenerateRandomMachineID creates a completely random device ID.
-func GenerateRandomMachineID() []byte {
-	randStr := func() string {
-		b := make([]byte, 16)
-		rand.Read(b)
-
-		return hex.EncodeToString(b)
-	}
-
-	return CreateVDFMachineID(randStr(), randStr(), randStr())
 }
 
 // GenerateAccountMachineID creates a deterministic ID based on the account name.
@@ -340,4 +276,18 @@ func pkcs7Unpad(data []byte, blockSize int) ([]byte, error) {
 	}
 
 	return data[:len(data)-padding], nil
+}
+
+func mustParsePublicKey(data []byte) {
+	block, _ := pem.Decode(data)
+	if block == nil || block.Type != "PUBLIC KEY" {
+		panic("failed to decode PEM block containing public key")
+	}
+
+	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		panic(fmt.Errorf("failed to parse public key: %w", err))
+	}
+
+	pubKeySystem = pub.(*rsa.PublicKey)
 }
