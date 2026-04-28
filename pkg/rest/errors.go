@@ -18,9 +18,5 @@ type APIError struct {
 }
 
 func (e *APIError) Error() string {
-	if len(e.Body) > 0 {
-		return fmt.Sprintf("rest: status %d, body: %s", e.StatusCode, string(e.Body))
-	}
-
-	return fmt.Sprintf("rest: unexpected status code %d", e.StatusCode)
+	return fmt.Sprintf("rest: status %d", e.StatusCode)
 }

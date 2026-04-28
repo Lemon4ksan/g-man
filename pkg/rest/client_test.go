@@ -7,6 +7,7 @@ package rest
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -165,7 +166,16 @@ func TestClient_ErrorStatus(t *testing.T) {
 		t.Fatal("expected error on 404 status code, got nil")
 	}
 
-	if !contains(err.Error(), "not found") {
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) {
+		t.Errorf("expected APIError, got %v", err)
+	}
+
+	if !contains(string(apiErr.Body), "not found") {
+		t.Errorf("unexpected error message: %v", err)
+	}
+
+	if !contains(apiErr.Error(), "404") {
 		t.Errorf("unexpected error message: %v", err)
 	}
 }

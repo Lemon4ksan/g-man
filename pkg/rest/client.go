@@ -2,26 +2,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package rest provides a generic, boilerplate-free HTTP client for RESTful services.
-// It leverages Go generics to handle JSON encoding/decoding and supports a flexible
-// "RequestModifier" pattern for per-request customization (headers, cookies, etc.).
-//
-// Example:
-//
-//	type SearchParams struct {
-//		SearchText string `url:"filter"`
-//		Limit      int    `url:"count,omitempty"`
-//		Strict     bool   `url:"strict"`
-//	}
-//
-//	params := SearchParams{SearchText: "G-Man", Strict: true}
-//	values, err := rest.StructToValues(params)
-//	// values now contains: filter=G-Man&strict=true
-//
-//	type User struct { ID int; Name string }
-//	client := rest.NewClient(nil, "https://api.example.com")
-//
-//	user, err := rest.GetJSON[User](ctx, client, "/users/1", params)
 package rest
 
 import (
@@ -76,18 +56,34 @@ func NewClient(httpClient HTTPDoer) *Client {
 
 	return &Client{
 		http:    httpClient,
+		baseURL: &url.URL{},
 		headers: make(http.Header),
 	}
 }
 
 // WithBaseURL returns a new Client instance with the specified base URL.
-// It trims trailing slashes to ensure consistent path joining.
+// It ensures the base URL has exactly one trailing slash to make
+// url.ResolveReference work correctly with relative paths.
 func (c *Client) WithBaseURL(raw string) *Client {
-	newClient := *c
-	baseURL, _ := url.Parse(strings.TrimRight(raw, "/"))
-	newClient.baseURL = baseURL
+	if raw == "" {
+		return &Client{
+			http:    c.http,
+			baseURL: &url.URL{},
+			headers: c.headers.Clone(),
+		}
+	}
 
-	return &newClient
+	if !strings.HasSuffix(raw, "/") {
+		raw += "/"
+	}
+
+	baseURL, _ := url.Parse(raw)
+
+	return &Client{
+		http:    c.http,
+		baseURL: baseURL,
+		headers: c.headers.Clone(),
+	}
 }
 
 // WithHeader returns a new Client instance with an additional default header.
@@ -143,10 +139,8 @@ func (c *Client) Request(
 		return nil, fmt.Errorf("rest: failed to create request: %w", err)
 	}
 
-	// Apply default client headers
 	maps.Copy(req.Header, c.headers)
 
-	// Apply request-specific modifiers
 	for _, mod := range mods {
 		mod(req)
 	}
@@ -221,7 +215,6 @@ func PostJSON[Req, Resp any](
 func handleJSONResponse(resp *http.Response, target any) error {
 	defer resp.Body.Close()
 
-	// Validate status code
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		bodyBytes, _ := io.ReadAll(resp.Body)
 		return &APIError{StatusCode: resp.StatusCode, Body: bodyBytes}

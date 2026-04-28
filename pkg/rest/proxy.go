@@ -102,7 +102,7 @@ func NewProxyRotator(config ProxyRotatorConfig, clients ...HTTPDoer) (*ProxyRota
 	}, nil
 }
 
-// Do executes an HTTP request using the next available client in the rotation (Round-Robin).
+// Do performs an HTTP request using the next available client in the rotation (Round-Robin).
 func (r *ProxyRotator) Do(req *http.Request) (*http.Response, error) {
 	var lastErr error
 
@@ -123,14 +123,13 @@ func (r *ProxyRotator) Do(req *http.Request) (*http.Response, error) {
 
 			lastErr = err
 			if err == nil && resp != nil {
-				resp.Body.Close()
+				_ = resp.Body.Close()
 				lastErr = fmt.Errorf("rest: proxy returned status %d", resp.StatusCode)
 			}
 
-			continue // Ретрай с другим прокси
+			continue
 		}
 
-		// Если это не ошибка прокси (т.е. успех или логическая ошибка сервера вроде 404)
 		r.markSuccess(tc)
 
 		return resp, err
@@ -143,13 +142,11 @@ func (r *ProxyRotator) Do(req *http.Request) (*http.Response, error) {
 	return nil, errors.New("rest: no healthy proxies available")
 }
 
-// isAvailable проверяет, можно ли использовать прокси сейчас.
 func (r *ProxyRotator) isAvailable(tc *trackedClient) bool {
 	if !tc.unhealthy.Load() {
 		return true
 	}
 
-	// Если прокси "болен", проверяем, не пора ли дать ему шанс (cooldown)
 	if time.Now().UnixNano() >= tc.recoveredAt.Load() {
 		return true
 	}
@@ -173,30 +170,24 @@ func (r *ProxyRotator) markSuccess(tc *trackedClient) {
 }
 
 func (r *ProxyRotator) isProxyFault(resp *http.Response, err error) bool {
-	// 1. Сетевые ошибки (тайм-аут, разрыв соединения, отказ прокси)
 	if err != nil {
 		var netErr net.Error
 		if errors.As(err, &netErr) {
-			return true // Любая сетевая ошибка на этапе проксирования — вина прокси
+			return true
 		}
 
-		return true // По умолчанию считаем сетевые ошибки проблемами канала
+		return true
 	}
 
 	if resp != nil {
-		// 2. Ошибка авторизации прокси (из вашего APIError логики)
 		if resp.StatusCode == http.StatusProxyAuthRequired { // 407
 			return true
 		}
 
-		// 3. Бан по IP или слишком много запросов
-		// В контексте ботов 429 — это сигнал сменить прокси.
 		if resp.StatusCode == http.StatusTooManyRequests { // 429
 			return true
 		}
 
-		// 4. Ошибки шлюза (часто возвращаются самими прокси-серверами,
-		// когда они не могут достучаться до Steam)
 		if resp.StatusCode == http.StatusBadGateway ||
 			resp.StatusCode == http.StatusGatewayTimeout ||
 			resp.StatusCode == http.StatusServiceUnavailable {

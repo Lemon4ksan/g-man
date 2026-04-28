@@ -257,7 +257,7 @@ func TestProxyRotator_RetryOnProxyError(t *testing.T) {
 
 	req, _ = http.NewRequest("GET", "http://steam", nil)
 
-	resp, err = rotator.Do(req)
+	_, err = rotator.Do(req)
 	if err != nil {
 		t.Fatalf("expected success after rotation, got %v", err)
 	}
