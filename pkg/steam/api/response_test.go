@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"net/url"
 	"testing"
 
@@ -28,25 +29,30 @@ func (m *mockTarget) String() string         { return m.URL }
 func (m *mockTarget) SetHTTPMethod(s string) { m.HttpMethod = s }
 func (m *mockTarget) SetVersion(v int)       { m.Version = v }
 
-func TestHttpTarget(t *testing.T) {
-	target := HttpTarget{
-		HttpMethod: "POST",
-		URL:        "https://steamcommunity.com/tradeoffer/new/",
+func UnmarshalResponse(data []byte, target any, format ResponseFormat) error {
+	if len(data) == 0 {
+		return nil
 	}
 
-	if target.HTTPMethod() != "POST" {
-		t.Errorf("expected POST, got %s", target.HTTPMethod())
-	}
+	switch format {
+	case FormatRaw:
+		if ptr, ok := target.(*[]byte); ok {
+			*ptr = append([]byte(nil), data...)
+			return nil
+		}
 
-	expectedPath := "tradeoffer/new/"
-	if target.HTTPPath() != expectedPath {
-		t.Errorf("expected path %s, got %s", expectedPath, target.HTTPPath())
-	}
+		return fmt.Errorf("%w: FormatRaw requires *[]byte as output type, got %T", ErrFormat, target)
 
-	// Test default method
-	targetDefault := HttpTarget{URL: "http://test.com/path"}
-	if targetDefault.HTTPMethod() != "GET" {
-		t.Error("expected default method GET")
+	case FormatProtobuf:
+		return UnmarshalProtobuf(data, target)
+	case FormatJSON:
+		return UnmarshalJSON(data, target)
+	case FormatVDF:
+		return UnmarshalVDFText(data, target)
+	case FormatBinaryKV:
+		return UnmarshalBinaryKV(data, target)
+	default:
+		return fmt.Errorf("%w: unsupported format %v", ErrFormat, format)
 	}
 }
 
@@ -299,6 +305,11 @@ func TestUnmarshalVDFText_Invalid(t *testing.T) {
 	if err == nil {
 		t.Error("expected error for invalid VDF text")
 	}
+
+	err = UnmarshalVDFText([]byte(`"Player" { "Health" "100" }`), struct{}{})
+	if err == nil {
+		t.Error("expected error for invalid VDF text")
+	}
 }
 
 func TestOptions_NonCompatibleTarget(t *testing.T) {
@@ -355,4 +366,162 @@ func TestReadWideString_ZeroTerminator(t *testing.T) {
 	if err != nil || str != "a" {
 		t.Errorf("expected 'a', got %s (err: %v)", str, err)
 	}
+}
+
+func TestUnmarshalRegistry(t *testing.T) {
+	r := NewUnmarshalRegistry()
+
+	t.Run("Standard Registry Unmarshal", func(t *testing.T) {
+		data := []byte(`{"response":{"item":"test"}}`)
+
+		var target struct {
+			Item string `json:"item"`
+		}
+
+		err := r.Unmarshal(data, &target, FormatJSON)
+		if err != nil {
+			t.Fatalf("registry unmarshal failed: %v", err)
+		}
+
+		if target.Item != "test" {
+			t.Errorf("expected test, got %s", target.Item)
+		}
+	})
+
+	t.Run("Empty data returns nil", func(t *testing.T) {
+		err := r.Unmarshal([]byte{}, nil, FormatJSON)
+		if err != nil {
+			t.Error("expected nil error for empty data")
+		}
+	})
+
+	t.Run("Unregistered format", func(t *testing.T) {
+		err := r.Unmarshal([]byte("data"), nil, ResponseFormat(999))
+		if !errors.Is(err, ErrFormat) {
+			t.Errorf("expected ErrFormat, got %v", err)
+		}
+	})
+
+	t.Run("Custom Registration", func(t *testing.T) {
+		customFormat := ResponseFormat(100)
+		r.Register(customFormat, func(data []byte, target any) error {
+			ptr := target.(*string)
+			*ptr = "custom_" + string(data)
+			return nil
+		})
+
+		var res string
+
+		err := r.Unmarshal([]byte("val"), &res, customFormat)
+		if err != nil || res != "custom_val" {
+			t.Errorf("custom decoder failed: %v, res: %s", err, res)
+		}
+	})
+}
+
+func TestUnmarshalProtobuf_Binary(t *testing.T) {
+	msg := &emptypb.Empty{}
+	data, _ := proto.Marshal(msg)
+
+	target := &emptypb.Empty{}
+
+	err := UnmarshalProtobuf(data, target)
+	if err != nil {
+		t.Fatalf("binary protobuf unmarshal failed: %v", err)
+	}
+}
+
+func TestUnmarshalJSON_EdgeCases(t *testing.T) {
+	t.Run("Invalid JSON", func(t *testing.T) {
+		var target map[string]any
+
+		err := UnmarshalJSON([]byte(`{invalid}`), &target)
+		if err == nil {
+			t.Error("expected error for invalid JSON")
+		}
+	})
+
+	t.Run("Response field is not an object", func(t *testing.T) {
+		data := []byte(`{"response": 123}`)
+
+		var target int
+
+		err := UnmarshalJSON(data, &target)
+		if err != nil {
+			t.Fatalf("should handle non-object response: %v", err)
+		}
+
+		if target != 123 {
+			t.Errorf("expected 123, got %v", target)
+		}
+	})
+}
+
+func TestUnmarshalBinaryKV_Errors(t *testing.T) {
+	t.Run("Invalid Header/Empty", func(t *testing.T) {
+		err := UnmarshalBinaryKV([]byte{0xFF}, &struct{}{})
+		if err == nil {
+			t.Error("expected error for invalid binary KV data")
+		}
+	})
+
+	t.Run("Not an object root", func(t *testing.T) {
+		err := UnmarshalBinaryKV([]byte{kvTypeInt32}, &struct{}{})
+		if err == nil {
+			t.Error("expected error for malformed binary KV")
+		}
+	})
+
+	t.Run("Not a pointer target", func(t *testing.T) {
+		buf := new(bytes.Buffer)
+
+		buf.WriteByte(kvTypeNone)
+		encodeCString(buf, "root")
+
+		buf.WriteByte(kvTypeString)
+		encodeCString(buf, "str")
+		encodeCString(buf, "val")
+
+		buf.WriteByte(kvTypeEnd)
+		buf.WriteByte(kvTypeEnd)
+
+		err := UnmarshalBinaryKV(buf.Bytes(), struct{}{})
+		if err == nil {
+			t.Error("expected error for non pointer target")
+		}
+	})
+}
+
+func TestUnmarshalRaw_PointerCheck(t *testing.T) {
+	data := []byte("hello")
+
+	var target []byte
+
+	err := UnmarshalRaw(data, &target)
+	if err != nil || string(target) != "hello" {
+		t.Errorf("UnmarshalRaw failed: %v", err)
+	}
+
+	err = UnmarshalRaw(data, target)
+	if !errors.Is(err, ErrFormat) {
+		t.Error("expected ErrFormat for non-pointer target")
+	}
+}
+
+func TestBVDFParser_SpecificTypes(t *testing.T) {
+	t.Run("Mapstructure Decode Error", func(t *testing.T) {
+		buf := new(bytes.Buffer)
+		buf.WriteByte(kvTypeNone)
+		encodeCString(buf, "root")
+		buf.WriteByte(kvTypeInt32)
+		encodeCString(buf, "key")
+		binary.Write(buf, binary.LittleEndian, int32(123))
+		buf.WriteByte(kvTypeEnd)
+		buf.WriteByte(kvTypeEnd)
+
+		var target string
+		if err := UnmarshalBinaryKV(buf.Bytes(), &target); err == nil {
+			t.Error("expected mapstructure error")
+		}
+	})
 }

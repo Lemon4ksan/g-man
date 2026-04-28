@@ -7,6 +7,7 @@ package api
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"reflect"
 	"testing"
 )
@@ -155,7 +156,7 @@ func TestBVDFParser_RootNotObject(t *testing.T) {
 	err := UnmarshalBinaryKV(buf.Bytes(), &target)
 	if err == nil {
 		t.Error("expected error because root is a slice (due to key '0'), but got nil")
-	} else if err.Error() != "api: root of binary vdf is not an object" {
+	} else if !errors.Is(err, ErrFormat) {
 		t.Errorf("unexpected error message: %v", err)
 	}
 }
@@ -267,14 +268,25 @@ func TestUnmarshalResponse_FormatRaw_Error(t *testing.T) {
 	}
 }
 
-func TestConvertToSliceIfNeeded_Gaps(t *testing.T) {
-	obj := map[string]any{
-		"0": "first",
-		"2": "third",
-	}
+func TestConvertToSliceIfNeeded(t *testing.T) {
+	t.Run("Gaps", func(t *testing.T) {
+		obj := map[string]any{
+			"0": "first",
+			"2": "third",
+		}
 
-	res := convertToSliceIfNeeded(obj)
-	if _, ok := res.(map[string]any); !ok {
-		t.Errorf("expected map due to index gap, got %T", res)
-	}
+		res := convertToSliceIfNeeded(obj)
+		if _, ok := res.(map[string]any); !ok {
+			t.Errorf("expected map due to index gap, got %T", res)
+		}
+	})
+
+	t.Run("Empty", func(t *testing.T) {
+		obj := map[string]any{}
+
+		res := convertToSliceIfNeeded(obj)
+		if _, ok := res.(map[string]any); !ok {
+			t.Errorf("expected map due to index empty, got %T", res)
+		}
+	})
 }

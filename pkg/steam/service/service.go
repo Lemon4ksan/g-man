@@ -42,11 +42,15 @@ type Client struct {
 	transport   tr.Transport
 	apiKey      string
 	accessToken string
+	registry    *api.UnmarshalRegistry
 }
 
 // New initializes a new Service Client.
 func New(tr tr.Transport) *Client {
-	return &Client{transport: tr}
+	return &Client{
+		transport: tr,
+		registry:  api.NewUnmarshalRegistry(),
+	}
 }
 
 // WithAPIKey returns a copy of the client with the WebAPI key (v000x style) for subsequent requests.
@@ -63,6 +67,18 @@ func (c *Client) WithAccessToken(token string) *Client {
 	clone.accessToken = token
 
 	return &clone
+}
+
+// WithRegistry returns a copy of the client with a custom registry of decoders.
+func (c *Client) WithRegistry(r *api.UnmarshalRegistry) *Client {
+	clone := *c
+	clone.registry = r
+	return &clone
+}
+
+// Registry returns the current client registry.
+func (c *Client) Registry() *api.UnmarshalRegistry {
+	return c.registry
 }
 
 // Do executes a request through the underlying transport. It automatically:
@@ -197,7 +213,18 @@ func execute[Resp any](
 	def api.ResponseFormat,
 	opts ...api.CallOption,
 ) (*Resp, error) {
+	type registryProvider interface {
+		Registry() *api.UnmarshalRegistry
+	}
+
 	cfg := &api.CallConfig{Format: def}
+
+	if rp, ok := d.(registryProvider); ok {
+		cfg.Registry = rp.Registry()
+	} else {
+		cfg.Registry = api.NewUnmarshalRegistry()
+	}
+
 	for _, opt := range opts {
 		opt(req, cfg)
 	}
@@ -212,7 +239,7 @@ func execute[Resp any](
 	}
 
 	result := new(Resp)
-	if err := api.UnmarshalResponse(resp.Body, result, cfg.Format); err != nil {
+	if err := cfg.Registry.Unmarshal(resp.Body, result, cfg.Format); err != nil {
 		return nil, err
 	}
 

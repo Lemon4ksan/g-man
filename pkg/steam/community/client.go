@@ -62,6 +62,7 @@ type Client struct {
 	restClient  rest.Requester
 	sessionFunc func(string) string
 	logger      log.Logger
+	registry    *api.UnmarshalRegistry
 }
 
 // WithLogger sets a custom logger for the client.
@@ -78,6 +79,13 @@ func WithRest(r *rest.Client) bus.Option[*Client] {
 	}
 }
 
+// WithRegistry returns a copy of the client with a custom registry of decoders.
+func (c *Client) WithRegistry(r *api.UnmarshalRegistry) *Client {
+	clone := *c
+	clone.registry = r
+	return &clone
+}
+
 // New creates a new Community Client.
 // It initializes a rest.Client with the required default browser-like headers.
 func New(httpClient rest.HTTPDoer, sessionFunc func(string) string, opts ...bus.Option[*Client]) *Client {
@@ -90,6 +98,7 @@ func New(httpClient rest.HTTPDoer, sessionFunc func(string) string, opts ...bus.
 		restClient:  rc,
 		sessionFunc: sessionFunc,
 		logger:      log.Discard,
+		registry:    api.NewUnmarshalRegistry(),
 	}
 
 	for _, opt := range opts {
@@ -97,6 +106,11 @@ func New(httpClient rest.HTTPDoer, sessionFunc func(string) string, opts ...bus.
 	}
 
 	return c
+}
+
+// Registry returns the current client registry.
+func (c *Client) Registry() *api.UnmarshalRegistry {
+	return c.registry
 }
 
 // SessionID retrieves the session identifier for the specified URI.
@@ -319,7 +333,17 @@ func performRequest(
 		trReq.WithParams(query)
 	}
 
+	type registryProvider interface {
+		Registry() *api.UnmarshalRegistry
+	}
+
 	cfg := &api.CallConfig{Format: api.FormatJSON}
+
+	if rp, ok := r.(registryProvider); ok {
+		cfg.Registry = rp.Registry()
+	} else {
+		cfg.Registry = api.NewUnmarshalRegistry()
+	}
 
 	for _, opt := range opts {
 		opt(trReq, cfg)
@@ -358,7 +382,7 @@ func execute[Resp any](
 	}
 
 	result := new(Resp)
-	if err := api.UnmarshalResponse(rawBody, result, cfg.Format); err != nil {
+	if err := cfg.Registry.Unmarshal(rawBody, result, cfg.Format); err != nil {
 		return nil, err
 	}
 
