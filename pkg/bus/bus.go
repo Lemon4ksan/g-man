@@ -162,17 +162,15 @@ func (b *Bus) Publish(event Event) {
 		return
 	}
 
-	t := resolveType(event)
-
 	b.mu.RLock()
+	defer b.mu.RUnlock()
 
 	if b.closed {
-		b.mu.RUnlock()
 		return
 	}
 
 	// Send to specific type subscribers
-	if typeSubs, ok := b.subs[t]; ok {
+	if typeSubs, ok := b.subs[resolveType(event)]; ok {
 		for _, sub := range typeSubs {
 			b.directSend(sub, event)
 		}
@@ -182,8 +180,6 @@ func (b *Bus) Publish(event Event) {
 	for _, sub := range b.all {
 		b.directSend(sub, event)
 	}
-
-	b.mu.RUnlock()
 }
 
 // directSend attempts a non-blocking send to a subscription channel.
@@ -233,10 +229,6 @@ func (b *Bus) Close() error {
 func (b *Bus) unsubscribe(sub *Subscription) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-
-	if b.closed {
-		return
-	}
 
 	// Remove from type-specific maps
 	for _, t := range sub.types {

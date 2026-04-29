@@ -2,25 +2,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package jobs provides a concurrent-safe mechanism for tracking asynchronous
-// request-response cycles. It is particularly useful for building protocol implementations
-// where a request is sent and a response is expected later with a matching correlation ID.
-//
-// Example usage (Callback style):
-//
-//	mgr := jobs.NewManager[string](100)
-//	id := mgr.NextID()
-//
-//	mgr.Add(id, func(res string, err error) {
-//	    if err != nil {
-//	        fmt.Printf("Job %d failed: %v\n", id, err)
-//	        return
-//	    }
-//	    fmt.Printf("Job %d received: %s\n", id, res)
-//	})
-//
-//	// Simulating response from a remote server
-//	mgr.Resolve(id, "Hello World", nil)
 package jobs
 
 import (
@@ -38,11 +19,11 @@ var (
 	ErrJobTimeout = errors.New("job: request timed out")
 
 	// ErrJobClosed is returned when the manager is shutting down and all
-	// pending jobs are being cancelled.
+	// pending jobs are being canceled.
 	ErrJobClosed = errors.New("job: manager closed")
 
 	// ErrJobCancelled is returned when the context associated with the job
-	// is cancelled or expires.
+	// is canceled or expires.
 	ErrJobCancelled = errors.New("job: context cancelled")
 
 	// ErrJobDuplicate is returned when attempting to add a job ID that is
@@ -128,7 +109,7 @@ func WithTimeout[T any](timeout time.Duration) Option[T] {
 }
 
 // WithContext associates a context.Context with the job.
-// If the context is cancelled, the job is resolved with [ErrJobCancelled].
+// If the context is canceled, the job is resolved with [ErrJobCancelled].
 func WithContext[T any](ctx context.Context) Option[T] {
 	return func(c *config[T]) {
 		c.ctx = ctx
@@ -136,7 +117,7 @@ func WithContext[T any](ctx context.Context) Option[T] {
 }
 
 // WithKeepAlive indicates if the job should persist after the first resolution.
-// Useful for streaming or multi-part responses.
+// Useful for streaming or multipart responses.
 func WithKeepAlive[T any](keepAlive bool) Option[T] {
 	return func(c *config[T]) {
 		c.keepAlive = keepAlive
@@ -230,6 +211,9 @@ func (m *Manager[T]) Resolve(id uint64, response T, err error) bool {
 		delete(m.jobs, id)
 	}
 
+	wCh := e.waitCh
+	e.waitCh = nil
+
 	m.mu.Unlock()
 
 	// Clean up resources (timers and context watchers)
@@ -242,10 +226,10 @@ func (m *Manager[T]) Resolve(id uint64, response T, err error) bool {
 	}
 
 	// Unblock WaitFor calls
-	if e.waitCh != nil {
-		e.waitCh <- result[T]{val: response, err: err}
+	if wCh != nil {
+		wCh <- result[T]{val: response, err: err}
 
-		close(e.waitCh)
+		close(wCh)
 	}
 
 	// Trigger callback asynchronously
@@ -281,7 +265,7 @@ func (m *Manager[T]) Remove(id uint64) bool {
 }
 
 // WaitFor blocks the current goroutine until the specific job is resolved,
-// the provided ctx is cancelled, or the manager is closed.
+// the provided ctx is canceled, or the manager is closed.
 // Returns [ErrWaitFor] if the job was made without [WithWait] option.
 //
 // Example:
@@ -341,9 +325,8 @@ func (m *Manager[T]) Close() error {
 		}
 
 		if e.waitCh != nil {
-			e.waitCh <- result[T]{err: ErrJobClosed}
-
 			close(e.waitCh)
+			e.waitCh = nil
 		}
 
 		if e.callback != nil {

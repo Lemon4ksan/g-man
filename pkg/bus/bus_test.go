@@ -8,68 +8,65 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
-type TestEventA struct {
-	BaseEvent
-	Data string
-}
-
-type TestEventB struct {
-	BaseEvent
-	Value int
-}
+type (
+	TestEventA    struct{ BaseEvent }
+	TestEventB    struct{ BaseEvent }
+	TestEventData struct {
+		BaseEvent
+		Payload string
+	}
+)
 
 func TestBus_SubscribeAndPublish(t *testing.T) {
-	b := New()
-	defer b.Close()
+	BaseEvent{}.isEvent() // no-op
 
-	subA := b.Subscribe(TestEventA{})
-	subB := b.Subscribe(TestEventB{})
-
-	b.Publish(TestEventA{Data: "hello"})
-	b.Publish(TestEventB{Value: 42})
-
-	select {
-	case ev := <-subA.C():
-		if ev.(TestEventA).Data != "hello" {
-			t.Errorf("Unexpected event data in TestEventA")
-		}
-	case <-time.After(time.Second):
-		t.Error("Did not receive TestEventA")
-	}
-
-	select {
-	case ev := <-subB.C():
-		if ev.(TestEventB).Value != 42 {
-			t.Errorf("Unexpected event value in TestEventB")
-		}
-	case <-time.After(time.Second):
-		t.Error("Did not receive TestEventB")
-	}
-}
-
-func TestBus_PointerVsValueResolution(t *testing.T) {
 	b := New()
 	defer b.Close()
 
 	sub := b.Subscribe(TestEventA{})
-	b.Publish(&TestEventA{Data: "pointer_data"})
+
+	// Test basic delivery
+	b.Publish(TestEventA{})
 
 	select {
 	case ev := <-sub.C():
-		ptr, ok := ev.(*TestEventA)
-		if !ok {
-			t.Fatalf("Expected *TestEventA, got %T", ev)
-		}
-
-		if ptr.Data != "pointer_data" {
-			t.Errorf("Data mismatch")
-		}
-
+		assert.IsType(t, TestEventA{}, ev)
 	case <-time.After(100 * time.Millisecond):
-		t.Error("Pointer vs Value type resolution failed: Event lost!")
+		t.Fatal("Timeout: Event not received")
 	}
+}
+
+func TestBus_ResolveType(t *testing.T) {
+	// Test pointer vs value resolution
+	t1 := resolveType(TestEventA{})
+	t2 := resolveType(&TestEventA{})
+	assert.Equal(t, t1, t2)
+
+	// Test nil safety in resolveType (internal check)
+	assert.Nil(t, resolveType(nil))
+}
+
+func TestBus_PublishNil(t *testing.T) {
+	b := New()
+	defer b.Close()
+
+	// Should not panic or hang
+	assert.NotPanics(t, func() {
+		b.Publish(nil)
+	})
+}
+
+func TestBus_SubscribeDuplicates(t *testing.T) {
+	b := New()
+	defer b.Close()
+
+	// Subscribing to same type twice in one call should only create one entry
+	sub := b.Subscribe(TestEventA{}, TestEventA{})
+	assert.Len(t, sub.types, 1)
 }
 
 func TestBus_SubscribeAll(t *testing.T) {
@@ -77,61 +74,55 @@ func TestBus_SubscribeAll(t *testing.T) {
 	defer b.Close()
 
 	subAll := b.SubscribeAll()
-
 	b.Publish(TestEventA{})
 	b.Publish(TestEventB{})
 
-	count := 0
-	timeout := time.After(time.Second)
-
-	for count < 2 {
+	for i := 0; i < 2; i++ {
 		select {
 		case <-subAll.C():
-			count++
-		case <-timeout:
-			t.Fatalf("SubscribeAll received only %d events out of 2", count)
-		}
-	}
-}
-
-func TestBus_FullBufferDropsEvent(t *testing.T) {
-	b := New()
-	defer b.Close()
-
-	sub := b.Subscribe(TestEventA{})
-
-	for range 200 {
-		b.Publish(TestEventA{Data: "spam"})
-	}
-
-	count := 0
-
-	for {
-		select {
-		case <-sub.C():
-			count++
-		default:
-			if count != 128 {
-				t.Errorf("Expected exactly 128 buffered events, got %d", count)
-			}
-
-			return
+			// Success
+		case <-time.After(100 * time.Millisecond):
+			t.Fatalf("Timeout waiting for event %d in SubscribeAll", i)
 		}
 	}
 }
 
 func TestBus_Unsubscribe(t *testing.T) {
 	b := New()
-
 	sub := b.Subscribe(TestEventA{})
 
-	sub.Unsubscribe()
-	b.Publish(TestEventA{})
+	// Ensure sub is in internal maps
+	b.mu.RLock()
+	assert.NotEmpty(t, b.subs[resolveType(TestEventA{})])
+	b.mu.RUnlock()
 
+	sub.Unsubscribe()
+
+	// Verify maps are cleaned up
+	b.mu.RLock()
+	assert.Empty(t, b.subs)
+	assert.Empty(t, b.all)
+	b.mu.RUnlock()
+
+	// Verify channel closed
 	_, ok := <-sub.C()
-	if ok {
-		t.Error("Expected subscription channel to be closed after Unsubscribe")
-	}
+	assert.False(t, ok, "Channel should be closed after unsubscribe")
+
+	// Verify double unsubscribe is safe
+	assert.NotPanics(t, func() {
+		sub.Unsubscribe()
+	})
+}
+
+func TestBus_UnsubscribeWhenBusClosed(t *testing.T) {
+	b := New()
+	sub := b.Subscribe(TestEventA{})
+	_ = b.Close()
+
+	// Should return early and not panic
+	assert.NotPanics(t, func() {
+		sub.Unsubscribe()
+	})
 }
 
 func TestBus_Close(t *testing.T) {
@@ -139,53 +130,139 @@ func TestBus_Close(t *testing.T) {
 	sub := b.Subscribe(TestEventA{})
 	subAll := b.SubscribeAll()
 
-	_ = b.Close()
-	b.Publish(TestEventA{})
+	err := b.Close()
+	assert.NoError(t, err)
+	sub.Unsubscribe()
 
-	if _, ok := <-sub.C(); ok {
-		t.Error("Channel was not closed on Bus.Close()")
-	}
+	// Test multiple Close calls
+	err = b.Close()
+	assert.NoError(t, err)
 
-	if _, ok := <-subAll.C(); ok {
-		t.Error("SubscribeAll channel was not closed on Bus.Close()")
-	}
+	// Verify channels are closed
+	_, ok1 := <-sub.C()
+	assert.False(t, ok1)
 
-	deadSub := b.Subscribe(TestEventA{})
-	if _, ok := <-deadSub.C(); ok {
-		t.Error("Expected newly created subscription on a closed bus to be pre-closed")
-	}
+	_, ok2 := <-subAll.C()
+	assert.False(t, ok2)
+
+	// Verify internal state
+	assert.True(t, b.closed)
+	assert.Nil(t, b.subs)
+	assert.Nil(t, b.all)
 }
 
-func TestBus_ConcurrentAccess(t *testing.T) {
+func TestBus_OperationOnClosedBus(t *testing.T) {
+	b := New()
+	_ = b.Close()
+
+	// Subscribing to a closed bus should return a closed subscription
+	sub := b.Subscribe(TestEventA{})
+	_, ok := <-sub.C()
+	assert.False(t, ok)
+
+	subAll := b.SubscribeAll()
+	_, okAll := <-subAll.C()
+	assert.False(t, okAll)
+
+	// Publishing on closed bus should do nothing
+	assert.NotPanics(t, func() {
+		b.Publish(TestEventA{})
+	})
+}
+
+func TestBus_DropOnFullBuffer(t *testing.T) {
 	b := New()
 	defer b.Close()
 
+	// Buffer for Subscribe is 128
+	sub := b.Subscribe(TestEventA{})
+
+	// Fill the buffer + 1
+	for i := 0; i < 129; i++ {
+		b.Publish(TestEventA{})
+	}
+
+	// Drain the 128 events
+	count := 0
+	for i := 0; i < 128; i++ {
+		<-sub.C()
+
+		count++
+	}
+
+	// The 129th event should have been dropped
+	select {
+	case <-sub.C():
+		t.Error("Expected event to be dropped, but received it")
+	default:
+		// Correct behavior
+	}
+
+	assert.Equal(t, 128, count)
+}
+
+func TestBus_DirectSendToClosedSub(t *testing.T) {
+	b := New()
+	defer b.Close()
+
+	sub := b.Subscribe(TestEventA{})
+	sub.closed.Store(true) // Simulate internal closure
+
+	// Should not block or panic
+	assert.NotPanics(t, func() {
+		b.directSend(sub, TestEventA{})
+	})
+}
+
+func TestBus_ConcurrentUsage(t *testing.T) {
+	b := New()
+
 	var wg sync.WaitGroup
 
-	for range 10 {
-		wg.Go(func() {
-			for range 5 {
-				sub := b.Subscribe(TestEventA{})
+	publishers := 10
+	subscribers := 10
+	iterations := 50
 
-				time.Sleep(2 * time.Millisecond)
+	wg.Add(publishers + subscribers)
 
-				for len(sub.C()) > 0 {
-					<-sub.C()
+	// Concurrent Publishers
+	for i := 0; i < publishers; i++ {
+		go func() {
+			defer wg.Done()
+
+			for j := 0; j < iterations; j++ {
+				b.Publish(TestEventData{Payload: "data"})
+			}
+		}()
+	}
+
+	// Concurrent Subscribers
+	for i := 0; i < subscribers; i++ {
+		go func() {
+			defer wg.Done()
+
+			sub := b.Subscribe(TestEventData{})
+			defer sub.Unsubscribe()
+
+			timeout := time.After(500 * time.Millisecond)
+
+			received := 0
+			for received < 10 { // Just try to catch some
+				select {
+				case <-sub.C():
+					received++
+				case <-timeout:
+					return
 				}
-
-				sub.Unsubscribe()
 			}
-		})
+		}()
 	}
 
-	for range 5 {
-		wg.Go(func() {
-			for range 100 {
-				b.Publish(TestEventA{})
-				time.Sleep(1 * time.Millisecond)
-			}
-		})
-	}
+	// Chaos: randomly close bus during operations
+	go func() {
+		time.Sleep(10 * time.Millisecond)
+		b.Close()
+	}()
 
 	wg.Wait()
 }

@@ -2,15 +2,15 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package log provides a high-performance, asynchronous, structured logger
-// designed for both human readability and machine efficiency.
 package log
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"os"
 	"strconv"
@@ -22,7 +22,8 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 )
 
-// Level represents the severity of the log message.
+// Level represents the severity of a log message.
+// The logger will ignore messages with a level lower than the configured threshold.
 type Level int8
 
 const (
@@ -54,13 +55,15 @@ func (l Level) Short() string {
 
 // Field represents a single key-value pair used in structured logging.
 // It is recommended to use the provided helper functions (e.g., log.String(), log.Int())
-// to create Fields.
+// to create Fields rather than constructing this struct manually.
 type Field struct {
 	Key   string
 	Value any
 }
 
 // Logger defines the primary interface for logging operations.
+//
+// All logging methods (Debug, Info, Warn, Error) are safe for concurrent use.
 type Logger interface {
 	// Debug logs a message at the Debug level.
 	Debug(msg string, fields ...Field)
@@ -72,13 +75,17 @@ type Logger interface {
 	Error(msg string, fields ...Field)
 
 	// With returns a new Logger instance carrying the provided fields as context.
-	// If a field key is "module" or "component", it is expected to update the module path instead.
+	//
+	// If a field key is "module" or "component", it updates the module path
+	// instead of adding a standard field.
+	//
 	// Example:
 	//   requestLogger := logger.With(log.String("request_id", "abc-123"))
 	//   requestLogger.Info("Processing") // Includes request_id automatically
 	With(fields ...Field) Logger
 
 	// Close flushes the asynchronous queue and stops the writer loop.
+	// It should be called exactly once during application shutdown.
 	Close() error
 }
 
@@ -88,22 +95,23 @@ type Config struct {
 	Level Level
 	// Output is the destination for logs (e.g., os.Stdout or a file).
 	Output io.Writer
-	// TimeFormat defines the timestamp layout (Go standard time formatting).
+	// TimeFormat defines the timestamp layout using Go standard time formatting.
 	TimeFormat string
 	// AsyncSize is the capacity of the non-blocking log queue.
+	// If the queue fills up, new messages are discarded to prevent blocking the caller.
 	AsyncSize int
-	// Colors enables ANSI terminal color codes.
+	// Colors enables ANSI terminal color codes in the output.
 	Colors bool
-	// FullPath, if true, prints "Mod > Sub > Service" instead of a tree structure.
+	// FullPath, if true, prints "Mod › Sub › Service" instead of a tree structure.
 	FullPath bool
-	// PathSep is the separator used when FullPath is true.
+	// PathSep is the separator used when FullPath is true. Defaults to " › ".
 	PathSep string
 	// AlignWidth is the horizontal offset where fields start, ensuring messages are aligned.
 	AlignWidth int
 }
 
 // DefaultConfig returns a configuration balanced for local development.
-// It enables colors, tree-style modules, and a reasonable async buffer.
+// It enables colors, tree-style modules, and a buffer size of 2048.
 func DefaultConfig(level Level) Config {
 	return Config{
 		Level:      level,
@@ -136,12 +144,8 @@ type AsyncLogger struct {
 }
 
 // New creates and starts a background goroutine to process logs based on the provided Config.
-//
-// Example:
-//
-//	l := log.New(log.DefaultConfig(log.InfoLevel))
-//	defer l.Close()
-//	l.Info("Application started")
+// The user is responsible for calling Close() on the returned Logger to ensure all
+// logs are flushed to the output destination.
 func New(cfg Config) Logger {
 	l := &AsyncLogger{
 		cfg:   cfg,
@@ -515,8 +519,6 @@ var bufPool = sync.Pool{
 	New: func() any { return new(bytes.Buffer) },
 }
 
-// --- Field Helpers ---
-
 // String creates a Field for a string value.
 func String(k, v string) Field { return Field{Key: k, Value: v} }
 
@@ -556,10 +558,10 @@ func Err(err error) Field { return Field{Key: "error", Value: err} }
 // Any creates a Field for an arbitrary value.
 func Any(k string, v any) Field { return Field{Key: k, Value: v} }
 
-// Module creates a Field that defines the module name for the logger.
+// Module creates a special Field that defines a new level in the logger's module hierarchy.
 func Module(name string) Field { return Field{Key: "module", Value: name} }
 
-// Component creates a Field that defines the component name for the logger.
+// Component is an alias for Module, used to denote a subsection of a module.
 func Component(name string) Field { return Field{Key: "component", Value: name} }
 
 // Strings creates a Field for a slice of strings.
@@ -612,9 +614,6 @@ func IntOpt(k string, v int) Field {
 	return Field{Key: k, Value: v}
 }
 
-// --- Steam Specific Helpers ---
-// Designed for integration with Steam protocol implementations.
-
 // SteamID logs a 64-bit Steam identifier.
 func SteamID(v uint64) Field { return Field{Key: "steam_id", Value: v} }
 
@@ -631,7 +630,8 @@ func EResult(v enums.EResult) Field {
 	return Field{Key: "eresult", Value: v.String()}
 }
 
-// Mask returns a hidden version of the string (e.g. "account_name" -> "ac...me").
+// Mask returns a hidden version of a sensitive string (e.g. "password123" -> "pa...23").
+// If the string is 4 characters or shorter, it returns "****".
 func Mask(s string) string {
 	if len(s) <= 4 {
 		return "****"
@@ -640,7 +640,7 @@ func Mask(s string) string {
 	return s[:2] + "..." + s[len(s)-2:]
 }
 
-// MaskPath searches the path for sensitive data and masks it.
+// MaskPath searches a string (like a file path or URL) for sensitive data and masks it.
 func MaskPath(path, sensitive string) string {
 	if sensitive == "" {
 		return path
@@ -649,7 +649,42 @@ func MaskPath(path, sensitive string) string {
 	return strings.ReplaceAll(path, sensitive, Mask(sensitive))
 }
 
-// Discard Logger Pattern: Useful for tests or disabling logs.
+type slogAdapter struct {
+	l *slog.Logger
+}
+
+// FromSlog wraps the standard slog.Logger to implement Logger interface.
+func FromSlog(l *slog.Logger) Logger {
+	return &slogAdapter{l: l}
+}
+
+func (s *slogAdapter) Info(msg string, fields ...Field)  { s.log(slog.LevelInfo, msg, fields) }
+func (s *slogAdapter) Debug(msg string, fields ...Field) { s.log(slog.LevelDebug, msg, fields) }
+func (s *slogAdapter) Warn(msg string, fields ...Field)  { s.log(slog.LevelWarn, msg, fields) }
+func (s *slogAdapter) Error(msg string, fields ...Field) { s.log(slog.LevelError, msg, fields) }
+
+func (s *slogAdapter) log(lvl slog.Level, msg string, fields []Field) {
+	attrs := make([]any, len(fields))
+	for i, f := range fields {
+		attrs[i] = slog.Any(f.Key, f.Value)
+	}
+
+	s.l.Log(context.Background(), lvl, msg, attrs...)
+}
+
+func (s *slogAdapter) With(fields ...Field) Logger {
+	attrs := make([]any, len(fields))
+	for i, f := range fields {
+		attrs[i] = slog.Any(f.Key, f.Value)
+	}
+
+	return &slogAdapter{l: s.l.With(attrs...)}
+}
+
+func (s *slogAdapter) Close() error { return nil }
+
+// Discard is a no-op Logger implementation. It is useful for unit tests
+// or for disabling logging entirely in certain environments.
 var Discard Logger = &discard{}
 
 type discard struct{}
