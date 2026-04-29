@@ -110,10 +110,7 @@ func (s *WebSession) Authenticate(
 	// Clear any old cookies (to avoid conflicts when re-authorizing)
 	s.Clear()
 
-	sessionID, err := generateSessionID()
-	if err != nil {
-		return err
-	}
+	sessionID := generateSessionID()
 
 	// Steam treats Web tokens and App tokens differently. Fast path is for client tokens.
 	if platform == pb.EAuthTokenPlatformType_k_EAuthTokenPlatformType_SteamClient ||
@@ -342,8 +339,10 @@ func (s *WebSession) executeTransferWithRetry(
 	return fmt.Errorf("after %d retries: %w", maxRetries, lastErr)
 }
 
-func generateSessionID() (string, error) {
+func generateSessionID() string {
 	var b [12]byte
-	rand.Read(b[:])
-	return hex.EncodeToString(b[:]), nil
+
+	_, _ = rand.Read(b[:])
+
+	return hex.EncodeToString(b[:])
 }

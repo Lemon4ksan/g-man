@@ -6,7 +6,6 @@ package websession
 
 import (
 	"context"
-	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -168,17 +167,6 @@ func TestAuthenticate(t *testing.T) {
 		err := ws.Authenticate(ctx, pb.EAuthTokenPlatformType_k_EAuthTokenPlatformType_WebBrowser, "", "")
 		require.Error(t, err)
 		assert.Equal(t, "websession: refresh token is required", err.Error())
-	})
-
-	t.Run("Rand error", func(t *testing.T) {
-		oldReader := rand.Reader
-
-		rand.Reader = strings.NewReader("")
-		defer func() { rand.Reader = oldReader }()
-
-		ws := newTestSession()
-		err := ws.Authenticate(ctx, pb.EAuthTokenPlatformType_k_EAuthTokenPlatformType_WebBrowser, "123", "123")
-		require.Error(t, err)
 	})
 
 	t.Run("Fast Path - SteamClient", func(t *testing.T) {
@@ -508,8 +496,7 @@ func TestVerify(t *testing.T) {
 }
 
 func TestGenerateSessionID(t *testing.T) {
-	sessionID, err := generateSessionID()
-	require.NoError(t, err)
+	sessionID := generateSessionID()
 	assert.Len(t, sessionID, 24, "SessionID must be 24 characters long")
 	assert.Regexp(t, `^[0-9a-f]{24}$`, sessionID, "SessionID must be a valid hex string")
 }
