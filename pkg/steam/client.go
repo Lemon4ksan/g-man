@@ -186,7 +186,7 @@ func (c *Client) ConnectAndLogin(ctx context.Context, server socket.CMServer, de
 		c.logger.Info("Web session ready")
 
 		c.mu.Lock()
-		comm := community.New(c.webSession.Client().HTTP(), c.webSession.SessionID, community.WithLogger(c.logger))
+		comm := community.New(c.webSession.HTTP(), c.webSession.SessionID, community.WithLogger(c.logger))
 		c.community = comm
 		c.mu.Unlock()
 
