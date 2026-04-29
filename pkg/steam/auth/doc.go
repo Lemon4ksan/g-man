@@ -57,14 +57,6 @@ must obtain the code from the user and invoke this callback:
 		ev.Callback(code)
 	})
 
-# Web Sessions (Fast vs Slow Path)
-
-Steam treats web cookies and socket sessions as related but distinct.
-  - Fast Path: If a valid Access Token is already present (from a mobile or
-    desktop client), the library generates cookies instantly without network roundtrips.
-  - Slow Path: Uses the official OIDC redirection flow (/jwt/finalizelogin) to
-    ensure all Steam domains are correctly synchronized with the session.
-
 # Security and Persistence
 
 To minimize 2FA prompts, it is highly recommended to provide a storage.AuthStore

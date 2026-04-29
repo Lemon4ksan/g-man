@@ -10,22 +10,12 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 )
 
-// Event is a marker interface for all auth events.
-// Events are emitted via the Events() channel and allow consumers to
-// react to connection lifecycle changes, messages, and errors.
-type Event interface {
-	bus.Event
-	isAuthEvent()
-}
-
 // StateEvent is emitted whenever the authenticator transitions between states.
 type StateEvent struct {
 	bus.BaseEvent
 	Old State
 	New State
 }
-
-func (e StateEvent) isAuthEvent() {}
 
 // LoggedOnEvent is emitted after successful authentication with Steam.
 // This indicates that the client is fully logged on and ready to use.
@@ -39,8 +29,6 @@ type LoggedOnEvent struct {
 	Body             *pb.CMsgClientLogonResponse // Complete logon response for advanced use
 }
 
-func (e LoggedOnEvent) isAuthEvent() {}
-
 // SteamGuardRequiredEvent is emitted during password-based authentication
 // when Steam Guard verification is required. The user must provide a code
 // from email or mobile authenticator and call the Callback function.
@@ -52,8 +40,6 @@ type SteamGuardRequiredEvent struct {
 	Callback     func(code string) // Function to call with the user-provided code to continue login
 }
 
-func (e SteamGuardRequiredEvent) isAuthEvent() {}
-
 // WebSessionReadyEvent is emitted after the successful web session refresh
 type WebSessionReadyEvent struct {
 	bus.BaseEvent
@@ -64,5 +50,3 @@ type LoggedOffEvent struct {
 	bus.BaseEvent
 	Result enums.EResult
 }
-
-func (e LoggedOffEvent) isAuthEvent() {}

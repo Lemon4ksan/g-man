@@ -10,9 +10,10 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"reflect"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
@@ -37,9 +38,7 @@ func mockRSAResponse(t *testing.T, mock *requester.Mock) *rsa.PrivateKey {
 	t.Helper()
 
 	privKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatalf("failed to generate RSA key: %v", err)
-	}
+	require.NoError(t, err, "failed to generate RSA key")
 
 	modHex := fmt.Sprintf("%x", privKey.N)
 	expHex := fmt.Sprintf("%x", privKey.E)
@@ -60,18 +59,13 @@ func mockRSAResponse(t *testing.T, mock *requester.Mock) *rsa.PrivateKey {
 func TestNewAuthenticationService(t *testing.T) {
 	t.Run("Default Config", func(t *testing.T) {
 		svc, _ := setupAuthService(t, nil)
-		if !reflect.DeepEqual(svc.DeviceConf(), DefaultDeviceConfig()) {
-			t.Error("expected default device config")
-		}
+		assert.Equal(t, DefaultDeviceConfig(), svc.DeviceConf())
 	})
 
 	t.Run("Custom Config", func(t *testing.T) {
 		custom := &DeviceConfig{DeviceFriendlyName: "G-man Bot"}
-
 		svc, _ := setupAuthService(t, custom)
-		if svc.DeviceConf().DeviceFriendlyName != "G-man Bot" {
-			t.Error("expected custom device config")
-		}
+		assert.Equal(t, "G-man Bot", svc.DeviceConf().DeviceFriendlyName)
 	})
 }
 
@@ -82,24 +76,15 @@ func TestAuthenticationService_EncryptPassword(t *testing.T) {
 	password := "secret_123"
 
 	encBase64, ts, err := svc.EncryptPassword(t.Context(), "user", password)
-	if err != nil {
-		t.Fatalf("EncryptPassword failed: %v", err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, uint64(TestTimestamp), ts)
 
-	if ts != TestTimestamp {
-		t.Errorf("expected ts %d, got %d", TestTimestamp, ts)
-	}
-
-	cipherText, _ := base64.StdEncoding.DecodeString(encBase64)
+	cipherText, err := base64.StdEncoding.DecodeString(encBase64)
+	require.NoError(t, err)
 
 	plainText, err := rsa.DecryptPKCS1v15(rand.Reader, privKey, cipherText)
-	if err != nil {
-		t.Fatalf("failed to decrypt: %v", err)
-	}
-
-	if string(plainText) != password {
-		t.Errorf("password mismatch: want %q, got %q", password, string(plainText))
-	}
+	require.NoError(t, err, "failed to decrypt password")
+	assert.Equal(t, password, string(plainText))
 }
 
 func TestAuthenticationService_EncryptPassword_Errors(t *testing.T) {
@@ -151,9 +136,7 @@ func TestAuthenticationService_EncryptPassword_Errors(t *testing.T) {
 			tt.setup()
 
 			_, _, err := svc.EncryptPassword(t.Context(), "user", "pwd")
-			if err == nil || (tt.wantErr != "" && !reflect.DeepEqual(err.Error(), tt.wantErr)) {
-				t.Errorf("expected error %q, got %v", tt.wantErr, err)
-			}
+			assert.EqualError(t, err, tt.wantErr)
 		})
 	}
 }
@@ -171,24 +154,15 @@ func TestAuthenticationService_BeginAuthSessionViaCredentials(t *testing.T) {
 	)
 
 	resp, err := svc.BeginAuthSessionViaCredentials(t.Context(), "user", "pass", "GUARD_CODE")
-	if err != nil {
-		t.Fatalf("failed: %v", err)
-	}
-
-	if resp.GetClientId() != 999 {
-		t.Errorf("expected client id 999, got %d", resp.GetClientId())
-	}
+	require.NoError(t, err)
+	assert.Equal(t, uint64(999), resp.GetClientId())
 
 	sent := &pb.CAuthentication_BeginAuthSessionViaCredentials_Request{}
 	mock.GetLastCall(sent)
 
-	if sent.GetAccountName() != "user" || sent.GetGuardData() != "GUARD_CODE" {
-		t.Errorf("wrong request params: %+v", sent)
-	}
-
-	if sent.GetEncryptedPassword() == "" {
-		t.Error("password was not encrypted")
-	}
+	assert.Equal(t, "user", sent.GetAccountName())
+	assert.Equal(t, "GUARD_CODE", sent.GetGuardData())
+	assert.NotEmpty(t, sent.GetEncryptedPassword())
 }
 
 func TestAuthenticationService_PollAuthSessionStatus(t *testing.T) {
@@ -199,20 +173,13 @@ func TestAuthenticationService_PollAuthSessionStatus(t *testing.T) {
 	})
 
 	resp, err := svc.PollAuthSessionStatus(t.Context(), 123, []byte{1, 2})
-	if err != nil {
-		t.Fatalf("failed: %v", err)
-	}
-
-	if resp.GetRefreshToken() != "new_token" {
-		t.Error("token mismatch")
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "new_token", resp.GetRefreshToken())
 
 	sent := &pb.CAuthentication_PollAuthSessionStatus_Request{}
 	mock.GetLastCall(sent)
 
-	if sent.GetClientId() != 123 {
-		t.Errorf("expected client id 123, got %d", sent.GetClientId())
-	}
+	assert.Equal(t, uint64(123), sent.GetClientId())
 }
 
 func TestAuthenticationService_UpdateAuthSessionWithSteamGuardCode(t *testing.T) {
@@ -225,16 +192,13 @@ func TestAuthenticationService_UpdateAuthSessionWithSteamGuardCode(t *testing.T)
 		"ABCDE",
 		pb.EAuthSessionGuardType_k_EAuthSessionGuardType_DeviceCode,
 	)
-	if err != nil {
-		t.Fatalf("failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	sent := &pb.CAuthentication_UpdateAuthSessionWithSteamGuardCode_Request{}
 	mock.GetLastCall(sent)
 
-	if sent.GetCode() != "ABCDE" || sent.GetSteamid() != TestSteamID {
-		t.Errorf("invalid request: %+v", sent)
-	}
+	assert.Equal(t, "ABCDE", sent.GetCode())
+	assert.Equal(t, uint64(TestSteamID), sent.GetSteamid())
 }
 
 func TestAuthenticationService_GenerateAccessTokenForApp(t *testing.T) {
@@ -249,11 +213,6 @@ func TestAuthenticationService_GenerateAccessTokenForApp(t *testing.T) {
 	)
 
 	resp, err := svc.GenerateAccessTokenForApp(t.Context(), "refresh_token", TestSteamID)
-	if err != nil {
-		t.Fatalf("failed: %v", err)
-	}
-
-	if resp.GetAccessToken() != "access_token" {
-		t.Error("access token mismatch")
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "access_token", resp.GetAccessToken())
 }

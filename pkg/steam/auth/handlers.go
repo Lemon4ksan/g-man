@@ -189,7 +189,7 @@ func (a *Authenticator) handleLoggedOff(packet *protocol.Packet) {
 func (a *Authenticator) sendLogOn(ctx context.Context, details *LogOnDetails) {
 	logon := &pb.CMsgClientLogon{
 		ProtocolVersion:           proto.Uint32(details.ProtocolVersion),
-		ClientOsType:              proto.Uint32(uint32(details.ClientOSType)),
+		ClientOsType:              proto.Uint32(details.ClientOSType),
 		ClientLanguage:            proto.String(details.ClientLanguage),
 		MachineId:                 details.MachineID,
 		MachineName:               proto.String("g-man"),

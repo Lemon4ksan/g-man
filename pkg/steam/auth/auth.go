@@ -226,13 +226,10 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 		return fmt.Errorf("cm connection failed: %w", err)
 	}
 
-	sess := a.socket.Session()
-	if sess == nil {
-		return errors.New("cm socket returned nil session")
+	if sess := a.socket.Session(); sess != nil {
+		sess.SetSteamID(details.SteamID.Uint64())
+		sess.SetRefreshToken(details.RefreshToken)
 	}
-
-	sess.SetSteamID(details.SteamID.Uint64())
-	sess.SetRefreshToken(details.RefreshToken)
 
 	if server.Type == "websockets" {
 		a.logger.Debug("WebSocket detected, starting logon sequence immediately")
@@ -283,6 +280,10 @@ func (a *Authenticator) LogOnAnonymous(ctx context.Context, server socket.CMServ
 
 	if err := a.socket.Connect(server); err != nil {
 		return fmt.Errorf("cm connection failed: %w", err)
+	}
+
+	if server.Type == "websockets" {
+		a.sendLogOn(loginCtx, anonDetails)
 	}
 
 	var resultErr error
@@ -528,8 +529,8 @@ func (a *Authenticator) acquireAuthToken(ctx context.Context, details *LogOnDeta
 
 		details.RefreshToken = refresh
 		details.AccessToken = access
-
 		details.SteamID = id.ID(steamID)
+
 		if err := a.store.SaveRefreshToken(ctx, details.AccountName, refresh); err != nil {
 			a.logger.Error("Storage save failed", log.Err(err))
 		}
@@ -540,7 +541,9 @@ func (a *Authenticator) acquireAuthToken(ctx context.Context, details *LogOnDeta
 
 func generateMachineID() []byte {
 	var b [42]byte
-	rand.Read(b[:])
+
+	_, _ = rand.Read(b[:])
+
 	return b[:]
 }
 
