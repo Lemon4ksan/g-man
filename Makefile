@@ -5,7 +5,6 @@ PKG=$(shell go list ./... | grep -v /vendor/)
 
 # Path to the Steam API JSON schema (download it manually via ISteamWebAPIUtil/GetSupportedAPIList)
 API_JSON=api.steampowered.com.json
-API_JSON=api.steampowered.com.json
 GEN_OUT=pkg/steam/webapi/generated.go
 
 # Colors for console output
@@ -52,7 +51,7 @@ clean: ## Delete temporary files and binaries
 
 format: ## Run go code formatting
 	cd cmd/generator && go run main.go format
-	addlicense -c "Lemon4ksan" -l bsd -ignore "cmd/generator/protobufs/**" --ignore "*.yml" .
+	addlicense -c "Lemon4ksan" -l bsd -ignore "cmd/generator/protobufs/**" -ignore "*.yml" .
 	golangci-lint run --fix
 
 help: ## Show this message
