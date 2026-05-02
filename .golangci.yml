@@ -88,9 +88,18 @@ linters:
       - linters: [gosec]
         text: "G401:|G505:"
 
-      # Ignoring the lack of comments in tests (Revive)
+      # Ignoring the lack of comments in tests
       - linters: [revive]
         path: "_test\\.go"
+        text: "exported: (exported|comment on exported)"
+
+      # Ignore most linters in tests
+      - linters: [gosec, noctx, bodyclose, errcheck]
+        path: "_test\\.go"
+
+      # Topics are too frequent
+      - linters: [revive]
+        path: "events.go"
         text: "exported: (exported|comment on exported)"
 
       # Ignore path issues in CLI
