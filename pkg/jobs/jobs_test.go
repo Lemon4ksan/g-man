@@ -252,7 +252,7 @@ func TestClose(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Check if both callbacks and channels unblocked
-		for i := 0; i < 2; i++ {
+		for range 2 {
 			select {
 			case <-done:
 			case <-time.After(time.Second):

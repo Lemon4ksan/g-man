@@ -262,7 +262,7 @@ func TestLogger_QueueOverflow(t *testing.T) {
 
 func TestLogger_RaceAndMidClose(t *testing.T) {
 	// Tests the safety check: if l.closed.Load() { ... } inside log()
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		l := New(DefaultConfig(InfoLevel))
 		l.(*AsyncLogger).cfg.Output = io.Discard
 

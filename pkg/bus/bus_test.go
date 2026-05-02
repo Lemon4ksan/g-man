@@ -77,7 +77,7 @@ func TestBus_SubscribeAll(t *testing.T) {
 	b.Publish(TestEventA{})
 	b.Publish(TestEventB{})
 
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		select {
 		case <-subAll.C():
 			// Success
@@ -178,13 +178,13 @@ func TestBus_DropOnFullBuffer(t *testing.T) {
 	sub := b.Subscribe(TestEventA{})
 
 	// Fill the buffer + 1
-	for i := 0; i < 129; i++ {
+	for range 129 {
 		b.Publish(TestEventA{})
 	}
 
 	// Drain the 128 events
 	count := 0
-	for i := 0; i < 128; i++ {
+	for range 128 {
 		<-sub.C()
 
 		count++
@@ -226,7 +226,7 @@ func TestBus_ConcurrentUsage(t *testing.T) {
 	wg.Add(publishers + subscribers)
 
 	// Concurrent Publishers
-	for i := 0; i < publishers; i++ {
+	for range publishers {
 		go func() {
 			defer wg.Done()
 
@@ -237,7 +237,7 @@ func TestBus_ConcurrentUsage(t *testing.T) {
 	}
 
 	// Concurrent Subscribers
-	for i := 0; i < subscribers; i++ {
+	for range subscribers {
 		go func() {
 			defer wg.Done()
 

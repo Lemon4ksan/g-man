@@ -6,10 +6,12 @@ package memory_test
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/lemon4ksan/g-man/pkg/storage"
 	"github.com/lemon4ksan/g-man/pkg/storage/memory"
@@ -24,33 +26,34 @@ func TestAuthStore(t *testing.T) {
 		account := "user1"
 		token := "abc-123"
 
-		_ = store.SaveRefreshToken(ctx, account, token)
+		err := store.SaveRefreshToken(ctx, account, token)
+		assert.NoError(t, err)
 
 		got, err := store.GetRefreshToken(ctx, account)
-		if err != nil || got != token {
-			t.Errorf("expected %s, got %s (err: %v)", token, got, err)
-		}
+		assert.NoError(t, err)
+		assert.Equal(t, token, got)
 
-		_ = store.Clear(ctx, account)
+		err = store.Clear(ctx, account)
+		assert.NoError(t, err)
 
 		_, err = store.GetRefreshToken(ctx, account)
-		if !errors.Is(err, storage.ErrNotFound) {
-			t.Error("expected ErrNotFound after clear")
-		}
+		assert.ErrorIs(t, err, storage.ErrNotFound)
 	})
 
 	t.Run("MachineID Immutability", func(t *testing.T) {
 		account := "user2"
 		original := []byte{1, 2, 3}
 
-		_ = store.SaveMachineID(ctx, account, original)
+		err := store.SaveMachineID(ctx, account, original)
+		require.NoError(t, err)
 
+		// Mutate the original slice
 		original[0] = 99
 
-		got, _ := store.GetMachineID(ctx, account)
-		if got[0] == 99 {
-			t.Error("store should return a copy, not a reference to the original slice")
-		}
+		got, err := store.GetMachineID(ctx, account)
+		assert.NoError(t, err)
+		assert.NotEqual(t, uint8(99), got[0], "store should return a copy, not a reference")
+		assert.Equal(t, uint8(1), got[0])
 	})
 }
 
@@ -61,15 +64,15 @@ func TestKVStore_Isolation(t *testing.T) {
 	kv1 := p.KV("ns1")
 	kv2 := p.KV("ns2")
 
-	_ = kv1.Set(ctx, "key", []byte("val1"))
-	_ = kv2.Set(ctx, "key", []byte("val2"))
+	require.NoError(t, kv1.Set(ctx, "key", []byte("val1")))
+	require.NoError(t, kv2.Set(ctx, "key", []byte("val2")))
 
-	v1, _ := kv1.Get(ctx, "key")
-	v2, _ := kv2.Get(ctx, "key")
+	v1, err1 := kv1.Get(ctx, "key")
+	v2, err2 := kv2.Get(ctx, "key")
 
-	if string(v1) == string(v2) {
-		t.Error("values in different namespaces should be isolated")
-	}
+	assert.NoError(t, err1)
+	assert.NoError(t, err2)
+	assert.NotEqual(t, string(v1), string(v2), "values in different namespaces should be isolated")
 }
 
 func TestKVStore_Operations(t *testing.T) {
@@ -77,33 +80,30 @@ func TestKVStore_Operations(t *testing.T) {
 	kv := memory.New().KV("test")
 
 	t.Run("Set and Get", func(t *testing.T) {
-		_ = kv.Set(ctx, "k", []byte("v"))
+		err := kv.Set(ctx, "k", []byte("v"))
+		assert.NoError(t, err)
 
-		val, _ := kv.Get(ctx, "k")
-		if string(val) != "v" {
-			t.Errorf("got %s", string(val))
-		}
+		val, err := kv.Get(ctx, "k")
+		assert.NoError(t, err)
+		assert.Equal(t, "v", string(val))
 	})
 
 	t.Run("Has", func(t *testing.T) {
-		exists, _ := kv.Has(ctx, "k")
-		if !exists {
-			t.Error("key should exist")
-		}
+		exists, err := kv.Has(ctx, "k")
+		assert.NoError(t, err)
+		assert.True(t, exists)
 
-		exists, _ = kv.Has(ctx, "nonexistent")
-		if exists {
-			t.Error("key should not exist")
-		}
+		exists, err = kv.Has(ctx, "nonexistent")
+		assert.NoError(t, err)
+		assert.False(t, exists)
 	})
 
 	t.Run("Delete", func(t *testing.T) {
-		_ = kv.Delete(ctx, "k")
+		err := kv.Delete(ctx, "k")
+		assert.NoError(t, err)
 
-		_, err := kv.Get(ctx, "k")
-		if !errors.Is(err, storage.ErrNotFound) {
-			t.Error("expected ErrNotFound after delete")
-		}
+		_, err = kv.Get(ctx, "k")
+		assert.ErrorIs(t, err, storage.ErrNotFound)
 	})
 }
 
@@ -115,9 +115,8 @@ func TestTTLCache(t *testing.T) {
 		cache.Set("key1", "val1", time.Minute)
 
 		val, ok := cache.Get("key1")
-		if !ok || val != "val1" {
-			t.Errorf("expected val1, ok=true; got %v, %v", val, ok)
-		}
+		assert.True(t, ok)
+		assert.Equal(t, "val1", val)
 	})
 
 	t.Run("Expiration", func(t *testing.T) {
@@ -126,9 +125,7 @@ func TestTTLCache(t *testing.T) {
 		time.Sleep(20 * time.Millisecond)
 
 		_, ok := cache.Get("key2")
-		if ok {
-			t.Error("expected key to be expired")
-		}
+		assert.False(t, ok, "expected key to be expired")
 	})
 
 	t.Run("Overwrite TTL", func(t *testing.T) {
@@ -138,9 +135,8 @@ func TestTTLCache(t *testing.T) {
 		time.Sleep(5 * time.Millisecond)
 
 		val, ok := cache.Get("key3")
-		if !ok || val != "new" {
-			t.Error("new TTL should overwrite the expired one")
-		}
+		assert.True(t, ok)
+		assert.Equal(t, "new", val, "new TTL should overwrite the expired one")
 	})
 }
 
@@ -157,7 +153,7 @@ func TestMemory_Concurrency(t *testing.T) {
 	go func() {
 		defer wg.Done()
 
-		for i := 0; i < iterations; i++ {
+		for range iterations {
 			_ = kv.Set(ctx, "key", []byte("val"))
 			_, _ = kv.Has(ctx, "key")
 		}
@@ -166,11 +162,12 @@ func TestMemory_Concurrency(t *testing.T) {
 	go func() {
 		defer wg.Done()
 
-		for i := 0; i < iterations; i++ {
+		for range iterations {
 			_, _ = kv.Get(ctx, "key")
 			_ = kv.Delete(ctx, "key")
 		}
 	}()
 
 	wg.Wait()
+	// Test finishes successfully if no race condition is detected
 }

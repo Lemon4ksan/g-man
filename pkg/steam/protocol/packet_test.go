@@ -620,10 +620,7 @@ func TestParseGCPacket_Errors(t *testing.T) {
 	t.Run("TruncatedLegacyHeader", func(t *testing.T) {
 		data := make([]byte, 10)
 
-		_, err := ParseGCPacket(appID, 100, data)
-		if err == nil || !errors.Is(err, io.ErrUnexpectedEOF) {
-			// ParseGCPacket uses io.ReadFull, which returns ErrUnexpectedEOF
-		}
+		_, _ = ParseGCPacket(appID, 100, data)
 	})
 }
 

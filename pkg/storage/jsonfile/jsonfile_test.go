@@ -6,10 +6,12 @@ package jsonfile_test
 
 import (
 	"context"
-	"errors"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/lemon4ksan/g-man/pkg/storage"
 	"github.com/lemon4ksan/g-man/pkg/storage/jsonfile"
@@ -21,35 +23,24 @@ func TestProvider_Persistence(t *testing.T) {
 	ctx := context.Background()
 
 	p1, err := jsonfile.New(dbPath)
-	if err != nil {
-		t.Fatalf("failed to create provider: %v", err)
-	}
+	require.NoError(t, err, "failed to create provider")
 
 	account := "test_user"
 	token := "v1_refresh_token_xyz"
 
 	err = p1.Auth().SaveRefreshToken(ctx, account, token)
-	if err != nil {
-		t.Fatalf("failed to save token: %v", err)
-	}
+	require.NoError(t, err, "failed to save token")
 
-	if err := p1.Close(); err != nil {
-		t.Fatalf("failed to close p1: %v", err)
-	}
+	err = p1.Close()
+	require.NoError(t, err, "failed to close p1")
 
+	// Reload from same path
 	p2, err := jsonfile.New(dbPath)
-	if err != nil {
-		t.Fatalf("failed to reload provider: %v", err)
-	}
+	require.NoError(t, err, "failed to reload provider")
 
 	got, err := p2.Auth().GetRefreshToken(ctx, account)
-	if err != nil {
-		t.Errorf("failed to get token after reload: %v", err)
-	}
-
-	if got != token {
-		t.Errorf("expected token %s, got %s", token, got)
-	}
+	assert.NoError(t, err, "failed to get token after reload")
+	assert.Equal(t, token, got)
 }
 
 func TestAuthStore_MachineID(t *testing.T) {
@@ -57,41 +48,34 @@ func TestAuthStore_MachineID(t *testing.T) {
 	dbPath := filepath.Join(tmpDir, "auth.json")
 	ctx := context.Background()
 
-	p, _ := jsonfile.New(dbPath)
+	p, err := jsonfile.New(dbPath)
+	require.NoError(t, err)
+
 	store := p.Auth()
 
 	account := "bot_01"
 	machineID := []byte{0xDE, 0xAD, 0xBE, 0xEF}
 
 	t.Run("Save and Get", func(t *testing.T) {
-		if err := store.SaveMachineID(ctx, account, machineID); err != nil {
-			t.Fatal(err)
-		}
+		err := store.SaveMachineID(ctx, account, machineID)
+		assert.NoError(t, err)
 
 		got, err := store.GetMachineID(ctx, account)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if string(got) != string(machineID) {
-			t.Errorf("machine ID mismatch: %v", got)
-		}
+		assert.NoError(t, err)
+		assert.Equal(t, machineID, got, "machine ID mismatch")
 	})
 
 	t.Run("Not Found", func(t *testing.T) {
 		_, err := store.GetMachineID(ctx, "non_existent")
-		if !errors.Is(err, storage.ErrNotFound) {
-			t.Errorf("expected ErrNotFound, got %v", err)
-		}
+		assert.ErrorIs(t, err, storage.ErrNotFound)
 	})
 
 	t.Run("Clear", func(t *testing.T) {
-		_ = store.Clear(ctx, account)
+		err := store.Clear(ctx, account)
+		assert.NoError(t, err)
 
-		_, err := store.GetRefreshToken(ctx, account)
-		if !errors.Is(err, storage.ErrNotFound) {
-			t.Error("expected token to be cleared")
-		}
+		_, err = store.GetRefreshToken(ctx, account)
+		assert.ErrorIs(t, err, storage.ErrNotFound, "expected token to be cleared")
 	})
 }
 
@@ -100,21 +84,20 @@ func TestKVStore(t *testing.T) {
 	dbPath := filepath.Join(tmpDir, "kv.json")
 	ctx := context.Background()
 
-	p, _ := jsonfile.New(dbPath)
+	p, err := jsonfile.New(dbPath)
+	require.NoError(t, err)
 
 	kv1 := p.KV("settings")
 	kv2 := p.KV("cache")
 
 	t.Run("Namespace Isolation", func(t *testing.T) {
-		_ = kv1.Set(ctx, "theme", []byte("dark"))
-		_ = kv2.Set(ctx, "theme", []byte("light"))
+		require.NoError(t, kv1.Set(ctx, "theme", []byte("dark")))
+		require.NoError(t, kv2.Set(ctx, "theme", []byte("light")))
 
 		v1, _ := kv1.Get(ctx, "theme")
 		v2, _ := kv2.Get(ctx, "theme")
 
-		if string(v1) == string(v2) {
-			t.Error("namespaces should be isolated")
-		}
+		assert.NotEqual(t, string(v1), string(v2), "namespaces should be isolated")
 	})
 
 	t.Run("CRUD Operations", func(t *testing.T) {
@@ -122,32 +105,29 @@ func TestKVStore(t *testing.T) {
 		val := []byte("my_value")
 
 		// Has (false)
-		exists, _ := kv1.Has(ctx, key)
-		if exists {
-			t.Error("key should not exist yet")
-		}
+		exists, err := kv1.Has(ctx, key)
+		assert.NoError(t, err)
+		assert.False(t, exists)
 
 		// Set & Get
-		_ = kv1.Set(ctx, key, val)
+		err = kv1.Set(ctx, key, val)
+		assert.NoError(t, err)
 
-		got, _ := kv1.Get(ctx, key)
-		if string(got) != string(val) {
-			t.Error("value mismatch")
-		}
+		got, err := kv1.Get(ctx, key)
+		assert.NoError(t, err)
+		assert.Equal(t, val, got)
 
 		// Has (true)
-		exists, _ = kv1.Has(ctx, key)
-		if !exists {
-			t.Error("key should exist")
-		}
+		exists, err = kv1.Has(ctx, key)
+		assert.NoError(t, err)
+		assert.True(t, exists)
 
 		// Delete
-		_ = kv1.Delete(ctx, key)
+		err = kv1.Delete(ctx, key)
+		assert.NoError(t, err)
 
-		_, err := kv1.Get(ctx, key)
-		if !errors.Is(err, storage.ErrNotFound) {
-			t.Error("key should be deleted")
-		}
+		_, err = kv1.Get(ctx, key)
+		assert.ErrorIs(t, err, storage.ErrNotFound)
 	})
 }
 
@@ -155,30 +135,21 @@ func TestProvider_EmptyFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "empty.json")
 
-	if err := os.WriteFile(dbPath, []byte(""), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	err := os.WriteFile(dbPath, []byte(""), 0o644)
+	require.NoError(t, err)
 
 	p, err := jsonfile.New(dbPath)
-	if err != nil {
-		t.Fatalf("provider should handle empty files: %v", err)
-	}
-
-	if p == nil {
-		t.Fatal("provider is nil")
-	}
+	assert.NoError(t, err, "provider should handle empty files")
+	assert.NotNil(t, p)
 }
 
 func TestProvider_CorruptedFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "corrupted.json")
 
-	if err := os.WriteFile(dbPath, []byte("{ invalid json"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	err := os.WriteFile(dbPath, []byte("{ invalid json"), 0o644)
+	require.NoError(t, err)
 
-	_, err := jsonfile.New(dbPath)
-	if err == nil {
-		t.Error("expected error when loading corrupted JSON")
-	}
+	_, err = jsonfile.New(dbPath)
+	assert.Error(t, err, "expected error when loading corrupted JSON")
 }

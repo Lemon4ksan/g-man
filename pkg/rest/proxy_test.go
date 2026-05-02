@@ -134,7 +134,7 @@ func TestProxyRotator(t *testing.T) {
 
 		req, _ := http.NewRequest("GET", "http://test", nil)
 
-		for i := 0; i < 4; i++ {
+		for range 4 {
 			_, err := rotator.Do(req)
 			if err != nil {
 				t.Fatal(err)
@@ -159,7 +159,7 @@ func TestProxyRotator(t *testing.T) {
 		clients := make([]HTTPDoer, count)
 
 		mocks := make([]*mockDoer, count)
-		for i := 0; i < count; i++ {
+		for i := range count {
 			mocks[i] = &mockDoer{id: i}
 			clients[i] = mocks[i]
 		}
@@ -173,7 +173,7 @@ func TestProxyRotator(t *testing.T) {
 
 		req, _ := http.NewRequest("GET", "http://test", nil)
 
-		for i := 0; i < iterations; i++ {
+		for range iterations {
 			go func() {
 				defer wg.Done()
 
@@ -206,11 +206,11 @@ func TestProxyRotator_HealthCheck(t *testing.T) {
 
 	req, _ := http.NewRequest("GET", "http://test", nil)
 
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		_, _ = rotator.Do(req)
 	}
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		resp, err := rotator.Do(req)
 		if err != nil {
 			continue
@@ -224,7 +224,7 @@ func TestProxyRotator_HealthCheck(t *testing.T) {
 	time.Sleep(150 * time.Millisecond)
 
 	foundM2 := false
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		rotator.Do(req)
 
 		if m2.calls > 2 {
