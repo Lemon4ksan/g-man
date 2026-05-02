@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"strconv"
 	"time"
+
+	"github.com/lemon4ksan/g-man/pkg/rest"
 )
 
 type CurrencyCode int
@@ -71,81 +73,28 @@ type Description struct {
 	Label string `json:"label"`
 }
 
-// AssetResponse is the raw item structure as returned by the Steam API.
-type AssetResponse struct {
-	AppID           int           `json:"appid"`
-	ContextID       string        `json:"contextid"`
-	ID              string        `json:"id"`
-	ClassID         string        `json:"classid"`
-	InstanceID      string        `json:"instanceid"`
-	Amount          string        `json:"amount"`
-	BackgroundColor string        `json:"background_color"`
-	IconURL         string        `json:"icon_url"`
-	IconURLLarge    string        `json:"icon_url_large"`
-	Descriptions    []Description `json:"descriptions"`
-	Tradable        int           `json:"tradable"`
-	Actions         []Action      `json:"actions"`
-	Name            string        `json:"name"`
-	NameColor       string        `json:"name_color"`
-	Type            string        `json:"type"`
-	MarketName      string        `json:"market_name"`
-	MarketHashName  string        `json:"market_hash_name"`
-	Commodity       int           `json:"commodity"`
-	Marketable      int           `json:"marketable"`
-}
-
-// Asset is a clean representation of the [AssetResponse].
+// Asset is now the single source of truth.
+// No more "AssetResponse" vs "Asset".
 type Asset struct {
-	AppID           int
-	ContextID       int64
-	ID              uint64
-	ClassID         uint64
-	InstanceID      uint64
-	Amount          int64
-	BackgroundColor string
-	IconURL         string
-	IconURLLarge    string
-	Descriptions    []Description
-	Tradable        bool
-	Actions         []Action
-	Name            string
-	NameColor       string
-	Type            string
-	MarketName      string
-	MarketHashName  string
-	Commodity       bool
-	Marketable      bool
-}
-
-// ToAsset converts AssetResponse to a pure Asset structure.
-func (ar *AssetResponse) ToAsset() *Asset {
-	contextID, _ := strconv.ParseInt(ar.ContextID, 10, 64)
-	assetID, _ := strconv.ParseUint(ar.ID, 10, 64)
-	classID, _ := strconv.ParseUint(ar.ClassID, 10, 64)
-	instanceID, _ := strconv.ParseUint(ar.InstanceID, 10, 64)
-	amount, _ := strconv.ParseInt(ar.Amount, 10, 64)
-
-	return &Asset{
-		AppID:           ar.AppID,
-		ContextID:       contextID,
-		ID:              assetID,
-		ClassID:         classID,
-		InstanceID:      instanceID,
-		Amount:          amount,
-		BackgroundColor: ar.BackgroundColor,
-		IconURL:         ar.IconURL,
-		IconURLLarge:    ar.IconURLLarge,
-		Descriptions:    ar.Descriptions,
-		Tradable:        ar.Tradable == 1,
-		Actions:         ar.Actions,
-		Name:            ar.Name,
-		NameColor:       ar.NameColor,
-		Type:            ar.Type,
-		MarketName:      ar.MarketName,
-		MarketHashName:  ar.MarketHashName,
-		Commodity:       ar.Commodity == 1,
-		Marketable:      ar.Marketable == 1,
-	}
+	AppID           int               `json:"appid"`
+	ContextID       rest.Int64String  `json:"contextid"`
+	ID              rest.Uint64String `json:"id"`
+	ClassID         rest.Uint64String `json:"classid"`
+	InstanceID      rest.Uint64String `json:"instanceid"`
+	Amount          rest.Int64String  `json:"amount"`
+	BackgroundColor string            `json:"background_color"`
+	IconURL         string            `json:"icon_url"`
+	IconURLLarge    string            `json:"icon_url_large"`
+	Descriptions    []Description     `json:"descriptions"`
+	Tradable        rest.BoolInt      `json:"tradable"`
+	Actions         []Action          `json:"actions"`
+	Name            string            `json:"name"`
+	NameColor       string            `json:"name_color"`
+	Type            string            `json:"type"`
+	MarketName      string            `json:"market_name"`
+	MarketHashName  string            `json:"market_hash_name"`
+	Commodity       rest.BoolInt      `json:"commodity"`
+	Marketable      rest.BoolInt      `json:"marketable"`
 }
 
 // CreateSellOrderOptions contains parameters for creating a sell order.
@@ -317,42 +266,42 @@ type PriceOverviewResponse struct {
 
 // MyListingsResponse is the raw API response with the user's listings.
 type MyListingsResponse struct {
-	Success           bool                                           `json:"success"`
-	PageSize          int                                            `json:"pagesize"`
-	TotalCount        int                                            `json:"total_count"`
-	Assets            map[string]map[string]map[string]AssetResponse `json:"assets"`
-	Start             int                                            `json:"start"`
-	NumActiveListings int                                            `json:"num_active_listings"`
-	Listings          []ListingResponse                              `json:"listings"`
-	ListingsOnHold    []ListingResponse                              `json:"listings_on_hold"`
-	ListingsToConfirm []ListingResponse                              `json:"listings_to_confirm"`
-	BuyOrders         []BuyOrderResponse                             `json:"buy_orders"`
+	Success           bool                                   `json:"success"`
+	PageSize          int                                    `json:"pagesize"`
+	TotalCount        int                                    `json:"total_count"`
+	Assets            map[string]map[string]map[string]Asset `json:"assets"`
+	Start             int                                    `json:"start"`
+	NumActiveListings int                                    `json:"num_active_listings"`
+	Listings          []ListingResponse                      `json:"listings"`
+	ListingsOnHold    []ListingResponse                      `json:"listings_on_hold"`
+	ListingsToConfirm []ListingResponse                      `json:"listings_to_confirm"`
+	BuyOrders         []BuyOrderResponse                     `json:"buy_orders"`
 }
 
 // ListingResponse is the raw structure of the lot.
 type ListingResponse struct {
-	ListingID           string        `json:"listingid"`
-	TimeCreated         int64         `json:"time_created"`
-	Asset               AssetResponse `json:"asset"`
-	SteamIDLister       string        `json:"steamid_lister"`
-	Price               int           `json:"price"`
-	OriginalPrice       int           `json:"original_price"`
-	Fee                 int           `json:"fee"`
-	CurrencyID          string        `json:"currencyid"`
-	PublisherFeePercent string        `json:"publisher_fee_percent"`
-	PublisherFeeApp     int           `json:"publisher_fee_app"`
+	ListingID           string `json:"listingid"`
+	TimeCreated         int64  `json:"time_created"`
+	Asset               Asset  `json:"asset"`
+	SteamIDLister       string `json:"steamid_lister"`
+	Price               int    `json:"price"`
+	OriginalPrice       int    `json:"original_price"`
+	Fee                 int    `json:"fee"`
+	CurrencyID          string `json:"currencyid"`
+	PublisherFeePercent string `json:"publisher_fee_percent"`
+	PublisherFeeApp     int    `json:"publisher_fee_app"`
 }
 
 // BuyOrderResponse is the raw structure of the buy order.
 type BuyOrderResponse struct {
-	AppID             int           `json:"appid"`
-	HashName          string        `json:"hash_name"`
-	WalletCurrency    int           `json:"wallet_currency"`
-	Price             string        `json:"price"`
-	Quantity          string        `json:"quantity"`
-	QuantityRemaining string        `json:"quantity_remaining"`
-	BuyOrderID        string        `json:"buy_orderid"`
-	Description       AssetResponse `json:"description"`
+	AppID             int    `json:"appid"`
+	HashName          string `json:"hash_name"`
+	WalletCurrency    int    `json:"wallet_currency"`
+	Price             string `json:"price"`
+	Quantity          string `json:"quantity"`
+	QuantityRemaining string `json:"quantity_remaining"`
+	BuyOrderID        string `json:"buy_orderid"`
+	Description       Asset  `json:"description"`
 }
 
 // SearchOptions contains parameters for determining the TP.
@@ -384,13 +333,13 @@ type SearchResponse struct {
 
 // SearchResultResponse is the raw search result structure.
 type SearchResultResponse struct {
-	Name             string        `json:"name"`
-	HashName         string        `json:"hash_name"`
-	SellListings     int           `json:"sell_listings"`
-	SellPrice        int           `json:"sell_price"`
-	SellPriceText    string        `json:"sell_price_text"`
-	AppIcon          string        `json:"app_icon"`
-	AppName          string        `json:"app_name"`
-	AssetDescription AssetResponse `json:"asset_description"`
-	SalePriceText    string        `json:"sale_price_text"`
+	Name             string `json:"name"`
+	HashName         string `json:"hash_name"`
+	SellListings     int    `json:"sell_listings"`
+	SellPrice        int    `json:"sell_price"`
+	SellPriceText    string `json:"sell_price_text"`
+	AppIcon          string `json:"app_icon"`
+	AppName          string `json:"app_name"`
+	AssetDescription Asset  `json:"asset_description"`
+	SalePriceText    string `json:"sale_price_text"`
 }
