@@ -86,7 +86,7 @@ func (s *AuthenticatorSuite) TestHandleLogOnResponse_Coverage() {
 	s.ErrorContains(<-s.auth.loginResult, "unmarshal failed")
 
 	// Denied by CM (Publishes LoggedOffEvent)
-	sub := s.socket.Bus().Subscribe(&LoggedOffEvent{})
+	sub := s.bus.Subscribe(&LoggedOffEvent{})
 	s.socket.SimulatePacket(enums.EMsg_ClientLogOnResponse, &pb.CMsgClientLogonResponse{
 		Eresult: proto.Int32(int32(enums.EResult_AccessDenied)),
 	})
@@ -122,7 +122,7 @@ func (s *AuthenticatorSuite) TestHandleLoggedOff_Coverage() {
 	// Just logs error, no crash
 
 	// Session Expired (Auth Error)
-	sub := s.socket.bus.Subscribe(&LoggedOffEvent{})
+	sub := s.bus.Subscribe(&LoggedOffEvent{})
 	s.auth.loginResult = make(chan error, 1)
 	s.socket.SimulatePacket(enums.EMsg_ClientLoggedOff, &pb.CMsgClientLoggedOff{
 		Eresult: proto.Int32(int32(enums.EResult_AccountLogonDeniedVerifiedEmailRequired)),

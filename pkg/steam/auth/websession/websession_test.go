@@ -110,8 +110,8 @@ func TestHTTP(t *testing.T) {
 	ws := newTestSession()
 	httpClient := ws.HTTP()
 
-	assert.NotNil(t, httpClient, "HTTP() не должен возвращать nil")
-	assert.NotNil(t, httpClient.Jar, "Клиент должен иметь CookieJar")
+	assert.NotNil(t, httpClient, "HTTP() must not return nil")
+	assert.NotNil(t, httpClient.Jar, "Client must have CookieJar")
 	assert.Equal(t, ws.client.HTTP(), httpClient)
 }
 
@@ -188,9 +188,9 @@ func TestAuthenticate(t *testing.T) {
 		assert.True(
 			t,
 			findCookie(cookies, "steamLoginSecure", secureCookieValue),
-			"Cookie steamLoginSecure должен быть установлен",
+			"Cookie steamLoginSecure must be set",
 		)
-		assert.True(t, findCookie(cookies, "sessionid", ""), "The sessionid cookie must be set.")
+		assert.True(t, findCookie(cookies, "sessionid", ""), "The sessionid cookie must be set")
 	})
 
 	t.Run("Fast Path - MobileApp", func(t *testing.T) {
@@ -386,7 +386,7 @@ func TestExecuteTransferWithRetry(t *testing.T) {
 		err := ws.executeTransferWithRetry(ctx, rest.NewClient(server.Client()), server.URL, nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "after 3 retries")
-		assert.Equal(t, 3, attempts, "Должно быть ровно 3 попытки")
+		assert.Equal(t, 3, attempts, "There must be 3 attempts")
 	})
 
 	t.Run("Result not ok", func(t *testing.T) {

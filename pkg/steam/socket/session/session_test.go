@@ -5,40 +5,14 @@
 package session_test
 
 import (
-	"context"
 	"sync"
 	"testing"
 
-	"github.com/lemon4ksan/g-man/pkg/steam/socket/internal/session"
+	"github.com/lemon4ksan/g-man/pkg/steam/socket/session"
 )
 
-type mockConn struct {
-	sentData []byte
-	closed   bool
-	key      []byte
-}
-
-func (m *mockConn) Send(ctx context.Context, data []byte) error {
-	m.sentData = append([]byte(nil), data...)
-	return nil
-}
-
-func (m *mockConn) Name() string { return "MOCK" }
-
-func (m *mockConn) Close() error {
-	m.closed = true
-	return nil
-}
-
-func (m *mockConn) ID() int64 { return 1 }
-
-func (m *mockConn) SetEncryptionKey(key []byte) bool {
-	m.key = append([]byte(nil), key...)
-	return true
-}
-
 func TestBase_GettersSetters(t *testing.T) {
-	s := session.New(&mockConn{})
+	s := &session.Session{}
 
 	s.SetSteamID(76561197960287930)
 
@@ -80,7 +54,7 @@ func TestBase_IsAuthenticated(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := session.New(&mockConn{})
+			s := &session.Session{}
 			s.SetSteamID(tt.steamID)
 			s.SetSessionID(tt.sessionID)
 
@@ -91,44 +65,8 @@ func TestBase_IsAuthenticated(t *testing.T) {
 	}
 }
 
-func TestBase_SendAndClose(t *testing.T) {
-	conn := &mockConn{}
-	s := session.New(conn)
-
-	payload := []byte("hello")
-	if err := s.Send(context.Background(), payload); err != nil {
-		t.Fatal(err)
-	}
-
-	if string(conn.sentData) != "hello" {
-		t.Error("data was not sent to connection")
-	}
-
-	if err := s.Close(); err != nil {
-		t.Fatal(err)
-	}
-
-	if !conn.closed {
-		t.Error("connection was not closed")
-	}
-}
-
-func TestBase_Encryption(t *testing.T) {
-	conn := &mockConn{}
-	s := session.New(conn)
-	key := []byte("secret")
-
-	if !s.SetEncryptionKey(key) {
-		t.Error("SetEncryptionKey should return true for mockConn")
-	}
-
-	if string(conn.key) != "secret" {
-		t.Error("encryption key not passed to connection")
-	}
-}
-
 func TestBase_Concurrency(t *testing.T) {
-	s := session.New(&mockConn{})
+	s := &session.Session{}
 	wg := sync.WaitGroup{}
 
 	const iterations = 1000

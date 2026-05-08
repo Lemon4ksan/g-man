@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Lemon4ksan All rights reserved.
-// Use of a BSD-style
+// Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
 package steam
@@ -35,13 +35,12 @@ import (
 // cmSocket defines the interface for socket operations required by the client,
 // allowing for mock implementations in tests.
 type cmSocket interface {
-	Disconnect()
-	Close() error
-	State() socket.State
+	IsConnected() bool
 	Session() socket.Session
 	RegisterMsgHandler(eMsg enums.EMsg, handler socket.Handler)
 	RegisterServiceHandler(method string, handler socket.Handler)
-	SetSession(session socket.Session)
+	Disconnect() error
+	Close() error
 }
 
 type authenticator interface {
@@ -173,7 +172,6 @@ func NewClient(cfg Config, opts ...Option) *Client {
 
 	sock := socket.NewSocket(
 		cfg.Socket,
-		socket.WithBus(c.bus),
 		socket.WithLogger(c.logger),
 	)
 	c.socket = sock
@@ -181,6 +179,7 @@ func NewClient(cfg Config, opts ...Option) *Client {
 	c.auth = auth.NewAuthenticator(
 		sock,
 		auth.NewAuthenticationService(c.unifiedClient, cfg.Device),
+		c.bus,
 		auth.WithLogger(c.logger),
 		auth.WithStorage(c.storage.Auth()),
 	)
@@ -194,9 +193,7 @@ func NewClient(cfg Config, opts ...Option) *Client {
 		}
 	}
 
-	c.wg.Add(1)
-
-	go c.run()
+	c.wg.Go(c.run)
 
 	return c
 }
@@ -341,11 +338,12 @@ func (c *Client) Module(name string) module.Module {
 }
 
 // Disconnect closes the CM connection but keeps the client running.
-func (c *Client) Disconnect() {
+func (c *Client) Disconnect() error {
 	c.mu.Lock()
 	c.community = nil
 	c.mu.Unlock()
-	c.socket.Disconnect()
+
+	return c.socket.Disconnect()
 }
 
 // Close shuts down the client, stops all modules, and releases resources.
@@ -432,7 +430,7 @@ func (c *Client) performDo(ctx context.Context, req *tr.Request) (*tr.Response, 
 	c.mu.RLock()
 	uClient := c.unifiedClient
 	sClient := c.socketAPIClient
-	isConnected := c.socket.State() == socket.StateConnected
+	isConnected := c.socket.IsConnected()
 	c.mu.RUnlock()
 
 	_, isSocketCompatible := req.Target().(tr.SocketTarget)
@@ -452,8 +450,6 @@ func (c *Client) performDo(ctx context.Context, req *tr.Request) (*tr.Response, 
 }
 
 func (c *Client) run() {
-	defer c.wg.Done()
-
 	c.state.Store(int32(StateRunning))
 
 	c.mu.RLock()
@@ -494,7 +490,7 @@ func (c *Client) run() {
 shutdown:
 	c.logger.Debug("Orchestrator shutting down...")
 
-	c.socket.Disconnect()
+	_ = c.socket.Disconnect()
 
 	c.mu.RLock()
 

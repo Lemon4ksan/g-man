@@ -38,7 +38,7 @@ type Connection interface {
 	// the responsibility of the implementation to handle message
 	// framing and encryption. This method must be safe for concurrent use.
 	//
-	// Implementation must respect the context; if the context is cancelled before
+	// Implementation must respect the context; if the context is canceled before
 	// the write is complete, the operation must return ctx.Err().
 	Send(ctx context.Context, data []byte) error
 

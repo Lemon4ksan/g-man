@@ -97,7 +97,7 @@ func (a *Authenticator) handleChannelEncryptResult(packet *protocol.Packet) {
 		return
 	}
 
-	a.socket.Session().SetEncryptionKey(*keyPtr)
+	a.socket.SetEncryptionKey(*keyPtr)
 	a.logger.Info("TCP Encryption established")
 
 	// Get the context and details for the current login attempt
@@ -125,7 +125,7 @@ func (a *Authenticator) handleLogOnResponse(packet *protocol.Packet) {
 
 		a.failLogin(fmt.Errorf("steam logon denied: %w", api.EResultError{Result: res}))
 
-		a.socket.Bus().Publish(&LoggedOffEvent{Result: res})
+		a.bus.Publish(&LoggedOffEvent{Result: res})
 
 		return
 	}
@@ -150,7 +150,7 @@ func (a *Authenticator) handleLogOnResponse(packet *protocol.Packet) {
 
 	a.socket.StartHeartbeat(interval)
 
-	a.socket.Bus().Publish(&LoggedOnEvent{
+	a.bus.Publish(&LoggedOnEvent{
 		SteamID: a.socket.Session().SteamID(),
 	})
 
@@ -180,7 +180,7 @@ func (a *Authenticator) handleLoggedOff(packet *protocol.Packet) {
 	a.setState(StateDisconnected)
 
 	// Propagate the logoff event to other modules
-	a.socket.Bus().Publish(&LoggedOffEvent{
+	a.bus.Publish(&LoggedOffEvent{
 		Result: res,
 	})
 }

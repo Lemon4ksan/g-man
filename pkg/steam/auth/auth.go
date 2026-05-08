@@ -25,6 +25,8 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
+	"github.com/lemon4ksan/g-man/pkg/steam/socket/connector"
+	"github.com/lemon4ksan/g-man/pkg/steam/socket/dispatcher"
 )
 
 // ProtocolVersion is the current version of the Steam client protocol used for logon.
@@ -66,13 +68,13 @@ func (s State) String() string {
 
 // SocketProvider defines the minimal socket capabilities required by the Authenticator.
 type SocketProvider interface {
-	RegisterMsgHandler(eMsg enums.EMsg, handler socket.Handler)
-	Connect(server socket.CMServer) error
+	SetEncryptionKey(key []byte) bool
+	RegisterMsgHandler(eMsg enums.EMsg, handler dispatcher.Handler)
+	Connect(ctx context.Context, server connector.CMServer) error
 	SendProto(ctx context.Context, eMsg enums.EMsg, req proto.Message, opts ...socket.SendOption) error
 	SendRaw(ctx context.Context, eMsg enums.EMsg, payload []byte, opts ...socket.SendOption) error
 	Session() socket.Session
 	StartHeartbeat(time.Duration)
-	Bus() *bus.Bus
 }
 
 // WebAuthenticator defines the interface for WebAPI-based authentication flows.
@@ -157,9 +159,10 @@ func ExtractSteamIDFromJWT(token string) id.ID {
 type Authenticator struct {
 	state atomic.Int32
 
+	logger  log.Logger
+	bus     *bus.Bus
 	socket  SocketProvider
 	service WebAuthenticator
-	logger  log.Logger
 
 	activeDetails atomic.Pointer[LogOnDetails]
 	tempKey       atomic.Pointer[[]byte]
@@ -170,8 +173,9 @@ type Authenticator struct {
 }
 
 // NewAuthenticator creates a new instance of Authenticator.
-func NewAuthenticator(s SocketProvider, svc WebAuthenticator, opts ...Option) *Authenticator {
+func NewAuthenticator(s SocketProvider, svc WebAuthenticator, bus *bus.Bus, opts ...Option) *Authenticator {
 	auth := &Authenticator{
+		bus:     bus,
 		socket:  s,
 		service: svc,
 		logger:  log.Discard,
@@ -195,7 +199,7 @@ func NewAuthenticator(s SocketProvider, svc WebAuthenticator, opts ...Option) *A
 func (a *Authenticator) State() State { return State(a.state.Load()) }
 
 // LogOn initiates the login sequence. It blocks until authentication is complete or fails.
-func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server socket.CMServer) error {
+func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server connector.CMServer) error {
 	if !a.tryAcquireState() {
 		return errors.New("auth: authentication already in progress")
 	}
@@ -222,7 +226,7 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 	a.loginCancel.Store(cancel)
 	a.activeDetails.Store(details)
 
-	if err := a.socket.Connect(server); err != nil {
+	if err := a.socket.Connect(ctx, server); err != nil {
 		return fmt.Errorf("cm connection failed: %w", err)
 	}
 
@@ -258,7 +262,7 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 }
 
 // LogOnAnonymous performs a login without user credentials.
-func (a *Authenticator) LogOnAnonymous(ctx context.Context, server socket.CMServer) error {
+func (a *Authenticator) LogOnAnonymous(ctx context.Context, server connector.CMServer) error {
 	if !a.tryAcquireState() {
 		return errors.New("auth: authentication already in progress")
 	}
@@ -278,7 +282,7 @@ func (a *Authenticator) LogOnAnonymous(ctx context.Context, server socket.CMServ
 	a.loginCancel.Store(cancel)
 	a.activeDetails.Store(anonDetails)
 
-	if err := a.socket.Connect(server); err != nil {
+	if err := a.socket.Connect(ctx, server); err != nil {
 		return fmt.Errorf("cm connection failed: %w", err)
 	}
 
@@ -392,7 +396,7 @@ func (a *Authenticator) resolveConfirmation(
 
 		a.logger.Info(msg, log.String("associated_message", conf.GetAssociatedMessage()))
 
-		a.socket.Bus().Publish(&SteamGuardRequiredEvent{
+		a.bus.Publish(&SteamGuardRequiredEvent{
 			Is2FA:       is2FA,
 			EmailDomain: conf.GetAssociatedMessage(),
 			Callback: func(code string) {
@@ -418,7 +422,7 @@ func (a *Authenticator) resolveConfirmation(
 
 	case pb.EAuthSessionGuardType_k_EAuthSessionGuardType_DeviceConfirmation:
 		a.logger.Info("Mobile app confirmation required (Accept prompt on phone)")
-		a.socket.Bus().Publish(&SteamGuardRequiredEvent{IsAppConfirm: true})
+		a.bus.Publish(&SteamGuardRequiredEvent{IsAppConfirm: true})
 	}
 }
 
@@ -464,7 +468,7 @@ func (a *Authenticator) pollAuthStatus(
 func (a *Authenticator) setState(state State) {
 	old := State(a.state.Swap(int32(state)))
 	if old != state {
-		a.socket.Bus().Publish(&StateEvent{Old: old, New: state})
+		a.bus.Publish(&StateEvent{Old: old, New: state})
 	}
 }
 

@@ -17,7 +17,7 @@ The socket layer revolves around four main pillars:
 
  1. Connection Management: Handles dialers, handshakes, and heartbeats. It supports
     multiple transport protocols (TCP, WebSockets) through the ConnectionDialer interface.
-    It includes a robust ReconnectPolicy with exponential backoff.
+    It includes a robust reconnection policy with exponential backoff.
 
  2. Session & Security: Manages the lifecycle of a Steam session, including SteamID,
     SessionID, and OAuth tokens. It transparently handles channel encryption (AES/RSA)
@@ -29,21 +29,6 @@ The socket layer revolves around four main pillars:
  4. Job Tracking: Implements an asynchronous request-response pattern using Job IDs.
     Methods like SendSync wait for a response, while Send with a callback allows
     non-blocking interaction.
-
-# Event System
-
-The socket is tightly integrated with an event bus. Instead of polling, users should
-subscribe to events to react to connection changes:
-
-	sub := sock.Bus().Subscribe(socket.StateEvent{}, socket.ConnectedEvent{})
-	go func() {
-	    for ev := range sub.C() {
-	        switch e := ev.(type) {
-	        case *socket.StateEvent:
-	            fmt.Printf("State changed: %s -> %s\n", e.Old, e.New)
-	        }
-	    }
-	}()
 
 # Concurrency Model
 

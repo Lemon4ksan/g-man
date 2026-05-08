@@ -28,6 +28,7 @@ import (
 
 type AuthenticatorSuite struct {
 	suite.Suite
+	bus     *bus.Bus
 	socket  *MockSocketProvider
 	webAPI  *MockWebAuthenticator
 	store   *MockStore
@@ -36,12 +37,13 @@ type AuthenticatorSuite struct {
 }
 
 func (s *AuthenticatorSuite) SetupTest() {
+	s.bus = bus.New()
 	s.socket = NewMockSocket()
 	s.webAPI = new(MockWebAuthenticator)
 	s.store = new(MockStore)
 	s.session = &mockSession{}
 	s.socket.On("Session").Return(s.session).Maybe()
-	s.auth = NewAuthenticator(s.socket, s.webAPI, WithStorage(s.store), WithLogger(log.Discard))
+	s.auth = NewAuthenticator(s.socket, s.webAPI, s.bus, WithStorage(s.store), WithLogger(log.Discard))
 }
 
 func TestAuthenticatorSuite(t *testing.T) {
@@ -123,7 +125,7 @@ func (s *AuthenticatorSuite) TestResolveConfirmation_Coverage() {
 		ClientId: proto.Uint64(1),
 		Steamid:  proto.Uint64(123),
 	}
-	sub := s.socket.Bus().Subscribe(&SteamGuardRequiredEvent{})
+	sub := s.bus.Subscribe(&SteamGuardRequiredEvent{})
 
 	s.auth.resolveConfirmation(context.Background(), &pb.CAuthentication_AllowedConfirmation{
 		ConfirmationType:  pb.EAuthSessionGuardType_k_EAuthSessionGuardType_EmailCode.Enum(),
@@ -222,19 +224,21 @@ func (s *AuthenticatorSuite) TestNopStore() {
 
 type MockSocketProvider struct {
 	mock.Mock
-	bus      *bus.Bus
 	handlers map[enums.EMsg]socket.Handler
 }
 
 func NewMockSocket() *MockSocketProvider {
-	return &MockSocketProvider{bus: bus.New(), handlers: make(map[enums.EMsg]socket.Handler)}
+	return &MockSocketProvider{handlers: make(map[enums.EMsg]socket.Handler)}
 }
 func (m *MockSocketProvider) RegisterMsgHandler(e enums.EMsg, h socket.Handler) { m.handlers[e] = h }
-func (m *MockSocketProvider) Connect(s socket.CMServer) error                   { return m.Called(s).Error(0) }
+func (m *MockSocketProvider) Connect(ctx context.Context, s socket.CMServer) error {
+	return m.Called(s).Error(0)
+}
 
 func (m *MockSocketProvider) Session() socket.Session        { return m.Called().Get(0).(socket.Session) }
-func (m *MockSocketProvider) Bus() *bus.Bus                  { return m.bus }
 func (m *MockSocketProvider) StartHeartbeat(d time.Duration) { m.Called(d) }
+
+func (m *MockSocketProvider) SetEncryptionKey(key []byte) bool { return true }
 
 func (m *MockSocketProvider) SendProto(
 	ctx context.Context,
@@ -274,7 +278,6 @@ func (m *mockSession) RefreshToken() string               { return m.token }
 func (m *mockSession) SetAccessToken(t string)            { m.access = t }
 func (m *mockSession) AccessToken() string                { return m.access }
 func (m *mockSession) SetSessionID(int32)                 {}
-func (m *mockSession) SetEncryptionKey([]byte) bool       { return true }
 func (m *mockSession) Send(context.Context, []byte) error { return nil }
 func (m *mockSession) Close() error                       { return nil }
 func (m *mockSession) IsEncrypted() bool                  { return true }
