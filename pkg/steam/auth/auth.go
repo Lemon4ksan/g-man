@@ -74,7 +74,7 @@ type SocketProvider interface {
 	SendProto(ctx context.Context, eMsg enums.EMsg, req proto.Message, opts ...socket.SendOption) error
 	SendRaw(ctx context.Context, eMsg enums.EMsg, payload []byte, opts ...socket.SendOption) error
 	Session() socket.Session
-	StartHeartbeat(time.Duration)
+	StartHeartbeat(time.Duration) error
 }
 
 // WebAuthenticator defines the interface for WebAPI-based authentication flows.

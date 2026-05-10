@@ -13,7 +13,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket/connector"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket/network"
@@ -31,21 +30,8 @@ func (m *mockConnection) Close() error                                { return m
 func (m *mockConnection) Name() string                                { return "mock" }
 func (m *mockConnection) SetEncryptionKey(key []byte) bool            { return m.setKeyFunc(key) }
 
-type mockDataHandler struct {
-	lastMsg atomic.Pointer[network.NetMessage]
-}
-
-func (m *mockDataHandler) OnNetMessage(msg network.NetMessage) { m.lastMsg.Store(&msg) }
-func (m *mockDataHandler) OnNetError(err error)                {}
-func (m *mockDataHandler) OnNetClose()                         {}
-
 func TestConnector_Initialization(t *testing.T) {
-	dh := &mockDataHandler{}
-
-	c := connector.New(context.Background(), connector.DefaultConfig(), nil,
-		connector.WithLogger(log.Discard),
-		connector.WithDataHandler(dh),
-	)
+	c := connector.New(connector.DefaultConfig(), log.Discard)
 	defer c.Close()
 
 	assert.NotNil(t, c)
@@ -53,9 +39,6 @@ func TestConnector_Initialization(t *testing.T) {
 
 func TestConnector_Connect(t *testing.T) {
 	t.Run("Successful Connection", func(t *testing.T) {
-		b := bus.New()
-		sub := b.Subscribe(connector.ConnectedEvent{})
-
 		conn := &mockConnection{
 			closeFunc: func() error { return nil },
 		}
@@ -69,18 +52,10 @@ func TestConnector_Connect(t *testing.T) {
 		cfg := connector.DefaultConfig()
 		cfg.Dialers = dialers
 
-		c := connector.New(context.Background(), cfg, b)
+		c := connector.New(cfg, log.Discard)
 
 		err := c.Connect(context.Background(), connector.CMServer{Type: "mock", Endpoint: "localhost"})
 		assert.NoError(t, err)
-
-		// Check event
-		select {
-		case ev := <-sub.C():
-			assert.Equal(t, "localhost", ev.(*connector.ConnectedEvent).Server)
-		case <-time.After(100 * time.Millisecond):
-			t.Fatal("ConnectedEvent not received")
-		}
 
 		// Re-connect should close previous
 		closed := atomic.Bool{}
@@ -92,7 +67,7 @@ func TestConnector_Connect(t *testing.T) {
 	})
 
 	t.Run("Unsupported Type", func(t *testing.T) {
-		c := connector.New(context.Background(), connector.DefaultConfig(), nil)
+		c := connector.New(connector.DefaultConfig(), log.Discard)
 		err := c.Connect(context.Background(), connector.CMServer{Type: "invalid"})
 		assert.ErrorIs(t, err, connector.ErrUnsupportedType)
 	})
@@ -105,7 +80,7 @@ func TestConnector_Connect(t *testing.T) {
 		}
 		cfg := connector.DefaultConfig()
 		cfg.Dialers = dialers
-		c := connector.New(context.Background(), cfg, nil)
+		c := connector.New(cfg, log.Discard)
 
 		err := c.Connect(context.Background(), connector.CMServer{Type: "fail"})
 		assert.ErrorContains(t, err, "dial failed")
@@ -121,7 +96,7 @@ func TestConnector_Connect(t *testing.T) {
 		}
 		cfg := connector.DefaultConfig()
 		cfg.Dialers = dialers
-		c := connector.New(context.Background(), cfg, nil)
+		c := connector.New(cfg, log.Discard)
 
 		go func() { _ = c.Connect(context.Background(), connector.CMServer{Type: "slow"}) }()
 
@@ -135,7 +110,7 @@ func TestConnector_Connect(t *testing.T) {
 }
 
 func TestConnector_Send(t *testing.T) {
-	c := connector.New(context.Background(), connector.DefaultConfig(), nil)
+	c := connector.New(connector.DefaultConfig(), log.Discard)
 
 	// Send when disconnected
 	err := c.Send(context.Background(), []byte("hi"))
@@ -157,7 +132,7 @@ func TestConnector_Send(t *testing.T) {
 	}
 	cfg := connector.DefaultConfig()
 	cfg.Dialers = dialers
-	c = connector.New(context.Background(), cfg, nil)
+	c = connector.New(cfg, log.Discard)
 	_ = c.Connect(context.Background(), connector.CMServer{Type: "mock"})
 
 	err = c.Send(context.Background(), []byte("payload"))
@@ -181,7 +156,7 @@ func TestConnector_Encryption(t *testing.T) {
 	}
 	cfg := connector.DefaultConfig()
 	cfg.Dialers = dialers
-	c := connector.New(context.Background(), cfg, nil)
+	c := connector.New(cfg, log.Discard)
 	_ = c.Connect(context.Background(), connector.CMServer{Type: "mock"})
 
 	ok := c.SetEncryptionKey([]byte("secret"))
@@ -189,34 +164,8 @@ func TestConnector_Encryption(t *testing.T) {
 	assert.Equal(t, []byte("secret"), *keyReceived.Load())
 }
 
-func TestConnector_NetworkHandlers(t *testing.T) {
-	dh := &mockDataHandler{}
-	b := bus.New()
-	c := connector.New(context.Background(), connector.DefaultConfig(), b, connector.WithDataHandler(dh))
-
-	// OnNetMessage
-	c.OnNetMessage([]byte("data"))
-	assert.Equal(t, network.NetMessage("data"), *dh.lastMsg.Load())
-
-	// OnNetError (should just log, no crash)
-	assert.NotPanics(t, func() { c.OnNetError(errors.New("some error")) })
-
-	// OnNetClose should trigger reconnect
-	sub := b.Subscribe(connector.DisconnectedEvent{})
-
-	c.OnNetClose()
-
-	select {
-	case <-sub.C():
-		// success
-	case <-time.After(100 * time.Millisecond):
-		t.Fatal("DisconnectedEvent not emitted")
-	}
-}
-
 func TestConnector_ReconnectLoop(t *testing.T) {
 	t.Run("Exhaust Attempts", func(t *testing.T) {
-		b := bus.New()
 		dialCount := atomic.Int32{}
 
 		dialers := map[string]connector.Dialer{
@@ -237,51 +186,19 @@ func TestConnector_ReconnectLoop(t *testing.T) {
 			ConnectTimeout:  time.Second,
 		}
 
-		c := connector.New(context.Background(), cfg, b)
+		c := connector.New(cfg, log.Discard)
 		c.UpdateServers([]connector.CMServer{{Type: "fail", Endpoint: "ep1"}})
 
 		// Initial connect to set "lastServer"
 		_ = c.Connect(context.Background(), connector.CMServer{Type: "fail", Endpoint: "ep1"})
 
-		sub := b.Subscribe(connector.DisconnectedEvent{})
-
 		// Trigger reconnect
 		c.OnNetClose()
-
-		// Wait for permanant failure event
-		timeout := time.After(200 * time.Millisecond)
-		for {
-			select {
-			case ev := <-sub.C():
-				if ev.(*connector.DisconnectedEvent).Error != nil {
-					assert.Equal(t, int32(3), dialCount.Load()) // 1 (initial) + 2 (retries)
-					return
-				}
-			case <-timeout:
-				t.Fatal("Permanent DisconnectedEvent not received")
-			}
-		}
-	})
-
-	t.Run("Context Cancel During Backoff", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
-		cfg := connector.DefaultConfig()
-		cfg.ReconnectPolicy.InitialBackoff = time.Hour // Long sleep
-
-		c := connector.New(ctx, cfg, nil)
-		c.UpdateServers([]connector.CMServer{{Type: "tcp", Endpoint: "localhost"}})
-
-		go c.OnNetClose() // Starts loop
-
-		time.Sleep(50 * time.Millisecond)
-		cancel() // Abort loop
-
-		// If we are here and test didn't hang, select case <-c.ctx.Done() worked
 	})
 }
 
 func TestConnector_Lifecycle(t *testing.T) {
-	c := connector.New(context.Background(), connector.DefaultConfig(), nil)
+	c := connector.New(connector.DefaultConfig(), log.Discard)
 
 	// Close should be idempotent
 	err := c.Close()

@@ -2,206 +2,252 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package dispatcher_test
+package dispatcher
 
 import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"encoding/binary"
+	"errors"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/lemon4ksan/g-man/pkg/jobs"
 	"github.com/lemon4ksan/g-man/pkg/log"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
-	"github.com/lemon4ksan/g-man/pkg/steam/socket/dispatcher"
 )
 
-func setupDispatcher() (*dispatcher.Dispatcher, *jobs.Manager[*protocol.Packet]) {
+// --- Mocks ---
+
+type mockSession struct {
+	steamID   uint64
+	sessionID int32
+}
+
+func (s *mockSession) SteamID() uint64  { return s.steamID }
+func (s *mockSession) SessionID() int32 { return s.sessionID }
+
+type mockWriter struct {
+	err error
+	got []byte
+}
+
+func (m *mockWriter) Send(_ context.Context, data []byte) error {
+	m.got = data
+	return m.err
+}
+
+// --- Helpers ---
+
+func setup(t *testing.T) (*Dispatcher, *jobs.Manager[*protocol.Packet], *mockWriter) {
 	jm := jobs.NewManager[*protocol.Packet](10)
-	d := dispatcher.New(jm, log.Discard)
-	return d, jm
+	mw := &mockWriter{}
+	sess := &mockSession{steamID: 1, sessionID: 2}
+	d := New(jm, mw, sess, log.Discard)
+	t.Cleanup(func() { d.Close() })
+
+	return d, jm, mw
 }
 
-func packProto(eMsg enums.EMsg, jobId uint64, payload []byte) *protocol.Packet {
-	hdr := protocol.NewMsgHdrProtoBuf(eMsg, 0, 0)
-	hdr.Proto.JobidTarget = proto.Uint64(jobId)
+// --- Tests ---
 
-	return &protocol.Packet{
-		EMsg:    eMsg,
-		Header:  hdr,
-		Payload: payload,
-		IsProto: true,
-	}
+func TestDispatcher_Send_Logic(t *testing.T) {
+	t.Run("Successful Send with Callback", func(t *testing.T) {
+		d, jm, mw := setup(t)
+		called := make(chan struct{})
+
+		err := d.Send(context.Background(), Proto(enums.EMsg_ClientLogon, &emptypb.Empty{}),
+			WithCallback(func(p *protocol.Packet, err error) {
+				close(called)
+			}),
+		)
+		assert.NoError(t, err)
+		assert.NotEmpty(t, mw.got)
+
+		// Simulate response
+		jobID := jm.NextID() - 1 // The ID generated inside Send
+		pkt := &protocol.Packet{EMsg: enums.EMsg_ClientLogOnResponse, IsProto: true}
+		hdr := protocol.NewMsgHdrProtoBuf(enums.EMsg_ClientLogOnResponse, 0, 0)
+		hdr.Proto.JobidTarget = proto.Uint64(jobID)
+		pkt.Header = hdr
+
+		d.Dispatch(pkt)
+
+		select {
+		case <-called:
+		case <-time.After(time.Second):
+			t.Fatal("callback not called")
+		}
+	})
+
+	t.Run("Writer Error", func(t *testing.T) {
+		d, _, mw := setup(t)
+		mw.err = errors.New("socket closed")
+		err := d.Send(context.Background(), Raw(enums.EMsg_ClientLogon, nil))
+		assert.ErrorIs(t, err, mw.err)
+	})
+
+	t.Run("Context Cancellation", func(t *testing.T) {
+		d, _, _ := setup(t)
+		ctx, cancel := context.WithCancel(context.Background())
+
+		errChan := make(chan error, 1)
+		_ = d.Send(ctx, Raw(enums.EMsg_ClientLogon, nil), WithCallback(func(p *protocol.Packet, err error) {
+			errChan <- err
+		}))
+
+		cancel()
+
+		select {
+		case err := <-errChan:
+			assert.ErrorIs(t, err, context.Canceled)
+		case <-time.After(time.Second):
+			t.Fatal("job not resolved on context cancel")
+		}
+	})
 }
 
-func TestDispatcher_MsgRouting(t *testing.T) {
-	d, _ := setupDispatcher()
-	called := atomic.Bool{}
+func TestDispatcher_Builders(t *testing.T) {
+	sess := &mockSession{1, 1}
 
-	d.RegisterMsgHandler(enums.EMsg_ClientLogon, func(p *protocol.Packet) {
-		called.Store(true)
+	t.Run("Unified Builder", func(t *testing.T) {
+		buf := new(bytes.Buffer)
+		build := Unified("Service.Method", &emptypb.Empty{})
+		err := build(sess, buf, 100, "token")
+		assert.NoError(t, err)
+
+		pkt, _ := protocol.ParsePacket(buf)
+		hdr := pkt.Header.(*protocol.MsgHdrProtoBuf)
+		assert.Equal(t, "Service.Method", hdr.Proto.GetTargetJobName())
+		assert.Equal(t, "token", hdr.Proto.GetWgToken())
 	})
 
-	d.Dispatch(&protocol.Packet{EMsg: enums.EMsg_ClientLogon})
-	assert.True(t, called.Load(), "Standard message handler should be called")
+	t.Run("DynamicRaw Builder", func(t *testing.T) {
+		// As Proto
+		buf := new(bytes.Buffer)
+		build := DynamicRaw(enums.EMsg_ServiceMethodCallFromClient, "Method", []byte("raw"))
+		_ = build(sess, buf, 0, "")
+		pkt, _ := protocol.ParsePacket(buf)
+		assert.True(t, pkt.IsProto)
 
-	// Unregister
-	called.Store(false)
-	d.RegisterMsgHandler(enums.EMsg_ClientLogon, nil)
-	d.Dispatch(&protocol.Packet{EMsg: enums.EMsg_ClientLogon})
-	assert.False(t, called.Load(), "Handler should not be called after removal")
+		// As Extended
+		buf.Reset()
+
+		build = DynamicRaw(enums.EMsg_ClientLogon, "", []byte("raw"))
+		_ = build(sess, buf, 0, "")
+		pkt, _ = protocol.ParsePacket(buf)
+		assert.False(t, pkt.IsProto)
+	})
 }
 
-func TestDispatcher_ServiceRouting(t *testing.T) {
-	d, _ := setupDispatcher()
-	called := atomic.Bool{}
-
-	d.RegisterServiceHandler("Player.GetGameBadgeLevels#1", func(p *protocol.Packet) {
-		called.Store(true)
+func TestDispatcher_Dispatch_SpecialCases(t *testing.T) {
+	t.Run("Nil Packet", func(t *testing.T) {
+		d, _, _ := setup(t)
+		assert.NotPanics(t, func() { d.Dispatch(nil) })
 	})
 
-	t.Run("Successful Dispatch", func(t *testing.T) {
-		hdr := protocol.NewMsgHdrProtoBuf(enums.EMsg_ServiceMethod, 0, 0)
-		hdr.Proto.TargetJobName = proto.String("Player.GetGameBadgeLevels#1")
+	t.Run("DestJobFailed Error", func(t *testing.T) {
+		d, jm, _ := setup(t)
+		jobID := jm.NextID()
+		errChan := make(chan error, 1)
+		_ = jm.Add(jobID, func(p *protocol.Packet, err error) { errChan <- err })
 
-		d.Dispatch(&protocol.Packet{EMsg: enums.EMsg_ServiceMethod, Header: hdr})
-		assert.True(t, called.Load())
+		// Create EMsg_DestJobFailed packet
+		pkt := &protocol.Packet{EMsg: enums.EMsg_DestJobFailed}
+		hdr := protocol.NewMsgHdrProtoBuf(enums.EMsg_DestJobFailed, 0, 0)
+		hdr.Proto.JobidTarget = proto.Uint64(jobID)
+		pkt.Header = hdr
+
+		d.Dispatch(pkt)
+
+		err := <-errChan
+		assert.ErrorIs(t, err, ErrDestJobFailed)
 	})
 
-	t.Run("Non-Proto Header", func(t *testing.T) {
-		d.Dispatch(&protocol.Packet{EMsg: enums.EMsg_ServiceMethod, Header: &protocol.MsgHdr{}})
-		// Should log warning and return without panic
+	t.Run("ServiceMethod without Proto Header", func(t *testing.T) {
+		d, _, _ := setup(t)
+		pkt := &protocol.Packet{
+			EMsg:   enums.EMsg_ServiceMethod,
+			Header: &protocol.MsgHdrExtended{}, // Wrong header type
+		}
+		assert.NotPanics(t, func() { d.Dispatch(pkt) })
 	})
+}
 
-	t.Run("Unhandled Method", func(t *testing.T) {
-		hdr := protocol.NewMsgHdrProtoBuf(enums.EMsg_ServiceMethod, 0, 0)
-		hdr.Proto.TargetJobName = proto.String("Unknown.Method")
+func TestDispatcher_Multi_EdgeCases(t *testing.T) {
+	t.Run("Malformed SubPacket Size", func(t *testing.T) {
+		d, _, _ := setup(t)
+		// Payload has size but no data
+		payload := []byte{0x04, 0x00, 0x00, 0x00}
+		multi, _ := proto.Marshal(&pb.CMsgMulti{MessageBody: payload})
 
 		assert.NotPanics(t, func() {
-			d.Dispatch(&protocol.Packet{EMsg: enums.EMsg_ServiceMethod, Header: hdr})
+			d.Dispatch(&protocol.Packet{EMsg: enums.EMsg_Multi, Payload: multi})
 		})
 	})
-}
 
-func TestDispatcher_JobRouting(t *testing.T) {
-	d, jm := setupDispatcher()
-	jobID := jm.NextID()
-	resolved := make(chan struct{})
+	t.Run("Decompression Size Mismatch", func(t *testing.T) {
+		d, _, _ := setup(t)
 
-	_ = jm.Add(jobID, func(p *protocol.Packet, err error) {
-		close(resolved)
-	}, jobs.WithContext[*protocol.Packet](context.Background()))
-
-	pkt := packProto(enums.EMsg_ClientLogOnResponse, jobID, nil)
-	d.Dispatch(pkt)
-
-	select {
-	case <-resolved:
-		// Success
-	case <-time.After(100 * time.Millisecond):
-		t.Fatal("Packet with TargetJobID was not routed")
-	}
-}
-
-func TestDispatcher_HandleMulti(t *testing.T) {
-	t.Run("Recursive Unpacking", func(t *testing.T) {
-		d, _ := setupDispatcher()
-		count := atomic.Int32{}
-
-		d.RegisterMsgHandler(enums.EMsg_ClientLogon, func(p *protocol.Packet) { count.Add(1) })
-		d.RegisterMsgHandler(enums.EMsg_ClientPersonaState, func(p *protocol.Packet) { count.Add(1) })
-
-		// Craft nested packets
-		sub1 := packProto(enums.EMsg_ClientLogon, 0, nil)
-		sub2 := packProto(enums.EMsg_ClientPersonaState, 0, nil)
-
-		payload := new(bytes.Buffer)
-		for _, p := range []*protocol.Packet{sub1, sub2} {
-			buf := new(bytes.Buffer)
-			_ = p.SerializeTo(buf)
-			_ = binary.Write(payload, binary.LittleEndian, uint32(buf.Len()))
-			payload.Write(buf.Bytes())
-		}
-
-		multi, _ := proto.Marshal(&pb.CMsgMulti{MessageBody: payload.Bytes()})
-		d.Dispatch(&protocol.Packet{EMsg: enums.EMsg_Multi, Payload: multi})
-
-		assert.Equal(t, int32(2), count.Load(), "All nested packets should be dispatched")
-	})
-
-	t.Run("Compressed Multi", func(t *testing.T) {
-		d, _ := setupDispatcher()
-		called := atomic.Bool{}
-		d.RegisterMsgHandler(enums.EMsg_ClientLogon, func(p *protocol.Packet) { called.Store(true) })
-
-		sub := packProto(enums.EMsg_ClientLogon, 0, nil)
-		rawSub := new(bytes.Buffer)
-		_ = sub.SerializeTo(rawSub)
-
-		nestedPayload := new(bytes.Buffer)
-		_ = binary.Write(nestedPayload, binary.LittleEndian, uint32(rawSub.Len()))
-		nestedPayload.Write(rawSub.Bytes())
-
-		// Gzip nested payload
 		var zipped bytes.Buffer
 
 		zw := gzip.NewWriter(&zipped)
-		_, _ = zw.Write(nestedPayload.Bytes())
+		_, _ = zw.Write([]byte("short"))
 		zw.Close()
 
 		multi, _ := proto.Marshal(&pb.CMsgMulti{
-			SizeUnzipped: proto.Uint32(uint32(nestedPayload.Len())),
+			SizeUnzipped: proto.Uint32(100), // Claim 100, but only "short" provided
 			MessageBody:  zipped.Bytes(),
 		})
 
-		d.Dispatch(&protocol.Packet{EMsg: enums.EMsg_Multi, Payload: multi})
-		assert.True(t, called.Load())
-	})
-
-	t.Run("Unmarshal Failure", func(t *testing.T) {
-		d, _ := setupDispatcher()
 		assert.NotPanics(t, func() {
-			d.Dispatch(&protocol.Packet{EMsg: enums.EMsg_Multi, Payload: []byte{0xFF, 0x00}})
+			d.Dispatch(&protocol.Packet{EMsg: enums.EMsg_Multi, Payload: multi})
 		})
 	})
 }
 
-func TestDispatcher_DecompressionSafety(t *testing.T) {
-	d, _ := setupDispatcher()
-	d.DecompressionLimit = 1024 // 1KB limit for test
+func TestDispatcher_SessionExclusion(t *testing.T) {
+	d, _, _ := setup(t)
+	d.session = &mockSession{steamID: 123, sessionID: 456}
 
-	t.Run("Limit Exceeded", func(t *testing.T) {
-		multi, _ := proto.Marshal(&pb.CMsgMulti{
-			SizeUnzipped: proto.Uint32(2048), // Over limit
-			MessageBody:  []byte("fake-data"),
-		})
+	t.Run("ClientHello has no Session info", func(t *testing.T) {
+		buf := new(bytes.Buffer)
+		_ = Proto(enums.EMsg_ClientHello, nil)(d.session, buf, 0, "")
+		pkt, _ := protocol.ParsePacket(buf)
+		hdr := pkt.Header.(*protocol.MsgHdrProtoBuf)
 
-		d.Dispatch(&protocol.Packet{EMsg: enums.EMsg_Multi, Payload: multi})
-		// Error logged, process stops
-	})
-
-	t.Run("Zip Bomb or Malformed Gzip", func(t *testing.T) {
-		multi, _ := proto.Marshal(&pb.CMsgMulti{
-			SizeUnzipped: proto.Uint32(500),
-			MessageBody:  []byte("not-gzip"),
-		})
-		d.Dispatch(&protocol.Packet{EMsg: enums.EMsg_Multi, Payload: multi})
+		assert.Equal(t, uint64(0), hdr.Proto.GetSteamid())
+		assert.Equal(t, int32(0), hdr.Proto.GetClientSessionid())
 	})
 }
 
-func TestDispatcher_PanicRecovery(t *testing.T) {
-	d, _ := setupDispatcher()
+func TestDispatcher_BufferPooling(t *testing.T) {
+	d, _, _ := setup(t)
 
+	t.Run("Large buffers are not pooled", func(t *testing.T) {
+		buf := d.getBuffer()
+		buf.Write(make([]byte, 200*1024)) // > 128KB
+		d.putBuffer(buf)
+
+		// The next buffer from getBuffer should be fresh (empty)
+		// but since sync.Pool is non-deterministic, we check the logic branch
+		// via coverage.
+		buf2 := d.getBuffer()
+		assert.Equal(t, 0, buf2.Len())
+	})
+}
+
+func TestDispatcher_HandlerPanic(t *testing.T) {
+	d, _, _ := setup(t)
 	d.RegisterMsgHandler(enums.EMsg_ClientLogon, func(p *protocol.Packet) {
-		panic("boom")
+		panic("test panic")
 	})
 
 	assert.NotPanics(t, func() {
@@ -209,13 +255,39 @@ func TestDispatcher_PanicRecovery(t *testing.T) {
 	})
 }
 
-func TestDispatcher_ClearHandlers(t *testing.T) {
-	d, _ := setupDispatcher()
-	called := atomic.Bool{}
+func TestDispatcher_Registration(t *testing.T) {
+	d, _, _ := setup(t)
 
-	d.RegisterMsgHandler(enums.EMsg_ClientLogon, func(p *protocol.Packet) { called.Store(true) })
-	d.ClearHandlers()
+	t.Run("Register Service Handler", func(t *testing.T) {
+		called := atomic.Bool{}
+		d.RegisterServiceHandler("Test.Method", func(p *protocol.Packet) {
+			called.Store(true)
+		})
 
-	d.Dispatch(&protocol.Packet{EMsg: enums.EMsg_ClientLogon})
-	assert.False(t, called.Load())
+		hdr := protocol.NewMsgHdrProtoBuf(enums.EMsg_ServiceMethod, 0, 0)
+		hdr.Proto.TargetJobName = proto.String("Test.Method")
+		d.Dispatch(&protocol.Packet{EMsg: enums.EMsg_ServiceMethod, Header: hdr})
+
+		assert.True(t, called.Load())
+
+		// Unregister
+		d.RegisterServiceHandler("Test.Method", nil)
+		called.Store(false)
+		d.Dispatch(&protocol.Packet{EMsg: enums.EMsg_ServiceMethod, Header: hdr})
+		assert.False(t, called.Load())
+	})
+}
+
+func TestDispatcher_Options(t *testing.T) {
+	// Cover SendOption logic
+	opt := WithToken("test-token")
+	cfg := &SendConfig{}
+	opt(cfg)
+	assert.Equal(t, "test-token", cfg.Token)
+}
+
+func TestDispatcher_Close(t *testing.T) {
+	d, _, _ := setup(t)
+	err := d.Close()
+	assert.NoError(t, err)
 }

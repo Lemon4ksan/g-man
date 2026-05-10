@@ -2,6 +2,19 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+/*
+Package connector manages raw network connectivity to Steam CM servers.
+
+It abstracts the underlying transport (TCP or WebSockets) and provides
+automatic reconnection logic. Its primary responsibility is to maintain
+a "live pipe" and emit raw, decrypted NetMessages into a Go channel.
+
+Key features:
+  - Exponential backoff on connection failure.
+  - Pluggable dialers for different protocols.
+  - Encryption handshake handling.
+  - Transport-agnostic data transmission.
+*/
 package connector
 
 import (
@@ -12,14 +25,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket/network"
 )
 
 var (
 	// ErrClosed is returned when sending a message with a closed connector.
-	ErrClosed = errors.New("socket: instance is permanently closed")
+	ErrClosed = errors.New("connector: instance is permanently closed")
 
 	// ErrDisconnected is returned when sending a message but the transport is not active.
 	ErrDisconnected = errors.New("connector: not connected to any CM server")
@@ -48,25 +60,6 @@ func DefaultConfig() Config {
 		ReconnectPolicy: DefaultReconnectPolicy(),
 		ConnectTimeout:  20 * time.Second,
 	}
-}
-
-// ConnectedEvent is emitted when a transport connection is successfully established.
-type ConnectedEvent struct {
-	bus.BaseEvent
-	Server string
-}
-
-// ReconnectingEvent is emitted when the connector enters a backoff state before a retry.
-type ReconnectingEvent struct {
-	bus.BaseEvent
-	Attempt int
-	Delay   time.Duration
-}
-
-// DisconnectedEvent is emitted when the transport connection is lost or closed.
-type DisconnectedEvent struct {
-	bus.BaseEvent
-	Error error
 }
 
 // CMServer represents a Steam Connection Manager server endpoint.
@@ -123,13 +116,12 @@ func DefaultReconnectPolicy() ReconnectPolicy {
 type Connector struct {
 	cfg    Config
 	mu     sync.RWMutex
-	bus    *bus.Bus
 	ctx    context.Context
 	cancel context.CancelFunc
 	closed atomic.Bool
 
-	logger      log.Logger
-	dataHandler DataHandler
+	logger   log.Logger
+	incoming chan []byte
 
 	conn         network.Connection
 	isConnecting atomic.Bool
@@ -142,49 +134,33 @@ type DataHandler interface {
 	OnNetMessage(msg network.NetMessage)
 }
 
-// WithLogger sets a custom logger for the connector.
-func WithLogger(l log.Logger) bus.Option[*Connector] {
-	return func(c *Connector) { c.logger = l.With(log.Component("connector")) }
-}
-
-// WithDataHandler sets the processor that will receive raw decrypted NetMessages.
-func WithDataHandler(handler DataHandler) bus.Option[*Connector] {
-	return func(c *Connector) { c.dataHandler = handler }
-}
-
 // New initializes a new Connector with a lifecycle tied to the provided context.
-func New(
-	ctx context.Context,
-	cfg Config,
-	b *bus.Bus,
-	opts ...bus.Option[*Connector],
-) *Connector {
-	ctx, cancel := context.WithCancel(ctx)
-
-	if b == nil {
-		b = bus.New()
-	}
+func New(cfg Config, logger log.Logger) *Connector {
+	ctx, cancel := context.WithCancel(context.Background())
 
 	c := &Connector{
-		cfg:     cfg,
-		ctx:     ctx,
-		cancel:  cancel,
-		bus:     b,
-		logger:  log.Discard,
-		servers: make([]CMServer, 0),
-	}
-
-	for _, opt := range opts {
-		opt(c)
+		cfg:      cfg,
+		ctx:      ctx,
+		cancel:   cancel,
+		incoming: make(chan []byte, 100),
+		logger:   logger.With(log.Component("connector")),
+		servers:  make([]CMServer, 0),
 	}
 
 	return c
 }
 
+// Done returns a channel that is closed if the connector is permanently closed.
 func (c *Connector) Done() <-chan struct{} {
 	return c.ctx.Done()
 }
 
+// C returns a channel for incoming network data.
+func (c *Connector) C() <-chan []byte {
+	return c.incoming
+}
+
+// IsConnected reports weather the connection is established.
 func (c *Connector) IsConnected() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -219,7 +195,6 @@ func (c *Connector) Connect(ctx context.Context, server CMServer) error {
 	c.lastServer = server
 	c.mu.Unlock()
 
-	c.bus.Publish(&ConnectedEvent{Server: server.Endpoint})
 	c.logger.Info("Transport connected", log.String("endpoint", server.Endpoint), log.Int64("conn_id", conn.ID()))
 
 	return nil
@@ -287,12 +262,9 @@ func (c *Connector) Close() error {
 
 // OnNetMessage routes raw incoming messages to the registered data handler.
 func (c *Connector) OnNetMessage(msg network.NetMessage) {
-	c.mu.RLock()
-	h := c.dataHandler
-	c.mu.RUnlock()
-
-	if h != nil {
-		h.OnNetMessage(msg)
+	select {
+	case c.incoming <- msg:
+	case <-c.ctx.Done():
 	}
 }
 
@@ -307,8 +279,6 @@ func (c *Connector) OnNetClose() {
 	c.conn = nil
 	policy := c.cfg.ReconnectPolicy
 	c.mu.Unlock()
-
-	c.bus.Publish(&DisconnectedEvent{})
 
 	if c.ctx.Err() == nil && policy.MaxAttempts > 0 {
 		go c.reconnectLoop()
@@ -340,8 +310,6 @@ func (c *Connector) reconnectLoop() {
 			target = last
 		}
 
-		c.bus.Publish(&ReconnectingEvent{Attempt: att, Delay: backoff})
-
 		dialCtx, dialCancel := context.WithTimeout(c.ctx, c.cfg.ConnectTimeout)
 		err := c.Connect(dialCtx, target)
 
@@ -365,5 +333,4 @@ func (c *Connector) reconnectLoop() {
 	}
 
 	c.logger.Error("Reconnection failed permanently", log.Err(ErrReconnectionFailed))
-	c.bus.Publish(&DisconnectedEvent{Error: ErrReconnectionFailed})
 }

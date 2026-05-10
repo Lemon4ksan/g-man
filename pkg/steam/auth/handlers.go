@@ -148,7 +148,11 @@ func (a *Authenticator) handleLogOnResponse(packet *protocol.Packet) {
 		interval = 10 * time.Second
 	}
 
-	a.socket.StartHeartbeat(interval)
+	if err := a.socket.StartHeartbeat(interval); err != nil {
+		a.logger.Error("Failed to start heartbeat", log.Err(err))
+		a.failLogin(fmt.Errorf("logon_response: failed to start heartbeat: %w", err))
+		return
+	}
 
 	a.bus.Publish(&LoggedOnEvent{
 		SteamID: a.socket.Session().SteamID(),

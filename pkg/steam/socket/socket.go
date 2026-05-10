@@ -5,14 +5,14 @@
 package socket
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/lemon4ksan/g-man/pkg/bus"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/lemon4ksan/g-man/pkg/jobs"
 	"github.com/lemon4ksan/g-man/pkg/log"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
@@ -28,12 +28,36 @@ import (
 // has been permanently shut down via Close().
 var ErrClosed = errors.New("socket: instance is permanently closed")
 
-// Aliases for an easy access.
 type (
-	Handler  = dispatcher.Handler
+	// CMServer represents a Steam Connection Manager server endpoint.
 	CMServer = connector.CMServer
+	// Handler defines a callback function for processing a fully-parsed Steam packet.
+	Handler = dispatcher.Handler
+	// PayloadBuilder defines how to assemble a binary packet.
+	PayloadBuilder = dispatcher.PayloadBuilder
+	// SendOption defines a functional option for configuring a Send operation.
+	SendOption = dispatcher.SendOption
 )
 
+var (
+	// Raw builds a packet using Extended headers (non-protobuf).
+	Raw = dispatcher.Raw
+	// Proto builds a standard Protobuf-wrapped packet.
+	Proto = dispatcher.Proto
+	// Unified builds a Protobuf packet for Unified Service methods.
+	Unified = dispatcher.Unified
+	// DynamicRaw creates a PayloadBuilder that decides between Protobuf and Extended
+	// headers based on whether a targetName (Unified Service method) is provided.
+	// targetName == "" implies a standard (non-unified) message.
+	DynamicRaw = dispatcher.DynamicRaw
+
+	// WithCallback adds a callback to asynchronously wait for a response to the sent packet.
+	WithCallback = dispatcher.WithCallback
+	// WithToken sets an access token for service method calls via the socket.
+	WithToken = dispatcher.WithToken
+)
+
+// Session defines the implementation of thread-safe Steam session.
 type Session interface {
 	// SteamID returns the 64-bit Steam ID assigned to the session.
 	SteamID() uint64
@@ -80,10 +104,6 @@ func DefaultConfig() Config {
 	}
 }
 
-func WithLogger(l log.Logger) bus.Option[*Socket] {
-	return func(s *Socket) { s.logger = l }
-}
-
 // Socket acts as the central facade for Steam network operations.
 // It orchestrates the connection lifecycle, message processing, and routing.
 type Socket struct {
@@ -91,13 +111,10 @@ type Socket struct {
 	logger log.Logger
 
 	// Subsystems
-	conn       *connector.Connector
-	proc       *processor.Processor
-	dispatch   *dispatcher.Dispatcher
-	session    Session
-	jobManager *jobs.Manager[*protocol.Packet]
-
-	bufferPool sync.Pool
+	conn     *connector.Connector
+	proc     *processor.Processor
+	dispatch *dispatcher.Dispatcher
+	session  Session
 
 	// Lifecycle
 	closeOnce sync.Once
@@ -105,38 +122,23 @@ type Socket struct {
 }
 
 // NewSocket initializes a new Steam Socket facade.
-func NewSocket(cfg Config, opts ...bus.Option[*Socket]) *Socket {
-	b := bus.New()
-	l := log.Discard
-	jm := jobs.NewManager[*protocol.Packet](cfg.MaxJobs)
+func NewSocket(cfg Config, logger log.Logger) *Socket {
+	s := &Socket{
+		cfg:     cfg,
+		logger:  logger,
+		session: &session.Session{},
+	}
 
-	sess := &session.Session{}
-	disp := dispatcher.New(jm, l)
-	proc := processor.New(cfg.Processor, disp, l)
+	s.conn = connector.New(cfg.Connector, s.logger)
 
-	conn := connector.New(context.Background(), cfg.Connector, b,
-		connector.WithLogger(l),
-		connector.WithDataHandler(proc), // Wire Connector -> Processor
+	s.dispatch = dispatcher.New(
+		jobs.NewManager[*protocol.Packet](cfg.MaxJobs),
+		s.conn,
+		s.session,
+		s.logger,
 	)
 
-	s := &Socket{
-		cfg:        cfg,
-		logger:     l.With(log.Module("socket")),
-		conn:       conn,
-		proc:       proc,
-		dispatch:   disp,
-		session:    sess,
-		jobManager: jm,
-		bufferPool: sync.Pool{
-			New: func() interface{} {
-				return bytes.NewBuffer(make([]byte, 0, 1024))
-			},
-		},
-	}
-
-	for _, opt := range opts {
-		opt(s)
-	}
+	s.proc = processor.New(cfg.Processor, s.conn.C(), s.dispatch, s.logger)
 
 	return s
 }
@@ -159,13 +161,70 @@ func (s *Socket) Connector() *connector.Connector {
 
 // Connect initiates a connection to a Steam CM server.
 func (s *Socket) Connect(ctx context.Context, server CMServer) error {
+	if s.closed.Load() {
+		return ErrClosed
+	}
+
 	s.proc.Start() // Ensure workers are running before network starts
+
 	return s.conn.Connect(ctx, server)
+}
+
+// Send is the primary method for transmitting data.
+func (s *Socket) Send(ctx context.Context, build PayloadBuilder, opts ...SendOption) error {
+	if s.closed.Load() {
+		return ErrClosed
+	}
+
+	return s.dispatch.Send(ctx, build, opts...)
+}
+
+// SendRaw is a helper for raw messages.
+func (s *Socket) SendRaw(ctx context.Context, eMsg enums.EMsg, payload []byte, opts ...SendOption) error {
+	return s.Send(ctx, Raw(eMsg, payload), opts...)
+}
+
+// SendProto is a high-level helper for Protobuf messages.
+func (s *Socket) SendProto(ctx context.Context, eMsg enums.EMsg, req proto.Message, opts ...SendOption) error {
+	return s.Send(ctx, Proto(eMsg, req), opts...)
+}
+
+// SendUnified is a high-level helper for Unified Service calls.
+func (s *Socket) SendUnified(ctx context.Context, method string, req proto.Message, opts ...SendOption) error {
+	return s.Send(ctx, Unified(method, req), opts...)
+}
+
+// SendSync blocks until a response is received or the context is canceled.
+func (s *Socket) SendSync(ctx context.Context, build PayloadBuilder, opts ...SendOption) (*protocol.Packet, error) {
+	type result struct {
+		pkt *protocol.Packet
+		err error
+	}
+
+	resCh := make(chan result, 1)
+	cb := func(pkt *protocol.Packet, err error) {
+		resCh <- result{pkt, err}
+	}
+
+	if err := s.Send(ctx, build, append(opts, dispatcher.WithCallback(cb))...); err != nil {
+		return nil, err
+	}
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case res := <-resCh:
+		return res.pkt, res.err
+	}
 }
 
 // StartHeartbeat begins sending periodic ClientHeartBeat messages to Steam.
 // The loop automatically stops if the socket is closed or the connection drops.
-func (s *Socket) StartHeartbeat(interval time.Duration) {
+func (s *Socket) StartHeartbeat(interval time.Duration) error {
+	if s.closed.Load() {
+		return ErrClosed
+	}
+
 	s.logger.Debug("Starting heartbeat loop", log.Duration("interval", interval))
 
 	go func() {
@@ -192,6 +251,8 @@ func (s *Socket) StartHeartbeat(interval time.Duration) {
 			}
 		}
 	}()
+
+	return nil
 }
 
 // Disconnect gracefully closes the transport connection.
@@ -202,27 +263,27 @@ func (s *Socket) Disconnect() error {
 
 // Close permanently shuts down the socket and all its subsystems.
 func (s *Socket) Close() error {
-	var err error
+	var errs []error
 
 	s.closed.Store(true)
 	s.closeOnce.Do(func() {
-		err = s.conn.Close()
+		errs = append(errs, s.conn.Close())
 		s.proc.Stop()
-		_ = s.jobManager.Close()
+		errs = append(errs, s.dispatch.Close())
 		s.dispatch.ClearHandlers()
 	})
 
-	return err
+	return errors.Join(errs...)
 }
 
 // RegisterMsgHandler adds a handler for a specific EMsg.
 func (s *Socket) RegisterMsgHandler(eMsg enums.EMsg, h Handler) {
-	s.dispatch.RegisterMsgHandler(eMsg, dispatcher.Handler(h))
+	s.dispatch.RegisterMsgHandler(eMsg, h)
 }
 
 // RegisterServiceHandler adds a handler for a Unified Service method.
 func (s *Socket) RegisterServiceHandler(method string, h Handler) {
-	s.dispatch.RegisterServiceHandler(method, dispatcher.Handler(h))
+	s.dispatch.RegisterServiceHandler(method, h)
 }
 
 // UnregisterMsgHandler removes a handler for a specific Steam message.

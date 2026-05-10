@@ -7,7 +7,7 @@ Package steam provides the high-level, unified orchestrator (Client) for interac
 with all aspects of the Steam ecosystem.
 
 It acts as the "brain" of the library, seamlessly integrating three distinct worlds:
-  - Persistent CM Connections: Low-latency communication via Socket (TCP/WebSockets).
+  - Persistent CM Connections: Low-latency communication via cmSocket (TCP/WebSockets).
   - WebAPI Services: Standardized RPC calls over HTTP (Unified and Legacy services).
   - Steam Community: Scraping and interacting with the steamcommunity.com website.
 
@@ -19,7 +19,7 @@ automatic WebAPI key registration.
 
 1. Smart Routing:
 The Client implements the service.Doer interface. When a request is made, the Client
-automatically decides whether to send it via an active Socket connection (if the
+automatically decides whether to send it via an active cmSocket connection (if the
 message is compatible) or fallback to a standard HTTP WebAPI call. This ensures
 maximum performance without manual transport management.
 
@@ -47,7 +47,7 @@ and incoming Steam packets, allowing decoupled components to react to global eve
 	cfg := steam.DefaultConfig()
 	client := steam.NewClient(cfg)
 
-	// Perform a full login (Socket + Web)
+	// Perform a full login (cmSocket + Web)
 	details := &auth.LogOnDetails{
 		Username: "steam_user",
 		Password: "steam_password",

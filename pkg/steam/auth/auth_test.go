@@ -235,8 +235,8 @@ func (m *MockSocketProvider) Connect(ctx context.Context, s socket.CMServer) err
 	return m.Called(s).Error(0)
 }
 
-func (m *MockSocketProvider) Session() socket.Session        { return m.Called().Get(0).(socket.Session) }
-func (m *MockSocketProvider) StartHeartbeat(d time.Duration) { m.Called(d) }
+func (m *MockSocketProvider) Session() socket.Session              { return m.Called().Get(0).(socket.Session) }
+func (m *MockSocketProvider) StartHeartbeat(d time.Duration) error { m.Called(d); return nil }
 
 func (m *MockSocketProvider) SetEncryptionKey(key []byte) bool { return true }
 

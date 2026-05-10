@@ -2,11 +2,23 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+/*
+Package dispatcher handles the routing and lifecycle of parsed packets.
+
+It serves as the Request-Response manager by tracking JobIDs and matching
+incoming responses to pending requests. It also routes packets to
+registered EMsg and Unified Service handlers.
+
+The dispatcher is responsible for transparently unpacking EMsg_Multi
+packets and re-dispatching their contents, ensuring the application
+only deals with atomic Steam messages.
+*/
 package dispatcher
 
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -34,28 +46,126 @@ var (
 // Handler defines a callback function for processing a fully-parsed Steam packet.
 type Handler func(p *protocol.Packet)
 
+// Writer defines an interface for sending data through socket.
+type Writer interface {
+	Send(ctx context.Context, data []byte) error
+}
+
+// SessionReader is an interface for accessing fresh steam and session ids
+type SessionReader interface {
+	SteamID() uint64
+	SessionID() int32
+}
+
+// SendConfig contains parameters for sending a message.
+type SendConfig struct {
+	// Callback is invoked when a response to this message is received.
+	Callback jobs.Callback[*protocol.Packet]
+	// Token is an optional WebAPI token for specific service calls.
+	Token string
+}
+
+// SendOption defines a functional option for configuring a Send operation.
+type SendOption func(*SendConfig)
+
+// WithCallback adds a callback to asynchronously wait for a response to the sent packet.
+func WithCallback(cb jobs.Callback[*protocol.Packet]) SendOption {
+	return func(c *SendConfig) { c.Callback = cb }
+}
+
+// WithToken sets an access token for service method calls via the socket.
+func WithToken(token string) SendOption {
+	return func(c *SendConfig) { c.Token = token }
+}
+
+// PayloadBuilder defines how to assemble a binary packet.
+type PayloadBuilder func(sess SessionReader, buf *bytes.Buffer, sourceJobID uint64, token string) error
+
+// Proto builds a standard Protobuf-wrapped packet.
+func Proto(eMsg enums.EMsg, req proto.Message) PayloadBuilder {
+	return func(sess SessionReader, buf *bytes.Buffer, sourceJobID uint64, token string) (err error) {
+		pkt := newPacket(sess, eMsg, sourceJobID, true, "", token)
+		if req != nil {
+			pkt.Payload, err = proto.Marshal(req)
+			if err != nil {
+				return fmt.Errorf("marshal proto: %w", err)
+			}
+		}
+
+		return pkt.SerializeTo(buf)
+	}
+}
+
+// Unified builds a Protobuf packet for Unified Service methods.
+func Unified(method string, req proto.Message) PayloadBuilder {
+	return func(sess SessionReader, buf *bytes.Buffer, sourceJobID uint64, token string) (err error) {
+		pkt := newPacket(sess, enums.EMsg_ServiceMethodCallFromClient, sourceJobID, true, method, token)
+		if req != nil {
+			pkt.Payload, err = proto.Marshal(req)
+			if err != nil {
+				return fmt.Errorf("marshal unified proto: %w", err)
+			}
+		}
+
+		return pkt.SerializeTo(buf)
+	}
+}
+
+// Raw builds a packet using Extended headers (non-protobuf).
+func Raw(eMsg enums.EMsg, payload []byte) PayloadBuilder {
+	return func(sess SessionReader, buf *bytes.Buffer, sourceJobID uint64, _ string) error {
+		pkt := newPacket(sess, eMsg, sourceJobID, false, "", "")
+		pkt.Payload = payload
+		return pkt.SerializeTo(buf)
+	}
+}
+
+// DynamicRaw creates a PayloadBuilder that decides between Protobuf and Extended
+// headers based on whether a targetName (Unified Service method) is provided.
+// targetName == "" implies a standard (non-unified) message.
+func DynamicRaw(eMsg enums.EMsg, targetName string, payload []byte) PayloadBuilder {
+	return func(sess SessionReader, buf *bytes.Buffer, sourceJobID uint64, token string) error {
+		isProto := targetName != ""
+
+		pkt := newPacket(sess, eMsg, sourceJobID, isProto, targetName, token)
+		pkt.Payload = payload
+
+		return pkt.SerializeTo(buf)
+	}
+}
+
 // Dispatcher coordinates the routing of Steam packets to handlers and job callbacks.
 type Dispatcher struct {
 	mu sync.RWMutex
 
 	logger     log.Logger
+	writer     Writer
+	session    SessionReader
 	jobManager *jobs.Manager[*protocol.Packet]
 
 	handlers        map[enums.EMsg]Handler
 	serviceHandlers map[string]Handler
+	bufferPool      *sync.Pool
 
 	// DecompressionLimit defines the max size allowed for unzipped Multi-messages.
 	DecompressionLimit int64
 }
 
 // New initializes a new packet dispatcher.
-func New(jm *jobs.Manager[*protocol.Packet], logger log.Logger) *Dispatcher {
+func New(jm *jobs.Manager[*protocol.Packet], writer Writer, session SessionReader, logger log.Logger) *Dispatcher {
 	d := &Dispatcher{
+		writer:             writer,
+		session:            session,
 		logger:             logger.With(log.Component("dispatch")),
 		jobManager:         jm,
 		handlers:           make(map[enums.EMsg]Handler),
 		serviceHandlers:    make(map[string]Handler),
 		DecompressionLimit: 100 * 1024 * 1024, // 100MB Default
+		bufferPool: &sync.Pool{
+			New: func() any {
+				return bytes.NewBuffer(make([]byte, 0, 1024))
+			},
+		},
 	}
 
 	return d
@@ -93,6 +203,27 @@ func (d *Dispatcher) ClearHandlers() {
 
 	clear(d.handlers)
 	clear(d.serviceHandlers)
+}
+
+// Send is the primary method for transmitting data. It handles job registration,
+// buffer pooling, and builder execution.
+func (d *Dispatcher) Send(ctx context.Context, build PayloadBuilder, opts ...SendOption) error {
+	cfg := &SendConfig{}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+
+	jobID := d.registerJob(ctx, cfg.Callback)
+
+	buf := d.getBuffer()
+	defer d.putBuffer(buf)
+
+	if err := build(d.session, buf, jobID, cfg.Token); err != nil {
+		d.jobManager.Resolve(jobID, nil, err)
+		return err
+	}
+
+	return d.writer.Send(ctx, buf.Bytes())
 }
 
 // Dispatch routes a single packet. If the packet is an EMsg_Multi, it will be
@@ -147,6 +278,10 @@ func (d *Dispatcher) invokeHandler(handler Handler, packet *protocol.Packet) {
 	}()
 
 	handler(packet)
+}
+
+func (d *Dispatcher) Close() error {
+	return d.jobManager.Close()
 }
 
 func (d *Dispatcher) handleService(packet *protocol.Packet) {
@@ -237,4 +372,86 @@ func (d *Dispatcher) decompressPayload(data []byte, unzippedSize int64) ([]byte,
 	}
 
 	return out, nil
+}
+
+func (d *Dispatcher) registerJob(ctx context.Context, cb jobs.Callback[*protocol.Packet]) uint64 {
+	if cb == nil {
+		return protocol.NoJob
+	}
+
+	id := d.jobManager.NextID()
+
+	// Clean up job if context expires or socket closes
+	var once sync.Once
+
+	stopRequest := context.AfterFunc(ctx, func() {
+		d.jobManager.Resolve(id, nil, ctx.Err())
+	})
+
+	_ = d.jobManager.Add(id, func(response *protocol.Packet, err error) {
+		once.Do(func() {
+			stopRequest()
+			cb(response, err)
+		})
+	})
+
+	return id
+}
+
+func (d *Dispatcher) getBuffer() *bytes.Buffer {
+	buf, _ := d.bufferPool.Get().(*bytes.Buffer)
+	if buf == nil {
+		return new(bytes.Buffer)
+	}
+
+	buf.Reset()
+
+	return buf
+}
+
+func (d *Dispatcher) putBuffer(buf *bytes.Buffer) {
+	if buf.Cap() <= 128*1024 { // Don't pool excessively large buffers
+		d.bufferPool.Put(buf)
+	}
+}
+
+func newPacket(
+	sess SessionReader,
+	eMsg enums.EMsg,
+	jobID uint64,
+	isProto bool,
+	jobName, token string,
+) *protocol.Packet {
+	var (
+		steamID   uint64
+		sessionID int32
+	)
+
+	// We don't attach session info to ClientHello (Steam requirement)
+	if sess != nil && eMsg != enums.EMsg_ClientHello {
+		steamID = sess.SteamID()
+		sessionID = sess.SessionID()
+	}
+
+	pkt := &protocol.Packet{EMsg: eMsg, IsProto: isProto}
+	if isProto {
+		hdr := protocol.NewMsgHdrProtoBuf(eMsg, steamID, sessionID)
+		hdr.Proto.JobidSource = proto.Uint64(jobID)
+
+		if jobName != "" {
+			hdr.Proto.TargetJobName = proto.String(jobName)
+		}
+
+		if token != "" {
+			hdr.Proto.WgToken = proto.String(token)
+		}
+
+		pkt.Header = hdr
+	} else {
+		hdr := protocol.NewMsgHdrExtended(eMsg, steamID, sessionID)
+		hdr.SourceJobID = jobID
+		pkt.Header = hdr
+	}
+
+	return pkt
 }

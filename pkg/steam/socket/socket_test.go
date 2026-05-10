@@ -7,228 +7,237 @@ package socket
 import (
 	"bytes"
 	"context"
+	"errors"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/lemon4ksan/g-man/pkg/log"
-	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket/connector"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket/network"
 )
 
-// setupMockSocket initializes a complete Socket facade with a mocked network layer.
-func setupMockSocket(cfg Config) (*Socket, *mockConnection) {
-	mConn := newMockConnection()
+type mockConnection struct {
+	network.BaseConnection
+	sendErr  error
+	sentMsgs chan []byte
+}
 
-	// Inject the mock dialer into the connector config
+func (m *mockConnection) Name() string { return "mock" }
+func (m *mockConnection) Send(_ context.Context, d []byte) error {
+	if m.sendErr != nil {
+		return m.sendErr
+	}
+
+	m.sentMsgs <- d
+
+	return nil
+}
+func (m *mockConnection) Close() error { return nil }
+
+func setupMockSocket(t *testing.T) (*Socket, *mockConnection) {
+	mConn := &mockConnection{sentMsgs: make(chan []byte, 100)}
+	cfg := DefaultConfig()
 	cfg.Connector.Dialers = map[string]connector.Dialer{
 		"mock": func(ctx context.Context, nh network.Handler, l log.Logger, ep string) (network.Connection, error) {
 			return mConn, nil
 		},
 	}
 
-	s := NewSocket(cfg)
+	s := NewSocket(cfg, log.Discard)
+	t.Cleanup(func() { s.Close() })
 
 	return s, mConn
 }
 
-func packProto(eMsg enums.EMsg, targetJob uint64, payload []byte) []byte {
-	pkt := &protocol.Packet{
-		EMsg:    eMsg,
-		IsProto: true,
-		Header: &protocol.MsgHdrProtoBuf{
-			EMsg: eMsg,
-			Proto: &pb.CMsgProtoBufHeader{
-				JobidTarget: proto.Uint64(targetJob),
-			},
-		},
-		Payload: payload,
-	}
-	buf := new(bytes.Buffer)
-	_ = pkt.SerializeTo(buf)
+func TestSocket_LifecycleAndAccessors(t *testing.T) {
+	s, _ := setupMockSocket(t)
 
-	return buf.Bytes()
-}
-
-func TestSocket_Initialization(t *testing.T) {
-	t.Run("Default Components", func(t *testing.T) {
-		s := NewSocket(DefaultConfig())
-		defer s.Close()
-
-		// Verify that the facade correctly initialized all its sub-components
-		assert.NotNil(t, s.conn)
-		assert.NotNil(t, s.proc)
-		assert.NotNil(t, s.dispatch)
-		assert.NotNil(t, s.session)
-		assert.NotNil(t, s.jobManager)
+	t.Run("Accessors", func(t *testing.T) {
+		assert.NotNil(t, s.Connector())
+		assert.NotNil(t, s.Session())
+		assert.False(t, s.IsConnected())
 	})
 
-	t.Run("With Options", func(t *testing.T) {
-		l := log.Discard
+	t.Run("UpdateServers", func(t *testing.T) {
+		// Just verify it doesn't panic
+		s.UpdateServers([]CMServer{{Type: "mock", Endpoint: "127.0.0.1"}})
+	})
 
-		s := NewSocket(DefaultConfig(), WithLogger(l))
-		defer s.Close()
+	t.Run("EncryptionKey Wrapper", func(t *testing.T) {
+		// Cannot set key on nil connection
+		assert.False(t, s.SetEncryptionKey([]byte("secret")))
+	})
 
-		assert.NotNil(t, s.logger)
+	t.Run("Session implementation", func(t *testing.T) {
+		sess := s.Session()
+		sess.SetSteamID(123)
+		sess.SetSessionID(456)
+		sess.SetAccessToken("at")
+		sess.SetRefreshToken("rt")
+
+		assert.Equal(t, uint64(123), sess.SteamID())
+		assert.Equal(t, int32(456), sess.SessionID())
+		assert.Equal(t, "at", sess.AccessToken())
+		assert.Equal(t, "rt", sess.RefreshToken())
+		assert.True(t, sess.IsAuthenticated())
 	})
 }
 
-func TestSocket_ConnectLifecycle(t *testing.T) {
-	s, _ := setupMockSocket(DefaultConfig())
-	defer s.Close()
+func TestSocket_ClosedState(t *testing.T) {
+	s, _ := setupMockSocket(t)
+	_ = s.Close()
 
-	err := s.Connect(context.Background(), connector.CMServer{Type: "mock", Endpoint: "localhost"})
-	require.NoError(t, err)
-	assert.True(t, s.IsConnected())
-
-	// Set fake session data to verify cleanup
-	s.session.SetSessionID(999)
-
-	err = s.Disconnect()
-	assert.NoError(t, err)
-	assert.Equal(t, int32(0), s.session.SessionID(), "SessionID should be cleared on disconnect")
+	ctx := context.Background()
+	assert.ErrorIs(t, s.Connect(ctx, CMServer{}), ErrClosed)
+	assert.ErrorIs(t, s.Send(ctx, Raw(enums.EMsg_ClientLogon, nil)), ErrClosed)
+	assert.ErrorIs(t, s.StartHeartbeat(time.Second), ErrClosed)
 }
 
-func TestSocket_RoutingIntegration(t *testing.T) {
-	s, _ := setupMockSocket(DefaultConfig())
+func TestSocket_MessagingHelpers(t *testing.T) {
+	s, mConn := setupMockSocket(t)
+	_ = s.Connect(context.Background(), CMServer{Type: "mock"})
 
-	s.proc.Start()
-	defer s.Close()
-
-	called := make(chan struct{})
-	s.RegisterMsgHandler(enums.EMsg_ClientLogOnResponse, func(p *protocol.Packet) {
-		close(called)
+	t.Run("SendRaw", func(t *testing.T) {
+		err := s.SendRaw(context.Background(), enums.EMsg_ClientLogon, []byte("raw"))
+		assert.NoError(t, err)
+		<-mConn.sentMsgs
 	})
 
-	pktData := packProto(enums.EMsg_ClientLogOnResponse, 0, nil)
+	t.Run("SendProto", func(t *testing.T) {
+		err := s.SendProto(context.Background(), enums.EMsg_ClientLogon, &emptypb.Empty{})
+		assert.NoError(t, err)
+		<-mConn.sentMsgs
+	})
 
-	s.proc.Process(pktData)
-
-	select {
-	case <-called:
-		// Success
-	case <-time.After(500 * time.Millisecond):
-		t.Fatal("Handler should be called via Processor pool")
-	}
+	t.Run("SendUnified", func(t *testing.T) {
+		err := s.SendUnified(context.Background(), "Method", &emptypb.Empty{})
+		assert.NoError(t, err)
+		<-mConn.sentMsgs
+	})
 }
 
-func TestSocket_JobSystem(t *testing.T) {
-	s, mConn := setupMockSocket(DefaultConfig())
+func TestSocket_SendSync(t *testing.T) {
+	t.Run("Successful sync", func(t *testing.T) {
+		s, mConn := setupMockSocket(t)
+		_ = s.Connect(context.Background(), CMServer{Type: "mock"})
 
-	s.proc.Start()
-	defer s.Close()
-
-	_ = s.Connect(context.Background(), connector.CMServer{Type: "mock"})
-
-	t.Run("Successful Sync Request", func(t *testing.T) {
 		go func() {
-			// Wait for the outgoing request
 			data := <-mConn.sentMsgs
 			req, _ := protocol.ParsePacket(bytes.NewReader(data))
 
-			// Craft a fake response from Steam targeting the specific JobID
-			resp := &protocol.Packet{
-				EMsg:    enums.EMsg_ClientLogOnResponse,
-				IsProto: true,
-				Header:  protocol.NewMsgHdrProtoBuf(enums.EMsg_ClientLogOnResponse, 0, 0),
-				Payload: []byte("success"),
-			}
-			resp.Header.(*protocol.MsgHdrProtoBuf).Proto.JobidTarget = proto.Uint64(req.GetSourceJobID())
+			// Response
+			resp := &protocol.Packet{EMsg: enums.EMsg_ClientLogOnResponse, IsProto: true}
+			hdr := protocol.NewMsgHdrProtoBuf(enums.EMsg_ClientLogOnResponse, 0, 0)
+			hdr.Proto.JobidTarget = proto.Uint64(req.GetSourceJobID())
+			resp.Header = hdr
+			resp.Payload = []byte("payload")
 
 			buf := new(bytes.Buffer)
 			_ = resp.SerializeTo(buf)
-
-			// Inject response into the pipeline
-			s.proc.Process(buf.Bytes())
+			s.conn.OnNetMessage(buf.Bytes())
 		}()
 
-		ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
-		defer cancel()
+		resp, err := s.SendSync(context.Background(), Proto(enums.EMsg_ClientLogon, nil))
+		assert.NoError(t, err)
+		assert.Equal(t, []byte("payload"), resp.Payload)
+	})
 
-		// Send request and block until response is routed back via JobManager
-		resp, err := s.SendSync(ctx, Proto(enums.EMsg_ClientLogon, nil))
+	t.Run("Context cancellation", func(t *testing.T) {
+		s, _ := setupMockSocket(t)
+		_ = s.Connect(context.Background(), CMServer{Type: "mock"})
 
-		require.NoError(t, err)
-		assert.Equal(t, []byte("success"), resp.Payload)
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		_, err := s.SendSync(ctx, Proto(enums.EMsg_ClientLogon, nil))
+		assert.ErrorIs(t, err, context.Canceled)
+	})
+
+	t.Run("Immediate Send error", func(t *testing.T) {
+		s, _ := setupMockSocket(t)
+		// No connection = Send error
+		_, err := s.SendSync(context.Background(), Proto(enums.EMsg_ClientLogon, nil))
+		assert.Error(t, err)
 	})
 }
 
-func TestSocket_Close(t *testing.T) {
-	s := NewSocket(DefaultConfig())
-	s.proc.Start()
+func TestSocket_Heartbeat(t *testing.T) {
+	t.Run("Heartbeat Loop Logic", func(t *testing.T) {
+		s, mConn := setupMockSocket(t)
+		_ = s.Connect(context.Background(), CMServer{Type: "mock"})
 
-	// Verify subsystems are running
-	s.RegisterMsgHandler(enums.EMsg_ClientHeartBeat, func(p *protocol.Packet) {})
+		// Use very fast interval for test
+		err := s.StartHeartbeat(10 * time.Millisecond)
+		assert.NoError(t, err)
 
-	err := s.Close()
-	require.NoError(t, err)
+		// Verify at least one heartbeat was sent
+		select {
+		case data := <-mConn.sentMsgs:
+			p, _ := protocol.ParsePacket(bytes.NewReader(data))
+			assert.Equal(t, enums.EMsg_ClientHeartBeat, p.EMsg)
+		case <-time.After(100 * time.Millisecond):
+			t.Fatal("Heartbeat not sent")
+		}
 
-	// Test idempotency
-	err = s.Close()
-	assert.NoError(t, err)
+		// Drop connection to stop loop
+		_ = s.Disconnect()
 
-	// Verify Send fails after close
-	err = s.Send(context.Background(), Raw(enums.EMsg_ClientHeartBeat, nil))
-	assert.ErrorIs(t, err, ErrClosed)
+		// Wait a bit to ensure it doesn't panic while disconnected
+		time.Sleep(50 * time.Millisecond)
+	})
+
+	t.Run("Failed Heartbeat Send", func(t *testing.T) {
+		s, mConn := setupMockSocket(t)
+		_ = s.Connect(context.Background(), CMServer{Type: "mock"})
+
+		mConn.sendErr = errors.New("broken")
+
+		err := s.StartHeartbeat(5 * time.Millisecond)
+		assert.NoError(t, err)
+
+		time.Sleep(20 * time.Millisecond)
+		// Should log warning but not crash
+	})
 }
 
-func TestSocket_PanicRecovery(t *testing.T) {
-	s := NewSocket(DefaultConfig())
+func TestSocket_Registration(t *testing.T) {
+	s, _ := setupMockSocket(t)
 
-	s.proc.Start()
-	defer s.Close()
+	t.Run("Msg Handlers", func(t *testing.T) {
+		called := atomic.Bool{}
+		h := func(p *protocol.Packet) { called.Store(true) }
 
-	// Register a handler that panics
-	s.RegisterMsgHandler(enums.EMsg_ClientHeartBeat, func(p *protocol.Packet) {
-		panic("internal handler crash")
+		s.RegisterMsgHandler(enums.EMsg_ClientLogon, h)
+		s.dispatch.Dispatch(&protocol.Packet{EMsg: enums.EMsg_ClientLogon})
+		assert.True(t, called.Load())
+
+		s.UnregisterMsgHandler(enums.EMsg_ClientLogon)
+		called.Store(false)
+		s.dispatch.Dispatch(&protocol.Packet{EMsg: enums.EMsg_ClientLogon})
+		assert.False(t, called.Load())
 	})
 
-	// Dispatch packet manually (bypassing Processor for direct test)
-	assert.NotPanics(t, func() {
-		s.dispatch.Dispatch(&protocol.Packet{EMsg: enums.EMsg_ClientHeartBeat})
-	})
-}
+	t.Run("Service Handlers", func(t *testing.T) {
+		called := atomic.Bool{}
+		h := func(p *protocol.Packet) { called.Store(true) }
 
-func TestSocket_InternalUtilities(t *testing.T) {
-	s := NewSocket(DefaultConfig())
-	defer s.Close()
+		s.RegisterServiceHandler("Method", h)
 
-	t.Run("Buffer Pool", func(t *testing.T) {
-		buf := s.getBuffer()
-		assert.NotNil(t, buf)
-		assert.Equal(t, 0, buf.Len())
+		hdr := protocol.NewMsgHdrProtoBuf(enums.EMsg_ServiceMethod, 0, 0)
+		hdr.Proto.TargetJobName = proto.String("Method")
+		s.dispatch.Dispatch(&protocol.Packet{EMsg: enums.EMsg_ServiceMethod, Header: hdr})
+		assert.True(t, called.Load())
 
-		buf.WriteString("some data")
-		s.putBuffer(buf)
-
-		buf2 := s.getBuffer()
-		assert.Equal(t, 0, buf2.Len(), "Pooled buffer must be reset")
-	})
-
-	t.Run("NewPacket Logic", func(t *testing.T) {
-		s.session.SetSteamID(12345)
-		s.session.SetSessionID(999)
-
-		// Test Proto Header
-		pkt := newPacket(s.session, enums.EMsg_ClientLogon, 777, true, "Target.Name", "token")
-		hdr := pkt.Header.(*protocol.MsgHdrProtoBuf)
-
-		assert.Equal(t, uint64(12345), hdr.Proto.GetSteamid())
-		assert.Equal(t, int32(999), hdr.Proto.GetClientSessionid())
-		assert.Equal(t, uint64(777), hdr.Proto.GetJobidSource())
-		assert.Equal(t, "Target.Name", hdr.Proto.GetTargetJobName())
-		assert.Equal(t, "token", hdr.Proto.GetWgToken())
-
-		// Test Extended Header (Raw)
-		pktRaw := newPacket(s.session, enums.EMsg_ChannelEncryptResponse, 888, false, "", "")
-		hdrRaw := pktRaw.Header.(*protocol.MsgHdrExtended)
-		assert.Equal(t, uint64(888), hdrRaw.SourceJobID)
-		assert.Equal(t, uint64(12345), hdrRaw.SteamID)
+		s.UnregisterServiceHandler("Method")
+		called.Store(false)
+		s.dispatch.Dispatch(&protocol.Packet{EMsg: enums.EMsg_ServiceMethod, Header: hdr})
+		assert.False(t, called.Load())
 	})
 }

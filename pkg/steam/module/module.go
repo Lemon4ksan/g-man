@@ -22,8 +22,8 @@ import (
 )
 
 var (
-	// ErrClientClosed is returned when an operation is attempted on a shut-down client.
-	ErrClientClosed = errors.New("steam: client is closed")
+	// ErrClosed is returned when an operation is attempted on a shut-down client.
+	ErrClosed = errors.New("steam: client is closed")
 
 	// ErrNotAuthenticated is returned when a module requires an active session but the client is not logged in.
 	ErrNotAuthenticated = errors.New("steam: not authenticated")
@@ -86,7 +86,7 @@ type Module interface {
 	Init(init InitContext) error
 
 	// Start is called when the client starts running. Use this to launch
-	// background tasks (tickers, pollers). The context is cancelled when the client closes.
+	// background tasks (tickers, pollers). The context is canceled when the client closes.
 	Start(ctx context.Context) error
 }
 

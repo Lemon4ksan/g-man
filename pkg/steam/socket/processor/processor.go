@@ -2,6 +2,13 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+/*
+Package processor is the computation layer of the socket system.
+
+It translates the raw network stream into structured protocol packets.
+By using a fixed-size worker pool, it ensures that expensive parsing and
+decompression tasks do not block the network thread.
+*/
 package processor
 
 import (
@@ -23,7 +30,6 @@ type Dispatcher interface {
 // Config defines the concurrency and buffering parameters for the processor.
 type Config struct {
 	WorkerCount int // Number of parallel goroutines processing packets.
-	BufferSize  int // Size of the internal channel buffer.
 }
 
 // DefaultConfig returns a balanced configuration based on the available CPU cores.
@@ -35,7 +41,6 @@ func DefaultConfig() Config {
 
 	return Config{
 		WorkerCount: workers,
-		BufferSize:  1024,
 	}
 }
 
@@ -47,7 +52,7 @@ type Processor struct {
 	logger log.Logger
 	dist   Dispatcher
 
-	packetCh chan *protocol.Packet
+	input <-chan []byte
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -58,16 +63,20 @@ type Processor struct {
 }
 
 // New initializes a new Processor with the given configuration and dispatcher.
-func New(cfg Config, dist Dispatcher, logger log.Logger) *Processor {
+func New(cfg Config, input <-chan []byte, dist Dispatcher, logger log.Logger) *Processor {
 	ctx, cancel := context.WithCancel(context.Background()) // #nosec G118
 
+	if input == nil {
+		input = make(chan []byte, 1024)
+	}
+
 	return &Processor{
-		cfg:      cfg,
-		logger:   logger.With(log.Module("proc")),
-		dist:     dist,
-		packetCh: make(chan *protocol.Packet, cfg.BufferSize),
-		ctx:      ctx,
-		cancel:   cancel,
+		ctx:    ctx,
+		cancel: cancel,
+		cfg:    cfg,
+		logger: logger.With(log.Component("proc")),
+		input:  input,
+		dist:   dist,
 	}
 }
 
@@ -75,10 +84,9 @@ func New(cfg Config, dist Dispatcher, logger log.Logger) *Processor {
 func (p *Processor) Start() {
 	p.isStarted.Do(func() {
 		p.logger.Debug("Starting worker pool", log.Int("workers", p.cfg.WorkerCount))
-		p.wg.Add(p.cfg.WorkerCount)
 
 		for range p.cfg.WorkerCount {
-			go p.worker()
+			p.wg.Go(p.worker)
 		}
 	})
 }
@@ -88,7 +96,6 @@ func (p *Processor) Stop() {
 	p.isStopped.Do(func() {
 		p.logger.Debug("Stopping processor...")
 		p.cancel()
-		close(p.packetCh)
 		p.wg.Wait()
 		p.logger.Debug("Processor stopped")
 	})
@@ -110,47 +117,33 @@ func (p *Processor) Process(data network.NetMessage) {
 		return
 	}
 
-	select {
-	case p.packetCh <- packet:
-		// Packet queued successfully
-	case <-p.ctx.Done():
-		// Processor is shutting down
-	default:
-		// Backpressure: Buffer is full. We block until space is available to prevent state desync.
-		p.logger.Warn("Packet queue saturated, blocking network thread",
-			log.Int("cap", cap(p.packetCh)))
-
-		select {
-		case p.packetCh <- packet:
-		case <-p.ctx.Done():
-		}
-	}
-}
-
-// OnNetMessage allows Processor to be used directly as a network.Handler.
-func (p *Processor) OnNetMessage(msg network.NetMessage) {
-	p.Process(msg)
-}
-
-// OnNetError logs network errors received from the connector.
-func (p *Processor) OnNetError(err error) {
-	p.logger.Error("Upstream network error", log.Err(err))
-}
-
-// OnNetClose is called when the underlying connection is closed.
-func (p *Processor) OnNetClose() {
-	p.logger.Debug("Network connection closed")
+	p.dist.Dispatch(packet)
 }
 
 // worker processes packets from the internal queue and feeds them to the dispatcher.
 func (p *Processor) worker() {
-	defer p.wg.Done()
+	for {
+		select {
+		case <-p.ctx.Done():
+			return
 
-	for packet := range p.packetCh {
-		if packet == nil {
-			continue
+		case data, ok := <-p.input:
+			if !ok {
+				return
+			}
+
+			func() {
+				defer p.recoverPanic()
+
+				p.Process(data)
+			}()
 		}
+	}
+}
 
-		p.dist.Dispatch(packet)
+func (p *Processor) recoverPanic() {
+	if r := recover(); r != nil {
+		p.logger.Error("Processor worker recovered from panic",
+			log.Any("panic", r))
 	}
 }

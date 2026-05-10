@@ -40,11 +40,6 @@ type SteamGuardRequiredEvent struct {
 	Callback     func(code string) // Function to call with the user-provided code to continue login
 }
 
-// WebSessionReadyEvent is emitted after the successful web session refresh
-type WebSessionReadyEvent struct {
-	bus.BaseEvent
-}
-
 // LoggedOffEvent is emitted after the auth client disconnected from CM server unexpectedly.
 type LoggedOffEvent struct {
 	bus.BaseEvent
