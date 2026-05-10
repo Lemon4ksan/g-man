@@ -8,6 +8,7 @@ package reason
 // TradeReason is the type for string identifiers of trade reasons.
 type TradeReason string
 
+// Inventory-related trade reasons.
 const (
 	ReviewInvalidItems         TradeReason = "🟨_INVALID_ITEMS"
 	ReviewDisabledItems        TradeReason = "🟧_DISABLED_ITEMS"

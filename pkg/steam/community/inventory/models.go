@@ -4,6 +4,7 @@
 
 package inventory
 
+// Asset represents an item in the inventory.
 type Asset struct {
 	AssetID    string `json:"assetid"`
 	ClassID    string `json:"classid"`
@@ -13,6 +14,7 @@ type Asset struct {
 	Pos        int    `json:"-"`
 }
 
+// Description represents the description of an item.
 type Description struct {
 	ClassID         string         `json:"classid"`
 	InstanceID      string         `json:"instanceid"`
@@ -21,7 +23,7 @@ type Description struct {
 	MarketHashName  string         `json:"market_hash_name"`
 	BackgroundColor string         `json:"background_color"`
 	IconURL         string         `json:"icon_url"`
-	Tags            []InventoryTag `json:"tags"`
+	Tags            []Tag          `json:"tags"`
 	AppData         map[string]any `json:"app_data,omitempty"`
 	Descriptions    []struct {
 		Value string `json:"value"`
@@ -29,13 +31,15 @@ type Description struct {
 	} `json:"descriptions,omitempty"`
 }
 
-type InventoryTag struct {
+// Tag represents a tag of an item.
+type Tag struct {
 	Category              string `json:"category"`
 	InternalName          string `json:"internal_name"`
 	LocalizedCategoryName string `json:"localized_category_name"`
 	LocalizedTagName      string `json:"localized_tag_name"`
 }
 
+// CEconItem represents an item in the inventory with its description.
 type CEconItem struct {
 	Asset       Asset
 	Description *Description

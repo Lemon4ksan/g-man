@@ -24,6 +24,7 @@ var debugLog = func(v ...any) {
 	}
 }
 
+// Raw is the raw schema data from the API.
 type Raw struct {
 	Schema struct {
 		Items                                []*Item               `json:"items"`
@@ -367,46 +368,57 @@ func (s *Schema) buildCrateSeriesList() map[int]int {
 	return series
 }
 
+// GetItemByDef returns the item with the given defindex.
 func (s *Schema) GetItemByDef(def int) *Item {
 	return s.itemsByDef[def]
 }
 
+// GetItemByName returns the item with the given name.
 func (s *Schema) GetItemByName(name string) *Item {
 	return s.itemsByName[strings.ToLower(name)]
 }
 
+// GetAttributeByDef returns the attribute with the given defindex.
 func (s *Schema) GetAttributeByDef(def int) *AttributeSchema {
 	return s.attrsByDef[def]
 }
 
+// GetQualityById returns the quality name with the given id.
 func (s *Schema) GetQualityById(id int) string {
 	return s.qualByID[id]
 }
 
+// GetQualityIdByName returns the quality id with the given name.
 func (s *Schema) GetQualityIdByName(name string) int {
 	return s.qualByName[strings.ToLower(name)]
 }
 
+// GetEffectById returns the effect name with the given id.
 func (s *Schema) GetEffectById(id int) string {
 	return s.effByID[id]
 }
 
+// GetEffectIdByName returns the effect id with the given name.
 func (s *Schema) GetEffectIdByName(name string) int {
 	return s.effByName[strings.ToLower(name)]
 }
 
+// GetSkinById returns the skin name with the given id.
 func (s *Schema) GetSkinById(id int) string {
 	return s.paintKitByID[id]
 }
 
+// GetSkinIdByName returns the skin id with the given name.
 func (s *Schema) GetSkinIdByName(name string) int {
 	return s.paintKitByName[strings.ToLower(name)]
 }
 
+// GetPaintNameByDecimal returns the paint name with the given decimal value.
 func (s *Schema) GetPaintNameByDecimal(decimal int) string {
 	return s.paintByDecimal[decimal]
 }
 
+// GetPaintDecimalByName returns the paint decimal value with the given name.
 func (s *Schema) GetPaintDecimalByName(name string) int {
 	return s.paintByName[strings.ToLower(name)]
 }

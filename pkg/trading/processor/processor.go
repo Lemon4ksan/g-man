@@ -43,6 +43,7 @@ type busyItemsMu struct {
 	sync.RWMutex
 }
 
+// New creates a new processor.
 func New(ex TradeExecutor, eng *engine.Engine, n *notifications.Manager, r *review.Reviewer, l log.Logger) *Processor {
 	return &Processor{
 		executor:  ex,

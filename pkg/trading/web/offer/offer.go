@@ -57,10 +57,14 @@ func (o *TradeOffer) IsGlitched() bool {
 type ActionType string
 
 const (
-	ActionAccept  ActionType = "accept"
+	// ActionAccept tells the processor to accept the offer.
+	ActionAccept ActionType = "accept"
+	// ActionDecline tells the processor to decline the offer.
 	ActionDecline ActionType = "decline"
+	// ActionCounter tells the processor to counter the offer with different items.
 	ActionCounter ActionType = "counter"
-	ActionSkip    ActionType = "skip"
+	// ActionSkip tells the processor to skip the offer for now.
+	ActionSkip ActionType = "skip"
 )
 
 // ActionDecision is returned by your bot's business logic to tell the Processor what to do.

@@ -13,10 +13,13 @@ import (
 	"strings"
 )
 
+// Scrap is the single tf2 currency unit.
 type Scrap int
 
 const (
+	// ScrapInRec is the number of scrap in one reclaimed.
 	ScrapInRec = 3
+	// ScrapInRef is the number of scrap in one refined.
 	ScrapInRef = 9
 )
 

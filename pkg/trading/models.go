@@ -6,8 +6,10 @@ package trading
 
 import "github.com/lemon4ksan/g-man/pkg/steam/id"
 
+// OfferState represents the state of a trade offer.
 type OfferState int32
 
+// Offer state constants.
 const (
 	OfferStateInvalid                  OfferState = 1
 	OfferStateActive                   OfferState = 2
@@ -22,6 +24,7 @@ const (
 	OfferStateInEscrow                 OfferState = 11
 )
 
+// OfferParams represents the parameters for creating an offer.
 type OfferParams struct {
 	PartnerID      id.ID
 	Token          string
@@ -31,12 +34,14 @@ type OfferParams struct {
 	CounteredID    uint64
 }
 
+// Attribute represents an attribute of an item.
 type Attribute struct {
 	Defindex   int     `json:"defindex"`
 	Value      string  `json:"value"`
 	FloatValue float64 `json:"float_value"`
 }
 
+// Description represents a description for an item.
 type Description struct {
 	Value   string `json:"value"`
 	Color   string `json:"color,omitempty"`
@@ -45,19 +50,21 @@ type Description struct {
 	} `json:"app_data,omitempty"`
 }
 
+// Tag represents a tag for an item.
 type Tag struct {
 	Category     string `json:"category"`
 	InternalName string `json:"internal_name"`
 	Localized    string `json:"localized_category_name"`
 }
 
+// Action represents a link and name for an action.
 type Action struct {
 	Link string `json:"link"`
 	Name string `json:"name"`
 }
 
+// Item represents a Steam inventory item.
 type Item struct {
-	// Identity
 	AppID        uint32        `json:"appid"`
 	ContextID    int64         `json:"contextid,string"`
 	AssetID      uint64        `json:"assetid,string"`
@@ -69,7 +76,6 @@ type Item struct {
 	Tags         []Tag         `json:"tags"`
 	Actions      []Action      `json:"actions"`
 
-	// Description (Filled by Asset Cache or API)
 	Name           string `json:"name"`
 	NameColor      string `json:"name_color"`
 	Type           string `json:"type"`
@@ -79,7 +85,6 @@ type Item struct {
 	Tradable       bool   `json:"tradable"`
 	Marketable     bool   `json:"marketable"`
 
-	// External fields
 	SKU        string      `json:"sku,omitempty"`
 	Attributes []Attribute `json:"attributes,omitempty"`
 }

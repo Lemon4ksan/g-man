@@ -18,6 +18,7 @@ import (
 // It also handles raw numbers, null, and empty strings.
 type Uint64String uint64
 
+// UnmarshalJSON implements json.Unmarshaler.
 func (u *Uint64String) UnmarshalJSON(b []byte) error {
 	s := strings.Trim(string(b), `"`)
 	if s == "" || s == "null" {
@@ -39,6 +40,7 @@ func (u *Uint64String) UnmarshalJSON(b []byte) error {
 // It also handles raw numbers, null, and empty strings.
 type Int64String int64
 
+// UnmarshalJSON implements json.Unmarshaler.
 func (i *Int64String) UnmarshalJSON(b []byte) error {
 	s := strings.Trim(string(b), `"`)
 	if s == "" || s == "null" {
@@ -59,6 +61,7 @@ func (i *Int64String) UnmarshalJSON(b []byte) error {
 // Float64String handles float64 values that are sent as strings in JSON.
 type Float64String float64
 
+// UnmarshalJSON implements json.Unmarshaler.
 func (f *Float64String) UnmarshalJSON(b []byte) error {
 	s := strings.Trim(string(b), `"`)
 	if s == "" || s == "null" {
@@ -80,6 +83,7 @@ func (f *Float64String) UnmarshalJSON(b []byte) error {
 // It also handles string variations ("1", "0", "true", "false").
 type BoolInt bool
 
+// UnmarshalJSON implements json.Unmarshaler.
 func (bi *BoolInt) UnmarshalJSON(b []byte) error {
 	s := strings.ToLower(strings.Trim(string(b), `"`))
 	switch s {
@@ -104,6 +108,7 @@ func (bi *BoolInt) UnmarshalJSON(b []byte) error {
 // Timestamp handles Unix timestamps that Steam sends as strings or numbers.
 type Timestamp time.Time
 
+// UnmarshalJSON implements json.Unmarshaler.
 func (t *Timestamp) UnmarshalJSON(b []byte) error {
 	s := strings.Trim(string(b), `"`)
 	if s == "" || s == "null" || s == "0" {

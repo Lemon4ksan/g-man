@@ -15,6 +15,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/tf2/sku"
 )
 
+// PriceManager manages backpack.tf prices for items.
 type PriceManager struct {
 	client *Client
 	logger log.Logger
@@ -23,6 +24,7 @@ type PriceManager struct {
 	index map[string]PriceEntry
 }
 
+// NewPriceManager creates a new price manager.
 func NewPriceManager(c *Client, l log.Logger) *PriceManager {
 	return &PriceManager{
 		client: c,

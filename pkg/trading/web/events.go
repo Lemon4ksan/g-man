@@ -16,15 +16,11 @@ type StateEvent struct {
 	New State
 }
 
-func (e *StateEvent) Topic() string { return "offers.new" }
-
 // NewOfferEvent is emitted when a new trade offer is received.
 type NewOfferEvent struct {
 	bus.BaseEvent
 	Offer *offer.TradeOffer
 }
-
-func (e *NewOfferEvent) Topic() string { return "offers.new" }
 
 // OfferChangedEvent is emitted when a tracked offer changes state (e.g. Accepted, Declined).
 type OfferChangedEvent struct {
@@ -33,11 +29,7 @@ type OfferChangedEvent struct {
 	OldState trading.OfferState
 }
 
-func (e *OfferChangedEvent) Topic() string { return "offers.changed" }
-
 // PollSuccessEvent is emitted after a successful poll cycle.
 type PollSuccessEvent struct {
 	bus.BaseEvent
 }
-
-func (e *PollSuccessEvent) Topic() string { return "offers.poll_success" }

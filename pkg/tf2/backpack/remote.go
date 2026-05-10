@@ -16,7 +16,10 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/community/inventory"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
+	"github.com/lemon4ksan/g-man/pkg/steam/webapi"
+	"github.com/lemon4ksan/g-man/pkg/tf2/currency"
 	"github.com/lemon4ksan/g-man/pkg/tf2/schema"
+	"github.com/lemon4ksan/g-man/pkg/trading"
 )
 
 // Remote represents a specific player's TF2 inventory.
@@ -36,33 +39,38 @@ type Remote struct {
 	fetched bool
 }
 
+// Option defines a functional configuration for the Remote.
+type Option = bus.Option[*Remote]
+
 // WithLogger sets a custom logger for the inventory.
-func WithLogger(l log.Logger) bus.Option[*Remote] {
+func WithLogger(l log.Logger) Option {
 	return func(inv *Remote) {
 		inv.logger = l
 	}
 }
 
 // WithCommunityBackoff sets the community client for fetching inventory when web api fails.
-func WithCommunityBackoff(r community.Requester) bus.Option[*Remote] {
+func WithCommunityBackoff(r community.Requester) Option {
 	return func(inv *Remote) {
 		inv.community = r
 	}
 }
 
+// WithDupeCheckers allows to check duped items.
+func WithDupeCheckers(dc []DupeChecker) Option {
+	return func(inv *Remote) {
+		inv.dupeCheckers = dc
+	}
+}
+
 // NewRemote creates an inventory for a specific player.
 // dupeCheckers is a slice of implementations (e.g. [NewBackpackTFChecker]).
-func NewRemote(
-	steamID uint64,
-	client service.Doer,
-	dupeCheckers []DupeChecker,
-	opts ...bus.Option[*Remote],
-) *Remote {
+func NewRemote(steamID uint64, client service.Doer, opts ...Option) *Remote {
 	p := &Remote{
 		steamID:      steamID,
 		client:       client,
 		logger:       log.Discard,
-		dupeCheckers: dupeCheckers,
+		dupeCheckers: make([]DupeChecker, 0),
 		items:        make([]TF2Item, 0),
 	}
 
@@ -96,6 +104,26 @@ func (r *Remote) GetItemsBySKU(ctx context.Context, targetSKU string) ([]TF2Item
 	}
 
 	return result, nil
+}
+
+// CanTradeWithoutHold calls the steam api to check whether
+// the trade with remote user can be performed without hold.
+func (r *Remote) CanTradeWithoutHold(ctx context.Context, token string) (bool, error) {
+	req := &webapi.IEconService_GetTradeHoldDurations_v1_Request{
+		SteamIDTarget: r.steamID, TradeOfferAccessToken: token,
+	}
+
+	type resp struct {
+		TheirHold int `json:"their_escrow"`
+		MyHold    int `json:"my_escrow"`
+	}
+
+	res, err := webapi.IEconService_GetTradeHoldDurations_v1[resp](ctx, r.client, req)
+	if err != nil {
+		return false, err
+	}
+
+	return res.TheirHold == 0, nil
 }
 
 // IsDuped checks whether the item is a duplicate.
@@ -146,6 +174,45 @@ func (r *Remote) IsDuped(ctx context.Context, assetID uint64) (*bool, error) {
 	}
 
 	return nil, nil
+}
+
+// FindMetalInPartnerInventory finds metal items in the partner's inventory.
+// It uses GetItemsBySKU to find items that match the specified SKUs.
+func (r *Remote) FindMetalInPartnerInventory(ctx context.Context, amount currency.Scrap) ([]*trading.Item, error) {
+	skus := []string{currency.SKURefined, currency.SKUReclaimed, currency.SKUScrap}
+	values := map[string]currency.Scrap{
+		currency.SKURefined:   9,
+		currency.SKUReclaimed: 3,
+		currency.SKUScrap:     1,
+	}
+
+	var selected []*trading.Item
+
+	remaining := amount
+
+	for _, sku := range skus {
+		val := values[sku]
+
+		items, err := r.GetItemsBySKU(ctx, sku)
+		if err != nil {
+			continue
+		}
+
+		for _, it := range items {
+			if remaining <= 0 {
+				break
+			}
+
+			selected = append(selected, it.ToEconItem())
+			remaining -= val
+		}
+	}
+
+	if remaining > 0 {
+		return nil, fmt.Errorf("partner is missing %d scrap for counter-offer", remaining)
+	}
+
+	return selected, nil
 }
 
 func (r *Remote) checkWithServices(

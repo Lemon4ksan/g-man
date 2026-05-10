@@ -29,10 +29,20 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/trading/web/processor"
 )
 
+// ModuleName is the name of the module.
 const ModuleName = "trading"
 
+// WithModule returns a steam.Option that registers the trade manager with the given configuration.
+func WithModule(cfg Config) steam.Option {
+	return func(c *steam.Client) {
+		c.RegisterModule(New(cfg))
+	}
+}
+
 var (
-	ErrManagerClosed  = errors.New("trade: closed")
+	// ErrManagerClosed is returned when the manager is closed.
+	ErrManagerClosed = errors.New("trade: closed")
+	// ErrManagerPolling is returned when the manager is already polling.
 	ErrManagerPolling = errors.New("trade: already polling")
 )
 
@@ -47,11 +57,15 @@ type ItemsCollection struct {
 type State int32
 
 const (
+	// StateStopped represents the stopped state.
 	StateStopped int32 = iota
+	// StatePolling represents the polling state.
 	StatePolling
+	// StateClosed represents the closed state.
 	StateClosed
 )
 
+// String returns the string representation of the state.
 func (s State) String() string {
 	switch int32(s) {
 	case StateStopped:
@@ -65,21 +79,19 @@ func (s State) String() string {
 	}
 }
 
+// Config holds the configuration for the trade manager.
 type Config struct {
+	// PollInterval is the time interval between trade offer polls.
 	PollInterval time.Duration
-	Language     string
+	// Language is the language to use for trade offers.
+	Language string
 }
 
+// DefaultConfig returns the default configuration.
 func DefaultConfig() Config {
 	return Config{
 		PollInterval: 30 * time.Second,
 		Language:     "english",
-	}
-}
-
-func WithModule(cfg Config) steam.Option {
-	return func(c *steam.Client) {
-		c.RegisterModule(New(cfg))
 	}
 }
 
@@ -118,6 +130,7 @@ func New(cfg Config) *Manager {
 	}
 }
 
+// Init initializes the trade manager.
 func (m *Manager) Init(init module.InitContext) error {
 	if err := m.Base.Init(init); err != nil {
 		return err
@@ -128,6 +141,7 @@ func (m *Manager) Init(init module.InitContext) error {
 	return nil
 }
 
+// StartAuthed starts the trade offer polling loop.
 func (m *Manager) StartAuthed(ctx context.Context, authCtx module.AuthContext) error {
 	if m.State.Load() == StatePolling {
 		m.StopPolling()
@@ -182,7 +196,7 @@ func (m *Manager) StopPolling() {
 	}
 }
 
-// SendOffers builds and sends a new trade offer based on provided parameters.
+// SendOffer builds and sends a new trade offer based on provided parameters.
 func (m *Manager) SendOffer(ctx context.Context, p trading.OfferParams) (uint64, error) {
 	if err := m.rateLimiter.Wait(ctx); err != nil {
 		return 0, err

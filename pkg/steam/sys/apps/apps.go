@@ -22,11 +22,13 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 )
 
+// ModuleName is the name of the module.
 const ModuleName string = "apps"
 
 // nonSteamGameID is the special ID used by Steam to represent a "Non-Steam Game" shortcut.
 const nonSteamGameID uint64 = 15190414816125648896
 
+// WithModule returns a steam Option that registers the Apps module.
 func WithModule() steam.Option {
 	return func(c *steam.Client) {
 		c.RegisterModule(New())

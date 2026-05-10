@@ -24,15 +24,18 @@ type Automator struct {
 	maxRec   int
 }
 
+// Option defines a functional configuration for the Automator.
+type Option = bus.Option[*Automator]
+
 // WithLogger sets a custom logger for the module.
-func WithLogger(l log.Logger) bus.Option[*Automator] {
+func WithLogger(l log.Logger) Option {
 	return func(a *Automator) {
 		a.logger = l
 	}
 }
 
 // NewAutomator creates a new orchestrator for monitoring metal reserve.
-func NewAutomator(mgr *Manager, opts ...bus.Option[*Automator]) *Automator {
+func NewAutomator(mgr *Manager, opts ...Option) *Automator {
 	a := &Automator{
 		manager:  mgr,
 		logger:   log.Discard,
@@ -89,7 +92,7 @@ func (a *Automator) Tick(ctx context.Context) error {
 	return nil
 }
 
-// CraftExcessWeapons finds duplicate weapons and crafts them into metal.
+// CleanInventory finds duplicate weapons and crafts them into metal.
 func (a *Automator) CleanInventory(ctx context.Context) error {
 	classes := []string{"Scout", "Soldier", "Pyro", "Demoman", "Heavy", "Engineer", "Medic", "Sniper", "Spy"}
 

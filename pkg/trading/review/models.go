@@ -18,32 +18,38 @@ type BaseReason struct {
 	SKU  string
 }
 
+// ReasonType returns the reason type.
 func (b BaseReason) ReasonType() reason.TradeReason { return b.Type }
 
 // Specific reasons with their own fields.
 
+// ReasonOverstocked indicates that the offer would exceed our stock limits.
 type ReasonOverstocked struct {
 	BaseReason
 	AmountCanTrade int
 	AmountOffered  int
 }
 
+// ReasonInvalidItems indicates that some items in the offer are not in our pricelist.
 type ReasonInvalidItems struct {
 	BaseReason
 	Price string
 }
 
+// ReasonDuped indicates that an item appears to be duplicated according to history.
 type ReasonDuped struct {
 	BaseReason
 	AssetID string
 }
 
+// ReasonUnderstocked indicates that we don't have enough items to fulfill the trade.
 type ReasonUnderstocked struct {
 	BaseReason
 	AmountCanTrade int
 	AmountTaking   int
 }
 
+// ReasonInvalidValue indicates that the offer value is incorrect.
 type ReasonInvalidValue struct {
 	BaseReason
 	Diff    float64
@@ -51,6 +57,7 @@ type ReasonInvalidValue struct {
 	DiffKey string
 }
 
+// ReasonDisabledItems indicates that some items in the offer are currently disabled for trading.
 type ReasonDisabledItems struct {
 	BaseReason
 }
@@ -61,6 +68,7 @@ type Meta struct {
 	Reasons       []interface{ ReasonType() reason.TradeReason }
 }
 
+// HasReason returns true if the meta contains the specified reason type.
 func (m *Meta) HasReason(reasonType reason.TradeReason) bool {
 	return slices.Contains(m.UniqueReasons, reasonType)
 }
@@ -74,19 +82,23 @@ type Content struct {
 
 // Bot dependency interfaces
 
+// SchemaProvider provides item name resolution from the schema.
 type SchemaProvider interface {
 	GetName(sku string, useDefindex bool) string
 }
 
+// ChatProvider handles sending messages to users and admins.
 type ChatProvider interface {
 	SendMessage(ctx context.Context, steamID uint64, message string) error
 	MessageAdmins(ctx context.Context, message string) error
 }
 
+// PricelistProvider provides current key prices.
 type PricelistProvider interface {
 	GetKeyPrices() (buy, sell float64)
 }
 
+// ConfigProvider provides access to review-related configuration.
 type ConfigProvider interface {
 	GetReviewTemplate(reasonType reason.TradeReason) string
 	IsWebhookEnabled() bool
@@ -116,7 +128,7 @@ type DeclinedSummary struct {
 	HighValue           []string
 }
 
-// Additional interfaces for collecting bot statistics.
+// BotStatsProvider provides various bot statistics.
 type BotStatsProvider interface {
 	GetTotalItems() int
 	GetBackpackSlots() int
@@ -124,6 +136,7 @@ type BotStatsProvider interface {
 	GetVersion() string
 }
 
+// AutokeysProvider provides status of the autokeys banking system.
 type AutokeysProvider interface {
 	IsEnabled() bool
 	IsActive() bool

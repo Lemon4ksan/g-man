@@ -26,15 +26,18 @@ import (
 )
 
 const (
-	AppID             = 440
+	// AppID is the application ID for Team Fortress 2.
+	AppID = 440
+	// ModuleName is the name of the TF2 module.
 	ModuleName string = "tf2"
 )
 
-// TF2State reflects the GC session status.
-type TF2State int32
+// State reflects the GC session status.
+type State int32
 
+// TF2 Game Coordinator connection states.
 const (
-	GCDisconnected TF2State = iota
+	GCDisconnected State = iota
 	GCConnecting
 	GCConnected
 )
@@ -47,16 +50,20 @@ type CoordinatorProvider interface {
 	CallRaw(ctx context.Context, appID, msgType uint32, payload []byte, cb jobs.Callback[*protocol.GCPacket]) error
 }
 
+// AppsProvider defines what TF2 needs from the generic Apps module.
 type AppsProvider interface {
 	PlayGames(ctx context.Context, appIDs []uint32, forceKick bool) error
 }
 
+// WithModule returns an option that registers the TF2 module with the steam client.
 func WithModule() steam.Option {
 	return func(c *steam.Client) {
 		c.RegisterModule(New())
 	}
 }
 
+// TF2 is the main module for TF2. It handles the Game Coordinator,
+// item cache, and other TF2-specific functionality.
 type TF2 struct {
 	module.Base
 
@@ -68,14 +75,17 @@ type TF2 struct {
 	schema *manager.Manager
 }
 
+// New creates a new TF2 module.
 func New() *TF2 {
 	return &TF2{
 		Base: module.New(ModuleName),
 	}
 }
 
+// Name returns the name of the module.
 func (t *TF2) Name() string { return ModuleName }
 
+// Init initializes the module.
 func (t *TF2) Init(init module.InitContext) error {
 	if err := t.Base.Init(init); err != nil {
 		return err
@@ -104,7 +114,7 @@ func (t *TF2) Init(init module.InitContext) error {
 
 	t.cache = NewSOCache(t.gc, WithBus(t.Bus), WithLogger(t.Logger), WithSchema(t.schema.Get()))
 
-	sub := t.Bus.Subscribe(&gc.GCMessageEvent{})
+	sub := t.Bus.Subscribe(&gc.MessageEvent{})
 	t.Go(func(ctx context.Context) {
 		t.messageLoop(ctx, sub)
 	})
@@ -127,11 +137,13 @@ func (t *TF2) StartAuthed(ctx context.Context, authCtx module.AuthContext) error
 	return nil
 }
 
+// Close occurs when steam closes the connection.
 func (t *TF2) Close() error {
 	t.state.Store(int32(GCDisconnected))
 	return t.Base.Close()
 }
 
+// Cache returns the item cache.
 func (t *TF2) Cache() *SOCache {
 	return t.cache
 }
@@ -181,7 +193,7 @@ func (t *TF2) messageLoop(ctx context.Context, sub *bus.Subscription) {
 				return
 			}
 
-			if msg, ok := ev.(*gc.GCMessageEvent); ok {
+			if msg, ok := ev.(*gc.MessageEvent); ok {
 				if msg.Packet.AppID == AppID {
 					t.routePacket(ctx, msg.Packet)
 				}
@@ -208,16 +220,16 @@ func (t *TF2) routePacket(ctx context.Context, pkt *protocol.GCPacket) {
 	// Shared Object (Inventory) Messages
 	switch pb.ESOMsg(pkt.MsgType) {
 	case pb.ESOMsg_k_ESOMsg_CacheSubscribed:
-		t.cache.HandleSubscribed(pkt)
+		t.cache.handleSubscribed(pkt)
 	case pb.ESOMsg_k_ESOMsg_Create,
 		pb.ESOMsg_k_ESOMsg_Update,
 		pb.ESOMsg_k_ESOMsg_Destroy,
 		pb.ESOMsg_k_ESOMsg_UpdateMultiple:
-		t.cache.HandleSOUpdate(pkt)
+		t.cache.handleSOUpdate(pkt)
 	case pb.ESOMsg_k_ESOMsg_CacheSubscriptionCheck:
-		t.cache.HandleSOCacheCheck(ctx, pkt)
+		t.cache.handleSOCacheCheck(ctx, pkt)
 	case pb.ESOMsg_k_ESOMsg_CacheSubscribedUpToDate:
-		t.cache.HandleUpToDate(pkt)
+		t.cache.handleUpToDate(pkt)
 	}
 }
 

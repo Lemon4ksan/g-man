@@ -13,19 +13,23 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/tf2/currency"
 )
 
+// ErrNotEnoughChange is returned when there is not enough pure metal to make exact change.
 var ErrNotEnoughChange = errors.New("tf2econ: not enough pure metal to make exact change")
 
+// AssetFetcher provides access to the asset storage.
 type AssetFetcher interface {
 	GetAssetIDs(sku string) []uint64
 	GetPureStock() currency.PureStock
 }
 
+// MetalManager manages the selection and crafting of metal.
 type MetalManager struct {
 	fetcher AssetFetcher
 	logger  log.Logger
 	craft   *Manager
 }
 
+// NewMetalManager creates a new metal manager.
 func NewMetalManager(fetcher AssetFetcher, craft *Manager, logger log.Logger) *MetalManager {
 	return &MetalManager{fetcher: fetcher, craft: craft, logger: logger}
 }
@@ -95,6 +99,7 @@ func (m *MetalManager) SelectChange(amount currency.Scrap) ([]uint64, error) {
 	return selected, nil
 }
 
+// SelectKeysAndMetal selects keys and metal for the offer.
 func (m *MetalManager) SelectKeysAndMetal(keys int, metal currency.Scrap) ([]uint64, error) {
 	var selected []uint64
 

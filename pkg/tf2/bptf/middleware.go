@@ -72,8 +72,8 @@ func ValueTierMiddleware(bptfClient *Client) engine.Middleware {
 	}
 }
 
-// BptfFallbackPricerMiddleware requests the price from bptf if it has not been set previously.
-func BptfFallbackPricerMiddleware(manager *PriceManager) engine.Middleware {
+// FallbackPricerMiddleware requests the price from bptf if it has not been set previously.
+func FallbackPricerMiddleware(manager *PriceManager) engine.Middleware {
 	return func(next engine.Handler) engine.Handler {
 		return func(ctx *engine.TradeContext) error {
 			existingPricesRaw, _ := ctx.Get("prices")

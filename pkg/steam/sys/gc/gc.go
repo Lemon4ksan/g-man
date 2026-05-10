@@ -23,17 +23,19 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 )
 
+// ModuleName is the name of the module.
 const ModuleName string = "gc"
 
+// WithModule returns a steam.Option that registers the GC module.
 func WithModule() steam.Option {
 	return func(c *steam.Client) {
 		c.RegisterModule(New())
 	}
 }
 
-// GCMessageEvent is triggered when a Game Coordinator message is received.
+// MessageEvent is triggered when a Game Coordinator message is received.
 // and WAS NOT handled by a specific Job callback.
-type GCMessageEvent struct {
+type MessageEvent struct {
 	bus.BaseEvent
 	Packet *protocol.GCPacket
 }
@@ -219,7 +221,7 @@ func (c *Coordinator) handleClientFromGC(packet *protocol.Packet) {
 		}
 	}
 
-	c.Bus.Publish(&GCMessageEvent{
+	c.Bus.Publish(&MessageEvent{
 		Packet: gcPacket,
 	})
 }

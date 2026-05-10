@@ -20,12 +20,17 @@ import (
 )
 
 var (
+	// RxTheir matches the their escrow duration regex.
 	RxTheir = regexp.MustCompile(`(?i)g_DaysTheirEscrow\s*=\s*(\d+);`)
-	RxMy    = regexp.MustCompile(`(?i)g_DaysMyEscrow\s*=\s*(\d+);`)
+	// RxMy matches the my escrow duration regex.
+	RxMy = regexp.MustCompile(`(?i)g_DaysMyEscrow\s*=\s*(\\d+);`)
 
+	// ErrMaxRetriesReached is returned when the maximum number of retries is reached.
 	ErrMaxRetriesReached = errors.New("max retries reached")
+	// ErrCommunityNotReady is returned when the community client is not ready.
 	ErrCommunityNotReady = errors.New("community client is not ready (bot not logged in)")
-	ErrEscrowNotFound    = errors.New(
+	// ErrEscrowNotFound is returned when the escrow data is not found on the page.
+	ErrEscrowNotFound = errors.New(
 		"escrow data not found on the page (Steam might be down or offer is invalid)",
 	)
 )
@@ -41,6 +46,7 @@ func (e Details) HasHold() bool {
 	return e.MyDays > 0 || e.TheirDays > 0
 }
 
+// ManagerProvider is the interface for the manager.
 type ManagerProvider interface {
 	GetEscrowDuration(ctx context.Context, offerID uint64) (Details, error)
 	AcceptOffer(ctx context.Context, offerID uint64) error
@@ -48,6 +54,7 @@ type ManagerProvider interface {
 	SendOffer(ctx context.Context, p trading.OfferParams) (uint64, error)
 }
 
+// BackpackProvider is the interface for the backpack.
 type BackpackProvider interface {
 	LockItems(ids []uint64)
 	UnlockItems(ids []uint64)
@@ -62,7 +69,11 @@ type OfferHandler interface {
 	OnActionFailed(ctx context.Context, offer *offer.TradeOffer, action offer.ActionType, reason string, err error)
 }
 
-func WithLogger(l log.Logger) bus.Option[*Processor] {
+// Option defines a functional configuration for the Processor.
+type Option = bus.Option[*Processor]
+
+// WithLogger sets a custom logger for the processor.
+func WithLogger(l log.Logger) Option {
 	return func(p *Processor) {
 		p.logger = l
 	}

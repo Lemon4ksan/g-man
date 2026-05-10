@@ -14,12 +14,14 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 )
 
+// Reviewer provides functionality for generating trade reports and alerts.
 type Reviewer struct {
 	schema SchemaProvider
 	chat   ChatProvider
 	logger log.Logger
 }
 
+// New creates a new Reviewer instance.
 func New(s SchemaProvider, c ChatProvider, l log.Logger) *Reviewer {
 	return &Reviewer{schema: s, chat: c, logger: l}
 }

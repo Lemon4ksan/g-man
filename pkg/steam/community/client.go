@@ -26,8 +26,10 @@ import (
 )
 
 var (
+	// ErrFamilyViewRestricted is returned when the account is under Family View restrictions.
 	ErrFamilyViewRestricted = api.ErrFamilyViewRestricted
-	ErrRateLimited          = api.ErrRateLimited
+	// ErrRateLimited is returned when the account is rate limited.
+	ErrRateLimited = api.ErrRateLimited
 )
 
 // Requester defines the requirements for making Community requests.

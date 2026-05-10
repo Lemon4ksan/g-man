@@ -12,12 +12,12 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 )
 
+// Client is a client for backpack.tf API.
 type Client struct {
 	restClient *rest.Client
-	apiKey     string
-	userToken  string
 }
 
+// New creates a new client for backpack.tf API.
 func New(httpClient rest.HTTPDoer, apiKey, userToken string) *Client {
 	c := rest.NewClient(httpClient).
 		WithBaseURL("https://backpack.tf/api").
@@ -33,8 +33,6 @@ func New(httpClient rest.HTTPDoer, apiKey, userToken string) *Client {
 
 	return &Client{
 		restClient: c,
-		apiKey:     apiKey,
-		userToken:  userToken,
 	}
 }
 
@@ -86,8 +84,11 @@ func (c *Client) BatchCreateListings(
 		listings,
 		nil,
 	)
+	if err != nil {
+		return nil, err
+	}
 
-	return *resp, err
+	return *resp, nil
 }
 
 // GetInventoryStatus returns the status of a user's inventory on backpack.tf.
@@ -132,8 +133,8 @@ func (c *Client) RefreshInventory(ctx context.Context, steamID id.ID) (Inventory
 // bptf accepts a comma-separated list of IDs.
 func (c *Client) GetUsersInfo(ctx context.Context, steamIDs []id.ID) (V1UserResponse, error) {
 	ids := make([]string, len(steamIDs))
-	for i, id := range steamIDs {
-		ids[i] = id.String()
+	for i, steamID := range steamIDs {
+		ids[i] = steamID.String()
 	}
 
 	req := struct {

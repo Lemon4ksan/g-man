@@ -150,6 +150,7 @@ var strangifierChemistrySetSeries = map[int]int{
 	30346: 3, 30336: 3, 30337: 3, 30368: 3, 30364: 3,
 }
 
+// RetiredKeyInfo represents a retired key.
 type RetiredKeyInfo struct {
 	Defindex int
 	Name     string

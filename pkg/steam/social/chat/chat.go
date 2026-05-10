@@ -28,6 +28,7 @@ const ModuleName string = "chat"
 // messageInterval is the minimum time between sent messages to avoid rate limits.
 const messageInterval = 1200 * time.Millisecond
 
+// ErrNotInGroupChat is returned when trying to perform an operation on a group chat that the bot is not a member of.
 var ErrNotInGroupChat = errors.New("chat: not currently in this group chat")
 
 // WithModule returns a steam.Option that registers the chat module in the client.
@@ -240,6 +241,7 @@ func (m *Chat) SendGroupMessage(ctx context.Context, groupID uint64, text string
 	return err
 }
 
+// DeleteGroupMessages deletes messages from a group chatroom.
 func (m *Chat) DeleteGroupMessages(
 	ctx context.Context,
 	groupID uint64,

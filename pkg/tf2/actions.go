@@ -50,6 +50,7 @@ func (t *TF2) sendSimpleItemAction(ctx context.Context, msgType pb.EGCItemMsg, i
 	return t.gc.SendRaw(ctx, AppID, uint32(msgType), data)
 }
 
+// AcknowledgeAll acknowledges all items in the backpack.
 func (t *TF2) AcknowledgeAll(ctx context.Context) error {
 	items := t.cache.GetItems()
 
@@ -230,11 +231,13 @@ func (t *TF2) Craft(ctx context.Context, items []uint64, recipe int16) ([]uint64
 	}
 }
 
+// ItemPos represents an item position.
 type ItemPos struct {
 	Id       uint64
 	Position uint32
 }
 
+// MoveItems moves items to specific positions in the backpack.
 func (t *TF2) MoveItems(ctx context.Context, items []ItemPos) error {
 	const maxBatchSize = 50
 

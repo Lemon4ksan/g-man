@@ -6,6 +6,7 @@ package bptf
 
 import "github.com/lemon4ksan/g-man/pkg/steam/id"
 
+// PricesResponseV4 represents a response from the bptf prices API.
 type PricesResponseV4 struct {
 	Success     int                    `json:"success"`
 	Message     string                 `json:"message,omitempty"`
@@ -15,11 +16,13 @@ type PricesResponseV4 struct {
 	Items       map[string]BaseItemDoc `json:"items"`
 }
 
+// BaseItemDoc represents a base item document.
 type BaseItemDoc struct {
 	Defindexes []string                                               `json:"defindex"`
 	Prices     map[string]map[string]map[string]map[string]PriceEntry `json:"prices"` // Quality -> Tradable -> Craftable -> PriceIndex
 }
 
+// PriceEntry represents a price entry.
 type PriceEntry struct {
 	Currency   string  `json:"currency"`
 	Value      float64 `json:"value"`
@@ -28,6 +31,7 @@ type PriceEntry struct {
 	LastUpdate int64   `json:"last_update"`
 }
 
+// CurrenciesResponseV1 represents a response from the bptf currencies API.
 type CurrenciesResponseV1 struct {
 	Success    int                     `json:"success"`
 	Message    string                  `json:"message,omitempty"`
@@ -35,13 +39,15 @@ type CurrenciesResponseV1 struct {
 	Currencies map[string]CurrencyInfo `json:"currencies"`
 }
 
+// ListingResolvable represents a resolvable listing.
 type ListingResolvable struct {
-	ID         uint64             `json:"id,omitempty"`      // Если это Sell (из инвентаря)
-	Item       any                `json:"item,omitempty"`    // Если это Buy (поиск по характеристикам)
-	Details    string             `json:"details,omitempty"` // Описание листинга
-	Currencies map[string]float64 `json:"currencies"`        // e.g. {"keys": 1, "metal": 25.33}
+	ID         uint64             `json:"id,omitempty"`
+	Item       any                `json:"item,omitempty"`
+	Details    string             `json:"details,omitempty"`
+	Currencies map[string]float64 `json:"currencies"` // e.g. {"keys": 1, "metal": 25.33}
 }
 
+// ListingResponse represents a listing.
 type ListingResponse struct {
 	ID         string             `json:"id"`
 	SteamID    string             `json:"steamid"`
@@ -51,6 +57,7 @@ type ListingResponse struct {
 	Currencies map[string]float64 `json:"currencies"`
 }
 
+// ListingBatchCreateResult represents a batch create result.
 type ListingBatchCreateResult struct {
 	Result *ListingResponse `json:"result,omitempty"`
 	Error  *struct {
@@ -59,6 +66,7 @@ type ListingBatchCreateResult struct {
 	} `json:"error,omitempty"`
 }
 
+// CurrencyInfo represents currency information.
 type CurrencyInfo struct {
 	Name       string     `json:"name"`
 	Quality    string     `json:"quality"`
@@ -72,6 +80,7 @@ type CurrencyInfo struct {
 	Price      PriceEntry `json:"price"`
 }
 
+// InventoryStatus represents inventory status.
 type InventoryStatus struct {
 	RefreshInterval int   `json:"refresh_interval"`
 	NextUpdate      int64 `json:"next_update"`
@@ -80,15 +89,18 @@ type InventoryStatus struct {
 	CurrentTime     int64 `json:"current_time"`
 }
 
+// InventoryValues represents inventory values.
 type InventoryValues struct {
 	Value       float64 `json:"value"`        // Community value
 	MarketValue float64 `json:"market_value"` // Steam Community Market value
 }
 
+// V1UserResponse represents a response from the bptf user API.
 type V1UserResponse struct {
 	Users map[id.ID]V1User `json:"users"`
 }
 
+// V1User represents a user.
 type V1User struct {
 	Name       string         `json:"name"`
 	Avatar     string         `json:"avatar"`
@@ -101,16 +113,19 @@ type V1User struct {
 	Inventory  map[string]any `json:"inventory,omitempty"`
 }
 
+// UserTrust represents user trust information.
 type UserTrust struct {
 	Positive int `json:"positive"`
 	Negative int `json:"negative"`
 }
 
+// AlertsResponse represents a response from the bptf alerts API.
 type AlertsResponse struct {
 	Results []Alert `json:"results"`
 	Cursor  Cursor  `json:"cursor"`
 }
 
+// Alert represents an alert.
 type Alert struct {
 	ID       string  `json:"id"`
 	ItemName string  `json:"item_name"`
@@ -120,17 +135,20 @@ type Alert struct {
 	Max      float64 `json:"max"`
 }
 
+// Cursor represents a cursor.
 type Cursor struct {
 	Skip  int `json:"skip"`
 	Limit int `json:"limit"`
 	Total int `json:"total"`
 }
 
+// ResponseError represents a response error.
 type ResponseError struct {
 	Message string `json:"message"`
 	Reason  string `json:"reason"` // Machine-readable code
 }
 
+// UserAgentStatus represents user agent status.
 type UserAgentStatus struct {
 	Status      string `json:"status"` // "active" or "inactive"
 	Client      string `json:"client,omitempty"`
@@ -138,11 +156,13 @@ type UserAgentStatus struct {
 	CurrentTime int64  `json:"current_time"`
 }
 
+// NotificationsResponse represents a response from the bptf notifications API.
 type NotificationsResponse struct {
 	Results []Notification `json:"results"`
 	Cursor  Cursor         `json:"cursor"`
 }
 
+// Notification represents a notification.
 type Notification struct {
 	ID      string         `json:"id"`
 	Type    int            `json:"type"`

@@ -33,10 +33,12 @@ const (
 	RecipeCustomDynamic      int16 = 200 // Used for Killstreak Fabricators / Chemistry Sets
 )
 
+// Manager handles the crafting of items in TF2.
 type Manager struct {
 	tf2 *tf2.TF2
 }
 
+// NewManager creates a new crafting manager.
 func NewManager(tf2 *tf2.TF2) *Manager {
 	return &Manager{tf2: tf2}
 }
@@ -155,6 +157,8 @@ func (cm *Manager) MakeChange(ctx context.Context, targetDefIndex uint32, target
 	return nil
 }
 
+// SmeltClassWeapons finds two weapons of the same class and smelts them into scrap metal.
+// If there are not enough weapons, it will attempt to craft the missing ones.
 func (cm *Manager) SmeltClassWeapons(ctx context.Context, class string) ([]uint64, error) {
 	weapons := cm.tf2.Cache().FindWeaponsByClass(class)
 

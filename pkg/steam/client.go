@@ -30,6 +30,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/storage/memory"
 )
 
+// ErrNotRunning is returned when the client is not running.
 var ErrNotRunning = errors.New("client must be running (call Run() first)")
 
 // SocketProvider defines the interface for socket operations required by the client.

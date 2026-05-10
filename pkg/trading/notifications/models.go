@@ -15,16 +15,27 @@ import (
 type TradeState int
 
 const (
+	// StateInvalid means the offer is invalid.
 	StateInvalid TradeState = iota
+	// StateActive means the offer is active.
 	StateActive
+	// StateAccepted means the offer is accepted.
 	StateAccepted
+	// StateCountered means the offer is countered.
 	StateCountered
+	// StateExpired means the offer is expired.
 	StateExpired
+	// StateCanceled means the offer is canceled.
 	StateCanceled
+	// StateDeclined means the offer is declined.
 	StateDeclined
+	// StateInvalidItems means the offer has invalid items.
 	StateInvalidItems
+	// StateCreatedNeedsConfirmation means the offer was created and needs confirmation.
 	StateCreatedNeedsConfirmation
+	// StateCanceledBySecondFactor means the offer was canceled by second factor.
 	StateCanceledBySecondFactor
+	// StateInEscrow means the offer is in escrow.
 	StateInEscrow
 )
 

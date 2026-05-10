@@ -25,6 +25,7 @@ type ServiceRouter struct {
 	socket  SocketProvider
 }
 
+// NewServiceRouter creates a new service router.
 func NewServiceRouter(sess sessionRefresher, sock SocketProvider) *ServiceRouter {
 	return &ServiceRouter{
 		session: sess,

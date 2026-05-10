@@ -21,6 +21,7 @@ type Provider struct {
 	mu        sync.Mutex
 }
 
+// New creates a new in-memory storage provider.
 func New() *Provider {
 	return &Provider{
 		authStore: &authStore{
@@ -32,10 +33,12 @@ func New() *Provider {
 	}
 }
 
+// Auth returns the authentication store.
 func (p *Provider) Auth() auth.Store {
 	return p.authStore
 }
 
+// KV returns the key-value store for the given namespace.
 func (p *Provider) KV(namespace string) storage.KV {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -50,10 +53,12 @@ func (p *Provider) KV(namespace string) storage.KV {
 	return store
 }
 
+// TTLCache returns the time-to-live cache.
 func (p *Provider) TTLCache() *TTLCache {
 	return p.ttl
 }
 
+// Close closes the provider.
 func (p *Provider) Close() error {
 	return nil
 }
@@ -66,6 +71,7 @@ type authStore struct {
 	machines map[string][]byte
 }
 
+// SaveRefreshToken saves the refresh token for the given account name.
 func (s *authStore) SaveRefreshToken(ctx context.Context, accountName, token string) error {
 	s.mu.Lock()
 	s.tokens[accountName] = token
@@ -74,6 +80,7 @@ func (s *authStore) SaveRefreshToken(ctx context.Context, accountName, token str
 	return nil
 }
 
+// GetRefreshToken retrieves the refresh token for the given account name.
 func (s *authStore) GetRefreshToken(ctx context.Context, accountName string) (string, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -85,6 +92,7 @@ func (s *authStore) GetRefreshToken(ctx context.Context, accountName string) (st
 	return "", storage.ErrNotFound
 }
 
+// SaveMachineID saves the machine ID for the given account name.
 func (s *authStore) SaveMachineID(ctx context.Context, accountName string, machineID []byte) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -94,6 +102,7 @@ func (s *authStore) SaveMachineID(ctx context.Context, accountName string, machi
 	return nil
 }
 
+// GetMachineID retrieves the machine ID for the given account name.
 func (s *authStore) GetMachineID(ctx context.Context, accountName string) ([]byte, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -105,6 +114,7 @@ func (s *authStore) GetMachineID(ctx context.Context, accountName string) ([]byt
 	return nil, storage.ErrNotFound
 }
 
+// Clear removes all stored credentials for the given account name.
 func (s *authStore) Clear(ctx context.Context, accountName string) error {
 	s.mu.Lock()
 	delete(s.tokens, accountName)
@@ -120,6 +130,7 @@ type kvStore struct {
 	data map[string][]byte
 }
 
+// Set adds a key-value pair to the store.
 func (s *kvStore) Set(ctx context.Context, key string, value []byte) error {
 	s.mu.Lock()
 
@@ -129,6 +140,7 @@ func (s *kvStore) Set(ctx context.Context, key string, value []byte) error {
 	return nil
 }
 
+// Get retrieves a value from the store by key.
 func (s *kvStore) Get(ctx context.Context, key string) ([]byte, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -140,6 +152,7 @@ func (s *kvStore) Get(ctx context.Context, key string) ([]byte, error) {
 	return nil, storage.ErrNotFound
 }
 
+// Delete removes a key-value pair from the store.
 func (s *kvStore) Delete(ctx context.Context, key string) error {
 	s.mu.Lock()
 	delete(s.data, key)
@@ -148,6 +161,7 @@ func (s *kvStore) Delete(ctx context.Context, key string) error {
 	return nil
 }
 
+// Has checks if a key exists in the store.
 func (s *kvStore) Has(ctx context.Context, key string) (bool, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -164,15 +178,18 @@ type entry struct {
 	expiration int64
 }
 
+// TTLCache is a thread-safe in-memory cache with time-to-live support.
 type TTLCache struct {
 	mu      sync.RWMutex
 	entries map[string]entry
 }
 
+// NewTTLCache creates a new time-to-live cache.
 func NewTTLCache() *TTLCache {
 	return &TTLCache{entries: make(map[string]entry)}
 }
 
+// Set adds a key-value pair to the cache with a specific time-to-live duration.
 func (c *TTLCache) Set(key string, value any, ttl time.Duration) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -183,6 +200,7 @@ func (c *TTLCache) Set(key string, value any, ttl time.Duration) {
 	}
 }
 
+// Get retrieves a value from the cache by key.
 func (c *TTLCache) Get(key string) (any, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()

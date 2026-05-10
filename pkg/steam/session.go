@@ -45,6 +45,7 @@ type communityClient interface {
 	GetOrRegisterAPIKey(ctx context.Context, domain string) (string, error)
 }
 
+// SessionManager manages the session state of the client.
 type SessionManager struct {
 	mu sync.RWMutex
 
@@ -65,6 +66,7 @@ type SessionManager struct {
 	closed       atomic.Bool
 }
 
+// NewSessionManager creates a new session manager.
 func NewSessionManager(cfg Config, bus *bus.Bus, logger log.Logger, sock SocketProvider) *SessionManager {
 	c := &SessionManager{
 		bus:          bus,
@@ -200,6 +202,7 @@ func (c *SessionManager) Refresh(ctx context.Context) error {
 	return nil
 }
 
+// StartRefreshLoop starts the refresh loop.
 func (c *SessionManager) StartRefreshLoop(ctx context.Context) error {
 	defer c.verifyTicker.Stop()
 
@@ -227,10 +230,12 @@ shutdown:
 	return c.Disconnect()
 }
 
+// Disconnect disconnects the socket.
 func (c *SessionManager) Disconnect() error {
 	return c.socket.Disconnect()
 }
 
+// Close closes the session manager.
 func (c *SessionManager) Close() error {
 	c.closed.Store(true)
 	return c.socket.Close()

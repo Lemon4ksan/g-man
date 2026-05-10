@@ -44,14 +44,17 @@ func New(path string) (*Provider, error) {
 	return p, nil
 }
 
+// Auth returns an auth store.
 func (p *Provider) Auth() auth.Store {
 	return &authStore{p}
 }
 
+// KV returns a KV store for the given namespace.
 func (p *Provider) KV(namespace string) storage.KV {
 	return &kvStore{p, namespace}
 }
 
+// Close saves the data to the file.
 func (p *Provider) Close() error {
 	return p.save()
 }

@@ -37,6 +37,7 @@ type ItemStats struct {
 	Sell StatDetails `json:"sell"`
 }
 
+// StatDetails represents the statistical details for price history.
 type StatDetails struct {
 	Count int `json:"count"`
 	Keys  struct {

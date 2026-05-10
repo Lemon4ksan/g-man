@@ -119,14 +119,14 @@ func TestCoordinator_CallAndResolve(t *testing.T) {
 
 func TestCoordinator_Routing(t *testing.T) {
 	_, ictx := setupCoordinator(t)
-	sub := ictx.Bus().Subscribe(&GCMessageEvent{})
+	sub := ictx.Bus().Subscribe(&MessageEvent{})
 
 	t.Run("Fallthrough to Bus (No JobID)", func(t *testing.T) {
 		emitGC(t, ictx, AppidTf2, 5001, []byte("data"), protocol.NoJob)
 
 		select {
 		case ev := <-sub.C():
-			assert.Equal(t, uint32(5001), ev.(*GCMessageEvent).Packet.MsgType)
+			assert.Equal(t, uint32(5001), ev.(*MessageEvent).Packet.MsgType)
 		case <-time.After(100 * time.Millisecond):
 			t.Fatal("event not on bus")
 		}
@@ -138,7 +138,7 @@ func TestCoordinator_Routing(t *testing.T) {
 
 		select {
 		case ev := <-sub.C():
-			assert.Equal(t, uint32(5002), ev.(*GCMessageEvent).Packet.MsgType)
+			assert.Equal(t, uint32(5002), ev.(*MessageEvent).Packet.MsgType)
 		case <-time.After(100 * time.Millisecond):
 			t.Fatal("event should have fallen back to bus for unknown job")
 		}

@@ -97,11 +97,6 @@ linters:
       - linters: [gosec, noctx, bodyclose, errcheck]
         path: "_test\\.go"
 
-      # Topics are too frequent
-      - linters: [revive]
-        path: "events.go"
-        text: "exported: (exported|comment on exported)"
-
       # Ignore path issues in CLI
       - linters: [gosec]
         text: "G703:|G706:"

@@ -18,8 +18,6 @@ type TradeProposedEvent struct {
 	Respond func(accept bool)
 }
 
-func (e *TradeProposedEvent) Topic() string { return "trading.proposed" }
-
 // TradeResultEvent is emitted when a trade request is answered or fails.
 type TradeResultEvent struct {
 	bus.BaseEvent
@@ -30,12 +28,8 @@ type TradeResultEvent struct {
 	NewDeviceCooldownDays  uint32
 }
 
-func (e *TradeResultEvent) Topic() string { return "trading.result" }
-
 // TradeSessionStartedEvent is emitted when the trade window is officially open.
 type TradeSessionStartedEvent struct {
 	bus.BaseEvent
 	OtherSteamID uint64
 }
-
-func (e *TradeSessionStartedEvent) Topic() string { return "trading.started" }

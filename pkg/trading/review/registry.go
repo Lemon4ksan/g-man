@@ -10,6 +10,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/trading/reason"
 )
 
+// ReasonProcessor is a function that formats a specific trade reason into a human-readable string.
 type ReasonProcessor func(raw any, s SchemaProvider, f Formatter) string
 
 var reasonRegistry = map[reason.TradeReason]struct {

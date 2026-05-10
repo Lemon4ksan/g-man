@@ -140,6 +140,7 @@ type Connector struct {
 	servers      []CMServer
 }
 
+// DataHandler is an interface for handling network messages.
 type DataHandler interface {
 	// OnNetMessage is called when a complete message is framed and received.
 	OnNetMessage(msg network.NetMessage)

@@ -6,30 +6,29 @@ package currency
 
 import "fmt"
 
-// ValueDiff represents the difference between our side and their side.
+// ValueDiff represents the difference between their side and our side.
 type ValueDiff struct {
-	OurValue   Scrap
-	TheirValue Scrap
-	KeyPrice   Scrap // Key price in scrap
+	Our, Their, KeyPrice Scrap
 }
 
 // NewValueDiff calculates the difference in trade value.
 // values are expected to be in Scrap.
 func NewValueDiff(our, their, keyPrice Scrap) ValueDiff {
 	return ValueDiff{
-		OurValue:   our,
-		TheirValue: their,
-		KeyPrice:   keyPrice,
+		Our:      our,
+		Their:    their,
+		KeyPrice: keyPrice,
 	}
 }
 
+// Diff returns the difference between their side and our side.
 func (v ValueDiff) Diff() Scrap {
-	return v.TheirValue - v.OurValue
+	return v.Their - v.Our
 }
 
 // IsProfitable returns true if they are paying equal or more than us.
 func (v ValueDiff) IsProfitable() bool {
-	return v.TheirValue >= v.OurValue
+	return v.Their >= v.Our
 }
 
 // MissingRefined returns how much metal is missing in Refined format.
@@ -38,7 +37,7 @@ func (v ValueDiff) MissingRefined() float64 {
 		return 0
 	}
 
-	diff := v.OurValue - v.TheirValue
+	diff := v.Our - v.Their
 
 	return float64(diff) / 9.0
 }
@@ -49,7 +48,7 @@ func (v ValueDiff) MissingString() string {
 		return "0 ref"
 	}
 
-	missingScrap := v.OurValue - v.TheirValue
+	missingScrap := v.Our - v.Their
 
 	if v.KeyPrice > 0 && missingScrap >= v.KeyPrice {
 		keys := int(missingScrap / v.KeyPrice)

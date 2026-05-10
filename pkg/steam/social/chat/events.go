@@ -10,6 +10,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/bus"
 )
 
+// Chat message types.
 const (
 	ChatEntryTypeChatMsg          = 1
 	ChatEntryTypeTyping           = 2

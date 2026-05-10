@@ -19,7 +19,7 @@ type InventoryProvider interface {
 	GetPureCounts() PureCounts
 }
 
-// Price list Supplier today is the bot holder trading.
+// PricelistProvider provides access to the price list.
 type PricelistProvider interface {
 	HasPricedItem(sku string) bool
 }

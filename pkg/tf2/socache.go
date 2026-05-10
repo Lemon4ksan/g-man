@@ -51,6 +51,7 @@ func (i *Item) IsWeapon(s *schema.Schema) bool {
 	return sch != nil && sch.CraftClass == "weapon"
 }
 
+// ToEconItem converts the item to an EconItem.
 func (i Item) ToEconItem() *trading.Item {
 	return &trading.Item{
 		AppID:          AppID,
@@ -69,22 +70,25 @@ const (
 	SOTypeEconGameAccountClient int32 = 7
 )
 
+// Option defines a functional configuration for the SOCache.
+type Option = bus.Option[*SOCache]
+
 // WithLogger sets a custom logger for the module.
-func WithLogger(l log.Logger) bus.Option[*SOCache] {
+func WithLogger(l log.Logger) Option {
 	return func(s *SOCache) {
 		s.logger = l.With(log.Component("so_cache"))
 	}
 }
 
 // WithBus sets a custom event bus for emitting events.
-func WithBus(b *bus.Bus) bus.Option[*SOCache] {
+func WithBus(b *bus.Bus) Option {
 	return func(s *SOCache) {
 		s.bus = b
 	}
 }
 
 // WithSchema allows filling out the item SKU's during processing.
-func WithSchema(schema *schema.Schema) bus.Option[*SOCache] {
+func WithSchema(schema *schema.Schema) Option {
 	return func(s *SOCache) {
 		s.schema = schema
 	}
@@ -111,7 +115,7 @@ type SOCache struct {
 }
 
 // NewSOCache creates a new empty Shared Object Cache.
-func NewSOCache(coord CoordinatorProvider, opts ...bus.Option[*SOCache]) *SOCache {
+func NewSOCache(coord CoordinatorProvider, opts ...Option) *SOCache {
 	s := &SOCache{
 		items:  make(map[uint64]*Item),
 		coord:  coord,
@@ -129,6 +133,7 @@ func NewSOCache(coord CoordinatorProvider, opts ...bus.Option[*SOCache]) *SOCach
 	return s
 }
 
+// GetMaxSlots returns the maximum number of item slots in the backpack.
 func (c *SOCache) GetMaxSlots() int {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -197,6 +202,7 @@ func (c *SOCache) FindCraftableItems(defIndex uint32, count int) []uint64 {
 	return ids
 }
 
+// FindWeaponsByClass searches for tradable weapons of a specific class.
 func (c *SOCache) FindWeaponsByClass(class string) []*Item {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -248,8 +254,8 @@ func (c *SOCache) GetAssetIDsBySKU(targetSKU string, limit int) []uint64 {
 	return result
 }
 
-// HandleSubscribed processes the initial full synchronization of the cache.
-func (c *SOCache) HandleSubscribed(pkt *protocol.GCPacket) {
+// handleSubscribed processes the initial full synchronization of the cache.
+func (c *SOCache) handleSubscribed(pkt *protocol.GCPacket) {
 	msg := &pb.CMsgSOCacheSubscribed{}
 	if err := proto.Unmarshal(pkt.Payload, msg); err != nil {
 		c.logger.Error("Failed to unmarshal SOCacheSubscribed", log.Err(err))
@@ -260,56 +266,51 @@ func (c *SOCache) HandleSubscribed(pkt *protocol.GCPacket) {
 	c.ownerID.Store(msg.GetOwner())
 
 	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	clear(c.items)
 
 	for _, subType := range msg.GetObjects() {
 		typeID := subType.GetTypeId()
 		for _, objData := range subType.GetObjectData() {
-			c.processObject(typeID, objData, true)
+			c.processObject(typeID, objData, true, nil)
 		}
 	}
 
+	count := len(c.items)
+	c.mu.Unlock()
+
 	c.logger.Info("TF2 SOCache loaded/resynced",
-		log.Int("items", len(c.items)),
+		log.Int("items", count),
 		log.Uint64("version", msg.GetVersion()),
 	)
 
 	c.bus.Publish(&BackpackLoadedEvent{
-		Count: len(c.items),
+		Count: count,
 	})
 }
 
-// HandleSOUpdate routes incremental events (Create, Update, Destroy, Multiple).
-func (c *SOCache) HandleSOUpdate(pkt *protocol.GCPacket) {
+// handleSOUpdate routes incremental events (Create, Update, Destroy, Multiple).
+func (c *SOCache) handleSOUpdate(pkt *protocol.GCPacket) {
 	msgType := pb.ESOMsg(pkt.MsgType &^ protocol.ProtoMask)
 
-	var newVersion uint64
+	var (
+		newVersion uint64
+		events     []bus.Event
+	)
 
 	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	switch msgType {
-	case pb.ESOMsg_k_ESOMsg_Create:
+	case pb.ESOMsg_k_ESOMsg_Create, pb.ESOMsg_k_ESOMsg_Update:
 		msg := &pb.CMsgSOSingleObject{}
 		if proto.Unmarshal(pkt.Payload, msg) == nil {
 			newVersion = msg.GetVersion()
-			c.processObject(msg.GetTypeId(), msg.GetObjectData(), false)
-		}
-
-	case pb.ESOMsg_k_ESOMsg_Update:
-		msg := &pb.CMsgSOSingleObject{}
-		if proto.Unmarshal(pkt.Payload, msg) == nil {
-			newVersion = msg.GetVersion()
-			c.processObject(msg.GetTypeId(), msg.GetObjectData(), false)
+			c.processObject(msg.GetTypeId(), msg.GetObjectData(), false, &events)
 		}
 
 	case pb.ESOMsg_k_ESOMsg_Destroy:
 		msg := &pb.CMsgSOSingleObject{}
 		if proto.Unmarshal(pkt.Payload, msg) == nil {
 			newVersion = msg.GetVersion()
-			c.processDestroy(msg.GetTypeId(), msg.GetObjectData())
+			c.processDestroy(msg.GetTypeId(), msg.GetObjectData(), &events)
 		}
 
 	case pb.ESOMsg_k_ESOMsg_UpdateMultiple:
@@ -318,7 +319,7 @@ func (c *SOCache) HandleSOUpdate(pkt *protocol.GCPacket) {
 			newVersion = msg.GetVersion()
 
 			for _, obj := range msg.GetObjects() {
-				c.processObject(obj.GetTypeId(), obj.GetObjectData(), false)
+				c.processObject(obj.GetTypeId(), obj.GetObjectData(), false, &events)
 			}
 		} else {
 			c.logger.Error("Failed to unmarshal SOMultipleObjects", log.Err(err))
@@ -328,11 +329,17 @@ func (c *SOCache) HandleSOUpdate(pkt *protocol.GCPacket) {
 	if newVersion > 0 {
 		c.version.Store(newVersion)
 	}
+
+	c.mu.Unlock()
+
+	for _, ev := range events {
+		c.bus.Publish(ev)
+	}
 }
 
-// HandleSOCacheCheck processes k_ESOMsg_CacheSubscriptionCheck (27).
+// handleSOCacheCheck processes k_ESOMsg_CacheSubscriptionCheck (27).
 // GC asks if we are still in sync.
-func (c *SOCache) HandleSOCacheCheck(ctx context.Context, pkt *protocol.GCPacket) {
+func (c *SOCache) handleSOCacheCheck(ctx context.Context, pkt *protocol.GCPacket) {
 	msg := &pb.CMsgSOCacheSubscriptionCheck{}
 	if err := proto.Unmarshal(pkt.Payload, msg); err != nil {
 		c.logger.Error("Failed to unmarshal CacheSubscriptionCheck", log.Err(err))
@@ -357,9 +364,9 @@ func (c *SOCache) HandleSOCacheCheck(ctx context.Context, pkt *protocol.GCPacket
 	}
 }
 
-// HandleUpToDate processes k_ESOMsg_CacheSubscribedUpToDate (29).
+// handleUpToDate processes k_ESOMsg_CacheSubscribedUpToDate (29).
 // Sent by GC if we requested a Refresh but we already had the latest data.
-func (c *SOCache) HandleUpToDate(pkt *protocol.GCPacket) {
+func (c *SOCache) handleUpToDate(pkt *protocol.GCPacket) {
 	msg := &pb.CMsgSOCacheSubscribedUpToDate{}
 	if err := proto.Unmarshal(pkt.Payload, msg); err == nil {
 		c.version.Store(msg.GetVersion())
@@ -381,7 +388,7 @@ func (c *SOCache) requestRefresh(ctx context.Context, owner uint64, logger log.L
 
 // processObject parses the raw bytes and updates the internal maps.
 // Caller MUST hold the mutex.
-func (c *SOCache) processObject(typeID int32, data []byte, isBulk bool) {
+func (c *SOCache) processObject(typeID int32, data []byte, isBulk bool, events *[]bus.Event) {
 	switch typeID {
 	case SOTypeEconItem: // Type 1: TF2 Item
 		econItem := &pb.CSOEconItem{}
@@ -400,12 +407,12 @@ func (c *SOCache) processObject(typeID int32, data []byte, isBulk bool) {
 		c.items[item.ID] = item
 
 		// Fire events only if we are not in the middle of initial bulk loading
-		if !isBulk {
+		if !isBulk && events != nil {
 			if exists {
-				c.bus.Publish(&ItemUpdatedEvent{Item: item})
+				*events = append(*events, &ItemUpdatedEvent{Item: item})
 				c.logger.Debug("Item updated in GC", log.Uint64("id", item.ID))
 			} else {
-				c.bus.Publish(&ItemAcquiredEvent{Item: item})
+				*events = append(*events, &ItemAcquiredEvent{Item: item})
 				c.logger.Debug("New item acquired from GC", log.Uint64("id", item.ID))
 			}
 		}
@@ -434,7 +441,7 @@ func (c *SOCache) processObject(typeID int32, data []byte, isBulk bool) {
 
 // processDestroy handles the removal of items from the cache.
 // Caller MUST hold the mutex.
-func (c *SOCache) processDestroy(typeID int32, data []byte) {
+func (c *SOCache) processDestroy(typeID int32, data []byte, events *[]bus.Event) {
 	if typeID != SOTypeEconItem {
 		return
 	}
@@ -448,7 +455,10 @@ func (c *SOCache) processDestroy(typeID int32, data []byte) {
 	itemID := econItem.GetId()
 	delete(c.items, itemID)
 
-	c.bus.Publish(&ItemRemovedEvent{ItemID: itemID})
+	if events != nil {
+		*events = append(*events, &ItemRemovedEvent{ItemID: itemID})
+	}
+
 	c.logger.Debug("Item removed from GC", log.Uint64("id", itemID))
 }
 
@@ -489,9 +499,9 @@ func (c *SOCache) protoToItem(p *pb.CSOEconItem) *Item {
 	}
 
 	// 1073741824 = unassigned position / unacknowledged (newly dropped item)
-	if item.Inventory == 0 || item.Inventory >= 1073741824 {
-		// Unacknowledged item
-	}
+	// if item.Inventory == 0 || item.Inventory >= 1073741824 {
+	// Unacknowledged item
+	// }
 
 	return item
 }

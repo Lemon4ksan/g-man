@@ -10,22 +10,19 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/bus"
 )
 
+// ReadyEvent is emitted when the schema is ready.
 type ReadyEvent struct {
 	bus.BaseEvent
 }
 
-func (e *ReadyEvent) Topic() string { return "schema.ready" }
-
+// UpdatedEvent is emitted when the schema is updated.
 type UpdatedEvent struct {
 	bus.BaseEvent
 	Timestamp time.Time
 }
 
-func (e *UpdatedEvent) Topic() string { return "schema.updated" }
-
+// UpdateFailedEvent is emitted when the schema update fails.
 type UpdateFailedEvent struct {
 	bus.BaseEvent
 	Error error
 }
-
-func (e *UpdateFailedEvent) Topic() string { return "schema.failed" }

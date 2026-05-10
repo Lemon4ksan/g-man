@@ -12,8 +12,10 @@ import (
 )
 
 const (
+	// BaseURL is the base URL for the PriceDB API.
 	BaseURL = "https://api.pricedb.io"
-	SKUURL  = "https://sku.pricedb.io"
+	// SKUURL is the base URL for the PriceDB SKU API.
+	SKUURL = "https://sku.pricedb.io"
 )
 
 // Client is a thread-safe HTTP client for interacting with PriceDB.
@@ -40,9 +42,13 @@ func (c *Client) GetItem(ctx context.Context, sku string) (*Price, error) {
 // GetItemsBulk fetches the latest prices for an array of SKUs in a single request.
 func (c *Client) GetItemsBulk(ctx context.Context, skus []string) ([]*Price, error) {
 	req := bulkRequest{SKUs: skus}
-	resp, err := rest.PostJSON[bulkRequest, []*Price](ctx, c.restClient, "/api/items-bulk", req, nil)
 
-	return *resp, err
+	resp, err := rest.PostJSON[bulkRequest, []*Price](ctx, c.restClient, "/api/items-bulk", req, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return *resp, nil
 }
 
 // Search performs a fuzzy search for items by name.
@@ -63,9 +69,13 @@ func (c *Client) GetHistory(ctx context.Context, sku string, start, end int64) (
 		Start int64 `url:"start,omitempty"`
 		End   int64 `url:"end,omitempty"`
 	}{start, end}
-	resp, err := rest.GetJSON[[]*Price](ctx, c.restClient, path, req)
 
-	return *resp, err
+	resp, err := rest.GetJSON[[]*Price](ctx, c.restClient, path, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return *resp, nil
 }
 
 // GetStats returns statistics (min, max, avg) for an item's price history.
@@ -98,15 +108,23 @@ func (c *Client) HealthCheck(ctx context.Context) (*CacheStats, error) {
 // ResolveName looks up an item by name using the SKU Service.
 func (c *Client) ResolveName(ctx context.Context, name string) (map[string]any, error) {
 	path := "/api/name/" + url.PathEscape(name)
-	resp, err := rest.GetJSON[map[string]any](ctx, c.skuClient, path, nil)
 
-	return *resp, err
+	resp, err := rest.GetJSON[map[string]any](ctx, c.skuClient, path, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return *resp, nil
 }
 
 // ResolveSKU looks up item properties by its SKU using the SKU Service.
 func (c *Client) ResolveSKU(ctx context.Context, sku string) (map[string]any, error) {
 	path := "/api/sku/" + url.PathEscape(sku)
-	resp, err := rest.GetJSON[map[string]any](ctx, c.skuClient, path, nil)
 
-	return *resp, err
+	resp, err := rest.GetJSON[map[string]any](ctx, c.skuClient, path, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return *resp, nil
 }

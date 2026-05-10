@@ -7,17 +7,21 @@ package backpack
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/community/inventory"
 	"github.com/lemon4ksan/g-man/pkg/tf2/schema"
 	"github.com/lemon4ksan/g-man/pkg/tf2/sku"
+	"github.com/lemon4ksan/g-man/pkg/trading"
 )
 
 var (
-	ErrItemNotFound = errors.New("tf2inventory: could not find item in inventory")
-	ErrSteamAPI     = errors.New("tf2inventory: steam api returned error status")
+	// ErrItemNotFound is returned when an item is not found in the inventory.
+	ErrItemNotFound = errors.New("backpack: could not find item in inventory")
+	// ErrSteamAPI is returned when the Steam API returns an error status.
+	ErrSteamAPI = errors.New("backpack: steam api returned error status")
 )
 
 // HistoryStatus represents the result of checking the item's history.
@@ -34,6 +38,7 @@ type DupeChecker interface {
 	CheckHistory(ctx context.Context, assetID uint64) (HistoryStatus, error)
 }
 
+// PlayerItemsResponse represents the response from the Steam Community Inventory API.
 type PlayerItemsResponse struct {
 	Result struct {
 		Status           int       `json:"status"`
@@ -43,6 +48,7 @@ type PlayerItemsResponse struct {
 	} `json:"result"`
 }
 
+// TF2Item represents an item in the Team Fortress 2 inventory.
 type TF2Item struct {
 	ID              uint64         `json:"id"`
 	OriginalID      uint64         `json:"original_id"`
@@ -205,6 +211,59 @@ func (it *TF2Item) ToSKU() string {
 	})
 }
 
+// ToEconItem converts the internal TF2Item structure into a universal exchange format (Econ Item).
+func (it *TF2Item) ToEconItem() *trading.Item {
+	item := &trading.Item{
+		AppID:     440,
+		ContextID: 2,
+		AssetID:   it.ID,
+		ClassID:   uint64(it.Defindex),
+		Amount:    int64(it.Quantity),
+		Tradable:  !it.FlagCannotTrade,
+		Name:      it.CustomName,
+	}
+
+	if len(it.Attributes) > 0 {
+		item.Attributes = make([]trading.Attribute, 0, len(it.Attributes))
+		for _, attr := range it.Attributes {
+			valStr := ""
+
+			var floatVal float64
+
+			switch v := attr.Value.(type) {
+			case float64:
+				floatVal = v
+				valStr = fmt.Sprintf("%g", v)
+			case string:
+				valStr = v
+				floatVal, _ = strconv.ParseFloat(v, 64)
+			}
+
+			item.Attributes = append(item.Attributes, trading.Attribute{
+				Defindex:   attr.Defindex,
+				Value:      valStr,
+				FloatValue: floatVal,
+			})
+		}
+	}
+
+	if it.FlagCannotCraft {
+		item.Descriptions = append(item.Descriptions, trading.Description{
+			Value: "( Not Usable in Crafting )",
+			Color: "ff4040",
+		})
+	}
+
+	if it.CustomDesc != "" {
+		item.Descriptions = append(item.Descriptions, trading.Description{
+			Value: it.CustomDesc,
+		})
+	}
+
+	return item
+}
+
+// TF2Attribute represents an attribute of an item.
 type TF2Attribute struct {
 	Defindex   int     `json:"defindex"`
 	Value      any     `json:"value"` // int or string

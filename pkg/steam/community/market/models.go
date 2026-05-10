@@ -12,8 +12,10 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/rest"
 )
 
+// CurrencyCode is a steam currency code.
 type CurrencyCode int
 
+// Steam Currency codes
 const (
 	CurrencyCodeInvalid CurrencyCode = iota
 	CurrencyCodeUSD
@@ -163,8 +165,10 @@ type GraphPoint struct {
 	Description string
 }
 
+// GraphPoints is a slice of GraphPoint.
 type GraphPoints []GraphPoint
 
+// UnmarshalJSON implements json.Unmarshaler.
 func (g *GraphPoints) UnmarshalJSON(data []byte) error {
 	var rawGraph [][]json.RawMessage
 	if err := json.Unmarshal(data, &rawGraph); err != nil {
@@ -222,6 +226,7 @@ type PriceSample struct {
 	Volume    int64
 }
 
+// UnmarshalJSON implements json.Unmarshaler.
 func (ps *PriceSample) UnmarshalJSON(data []byte) error {
 	var rawPriceSample [3]json.RawMessage
 	if err := json.Unmarshal(data, &rawPriceSample); err != nil {

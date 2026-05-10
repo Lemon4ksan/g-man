@@ -176,6 +176,7 @@ func CounterOfferMiddleware(metalMgr *crafting.MetalManager, pricer *pricedb.Cli
 	}
 }
 
+// ChangeMiddleware automatically adds metal to the trade if the user gives us an item but forgets to put our currency in return.
 func ChangeMiddleware(metalMgr *crafting.MetalManager, craftingSvc *tf2.TF2, logger log.Logger) Middleware {
 	return func(next Handler) Handler {
 		return func(ctx *TradeContext) error {

@@ -127,7 +127,7 @@ func TestTF2_SOCacheEvents(t *testing.T) {
 		}
 
 		payload, _ := proto.Marshal(msg)
-		tf.cache.HandleSubscribed(&protocol.GCPacket{Payload: payload})
+		tf.cache.handleSubscribed(&protocol.GCPacket{Payload: payload})
 
 		select {
 		case ev := <-subLoaded.C():
@@ -159,7 +159,7 @@ func TestTF2_SOCacheEvents(t *testing.T) {
 			Payload: payload,
 		}
 
-		tf.cache.HandleSOUpdate(pkt)
+		tf.cache.handleSOUpdate(pkt)
 
 		select {
 		case ev := <-subAcquired.C():

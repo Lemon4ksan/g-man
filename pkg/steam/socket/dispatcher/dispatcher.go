@@ -267,6 +267,11 @@ func (d *Dispatcher) Dispatch(packet *protocol.Packet) {
 	}
 }
 
+// Close closes the dispatcher and its job manager.
+func (d *Dispatcher) Close() error {
+	return d.jobManager.Close()
+}
+
 func (d *Dispatcher) invokeHandler(handler Handler, packet *protocol.Packet) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -278,10 +283,6 @@ func (d *Dispatcher) invokeHandler(handler Handler, packet *protocol.Packet) {
 	}()
 
 	handler(packet)
-}
-
-func (d *Dispatcher) Close() error {
-	return d.jobManager.Close()
 }
 
 func (d *Dispatcher) handleService(packet *protocol.Packet) {

@@ -22,8 +22,10 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 )
 
+// ModuleName is the name of the friends module.
 const ModuleName string = "friends"
 
+// WithModule returns an option that registers the friends module with the steam client.
 func WithModule() steam.Option {
 	return func(c *steam.Client) {
 		c.RegisterModule(New())

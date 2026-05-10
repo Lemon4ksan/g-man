@@ -16,24 +16,30 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/tf2"
 	"github.com/lemon4ksan/g-man/pkg/tf2/currency"
 	"github.com/lemon4ksan/g-man/pkg/tf2/schema/manager"
+	"github.com/lemon4ksan/g-man/pkg/trading/web/offer"
 )
 
-const ModuleName = "backpack"
+// ModuleName is the name of the module.
+const ModuleName = "tf2_backpack"
 
+// WithModule returns a steam.Option that registers the backpack module.
 func WithModule() steam.Option {
 	return func(c *steam.Client) {
 		c.RegisterModule(New())
 	}
 }
 
-type BusyProvider interface {
-	GetLockedAssetIDs() []uint64
-}
-
 const (
+	// ItemsPerPage is the number of items per page.
 	ItemsPerPage = 50
-	SlotsPerRow  = 10
+	// SlotsPerRow is the number of slots per row.
+	SlotsPerRow = 10
 )
+
+// TradingProvider is an interface for getting active sent offers.
+type TradingProvider interface {
+	GetActiveSentOffers(ctx context.Context) ([]offer.TradeOffer, error)
+}
 
 // PositionOf converts a page and slot (1-based) into a GC index.
 // Example: Page 2, Slot 1 -> 51
@@ -54,16 +60,18 @@ func PositionOf(page, slot int) uint32 {
 type Backpack struct {
 	module.Base
 
-	busy    BusyProvider
 	tf2     *tf2.TF2
 	manager *manager.Manager
+	trading TradingProvider
 
-	mu    sync.RWMutex
-	items map[uint64]*tf2.Item
-	skus  map[uint64]string // AssetID -> SKU string
-	slots int
+	mu     sync.RWMutex
+	slots  int
+	items  map[uint64]*tf2.Item
+	skus   map[uint64]string // AssetID -> SKU string
+	locked map[uint64]bool
 }
 
+// New creates a new backpack module for inventory management.
 func New() *Backpack {
 	return &Backpack{
 		Base:  module.New(ModuleName),
@@ -72,28 +80,78 @@ func New() *Backpack {
 	}
 }
 
+// Init initializes the backpack module.
 func (m *Backpack) Init(init module.InitContext) error {
 	if err := m.Base.Init(init); err != nil {
 		return err
 	}
 
 	m.tf2 = init.Module(tf2.ModuleName).(*tf2.TF2)
-	m.manager = init.Module(manager.ModuleName).(*manager.Manager)
+
+	tf2Mod, ok := init.Module(tf2.ModuleName).(*tf2.TF2)
+	if !ok || tf2Mod == nil {
+		return errors.New("tf2 module not registered or invalid")
+	}
+
+	m.tf2 = tf2Mod
+
+	manager, ok := init.Module(manager.ModuleName).(*manager.Manager)
+	if !ok || manager == nil {
+		return errors.New("schema manager module not registered or invalid")
+	}
+
+	m.manager = manager
+
+	m.trading = init.Module("trading").(TradingProvider)
 
 	return nil
 }
 
-func (m *Backpack) StartAuthed(ctx context.Context, _ module.AuthContext) error {
+// StartAuthed starts the backpack module.
+func (m *Backpack) StartAuthed(ctx context.Context, authCtx module.AuthContext) error {
 	m.syncWithCache()
 
 	m.Go(func(ctx context.Context) {
 		m.eventLoop(ctx)
 	})
 
+	if m.trading != nil {
+		m.Go(func(ctx context.Context) {
+			m.cleanupStaleLocks(ctx, m.trading)
+		})
+	}
+
 	return nil
 }
 
-// GetItemsBySKU returns all AssetIDs of bot items that match the SKU.
+// LockItems locks items in the backpack.
+func (m *Backpack) LockItems(ids []uint64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for _, id := range ids {
+		m.locked[id] = true
+	}
+}
+
+// UnlockItems unlocks items in the backpack.
+func (m *Backpack) UnlockItems(ids []uint64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for _, id := range ids {
+		delete(m.locked, id)
+	}
+}
+
+// GetItem returns the item with the given ID.
+func (m *Backpack) GetItem(id uint64) *tf2.Item {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.items[id]
+}
+
+// GetItemsBySKU returns all AssetIDs of items that match the SKU.
 func (m *Backpack) GetItemsBySKU(targetSKU string) []uint64 {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -144,13 +202,23 @@ func (m *Backpack) GetAssetIDs(targetSKU string) []uint64 {
 	defer m.mu.RUnlock()
 
 	var result []uint64
-
-	locked := m.getLockedMap()
-
 	for id, item := range m.items {
-		if m.skus[id] == targetSKU && item.IsTradable && !locked[id] {
+		if !m.locked[id] && item.IsTradable && m.skus[id] == targetSKU {
 			result = append(result, id)
 		}
+	}
+
+	return result
+}
+
+// GetLockedAssetIDs returns currently locked asset ids
+func (m *Backpack) GetLockedAssetIDs() []uint64 {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	result := make([]uint64, 0, len(m.locked))
+	for id := range m.locked {
+		result = append(result, id)
 	}
 
 	return result
@@ -229,14 +297,19 @@ func (m *Backpack) eventLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case ev := <-sub.C():
-			m.handleEvent(ev)
+			events := m.handleEvent(ev)
+			for _, e := range events {
+				m.Bus.Publish(e)
+			}
 		}
 	}
 }
 
-func (m *Backpack) handleEvent(ev bus.Event) {
+func (m *Backpack) handleEvent(ev bus.Event) []bus.Event {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
+	var events []bus.Event
 
 	s := m.manager.Get()
 
@@ -250,7 +323,10 @@ func (m *Backpack) handleEvent(ev bus.Event) {
 			m.skus[e.Item.ID] = s.GetSKUFromEconItem(e.Item.ToEconItem())
 		}
 
-		m.checkBackpackFull()
+		if m.slots > 0 && len(m.items) >= m.slots {
+			m.Logger.Warn("Backpack is FULL!", log.Int("count", len(m.items)), log.Int("max", m.slots))
+			events = append(events, &FullEvent{Count: len(m.items), Max: m.slots})
+		}
 
 	case *tf2.ItemRemovedEvent:
 		delete(m.items, e.ItemID)
@@ -261,6 +337,39 @@ func (m *Backpack) handleEvent(ev bus.Event) {
 		if s != nil {
 			m.skus[e.Item.ID] = s.GetSKUFromEconItem(e.Item.ToEconItem())
 		}
+	}
+
+	return events
+}
+
+func (m *Backpack) cleanupStaleLocks(ctx context.Context, tradingModule TradingProvider) {
+	activeOffers, err := tradingModule.GetActiveSentOffers(ctx)
+	if err != nil {
+		m.Logger.Error("Failed to get active offers for stale lock cleanup", log.Err(err))
+		return
+	}
+
+	activeItems := make(map[uint64]bool)
+	for _, off := range activeOffers {
+		for _, it := range off.ItemsToGive {
+			activeItems[it.AssetID] = true
+		}
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	cleanedCount := 0
+	for lockedID := range m.locked {
+		if !activeItems[lockedID] {
+			delete(m.locked, lockedID)
+
+			cleanedCount++
+		}
+	}
+
+	if cleanedCount > 0 {
+		m.Logger.Info("Cleaned up stale item locks", log.Int("count", cleanedCount))
 	}
 }
 
@@ -284,19 +393,10 @@ func (m *Backpack) syncWithCache() {
 	m.Logger.Info("Backpack synchronized", log.Int("items", len(m.items)), log.Int("slots", m.slots))
 }
 
-func (m *Backpack) checkBackpackFull() {
-	if m.slots > 0 && len(m.items) >= m.slots {
-		m.Logger.Warn("Backpack is FULL!", log.Int("count", len(m.items)), log.Int("max", m.slots))
-		m.Bus.Publish(&BackpackFullEvent{Count: len(m.items), Max: m.slots})
-	}
-}
-
 func (m *Backpack) getLockedMap() map[uint64]bool {
 	locked := make(map[uint64]bool)
-	if m.busy != nil {
-		for _, id := range m.busy.GetLockedAssetIDs() {
-			locked[id] = true
-		}
+	for _, id := range m.GetLockedAssetIDs() {
+		locked[id] = true
 	}
 
 	return locked

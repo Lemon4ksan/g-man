@@ -14,6 +14,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 )
 
+// ModuleManager manages the lifecycle of modules.
 type ModuleManager struct {
 	modules map[string]module.Module
 	mu      sync.RWMutex
@@ -23,12 +24,14 @@ type ModuleManager struct {
 	state   *atomic.Int32
 }
 
+// Get returns a module by name.
 func (m *ModuleManager) Get(name string) module.Module {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.modules[name]
 }
 
+// Add adds a module to the manager.
 func (m *ModuleManager) Add(mod module.Module) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -36,6 +39,7 @@ func (m *ModuleManager) Add(mod module.Module) {
 	m.modules[mod.Name()] = mod
 }
 
+// Register registers a module with the manager.
 func (m *ModuleManager) Register(ctx context.Context, mod module.Module) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -70,6 +74,7 @@ func (m *ModuleManager) Register(ctx context.Context, mod module.Module) error {
 	return nil
 }
 
+// InitAll initializes all registered modules.
 func (m *ModuleManager) InitAll(ctx module.InitContext) error {
 	m.mu.RLock()
 
@@ -90,6 +95,7 @@ func (m *ModuleManager) InitAll(ctx module.InitContext) error {
 	return errors.Join(errs...)
 }
 
+// StartAll starts all registered modules.
 func (m *ModuleManager) StartAll(ctx context.Context) error {
 	m.mu.RLock()
 
@@ -110,6 +116,7 @@ func (m *ModuleManager) StartAll(ctx context.Context) error {
 	return errors.Join(errs...)
 }
 
+// StartAuthedAll starts all registered modules that implement the Auth interface.
 func (m *ModuleManager) StartAuthedAll(ctx context.Context, actx module.AuthContext) error {
 	m.mu.RLock()
 

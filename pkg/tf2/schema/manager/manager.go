@@ -27,13 +27,18 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/tf2/schema"
 )
 
+// ModuleName is the name of the schema manager module.
 const ModuleName string = "tf2_schema"
 
+// Config holds the configuration for the schema manager.
 type Config struct {
+	// UpdateInterval is the time interval between schema updates.
 	UpdateInterval time.Duration // How often to refresh the schema
-	LiteMode       bool          // Prunes unnecessary items_game data to save RAM
+	// LiteMode enables pruning of unnecessary items_game data to save RAM.
+	LiteMode bool // Prunes unnecessary items_game data to save RAM
 }
 
+// WithModule returns a steam.Option that registers the schema manager with the given configuration.
 func WithModule(cfg Config) steam.Option {
 	return func(c *steam.Client) {
 		c.RegisterModule(New(cfg))
@@ -65,8 +70,10 @@ func New(cfg Config) *Manager {
 	}
 }
 
+// Name returns the name of the module.
 func (m *Manager) Name() string { return ModuleName }
 
+// Init initializes the manager with the given context.
 func (m *Manager) Init(init module.InitContext) error {
 	if err := m.Base.Init(init); err != nil {
 		return err
@@ -78,7 +85,7 @@ func (m *Manager) Init(init module.InitContext) error {
 	return nil
 }
 
-// Start triggers the initial fetch and sets up the refresh loop.
+// StartAuthed triggers the initial fetch and sets up the refresh loop.
 func (m *Manager) StartAuthed(ctx context.Context, _ module.AuthContext) error {
 	m.Logger.Info("Starting TF2 Schema loading...")
 
@@ -139,10 +146,6 @@ func (m *Manager) Refresh(ctx context.Context) error {
 
 		return err
 	})
-
-	if err := g.Wait(); err != nil {
-		return err
-	}
 
 	if err := g.Wait(); err != nil {
 		m.Bus.Publish(&schema.UpdateFailedEvent{Error: err})
@@ -433,7 +436,7 @@ func (m *Manager) getItemsGame(ctx context.Context) (map[string]any, error) {
 }
 
 func (m *Manager) isForbiddenError(err error) bool {
-	var apiErr api.SteamAPIError
+	var apiErr *api.SteamAPIError
 	if errors.As(err, &apiErr) {
 		return true
 	}
