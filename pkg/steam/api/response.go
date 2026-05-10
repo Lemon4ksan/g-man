@@ -33,6 +33,13 @@ const (
 	FormatBinaryKV
 )
 
+// RegistryProvider defines the contract for components that maintain an UnmarshalRegistry.
+// It allows transport-level functions to access centralized decoders for consistent
+// data parsing (JSON, VDF, Protobuf, etc.) across different Steam domains.
+type RegistryProvider interface {
+	Registry() *UnmarshalRegistry
+}
+
 // UnmarshalerFunc describes the function signature for decoding data. Accepts
 // the raw response bytes and the target object for writing the result.
 type UnmarshalerFunc func(data []byte, target any) error

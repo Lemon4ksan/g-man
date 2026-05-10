@@ -19,7 +19,6 @@ package connector
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -29,21 +28,33 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/socket/network"
 )
 
+// connectorError implements the api.RetriableError interface for socket network errors.
+type connectorError struct {
+	msg       string
+	retriable bool
+}
+
+func (e *connectorError) Error() string     { return e.msg }
+func (e *connectorError) IsRetriable() bool { return e.retriable }
+
 var (
 	// ErrClosed is returned when sending a message with a closed connector.
-	ErrClosed = errors.New("connector: instance is permanently closed")
+	ErrClosed = &connectorError{msg: "connector: instance is permanently closed", retriable: false}
 
 	// ErrDisconnected is returned when sending a message but the transport is not active.
-	ErrDisconnected = errors.New("connector: not connected to any CM server")
+	ErrDisconnected = &connectorError{msg: "connector: not connected to any CM server", retriable: true}
 
 	// ErrAlreadyConnecting is returned if a connection attempt is already in progress.
-	ErrAlreadyConnecting = errors.New("connector: connection attempt already in progress")
+	ErrAlreadyConnecting = &connectorError{msg: "connector: connection attempt already in progress", retriable: true}
 
 	// ErrUnsupportedType is returned when the transport protocol (e.g. "udp") is not registered.
-	ErrUnsupportedType = errors.New("connector: unsupported transport protocol")
+	ErrUnsupportedType = &connectorError{msg: "connector: unsupported transport protocol", retriable: false}
 
 	// ErrReconnectionFailed is emitted when the reconnect loop exhausts all attempts.
-	ErrReconnectionFailed = errors.New("connector: reconnection failed after maximum attempts")
+	ErrReconnectionFailed = &connectorError{
+		msg:       "connector: reconnection failed after maximum attempts",
+		retriable: false,
+	}
 )
 
 // Config aggregates configuration for the connector's behavior.

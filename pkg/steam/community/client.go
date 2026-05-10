@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -57,14 +58,6 @@ var ErrAPITokenNotFound = errors.New(
 	"community: could not find api key or registration form (account might be limited)",
 )
 
-// Client handles communication with Steam Community, backed by a generic REST client.
-type Client struct {
-	restClient  rest.Requester
-	sessionFunc func(string) string
-	logger      log.Logger
-	registry    *api.UnmarshalRegistry
-}
-
 // WithLogger sets a custom logger for the client.
 func WithLogger(l log.Logger) bus.Option[*Client] {
 	return func(c *Client) {
@@ -84,6 +77,16 @@ func (c *Client) WithRegistry(r *api.UnmarshalRegistry) *Client {
 	clone := *c
 	clone.registry = r
 	return &clone
+}
+
+// Client handles communication with Steam Community, backed by a generic REST client.
+type Client struct {
+	restClient  rest.Requester
+	sessionFunc func(string) string
+	logger      log.Logger
+
+	// registry holds the decoders used to parse WebAPI and Socket responses.
+	registry *api.UnmarshalRegistry
 }
 
 // NewClient creates a new Community Client.
@@ -108,7 +111,8 @@ func NewClient(httpClient rest.HTTPDoer, sessionFunc func(string) string, opts .
 	return c
 }
 
-// Registry returns the current client registry.
+// Registry returns the underlying registry of decoders.
+// Implements [api.RegistryProvider].
 func (c *Client) Registry() *api.UnmarshalRegistry {
 	return c.registry
 }
@@ -122,8 +126,8 @@ func (c *Client) SessionID(targetURI string) string {
 	return c.sessionFunc(targetURI)
 }
 
-// Request implements rest.Requester. It executes the HTTP request and deeply
-// inspects the response for Steam-specific soft errors (like HTML redirects).
+// Request implements [rest.Requester]. It executes the HTTP request and deeply
+// inspects the response for Steam-specific soft errors.
 func (c *Client) Request(
 	ctx context.Context,
 	method, path string,
@@ -328,36 +332,20 @@ func performRequest(
 	query url.Values,
 	opts ...api.CallOption,
 ) (*http.Response, *api.CallConfig, error) {
-	trReq := api.NewHttpRequest(method, BaseURL+path, body)
-	if query != nil {
-		trReq.WithParams(query)
+	req := api.NewHttpRequest(method, BaseURL+path, body).WithParams(query)
+
+	cfg := &api.CallConfig{
+		Format:   api.FormatJSON,
+		Registry: getRegistry(r),
 	}
-
-	type registryProvider interface {
-		Registry() *api.UnmarshalRegistry
-	}
-
-	cfg := &api.CallConfig{Format: api.FormatJSON}
-
-	if rp, ok := r.(registryProvider); ok {
-		cfg.Registry = rp.Registry()
-	} else {
-		cfg.Registry = api.NewUnmarshalRegistry()
-	}
-
 	for _, opt := range opts {
-		opt(trReq, cfg)
+		opt(req, cfg)
 	}
 
-	modifier := func(req *http.Request) {
-		for k, vv := range trReq.Header() {
-			for _, v := range vv {
-				req.Header.Add(k, v)
-			}
-		}
+	modifier := func(hr *http.Request) {
+		maps.Copy(hr.Header, req.Header())
 	}
-
-	resp, err := r.Request(ctx, method, path, body, trReq.Params(), modifier)
+	resp, err := r.Request(ctx, method, path, body, req.Params(), modifier)
 
 	return resp, cfg, err
 }
@@ -372,6 +360,10 @@ func execute[Resp any](
 ) (*Resp, error) {
 	resp, cfg, err := performRequest(ctx, r, method, path, body, query, opts...)
 	if err != nil {
+		if resp != nil && resp.Body != nil {
+			_ = resp.Body.Close()
+		}
+
 		return nil, err
 	}
 	defer resp.Body.Close()
@@ -389,56 +381,95 @@ func execute[Resp any](
 	return result, nil
 }
 
+func getRegistry(r Requester) *api.UnmarshalRegistry {
+	if rp, ok := r.(api.RegistryProvider); ok {
+		return rp.Registry()
+	}
+
+	return api.NewUnmarshalRegistry()
+}
+
 // checkSteamErrors scrapes the response body and headers to detect
 // authentication failures, rate limits, or parental blocks.
 func checkSteamErrors(statusCode int, header http.Header, body []byte) error {
 	if statusCode == http.StatusTooManyRequests {
-		return ErrRateLimited
+		return &api.SteamAPIError{
+			StatusCode: statusCode,
+			Message:    "Rate limit exceeded",
+			Err:        api.ErrRateLimited,
+		}
 	}
 
 	if statusCode >= http.StatusInternalServerError {
-		return fmt.Errorf("steam server error: %d", statusCode)
+		return &api.SteamAPIError{
+			StatusCode: statusCode,
+			Message:    "Steam is down or in maintenance",
+		}
 	}
 
 	// Auth Redirects (302 to login page)
 	if statusCode == http.StatusFound || statusCode == http.StatusSeeOther {
 		loc := header.Get("Location")
 		if strings.Contains(loc, "steam") && strings.Contains(loc, "/login") {
-			return api.ErrSessionExpired
+			return &api.SteamAPIError{
+				StatusCode: statusCode,
+				Message:    "Session expired",
+				Err:        api.ErrSessionExpired,
+			}
 		}
 	}
 
 	// Parental Control (Family View)
 	if statusCode == http.StatusForbidden && rxFamilyView.Match(body) {
-		return ErrFamilyViewRestricted
+		return &api.SteamAPIError{
+			StatusCode: statusCode,
+			Message:    "Family View enabled",
+			Err:        ErrFamilyViewRestricted,
+		}
 	}
 
 	// Soft Auth Failure (Page loaded but user is guest)
 	if bytes.Contains(body, []byte("g_steamID = false;")) ||
 		bytes.Contains(body, []byte(`g_steamID = "0";`)) ||
 		bytes.Contains(body, []byte("<title>Sign In</title>")) {
-		return api.ErrSessionExpired
+		return &api.SteamAPIError{
+			StatusCode: statusCode,
+			Message:    "Session expired",
+			Err:        api.ErrSessionExpired,
+		}
 	}
 
 	// Generic Steam Error Pages ("Sorry!")
 	if bytes.Contains(body, []byte("<h1>Sorry!</h1>")) {
 		if matches := rxSorry.FindSubmatch(body); len(matches) > 1 {
-			return fmt.Errorf("steam community error: %s", bytes.TrimSpace(matches[1]))
+			return &api.SteamAPIError{
+				StatusCode: statusCode,
+				Message:    string(bytes.TrimSpace(matches[1])),
+			}
 		}
 
-		return errors.New("unknown steam community error (Sorry page)")
+		return &api.SteamAPIError{
+			StatusCode: statusCode,
+			Message:    "unknown steam community error (Sorry page)",
+		}
 	}
 
 	// Embedded Trade Errors
 	if bytes.Contains(body, []byte("error_msg")) {
 		if matches := rxTradeError.FindSubmatch(body); len(matches) > 1 {
-			return fmt.Errorf("trade error: %s", bytes.TrimSpace(matches[1]))
+			return &api.SteamAPIError{
+				StatusCode: statusCode,
+				Message:    string(bytes.TrimSpace(matches[1])),
+			}
 		}
 	}
 
 	// Fallback to generic REST API error if status is bad but no Steam error matched
 	if statusCode >= http.StatusBadRequest {
-		return &rest.APIError{StatusCode: statusCode, Body: body}
+		return &api.SteamAPIError{
+			StatusCode: statusCode,
+			Message:    string(body),
+		}
 	}
 
 	return nil

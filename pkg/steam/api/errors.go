@@ -7,6 +7,7 @@ package api
 import (
 	"errors"
 	"fmt"
+	"net/http"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 )
@@ -19,7 +20,26 @@ var (
 	// ErrFormat is returned when the response doesn't
 	// match the specified format or the target is invalid.
 	ErrFormat = errors.New("api: response format error")
+
+	// ErrRateLimited indicates Steam is blocking requests due to high frequency.
+	ErrRateLimited = errors.New("api: rate limit exceeded")
 )
+
+// RetriableError defines an interface for errors that represent transient issues.
+type RetriableError interface {
+	IsRetriable() bool
+}
+
+// IsRetriable is a helper that checks if an error (or any error wrapped inside it)
+// implements RetriableError and is safe to retry.
+func IsRetriable(err error) bool {
+	var re RetriableError
+	if errors.As(err, &re) {
+		return re.IsRetriable()
+	}
+
+	return false
+}
 
 // IsAuthError checks whether EResult is a signal for reauthorization.
 func IsAuthError(res enums.EResult) bool {
@@ -38,19 +58,53 @@ func IsAuthError(res enums.EResult) bool {
 // EResultError wraps a Steam EResult code into a Go error.
 type EResultError struct {
 	Result enums.EResult
-	Err    error
+	Err    error // Optional underlying error or context
 }
 
-func (e EResultError) Error() string {
-	return "EMsg: " + e.Result.String()
+// NewEResultError creates a new EResultError.
+func NewEResultError(res enums.EResult, err error) *EResultError {
+	return &EResultError{Result: res, Err: err}
 }
 
-func (e EResultError) Unwrap() error {
+func (e *EResultError) Error() string {
+	if e.Err != nil {
+		return fmt.Sprintf("steam error %s (%d): %v", e.Result.String(), e.Result, e.Err)
+	}
+
+	return fmt.Sprintf("steam error %s (%d)", e.Result.String(), e.Result)
+}
+
+// Unwrap returns the underlying error, if any.
+func (e *EResultError) Unwrap() error {
 	return e.Err
 }
 
-// SteamAPIError represents a structured error returned by Steam's internal
-// APIs (often seen in mobile confirmations or trading).
+// Is allows errors.Is to match specific EResult values wrapped in EResultError.
+func (e *EResultError) Is(target error) bool {
+	var t *EResultError
+	if errors.As(target, &t) {
+		return e.Result == t.Result
+	}
+
+	return false
+}
+
+// IsRetriable implements RetriableError. Returns true if the EResult is typically a transient network or server issue.
+func (e *EResultError) IsRetriable() bool {
+	switch e.Result {
+	case enums.EResult_Timeout,
+		enums.EResult_TryAnotherCM,
+		enums.EResult_ServiceUnavailable,
+		enums.EResult_Pending,
+		enums.EResult_Busy,
+		enums.EResult_LimitExceeded:
+		return true
+	}
+
+	return false
+}
+
+// SteamAPIError is a structured error returned by Steam's internal APIs.
 type SteamAPIError struct {
 	// Message is the human-readable error description from Steam.
 	Message string
@@ -62,11 +116,26 @@ type SteamAPIError struct {
 	Err error
 }
 
-func (e SteamAPIError) Error() string {
-	return fmt.Sprintf("steam API error: message=%s, status=%d",
-		e.Message, e.StatusCode)
+// NewSteamAPIError creates a new SteamAPIError.
+func NewSteamAPIError(message string, statusCode int, err error) *SteamAPIError {
+	return &SteamAPIError{Message: message, StatusCode: statusCode, Err: err}
 }
 
-func (e SteamAPIError) Unwrap() error {
+// Error returns the error message.
+func (e *SteamAPIError) Error() string {
+	if e.Err != nil {
+		return fmt.Sprintf("steam API error: message=%q, status=%d: %v", e.Message, e.StatusCode, e.Err)
+	}
+
+	return fmt.Sprintf("steam API error: message=%q, status=%d", e.Message, e.StatusCode)
+}
+
+// Unwrap returns the underlying error, if any.
+func (e *SteamAPIError) Unwrap() error {
 	return e.Err
+}
+
+// IsRetriable implements RetriableError.
+func (e *SteamAPIError) IsRetriable() bool {
+	return e.StatusCode >= http.StatusInternalServerError || e.StatusCode == http.StatusTooManyRequests
 }

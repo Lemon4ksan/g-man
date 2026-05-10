@@ -45,6 +45,12 @@ type Client struct {
 	registry    *api.UnmarshalRegistry
 }
 
+// Registry returns the underlying registry of decoders.
+// Implements [api.RegistryProvider].
+func (c *Client) Registry() *api.UnmarshalRegistry {
+	return c.registry
+}
+
 // APIKey returns the underlying api key.
 func (c *Client) APIKey() string {
 	return c.apiKey
@@ -86,15 +92,10 @@ func (c *Client) WithRegistry(r *api.UnmarshalRegistry) *Client {
 	return &clone
 }
 
-// Registry returns the current client registry.
-func (c *Client) Registry() *api.UnmarshalRegistry {
-	return c.registry
-}
-
 // Do executes a request through the underlying transport. It automatically:
-// 1. Injects credentials (key/token).
-// 2. Checks HTTP status codes (for Web).
-// 3. Inspects Steam EResult codes in both HTTP and Socket metadata.
+//   - Injects credentials (key/token).
+//   - Checks HTTP status codes (for Web).
+//   - Inspects Steam EResult codes in both HTTP and Socket metadata.
 func (c *Client) Do(ctx context.Context, req *tr.Request) (*tr.Response, error) {
 	if c.apiKey != "" {
 		req.WithParam("key", c.apiKey)
@@ -106,7 +107,7 @@ func (c *Client) Do(ctx context.Context, req *tr.Request) (*tr.Response, error) 
 
 	resp, err := c.transport.Do(ctx, req)
 	if err != nil {
-		return nil, fmt.Errorf("transport error: %w", err)
+		return nil, api.NewSteamAPIError("transport error", 0, err)
 	}
 
 	if err := c.validateEResult(resp); err != nil {
@@ -121,7 +122,7 @@ func (c *Client) validateEResult(resp *tr.Response) error {
 
 	if meta, ok := resp.HTTP(); ok {
 		if meta.StatusCode == http.StatusUnauthorized {
-			return api.SteamAPIError{StatusCode: meta.StatusCode, Err: api.ErrSessionExpired}
+			return api.NewSteamAPIError("session expired", meta.StatusCode, api.ErrSessionExpired)
 		}
 
 		res = meta.Result
@@ -133,11 +134,11 @@ func (c *Client) validateEResult(resp *tr.Response) error {
 	}
 
 	if api.IsAuthError(res) {
-		return api.EResultError{Result: res, Err: api.ErrSessionExpired}
+		return api.NewEResultError(res, api.ErrSessionExpired)
 	}
 
 	if res != enums.EResult_OK {
-		return api.EResultError{Result: res}
+		return api.NewEResultError(res, nil)
 	}
 
 	return nil
@@ -279,12 +280,12 @@ func inferUnifiedMethod(req proto.Message) (string, string, error) {
 		return res.Iface, res.Method, nil
 	}
 
-	actualType := t
-	for actualType.Kind() == reflect.Pointer {
-		actualType = actualType.Elem()
+	cacheKey := t
+	for t.Kind() == reflect.Pointer {
+		t = t.Elem()
 	}
 
-	name := actualType.Name()
+	name := t.Name()
 
 	parts := strings.Split(name, "_")
 	if len(parts) < 2 {
@@ -306,7 +307,7 @@ func inferUnifiedMethod(req proto.Message) (string, string, error) {
 	}
 
 	method := strings.Join(parts[1:endIdx], "_")
-	methodCache.Store(t, methodInfo{Iface: iface, Method: method})
+	methodCache.Store(cacheKey, methodInfo{Iface: iface, Method: method})
 
 	return iface, method, nil
 }

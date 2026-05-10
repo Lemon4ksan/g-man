@@ -5,6 +5,8 @@
 package auth
 
 import (
+	"errors"
+
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
@@ -88,6 +90,32 @@ type LogOnDetails struct {
 	// ClientLanguage specifies the language the client should use.
 	// Defaults to "english" if not specified.
 	ClientLanguage string
+}
+
+// Validate checks if the LogOnDetails contains valid authentication credentials.
+// It returns an error if the details are incomplete or invalid.
+func (l *LogOnDetails) Validate() error {
+	if l.ClientOSType == 0 {
+		l.ClientOSType = uint32(enums.EOSType_Windows10)
+	}
+
+	if l.ProtocolVersion == 0 {
+		l.ProtocolVersion = ProtocolVersion
+	}
+
+	if l.ClientLanguage == "" {
+		l.ClientLanguage = "english"
+	}
+
+	if l.RefreshToken == "" && l.AccountName == "" {
+		return errors.New("auth: account name or refresh token is required")
+	}
+
+	if l.RefreshToken == "" && l.Password == "" {
+		return errors.New("auth: password is required when refresh token is missing")
+	}
+
+	return nil
 }
 
 // NewLogOnDetails creates a new structure with default fields.

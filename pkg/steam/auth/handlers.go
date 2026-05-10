@@ -123,7 +123,7 @@ func (a *Authenticator) handleLogOnResponse(packet *protocol.Packet) {
 	if res := enums.EResult(msg.GetEresult()); res != enums.EResult_OK {
 		a.logger.Error("Logon denied by CM", log.EResult(res))
 
-		a.failLogin(fmt.Errorf("steam logon denied: %w", api.EResultError{Result: res}))
+		a.failLogin(api.NewEResultError(res, nil))
 
 		a.bus.Publish(&LoggedOffEvent{Result: res})
 

@@ -252,7 +252,7 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 		return nil
 	}
 
-	var eResErr api.EResultError
+	var eResErr *api.EResultError
 	if errors.As(resultErr, &eResErr) && eResErr.Result == enums.EResult_InvalidPassword {
 		a.logger.Warn("Session rejected by CM (Invalid Password/Token), clearing local storage")
 		_ = a.store.Clear(ctx, details.AccountName)
@@ -331,27 +331,7 @@ func (a *Authenticator) validate(details *LogOnDetails) error {
 		return errors.New("auth: nil details provided")
 	}
 
-	if details.ClientOSType == 0 {
-		details.ClientOSType = uint32(enums.EOSType_Windows10)
-	}
-
-	if details.ProtocolVersion == 0 {
-		details.ProtocolVersion = ProtocolVersion
-	}
-
-	if details.ClientLanguage == "" {
-		details.ClientLanguage = "english"
-	}
-
-	if details.RefreshToken == "" && details.AccountName == "" {
-		return errors.New("auth: account name or refresh token is required")
-	}
-
-	if details.RefreshToken == "" && details.Password == "" {
-		return errors.New("auth: password is required when refresh token is missing")
-	}
-
-	return nil
+	return details.Validate()
 }
 
 func (a *Authenticator) performPasswordAuth(
