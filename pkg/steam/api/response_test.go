@@ -254,7 +254,7 @@ func TestAuthErrors(t *testing.T) {
 func TestErrorStructures(t *testing.T) {
 	t.Run("EResultError", func(t *testing.T) {
 		baseErr := errors.New("underlying")
-		err := &EResultError{Result: enums.EResult_Busy, Err: baseErr}
+		err := NewEResultError(enums.EResult_Busy, baseErr)
 
 		if !errors.Is(err, baseErr) {
 			t.Error("EResultError unwrap failed")
@@ -267,13 +267,13 @@ func TestErrorStructures(t *testing.T) {
 
 	t.Run("SteamAPIError", func(t *testing.T) {
 		baseErr := errors.New("network_fail")
-		err := &SteamAPIError{Message: "fail", StatusCode: 500, Err: baseErr}
+		err := NewSteamAPIError("fail", 500, baseErr)
 
 		if !errors.Is(err, baseErr) {
 			t.Error("SteamAPIError unwrap failed")
 		}
 
-		expected := "steam API error: message=fail, status=500"
+		expected := "steam API error: message=fail, status=500: network_fail"
 		if err.Error() != expected {
 			t.Errorf("expected %s, got %s", expected, err.Error())
 		}

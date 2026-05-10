@@ -23,6 +23,9 @@ var (
 
 	// ErrRateLimited indicates Steam is blocking requests due to high frequency.
 	ErrRateLimited = errors.New("api: rate limit exceeded")
+
+	// ErrFamilyViewRestricted indicates that the account is in Family View.
+	ErrFamilyViewRestricted = errors.New("api: family view restricted")
 )
 
 // RetriableError defines an interface for errors that represent transient issues.
@@ -124,10 +127,10 @@ func NewSteamAPIError(message string, statusCode int, err error) *SteamAPIError 
 // Error returns the error message.
 func (e *SteamAPIError) Error() string {
 	if e.Err != nil {
-		return fmt.Sprintf("steam API error: message=%q, status=%d: %v", e.Message, e.StatusCode, e.Err)
+		return fmt.Sprintf("steam API error: message=%s, status=%d: %v", e.Message, e.StatusCode, e.Err)
 	}
 
-	return fmt.Sprintf("steam API error: message=%q, status=%d", e.Message, e.StatusCode)
+	return fmt.Sprintf("steam API error: message=%s, status=%d", e.Message, e.StatusCode)
 }
 
 // Unwrap returns the underlying error, if any.
@@ -138,4 +141,18 @@ func (e *SteamAPIError) Unwrap() error {
 // IsRetriable implements RetriableError.
 func (e *SteamAPIError) IsRetriable() bool {
 	return e.StatusCode >= http.StatusInternalServerError || e.StatusCode == http.StatusTooManyRequests
+}
+
+// Is allows errors.Is to match SteamAPIError by StatusCode or by checking the wrapped error.
+func (e *SteamAPIError) Is(target error) bool {
+	var t *SteamAPIError
+	if errors.As(target, &t) {
+		return e.StatusCode == t.StatusCode && (t.Message == "" || e.Message == t.Message)
+	}
+
+	if e.Err != nil && errors.Is(e.Err, target) {
+		return true
+	}
+
+	return false
 }

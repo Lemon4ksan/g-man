@@ -26,11 +26,8 @@ import (
 )
 
 var (
-	// ErrFamilyViewRestricted indicates the account is currently in Family View mode.
-	ErrFamilyViewRestricted = errors.New("steam community: family view restricted")
-
-	// ErrRateLimited indicates Steam is blocking requests due to high frequency.
-	ErrRateLimited = errors.New("steam community: rate limit exceeded")
+	ErrFamilyViewRestricted = api.ErrFamilyViewRestricted
+	ErrRateLimited          = api.ErrRateLimited
 )
 
 // Requester defines the requirements for making Community requests.
@@ -403,83 +400,56 @@ func getRegistry(r Requester) *api.UnmarshalRegistry {
 // authentication failures, rate limits, or parental blocks.
 func checkSteamErrors(statusCode int, header http.Header, body []byte) error {
 	if statusCode == http.StatusTooManyRequests {
-		return &api.SteamAPIError{
-			StatusCode: statusCode,
-			Message:    "Rate limit exceeded",
-			Err:        api.ErrRateLimited,
-		}
+		return api.NewSteamAPIError("Rate limit exceeded", statusCode, api.ErrRateLimited)
 	}
 
 	if statusCode >= http.StatusInternalServerError {
-		return &api.SteamAPIError{
-			StatusCode: statusCode,
-			Message:    "Steam is down or in maintenance",
-		}
+		return api.NewSteamAPIError("Steam is down or in maintenance", statusCode, nil)
 	}
 
 	// Auth Redirects (302 to login page)
 	if statusCode == http.StatusFound || statusCode == http.StatusSeeOther {
 		loc := header.Get("Location")
 		if strings.Contains(loc, "steam") && strings.Contains(loc, "/login") {
-			return &api.SteamAPIError{
-				StatusCode: statusCode,
-				Message:    "Session expired",
-				Err:        api.ErrSessionExpired,
-			}
+			return api.NewSteamAPIError("Session expired", statusCode, api.ErrSessionExpired)
 		}
 	}
 
 	// Parental Control (Family View)
 	if statusCode == http.StatusForbidden && rxFamilyView.Match(body) {
-		return &api.SteamAPIError{
-			StatusCode: statusCode,
-			Message:    "Family View enabled",
-			Err:        ErrFamilyViewRestricted,
-		}
+		return api.NewSteamAPIError("Family View enabled", statusCode, api.ErrFamilyViewRestricted)
 	}
 
 	// Soft Auth Failure (Page loaded but user is guest)
 	if bytes.Contains(body, []byte("g_steamID = false;")) ||
 		bytes.Contains(body, []byte(`g_steamID = "0";`)) ||
 		bytes.Contains(body, []byte("<title>Sign In</title>")) {
-		return &api.SteamAPIError{
-			StatusCode: statusCode,
-			Message:    "Session expired",
-			Err:        api.ErrSessionExpired,
-		}
+		return api.NewSteamAPIError("Session expired", statusCode, api.ErrSessionExpired)
 	}
 
 	// Generic Steam Error Pages ("Sorry!")
 	if bytes.Contains(body, []byte("<h1>Sorry!</h1>")) {
 		if matches := rxSorry.FindSubmatch(body); len(matches) > 1 {
-			return &api.SteamAPIError{
-				StatusCode: statusCode,
-				Message:    string(bytes.TrimSpace(matches[1])),
-			}
+			return api.NewSteamAPIError(string(bytes.TrimSpace(matches[1])), statusCode, nil)
 		}
 
-		return &api.SteamAPIError{
-			StatusCode: statusCode,
-			Message:    "unknown steam community error (Sorry page)",
-		}
+		return api.NewSteamAPIError(
+			"unknown steam community error (Sorry page)",
+			statusCode,
+			nil,
+		)
 	}
 
 	// Embedded Trade Errors
 	if bytes.Contains(body, []byte("error_msg")) {
 		if matches := rxTradeError.FindSubmatch(body); len(matches) > 1 {
-			return &api.SteamAPIError{
-				StatusCode: statusCode,
-				Message:    string(bytes.TrimSpace(matches[1])),
-			}
+			return api.NewSteamAPIError(string(bytes.TrimSpace(matches[1])), statusCode, nil)
 		}
 	}
 
 	// Fallback to generic REST API error if status is bad but no Steam error matched
 	if statusCode >= http.StatusBadRequest {
-		return &api.SteamAPIError{
-			StatusCode: statusCode,
-			Message:    string(body),
-		}
+		return api.NewSteamAPIError(string(body), statusCode, nil)
 	}
 
 	return nil

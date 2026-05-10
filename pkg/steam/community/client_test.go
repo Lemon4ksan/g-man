@@ -177,7 +177,7 @@ func TestClient_Request(t *testing.T) {
 				StatusCode: http.StatusInternalServerError,
 				Body:       io.NopCloser(strings.NewReader("")),
 			},
-			errorContent: "steam server error: 500",
+			errorContent: "steam API error: message=Steam is down or in maintenance, status=500",
 		},
 		{
 			name: "Auth Redirect",
@@ -232,7 +232,7 @@ func TestClient_Request(t *testing.T) {
 					strings.NewReader(`<h1>Sorry!</h1><h3>   You've made too many requests.   </h3>`),
 				),
 			},
-			errorContent: "steam community error: You've made too many requests.",
+			errorContent: "steam API error: message=You've made too many requests., status=200",
 		},
 		{
 			name: "Sorry Page without Reason",
@@ -240,7 +240,7 @@ func TestClient_Request(t *testing.T) {
 				StatusCode: http.StatusOK,
 				Body:       io.NopCloser(strings.NewReader(`<h1>Sorry!</h1><p>Other text</p>`)),
 			},
-			errorContent: "unknown steam community error (Sorry page)",
+			errorContent: "steam API error: message=unknown steam community error (Sorry page), status=200",
 		},
 		{
 			name: "Trade Error Message",
@@ -248,7 +248,7 @@ func TestClient_Request(t *testing.T) {
 				StatusCode: http.StatusOK,
 				Body:       io.NopCloser(strings.NewReader(`<div id="error_msg">  Error (15)  </div>`)),
 			},
-			errorContent: "trade error: Error (15)",
+			errorContent: "steam API error: message=Error (15), status=200",
 		},
 		{
 			name: "Generic Bad Request",
@@ -256,7 +256,7 @@ func TestClient_Request(t *testing.T) {
 				StatusCode: http.StatusBadRequest,
 				Body:       io.NopCloser(strings.NewReader("bad data")),
 			},
-			expectedErr: &rest.APIError{StatusCode: http.StatusBadRequest, Body: []byte("bad data")},
+			expectedErr: api.NewSteamAPIError("bad data", http.StatusBadRequest, nil),
 		},
 	}
 
@@ -277,7 +277,7 @@ func TestClient_Request(t *testing.T) {
 			if tt.errorContent != "" {
 				assert.EqualError(t, err, tt.errorContent)
 			} else {
-				assert.Equal(t, tt.expectedErr, err)
+				assert.ErrorIs(t, err, tt.expectedErr)
 			}
 		})
 	}

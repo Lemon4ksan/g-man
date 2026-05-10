@@ -111,7 +111,7 @@ func TestClient_ValidateEResult(t *testing.T) {
 	resp = tr.NewResponse(nil, tr.HTTPMetadata{StatusCode: 200, Result: enums.EResult_Fail})
 	err := c.validateEResult(resp)
 
-	var resErr api.EResultError
+	var resErr *api.EResultError
 	require.ErrorAs(t, err, &resErr)
 	assert.Equal(t, enums.EResult_Fail, resErr.Result)
 
