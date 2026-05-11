@@ -220,11 +220,16 @@ func handleJSONResponse(resp *http.Response, target any) error {
 		return &APIError{StatusCode: resp.StatusCode, Body: bodyBytes}
 	}
 
-	// If target is nil (e.g., 204 No Content), discard body and return
-	if target == nil {
+	// If target is nil or status is 204 No Content, discard body and return
+	if target == nil || resp.StatusCode == http.StatusNoContent {
 		_, _ = io.Copy(io.Discard, resp.Body)
 		return nil
 	}
 
-	return json.NewDecoder(resp.Body).Decode(target)
+	err := json.NewDecoder(resp.Body).Decode(target)
+	if err == io.EOF {
+		return nil // Success with empty body
+	}
+
+	return err
 }
