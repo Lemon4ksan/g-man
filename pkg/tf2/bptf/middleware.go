@@ -89,10 +89,16 @@ func FallbackPricerMiddleware(manager *PriceManager) engine.Middleware {
 				}
 
 				if bptfPrice, ok := manager.GetPrice(item.SKU); ok {
-					priceMap[item.SKU] = &pricedb.Price{
-						Buy:  pricedb.Currencies{Keys: int(bptfPrice.Value), Metal: bptfPrice.ValueRaw},
-						Sell: pricedb.Currencies{Keys: int(bptfPrice.Value), Metal: bptfPrice.ValueRaw},
+					p := &pricedb.Price{}
+					if bptfPrice.Currency == "keys" {
+						p.Buy.Keys = int(bptfPrice.Value)
+						p.Sell.Keys = int(bptfPrice.Value)
+					} else {
+						p.Buy.Metal = bptfPrice.Value
+						p.Sell.Metal = bptfPrice.Value
 					}
+
+					priceMap[item.SKU] = p
 				}
 			}
 

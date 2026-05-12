@@ -6,17 +6,35 @@ package bptf
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strconv"
 	"sync"
 
 	"github.com/lemon4ksan/g-man/pkg/log"
-	schema "github.com/lemon4ksan/g-man/pkg/tf2/schema"
+	"github.com/lemon4ksan/g-man/pkg/tf2/schema"
 	"github.com/lemon4ksan/g-man/pkg/tf2/sku"
 )
 
-// PriceManager manages backpack.tf prices for items.
+// Config holds the configuration for the price manager.
+type Config struct {
+	// CachePath is the path to the local price cache file.
+	CachePath string
+}
+
+// DefaultConfig returns a Config with production-ready defaults.
+func DefaultConfig() Config {
+	return Config{
+		CachePath: "cache/tf2/prices.json",
+	}
+}
+
+// PriceManager manages backpack.tf prices.
 type PriceManager struct {
+	config Config
 	client *Client
 	logger log.Logger
 
@@ -25,8 +43,9 @@ type PriceManager struct {
 }
 
 // NewPriceManager creates a new price manager.
-func NewPriceManager(c *Client, l log.Logger) *PriceManager {
+func NewPriceManager(c *Client, l log.Logger, cfg Config) *PriceManager {
 	return &PriceManager{
+		config: cfg,
 		client: c,
 		logger: l.With(log.Module("bptf_prices")),
 		index:  make(map[string]PriceEntry),
@@ -65,7 +84,7 @@ func (m *PriceManager) Update(ctx context.Context) error {
 
 					for pIndex, entry := range priceIndexMap {
 						sItem := &sku.Item{
-							Defindex:  defindex,
+							Defindex:  schema.NormalizeDefindex(defindex),
 							Quality:   qInt,
 							Tradable:  isTradable,
 							Craftable: isCraftable,
@@ -91,6 +110,10 @@ func (m *PriceManager) Update(ctx context.Context) error {
 	m.index = newIndex
 	m.mu.Unlock()
 
+	if err := m.saveToCache(); err != nil {
+		m.logger.Warn("Failed to save prices to cache", log.Err(err))
+	}
+
 	m.logger.Info("Bptf index rebuilt", log.Int("unique_skus", len(newIndex)))
 
 	return nil
@@ -104,4 +127,53 @@ func (m *PriceManager) GetPrice(sku string) (PriceEntry, bool) {
 	entry, ok := m.index[sku]
 
 	return entry, ok
+}
+
+// Load loads the price list from cache. Returns error if cache is missing or invalid.
+func (m *PriceManager) Load() error {
+	return m.loadFromCache()
+}
+
+func (m *PriceManager) saveToCache() error {
+	if m.config.CachePath == "" {
+		return nil
+	}
+
+	m.mu.RLock()
+	index := m.index
+	m.mu.RUnlock()
+
+	data, err := json.Marshal(index)
+	if err != nil {
+		return err
+	}
+
+	dir := filepath.Dir(m.config.CachePath)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+
+	return os.WriteFile(m.config.CachePath, data, 0o644)
+}
+
+func (m *PriceManager) loadFromCache() error {
+	if m.config.CachePath == "" {
+		return errors.New("cache path not configured")
+	}
+
+	data, err := os.ReadFile(m.config.CachePath)
+	if err != nil {
+		return err
+	}
+
+	var index map[string]PriceEntry
+	if err := json.Unmarshal(data, &index); err != nil {
+		return err
+	}
+
+	m.mu.Lock()
+	m.index = index
+	m.mu.Unlock()
+
+	return nil
 }

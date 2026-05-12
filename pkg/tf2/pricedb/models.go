@@ -10,6 +10,21 @@ type Currencies struct {
 	Metal float64 `json:"metal"`
 }
 
+// ToMetal converts the currency to a total metal value.
+func (c Currencies) ToMetal(keyPrice float64) float64 {
+	return float64(c.Keys)*keyPrice + c.Metal
+}
+
+// IsZero returns true if both keys and metal are zero.
+func (c Currencies) IsZero() bool {
+	return c.Keys == 0 && c.Metal == 0
+}
+
+// Valid returns true if the price components are non-negative.
+func (c Currencies) Valid() bool {
+	return c.Keys >= 0 && c.Metal >= 0
+}
+
 // Price represents a single price entry for an item.
 type Price struct {
 	Name   string     `json:"name"`
@@ -18,6 +33,26 @@ type Price struct {
 	Time   int64      `json:"time"`
 	Buy    Currencies `json:"buy"`
 	Sell   Currencies `json:"sell"`
+}
+
+// Validate checks if the price data is sane.
+func (p *Price) Validate() bool {
+	if p.SKU == "" {
+		return false
+	}
+
+	if !p.Buy.Valid() || !p.Sell.Valid() {
+		return false
+	}
+
+	// Typically buy price should not exceed sell price
+	// but we don't enforce it here to allow for market volatility or errors in source.
+	return true
+}
+
+// HasProfit returns true if selling results in more metal than buying.
+func (p *Price) HasProfit(keyPrice float64) bool {
+	return p.Sell.ToMetal(keyPrice) > p.Buy.ToMetal(keyPrice)
 }
 
 // SearchResult represents the response from the fuzzy search endpoint.
