@@ -54,12 +54,12 @@ Specialized logic for Team Fortress 2 economy and automation.
 
 | Package             | Description                                                                                    |
 |:--------------------|:-----------------------------------------------------------------------------------------------|
+| **`tf2/bptf`**      | Integration for the **Backpack.tf** API (Pricing, Listings, and Heartbeats).                   |
 | **`tf2/currency`**  | Metal and Key manager. Handles pure currency formatting, counting, and backpack consolidation. |
 | **`tf2/inventory`** | Unified inventory manager. Syncs state via both **WebAPI** and **Game Coordinator** (SOCache). |
 | **`tf2/pricedb`**   | PriceDB integration for fetching item prices.                                                  |
 | **`tf2/schema`**    | Item Schema indexer. Maps `defindex` to names, qualities, and rarities with O(1) lookups.      |
 | **`tf2/sku`**       | String-based SKU generator and parser for unique item identification.                          |
-| **`tf2/bptf`**      | Integration for the **Backpack.tf** API (Pricing, Listings, and Heartbeats).                   |
 | **`tf2/crafting`**  | Logic for automated smelting, combining, and item crafting.                                    |
 
 ### 5. 🛠 Infrastructure & Storage
@@ -68,12 +68,13 @@ Common utilities and persistence layers used across the SDK.
 
 | Package       | Description                                                                                           |
 |:--------------|:------------------------------------------------------------------------------------------------------|
-| **`storage`** | Interface-first persistence. Includes implementations for **SQLite**, **JSON Files**, and **Memory**. |
+| **`behavior`**| Logic for other automated behaviors, such as achievements.                                            |
 | **`bus`**     | Internal high-performance **Event Bus** for decoupled module communication.                           |
-| **`jobs`**    | Generic asynchronous callback manager for tracking request-response cycles.                           |
-| **`rest`**    | A robust HTTP client wrapper with built-in retry logic and struct-to-param mapping.                   |
 | **`crypto`**  | Steam-specific cryptography (ECC, RSA) and **TOTP** (2FA) generation.                                 |
+| **`jobs`**    | Generic asynchronous callback manager for tracking request-response cycles.                           |
 | **`log`**     | Structured, module-aware logging system.                                                              |
+| **`rest`**    | A robust HTTP client wrapper with built-in retry logic and struct-to-param mapping.                   |
+| **`storage`** | Interface-first persistence. Includes implementations for **SQLite**, **JSON Files**, and **Memory**. |
 
 ---
 

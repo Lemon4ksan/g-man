@@ -14,13 +14,18 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
+	"github.com/lemon4ksan/g-man/pkg/behavior/achievements"
 	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/jobs"
 	"github.com/lemon4ksan/g-man/pkg/log"
+	"github.com/lemon4ksan/g-man/pkg/protobuf/custom"
+	pb_steam "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/tf2"
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
+	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"github.com/lemon4ksan/g-man/pkg/steam/sys/apps"
 	"github.com/lemon4ksan/g-man/pkg/steam/sys/gc"
 	"github.com/lemon4ksan/g-man/pkg/tf2/schema"
@@ -38,6 +43,38 @@ const (
 func WithModule() steam.Option {
 	return func(c *steam.Client) {
 		c.RegisterModule(New())
+	}
+}
+
+// DefaultAchievementConfig returns the standard strategy config for TF2.
+func DefaultAchievementConfig() achievements.Config {
+	return achievements.Config{
+		AppID:            AppID,
+		TotalCount:       520,
+		MinTargetPercent: 0.70,
+		MaxTargetPercent: 0.82,
+		UnlockChance:     0.40,
+		BreakChance:      0.10,
+		AchievementPool: [][]uint32{
+			{1001, 1041}, // Scout
+			{1101, 1142}, // Sniper
+			{1201, 1240}, // Soldier
+			{1301, 1340}, // Demoman
+			{1401, 1440}, // Medic
+			{1501, 1540}, // Heavy
+			{1601, 1640}, // Pyro
+			{1701, 1740}, // Spy
+			{1801, 1840}, // Engy
+		},
+	}
+}
+
+// WithAchievementManager enables the automatic achievement strategy manager.
+func WithAchievementManager(cfg achievements.Config) steam.Option {
+	return func(c *steam.Client) {
+		if t, ok := c.Module(ModuleName).(*TF2); ok {
+			t.achMgr = achievements.NewManager(t, cfg, t.Logger.With(log.String("module", "achievements")))
+		}
 	}
 }
 
@@ -79,12 +116,14 @@ type SchemaProvider interface {
 type TF2 struct {
 	module.Base
 
-	gc   CoordinatorProvider
-	apps AppsProvider
+	gc      CoordinatorProvider
+	service service.Doer
+	apps    AppsProvider
 
 	state  atomic.Int32
 	cache  *SOCache
 	schema SchemaProvider
+	achMgr *achievements.Manager
 }
 
 // New creates a new TF2 module.
@@ -109,6 +148,7 @@ func (t *TF2) Init(init module.InitContext) error {
 	}
 
 	t.gc = gcMod
+	t.service = init.Service()
 
 	appsMod, ok := init.Module(apps.ModuleName).(AppsProvider)
 	if !ok || appsMod == nil {
@@ -146,6 +186,10 @@ func (t *TF2) StartAuthed(ctx context.Context, authCtx module.AuthContext) error
 		t.helloLoop(ctx)
 	})
 
+	if t.achMgr != nil {
+		t.Go(t.achMgr.Run)
+	}
+
 	return nil
 }
 
@@ -158,6 +202,71 @@ func (t *TF2) Close() error {
 // Cache returns the item cache.
 func (t *TF2) Cache() *SOCache {
 	return t.cache
+}
+
+// AwardAchievement unlocks the specified achievement in TF2.
+func (t *TF2) AwardAchievement(ctx context.Context, achievementID uint32) error {
+	req := &custom.CMsgClientStoreUserStats{
+		GameId: proto.Uint64(AppID),
+		Achievements: []*custom.CMsgClientStoreUserStats_Achievement{
+			{
+				AchievementId: proto.Uint32(achievementID),
+				UnlockTime:    []uint32{0xFFFFFFFF}, // Signals immediate unlock
+			},
+		},
+	}
+
+	_, err := service.Legacy[service.NoResponse](ctx, t.service, enums.EMsg_ClientStoreUserStats, req)
+
+	return err
+}
+
+// SetStat sets the specified statistic in TF2.
+func (t *TF2) SetStat(ctx context.Context, statID, value uint32) error {
+	req := &custom.CMsgClientStoreUserStats{
+		GameId: proto.Uint64(AppID),
+		Stats: []*custom.CMsgClientStoreUserStats_Stat{
+			{
+				StatId:    proto.Uint32(statID),
+				StatValue: proto.Uint32(value),
+			},
+		},
+	}
+
+	_, err := service.Legacy[service.NoResponse](ctx, t.service, enums.EMsg_ClientStoreUserStats, req)
+
+	return err
+}
+
+// GetCurrentAchievements returns a map of achievements that have already been unlocked.
+func (t *TF2) GetCurrentAchievements(ctx context.Context) (map[uint32]bool, error) {
+	req := &pb_steam.CMsgClientGetUserStats{
+		GameId: proto.Uint64(AppID),
+	}
+
+	resp, err := service.Legacy[pb_steam.CMsgClientGetUserStatsResponse](
+		ctx,
+		t.service,
+		enums.EMsg_ClientGetUserStats,
+		req,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	unlocked := make(map[uint32]bool)
+	for _, block := range resp.GetAchievementBlocks() {
+		if len(block.GetUnlockTime()) > 0 {
+			unlocked[block.GetAchievementId()] = true
+		}
+	}
+
+	return unlocked, nil
+}
+
+// PlayGames launches a game in TF2 (or stops it if the list is empty).
+func (t *TF2) PlayGames(ctx context.Context, appIDs []uint32) error {
+	return t.apps.PlayGames(ctx, appIDs, false)
 }
 
 // Craft sends a crafting request to the Game Coordinator.
