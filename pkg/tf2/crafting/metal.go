@@ -58,41 +58,9 @@ func (m *MetalManager) SelectMetal(ctx context.Context, needed currency.Scrap) (
 }
 
 // SelectChange collects an array of AssetIDs whose sum is exactly equal to amountScrap.
-// Uses a greedy algorithm, trying to take large denominations (Ref) first,
-// but automatically "exchanges" them for smaller ones if there are no large ones
-// (for example, using 3 Rec instead of 1 Ref).
 func (m *MetalManager) SelectChange(amount currency.Scrap) ([]uint64, error) {
-	if amount <= 0 {
-		return nil, nil
-	}
-
-	availableRef := m.fetcher.GetAssetIDs(currency.SKURefined)
-	availableRec := m.fetcher.GetAssetIDs(currency.SKUReclaimed)
-	availableScrap := m.fetcher.GetAssetIDs(currency.SKUScrap)
-
-	var selected []uint64
-
-	needed := amount
-
-	for needed >= 9 && len(availableRef) > 0 {
-		selected = append(selected, availableRef[0])
-		availableRef = availableRef[1:]
-		needed -= 9
-	}
-
-	for needed >= 3 && len(availableRec) > 0 {
-		selected = append(selected, availableRec[0])
-		availableRec = availableRec[1:]
-		needed -= 3
-	}
-
-	for needed >= 1 && len(availableScrap) > 0 {
-		selected = append(selected, availableScrap[0])
-		availableScrap = availableScrap[1:]
-		needed -= 1
-	}
-
-	if needed > 0 {
+	selected, remaining := m.greedySelect(int(amount))
+	if remaining > 0 {
 		return nil, ErrNotEnoughChange
 	}
 
@@ -124,31 +92,6 @@ func (m *MetalManager) SelectKeysAndMetal(keys int, metal currency.Scrap) ([]uin
 	return selected, nil
 }
 
-// SelectFinalInventory finds keys and metal for the offer.
-func (m *MetalManager) SelectFinalInventory(ctx context.Context, keys int, metal currency.Scrap) ([]uint64, error) {
-	var total []uint64
-
-	if keys > 0 {
-		availableKeys := m.fetcher.GetAssetIDs(currency.SKUKey)
-		if len(availableKeys) < keys {
-			return nil, fmt.Errorf("not enough keys: need %d, have %d", keys, len(availableKeys))
-		}
-
-		total = append(total, availableKeys[:keys]...)
-	}
-
-	if metal > 0 {
-		metalIDs, err := m.SelectMetal(ctx, metal)
-		if err != nil {
-			return nil, err
-		}
-
-		total = append(total, metalIDs...)
-	}
-
-	return total, nil
-}
-
 func (m *MetalManager) greedySelect(needed int) (selected []uint64, remaining int) {
 	ref := m.fetcher.GetAssetIDs(currency.SKURefined)
 	rec := m.fetcher.GetAssetIDs(currency.SKUReclaimed)
@@ -156,30 +99,23 @@ func (m *MetalManager) greedySelect(needed int) (selected []uint64, remaining in
 
 	current := needed
 
-	for current >= 9 && len(ref) > 0 {
-		selected = append(selected, ref[0])
-		ref = ref[1:]
-		current -= 9
+	// Helper to pick items until needed amount is covered or we run out of items
+	pick := func(items []uint64, value int) {
+		for current >= value && len(items) > 0 {
+			selected = append(selected, items[0])
+			items = items[1:]
+			current -= value
+		}
 	}
 
-	for current >= 3 && len(rec) > 0 {
-		selected = append(selected, rec[0])
-		rec = rec[1:]
-		current -= 3
-	}
-
-	for current >= 1 && len(scrap) > 0 {
-		selected = append(selected, scrap[0])
-		scrap = scrap[1:]
-		current -= 1
-	}
+	pick(ref, 9)
+	pick(rec, 3)
+	pick(scrap, 1)
 
 	return selected, current
 }
 
 // TryToSmeltForChange checks whether the required amount can be collected from the current metal.
-// If an exact exchange is impossible (for example, 1 scrap is needed, but only Refined is available),
-// the method initiates the smelting chain via the CraftingManager.
 func (m *MetalManager) TryToSmeltForChange(ctx context.Context, needed currency.Scrap) error {
 	stock := m.fetcher.GetPureStock()
 	totalValue := stock.TotalScrap()

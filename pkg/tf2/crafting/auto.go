@@ -16,6 +16,7 @@ import (
 // backpack and automatically maintains metal reserves and weapon recrafting.
 type Automator struct {
 	manager *Manager
+	inv     InventoryProvider
 	logger  log.Logger
 
 	minScrap int
@@ -35,9 +36,10 @@ func WithLogger(l log.Logger) Option {
 }
 
 // NewAutomator creates a new orchestrator for monitoring metal reserve.
-func NewAutomator(mgr *Manager, opts ...Option) *Automator {
+func NewAutomator(mgr *Manager, inv InventoryProvider, opts ...Option) *Automator {
 	a := &Automator{
 		manager:  mgr,
+		inv:      inv,
 		logger:   log.Discard,
 		minScrap: 3,
 		minRec:   3,
@@ -53,13 +55,10 @@ func NewAutomator(mgr *Manager, opts ...Option) *Automator {
 }
 
 // Tick performs one check and one action (if needed).
-// It is recommended to call it every few minutes or after each trade.
 func (a *Automator) Tick(ctx context.Context) error {
-	cache := a.manager.tf2.Cache()
-
-	scrapCount := cache.GetMetalCount(DefIndexScrap)
-	refCount := cache.GetMetalCount(DefIndexRefined)
-	recCount := cache.GetMetalCount(DefIndexReclaimed)
+	scrapCount := a.inv.GetMetalCount(DefIndexScrap)
+	refCount := a.inv.GetMetalCount(DefIndexRefined)
+	recCount := a.inv.GetMetalCount(DefIndexReclaimed)
 
 	if scrapCount < a.minScrap && recCount > 0 {
 		a.logger.Info("Scrap supply low, smelting Reclaimed")
@@ -98,7 +97,7 @@ func (a *Automator) CleanInventory(ctx context.Context) error {
 
 	for _, class := range classes {
 		for {
-			weapons := a.manager.tf2.Cache().FindWeaponsByClass(class)
+			weapons := a.inv.FindWeaponsByClass(class)
 			if len(weapons) < 2 {
 				break
 			}
