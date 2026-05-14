@@ -39,7 +39,7 @@ in tandem:
 The module communicates its state to the rest of the application via the global
 Event Bus. Key events include:
 
-  - `GCConnectedEvent`: Fired when the GC handshake is complete.
+  - `ConnectedEvent`: Fired when the GC handshake is complete.
   - `BackpackLoadedEvent`: Fired after the SOCache has finished its initial sync.
   - `ItemAcquiredEvent`/`ItemRemovedEvent`: Fired in real-time as the inventory changes.
 

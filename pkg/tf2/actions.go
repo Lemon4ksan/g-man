@@ -14,81 +14,167 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/tf2"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 )
 
 // RemoveItemName removes a custom name from an item.
 func (t *TF2) RemoveItemName(ctx context.Context, itemID uint64) error {
-	return t.sendSimpleItemAction(ctx, pb.EGCItemMsg_k_EMsgGCRemoveItemName, itemID)
+	data := make([]byte, 9)
+	binary.LittleEndian.PutUint64(data[0:8], itemID)
+	data[8] = 0 // m_bDescription = false (we want to remove the Name)
+
+	return t.gc.SendRaw(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCRemoveItemName), data)
+}
+
+// RemoveItemDescription removes a custom description from an item.
+func (t *TF2) RemoveItemDescription(ctx context.Context, itemID uint64) error {
+	data := make([]byte, 9)
+	binary.LittleEndian.PutUint64(data[0:8], itemID)
+	data[8] = 1 // m_bDescription = true (we want to remove the Description)
+
+	return t.gc.SendRaw(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCRemoveItemName), data)
 }
 
 // RemoveItemPaint removes custom paint from an item.
 func (t *TF2) RemoveItemPaint(ctx context.Context, itemID uint64) error {
-	return t.sendSimpleItemAction(ctx, pb.EGCItemMsg_k_EMsgGCRemoveItemPaint, itemID)
+	req := &pb.CMsgGCRemoveCustomizationAttributeSimple{
+		ItemId: proto.Uint64(itemID),
+	}
+
+	return t.gc.Send(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCRemoveItemPaint), req)
 }
 
 // RemoveMakersMark removes the "Crafted by X" tag from an item.
 func (t *TF2) RemoveMakersMark(ctx context.Context, itemID uint64) error {
-	return t.sendSimpleItemAction(ctx, pb.EGCItemMsg_k_EMsgGCRemoveMakersMark, itemID)
+	req := &pb.CMsgGCRemoveCustomizationAttributeSimple{
+		ItemId: proto.Uint64(itemID),
+	}
+
+	return t.gc.Send(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCRemoveMakersMark), req)
 }
 
 // ResetStrangeScores resets the kill count on a Strange item back to zero.
 func (t *TF2) ResetStrangeScores(ctx context.Context, itemID uint64) error {
-	return t.sendSimpleItemAction(ctx, pb.EGCItemMsg_k_EMsgGCResetStrangeScores, itemID)
+	req := &pb.CMsgGCResetStrangeScores{
+		ItemId: proto.Uint64(itemID),
+	}
+
+	return t.gc.Send(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCResetStrangeScores), req)
+}
+
+// RemoveKillstreak removes a killstreak kit from an item.
+func (t *TF2) RemoveKillstreak(ctx context.Context, itemID uint64) error {
+	req := &pb.CMsgGCRemoveCustomizationAttributeSimple{
+		ItemId: proto.Uint64(itemID),
+	}
+
+	return t.gc.Send(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCRemoveKillStreak), req)
+}
+
+// RemoveFestivizer removes a festivizer from an item.
+func (t *TF2) RemoveFestivizer(ctx context.Context, itemID uint64) error {
+	req := &pb.CMsgGCRemoveCustomizationAttributeSimple{
+		ItemId: proto.Uint64(itemID),
+	}
+
+	return t.gc.Send(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCRemoveFestivizer), req)
+}
+
+// RemoveGiftedBy removes the "Gifted by X" tag from an item.
+func (t *TF2) RemoveGiftedBy(ctx context.Context, itemID uint64) error {
+	req := &pb.CMsgGCRemoveCustomizationAttributeSimple{
+		ItemId: proto.Uint64(itemID),
+	}
+
+	return t.gc.Send(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCRemoveGiftedBy), req)
+}
+
+// RemoveItemAttribute removes a customization attribute (like a spell or strange part) from an item.
+// Note: This uses a known GC "hack" where the attribute ID is used as the message type.
+func (t *TF2) RemoveItemAttribute(ctx context.Context, itemID uint64, attributeID uint32) error {
+	req := &pb.CMsgGCRemoveCustomizationAttributeSimple{
+		ItemId: proto.Uint64(itemID),
+	}
+
+	return t.gc.Send(ctx, AppID, attributeID, req)
 }
 
 // AcknowledgeItem tells the GC that the user has seen a newly dropped/traded item.
-// This clears the "You have new items!" alert in the main menu.
+// In TF2, this is done by moving the item from position 0 to a valid backpack position.
 func (t *TF2) AcknowledgeItem(ctx context.Context, itemID uint64) error {
-	return t.sendSimpleItemAction(ctx, pb.EGCItemMsg_k_EMsgGCItemAcknowledged, itemID)
+	// Move it to the first slot (position 1) to acknowledge it.
+	return t.SetItemPosition(ctx, itemID, 1)
 }
 
-func (t *TF2) sendSimpleItemAction(ctx context.Context, msgType pb.EGCItemMsg, itemID uint64) error {
-	data := make([]byte, 8)
-	binary.LittleEndian.PutUint64(data, itemID)
-
-	return t.gc.SendRaw(ctx, AppID, uint32(msgType), data)
+// NameItem applies a name tag to an item.
+func (t *TF2) NameItem(ctx context.Context, toolID, itemID uint64, name string) error {
+	return t.nameOrDescribeItem(ctx, toolID, itemID, name, false)
 }
 
-// AcknowledgeAll acknowledges all items in the backpack.
+// DescribeItem applies a description tag to an item.
+func (t *TF2) DescribeItem(ctx context.Context, toolID, itemID uint64, description string) error {
+	return t.nameOrDescribeItem(ctx, toolID, itemID, description, true)
+}
+
+func (t *TF2) nameOrDescribeItem(ctx context.Context, toolID, itemID uint64, text string, isDescription bool) error {
+	// Structure: [ToolID(8)] [ItemID(8)] [IsDescription(1)] [Text(var)]
+	buf := new(bytes.Buffer)
+	_ = binary.Write(buf, binary.LittleEndian, toolID)
+	_ = binary.Write(buf, binary.LittleEndian, itemID)
+
+	if isDescription {
+		buf.WriteByte(1)
+	} else {
+		buf.WriteByte(0)
+	}
+
+	buf.WriteString(text)
+	buf.WriteByte(0) // Null terminator
+
+	return t.gc.SendRaw(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCNameItem), buf.Bytes())
+}
+
+// AcknowledgeAll acknowledges all unacknowledged items by moving them to the first available slots.
 func (t *TF2) AcknowledgeAll(ctx context.Context) error {
 	items := t.cache.GetItems()
 
-	var unacked []uint64
+	var toMove []ItemPos
+
+	// In TF2, unacknowledged items have position 0 or bit 30 set.
+	nextSlot := uint32(1)
+
 	for _, it := range items {
-		if (it.Inventory>>30)&1 != 0 {
-			unacked = append(unacked, it.ID)
+		isNew := (it.Inventory >> 30) & 1
+		if it.Position() == 0 || isNew == 1 {
+			toMove = append(toMove, ItemPos{Id: it.ID, Position: nextSlot})
+			nextSlot++
 		}
 	}
 
-	var err error
-	for _, id := range unacked {
-		if err = t.AcknowledgeItem(ctx, id); err != nil {
-			break
-		}
-
-		time.Sleep(100 * time.Millisecond)
+	if len(toMove) == 0 {
+		return nil
 	}
 
-	return err
+	return t.MoveItems(ctx, toMove)
 }
 
 // SetItemStyle changes the style of a specific item (e.g., Painted or Alt styles).
-func (t *TF2) SetItemStyle(ctx context.Context, itemID uint64, style uint32) error {
-	buf := new(bytes.Buffer)
-	_ = binary.Write(buf, binary.LittleEndian, itemID)
-	_ = binary.Write(buf, binary.LittleEndian, style)
+// Based on Source SDK: struct MsgGCSetItemStyle_t { uint64 itemID; uint8 style; }
+func (t *TF2) SetItemStyle(ctx context.Context, itemID uint64, style uint8) error {
+	data := make([]byte, 9)
+	binary.LittleEndian.PutUint64(data[0:8], itemID)
+	data[8] = style
 
-	return t.gc.SendRaw(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCSetItemStyle), buf.Bytes())
+	return t.gc.SendRaw(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCSetItemStyle), data)
 }
 
 // SetItemPosition moves an item to a specific slot in the backpack.
-func (t *TF2) SetItemPosition(ctx context.Context, itemID, position uint64) error {
-	buf := new(bytes.Buffer)
-	_ = binary.Write(buf, binary.LittleEndian, itemID)
-	_ = binary.Write(buf, binary.LittleEndian, position)
+// Based on Source SDK: struct MsgGCSetItemPosition_t { uint64 itemID; uint32 position; }
+func (t *TF2) SetItemPosition(ctx context.Context, itemID uint64, position uint32) error {
+	data := make([]byte, 12)
+	binary.LittleEndian.PutUint64(data[0:8], itemID)
+	binary.LittleEndian.PutUint32(data[8:12], position)
 
-	return t.gc.SendRaw(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCSetSingleItemPosition), buf.Bytes())
+	return t.gc.SendRaw(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCSetSingleItemPosition), data)
 }
 
 // DeleteItem permanently removes an item from your inventory.
@@ -99,6 +185,76 @@ func (t *TF2) DeleteItem(ctx context.Context, itemID uint64) error {
 	return t.gc.SendRaw(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCDelete), buf.Bytes())
 }
 
+// SetUnusualEffectOffset adjusts the vertical offset of an Unusual effect on an item.
+func (t *TF2) SetUnusualEffectOffset(ctx context.Context, itemID uint64, offset float32) error {
+	req := &pb.CMsgSetItemEffectVerticalOffset{
+		ItemId: proto.Uint64(itemID),
+		Offset: proto.Float32(offset),
+	}
+
+	return t.gc.Send(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCSetItemEffectVerticalOffset), req)
+}
+
+// TransferStrangeCount uses a Strange Count Transfer Tool to move stats between two Strange items.
+func (t *TF2) TransferStrangeCount(ctx context.Context, toolID, srcID, destID uint64) error {
+	req := &pb.CMsgApplyStrangeCountTransfer{
+		ToolItemId:     proto.Uint64(toolID),
+		ItemSrcItemId:  proto.Uint64(srcID),
+		ItemDestItemId: proto.Uint64(destID),
+	}
+
+	return t.gc.Send(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCApplyStrangeCountTransfer), req)
+}
+
+// ShuffleCrate uses a shuffle tool (like Summer Adventure) to randomize crate contents.
+func (t *TF2) ShuffleCrate(ctx context.Context, itemID uint64, userCode string) error {
+	req := &pb.CMsgGCShuffleCrateContents{
+		CrateItemId:    proto.Uint64(itemID),
+		UserCodeString: proto.String(userCode),
+	}
+
+	return t.gc.Send(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCShuffleCrateContents), req)
+}
+
+// ApplyAutograph applies an autograph tool to an item.
+func (t *TF2) ApplyAutograph(ctx context.Context, toolID, itemID uint64) error {
+	req := &pb.CMsgApplyAutograph{
+		AutographItemId: proto.Uint64(toolID),
+		ItemItemId:      proto.Uint64(itemID),
+	}
+
+	return t.gc.Send(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCApplyAutograph), req)
+}
+
+// RequestMarketData requests official Steam Market data (prices) for items from the GC.
+func (t *TF2) RequestMarketData(ctx context.Context, currency uint32) error {
+	req := &pb.CMsgGCClientMarketDataRequest{
+		UserCurrency: proto.Uint32(currency),
+	}
+
+	return t.gc.Send(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCClientRequestMarketData), req)
+}
+
+// ReportPlayer sends a formal report against a player to the GC.
+// matchID can be 0 if not in a match. Reason IDs can be found in the game files (e.g., 1=Cheating).
+func (t *TF2) ReportPlayer(ctx context.Context, accountID uint32, reason *pb.CMsgGC_ReportPlayer_EReason) error {
+	req := &pb.CMsgGC_ReportPlayer{
+		AccountIdTarget: proto.Uint32(accountID),
+		Reason:          reason,
+	}
+
+	return t.gc.Send(ctx, AppID, uint32(pb.ETFGCMsg_k_EMsgGC_ReportPlayer), req)
+}
+
+// RequestFriends requests a list of TF2-related data for the given account IDs.
+func (t *TF2) RequestFriends(ctx context.Context, accountIDs []uint32) error {
+	req := &pb.CMsgTFRequestTF2Friends{
+		AccountIds: accountIDs,
+	}
+
+	return t.gc.Send(ctx, AppID, uint32(pb.ETFGCMsg_k_EMsgGCRequestTF2Friends), req)
+}
+
 // UseItem triggers an action for an item (e.g., opening a badge or using a tool).
 func (t *TF2) UseItem(ctx context.Context, itemID uint64) error {
 	req := &pb.CMsgUseItem{
@@ -106,6 +262,27 @@ func (t *TF2) UseItem(ctx context.Context, itemID uint64) error {
 	}
 
 	return t.gc.Send(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCUseItemRequest), req)
+}
+
+// ApplyStrangePart applies a strange part to a strange item.
+func (t *TF2) ApplyStrangePart(ctx context.Context, itemID, partID uint64) error {
+	req := &pb.CMsgApplyStrangePart{
+		ItemItemId:        proto.Uint64(itemID),
+		StrangePartItemId: proto.Uint64(partID),
+	}
+
+	return t.gc.Send(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCApplyStrangePart), req)
+}
+
+// ApplyStrangifier applies a strangifier or unusualifier to an item.
+// Based on Source SDK: uses k_EMsgGCApplyXifier (1082) with CMsgApplyToolToItem
+func (t *TF2) ApplyStrangifier(ctx context.Context, itemID, toolID uint64) error {
+	req := &pb.CMsgApplyToolToItem{
+		ToolItemId:    proto.Uint64(toolID),
+		SubjectItemId: proto.Uint64(itemID),
+	}
+
+	return t.gc.Send(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCApplyXifier), req)
 }
 
 // SortBackpack sorts the inventory based on a specific type (e.g., by rarity, type).
@@ -183,52 +360,28 @@ func (t *TF2) RespondToTrade(ctx context.Context, tradeID uint32, accept bool) e
 	return t.gc.SendRaw(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCTrading_InitiateTradeResponse), buf.Bytes())
 }
 
+// ApplyPaint applies a paint can tool to an item.
+// Based on Source SDK: struct MsgGCPaintItem_t { uint64 toolID; uint64 subjectID; }
+func (t *TF2) ApplyPaint(ctx context.Context, toolID, itemID uint64) error {
+	buf := new(bytes.Buffer)
+	_ = binary.Write(buf, binary.LittleEndian, toolID)
+	_ = binary.Write(buf, binary.LittleEndian, itemID)
+
+	return t.gc.SendRaw(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCPaintItem), buf.Bytes())
+}
+
+// UnwrapGift unpacks a gift in your inventory.
+// Based on Source SDK: struct MsgGCUnwrapGiftRequest_t { uint64 itemID; }
+func (t *TF2) UnwrapGift(ctx context.Context, itemID uint64) error {
+	buf := new(bytes.Buffer)
+	_ = binary.Write(buf, binary.LittleEndian, itemID)
+
+	return t.gc.SendRaw(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCUnwrapGiftRequest), buf.Bytes())
+}
+
 // CancelTradeRequest cancels any active live trade invitation.
 func (t *TF2) CancelTradeRequest(ctx context.Context) error {
 	return t.gc.SendRaw(ctx, AppID, uint32(pb.EGCItemMsg_k_EMsgGCTrading_CancelSession), nil)
-}
-
-// Craft sends a crafting request.
-func (t *TF2) Craft(ctx context.Context, items []uint64, recipe int16) ([]uint64, error) {
-	// Format: [Recipe(int16)] [Count(int16)] [ItemID(uint64)]...
-	buf := new(bytes.Buffer)
-	_ = binary.Write(buf, binary.LittleEndian, recipe)
-	_ = binary.Write(buf, binary.LittleEndian, int16(len(items)))
-
-	for _, id := range items {
-		_ = binary.Write(buf, binary.LittleEndian, id)
-	}
-
-	resCh := make(chan []uint64, 1)
-	errCh := make(chan error, 1)
-
-	err := t.gc.CallRaw(
-		ctx,
-		AppID,
-		uint32(pb.EGCItemMsg_k_EMsgGCCraft),
-		buf.Bytes(),
-		func(pkt *protocol.GCPacket, err error) {
-			if err != nil {
-				errCh <- err
-				return
-			}
-
-			newItems := parseCraftResponse(pkt.Payload)
-			resCh <- newItems
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	select {
-	case items := <-resCh:
-		return items, nil
-	case err := <-errCh:
-		return nil, err
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
 }
 
 // ItemPos represents an item position.

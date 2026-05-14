@@ -8,14 +8,14 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/bus"
 )
 
-// GCConnectedEvent is emitted when the GC is connected.
-type GCConnectedEvent struct {
+// ConnectedEvent is emitted when the GC is connected.
+type ConnectedEvent struct {
 	bus.BaseEvent
 	Version uint32
 }
 
-// GCDisconnectedEvent is emitted when the GC is disconnected.
-type GCDisconnectedEvent struct {
+// DisconnectedEvent is emitted when the GC is disconnected.
+type DisconnectedEvent struct {
 	bus.BaseEvent
 }
 

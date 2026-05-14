@@ -5,6 +5,7 @@
 package tf2
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"errors"
@@ -22,6 +23,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/sys/apps"
 	"github.com/lemon4ksan/g-man/pkg/steam/sys/gc"
+	"github.com/lemon4ksan/g-man/pkg/tf2/schema"
 	"github.com/lemon4ksan/g-man/pkg/tf2/schema/manager"
 )
 
@@ -32,14 +34,21 @@ const (
 	ModuleName string = "tf2"
 )
 
+// WithModule returns an option that registers the TF2 module with the steam client.
+func WithModule() steam.Option {
+	return func(c *steam.Client) {
+		c.RegisterModule(New())
+	}
+}
+
 // State reflects the GC session status.
 type State int32
 
 // TF2 Game Coordinator connection states.
 const (
-	GCDisconnected State = iota
-	GCConnecting
-	GCConnected
+	Disconnected State = iota
+	Connecting
+	Connected
 )
 
 // CoordinatorProvider defines what TF2 needs from the generic GC module.
@@ -55,15 +64,18 @@ type AppsProvider interface {
 	PlayGames(ctx context.Context, appIDs []uint32, forceKick bool) error
 }
 
-// WithModule returns an option that registers the TF2 module with the steam client.
-func WithModule() steam.Option {
-	return func(c *steam.Client) {
-		c.RegisterModule(New())
-	}
+// SchemaProvider defines what TF2 needs from the schema manager.
+type SchemaProvider interface {
+	Get() *schema.Schema
 }
 
-// TF2 is the main module for TF2. It handles the Game Coordinator,
-// item cache, and other TF2-specific functionality.
+// TF2 provides the core logic for interacting with the Team Fortress 2 Game Coordinator.
+// It manages the GC session, handles SO (Shared Object) cache updates, and provides
+// a high-level API for inventory management and schema access.
+//
+// The module follows a reactive architecture where the SOCache is the single source of truth
+// for all inventory data. Other modules, like Backpack or MetalManager, should act as
+// lightweight views or controllers over this cache.
 type TF2 struct {
 	module.Base
 
@@ -72,7 +84,7 @@ type TF2 struct {
 
 	state  atomic.Int32
 	cache  *SOCache
-	schema *manager.Manager
+	schema SchemaProvider
 }
 
 // New creates a new TF2 module.
@@ -98,19 +110,19 @@ func (t *TF2) Init(init module.InitContext) error {
 
 	t.gc = gcMod
 
-	apps, ok := init.Module(apps.ModuleName).(AppsProvider)
-	if !ok || apps == nil {
+	appsMod, ok := init.Module(apps.ModuleName).(AppsProvider)
+	if !ok || appsMod == nil {
 		return errors.New("apps module not registered or invalid")
 	}
 
-	t.apps = apps
+	t.apps = appsMod
 
-	schema, ok := init.Module(manager.ModuleName).(*manager.Manager)
-	if !ok || schema == nil {
+	schemaMod, ok := init.Module(manager.ModuleName).(SchemaProvider)
+	if !ok || schemaMod == nil {
 		return errors.New("schema module not registered or invalid")
 	}
 
-	t.schema = schema
+	t.schema = schemaMod
 
 	t.cache = NewSOCache(t.gc, WithBus(t.Bus), WithLogger(t.Logger), WithSchema(t.schema.Get()))
 
@@ -129,7 +141,7 @@ func (t *TF2) StartAuthed(ctx context.Context, authCtx module.AuthContext) error
 		return err
 	}
 
-	t.state.Store(int32(GCConnecting))
+	t.state.Store(int32(Connecting))
 	t.Go(func(ctx context.Context) {
 		t.helloLoop(ctx)
 	})
@@ -139,13 +151,56 @@ func (t *TF2) StartAuthed(ctx context.Context, authCtx module.AuthContext) error
 
 // Close occurs when steam closes the connection.
 func (t *TF2) Close() error {
-	t.state.Store(int32(GCDisconnected))
+	t.state.Store(int32(Disconnected))
 	return t.Base.Close()
 }
 
 // Cache returns the item cache.
 func (t *TF2) Cache() *SOCache {
 	return t.cache
+}
+
+// Craft sends a crafting request to the Game Coordinator.
+func (t *TF2) Craft(ctx context.Context, items []uint64, recipe int16) ([]uint64, error) {
+	// Format (SDK MsgGCCraft_t): [Recipe(int16)] [Count(uint16)] [ItemID(uint64)]...
+	buf := new(bytes.Buffer)
+	_ = binary.Write(buf, binary.LittleEndian, recipe)
+	_ = binary.Write(buf, binary.LittleEndian, uint16(len(items)))
+
+	for _, id := range items {
+		_ = binary.Write(buf, binary.LittleEndian, id)
+	}
+
+	resCh := make(chan []uint64, 1)
+	errCh := make(chan error, 1)
+
+	err := t.gc.CallRaw(
+		ctx,
+		AppID,
+		uint32(pb.EGCItemMsg_k_EMsgGCCraft),
+		buf.Bytes(),
+		func(pkt *protocol.GCPacket, err error) {
+			if err != nil {
+				errCh <- err
+				return
+			}
+
+			newItems := parseCraftResponse(pkt.Payload)
+			resCh <- newItems
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	select {
+	case items := <-resCh:
+		return items, nil
+	case err := <-errCh:
+		return nil, err
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 }
 
 func (t *TF2) helloLoop(ctx context.Context) {
@@ -159,7 +214,7 @@ func (t *TF2) helloLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if t.state.Load() == int32(GCConnected) {
+			if t.state.Load() == int32(Connected) {
 				continue
 			}
 
@@ -212,7 +267,7 @@ func (t *TF2) routePacket(ctx context.Context, pkt *protocol.GCPacket) {
 
 	switch pb.EGCItemMsg(pkt.MsgType) {
 	case pb.EGCItemMsg_k_EMsgGCUpdateItemSchema:
-		// Handle schema update
+		t.handleSchemaUpdate(pkt)
 	case pb.EGCItemMsg_k_EMsgGCCraftResponse:
 		t.handleCraftResponse(pkt)
 	}
@@ -240,17 +295,45 @@ func (t *TF2) handleWelcome(pkt *protocol.GCPacket) {
 		return
 	}
 
-	if t.state.CompareAndSwap(int32(GCConnecting), int32(GCConnected)) {
+	if t.state.CompareAndSwap(int32(Connecting), int32(Connected)) {
 		t.Logger.Info("Connected to TF2 Game Coordinator", log.Uint32("version", msg.GetVersion()))
-		t.Bus.Publish(&GCConnectedEvent{Version: msg.GetVersion()})
+		t.Bus.Publish(&ConnectedEvent{Version: msg.GetVersion()})
 	}
 }
 
 func (t *TF2) handleGoodbye(_ *protocol.GCPacket) {
 	t.Logger.Warn("Disconnected from TF2 Game Coordinator (Server Goodbye)")
 
-	if t.state.CompareAndSwap(int32(GCConnected), int32(GCConnecting)) {
-		t.Bus.Publish(&GCDisconnectedEvent{})
+	if t.state.CompareAndSwap(int32(Connected), int32(Connecting)) {
+		t.Bus.Publish(&DisconnectedEvent{})
+	}
+}
+
+func (t *TF2) handleSchemaUpdate(pkt *protocol.GCPacket) {
+	msg := &pb.CMsgUpdateItemSchema{}
+	if err := proto.Unmarshal(pkt.Payload, msg); err != nil {
+		t.Logger.Error("Failed to unmarshal UpdateItemSchema", log.Err(err))
+		return
+	}
+
+	t.Logger.Info("Received item schema update notification from GC",
+		log.Uint32("version", msg.GetItemSchemaVersion()),
+	)
+
+	t.Bus.Publish(&schema.UpdateRequestedEvent{
+		Version:      msg.GetItemSchemaVersion(),
+		ItemsGameURL: msg.GetItemsGameUrl(),
+	})
+}
+
+func (t *TF2) handleCraftResponse(pkt *protocol.GCPacket) {
+	items := parseCraftResponse(pkt.Payload)
+	if len(items) > 0 || len(pkt.Payload) >= 2 {
+		blueprint := binary.LittleEndian.Uint16(pkt.Payload[0:])
+		t.Bus.Publish(&CraftResponseEvent{
+			BlueprintID:  blueprint,
+			CreatedItems: items,
+		})
 	}
 }
 
@@ -273,17 +356,4 @@ func parseCraftResponse(payload []byte) []uint64 {
 	}
 
 	return items
-}
-
-func (t *TF2) handleCraftResponse(pkt *protocol.GCPacket) {
-	// Broadcast event for listeners (logs, analytics)
-	// The specific job callback handles the logic flow.
-	items := parseCraftResponse(pkt.Payload)
-	if len(items) > 0 || len(pkt.Payload) >= 2 {
-		blueprint := binary.LittleEndian.Uint16(pkt.Payload[0:])
-		t.Bus.Publish(&CraftResponseEvent{
-			BlueprintID:  blueprint,
-			CreatedItems: items,
-		})
-	}
 }
