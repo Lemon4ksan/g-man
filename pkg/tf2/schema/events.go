@@ -26,3 +26,10 @@ type UpdateFailedEvent struct {
 	bus.BaseEvent
 	Error error
 }
+
+// UpdateRequestedEvent is emitted when a schema update is requested (e.g., via GC).
+type UpdateRequestedEvent struct {
+	bus.BaseEvent
+	Version      uint32
+	ItemsGameURL string
+}

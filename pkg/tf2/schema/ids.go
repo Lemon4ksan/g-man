@@ -4,7 +4,21 @@
 
 package schema
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/lemon4ksan/g-man/pkg/tf2/sku"
+)
+
+// Item Defindex constants for common items
+const (
+	DefKey        = 5021
+	DefRefined    = 5002
+	DefReclaimed  = 5001
+	DefScrap      = 5000
+	DefPartsProxy = 10000
+	DefSpellProxy = 11000
+)
 
 // Quality constants for TF2 items
 const (
@@ -23,6 +37,90 @@ const (
 	QualityCollectors = 14
 	QualityDecorated  = 15
 )
+
+// Attribute ID constants for TF2 items
+const (
+	AttrUnusualEffect = 134
+	AttrStrangeScore  = 214
+	AttrPaintColor    = 142
+	AttrPaintColor2   = 1031
+	AttrKillstreak    = 2025
+	AttrAustralium    = 2027
+	AttrFestivized    = 2053
+	AttrWear          = 725
+	AttrPaintkit      = 834
+	AttrCrateSeries   = 187
+)
+
+// Wear levels for Decorated weapons
+const (
+	WearFactoryNew    = 1
+	WearMinimalWear   = 2
+	WearFieldTested   = 3
+	WearWellWorn      = 4
+	WearBattleScarred = 5
+)
+
+// StandardPaints maps hex color values to their display names.
+// These are the standard paints available in Team Fortress 2.
+var StandardPaints = map[uint32]string{
+	0x7D4071: "A Deep Commitment to Purple",
+	0x141414: "A Distinctive Lack of Hue",
+	0xBCDDB3: "A Mann's Mint",
+	0x2D2D24: "After Eight",
+	0x7E7E7E: "Aged Moustache Grey",
+	0xE6E6E6: "An Extraordinary Abundance of Tinge",
+	0xE7B53B: "Australium Gold",
+	0xD8BED8: "Color No. 216-190-216",
+	0xE9967A: "Dark Salmon Injustice",
+	0x808000: "Drably Olive",
+	0x729E42: "Indubitably Green",
+	0xCF7336: "Mann Co. Orange",
+	0xA57545: "Muskelmannbraun",
+	0x51384A: "Noble Hatter's Violet",
+	0xC5AF91: "Peculiarly Drab Tincture",
+	0xFF69B4: "Pink as Hell",
+	0x694D3A: "Radigan Conagher Brown",
+	0x32CD32: "The Bitter Taste of Defeat and Lime",
+	0xF0E68C: "The Color of a Gentlemann's Business Pants",
+	0x7C6C57: "Ye Olde Rustic Colour",
+	0x424F3B: "Zepheniah's Greed",
+	0x2F4F4F: "A Color Similar to Slate",
+
+	// Team paints (Primary/Secondary variations)
+	0x654740: "An Air of Debonair",
+	0x28394D: "An Air of Debonair",
+	0x3B1F23: "Balaclavas Are Forever",
+	0x18233D: "Balaclavas Are Forever",
+	0xC36C2D: "Cream Spirit",
+	0xB88035: "Cream Spirit",
+	0x483838: "Operator's Overalls",
+	0x384248: "Operator's Overalls",
+	0xB8383B: "Team Spirit",
+	0x5885A2: "Team Spirit",
+	0x803020: "The Value of Teamwork",
+	0x256D8D: "The Value of Teamwork",
+	0xA89A8C: "Waterlogged Lab Coat",
+	0x839FA3: "Waterlogged Lab Coat",
+}
+
+// GetPaintName returns the name of the paint associated with the given hex color.
+// If the color is not found, it returns a formatted hex string.
+func GetPaintName(color uint32) string {
+	if name, ok := StandardPaints[color]; ok {
+		return name
+	}
+
+	return ""
+}
+
+var wears = map[string]int{
+	"(factory new)":    WearFactoryNew,
+	"(minimal wear)":   WearMinimalWear,
+	"(field-tested)":   WearFieldTested,
+	"(well-worn)":      WearWellWorn,
+	"(battle scarred)": WearBattleScarred,
+}
 
 // Quality2 constants (elevated qualities)
 const (
@@ -174,44 +272,81 @@ var retiredKeys = map[int]RetiredKeyInfo{
 	5792: {5792, "Nice Winter Crate Key 2014"},
 }
 
-var halloweenSpells = map[string]int{
-	// --- Paint Effects ---
-	"Halloween: Chromatic Corruption (paint)":    1,
-	"Halloween: Die Job (paint)":                 2,
-	"Halloween: Putrescent Pigmentation (paint)": 3,
-	"Halloween: Sinister Staining (paint)":       4,
-	"Halloween: Spectral Spectrum (paint)":       5,
+// SpellDefinitions maps spell names to their SKU definitions.
+var SpellDefinitions = map[string]sku.Spell{
+	// --- Paint Effects (Attribute 1004) ---
+	"Halloween: Die Job (paint)":                 {Attribute: 1004, Value: 0},
+	"Halloween: Chromatic Corruption (paint)":    {Attribute: 1004, Value: 1},
+	"Halloween: Putrescent Pigmentation (paint)": {Attribute: 1004, Value: 2},
+	"Halloween: Spectral Spectrum (paint)":       {Attribute: 1004, Value: 3},
+	"Halloween: Sinister Staining (paint)":       {Attribute: 1004, Value: 4},
 
-	// --- Footprints ---
-	"Halloween: Bruised Purple Footprints": 10,
-	"Halloween: Corpse Gray Footprints":    11,
-	"Halloween: Gangreen Footprints":       12,
-	"Halloween: Headless Horseshoes":       13,
-	"Halloween: Rotten Orange Footprints":  14,
-	"Halloween: Team Spirit Footprints":    15,
-	"Halloween: Violent Violet Footprints": 16,
+	// --- Footprints (Attribute 1005) ---
+	"Halloween: Team Spirit Footprints":    {Attribute: 1005, Value: 1},
+	"Halloween: Headless Horseshoes":       {Attribute: 1005, Value: 2},
+	"Halloween: Gangreen Footprints":       {Attribute: 1005, Value: 8421376},
+	"Halloween: Corpse Gray Footprints":    {Attribute: 1005, Value: 3100495},
+	"Halloween: Violent Violet Footprints": {Attribute: 1005, Value: 5322826},
+	"Halloween: Rotten Orange Footprints":  {Attribute: 1005, Value: 13595446},
+	"Halloween: Bruised Purple Footprints": {Attribute: 1005, Value: 8208497},
 
-	// --- Weapon Effects ---
-	"Halloween: Exorcism":             20,
-	"Halloween: Gourd Grenades":       21,
-	"Halloween: Sentry Quad-Pumpkins": 22,
-	"Halloween: Spectral Flame":       23,
-	"Halloween: Squash Rockets":       24,
+	// --- Vocal Effects (Attribute 1006) ---
+	"Halloween: Voices from Below": {Attribute: 1006, Value: 1},
 
-	// --- Vocal Effects ---
-	"Scout's Spectral Snarl":        30,
-	"Soldier's Booming Bark":        31,
-	"Pyro's Muffled Moan":           32,
-	"Demoman's Cadaverous Croak":    33,
-	"Heavy's Bottomless Bass":       34,
-	"Engineer's Gravelly Growl":     35,
-	"Medic's Blood-Curdling Bellow": 36,
-	"Sniper's Deep Downunder Drawl": 37,
-	"Spy's Creepy Croon":            38,
-	"Halloween: Voices from Below":  39,
+	// --- Weapon Effects (Attributes 1007, 1008, 1009) ---
+	"Halloween: Pumpkin Bombs":        {Attribute: 1007, Value: 1},
+	"Halloween: Gourd Grenades":       {Attribute: 1007, Value: 1}, // Alias
+	"Halloween: Halloween Fire":       {Attribute: 1008, Value: 1},
+	"Halloween: Spectral Flame":       {Attribute: 1008, Value: 1}, // Alias
+	"Halloween: Exorcism":             {Attribute: 1009, Value: 1},
+	"Halloween: Squash Rockets":       {Attribute: 1007, Value: 1}, // Alias
+	"Halloween: Sentry Quad-Pumpkins": {Attribute: 1007, Value: 1}, // Alias
 }
 
 var retiredKeysNames []string
+
+// GlobalNormalizationMap maps retired/legacy defindexes to their canonical counterparts.
+var GlobalNormalizationMap = map[int]int{
+	// Keys
+	5049: 5021, 5067: 5021, 5072: 5021, 5073: 5021, 5079: 5021, 5081: 5021,
+	5628: 5021, 5631: 5021, 5632: 5021, 5711: 5021, 5713: 5021, 5714: 5021,
+	5715: 5021, 5716: 5021, 5717: 5021, 5762: 5021,
+	// Lugermorph
+	294: 160,
+	// Strangifiers
+	6523: 6522, 6526: 6522, 6530: 6522, 6531: 6522, 6532: 6522, 6534: 6522,
+	// Killstreak Kits
+	6520: 6527, 6521: 6527, 11051: 6527, 11052: 6527,
+}
+
+// NormalizeDefindex returns the "canonical" defindex for an item.
+func NormalizeDefindex(defindex int) int {
+	if norm, ok := GlobalNormalizationMap[defindex]; ok {
+		return norm
+	}
+
+	return defindex
+}
+
+// IsAustraliumDefindex returns true if the defindex can be an Australium weapon.
+func IsAustraliumDefindex(defindex int) bool {
+	switch defindex {
+	case 13, 45, 18, 228, 21, 38, 19, 20, 132, 172, 15, 424, 141, 197, 29, 36, 14, 16, 61:
+		return true
+	}
+
+	return false
+}
+
+// IsNativeFestive returns true if the defindex belongs to a "native" Festive item (from old crates).
+func IsNativeFestive(defindex int) bool {
+	switch defindex {
+	case 654, 658, 659, 660, 661, 662, 663, 664, 665, 669, 1081, 1082, 1085:
+		return true
+	}
+
+	return false
+}
 
 func init() {
 	for _, info := range retiredKeys {

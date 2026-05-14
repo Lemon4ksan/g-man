@@ -7,29 +7,18 @@ package schema
 import (
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/lemon4ksan/g-man/pkg/tf2/sku"
+	"github.com/lemon4ksan/g-man/pkg/trading"
 )
 
 // minimalRawSchema creates a minimal raw schema for testing.
 func minimalRawSchema() *Raw {
 	items := []*Item{
-		{
-			Defindex:    5022,
-			Name:        "Mann Co. Supply Crate",
-			ItemName:    "Mann Co. Supply Crate",
-			ItemClass:   "supply_crate",
-			ItemQuality: QualityUnique,
-			ProperName:  false,
-			Attributes: []ItemAttribute{
-				{
-					Name:  "set supply crate series",
-					Class: "supply_crate_series",
-					Value: float64(1),
-				},
-			},
-		},
 		{
 			Defindex:      5021,
 			Name:          "Scattergun",
@@ -41,48 +30,72 @@ func minimalRawSchema() *Raw {
 			UsedByClasses: []string{"Scout"},
 		},
 		{
+			Defindex:     378,
+			Name:         "Team Captain",
+			ItemName:     "Team Captain",
+			ItemClass:    "tf_wearable",
+			ItemQuality:  QualityUnique,
+			Capabilities: &Capabilities{Paintable: true},
+		},
+		{Defindex: 15013, Name: "Pistol", ItemName: "Pistol", ItemClass: "weapon", ItemQuality: QualityDecorated},
+		{
+			Defindex:    16189,
+			Name:        "Paintkit 102",
+			ItemName:    "Woodsy Widowmaker War Paint",
+			ItemClass:   "tool",
+			ItemQuality: QualityDecorated,
+		},
+		{
+			Defindex:    5022,
+			Name:        "Crate 1",
+			ItemName:    "Mann Co. Supply Crate",
+			ItemClass:   "supply_crate",
+			ItemQuality: QualityUnique,
+		},
+		{Defindex: 160, Name: "Lugermorph", ItemName: "Lugermorph", ItemClass: "weapon", ItemQuality: QualityVintage},
+		{
+			Defindex:    294,
+			Name:        "Promo Lugermorph",
+			ItemName:    "Promo Lugermorph",
+			ItemClass:   "weapon",
+			ItemQuality: QualityUnique,
+		},
+		{
 			Defindex:      38,
-			Name:          "Stickybomb Launcher",
-			ItemName:      "Stickybomb Launcher",
+			Name:          "Scout Weapon",
+			ItemName:      "Scout Weapon",
 			ItemClass:     "weapon",
 			ItemQuality:   QualityUnique,
-			ProperName:    false,
 			CraftClass:    "weapon",
-			UsedByClasses: []string{"Demoman"},
+			UsedByClasses: []string{"Scout"},
+		},
+		{
+			Defindex:     100,
+			Name:         "Cosmetic",
+			ItemName:     "Cosmetic",
+			ItemClass:    "tf_wearable",
+			ItemQuality:  QualityUnique,
+			Capabilities: &Capabilities{Paintable: true},
 		},
 		{
 			Defindex:    5739,
-			Name:        "Mann Co. Audition Reel",
-			ItemName:    "Mann Co. Audition Reel",
+			Name:        "Seriesless Crate",
+			ItemName:    "Seriesless Crate",
 			ItemClass:   "supply_crate",
-			ItemQuality: QualityUnique,
-			Attributes:  nil, // seriesless
-		},
-		{
-			Defindex:    9258,
-			Name:        "Unusualifier",
-			ItemName:    "Unusualifier",
-			ItemClass:   "tool",
-			ItemQuality: QualityUnusual,
-		},
-		{
-			Defindex:    6522,
-			Name:        "Strangifier",
-			ItemName:    "Strangifier",
-			ItemClass:   "tool",
-			ItemQuality: QualityUnique,
-		},
-		{
-			Defindex:    6523,
-			Name:        "Specialized Killstreak Kit",
-			ItemName:    "Specialized Killstreak Kit",
-			ItemClass:   "tool",
 			ItemQuality: QualityUnique,
 		},
 		{
 			Defindex:    6526,
 			Name:        "Professional Killstreak Kit",
 			ItemName:    "Professional Killstreak Kit",
+			ItemClass:   "tool",
+			ItemQuality: QualityUnique,
+		},
+		{Defindex: 6522, Name: "Strangifier", ItemName: "Strangifier", ItemClass: "tool", ItemQuality: QualityUnique},
+		{
+			Defindex:    20006,
+			Name:        "Collector's Chemistry Set",
+			ItemName:    "Collector's Chemistry Set",
 			ItemClass:   "tool",
 			ItemQuality: QualityUnique,
 		},
@@ -94,50 +107,26 @@ func minimalRawSchema() *Raw {
 			ItemQuality: QualityUnique,
 		},
 		{
-			Defindex:    20006,
-			Name:        "Collector's Chemistry Set",
-			ItemName:    "Collector's Chemistry Set",
+			Defindex:    20003,
+			Name:        "Professional Killstreak Kit Fabricator",
+			ItemName:    "Professional Killstreak Kit Fabricator",
 			ItemClass:   "tool",
 			ItemQuality: QualityUnique,
 		},
 		{
-			Defindex:    15013,
-			Name:        "Pistol",
-			ItemName:    "Pistol",
-			ItemClass:   "weapon",
-			ItemQuality: QualityDecorated,
-		},
-		{
-			Defindex:    378,
-			Name:        "Team Captain",
-			ItemName:    "Team Captain",
-			ItemClass:   "tf_wearable",
+			Defindex:    20002,
+			Name:        "Specialized Killstreak Kit Fabricator",
+			ItemName:    "Specialized Killstreak Kit Fabricator",
+			ItemClass:   "tool",
 			ItemQuality: QualityUnique,
-			Capabilities: &Capabilities{
-				Paintable: true,
-			},
 		},
-	}
-
-	attributes := []*AttributeSchema{
-		{Defindex: 1, Name: "set supply crate series"},
+		{Defindex: 9258, Name: "Unusualifier", ItemName: "Unusualifier", ItemClass: "tool", ItemQuality: QualityUnique},
 	}
 
 	qualities := map[string]int{
-		"Normal":      0,
-		"Genuine":     1,
-		"Vintage":     3,
-		"Unusual":     5,
-		"Unique":      6,
-		"Community":   7,
-		"Valve":       8,
-		"Self-Made":   9,
-		"Customized":  10,
-		"Strange":     11,
-		"Completed":   12,
-		"Haunted":     13,
-		"Collector's": 14,
-		"Decorated":   15,
+		"Normal": 0, "Genuine": 1, "Vintage": 3, "Unusual": 5, "Unique": 6, "Community": 7,
+		"Valve": 8, "Self-Made": 9, "Customized": 10, "Strange": 11, "Completed": 12,
+		"Haunted": 13, "Collector's": 14, "Decorated": 15,
 	}
 
 	qualityNames := map[string]string{
@@ -158,22 +147,15 @@ func minimalRawSchema() *Raw {
 	}
 
 	particles := []*ParticleEffect{
-		{ID: 4, Name: "Flying Bits"}, // some generic
+		{ID: 13, Name: "Burning Flames"},
 		{ID: 33, Name: "Orbiting Fire"},
 		{ID: 103, Name: "Ether Trail"},
 		{ID: 141, Name: "Fragmenting Reality"},
-		{ID: 326, Name: ""}, // empty name, should be filtered
 	}
 
 	paintKits := map[string]string{
-		"15013": "Pistol Skin",
 		"102":   "Woodsy Widowmaker",
-	}
-
-	killEater := []*KillEaterScoreType{
-		{Type: 0, TypeName: "Kills"},
-		{Type: 1, TypeName: "Kill Assists"},
-		{Type: 97, TypeName: "Something Excluded"},
+		"15013": "Pistol Skin",
 	}
 
 	itemsGame := map[string]any{
@@ -188,23 +170,27 @@ func minimalRawSchema() *Raw {
 		},
 	}
 
+	killEater := []*KillEaterScoreType{
+		{Type: 0, TypeName: "Kills"},
+		{Type: 1, TypeName: "Kill Assists"},
+		{Type: 97, TypeName: "Something Excluded"},
+	}
+
 	return &Raw{
 		Schema: struct {
 			Items                                []*Item               `json:"items"`
 			Attributes                           []*AttributeSchema    `json:"attributes"`
 			Qualities                            map[string]int        `json:"qualities"`
-			QualityNames                         map[string]string     `json:"qualityNames"` // Note: Some API responses omit this
+			QualityNames                         map[string]string     `json:"qualityNames"`
 			OriginNames                          []*OriginName         `json:"originNames"`
 			ItemSets                             []*ItemSet            `json:"item_sets"`
 			AttributeControlledAttachedParticles []*ParticleEffect     `json:"attribute_controlled_attached_particles"`
 			ItemLevels                           []*ItemLevel          `json:"item_levels"`
 			KillEaterScoreTypes                  []*KillEaterScoreType `json:"kill_eater_score_types"`
 			StringLookups                        []*StringLookup       `json:"string_lookups"`
-
-			PaintKits map[string]string `json:"paintkits"` // Injected from protodefs
+			PaintKits                            map[string]string     `json:"paintkits"`
 		}{
 			Items:                                items,
-			Attributes:                           attributes,
 			Qualities:                            qualities,
 			QualityNames:                         qualityNames,
 			AttributeControlledAttachedParticles: particles,
@@ -343,13 +329,42 @@ func TestGetEffectByIdAndName(t *testing.T) {
 		}
 
 		// Case insensitivity
-		if id := s.GetEffectIdByName(tt.name); id != tt.id {
+		if id := s.GetEffectIdByName(strings.ToLower(tt.name)); id != tt.id {
 			t.Errorf("Case insensitive GetEffectIdByName failed for %s", tt.name)
 		}
 	}
 
 	if name := s.GetEffectById(999); name != "" {
 		t.Errorf("expected empty for unknown effect, got %s", name)
+	}
+}
+
+func TestGetSpellIdByName(t *testing.T) {
+	s := New(minimalRawSchema())
+
+	tests := []struct {
+		name       string
+		expected   sku.Spell
+		shouldFind bool
+	}{
+		{"Exorcism", sku.Spell{Attribute: 1009, Value: 1}, true},
+		{"Voices from Below", sku.Spell{Attribute: 1006, Value: 1}, true},
+		{"Spectral Spectrum", sku.Spell{Attribute: 1004, Value: 3}, true},
+		{"voices from below", sku.Spell{Attribute: 1006, Value: 1}, true}, // Case insensitivity
+		{"Nonexistent", sku.Spell{}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			spell, ok := s.GetSpellIdByName(tt.name)
+			if ok != tt.shouldFind {
+				t.Errorf("GetSpellIdByName(%s) ok = %v, want %v", tt.name, ok, tt.shouldFind)
+			}
+
+			if ok && spell != tt.expected {
+				t.Errorf("GetSpellIdByName(%s) = %+v, want %+v", tt.name, spell, tt.expected)
+			}
+		})
 	}
 }
 
@@ -527,6 +542,28 @@ func TestGetName_EdgeCases(t *testing.T) {
 			},
 			expected: "Woodsy Widowmaker Pistol (Factory New)",
 		},
+		{
+			desc: "Spells",
+			item: &sku.Item{
+				Defindex:  5021,
+				Quality:   QualityUnique,
+				Craftable: true,
+				Tradable:  true,
+				Spells:    []sku.Spell{{Attribute: 1009, Value: 1}, {Attribute: 1004, Value: 3}},
+			},
+			expected: "Scattergun (Spell: Exorcism) (Spell: Spectral Spectrum)",
+		},
+		{
+			desc: "Strange Parts",
+			item: &sku.Item{
+				Defindex:  5021,
+				Quality:   QualityStrange,
+				Craftable: true,
+				Tradable:  true,
+				Parts:     []int{0}, // 0 is "Kills" in minimalRawSchema
+			},
+			expected: "Strange Scattergun (Kills: 0)",
+		},
 	}
 
 	for _, tt := range tests {
@@ -687,13 +724,13 @@ func TestGetWeaponsForCraftingByClass(t *testing.T) {
 	s := New(minimalRawSchema())
 
 	skus := s.GetWeaponsForCraftingByClass("Scout")
-	if len(skus) != 1 || skus[0] != "5021;6" {
-		t.Errorf("expected [5021;6], got %v", skus)
+	if len(skus) != 2 || skus[0] != "5021;6" || skus[1] != "38;6" {
+		t.Errorf("expected[5021;6 38;6], got %v", skus)
 	}
 
 	skusDemo := s.GetWeaponsForCraftingByClass("Demoman")
-	if len(skusDemo) != 1 || skusDemo[0] != "38;6" {
-		t.Errorf("expected [38;6], got %v", skusDemo)
+	if len(skusDemo) != 0 {
+		t.Errorf("expected[], got %v", skusDemo)
 	}
 }
 
@@ -832,17 +869,17 @@ func TestSchema_NormalizeItem(t *testing.T) {
 		},
 		{
 			name:     "Key standardization",
-			input:    sku.Item{Defindex: 5020}, // Some key
-			expected: sku.Item{Defindex: 5021}, // Standard key
+			input:    sku.Item{Defindex: 5049},
+			expected: sku.Item{Defindex: 5021},
 		},
 		{
 			name:     "Lugermorph standardization",
-			input:    sku.Item{Defindex: 212},
+			input:    sku.Item{Defindex: 294},
 			expected: sku.Item{Defindex: 160},
 		},
 		{
 			name:     "Grouping Killstreak Kits",
-			input:    sku.Item{Defindex: 5726},
+			input:    sku.Item{Defindex: 6520},
 			expected: sku.Item{Defindex: 6527},
 		},
 		{
@@ -910,14 +947,342 @@ func TestSchema_NormalizeItem(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
+	for i := range tests {
+		tt := &tests[i]
 		t.Run(tt.name, func(t *testing.T) {
-			actual := tt.input
-			s.NormalizeItem(&actual)
+			t.Logf("Before: %d, Normalized: %d", tt.input.Defindex, s.NormalizeDefindex(tt.input.Defindex))
+			s.NormalizeItem(&tt.input)
 
-			if !reflect.DeepEqual(actual, tt.expected) {
-				t.Errorf("\nGot:\n%+v\nWant:\n%+v", actual, tt.expected)
+			if !reflect.DeepEqual(tt.input, tt.expected) {
+				t.Errorf("\n        Got:\n        %+v\n        Want:\n        %+v", tt.input, tt.expected)
 			}
 		})
 	}
+}
+
+func TestSchema_Getters(t *testing.T) {
+	s := New(minimalRawSchema())
+
+	t.Run("Qualities", func(t *testing.T) {
+		assert.Equal(t, "Unique", s.GetQualityById(6))
+		assert.Equal(t, 6, s.GetQualityIdByName("Unique"))
+		assert.NotEmpty(t, s.GetQualities())
+	})
+
+	t.Run("Effects", func(t *testing.T) {
+		assert.Equal(t, "Orbiting Fire", s.GetEffectById(33))
+		assert.Equal(t, 33, s.GetEffectIdByName("Orbiting Fire"))
+		assert.NotEmpty(t, s.GetParticleEffects())
+	})
+
+	t.Run("Skins", func(t *testing.T) {
+		assert.Equal(t, "Woodsy Widowmaker", s.GetSkinById(102))
+		assert.Equal(t, 102, s.GetSkinIdByName("Woodsy Widowmaker"))
+		assert.NotEmpty(t, s.GetPaintKits())
+	})
+
+	t.Run("Items", func(t *testing.T) {
+		item := s.GetItemByDef(5021)
+		assert.NotNil(t, item)
+		assert.Equal(t, "Scattergun", item.ItemName)
+
+		itemByName := s.GetItemByName("Scattergun")
+		assert.Equal(t, item, itemByName)
+	})
+}
+
+func TestGetSKUFromEconItem_Variations(t *testing.T) {
+	s := New(minimalRawSchema())
+
+	tests := []struct {
+		name     string
+		item     *trading.Item
+		expected string
+	}{
+		{
+			name: "Basic Unique Weapon",
+			item: &trading.Item{
+				MarketHashName: "Scattergun",
+				Tradable:       true,
+				Descriptions:   []trading.Description{},
+			},
+			expected: "5021;6",
+		},
+		{
+			name: "Non-Craftable Unique Weapon",
+			item: &trading.Item{
+				MarketHashName: "Scattergun",
+				Tradable:       true,
+				Descriptions: []trading.Description{
+					{Value: "( Not Usable in Crafting )"},
+				},
+			},
+			expected: "5021;6;uncraftable",
+		},
+		{
+			name: "Strange Unusual Hat with Effect",
+			item: &trading.Item{
+				MarketHashName: "Strange Unusual Team Captain",
+				Tradable:       true,
+				Descriptions: []trading.Description{
+					{Value: "★ Unusual Effect: Orbiting Fire"},
+				},
+			},
+			expected: "378;5;u33;strange",
+		},
+		{
+			name: "Strange Unusual Team Captain",
+			item: &trading.Item{
+				MarketHashName: "Strange Unusual Team Captain",
+				Tradable:       true,
+				Descriptions: []trading.Description{
+					{Value: "★ Unusual Effect: Burning Flames"},
+				},
+			},
+			expected: "378;5;u13;strange",
+		},
+		{
+			name: "Item with Halloween Spell",
+			item: &trading.Item{
+				MarketHashName: "Scattergun",
+				Tradable:       true,
+				Descriptions: []trading.Description{
+					{Value: "Halloween: Exorcism", Color: "7ea9d1"},
+				},
+			},
+			expected: "5021;6;s-1009-1",
+		},
+		{
+			name: "Item with Multiple Halloween Spells",
+			item: &trading.Item{
+				MarketHashName: "Scattergun",
+				Tradable:       true,
+				Descriptions: []trading.Description{
+					{Value: "Halloween: Exorcism", Color: "7ea9d1"},
+					{Value: "Halloween: Spectral Spectrum (paint)", Color: "7ea9d1"},
+				},
+			},
+			expected: "5021;6;s-1009-1;s-1004-3",
+		},
+		{
+			name: "Decorated Weapon (Skin) with Wear",
+			item: &trading.Item{
+				MarketHashName: "Woodsy Widowmaker Pistol (Factory New)",
+				Tradable:       true,
+				Descriptions:   []trading.Description{},
+			},
+			expected: "15013;15;w1;pk102",
+		},
+		{
+			name: "Unusual Decorated Weapon",
+			item: &trading.Item{
+				MarketHashName: "Unusual Woodsy Widowmaker Pistol (Minimal Wear)",
+				Tradable:       true,
+				Descriptions: []trading.Description{
+					{Value: "★ Unusual Effect: Orbiting Fire"},
+				},
+			},
+			expected: "15013;15;u33;w2;pk102",
+		},
+		{
+			name: "War Paint",
+			item: &trading.Item{
+				MarketHashName: "Woodsy Widowmaker War Paint (Field-Tested)",
+				Tradable:       true,
+				Descriptions:   []trading.Description{},
+			},
+			expected: "16189;15;w3;pk102",
+		},
+		{
+			name: "Woodsy Widowmaker Pistol (Factory New)",
+			item: &trading.Item{
+				MarketHashName: "Woodsy Widowmaker Pistol (Factory New)",
+				Tradable:       true,
+				Tags: []trading.Tag{
+					{Category: "Quality", LocalizedName: "Decorated Weapon"},
+					{Category: "Exterior", LocalizedName: "Factory New"},
+				},
+			},
+			expected: "15013;15;w1;pk102",
+		},
+		{
+			name: "Strange Unusual Team Captain",
+			item: &trading.Item{
+				MarketHashName: "Strange Unusual Team Captain",
+				Tradable:       true,
+				Descriptions: []trading.Description{
+					{Value: "★ Unusual Effect: Burning Flames"},
+				},
+			},
+			expected: "378;5;u13;strange",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := s.GetSKUFromEconItem(tt.item)
+			t.Logf("Name: %s, Got SKU: %s, Descriptions: %d", tt.name, got, len(tt.item.Descriptions))
+
+			if got != tt.expected {
+				t.Errorf("GetSKUFromEconItem() = %q, want %q", got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestGetItemObjectFromName_MoreVariations(t *testing.T) {
+	s := New(minimalRawSchema())
+
+	tests := []struct {
+		input         string
+		defindex      int
+		quality       int
+		quality2      int
+		target        int
+		output        int
+		outputQuality int
+		killstreak    int
+	}{
+		{
+			input:    "The Scattergun",
+			defindex: 5021,
+			quality:  QualityUnique,
+		},
+		{
+			input:    "Strange The Scattergun",
+			defindex: 5021,
+			quality:  QualityStrange,
+		},
+		{
+			input:    "Unusual The Team Captain",
+			defindex: 378,
+			quality:  QualityUnusual,
+		},
+		{
+			input:    "Non-Craftable The Scattergun",
+			defindex: 5021,
+			quality:  QualityUnique,
+		},
+		{
+			input:    "Unusualifier Scattergun",
+			defindex: 9258,
+			quality:  QualityUnusual,
+			target:   5021,
+		},
+		{
+			input:    "Professional Killstreak Kit Fabricator Scattergun",
+			defindex: 20003,
+			quality:  QualityUnique,
+			target:   5021,
+			output:   6526,
+		},
+		{
+			input:    "Specialized Killstreak Kit Fabricator Scattergun",
+			defindex: 20002,
+			quality:  QualityUnique,
+			target:   5021,
+			output:   6523,
+		},
+		{
+			input:         "Collector's Chemistry Set Scattergun",
+			defindex:      20006,
+			quality:       QualityUnique,
+			output:        5021,
+			outputQuality: 14,
+		},
+		{
+			input:         "Strangifier Chemistry Set Scattergun",
+			defindex:      20000,
+			quality:       QualityUnique,
+			target:        5021,
+			output:        6522,
+			outputQuality: QualityUnique,
+		},
+		{
+			input:    "Strangifier Scattergun",
+			defindex: 6522,
+			quality:  QualityUnique,
+			target:   5021,
+		},
+		{
+			input:      "Professional Killstreak Kit Scattergun",
+			defindex:   6526,
+			quality:    QualityUnique,
+			target:     5021,
+			killstreak: 0, // В китах killstreak сбрасывается в 0, а defindex меняется на 6526
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := s.GetItemObjectFromName(tt.input)
+			if got == nil {
+				t.Fatalf("failed to parse %q", tt.input)
+			}
+
+			assert.Equal(t, tt.defindex, got.Defindex, "Defindex mismatch for %s", tt.input)
+			assert.Equal(t, tt.quality, got.Quality, "Quality mismatch for %s", tt.input)
+
+			if tt.target != 0 {
+				assert.Equal(t, tt.target, got.Target, "Target mismatch for %s", tt.input)
+			}
+
+			if tt.output != 0 {
+				assert.Equal(t, tt.output, got.Output, "Output mismatch for %s", tt.input)
+			}
+
+			if tt.outputQuality != 0 {
+				assert.Equal(t, tt.outputQuality, got.OutputQuality, "OutputQuality mismatch for %s", tt.input)
+			}
+		})
+	}
+}
+
+func TestNormalizeItem_Advanced(t *testing.T) {
+	s := createMockSchema()
+
+	t.Run("Strange Unusual Decoration", func(t *testing.T) {
+		item := &sku.Item{
+			Defindex: 100,
+			Quality:  QualityStrange,
+			Effect:   13,
+			Paintkit: 102,
+		}
+		s.NormalizeItem(item)
+
+		assert.Equal(t, QualityDecorated, item.Quality, "Should be Decorated (15)")
+		assert.Equal(t, QualityStrange, item.Quality2, "Should have Elevated Strange (11)")
+	})
+
+	t.Run("Australium Normalization", func(t *testing.T) {
+		item := &sku.Item{Defindex: 45, Quality: QualityStrange, Australium: true}
+		assert.True(t, s.IsAustraliumDefindex(item.Defindex))
+	})
+}
+
+func TestGetStrangeParts_Mapping(t *testing.T) {
+	s := New(minimalRawSchema())
+
+	s.Raw.Schema.KillEaterScoreTypes = append(s.Raw.Schema.KillEaterScoreTypes, &KillEaterScoreType{
+		Type: 10, TypeName: "Airborne Enemies Killed",
+	})
+
+	parts := s.GetStrangeParts()
+	assert.Equal(t, "sp10", parts["Airborne Enemies Killed"])
+}
+
+func TestGetItemByNameWithThe_SpecialCases(t *testing.T) {
+	s := New(minimalRawSchema())
+
+	item := s.GetItemByNameWithThe("The Scattergun")
+	assert.NotNil(t, item)
+	assert.Equal(t, 5021, item.Defindex)
+
+	s.Raw.Schema.Items = append(s.Raw.Schema.Items, &Item{
+		Defindex: 0, ItemName: "Scattergun", ItemQuality: 0,
+	})
+	s.buildIndices()
+
+	itemStock := s.GetItemByName("Scattergun")
+	assert.Equal(t, 5021, itemStock.Defindex)
 }

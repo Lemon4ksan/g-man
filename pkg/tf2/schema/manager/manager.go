@@ -9,6 +9,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"runtime/debug"
 	"strings"
 	"sync"
@@ -33,9 +35,30 @@ const ModuleName string = "tf2_schema"
 // Config holds the configuration for the schema manager.
 type Config struct {
 	// UpdateInterval is the time interval between schema updates.
-	UpdateInterval time.Duration // How often to refresh the schema
+	UpdateInterval time.Duration
 	// LiteMode enables pruning of unnecessary items_game data to save RAM.
-	LiteMode bool // Prunes unnecessary items_game data to save RAM
+	LiteMode bool
+	// CachePath is the path to the local schema cache file.
+	CachePath string
+	// SchemaMirrorURL is the URL to use for fetching schema data in case the default URL is not reachable.
+	SchemaMirrorURL string
+	// PaintKitMirrorURL is the URL to use for fetching paintkit data in case the default URL is not reachable.
+	PaintKitMirrorURL string
+	// ItemsMirrorURL is the URL to use for fetching items data in case the default URL is not reachable.
+	ItemsMirrorURL string
+	// ItemsGameURL is the URL to use for fetching items_game.txt data.
+	ItemsGameURL string
+}
+
+// DefaultConfig returns a default configuration for the schema manager.
+func DefaultConfig() Config {
+	return Config{
+		UpdateInterval:    24 * time.Hour,
+		LiteMode:          false,
+		CachePath:         "cache/tf2/schema.json",
+		PaintKitMirrorURL: "https://raw.githubusercontent.com/SteamDatabase/GameTracking-TF2/master/tf/resource/tf_proto_obj_defs_english.txt",
+		ItemsGameURL:      "https://raw.githubusercontent.com/SteamDatabase/GameTracking-TF2/master/tf/scripts/items/items_game.txt",
+	}
 }
 
 // WithModule returns a steam.Option that registers the schema manager with the given configuration.
@@ -89,9 +112,39 @@ func (m *Manager) Init(init module.InitContext) error {
 func (m *Manager) StartAuthed(ctx context.Context, _ module.AuthContext) error {
 	m.Logger.Info("Starting TF2 Schema loading...")
 
-	// The first run is a blocking one. We need a schematic before the bot starts working.
-	if err := m.Refresh(ctx); err != nil {
-		return fmt.Errorf("initial schema fetch failed: %w", err)
+	// Listen for manual update requests (e.g. from GC)
+	sub := m.Bus.Subscribe(&schema.UpdateRequestedEvent{})
+
+	m.Go(func(ctx context.Context) {
+		defer sub.Unsubscribe()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case ev, ok := <-sub.C():
+				if !ok {
+					return
+				}
+
+				req := ev.(*schema.UpdateRequestedEvent)
+				m.handleUpdateRequested(req)
+			}
+		}
+	})
+
+	// The first run: try cache first, then refresh if needed.
+	if err := m.loadFromCache(); err != nil {
+		m.Logger.Info("Cache not available or invalid, performing full refresh", log.Err(err))
+
+		if err := m.Refresh(ctx); err != nil {
+			return fmt.Errorf("initial schema fetch failed: %w", err)
+		}
+	} else {
+		m.Logger.Info("Schema loaded from cache",
+			log.Time("time", m.schema.Time),
+			log.Int("items", len(m.schema.Raw.ItemsGame)),
+		)
 	}
 
 	m.Bus.Publish(&schema.ReadyEvent{})
@@ -101,6 +154,20 @@ func (m *Manager) StartAuthed(ctx context.Context, _ module.AuthContext) error {
 	})
 
 	return nil
+}
+
+func (m *Manager) handleUpdateRequested(req *schema.UpdateRequestedEvent) {
+	m.Logger.Info("Schema update requested",
+		log.Uint32("version", req.Version),
+		log.String("url", req.ItemsGameURL),
+	)
+
+	// Trigger a refresh in a separate goroutine to avoid blocking the bus
+	m.Go(func(ctx context.Context) {
+		if err := m.Refresh(ctx); err != nil {
+			m.Logger.Error("Manual schema refresh failed", log.Err(err))
+		}
+	})
 }
 
 // Get returns the current active schema. Returns nil if not ready.
@@ -156,6 +223,10 @@ func (m *Manager) Refresh(ctx context.Context) error {
 		return err
 	}
 
+	if err := m.saveToCache(); err != nil {
+		m.Logger.Warn("Failed to save schema to cache", log.Err(err))
+	}
+
 	m.Logger.Info("TF2 Schema updated successfully", log.Int("items", len(m.schema.Raw.ItemsGame)))
 	m.Bus.Publish(&schema.UpdatedEvent{Timestamp: time.Now()})
 
@@ -192,6 +263,13 @@ func (m *Manager) buildSchema(
 	overviewBytes, _ := json.Marshal(overview)
 	if err := json.Unmarshal(overviewBytes, &raw.Schema); err != nil {
 		return fmt.Errorf("failed to parse schema overview: %w", err)
+	}
+
+	version := ""
+	if res, ok := overview["result"].(map[string]any); ok {
+		if url, ok := res["items_game_url"].(string); ok {
+			version = url // Use URL as version for now as it contains the hash
+		}
 	}
 
 	strPool := make(map[string]string)
@@ -232,6 +310,8 @@ func (m *Manager) buildSchema(
 	}
 
 	newSchema := schema.New(raw)
+	newSchema.Version = version
+	newSchema.Time = time.Now()
 
 	m.mu.Lock()
 	m.schema = newSchema
@@ -271,7 +351,7 @@ func (m *Manager) pruneItemsGame(raw *schema.Raw) {
 func (m *Manager) getSchemaOverview(ctx context.Context) (map[string]any, error) {
 	req := struct {
 		Language string `url:"language"`
-	}{"en"}
+	}{"English"}
 
 	resp, err := service.WebAPI[map[string]any](ctx, m.svcClient, "GET", "IEconItems_440", "GetSchemaOverview", 1, req)
 	if err != nil {
@@ -298,7 +378,7 @@ func (m *Manager) getSchemaItems(ctx context.Context) ([]any, error) {
 			req := struct {
 				Language string `url:"language"`
 				Start    int    `url:"start"`
-			}{"en", next}
+			}{"English", next}
 
 			var err error
 
@@ -344,12 +424,17 @@ func (m *Manager) getSchemaItems(ctx context.Context) ([]any, error) {
 }
 
 func (m *Manager) getPaintKits(ctx context.Context) (map[string]string, error) {
-	url := "https://raw.githubusercontent.com/SteamDatabase/GameTracking-TF2/master/tf/resource/tf_proto_obj_defs_english.txt"
+	url := m.config.PaintKitMirrorURL
 
 	resp, err := m.restClient.Request(ctx, "GET", url, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch paint kits: %w", err)
 	}
+
+	if resp == nil {
+		return nil, errors.New("received nil response while fetching paint kits")
+	}
+
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
@@ -408,12 +493,17 @@ func (m *Manager) getPaintKits(ctx context.Context) (map[string]string, error) {
 }
 
 func (m *Manager) getItemsGame(ctx context.Context) (map[string]any, error) {
-	url := "https://raw.githubusercontent.com/SteamDatabase/GameTracking-TF2/master/tf/scripts/items/items_game.txt"
+	url := m.config.ItemsGameURL
 
 	resp, err := m.restClient.Request(ctx, "GET", url, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch items_game.txt: %w", err)
 	}
+
+	if resp == nil {
+		return nil, errors.New("received nil response while fetching items_game.txt")
+	}
+
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
@@ -454,9 +544,13 @@ func (m *Manager) fetchFromMirror(ctx context.Context, component string) (map[st
 
 	switch component {
 	case "overview":
-		url = "https://raw.githubusercontent.com/G-man-bot/tf2-static-schema/master/overview.json"
+		url = m.config.SchemaMirrorURL
 	default:
 		return nil, fmt.Errorf("unknown mirror component: %s", component)
+	}
+
+	if url == "" {
+		return nil, fmt.Errorf("mirror URL for %s not configured", component)
 	}
 
 	res, err := rest.GetJSON[map[string]any](ctx, m.restClient, url, nil)
@@ -468,7 +562,7 @@ func (m *Manager) fetchFromMirror(ctx context.Context, component string) (map[st
 }
 
 func (m *Manager) fetchItemsFromMirror(ctx context.Context) ([]any, error) {
-	url := "https://raw.githubusercontent.com/G-man-bot/tf2-static-schema/master/items.json"
+	url := m.config.ItemsMirrorURL
 
 	res, err := rest.GetJSON[[]any](ctx, m.restClient, url, nil)
 	if err != nil {
@@ -527,4 +621,65 @@ func (m *Manager) isRetryable(err error) bool {
 	}
 
 	return false
+}
+
+func (m *Manager) saveToCache() error {
+	if m.config.CachePath == "" {
+		return nil
+	}
+
+	m.mu.RLock()
+	s := m.schema
+	m.mu.RUnlock()
+
+	if s == nil {
+		return nil
+	}
+
+	data, err := json.Marshal(s)
+	if err != nil {
+		return err
+	}
+
+	return writeFile(m.config.CachePath, data)
+}
+
+func (m *Manager) loadFromCache() error {
+	if m.config.CachePath == "" {
+		return errors.New("cache path not configured")
+	}
+
+	data, err := readFile(m.config.CachePath)
+	if err != nil {
+		return err
+	}
+
+	var s schema.Schema
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+
+	// Simple validation
+	if s.Raw == nil || s.Raw.ItemsGame == nil {
+		return errors.New("cached schema is incomplete")
+	}
+
+	m.mu.Lock()
+	m.schema = &s
+	m.mu.Unlock()
+
+	return nil
+}
+
+func writeFile(path string, data []byte) error {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+
+	return os.WriteFile(path, data, 0o644)
+}
+
+func readFile(path string) ([]byte, error) {
+	return os.ReadFile(path)
 }

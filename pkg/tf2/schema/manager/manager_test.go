@@ -7,6 +7,7 @@ package manager
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -21,6 +22,16 @@ import (
 
 func setupSchema(t *testing.T, cfg Config) (*Manager, *requester.Mock) {
 	t.Helper()
+
+	// Merge with default config to ensure URLs are set
+	defaultCfg := DefaultConfig()
+	if cfg.ItemsGameURL == "" {
+		cfg.ItemsGameURL = defaultCfg.ItemsGameURL
+	}
+
+	if cfg.PaintKitMirrorURL == "" {
+		cfg.PaintKitMirrorURL = defaultCfg.PaintKitMirrorURL
+	}
 
 	mockAPI := requester.New()
 	init := module.NewInitContext()
@@ -113,7 +124,7 @@ func TestSchemaManager_Refresh_Success(t *testing.T) {
 			}, nil
 		}
 
-		return nil, nil
+		return nil, fmt.Errorf("unexpected REST path: %s", path)
 	}
 	sub := sm.Bus.Subscribe(&schema.UpdatedEvent{})
 
@@ -192,5 +203,48 @@ func TestSchemaManager_Refresh_Failures(t *testing.T) {
 				t.Error("expected error during Refresh, got nil")
 			}
 		})
+	}
+}
+
+func TestSchemaManager_HandleUpdateRequested(t *testing.T) {
+	sm, mockAPI := setupSchema(t, Config{})
+
+	// Setup mock responses for Refresh
+	mockAPI.SetJSONResponse("IEconItems_440", "GetSchemaOverview", map[string]any{
+		"result": map[string]any{"qualities": map[string]any{}},
+	})
+	mockAPI.SetJSONResponse("IEconItems_440", "GetSchemaItems", map[string]any{
+		"result": map[string]any{"items": []any{}, "next": 0},
+	})
+	mockAPI.OnRest = func(method, path string, body []byte) (*http.Response, error) {
+		var content string
+		if strings.Contains(path, "proto_obj_defs") {
+			content = "\"lang\"\n{\n\t\"Tokens\"\n\t{\n\t}\n}\n"
+		} else {
+			content = "\"items_game\"\n{\n\t\"valid_key\" \"value\"\n}\n"
+		}
+
+		return &http.Response{
+			Body:       io.NopCloser(strings.NewReader(content)),
+			StatusCode: 200,
+		}, nil
+	}
+
+	sub := sm.Bus.Subscribe(&schema.UpdatedEvent{})
+	subFail := sm.Bus.Subscribe(&schema.UpdateFailedEvent{})
+
+	sm.handleUpdateRequested(&schema.UpdateRequestedEvent{
+		Version:      1234,
+		ItemsGameURL: "http://example.com/items_game.txt",
+	})
+
+	// handleUpdateRequested runs in a goroutine, so we wait for UpdatedEvent
+	select {
+	case <-sub.C():
+		// Success
+	case ev := <-subFail.C():
+		t.Fatalf("Schema update failed: %v", ev.(*schema.UpdateFailedEvent).Error)
+	case <-time.After(5 * time.Second):
+		t.Error("Schema was not updated after request (timed out)")
 	}
 }

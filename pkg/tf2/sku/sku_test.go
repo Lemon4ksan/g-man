@@ -61,6 +61,24 @@ func TestFromString(t *testing.T) {
 			},
 		},
 		{
+			name:  "Spells",
+			input: "363;6;s-1009-1;s-1004-3",
+			want: &sku.Item{
+				Defindex:  363,
+				Quality:   6,
+				Spells:    []sku.Spell{{Attribute: 1009, Value: 1}, {Attribute: 1004, Value: 3}},
+				Craftable: true,
+				Tradable:  true,
+			},
+		},
+		{
+			name:  "Strange Parts",
+			input: "363;11;sp17;sp20",
+			want: &sku.Item{
+				Defindex: 363, Quality: 11, Parts: []int{17, 20}, Craftable: true, Tradable: true,
+			},
+		},
+		{
 			name:    "Invalid SKU - Too Short",
 			input:   "363",
 			wantErr: true,
@@ -112,6 +130,22 @@ func TestFromObject(t *testing.T) {
 			},
 			want: "100;5;u15;australium;uncraftable;untradable;w1;pk200;strange;kt-3;td-400;festive;n1;c2;od-3;oq-4;p5",
 		},
+		{
+			name: "Spells",
+			item: &sku.Item{
+				Defindex: 363, Quality: 6, Craftable: true, Tradable: true,
+				Spells: []sku.Spell{{Attribute: 1009, Value: 1}, {Attribute: 1004, Value: 3}},
+			},
+			want: "363;6;s-1009-1;s-1004-3",
+		},
+		{
+			name: "Strange Parts",
+			item: &sku.Item{
+				Defindex: 363, Quality: 11, Craftable: true, Tradable: true,
+				Parts: []int{17, 20},
+			},
+			want: "363;11;sp17;sp20",
+		},
 	}
 
 	for _, tt := range tests {
@@ -131,6 +165,9 @@ func TestRoundTrip(t *testing.T) {
 		"655;5;u14;australium;strange;kt-3",
 		"15000;15;w3;pk1;strange;kt-3;festive",
 		"300;6;uncraftable;untradable",
+		"363;6;s-1009-1;s-1004-3",
+		"363;11;sp17;sp20",
+		"363;6;s-1006-1",
 	}
 
 	for _, s := range skus {

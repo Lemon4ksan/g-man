@@ -3,53 +3,53 @@
 // license that can be found in the LICENSE file.
 
 /*
-Package schema provides a powerful, multi-source manager for the Team
-Fortress 2 item schema.
+Package schema provides a high-fidelity, performance-optimized manager for the Team Fortress 2 item schema.
 
-It acts as the "encyclopedia" for all TF2 item logic, translating raw numeric
-data (like defindexes and quality IDs) into human-readable names and
-standardized SKU strings.
-
-# Data Sources:
-
-The manager aggregates data from multiple authoritative sources to ensure
-maximum completeness:
-  - Steam WebAPI (IEconItems_440): Provides core item definitions, qualities,
-    and particle effects.
-  - GitHub (SteamDatabase/GameTracking): Provides the 'items_game.txt' and
-    localized paint kit names, which are essential for modern TF2 items.
+It serves as the definitive logic layer for TF2 item metadata, designed for 100% parity with the industry-standard
+Node.js 'tf2-schema' (used by TF2Autobot) while providing significant improvements in performance and type safety.
 
 # Architectural Role:
 
-The SchemaManager is a foundational module. Because other modules (like 'tf2'
-and 'trading') depend on the schema to correctly identify items, the
-SchemaManager performs a blocking initial fetch during its 'Start' phase.
-Once loaded, it publishes a 'SchemaReadyEvent' and transitions to a
-background refresh loop.
+The Schema acts as an "encyclopedia", translating raw numeric data from Steam APIs into structured models.
+It is a foundational dependency for the 'trading' and 'tf2' packages, providing the O(1) indices required
+for high-load inventory and trade processing.
 
-# High-Performance Indexing:
+# Parity & Industry Standards:
 
-To support high-frequency trading and inventory processing, the package builds
-multiple O(1) lookup maps upon every schema update. It allows near-instant
-resolution of:
-  - Item by Defindex or Name.
-  - Unusual Effects and Paint Kits by ID.
-  - Crate Series and Paint Decimal values.
+The package is a production-grade port of the Node.js schema logic, ensuring that item identification,
+SKU generation, and name building are identical across the trading ecosystem. This includes:
+  - Complex Name Parsing: High-fidelity implementation of 'GetItemObjectFromName' with all legacy edge cases
+    (e.g., specific skip conditions for effects like Stardust vs Starduster, Showstopper taunt logic, etc.).
+  - Special Mappings: Identical handling of unusual effects (e.g., Eerie Orbiting Fire) and skin-to-defindex
+    mapping for Decorated weapons.
 
-# Memory Optimization (LiteMode):
+# Normalization & Trade Standards:
 
-Steam's 'items_game' file is massive (often dozens of megabytes). When
-'LiteMode' is enabled in the configuration, the manager prunes non-essential
-VDF fields (like color definitions and quest conditions) to significantly
-reduce the RAM footprint—crucial for large bot farms.
+Steam's schema is notoriously inconsistent. This package provides a centralized normalization layer:
+  - GlobalNormalizationMap: Maps legacy/retired defindexes (like event-specific keys) to their canonical IDs.
+  - NormalizeItem: A robust method to "fix" item objects, correcting quality combinations
+    (e.g., Strange Unusuals, Elevated Qualities, and Promo versions) to meet trading bot standards.
+  - SKU Integration: Deep integration with the 'sku' package for bidirectional conversion.
 
-# Key Features:
+# Data-Driven Identification:
 
-  - Parallel Fetching: Uses 'errgroup' to download all schema components
-    simultaneously, reducing startup time.
-  - VDF Parsing: Native support for Valve Data Format (KeyValues) parsing.
-  - Events: Broadcaster for schema lifecycle changes (Ready, Updated, Failed).
-  - Normalization: Provides logic to fix Steam's inconsistent quality/defindex
-    combinations (e.g., Strange Unusuals or Promo versions).
+For internal bot logic (Game Coordinator events), the package emphasizes direct, data-driven identification.
+The SOCache provides high-performance SKU generation by mapping internal item attributes and
+defindexes directly to SKU objects, bypassing the fragility of string-based name parsing.
+
+# WebAPI Integration (Fallback Processing):
+
+While direct data is preferred, the package maintains a high-fidelity integration layer for
+the Steam WebAPI (Community Inventories). The 'GetSKUFromEconItem' method provides a robust
+fallback pipeline for converting generic items into strict TF2 SKUs using:
+  - Item tags (Exterior, Quality).
+  - MarketHashName heuristic parsing.
+  - Description attribute extraction (Unusual effects, Killstreak tiers, Paints, Spells, and Strange Parts).
+
+# Memory Management (LiteMode):
+
+Steam's 'items_game.txt' can exceed 30MB. When 'LiteMode' is enabled, the manager aggressively prunes
+non-essential VDF fields after index building to minimize the RAM footprint, which is critical
+for scaling large-scale bot deployments.
 */
 package schema

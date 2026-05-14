@@ -43,7 +43,14 @@ type Item struct {
 	Output        int
 	OutputQuality int
 	Paint         int
-	Spells        []int
+	Spells        []Spell
+	Parts         []int
+}
+
+// Spell represents a Halloween spell attached to an item.
+type Spell struct {
+	Attribute int
+	Value     int
 }
 
 // FromString parses a SKU string into an Item.
@@ -79,58 +86,77 @@ func FromString(sku string) (*Item, error) {
 
 	// process remaining attributes
 	for _, part := range parts[2:] {
-		attr := strings.ReplaceAll(part, "-", "") // remove any dashes
+		attr := part
+		// Special case: some attributes use dashes (kt-3, td-400), we should normalize them for matching
+		// but keep them for others (like spells s-1009-1)
+		normAttr := strings.ReplaceAll(attr, "-", "")
 
 		switch {
-		case attr == "uncraftable":
+		case normAttr == "uncraftable":
 			item.Craftable = false
-		case attr == "untradeable" || attr == "untradable":
+		case normAttr == "untradeable" || normAttr == "untradable":
 			item.Tradable = false
-		case attr == "australium":
+		case normAttr == "australium":
 			item.Australium = true
-		case attr == "festive":
+		case normAttr == "festive":
 			item.Festivized = true
-		case attr == "strange":
+		case normAttr == "strange":
 			item.Quality2 = 11
-		case strings.HasPrefix(attr, "kt") && len(attr) > 2:
-			if val, err := strconv.Atoi(attr[2:]); err == nil {
+		case strings.HasPrefix(normAttr, "kt") && len(normAttr) > 2:
+			if val, err := strconv.Atoi(normAttr[2:]); err == nil {
 				item.Killstreak = val
 			}
-		case strings.HasPrefix(attr, "u") && len(attr) > 1:
-			if val, err := strconv.Atoi(attr[1:]); err == nil {
+		case strings.HasPrefix(normAttr, "u") && len(normAttr) > 1:
+			if val, err := strconv.Atoi(normAttr[1:]); err == nil {
 				item.Effect = val
 			}
-		case strings.HasPrefix(attr, "pk") && len(attr) > 2:
-			if val, err := strconv.Atoi(attr[2:]); err == nil {
+		case strings.HasPrefix(normAttr, "pk") && len(normAttr) > 2:
+			if val, err := strconv.Atoi(normAttr[2:]); err == nil {
 				item.Paintkit = val
 			}
-		case strings.HasPrefix(attr, "w") && len(attr) > 1:
-			if val, err := strconv.Atoi(attr[1:]); err == nil {
+		case strings.HasPrefix(normAttr, "w") && len(normAttr) > 1:
+			if val, err := strconv.Atoi(normAttr[1:]); err == nil {
 				item.Wear = val
 			}
-		case strings.HasPrefix(attr, "td") && len(attr) > 2:
-			if val, err := strconv.Atoi(attr[2:]); err == nil {
+		case strings.HasPrefix(normAttr, "td") && len(normAttr) > 2:
+			if val, err := strconv.Atoi(normAttr[2:]); err == nil {
 				item.Target = val
 			}
-		case strings.HasPrefix(attr, "n") && len(attr) > 1:
-			if val, err := strconv.Atoi(attr[1:]); err == nil {
+		case strings.HasPrefix(normAttr, "n") && len(normAttr) > 1:
+			if val, err := strconv.Atoi(normAttr[1:]); err == nil {
 				item.Craftnumber = val
 			}
-		case strings.HasPrefix(attr, "c") && len(attr) > 1:
-			if val, err := strconv.Atoi(attr[1:]); err == nil {
+		case strings.HasPrefix(normAttr, "c") && len(normAttr) > 1:
+			if val, err := strconv.Atoi(normAttr[1:]); err == nil {
 				item.Crateseries = val
 			}
-		case strings.HasPrefix(attr, "od") && len(attr) > 2:
-			if val, err := strconv.Atoi(attr[2:]); err == nil {
+		case strings.HasPrefix(normAttr, "od") && len(normAttr) > 2:
+			if val, err := strconv.Atoi(normAttr[2:]); err == nil {
 				item.Output = val
 			}
-		case strings.HasPrefix(attr, "oq") && len(attr) > 2:
-			if val, err := strconv.Atoi(attr[2:]); err == nil {
+		case strings.HasPrefix(normAttr, "oq") && len(normAttr) > 2:
+			if val, err := strconv.Atoi(normAttr[2:]); err == nil {
 				item.OutputQuality = val
 			}
-		case strings.HasPrefix(attr, "p") && len(attr) > 1:
-			if val, err := strconv.Atoi(attr[1:]); err == nil {
+		case strings.HasPrefix(normAttr, "p") && len(normAttr) > 1 && !strings.Contains(attr, "-"):
+			if val, err := strconv.Atoi(normAttr[1:]); err == nil {
 				item.Paint = val
+			}
+		case strings.HasPrefix(attr, "s-") && len(attr) > 2:
+			spellParts := strings.Split(attr[2:], "-")
+			if len(spellParts) == 2 {
+				a, _ := strconv.Atoi(spellParts[0])
+				v, _ := strconv.Atoi(spellParts[1])
+				item.Spells = append(item.Spells, Spell{Attribute: a, Value: v})
+			}
+
+		case strings.HasPrefix(attr, "sp") && len(attr) > 2:
+			if val, err := strconv.Atoi(attr[2:]); err == nil {
+				item.Parts = append(item.Parts, val)
+			}
+		case strings.HasPrefix(attr, "s") && len(attr) > 1:
+			if val, err := strconv.Atoi(attr[1:]); err == nil {
+				item.Spells = append(item.Spells, Spell{Attribute: val, Value: 1})
 			}
 		}
 	}
@@ -220,6 +246,22 @@ func FromObject(item *Item) string {
 		b.WriteByte(';')
 		b.WriteByte('p')
 		b.WriteString(strconv.Itoa(item.Paint))
+	}
+
+	for _, spell := range item.Spells {
+		if spell.Attribute == 0 {
+			continue
+		}
+
+		b.WriteString(";s-")
+		b.WriteString(strconv.Itoa(spell.Attribute))
+		b.WriteByte('-')
+		b.WriteString(strconv.Itoa(spell.Value))
+	}
+
+	for _, partID := range item.Parts {
+		b.WriteString(";sp")
+		b.WriteString(strconv.Itoa(partID))
 	}
 
 	return b.String()

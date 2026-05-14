@@ -37,8 +37,7 @@ type Raw struct {
 		ItemLevels                           []*ItemLevel          `json:"item_levels"`
 		KillEaterScoreTypes                  []*KillEaterScoreType `json:"kill_eater_score_types"`
 		StringLookups                        []*StringLookup       `json:"string_lookups"`
-
-		PaintKits map[string]string `json:"paintkits"` // Injected from protodefs
+		PaintKits                            map[string]string     `json:"paintkits"` // Injected from protodefs
 	} `json:"schema"`
 
 	ItemsGame map[string]any `json:"items_game"` // Parsed items_game.txt (should be nilled after init)
@@ -201,6 +200,10 @@ type Schema struct {
 
 	// Name indices without "The "
 	itemsByNameStripped map[string]*Item
+
+	// Reverse spell mapping
+	spellsByName map[string]sku.Spell
+	spellsByID   map[string]string
 }
 
 // New creates a Schema from the given raw data and builds all indices.
@@ -218,8 +221,11 @@ func New(raw *Raw) *Schema {
 		paintKitByName: make(map[string]int),
 		paintByDecimal: make(map[int]string),
 		paintByName:    make(map[string]int),
+		spellsByName:   make(map[string]sku.Spell),
+		spellsByID:     make(map[string]string),
 	}
 	s.buildIndices()
+	s.buildSpellIndices()
 
 	return s
 }
@@ -232,7 +238,14 @@ func (s *Schema) buildIndices() {
 	for _, item := range s.Raw.Schema.Items {
 		lowName := strings.ToLower(item.ItemName)
 		s.itemsByDef[item.Defindex] = item
-		s.itemsByName[lowName] = item
+
+		if item.ItemQuality == 0 || (item.ItemName == "Name Tag" && item.Defindex == 2093) {
+			continue
+		}
+
+		if _, exists := s.itemsByName[lowName]; !exists {
+			s.itemsByName[lowName] = item
+		}
 
 		stripped := strings.TrimPrefix(lowName, "the ")
 		if _, exists := s.itemsByNameStripped[stripped]; !exists {
@@ -269,15 +282,12 @@ func (s *Schema) buildIndices() {
 			// Special case mappings from original JS
 			switch eff.Name {
 			case "Eerie Orbiting Fire":
-				// Original JS: delete obj['Orbiting Fire']; obj['Orbiting Fire'] = 33;
 				s.effByName["orbiting fire"] = 33
 				s.effByID[33] = "Orbiting Fire"
 			case "Nether Trail":
-				// Original JS: delete obj['Ether Trail']; obj['Ether Trail'] = 103;
 				s.effByName["ether trail"] = 103
 				s.effByID[103] = "Ether Trail"
 			case "Refragmenting Reality":
-				// Original JS: delete obj['Fragmenting Reality']; obj['Fragmenting Reality'] = 141;
 				s.effByName["fragmenting reality"] = 141
 				s.effByID[141] = "Fragmenting Reality"
 			}
@@ -308,7 +318,36 @@ func (s *Schema) buildIndices() {
 	s.paintByName["legacy paint"] = 5801378
 
 	s.crateSeriesList = s.buildCrateSeriesList()
+	s.buildSpellIndices()
+
 	s.Raw.ItemsGame = nil
+}
+
+// buildSpellIndices creates a reverse lookup for spells.
+func (s *Schema) buildSpellIndices() {
+	s.spellsByName = make(map[string]sku.Spell)
+	s.spellsByID = make(map[string]string)
+
+	for name, spell := range SpellDefinitions {
+		lowerName := strings.ToLower(name)
+		s.spellsByName[lowerName] = spell
+
+		// Index by ID
+		idKey := fmt.Sprintf("%d-%d", spell.Attribute, spell.Value)
+		s.spellsByID[idKey] = name
+
+		// Also index without "Halloween: " prefix and common suffixes for convenience
+		if strings.HasPrefix(lowerName, "halloween: ") {
+			shortName := strings.TrimPrefix(lowerName, "halloween: ")
+			s.spellsByName[shortName] = spell
+
+			// Strip common suffixes like "(paint)", "(footprints)", etc.
+			if idx := strings.Index(shortName, " ("); idx != -1 {
+				veryShortName := shortName[:idx]
+				s.spellsByName[veryShortName] = spell
+			}
+		}
+	}
 }
 
 // buildCrateSeriesList builds the crate series map efficiently.
@@ -398,7 +437,7 @@ func (s *Schema) GetEffectById(id int) string {
 	return s.effByID[id]
 }
 
-// GetEffectIdByName returns the effect id with the given name.
+// GetEffectIdByName returns the ID for a particle effect name.
 func (s *Schema) GetEffectIdByName(name string) int {
 	return s.effByName[strings.ToLower(name)]
 }
@@ -415,7 +454,19 @@ func (s *Schema) GetSkinIdByName(name string) int {
 
 // GetPaintNameByDecimal returns the paint name with the given decimal value.
 func (s *Schema) GetPaintNameByDecimal(decimal int) string {
-	return s.paintByDecimal[decimal]
+	if name, ok := s.paintByDecimal[decimal]; ok {
+		return name
+	}
+
+	if name, ok := StandardPaints[uint32(decimal)]; ok {
+		return name
+	}
+
+	if decimal == 0 {
+		return ""
+	}
+
+	return fmt.Sprintf("#%06X", decimal)
 }
 
 // GetPaintDecimalByName returns the paint decimal value with the given name.
@@ -429,15 +480,7 @@ func (s *Schema) GetItemByNameWithThe(name string) *Item {
 	name = strings.TrimPrefix(name, "the ")
 	name = strings.TrimSpace(name)
 
-	if it, ok := s.itemsByNameStripped[name]; ok {
-		if it.ItemName == "Name Tag" && it.Defindex == 2093 {
-			return s.GetItemByDef(2093)
-		}
-
-		return it
-	}
-
-	return nil
+	return s.itemsByNameStripped[name]
 }
 
 // GetItemBySKU returns the item for a given SKU string.
@@ -519,6 +562,30 @@ func (s *Schema) GetStrangeParts() map[string]string {
 	}
 
 	return m
+}
+
+// GetSpellName returns the human-readable name of a spell.
+func (s *Schema) GetSpellName(spell sku.Spell) string {
+	idKey := fmt.Sprintf("%d-%d", spell.Attribute, spell.Value)
+
+	name, ok := s.spellsByID[idKey]
+	if !ok {
+		return fmt.Sprintf("Unknown Spell (%d-%d)", spell.Attribute, spell.Value)
+	}
+
+	// Clean up name for display
+	name = strings.TrimPrefix(name, "Halloween: ")
+	if idx := strings.Index(name, " ("); idx != -1 {
+		name = name[:idx]
+	}
+
+	return name
+}
+
+// GetSpellIdByName returns the attribute and value IDs for a spell name.
+func (s *Schema) GetSpellIdByName(name string) (sku.Spell, bool) {
+	spell, ok := s.spellsByName[strings.ToLower(name)]
+	return spell, ok
 }
 
 var weaponsToExclude = map[int]bool{
@@ -604,14 +671,44 @@ func (s *Schema) GetCrateSeriesList() map[int]int {
 	return s.crateSeriesList
 }
 
+// NormalizeDefindex returns the "canonical" defindex for an item.
+func (s *Schema) NormalizeDefindex(defindex int) int {
+	return NormalizeDefindex(defindex)
+}
+
+// IsAustraliumDefindex returns true if the defindex can be an Australium weapon.
+func (s *Schema) IsAustraliumDefindex(defindex int) bool {
+	return IsAustraliumDefindex(defindex)
+}
+
+// IsNativeFestive returns true if the defindex belongs to a "native" Festive item.
+func (s *Schema) IsNativeFestive(defindex int) bool {
+	return IsNativeFestive(defindex)
+}
+
 // GetQualities returns the quality name to ID map.
 func (s *Schema) GetQualities() map[string]int {
 	return s.qualByName
 }
 
+// GetWearByName returns the wear ID for a given string (e.g. "Factory New").
+func (s *Schema) GetWearByName(name string) int {
+	name = strings.TrimSpace(name)
+	if !strings.HasPrefix(name, "(") {
+		name = "(" + name + ")"
+	}
+
+	return wears[name]
+}
+
 // GetParticleEffects returns the effect name to ID map.
 func (s *Schema) GetParticleEffects() map[string]int {
 	return s.effByName
+}
+
+// GetPaintKitsByName returns the paintkit name to ID map.
+func (s *Schema) GetPaintKitsByName() map[string]int {
+	return s.paintKitByName
 }
 
 // GetPaintKits returns the paint kit name to ID map.
@@ -871,6 +968,23 @@ func (s *Schema) GetName(item *sku.Item, proper, usePipeForSkin, scmFormat bool)
 		}
 	}
 
+	for _, spell := range item.Spells {
+		parts = append(parts, "(Spell: "+s.GetSpellName(spell)+")")
+	}
+
+	for _, partID := range item.Parts {
+		// Find part name in schema
+		partName := "Unknown Part"
+		for _, p := range s.Raw.Schema.KillEaterScoreTypes {
+			if p.Type == partID {
+				partName = p.TypeName
+				break
+			}
+		}
+
+		parts = append(parts, "("+partName+": 0)")
+	}
+
 	if item.Crateseries != 0 {
 		if scmFormat {
 			hasSeriesAttr := false
@@ -947,13 +1061,6 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 	}
 
 	// Wear
-	wears := map[string]int{
-		"(factory new)":    1,
-		"(minimal wear)":   2,
-		"(field-tested)":   3,
-		"(well-worn)":      4,
-		"(battle scarred)": 5,
-	}
 	for w, val := range wears {
 		if strings.Contains(name, w) {
 			debugLog("wear before", name, item)
@@ -1017,6 +1124,7 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 		debugLog("unusualifier before", name, item)
 		name = strings.ReplaceAll(name, "unusual ", "")
 		name = strings.ReplaceAll(name, " unusualifier", "")
+		name = strings.ReplaceAll(name, "unusualifier", "")
 		name = strings.TrimSpace(name)
 		item.Defindex = 9258
 		item.Quality = QualityUnusual
@@ -1033,25 +1141,23 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 
 	kitFabricatorDetected := strings.Contains(name, "kit fabricator")
 
-	if !kitFabricatorDetected {
-		killstreaks := []struct {
-			phrase string
-			value  int
-		}{
-			{"professional killstreak", 3},
-			{"specialized killstreak", 2},
-			{"killstreak", 1},
-		}
-		for _, ks := range killstreaks {
-			if strings.Contains(name, ks.phrase) {
-				debugLog("killstreak before", name, item)
-				name = strings.Replace(name, ks.phrase, "", 1)
-				name = strings.TrimSpace(name)
-				item.Killstreak = ks.value
-				debugLog("killstreak after", name, item)
+	killstreaks := []struct {
+		phrase string
+		value  int
+	}{
+		{"professional killstreak", 3},
+		{"specialized killstreak", 2},
+		{"killstreak", 1},
+	}
+	for _, ks := range killstreaks {
+		if strings.Contains(name, ks.phrase) {
+			debugLog("killstreak before", name, item)
+			name = strings.Replace(name, ks.phrase, "", 1)
+			name = strings.TrimSpace(name)
+			item.Killstreak = ks.value
+			debugLog("killstreak after", name, item)
 
-				break
-			}
+			break
 		}
 	}
 
@@ -1091,27 +1197,38 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 		}
 	}
 
-	if !containsAny(qualitySearch, exception) {
+	if !slices.Contains(exception, qualitySearch) {
 		for qName, qID := range s.qualByName {
-			if qName == "collector's" && strings.Contains(qualitySearch, "collector's") &&
+			// Special case: "Decorated Weapon" is a quality but items are usually "SkinName (WeaponName)"
+			if qID == QualityDecorated {
+				continue
+			}
+
+			if qID == QualityCollectors && strings.Contains(qualitySearch, "collector's") &&
 				strings.Contains(qualitySearch, "chemistry set") {
 				continue
 			}
 
-			if qName == "community" && strings.HasPrefix(qualitySearch, "community sparkle") {
+			if qID == QualityCommunity && strings.HasPrefix(qualitySearch, "community sparkle") {
 				continue
 			}
 
 			if strings.HasPrefix(qualitySearch, qName) {
 				debugLog("quality before", name, item)
-				name = strings.ReplaceAll(name, qName, "")
-				name = strings.TrimSpace(name)
 
-				if item.Quality2 == Quality2None {
-					item.Quality2 = item.Quality
+				if item.Quality != 0 && item.Quality != qID {
+					if item.Quality2 == Quality2None {
+						item.Quality2 = item.Quality
+					}
+
+					item.Quality = qID
+				} else {
+					item.Quality = qID
 				}
 
-				item.Quality = qID
+				name = strings.Replace(name, qName, "", 1)
+				name = strings.TrimSpace(name)
+
 				debugLog("quality after", name, item)
 
 				break
@@ -1369,8 +1486,8 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 	}
 
 	// Collector's Chemistry Set
-	if (strings.Contains(name, "chemistry set") && !strings.Contains(name, "strangifier chemistry set")) ||
-		strings.Contains(name, "collector's") {
+	if strings.Contains(name, "chemistry set") &&
+		(!strings.Contains(name, "strangifier chemistry set") || strings.Contains(name, "collector's")) {
 		debugLog("collector's chemistry set before", name, item)
 		name = strings.ReplaceAll(name, "collector's ", "")
 		name = strings.ReplaceAll(name, "chemistry set", "")
@@ -1640,13 +1757,29 @@ func (s *Schema) GetItemObjectFromName(name string) *sku.Item {
 	return item
 }
 
-// GetSkuFromName returns the SKU string for the given name.
+// GetSkuFromName returns the SKU string for the given item name.
+// NOTE: This method relies on string parsing and is subject to naming variations.
+// Use GetSKUFromObject for direct data-driven identification whenever possible.
 func (s *Schema) GetSkuFromName(name string) string {
 	item := s.GetItemObjectFromName(name)
 	return sku.FromObject(item)
 }
 
+// GetSKUFromObject normalizes the given SKU item and returns its string representation.
+// This is the preferred method for generating SKUs from structured data.
+func (s *Schema) GetSKUFromObject(item *sku.Item) string {
+	if item == nil {
+		return ""
+	}
+
+	s.NormalizeItem(item)
+
+	return sku.FromObject(item)
+}
+
 // GetSKUFromEconItem converts a generic Steam WebAPI item into a strict TF2 SKU string.
+// NOTE: This method relies on MarketHashName parsing and is maintained for
+// legacy WebAPI compatibility. For internal bot logic, use tf2.Item.GetSKU(s).
 func (s *Schema) GetSKUFromEconItem(item *trading.Item) string {
 	nameToParse := item.MarketHashName
 	if nameToParse == "" {
@@ -1658,34 +1791,137 @@ func (s *Schema) GetSKUFromEconItem(item *trading.Item) string {
 		return "unknown"
 	}
 
+	// Tags detection (Reliable for Wear/Quality)
+	for _, tag := range item.Tags {
+		if tag.Category == "Exterior" {
+			if wearID := s.GetWearByName(tag.LocalizedName); wearID != 0 {
+				skuItem.Wear = wearID
+			}
+		}
+	}
+
+	// Skin (Paintkit) detection by name
+	if skuItem.Quality == QualityDecorated {
+		lowerName := strings.ToLower(item.MarketHashName)
+		for pkName, pkID := range s.paintKitByName {
+			if strings.Contains(lowerName, pkName) {
+				skuItem.Paintkit = pkID
+				break
+			}
+		}
+	}
+
 	skuItem.Tradable = item.Tradable
 
-	// TODO: skuItem.Craftable = !item.IsNonCraftable()
+	// Killstreak, Paint, Crate Series, Spells, Strange Parts, Wear, Paintkit
 	for _, desc := range item.Descriptions {
-		if desc.Value == "( Not Usable in Crafting )" {
+		val := strings.TrimSpace(desc.Value)
+		if val == "" {
+			continue
+		}
+
+		// Exterior (Wear): "Exterior: Factory New"
+		if wearName, ok := strings.CutPrefix(val, "Exterior: "); ok {
+			if wearID := s.GetWearByName(wearName); wearID != 0 {
+				skuItem.Wear = wearID
+			}
+
+			continue
+		}
+
+		if strings.Contains(val, "( Not Usable in Crafting )") {
 			skuItem.Craftable = false
 			break
 		}
 	}
 
-	if skuItem.Quality == QualityUnusual && skuItem.Effect == 0 {
-		for _, desc := range item.Descriptions {
-			if after, ok := strings.CutPrefix(desc.Value, "★ Unusual Effect: "); ok {
+	// Attribute detection from descriptions
+	for _, d := range item.Descriptions {
+		val := d.Value
+
+		// Unusual Effect
+		isUnusual := skuItem.Quality == QualityUnusual || skuItem.Quality2 == QualityUnusual ||
+			skuItem.Quality == QualityDecorated
+		if isUnusual && skuItem.Effect == 0 {
+			if after, ok := strings.CutPrefix(val, "★ Unusual Effect: "); ok {
 				if id := s.GetEffectIdByName(after); id != 0 {
 					skuItem.Effect = id
-					break
 				}
+			}
+		}
+
+		// Killstreak Tier
+		if strings.Contains(val, "Killstreak Active") {
+			switch {
+			case strings.Contains(val, "Professional"):
+				skuItem.Killstreak = 3
+			case strings.Contains(val, "Specialized"):
+				skuItem.Killstreak = 2
+			case strings.Contains(val, "Killstreak"):
+				skuItem.Killstreak = 1
+			}
+		}
+
+		// Paint
+		if paintName, ok := strings.CutPrefix(val, "Paint Color: "); ok {
+			if paintID := s.GetPaintDecimalByName(paintName); paintID != 0 {
+				skuItem.Paint = paintID
+			}
+		}
+
+		// Crate Series
+		if strings.Contains(val, "Crate Series #") {
+			parts := strings.Split(val, "#")
+			if len(parts) == 2 {
+				if series, err := strconv.Atoi(parts[1]); err == nil {
+					skuItem.Crateseries = series
+				}
+			}
+		}
+
+		// Festive/Festivized
+		if strings.Contains(val, "Festivized") {
+			skuItem.Festivized = true
+		}
+
+		// Strange Parts (Color: 756b5e)
+		if d.Color == "756b5e" {
+			clean := strings.Trim(val, "()")
+			if before, _, ok := strings.Cut(clean, ":"); ok {
+				partName := strings.TrimSpace(before)
+				for name, suffix := range s.GetStrangeParts() {
+					if strings.Contains(partName, name) {
+						if partID, err := strconv.Atoi(strings.TrimPrefix(suffix, "sp")); err == nil {
+							skuItem.Parts = append(skuItem.Parts, partID)
+						}
+
+						break
+					}
+				}
+			}
+		}
+
+		// Spells (Color: 7ea9d1)
+		if strings.ToLower(d.Color) == "7ea9d1" {
+			spellName := strings.TrimSpace(val)
+			if spell, ok := s.GetSpellIdByName(spellName); ok {
+				skuItem.Spells = append(skuItem.Spells, spell)
 			}
 		}
 	}
 
-	for _, desc := range item.Descriptions {
-		val := strings.TrimSpace(desc.Value)
-		if strings.HasPrefix(val, "Halloween: ") {
-			if spellID, ok := halloweenSpells[val]; ok {
-				skuItem.Spells = append(skuItem.Spells, spellID)
-			}
-		}
+	// Extra detections from name if not already set
+	if !skuItem.Festivized && (strings.Contains(nameToParse, "Festivized") || s.IsNativeFestive(skuItem.Defindex)) {
+		skuItem.Festivized = true
+	}
+
+	if !skuItem.Australium && strings.Contains(nameToParse, "Australium") {
+		skuItem.Australium = true
+	}
+
+	// Strange Unusual / Strange Decorated detection
+	if skuItem.Quality != 11 && strings.HasPrefix(item.MarketHashName, "Strange ") {
+		skuItem.Quality2 = 11
 	}
 
 	s.NormalizeItem(skuItem)
@@ -1701,12 +1937,17 @@ func (s *Schema) IsPromoItem(it *Item) bool {
 // NormalizeItem "fixes" an item, bringing its Defindex and quality combinations
 // into line with a single trade standard. The method modifies the passed [sku.Item] object using its pointer.
 func (s *Schema) NormalizeItem(item *sku.Item) {
+	// 1. Defindex Normalization (using centralized map)
+	// We do this BEFORE schema lookup because we want to normalize even if the old ID isn't in schema
+	item.Defindex = NormalizeDefindex(item.Defindex)
+
 	schemaItem := s.GetItemByDef(item.Defindex)
 	if schemaItem == nil {
 		return
 	}
 
 	// Fix for "Upgradeable" weapons (Stock weapons that can be renamed)
+	// We do this AFTER map normalization in case the canonical ID is also upgradeable
 	if strings.Contains(schemaItem.Name, strings.ToUpper(schemaItem.ItemClass)) {
 		for _, it := range s.Raw.Schema.Items {
 			if it.ItemClass == schemaItem.ItemClass && strings.HasPrefix(it.Name, "Upgradeable ") {
@@ -1716,40 +1957,8 @@ func (s *Schema) NormalizeItem(item *sku.Item) {
 		}
 	}
 
-	// Standardization of specific items (Keys, Luger)
-	switch schemaItem.ItemName {
-	case "Mann Co. Supply Crate Key":
-		item.Defindex = 5021
-	case "Lugermorph":
-		item.Defindex = 160
-	}
-
-	// Grouping identical items under one Defindex (Strangifiers, Whales)
-	switch item.Defindex {
-	// Basic Killstreak Kits for various weapons come down to 6527
-	case 5726, 5727, 5728, 5729, 5730, 5731, 5732, 5733, 5743, 5744,
-		5745, 5746, 5747, 5748, 5749, 5750, 5751, 5793, 5794, 5795,
-		5796, 5797, 5798, 5799, 5800, 5801:
-		item.Defindex = 6527
-
-	// Mann Co. Stockpile Crate of various versions
-	case 5738:
-		item.Defindex = 5737
-
-	// Strangifiers for specific weapons are reduced to 6522
-	case 5661, 5721, 5722, 5723, 5724, 5725, 5753, 5754, 5755, 5756,
-		5757, 5758, 5759, 5783, 5784, 5804:
-		item.Defindex = 6522
-
-	// Strangifier Chemistry Sets are reduced to 20,000
-	case 20001, 20005, 20008, 20009:
-		item.Defindex = 20000
-	}
-
+	// 2. Promo/Genuine Logic
 	isPromo := s.IsPromoItem(schemaItem)
-
-	// If this is a promotional item, but the quality is NOT Genuine (e.g., Unique),
-	// you need to find the original (non-promotional) defindex of this item.
 	if isPromo && item.Quality != QualityGenuine {
 		for _, it := range s.Raw.Schema.Items {
 			if !s.IsPromoItem(it) && it.ItemName == schemaItem.ItemName {
@@ -1758,8 +1967,6 @@ func (s *Schema) NormalizeItem(item *sku.Item) {
 			}
 		}
 	} else if !isPromo && item.Quality == QualityGenuine {
-		// If this is an original item, but the quality is Genuine,
-		// you need to find the promo define.
 		for _, it := range s.Raw.Schema.Items {
 			if s.IsPromoItem(it) && it.ItemName == schemaItem.ItemName {
 				item.Defindex = it.Defindex
@@ -1768,25 +1975,24 @@ func (s *Schema) NormalizeItem(item *sku.Item) {
 		}
 	}
 
-	if schemaItem.ItemClass == "supply_crate" {
+	// 3. Crate Series assignment from schema if missing
+	if item.Crateseries == 0 && schemaItem.ItemClass == "supply_crate" {
 		if series, ok := s.crateSeriesList[item.Defindex]; ok {
 			item.Crateseries = series
 		}
 	}
 
-	// Fixed bugs with quality combinations (Effects & Qualities)
+	// 4. Quality combinations (Strange Unusual / Decorated)
 	if item.Effect != 0 {
-		if item.Quality == QualityStrange && item.Paintkit == 0 {
-			// Strange Unusual Cosmetic (Valve sometimes gives hats as Strange with the effect)
-			// Change to: Quality = Unusual (5), Quality2 = Strange (11)
-			item.Quality2 = QualityStrange
-			item.Quality = QualityUnusual
-		} else if item.Paintkit != 0 {
-			// War Paint or Skins (Weapon Skins)
-			// If the skin has an Unusual effect and is marked as Strange or Unusual
-			if item.Quality2 == QualityStrange || item.Quality == QualityUnusual {
-				item.Quality = QualityDecorated // Decorated (15)
+		if item.Paintkit != 0 || item.Quality == QualityDecorated {
+			if item.Quality == QualityStrange || item.Quality2 == QualityStrange {
+				item.Quality2 = QualityStrange
 			}
+
+			item.Quality = QualityDecorated
+		} else if item.Quality == QualityStrange || item.Quality2 == QualityStrange {
+			item.Quality = QualityUnusual
+			item.Quality2 = QualityStrange
 		}
 	}
 }
@@ -1805,14 +2011,4 @@ func atoi(s string) int {
 	val, _ := strconv.Atoi(s)
 
 	return val
-}
-
-func containsAny(s string, list []string) bool {
-	for _, substr := range list {
-		if strings.Contains(s, substr) {
-			return true
-		}
-	}
-
-	return false
 }
