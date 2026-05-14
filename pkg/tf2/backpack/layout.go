@@ -27,7 +27,7 @@ type Layout struct {
 // BySKU returns a filter that checks if the item matches the specified SKU.
 func BySKU(targetSKU string) Filter {
 	return func(item *tf2.Item, s *schema.Schema) bool {
-		return s.GetSKUFromEconItem(item.ToEconItem()) == targetSKU
+		return item.GetSKU(s) == targetSKU
 	}
 }
 
@@ -53,7 +53,7 @@ func ByClass(class string) Filter {
 // IsPure returns a filter that checks if the item is pure (reclaimed metal, refined metal, keys).
 func IsPure() Filter {
 	return func(item *tf2.Item, s *schema.Schema) bool {
-		d := item.DefIndex
-		return d == 5021 || d == 5002 || d == 5001 || d == 5000
+		d := s.NormalizeDefindex(int(item.DefIndex))
+		return d == schema.DefKey || d == schema.DefRefined || d == schema.DefReclaimed || d == schema.DefScrap
 	}
 }

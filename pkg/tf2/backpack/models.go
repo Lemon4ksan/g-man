@@ -117,10 +117,22 @@ func mapCEconToTF2(econ inventory.CEconItem, s *schema.Schema) TF2Item {
 			continue
 		}
 
+		// Exterior (Wear): "Exterior: Factory New"
+		if wearName, ok := strings.CutPrefix(val, "Exterior: "); ok {
+			if wearID := s.GetWearByName(wearName); wearID != 0 {
+				item.Attributes = append(item.Attributes, TF2Attribute{
+					Defindex: schema.AttrWear,
+					Value:    float64(wearID),
+				})
+			}
+
+			continue
+		}
+
 		if effectName, ok := strings.CutPrefix(val, "★ Unusual Effect: "); ok {
 			if effectID := s.GetEffectIdByName(effectName); effectID != 0 {
 				item.Attributes = append(item.Attributes, TF2Attribute{
-					Defindex: 134,
+					Defindex: schema.AttrUnusualEffect,
 					Value:    float64(effectID),
 				})
 			}
@@ -141,7 +153,7 @@ func mapCEconToTF2(econ inventory.CEconItem, s *schema.Schema) TF2Item {
 
 			if ksLevel > 0 {
 				item.Attributes = append(item.Attributes, TF2Attribute{
-					Defindex: 2025, // Killstreak Tier
+					Defindex: schema.AttrKillstreak,
 					Value:    float64(ksLevel),
 				})
 			}
@@ -150,19 +162,117 @@ func mapCEconToTF2(econ inventory.CEconItem, s *schema.Schema) TF2Item {
 		if paintName, ok := strings.CutPrefix(val, "Paint Color: "); ok {
 			if paintID := s.GetPaintDecimalByName(paintName); paintID != 0 {
 				item.Attributes = append(item.Attributes, TF2Attribute{
-					Defindex: 142, // Paint color
+					Defindex: schema.AttrPaintColor,
 					Value:    float64(paintID),
+				})
+			}
+		}
+
+		// Crate Series: "Crate Series #82"
+		if strings.Contains(val, "Crate Series #") {
+			parts := strings.Split(val, "#")
+			if len(parts) == 2 {
+				if series, err := strconv.Atoi(parts[1]); err == nil {
+					item.Attributes = append(item.Attributes, TF2Attribute{
+						Defindex: schema.AttrCrateSeries,
+						Value:    float64(series),
+					})
+				}
+			}
+		}
+
+		// Strange detection for non-strange qualities (e.g. Strange Unusual)
+		if item.Quality != schema.QualityStrange &&
+			(strings.Contains(val, "Strange Stat") || strings.Contains(val, "Strange Part")) {
+			item.Attributes = append(item.Attributes, TF2Attribute{
+				Defindex: schema.AttrStrangeScore,
+				Value:    float64(1),
+			})
+		}
+
+		// Strange Parts (Color: 756b5e)
+		if d.Color == "756b5e" {
+			// Extract part name from string like "Kills: 123" or "(Airborne Enemies Killed: 0)"
+			clean := strings.Trim(val, "()")
+			if before, _, ok := strings.Cut(clean, ":"); ok {
+				partName := strings.TrimSpace(before)
+				// Match against schema parts
+				for name, suffix := range s.GetStrangeParts() {
+					if strings.Contains(partName, name) {
+						if partID, err := strconv.Atoi(strings.TrimPrefix(suffix, "sp")); err == nil {
+							item.Attributes = append(item.Attributes, TF2Attribute{
+								Defindex: schema.DefPartsProxy + len(item.Attributes),
+								Value:    float64(partID),
+							})
+						}
+
+						break
+					}
+				}
+			}
+		}
+
+		// Spells (Color: 7ea9d1)
+		if d.Color == "7ea9d1" {
+			spellName := strings.TrimSpace(val)
+			if spell, ok := s.GetSpellIdByName(spellName); ok {
+				item.Attributes = append(item.Attributes, TF2Attribute{
+					Defindex: schema.DefSpellProxy + len(item.Attributes),
+					Value:    spell,
 				})
 			}
 		}
 	}
 
-	if strings.Contains(desc.Name, "Australium") && item.Quality == 11 { // Strange + Name
+	// Paintkit detection for Decorated Weapons
+	if item.Quality == 15 {
+		name := strings.ToLower(desc.MarketHashName)
+		for pkName, pkID := range s.GetPaintKitsByName() {
+			if strings.Contains(name, pkName) {
+				item.Attributes = append(item.Attributes, TF2Attribute{
+					Defindex: schema.AttrPaintkit,
+					Value:    float64(pkID),
+				})
+
+				break
+			}
+		}
+	}
+
+	// Australium detection (Attribute 2027)
+	// 1. Try to find it in AppData attributes if available
+	hasAustraliumAttr := false
+	if attrData, ok := desc.AppData["attributes"].(map[string]any); ok {
+		if _, exists := attrData["2027"]; exists {
+			hasAustraliumAttr = true
+		}
+	}
+
+	// 2. Fallback to name check (only on MarketHashName to avoid custom name baiting)
+	// Australiums are always Strange and must be in the whitelist
+	if !hasAustraliumAttr && item.Quality == schema.QualityStrange &&
+		s.IsAustraliumDefindex(item.Defindex) &&
+		strings.Contains(desc.MarketHashName, "Australium") {
+		hasAustraliumAttr = true
+	}
+
+	if hasAustraliumAttr {
 		item.Attributes = append(item.Attributes, TF2Attribute{
-			Defindex: 2027,
+			Defindex: schema.AttrAustralium,
 			Value:    float64(1),
 		})
 	}
+
+	// Festive logic: Native Festive items OR Festivized attribute
+	isFestive := strings.Contains(desc.Name, "Festivized") || s.IsNativeFestive(item.Defindex)
+	if isFestive {
+		item.Attributes = append(item.Attributes, TF2Attribute{
+			Defindex: schema.AttrFestivized,
+			Value:    float64(1),
+		})
+	}
+
+	item.Defindex = s.NormalizeDefindex(item.Defindex)
 
 	return item
 }
@@ -178,36 +288,80 @@ func (it *TF2Item) ToSKU() string {
 	wear := 0
 	isAustralium := false
 	paintkit := 0
+	killstreak := 0
+	isFestivized := false
+	paint := 0
+	quality2 := 0
+	crateseries := 0
+
+	var (
+		spells []sku.Spell
+		parts  []int
+	)
 
 	for _, attr := range it.Attributes {
 		switch attr.Defindex {
-		case 134: // Unusual Effect
+		case schema.AttrUnusualEffect:
 			if val, ok := attr.Value.(float64); ok {
 				effect = int(val)
 			}
-
-		case 725: // Wear
+		case schema.AttrWear:
 			if val, ok := attr.Value.(float64); ok {
 				wear = int(val * 5)
 			}
-
-		case 2027: // Australium
+		case schema.AttrAustralium:
 			isAustralium = true
-		case 834: // Paintkit
+		case schema.AttrPaintkit:
 			if val, ok := attr.Value.(float64); ok {
 				paintkit = int(val)
+			}
+		case schema.AttrKillstreak:
+			if val, ok := attr.Value.(float64); ok {
+				killstreak = int(val)
+			}
+		case schema.AttrFestivized:
+			isFestivized = true
+		case schema.AttrPaintColor, schema.AttrPaintColor2:
+			if val, ok := attr.Value.(float64); ok {
+				paint = int(val)
+			}
+		case schema.AttrCrateSeries:
+			if val, ok := attr.Value.(float64); ok {
+				crateseries = int(val)
+			}
+		case schema.AttrStrangeScore:
+			quality2 = schema.QualityStrange
+		}
+
+		if attr.Defindex >= schema.DefSpellProxy && attr.Defindex < schema.DefSpellProxy+100 {
+			if spell, ok := attr.Value.(sku.Spell); ok {
+				spells = append(spells, spell)
+			}
+		}
+
+		if attr.Defindex >= schema.DefPartsProxy && attr.Defindex < schema.DefPartsProxy+100 {
+			if val, ok := attr.Value.(float64); ok {
+				parts = append(parts, int(val))
 			}
 		}
 	}
 
 	return sku.FromObject(&sku.Item{
-		Defindex:   defindex,
-		Quality:    quality,
-		Craftable:  isCraftable,
-		Australium: isAustralium,
-		Effect:     effect,
-		Wear:       wear,
-		Paintkit:   paintkit,
+		Defindex:    defindex,
+		Quality:     quality,
+		Craftable:   isCraftable,
+		Tradable:    !it.FlagCannotTrade,
+		Australium:  isAustralium,
+		Effect:      effect,
+		Wear:        wear,
+		Paintkit:    paintkit,
+		Killstreak:  killstreak,
+		Festivized:  isFestivized,
+		Paint:       paint,
+		Quality2:    quality2,
+		Crateseries: crateseries,
+		Spells:      spells,
+		Parts:       parts,
 	})
 }
 
