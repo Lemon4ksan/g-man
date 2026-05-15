@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package manager
+package schema
 
 import (
 	"bytes"
@@ -17,7 +17,6 @@ import (
 	"time"
 
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
-	"github.com/lemon4ksan/g-man/pkg/tf2/schema"
 	"github.com/lemon4ksan/g-man/test/module"
 	"github.com/lemon4ksan/g-man/test/requester"
 )
@@ -39,7 +38,7 @@ func setupSchema(t *testing.T, cfg Config) (*Manager, *requester.Mock) {
 	init := module.NewInitContext()
 	init.SetService(mockAPI)
 
-	sm := New(cfg)
+	sm := NewManager(cfg)
 	if err := sm.Init(init); err != nil {
 		t.Fatalf("failed to init schema manager: %v", err)
 	}
@@ -49,7 +48,7 @@ func setupSchema(t *testing.T, cfg Config) (*Manager, *requester.Mock) {
 
 func TestNewSchemaManager_ConfigDefaults(t *testing.T) {
 	cfg := Config{UpdateInterval: 10 * time.Second}
-	sm := New(cfg)
+	sm := NewManager(cfg)
 
 	if sm.config.UpdateInterval != 24*time.Hour {
 		t.Errorf("expected 24h interval, got %v", sm.config.UpdateInterval)
@@ -57,7 +56,7 @@ func TestNewSchemaManager_ConfigDefaults(t *testing.T) {
 
 	cfgValid := Config{UpdateInterval: 5 * time.Minute}
 
-	smValid := New(cfgValid)
+	smValid := NewManager(cfgValid)
 	if smValid.config.UpdateInterval != 5*time.Minute {
 		t.Errorf("expected 5m interval, got %v", smValid.config.UpdateInterval)
 	}
@@ -66,7 +65,7 @@ func TestNewSchemaManager_ConfigDefaults(t *testing.T) {
 func TestSchemaManager_LiteModePruning(t *testing.T) {
 	sm, _ := setupSchema(t, Config{LiteMode: true})
 
-	raw := &schema.Raw{
+	raw := &Raw{
 		ItemsGame: map[string]any{
 			"prefabs":         map[string]any{"test": 1},
 			"items":           map[string]any{"1": "test_item"},
@@ -128,7 +127,7 @@ func TestSchemaManager_Refresh_Success(t *testing.T) {
 
 		return nil, fmt.Errorf("unexpected REST path: %s", path)
 	}
-	sub := sm.Bus.Subscribe(&schema.UpdatedEvent{})
+	sub := sm.Bus.Subscribe(&UpdatedEvent{})
 
 	err := sm.Refresh(context.Background())
 	if err != nil {
@@ -166,7 +165,11 @@ func TestSchemaManager_Refresh_PriceDB_Success(t *testing.T) {
 		"raw": map[string]any{
 			"schema": map[string]any{
 				"items": []any{
-					map[string]any{"defindex": 5021, "name": "Mann Co. Supply Crate Key", "item_name": "Mann Co. Supply Crate Key"},
+					map[string]any{
+						"defindex":  5021,
+						"name":      "Mann Co. Supply Crate Key",
+						"item_name": "Mann Co. Supply Crate Key",
+					},
 				},
 				"paintkits": map[string]any{
 					"0": "Red Rock Roscoe",
@@ -179,6 +182,7 @@ func TestSchemaManager_Refresh_PriceDB_Success(t *testing.T) {
 	mockAPI.OnRest = func(method, path string, body []byte) (*http.Response, error) {
 		if strings.Contains(path, "pricedb.io/api/schema") {
 			respBody, _ := json.Marshal(priceDBResp)
+
 			return &http.Response{
 				StatusCode: 200,
 				Body:       io.NopCloser(bytes.NewReader(respBody)),
@@ -187,6 +191,7 @@ func TestSchemaManager_Refresh_PriceDB_Success(t *testing.T) {
 
 		if strings.Contains(path, "items_game.txt") {
 			content := "\"items_game\"\n{\n\t\"valid_key\" \"value\"\n}\n"
+
 			return &http.Response{
 				StatusCode: 200,
 				Body:       io.NopCloser(strings.NewReader(content)),
@@ -299,10 +304,10 @@ func TestSchemaManager_HandleUpdateRequested(t *testing.T) {
 		}, nil
 	}
 
-	sub := sm.Bus.Subscribe(&schema.UpdatedEvent{})
-	subFail := sm.Bus.Subscribe(&schema.UpdateFailedEvent{})
+	sub := sm.Bus.Subscribe(&UpdatedEvent{})
+	subFail := sm.Bus.Subscribe(&UpdateFailedEvent{})
 
-	sm.handleUpdateRequested(&schema.UpdateRequestedEvent{
+	sm.handleUpdateRequested(&UpdateRequestedEvent{
 		Version:      1234,
 		ItemsGameURL: "http://example.com/items_game.txt",
 	})
@@ -312,7 +317,7 @@ func TestSchemaManager_HandleUpdateRequested(t *testing.T) {
 	case <-sub.C():
 		// Success
 	case ev := <-subFail.C():
-		t.Fatalf("Schema update failed: %v", ev.(*schema.UpdateFailedEvent).Error)
+		t.Fatalf("Schema update failed: %v", ev.(*UpdateFailedEvent).Error)
 	case <-time.After(5 * time.Second):
 		t.Error("Schema was not updated after request (timed out)")
 	}

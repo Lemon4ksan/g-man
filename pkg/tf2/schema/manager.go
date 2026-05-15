@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package manager
+package schema
 
 import (
 	"context"
@@ -27,7 +27,6 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"github.com/lemon4ksan/g-man/pkg/tf2/pricedb"
-	"github.com/lemon4ksan/g-man/pkg/tf2/schema"
 )
 
 // ModuleName is the name of the schema manager module.
@@ -56,7 +55,7 @@ func DefaultConfig() Config {
 	return Config{
 		UpdateInterval:     24 * time.Hour,
 		LiteMode:           false,
-		CachePath:          "cache/tf2/schema.json",
+		CachePath:          "cache/tf2/json",
 		PaintKitURL:        "https://raw.githubusercontent.com/SteamDatabase/GameTracking-TF2/master/tf/resource/tf_proto_obj_defs_english.txt",
 		ItemsGameMirrorURL: "https://raw.githubusercontent.com/SteamDatabase/GameTracking-TF2/master/tf/scripts/items/items_game.txt",
 	}
@@ -65,7 +64,7 @@ func DefaultConfig() Config {
 // WithModule returns a steam.Option that registers the schema manager with the given configuration.
 func WithModule(cfg Config) steam.Option {
 	return func(c *steam.Client) {
-		c.RegisterModule(New(cfg))
+		c.RegisterModule(NewManager(cfg))
 	}
 }
 
@@ -80,11 +79,11 @@ type Manager struct {
 	pricedbClient *pricedb.Client
 
 	mu     sync.RWMutex
-	schema *schema.Schema
+	schema *Schema
 }
 
-// New creates a manager with the given options.
-func New(cfg Config) *Manager {
+// NewManager creates a manager with the given options.
+func NewManager(cfg Config) *Manager {
 	if cfg.UpdateInterval < 1*time.Minute {
 		cfg.UpdateInterval = 24 * time.Hour
 	}
@@ -125,7 +124,7 @@ func (m *Manager) StartAuthed(ctx context.Context, _ module.AuthContext) error {
 	m.Logger.Info("Starting TF2 Schema loading...")
 
 	// Listen for manual update requests (e.g. from GC)
-	sub := m.Bus.Subscribe(&schema.UpdateRequestedEvent{})
+	sub := m.Bus.Subscribe(&UpdateRequestedEvent{})
 
 	m.Go(func(ctx context.Context) {
 		defer sub.Unsubscribe()
@@ -139,7 +138,7 @@ func (m *Manager) StartAuthed(ctx context.Context, _ module.AuthContext) error {
 					return
 				}
 
-				req := ev.(*schema.UpdateRequestedEvent)
+				req := ev.(*UpdateRequestedEvent)
 				m.handleUpdateRequested(req)
 			}
 		}
@@ -159,7 +158,7 @@ func (m *Manager) StartAuthed(ctx context.Context, _ module.AuthContext) error {
 		)
 	}
 
-	m.Bus.Publish(&schema.ReadyEvent{})
+	m.Bus.Publish(&ReadyEvent{})
 
 	m.Go(func(moduleCtx context.Context) {
 		m.refreshLoop(moduleCtx)
@@ -168,7 +167,7 @@ func (m *Manager) StartAuthed(ctx context.Context, _ module.AuthContext) error {
 	return nil
 }
 
-func (m *Manager) handleUpdateRequested(req *schema.UpdateRequestedEvent) {
+func (m *Manager) handleUpdateRequested(req *UpdateRequestedEvent) {
 	m.Logger.Info("Schema update requested",
 		log.Uint32("version", req.Version),
 		log.String("url", req.ItemsGameURL),
@@ -182,8 +181,8 @@ func (m *Manager) handleUpdateRequested(req *schema.UpdateRequestedEvent) {
 	})
 }
 
-// Get returns the current active schema. Returns nil if not ready.
-func (m *Manager) Get() *schema.Schema {
+// Get returns the current active  Returns nil if not ready.
+func (m *Manager) Get() *Schema {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -214,6 +213,7 @@ func (m *Manager) Refresh(ctx context.Context) error {
 	itemsGameURL, _ := rawSchema["items_game_url"].(string)
 
 	pkMap, _ := rawSchema["paintkits"].(map[string]any)
+
 	paintKits := make(map[string]string, len(pkMap))
 	for k, v := range pkMap {
 		if s, ok := v.(string); ok {
@@ -222,6 +222,7 @@ func (m *Manager) Refresh(ctx context.Context) error {
 	}
 
 	m.Logger.Debug("Fetching items_game.txt...", log.String("url", itemsGameURL))
+
 	itemsGame, err := m.getItemsGame(ctx, itemsGameURL)
 	if err != nil {
 		return fmt.Errorf("failed to fetch items_game.txt: %w", err)
@@ -253,7 +254,7 @@ func (m *Manager) Refresh(ctx context.Context) error {
 		log.String("version", m.schema.Version),
 		log.Int("items", len(m.schema.Raw.Schema.Items)),
 	)
-	m.Bus.Publish(&schema.UpdatedEvent{Timestamp: time.Now()})
+	m.Bus.Publish(&UpdatedEvent{Timestamp: time.Now()})
 
 	return nil
 }
@@ -283,17 +284,19 @@ func (m *Manager) refreshLegacy(ctx context.Context, itemsGameURL string) error 
 		var err error
 
 		paintkits, err = m.getPaintKits(gCtx)
+
 		return err
 	})
 	g.Go(func() error {
 		var err error
 
 		itemsGame, err = m.getItemsGame(gCtx, itemsGameURL)
+
 		return err
 	})
 
 	if err := g.Wait(); err != nil {
-		m.Bus.Publish(&schema.UpdateFailedEvent{Error: err})
+		m.Bus.Publish(&UpdateFailedEvent{Error: err})
 		return fmt.Errorf("parallel legacy fetch failed: %w", err)
 	}
 
@@ -306,7 +309,7 @@ func (m *Manager) refreshLegacy(ctx context.Context, itemsGameURL string) error 
 	}
 
 	m.Logger.Info("TF2 Schema updated successfully via Legacy API", log.Int("items", len(m.schema.Raw.Schema.Items)))
-	m.Bus.Publish(&schema.UpdatedEvent{Timestamp: time.Now()})
+	m.Bus.Publish(&UpdatedEvent{Timestamp: time.Now()})
 
 	return nil
 }
@@ -333,7 +336,7 @@ func (m *Manager) buildSchema(
 	paintKits map[string]string,
 	itemsGame map[string]any,
 ) error {
-	raw := &schema.Raw{
+	raw := &Raw{
 		ItemsGame: itemsGame,
 	}
 	raw.Schema.PaintKits = paintKits
@@ -365,9 +368,9 @@ func (m *Manager) buildSchema(
 		return s
 	}
 
-	raw.Schema.Items = make([]*schema.Item, 0, len(items))
+	raw.Schema.Items = make([]*Item, 0, len(items))
 	for _, it := range items {
-		var item schema.Item
+		var item Item
 		if err := mapstructure.Decode(it, &item); err == nil {
 			item.ItemClass = intern(item.ItemClass)
 			item.CraftClass = intern(item.CraftClass)
@@ -387,7 +390,7 @@ func (m *Manager) buildSchema(
 		m.pruneItemsGame(raw)
 	}
 
-	newSchema := schema.New(raw)
+	newSchema := New(raw)
 	newSchema.Version = version
 	newSchema.Time = time.Now()
 
@@ -402,7 +405,7 @@ func (m *Manager) buildSchema(
 
 // pruneItemsGame deletes unnecessary fields from the massive items_game map
 // to save RAM. Used when LiteMode is true.
-func (m *Manager) pruneItemsGame(raw *schema.Raw) {
+func (m *Manager) pruneItemsGame(raw *Raw) {
 	if raw.ItemsGame == nil {
 		return
 	}
@@ -732,7 +735,7 @@ func (m *Manager) loadFromCache() error {
 		return err
 	}
 
-	var s schema.Schema
+	var s Schema
 	if err := json.Unmarshal(data, &s); err != nil {
 		return err
 	}

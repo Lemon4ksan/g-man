@@ -15,9 +15,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/tf2"
 	"github.com/lemon4ksan/g-man/pkg/tf2/currency"
 	"github.com/lemon4ksan/g-man/pkg/tf2/schema"
-	"github.com/lemon4ksan/g-man/pkg/tf2/schema/manager"
 	"github.com/lemon4ksan/g-man/pkg/trading"
-	"github.com/lemon4ksan/g-man/pkg/trading/web/offer"
 )
 
 type mockCache struct {
@@ -138,7 +136,7 @@ func TestBackpack_HandleEvent(t *testing.T) {
 
 func TestBackpack_ApplyLayout(t *testing.T) {
 	bp := New()
-	bp.manager = manager.New(manager.Config{})
+	bp.manager = schema.NewManager(schema.Config{})
 
 	// Test error case: schema not ready
 	err := bp.ApplyLayout(context.Background(), Layout{})
@@ -168,7 +166,7 @@ func TestBackpack_CleanupStaleLocks(t *testing.T) {
 	bp.LockItems([]uint64{1, 2, 3})
 
 	mockTrading := &mockTradingProvider{
-		offers: []offer.TradeOffer{
+		offers: []trading.TradeOffer{
 			{
 				ItemsToGive: []*trading.Item{
 					{AssetID: 1},
@@ -186,10 +184,10 @@ func TestBackpack_CleanupStaleLocks(t *testing.T) {
 }
 
 type mockTradingProvider struct {
-	offers []offer.TradeOffer
+	offers []trading.TradeOffer
 }
 
-func (m *mockTradingProvider) GetActiveSentOffers(ctx context.Context) ([]offer.TradeOffer, error) {
+func (m *mockTradingProvider) GetActiveSentOffers(ctx context.Context) ([]trading.TradeOffer, error) {
 	return m.offers, nil
 }
 
