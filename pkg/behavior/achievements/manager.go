@@ -9,8 +9,19 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/lemon4ksan/g-man/pkg/behavior"
 	"github.com/lemon4ksan/g-man/pkg/log"
 )
+
+// BehaviorName is the name of the behavior.
+const BehaviorName = "achievements"
+
+// WithBehavior returns an option that registers the achievement manager behavior with the orchestrator.
+func WithBehavior(provider Provider, cfg Config) behavior.Option {
+	return func(o *behavior.Orchestrator) {
+		o.Register(New(provider, cfg, o.Logger()))
+	}
+}
 
 // Provider describes the interface for interaction with the game for the manager.
 type Provider interface {
@@ -39,8 +50,8 @@ type Manager struct {
 	logger   log.Logger
 }
 
-// NewManager creates a new achievement manager.
-func NewManager(provider Provider, config Config, logger log.Logger) *Manager {
+// New creates a new achievement behavior.
+func New(provider Provider, config Config, logger log.Logger) *Manager {
 	return &Manager{
 		provider: provider,
 		config:   config,
@@ -49,8 +60,13 @@ func NewManager(provider Provider, config Config, logger log.Logger) *Manager {
 	}
 }
 
+// Name returns the name of the behavior.
+func (m *Manager) Name() string {
+	return BehaviorName
+}
+
 // Run implements the universal strategy for obtaining achievements.
-func (m *Manager) Run(ctx context.Context) {
+func (m *Manager) Run(ctx context.Context) error {
 	logger := m.logger.With(log.Uint32("app_id", m.config.AppID))
 	logger.Info("Achievement Manager started")
 
@@ -89,7 +105,7 @@ func (m *Manager) Run(ctx context.Context) {
 
 		select {
 		case <-ctx.Done():
-			return
+			return ctx.Err()
 		case <-ticker.C:
 		}
 	}

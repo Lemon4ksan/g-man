@@ -62,7 +62,7 @@ func TestAchievementManager_Unlock(t *testing.T) {
 		AchievementPool:  [][]uint32{{1, 5}},
 	}
 
-	mgr := NewManager(provider, config, log.Discard)
+	mgr := New(provider, config, log.Discard)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
@@ -93,7 +93,7 @@ func TestAchievementManager_Break(t *testing.T) {
 		CheckInterval: 10 * time.Millisecond,
 	}
 
-	mgr := NewManager(provider, config, log.Discard)
+	mgr := New(provider, config, log.Discard)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()

@@ -29,7 +29,6 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/sys/apps"
 	"github.com/lemon4ksan/g-man/pkg/steam/sys/gc"
 	"github.com/lemon4ksan/g-man/pkg/tf2/schema"
-	"github.com/lemon4ksan/g-man/pkg/tf2/schema/manager"
 )
 
 const (
@@ -46,8 +45,8 @@ func WithModule() steam.Option {
 	}
 }
 
-// DefaultAchievementConfig returns the standard strategy config for TF2.
-func DefaultAchievementConfig() achievements.Config {
+// AchievementConfig returns the standard strategy config for TF2 achievements for achivements manager.
+func AchievementConfig() achievements.Config {
 	return achievements.Config{
 		AppID:            AppID,
 		TotalCount:       520,
@@ -65,16 +64,13 @@ func DefaultAchievementConfig() achievements.Config {
 			{1601, 1640}, // Pyro
 			{1701, 1740}, // Spy
 			{1801, 1840}, // Engy
+			{1901, 1921}, // Halloween
+			{2201, 2212}, // Foundry
+			{2301, 2352}, // MvM
+			{2401, 2412}, // Doomsday
+			{2701, 2705}, // Snakewater
+			{2801, 2805}, // Powerhouse
 		},
-	}
-}
-
-// WithAchievementManager enables the automatic achievement strategy manager.
-func WithAchievementManager(cfg achievements.Config) steam.Option {
-	return func(c *steam.Client) {
-		if t, ok := c.Module(ModuleName).(*TF2); ok {
-			t.achMgr = achievements.NewManager(t, cfg, t.Logger.With(log.String("module", "achievements")))
-		}
 	}
 }
 
@@ -123,7 +119,6 @@ type TF2 struct {
 	state  atomic.Int32
 	cache  *SOCache
 	schema SchemaProvider
-	achMgr *achievements.Manager
 }
 
 // New creates a new TF2 module.
@@ -157,7 +152,7 @@ func (t *TF2) Init(init module.InitContext) error {
 
 	t.apps = appsMod
 
-	schemaMod, ok := init.Module(manager.ModuleName).(SchemaProvider)
+	schemaMod, ok := init.Module(schema.ModuleName).(SchemaProvider)
 	if !ok || schemaMod == nil {
 		return errors.New("schema module not registered or invalid")
 	}
@@ -185,10 +180,6 @@ func (t *TF2) StartAuthed(ctx context.Context, authCtx module.AuthContext) error
 	t.Go(func(ctx context.Context) {
 		t.helloLoop(ctx)
 	})
-
-	if t.achMgr != nil {
-		t.Go(t.achMgr.Run)
-	}
 
 	return nil
 }
