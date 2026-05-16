@@ -211,6 +211,49 @@ func PostJSON[Req, Resp any](
 	return result, nil
 }
 
+// DeleteJSON marshals the payload to JSON (if not nil), performs a DELETE request, and decodes the
+// response body into a new instance of Resp.
+func DeleteJSON[Req, Resp any](
+	ctx context.Context,
+	c Requester,
+	path string,
+	payload Req,
+	query any,
+	mods ...RequestModifier,
+) (*Resp, error) {
+	var (
+		bodyBytes []byte
+		err       error
+	)
+
+	bodyBytes, err = json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("rest: failed to marshal payload: %w", err)
+	}
+
+	if string(bodyBytes) == "null" {
+		bodyBytes = nil
+	}
+
+	jsonMod := func(req *http.Request) {
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+	}
+	mods = append([]RequestModifier{jsonMod}, mods...)
+
+	resp, err := c.Request(ctx, http.MethodDelete, path, bodyBytes, query, mods...)
+	if err != nil {
+		return nil, err
+	}
+
+	result := new(Resp)
+	if err := handleJSONResponse(resp, result); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
 // handleJSONResponse closes the body and handles status code validation.
 func handleJSONResponse(resp *http.Response, target any) error {
 	defer resp.Body.Close()
