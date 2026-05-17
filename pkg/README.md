@@ -68,7 +68,7 @@ Common utilities and persistence layers used across the SDK.
 
 | Package       | Description                                                                                           |
 |:--------------|:------------------------------------------------------------------------------------------------------|
-| **`behavior`**| Logic for other automated behaviors, such as achievements.                                            |
+| **`behavior`**| Logic for universal automated behaviors, such as achievements.                                            |
 | **`bus`**     | Internal high-performance **Event Bus** for decoupled module communication.                           |
 | **`crypto`**  | Steam-specific cryptography (ECC, RSA) and **TOTP** (2FA) generation.                                 |
 | **`jobs`**    | Generic asynchronous callback manager for tracking request-response cycles.                           |

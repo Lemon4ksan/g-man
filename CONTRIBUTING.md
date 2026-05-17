@@ -15,7 +15,9 @@ By contributing to this project, you agree to abide by its terms and follow the 
 ### Suggesting Enhancements
 
 * **Open an Issue:** Describe the feature you'd like to see and, most importantly, **why** it would be useful for the project.
-* **Scope:** We prefer modular enhancements. If a feature is too specific to one game or use case, consider if it should be a separate package in `pkg/`.
+* **Scope & Generality:** G-man is designed to be a highly universal, modular foundation suitable for a wide range of trading setups, service platforms, and private bot managers.
+  * **Keep it Generic:** We do **not** accept highly specialized business logic, proprietary rules, or overly narrow database schemas that are tailored for a single private trading system.
+  * **Build on Top, Not Inside:** Public APIs, structures, and managers must remain customizable and generic. Custom, proprietary trading algorithms or private backend integrations should be built *on top* of G-man modules using our decoupled interfaces rather than being merged directly into the core packages.
 
 ### Pull Requests
 
@@ -85,7 +87,7 @@ We rely heavily on automated testing to ensure the framework remains stable.
 
 ## 🔒 Security Vulnerabilities
 
-If you discover a security vulnerability (especially related to Steam Guard or credential handling), please **do not open a public issue**. Instead, please contact the maintainers privately at `arsenii.komolov@yandex.ru` (or via Discord).
+If you discover a security vulnerability (especially related to Steam Guard or credential handling), please **do not open a public issue**. Instead, please contact the maintainers privately at `arsenii.komolov@yandex.ru` (or via Telegram: `t.me/LemonadeAK`).
 
 ## ⚖️ License
 
