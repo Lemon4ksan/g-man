@@ -11,17 +11,11 @@
 
 > *"The right bot in the wrong place can make all the difference in the skins market."*
 
----
-
 #### 🇺🇸 [English](README.md) • 🇷🇺 [Русский](README_RU.md)
 
 </div>
 
----
-
 **G-man** is a high-performance, enterprise-grade Steam client SDK and multi-game automation framework architected in Go. Built for high-frequency trading, industrial-scale item management, and ultra-resilient network operations, G-man bridges the Steam Network and Game Coordinators into a single, thread-safe orchestrator. It seamlessly integrates **Socket (CM)**, **WebAPI**, and **Game Coordinator** protocols to keep your trade operations live 24/7.
-
----
 
 ## 🛠 Architecture Overview
 
@@ -84,8 +78,6 @@ flowchart LR
     Router -- "Execute" --> Steam
 ```
 
----
-
 ## ⚡ Key Features
 
 ### 🔄 Self-Healing Sessions (Silent Re-auth)
@@ -106,8 +98,6 @@ G-man comes out of the box with a fully-integrated, production-grade TF2 trading
 * **Competitor Undercutting & Swing Protection:** Scrapes backpack.tf's active snapshots, automatically outpricing competitors while applying strict swing limits to protect against price manipulation.
 * **Smart Counter-Offers & Metal Smelting:** Automatically calculates value differentials, smelts or combines metals (`Refined` $\leftrightarrow$ `Reclaimed` $\leftrightarrow$ `Scrap`) to make precise change, and pulls missing keys or items from the partner's inventory to construct a smart counter-offer.
 * **Achievement Simulator:** Emulates human-like achievement unlocks and stat reports using legit-mimicking behavior to avoid bot flags.
-
----
 
 ## 📂 Project Directory Structure
 
@@ -135,8 +125,6 @@ pkg/
 ├── bus/              # Decoupled thread-safe event bus
 └── rest/             # Type-sanitizing HTTP & REST API client
 ```
-
----
 
 ## 🚀 Quick Start
 
@@ -242,8 +230,6 @@ func PriceValidationMiddleware(priceProvider PriceProvider) engine.Middleware {
 }
 ```
 
----
-
 ## 🏗 Roadmap
 
 ### Core Infrastructure
@@ -261,16 +247,12 @@ func PriceValidationMiddleware(priceProvider PriceProvider) engine.Middleware {
 - [ ] **CS2 Coordinator:** GC-handshakes, item skin parsing, and match history tracking.
 - [ ] **Dota 2 Coordinator:** SOCache item parsing and custom lobby manager.
 
----
-
 ## 🤝 Contributing
 
 We welcome contributions to G-man! If you want to add support for new storage adapters, expand CS2/Dota 2 GC structures, or improve defensive scraping algorithms:
 1. Review our design philosophy in [CONTRIBUTING.md](CONTRIBUTING.md).
 2. Ensure new network dependencies are minimal and run through the `transport.Doer` interface.
 3. Write matching unit tests and verify concurrency safety using `go test -race ./...`.
-
----
 
 ## ☕ Support the Development
 
@@ -283,8 +265,6 @@ Building a industrial-scale Steam SDK takes hundreds of hours of protocol revers
 > *"Donations... are not a requirement, but... they fulfill the terms of our... agreement."*
 
 </div>
-
----
 
 ## ⚖️ Legal & License
 
