@@ -1,162 +1,280 @@
 <div align="center">
 
-# G-MAN
+# 🤖 G-MAN
 
 ### The Ultimate Steam & Multi-Game Trading Bot Framework for Go
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/lemon4ksan/g-man.svg)](https://pkg.go.dev/github.com/lemon4ksan/g-man)
-[![Go Report Card](https://goreportcard.com/badge/github.com/lemon4ksan/g-man)](https://goreportcard.com/report/github.com/lemon4ksan/g-man)
-[![License](https://img.shields.io/github/license/lemon4ksan/g-man)](LICENSE)
+[![Go Reference](https://img.shields.io/badge/go-reference-007d9c?logo=go&logoColor=white&style=flat-square)](https://pkg.go.dev/github.com/lemon4ksan/g-man)
+[![Go Report Card](https://goreportcard.com/badge/github.com/lemon4ksan/g-man?style=flat-square)](https://goreportcard.com/report/github.com/lemon4ksan/g-man)
+[![License](https://img.shields.io/github/license/lemon4ksan/g-man?style=flat-square)](LICENSE)
+[![GitHub Stars](https://img.shields.io/github/stars/lemon4ksan/g-man?style=flat-square)](https://github.com/lemon4ksan/g-man/stargazers)
 
 > *"The right bot in the wrong place can make all the difference in the skins market."*
+
+---
+
+#### 🇺🇸 [English](README.md) • 🇷🇺 [Русский](README_RU.md)
 
 </div>
 
 ---
 
-**G-man** is a high-performance Steam client library and game automation framework architected for high-frequency trading, industrial-scale item management, and resilient network operations. Unlike legacy wrappers, G-man treats the Steam Network and associated Game Coordinators as a unified entity, seamlessly blending **Socket (CM)**, **WebAPI**, and **Game Coordinator** protocols into a single, thread-safe orchestrator.
+**G-man** is a high-performance, enterprise-grade Steam client SDK and multi-game automation framework architected in Go. Built for high-frequency trading, industrial-scale item management, and ultra-resilient network operations, G-man bridges the Steam Network and Game Coordinators into a single, thread-safe orchestrator. It seamlessly integrates **Socket (CM)**, **WebAPI**, and **Game Coordinator** protocols to keep your trade operations live 24/7.
+
+---
+
+## 🛠 Architecture Overview
+
+The system is designed around a decoupled, event-driven architecture using Go's CSP model. The `Client` serves as the central orchestrator, passing messages across thread-safe modules and automatically balancing workloads:
+
+```mermaid
+flowchart LR
+    classDef steam fill:#1b2838,stroke:#66c0f4,stroke-width:2px,color:#fff;
+    classDef transport fill:#2a475e,stroke:#66c0f4,stroke-width:1px,color:#c7d5e0;
+    classDef core fill:#171a21,stroke:#cba6f7,stroke-width:2px,color:#cdd6f4;
+    classDef module fill:#313244,stroke:#a6e3a1,stroke-width:1px,color:#cdd6f4;
+    classDef pipeline fill:#45475a,stroke:#f9e2af,stroke-width:1px,color:#f9e2af,stroke-dasharray: 5 5;
+    classDef action fill:#a6e3a1,stroke:#a6e3a1,stroke-width:2px,color:#11111b;
+
+    subgraph External [Steam Network]
+        Steam((Steam Cloud))
+    end
+    class External steam;
+
+    subgraph Transport [Dual-Stack Bridge]
+        direction TB
+        Socket[Socket CM Client]
+        WebAPI[REST / WebAPI]
+    end
+    class Transport,Socket,WebAPI transport;
+
+    subgraph Core [G-MAN Orchestrator]
+        Router{Service Router}
+        Bus([Event Bus / Pub-Sub])
+    end
+    class Core,Router,Bus core;
+
+    subgraph Modules [Domain Modules]
+        direction TB
+        TF2[TF2 GC & Inventory]
+        Social[Chat & Friends]
+        Ach[Achievements]
+    end
+    class Modules,TF2,Social,Ach module;
+
+    subgraph TradeEngine [Onion Trade Pipeline]
+        direction LR
+        P1[Deduplication] --> P2[Blacklist] --> P3[Price Check] --> P4[Smelting]
+    end
+    class TradeEngine,P1,P2,P3,P4 pipeline;
+
+    Verdict{Verdict}
+    class Verdict action;
+
+    Steam <--> Socket & WebAPI
+    Socket & WebAPI <--> Router
+    Router <--> Bus
+    
+    Bus <--> TF2 & Social & Ach
+    
+    TF2 -- "New Offer" --> P1
+    P4 --> Verdict
+    
+    Verdict -- "Accept/Decline" --> Router
+    Router -- "Execute" --> Steam
+```
+
+---
 
 ## ⚡ Key Features
 
-* **Self-Healing Sessions (Silent Re-auth)**: Eliminate the #1 cause of bot downtime. G-man monitors session health in real-time. If an Access Token or Web Cookie expires mid-request, the orchestrator automatically pauses, performs a background OAuth2 refresh, and retries the operation transparently. Your business logic never sees a "401 Unauthorized."
-* **Dual-Stack Transport Engine**: Stop worrying about whether to use WebAPI or Sockets. G-man features a protocol-agnostic routing layer. It automatically selects the most efficient path - **TCP/WebSocket** for speed and real-time state, or **HTTPS** for stealth and reliability - switching between them seamlessly if one becomes unstable.
-* **True Concurrency**: Escape the "Node.js Event-Loop bottleneck." Built on Go's CSP model, G-man is designed to manage hundreds of accounts and thousands of concurrent trade offers within a single process. High-frequency trade floods are handled via thread-safe worker pools, not single-threaded queues.
-* **Deep Defensive Scraping**: Steam's "Soft Errors" are the silent killers of automation. G-man's `community` engine doesn't just check HTTP codes; it proactively scrapes response bodies for "Sorry!", Family View blocks, and Rate Limit warnings, converting ambiguous HTML into typed, actionable Go errors.
-* **Type-Safe Data Sanitization**: Steam's JSON is a mess of mixed types (strings-as-ints, ints-as-bools). G-man centralizes this "dirty work" in the `rest` package. By the time data reaches your logic, it is strictly typed and validated. No more `strconv` boilerplate or runtime panics.
-* **Modular "Auth-Aware" Architecture**: Build your bot like a puzzle. Decoupled modules for **Chat, Friends, Inventory, and GC** automatically wake up and receive fresh security contexts the moment a login succeeds or a token is refreshed.
-* **Game Coordinator (GC) Multiplexer**: First-class, multiplexed support for TF2, CS2, and Dota 2. Includes native job tracking, automatic GZIP decompression of multi-messages, and protection against "Zip Bomb" attacks.
-* **The "Onion" Trading Engine**: A sophisticated middleware pipeline for trade offers. Process trades through a chain of modular processors: `Deduplicator` → `PriceValidator` → `SecurityEscrowCheck` → `AutoAccepter`. Highly extensible and easy to audit.
+### 🔄 Self-Healing Sessions (Silent Re-auth)
+Downtime is lost revenue. G-man monitors the health of Web sessions and access tokens in the background. If a web cookie expires mid-request, the orchestrator automatically pauses active requests, performs an atomic OAuth2 refresh, updates the token storage, and resumes the operation transparently. Your business logic never sees a `401 Unauthorized` or standard session drop.
 
-## 🎮 Game Ecosystem & Coordinator Support
+### 🌐 Dual-Stack Transport Engine
+Stop choosing between WebAPI and Connection Manager (CM) Sockets. G-man's protocol-agnostic routing layer dynamically selects the optimal path: **TCP/WebSocket CM channels** for low-latency state synchronization, or **HTTPS WebAPI** for high-volume transactions and rate-limit mitigation. It seamlessly falls back to HTTP if a socket connection is interrupted.
 
-G-man is not just a Steam parser; it is a **multi-game bot framework** with dedicated support for Steam Game Coordinators (GC). It includes high-level domain modules, item schema normalization, and automated trading logic tailored for major games:
+### 🧅 "Onion" Trade Middleware Pipeline
+Build complex trading logic as decoupled middleware layers. Process incoming trade offers through an extensible chain: `Deduplicator` $\rightarrow$ `SecurityEscrowCheck` $\rightarrow$ `BlacklistFilter` $\rightarrow$ `PriceDBValidator` $\rightarrow$ `AutoSmelter`. If any middleware sets a verdict (Accept/Decline/Counter), execution halts safely, preventing race conditions.
 
-### 🎒 Team Fortress 2 (TF2) — Fully Production-Ready
-G-man comes with a complete, production-grade TF2 trading suite built out of the box:
-* **Autopricer & PriceDB:** Stateful price manager with real-time Socket.IO price updates, seeding inventory data, and local cache synchronization.
-* **Competitor Undercutting:** Automated classifieds analysis querying backpack.tf's active snapshot APIs, automatically outpricing competitors while respecting user-configured price floors/ceilings.
-* **Stock & Inventory Control:** Built-in limits to prevent inventory overflow, automated stock balancing, and smart pure-metal liquidators (smelting/combining).
-* **Crafting & Achievements:** Autonomous TF2 item crafting (mass smelting weapons to scrap/refined) and a human-like achievement unlock simulator to mimic legitimate players.
+### 🌡️ Defensive Web Scraping
+Steam often throws "Soft Errors" – HTML pages returning a `200 OK` status code but displaying warning messages (e.g., "Rate Limit Exceeded", "Family View Active", or login prompts). G-man's `community` scraper scans raw response bodies, converts ambiguous HTML blocks into strictly-typed Go errors, and triggers safety handlers.
 
-## 📂 Project Layout
+### 🎒 Team Fortress 2 (TF2) Economy Suite
+G-man comes out of the box with a fully-integrated, production-grade TF2 trading package:
+* **Stateful PriceDB & Autopricer:** Real-time Socket.IO pricing updates and local cache synchronization.
+* **Competitor Undercutting & Swing Protection:** Scrapes backpack.tf's active snapshots, automatically outpricing competitors while applying strict swing limits to protect against price manipulation.
+* **Smart Counter-Offers & Metal Smelting:** Automatically calculates value differentials, smelts or combines metals (`Refined` $\leftrightarrow$ `Reclaimed` $\leftrightarrow$ `Scrap`) to make precise change, and pulls missing keys or items from the partner's inventory to construct a smart counter-offer.
+* **Achievement Simulator:** Emulates human-like achievement unlocks and stat reports using legit-mimicking behavior to avoid bot flags.
+
+---
+
+## 📂 Project Directory Structure
 
 ```text
 pkg/
-├── steam/            # Core Steam Protocol & Session Management
-│   ├── auth/         # OAuth2 authentication, persistent session refreshes
-│   ├── socket/       # Low-level Connection Manager (CM) client, GZIP heartbeats
-│   ├── protocol/     # Steam wire-format, pre-compiled protobufs & language specs
-│   ├── transport/    # Agnostic routing layer (Dual-Stack HTTP/Socket engine)
-│   ├── social/       # Real-time chat, friends tracking, and relationship lists
-│   ├── community/    # Defensive scraping: Market, Inventories, Steam API keys
-│   └── sys/          # App management, Game Coordinator (GC) dispatcher
+├── steam/            # Core Steam Protocols & Lifecycle Management
+│   ├── auth/         # OAuth2 flows, persistent storage, and background token refresh
+│   ├── socket/       # Stateful CM (Connection Manager) TCP/WebSocket client
+│   ├── protocol/     # Steam wire-format, compiled protobufs & language specs
+│   ├── transport/    # Dual-stack transport bridge (Socket/HTTP router)
+│   ├── social/       # Real-time chat, persona states, and friends tracking
+│   ├── community/    # Defensive scrapers (Inventories, Market, Steam Guard)
+│   └── sys/          # Core subsystems (Game Coordinator dispatcher, directory)
 ├── tf2/              # Production TF2 Trading & Item Domain Modules
-│   ├── schema/       # Item schema parser, SKU parser, and attribute normalization
-│   ├── currency/     # High-level TF2 metal math (Key, Refined, Scrap)
-│   ├── backpack/     # Unified GC-Web inventory cache & automated item syncer
-│   ├── pricedb/      # Pluggable TF2 pricing system & real-time Socket.IO updater
-│   ├── bptf/         # Stateful backpack.tf Listing Manager (listings/snapshot APIs)
-│   └── behavior/     # Autonomous stock balancing, competitive undercutting & crafting
-├── behavior/         # General Bot Behaviors & Human Mimicry
-│   └── achievements/ # Achievement unlocked simulator imitating legitimate gameplay
-├── trading/          # Core Trading & Middleware Pipeline
-│   └── processors/   # Onion middleware: deduplication, security escrows, auto-accept
-├── protobuf/         # Compiled .pb.go protobuf messages for all Valve games
-├── bus/              # Thread-safe event bus for fast inter-module message routing
-└── rest/             # High-performance REST wrapper with unified type sanitization
+│   ├── schema/       # Dynamic schema Normalizer, defindex lookups, SKU generator
+│   ├── currency/     # Metal arithmetic (Keys, Refined, Reclaimed, Scrap)
+│   ├── backpack/     # Unified SOCache-Web inventory synchronizer
+│   ├── pricedb/      # Pluggable pricing adapters with Socket.IO updates
+│   ├── bptf/         # Stateful backpack.tf listing and snapshot manager
+│   └── behavior/     # High-level actions (auto-smelting, stock limits, balance)
+├── behavior/         # Generic Bot Behaviors & Human Mimicry
+│   └── achievements/ # Achievement simulator imitating legitimate gameplay
+├── trading/          # Unified Trade Offers Engine
+│   └── engine/       # Onion middleware engine with TradeContext propagation
+├── bus/              # Decoupled thread-safe event bus
+└── rest/             # Type-sanitizing HTTP & REST API client
 ```
+
+---
 
 ## 🚀 Quick Start
 
-Initialize the orchestrator and let G-man handle the complexities of the Steam session lifecycle.
+### 1. Initialize the Client
+
+Connect to the Steam network, authenticate, and register automatic background modules in just a few lines:
 
 ```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"time"
+
+	"github.com/lemon4ksan/g-man/pkg/log"
+	"github.com/lemon4ksan/g-man/pkg/steam"
+	"github.com/lemon4ksan/g-man/pkg/steam/auth"
+	"github.com/lemon4ksan/g-man/pkg/storage/jsonfile"
+	"github.com/lemon4ksan/g-man/pkg/tf2"
+)
+
 func main() {
-    // Configure the basics
-    cfg := steam.DefaultConfig()
-    cfg.Storage = memory.New()
-    logger := log.New(log.DefaultConfig(log.InfoLevel))
-    
-    // Initialize the Orchestrator
-    client := steam.NewClient(cfg,
-        steam.WithLogger(logger),
-        chat.WithModule(),    // Plug in social features
-        friends.WithModule(), // Sync friends list automatically
-    )
-    defer client.Close()
+	// 1. Set up a persistent JSON file storage for session tokens
+	store, err := jsonfile.New("storage.json")
+	if err != nil {
+		panic(err)
+	}
 
-    // Listen for events globally
-    go func() {
-        sub := client.Bus().Subscribe(&chat.MessageEvent{})
-        for event := range sub.C() {
-            msg := event.(*chat.MessageEvent)
-            fmt.Printf("Message from %d: %s\n", msg.SenderID, msg.Message)
-        }
-    }()
+	logger := log.New(log.DefaultConfig(log.InfoLevel))
+	cfg := steam.DefaultConfig()
+	cfg.Storage = store
 
-    // One-call connection and login
-    // Handles: TCP Connect -> CM Handshake -> Auth -> WebSession -> API Key Sync
-    err := client.ConnectAndLogin(context.Background(), server, &auth.LogOnDetails{
-        AccountName:  "GordonF",
-        RefreshToken: "your_encrypted_refresh_token",
-    })
-    
-    if err != nil {
-        logger.Error("Failed to connect and login", logger.Err(err))
-        panic(err)
-    }
+	// 2. Instantiate the orchestrator with TF2 and Logger modules
+	client, err := steam.NewClient(cfg,
+		steam.WithLogger(logger),
+		tf2.WithModule(), // Enables the TF2 Game Coordinator & SOCache
+	)
+	if err != nil {
+		panic(err)
+	}
+	defer client.Close()
 
-    client.Wait() // Block until shutdown
+	// 3. Listen to authentication events asynchronously
+	go func() {
+		sub := client.Bus().Subscribe(&auth.LoggedOnEvent{})
+		for event := range sub.C() {
+			ev := event.(*auth.LoggedOnEvent)
+			logger.Info("Successfully logged on to Steam Network!", log.Uint64("steam_id", ev.SteamID))
+		}
+	}()
+
+	// 4. Connect to the network and authenticate
+	loginDetails := auth.NewLogOnDetails(os.Getenv("STEAM_USER"), os.Getenv("STEAM_PASS"))
+	server := socket.NewCMServer("cm1.steampowered.com:27015") // Or fetch dynamically via sys/directory
+
+	if err := client.ConnectAndLogin(context.Background(), server, loginDetails); err != nil {
+		logger.Error("Failed to initialize Steam session", log.Err(err))
+		return
+	}
+
+	client.Wait() // Block main thread until shutdown
 }
 ```
 
-## 🛠 Developer Tooling
+### 2. Configure custom Onion Trading Middlewares
 
-G-man is built to stay up-to-date. We provide internal CLI generators for:
+You can implement complex trade routing policies by building clean, decoupled middleware. Here is a custom middleware that validates the price of TF2 items using `pricedb`:
 
-* **WebAPI**: Automatically syncs with Valve's latest GetSupportedAPIList.
-* **Protobufs**: Sanitizes and compiles raw SteamRE definitions for Go.
-* **SteamLanguage**: Generates type-safe Enums and Stringer implementations from .steamd files.
+```go
+package main
+
+import (
+	"github.com/lemon4ksan/g-man/pkg/trading/engine"
+	"github.com/lemon4ksan/g-man/pkg/trading/reason"
+)
+
+// PriceValidationMiddleware enforces strict price matches using the PriceDB module
+func PriceValidationMiddleware(priceProvider PriceProvider) engine.Middleware {
+	return func(next engine.Handler) engine.Handler {
+		return func(ctx *engine.TradeContext) error {
+			// Iterate over items to give and check their market value
+			for _, item := range ctx.Offer.ItemsToGive {
+				price, err := priceProvider.GetPrice(item.SKU)
+				if err != nil {
+					// Halt chain and mark for manual administrator review
+					ctx.Review(reason.ReviewEngineError)
+					return err
+				}
+
+				if item.Value < price.SellMinVal {
+					// Partner offered too little for our item: Decline trade instantly
+					ctx.Decline(reason.DeclineUnderpaid)
+					return nil // Stop propagation
+				}
+			}
+
+			// All checks passed – delegate to next middleware in line
+			return next(ctx)
+		}
+	}
+}
+```
+
+---
 
 ## 🏗 Roadmap
 
-### Core Systems
+### Core Infrastructure
+- [x] **Smart Transport Routing:** Thread-safe dynamic requests via Sockets or HTTP.
+- [x] **WebSession Keep-Alive:** Auto-refresh loops for web-cookies and API keys.
+- [x] **Silent Re-Authentication:** Background recovery of expired JWTs.
+- [x] **Global Proxy Tunneling:** Clean SOCKS5/HTTP integration for all modules.
+- [ ] **Steam CDN Downloader:** Dynamic downloading and parsing of app manifests/game assets.
 
-* [x] **Smart Transport:** Automatic routing between Socket and WebAPI.
-* [x] **WebSession Heartbeat:** Background worker to keep cookies and API keys alive.
-* [x] **Persistent Auth:** Automatic re-login using encrypted Refresh Tokens.
-* [x] **Proxy Support:** Integrated SOCKS5/HTTP tunneling for all outbound traffic.
-* [ ] **Steam CDN Support:** Logic for manifest parsing and downloading app metadata/item assets.
+### TF2 Domain & Game Coordinator
+- [x] **Unified Inventory Cache:** Real-time synchronization between SOCache and Web inventory.
+- [x] **Dynamic SKU Normalizer:** Parser for quality, index, effect, and item definition attributes.
+- [x] **Automatic Smelter:** Multi-stage weapon combining and metal smelting.
+- [x] **Backpack.tf Synchronization:** Listing management and snapshot parsing.
+- [ ] **CS2 Coordinator:** GC-handshakes, item skin parsing, and match history tracking.
+- [ ] **Dota 2 Coordinator:** SOCache item parsing and custom lobby manager.
 
-### TF2 Specifics
+---
 
-* [x] **Inventory Manager:** Unified view of Web and GC inventories.
-* [x] **Currency (Metal) Manager:** High-level smelting and metal stock balancing.
-* [x] **SKU System:** Advanced parser for TF2 item identifiers.
-* [x] **PriceDB:** Pluggable pricing providers (Backpack.tf).
+## 🤝 Contributing
 
-### Trading Engine
+We welcome contributions to G-man! If you want to add support for new storage adapters, expand CS2/Dota 2 GC structures, or improve defensive scraping algorithms:
+1. Review our design philosophy in [CONTRIBUTING.md](CONTRIBUTING.md).
+2. Ensure new network dependencies are minimal and run through the `transport.Doer` interface.
+3. Write matching unit tests and verify concurrency safety using `go test -race ./...`.
 
-* [x] **Trade Middleware:** Chain-based offer processing.
-* [x] **Live Trading:** Real-time trade window interaction via GC.
-* [x] **Inventory Manager:** High-level abstractions for item moving and multi-context sync.
-
-### Game Domains
-
-* [x] **TF2 Crafting:** High-level API for mass-smelting and weapon crafting.
-* [ ] **CS2 Support:** Game Coordinator implementation for inventory and match data.
-* [ ] **Dota 2 Support:** GC implementation for item management and lobby control.
-
-### Trading Excellence (The "Autobot" Phase)
-
-* [x] **BPTF Listing Manager:** High-level API for creating, updating, and mass-deleting listings.
-* [x] **TF2 Price Sync:** Automated background worker to fetch prices and update the internal price database.
-* [x] **Stock Control:** Implementation of buy/sell limits and automated stock balancing.
-* [x] **Pure Liquidator:** Automatic metal smelting/combining integrated with the trade flow.
+---
 
 ## ☕ Support the Development
 
-Developing a full-scale Steam SDK takes hundreds of hours and... a considerable amount of effort. If G-MAN has helped you build your trading empire or saved you from the Node.js event-loop nightmare, consider supporting the project.
+Building a industrial-scale Steam SDK takes hundreds of hours of protocol reverse-engineering. If G-man helped you automate your trading workflows or optimized your server resources, feel free to show some support:
 
 <div align="center">
 
@@ -166,17 +284,13 @@ Developing a full-scale Steam SDK takes hundreds of hours and... a considerable 
 
 </div>
 
-## 🤝 Contributing
+---
 
-G-man is an open-source project. We welcome contributions for new game coordinators (CS2/Dota 2) and storage providers. See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+## ⚖️ Legal & License
 
-## License
+**Disclaimer:** This software is **not** affiliated with, maintained by, or endorsed by **Valve Corporation** or any of its subsidiaries. Steam, Team Fortress 2, and all related Valve properties are registered trademarks of Valve Corporation. Use of this library is at your own risk.
 
-This project is **not** affiliated with, maintained by, or endorsed by **Valve Corporation** or any of its subsidiaries. Steam, the Steam logo, and all related Valve properties are trademarks of Valve Corporation.
-
-Use of this SDK is at your own risk. G-MAN is not responsible for issues with your account, including, but not limited to, account suspensions, trade hold delays, or market fluctuations.
-
-Distributed under the **BSD-3-Clause** License. See `LICENSE` for more information.
+This project is licensed under the **BSD 3-Clause License**. See [LICENSE](LICENSE) for full details.
 
 ---
 
