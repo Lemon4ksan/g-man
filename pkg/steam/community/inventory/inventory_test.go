@@ -28,8 +28,8 @@ func jsonResponse(v any) []byte {
 func TestGetUserInventoryContents(t *testing.T) {
 	ctx := context.Background()
 	userID := uint64(76561198000000000)
-	appID := 730
-	contextID := 2
+	appID := uint32(730)
+	contextID := int64(2)
 
 	t.Run("Success Single Page", func(t *testing.T) {
 		mock := requester.New()

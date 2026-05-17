@@ -44,7 +44,7 @@ the Steam WebAPI (Community Inventories). The 'GetSKUFromEconItem' method provid
 fallback pipeline for converting generic items into strict TF2 SKUs using:
   - Item tags (Exterior, Quality).
   - MarketHashName heuristic parsing.
-  - Description attribute extraction (Unusual effects, Killstreak tiers, Paints, Spells, and Strange Parts).
+  - Description attribute extraction via virtual proxy defindexes (Spells and Strange Parts).
 
 # Memory Management (LiteMode):
 

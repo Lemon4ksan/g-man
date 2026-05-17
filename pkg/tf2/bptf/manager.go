@@ -35,6 +35,11 @@ func NewListingManager(client *Client, sm *schema.Manager, logger log.Logger) *L
 	}
 }
 
+// Client returns the underlying backpack.tf client.
+func (m *ListingManager) Client() *Client {
+	return m.client
+}
+
 // Sync fetches all current listings from backpack.tf and updates the internal state.
 func (m *ListingManager) Sync(ctx context.Context) error {
 	m.logger.Info("syncing listings from backpack.tf")

@@ -211,6 +211,42 @@ func PostJSON[Req, Resp any](
 	return result, nil
 }
 
+// PatchJSON marshals the payload to JSON, performs a PATCH request, and decodes the
+// response body into a new instance of Resp.
+// It automatically sets the Content-Type and Accept headers to application/json.
+func PatchJSON[Req, Resp any](
+	ctx context.Context,
+	c Requester,
+	path string,
+	payload Req,
+	query any,
+	mods ...RequestModifier,
+) (*Resp, error) {
+	bodyBytes, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("rest: failed to marshal payload: %w", err)
+	}
+
+	jsonMod := func(req *http.Request) {
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+	}
+	// Prepend JSON headers so they can be overridden by user mods if needed
+	mods = append([]RequestModifier{jsonMod}, mods...)
+
+	resp, err := c.Request(ctx, http.MethodPatch, path, bodyBytes, query, mods...)
+	if err != nil {
+		return nil, err
+	}
+
+	result := new(Resp)
+	if err := handleJSONResponse(resp, result); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
 // DeleteJSON marshals the payload to JSON (if not nil), performs a DELETE request, and decodes the
 // response body into a new instance of Resp.
 func DeleteJSON[Req, Resp any](

@@ -340,3 +340,213 @@ func (c *Client) GetArchiveListings(ctx context.Context, skip, limit int) (Listi
 
 	return *resp, nil
 }
+
+// SearchClassifieds fetches active classified listings for a specific item SKU.
+func (c *Client) SearchClassifieds(ctx context.Context, sku, intent string) (*SnapshotResponse, error) {
+	req := struct {
+		SKU   string `url:"sku"`
+		AppID int    `url:"appid"`
+	}{
+		SKU:   sku,
+		AppID: 440,
+	}
+
+	resp, err := rest.GetJSON[SnapshotResponse](ctx, c.restClient, "/classifieds/listings/snapshot", req)
+	if err != nil {
+		return nil, err
+	}
+
+	// Filter listings by intent on the client side
+	var filtered []ListingResponse
+	for _, l := range resp.Listings {
+		if l.Intent == intent {
+			filtered = append(filtered, l)
+		}
+	}
+
+	resp.Listings = filtered
+
+	return resp, nil
+}
+
+// DeleteArchiveListings deletes all archived listings for the account.
+// You may specify an optional intent filter inside req.
+func (c *Client) DeleteArchiveListings(ctx context.Context, req ListingDropRequest) error {
+	_, err := rest.DeleteJSON[ListingDropRequest, any](ctx, c.restClient, "/v2/classifieds/archive", req, nil)
+	return err
+}
+
+// GetArchiveBatchLimit returns the batch operations limit for archived listings.
+func (c *Client) GetArchiveBatchLimit(ctx context.Context) (map[string]any, error) {
+	resp, err := rest.GetJSON[map[string]any](ctx, c.restClient, "/v2/classifieds/archive/batch", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return *resp, nil
+}
+
+// BatchDeleteArchiveListings performs a batch deletion of archived listings.
+func (c *Client) BatchDeleteArchiveListings(ctx context.Context) (map[string]any, error) {
+	resp, err := rest.DeleteJSON[any, map[string]any](ctx, c.restClient, "/v2/classifieds/archive/batch", nil, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return *resp, nil
+}
+
+// GetArchiveListing retrieves a single archived listing by its ID.
+func (c *Client) GetArchiveListing(ctx context.Context, listingID string) (ListingResponse, error) {
+	resp, err := rest.GetJSON[ListingResponse](ctx, c.restClient, "/v2/classifieds/archive/"+listingID, nil)
+	if err != nil {
+		return ListingResponse{}, err
+	}
+
+	return *resp, nil
+}
+
+// DeleteArchiveListing deletes a single archived listing by its ID.
+func (c *Client) DeleteArchiveListing(ctx context.Context, listingID string) error {
+	_, err := rest.DeleteJSON[any, any](ctx, c.restClient, "/v2/classifieds/archive/"+listingID, nil, nil)
+	return err
+}
+
+// PatchArchiveListing updates properties of a single archived listing by its ID.
+func (c *Client) PatchArchiveListing(
+	ctx context.Context,
+	listingID string,
+	req ListingPatchRequest,
+) (ListingResponse, error) {
+	resp, err := rest.PatchJSON[ListingPatchRequest, ListingResponse](
+		ctx,
+		c.restClient,
+		"/v2/classifieds/archive/"+listingID,
+		req,
+		nil,
+	)
+	if err != nil {
+		return ListingResponse{}, err
+	}
+
+	return *resp, nil
+}
+
+// PublishArchiveListing publishes a single archived listing to the active pool.
+func (c *Client) PublishArchiveListing(ctx context.Context, listingID string) (ListingResponse, error) {
+	resp, err := rest.PostJSON[any, ListingResponse](
+		ctx,
+		c.restClient,
+		"/v2/classifieds/archive/"+listingID+"/publish",
+		nil,
+		nil,
+	)
+	if err != nil {
+		return ListingResponse{}, err
+	}
+
+	return *resp, nil
+}
+
+// DeleteAllListings deletes all active listings for the account.
+// You may specify an optional intent filter inside req.
+func (c *Client) DeleteAllListings(ctx context.Context, req ListingDropRequest) error {
+	_, err := rest.DeleteJSON[ListingDropRequest, any](ctx, c.restClient, "/v2/classifieds/listings", req, nil)
+	return err
+}
+
+// GetListingsBatchLimit returns the batch operations limit for active listings.
+func (c *Client) GetListingsBatchLimit(ctx context.Context) (map[string]any, error) {
+	resp, err := rest.GetJSON[map[string]any](ctx, c.restClient, "/v2/classifieds/listings/batch", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return *resp, nil
+}
+
+// GetListing retrieves a single active listing by its ID.
+func (c *Client) GetListing(ctx context.Context, listingID string) (ListingResponse, error) {
+	resp, err := rest.GetJSON[ListingResponse](ctx, c.restClient, "/v2/classifieds/listings/"+listingID, nil)
+	if err != nil {
+		return ListingResponse{}, err
+	}
+
+	return *resp, nil
+}
+
+// PatchListing updates properties of a single active listing by its ID.
+func (c *Client) PatchListing(ctx context.Context, listingID string, req ListingPatchRequest) (ListingResponse, error) {
+	resp, err := rest.PatchJSON[ListingPatchRequest, ListingResponse](
+		ctx,
+		c.restClient,
+		"/v2/classifieds/listings/"+listingID,
+		req,
+		nil,
+	)
+	if err != nil {
+		return ListingResponse{}, err
+	}
+
+	return *resp, nil
+}
+
+// ArchiveListing moves an active listing to the archive.
+func (c *Client) ArchiveListing(ctx context.Context, listingID string) (ListingResponse, error) {
+	resp, err := rest.PostJSON[any, ListingResponse](
+		ctx,
+		c.restClient,
+		"/v2/classifieds/listings/"+listingID+"/archive",
+		nil,
+		nil,
+	)
+	if err != nil {
+		return ListingResponse{}, err
+	}
+
+	return *resp, nil
+}
+
+// PromoteListing promotes an active listing.
+func (c *Client) PromoteListing(ctx context.Context, listingID string) (ListingResponse, error) {
+	resp, err := rest.PostJSON[any, ListingResponse](
+		ctx,
+		c.restClient,
+		"/v2/classifieds/listings/"+listingID+"/promote",
+		nil,
+		nil,
+	)
+	if err != nil {
+		return ListingResponse{}, err
+	}
+
+	return *resp, nil
+}
+
+// DemoteListing demotes an active listing.
+func (c *Client) DemoteListing(ctx context.Context, listingID string) (ListingResponse, error) {
+	resp, err := rest.PostJSON[any, ListingResponse](
+		ctx,
+		c.restClient,
+		"/v2/classifieds/listings/"+listingID+"/demote",
+		nil,
+		nil,
+	)
+	if err != nil {
+		return ListingResponse{}, err
+	}
+
+	return *resp, nil
+}
+
+// ArchiveAllListings moves all active listings to the archive.
+func (c *Client) ArchiveAllListings(ctx context.Context) error {
+	_, err := rest.PostJSON[any, any](ctx, c.restClient, "/v2/classifieds/listings/archiveAll", nil, nil)
+	return err
+}
+
+// PublishAllListings publishes all archived listings back to the active pool.
+func (c *Client) PublishAllListings(ctx context.Context) error {
+	_, err := rest.PostJSON[any, any](ctx, c.restClient, "/v2/classifieds/listings/publishAll", nil, nil)
+	return err
+}

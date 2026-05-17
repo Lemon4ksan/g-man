@@ -4,8 +4,6 @@
 
 // Package sku implements the TF2 Stock Keeping Unit format.
 // It allows converting complex item attributes into a compact string representation.
-//
-// NOTE: Spells are TBD.
 package sku
 
 import (

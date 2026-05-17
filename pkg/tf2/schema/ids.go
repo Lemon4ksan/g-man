@@ -12,10 +12,16 @@ import (
 
 // Item Defindex constants for common items
 const (
-	DefKey        = 5021
-	DefRefined    = 5002
-	DefReclaimed  = 5001
-	DefScrap      = 5000
+	DefKey       = 5021
+	DefRefined   = 5002
+	DefReclaimed = 5001
+	DefScrap     = 5000
+)
+
+// Virtual/Proxy Defindexes used to normalize attributes that are not
+// provided as numeric IDs by the Steam WebAPI (e.g., Spells and Strange Parts).
+// These allow consistent SKU generation regardless of the data source.
+const (
 	DefPartsProxy = 10000
 	DefSpellProxy = 11000
 )

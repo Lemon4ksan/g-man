@@ -20,8 +20,8 @@ func GetUserInventoryContents(
 	ctx context.Context,
 	c community.Requester,
 	userID uint64,
-	appID int,
-	contextID int,
+	appID uint32,
+	contextID int64,
 	tradableOnly bool,
 	language string,
 ) ([]CEconItem, []CEconItem, int, error) {

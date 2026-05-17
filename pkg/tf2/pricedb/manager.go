@@ -33,19 +33,70 @@ type Manager struct {
 	mu    sync.RWMutex
 	cache map[string]*Price
 
-	// watchedSKUs is a set of SKUs that we want to keep updated in the background.
 	watchedSKUs  map[string]struct{}
 	syncInterval time.Duration
+
+	socket *SocketManager
 }
 
 // NewManager creates a new price manager for PriceDB.
+// It implements behavior.Behavior interface.
 func NewManager(client *Client, logger log.Logger) *Manager {
-	return &Manager{
+	m := &Manager{
 		client:       client,
 		logger:       logger.With(log.Module(BehaviorName)),
 		cache:        make(map[string]*Price),
 		watchedSKUs:  make(map[string]struct{}),
 		syncInterval: 30 * time.Minute,
+	}
+
+	m.socket = NewSocketManager("", m.logger)
+	m.socket.OnPrice(func(p *Price) {
+		m.logger.Debug("Received real-time price update", log.String("sku", p.SKU))
+		m.mu.Lock()
+		defer m.mu.Unlock()
+
+		if p.Validate() {
+			m.cache[p.SKU] = p
+		}
+	})
+
+	return m
+}
+
+// Name returns the unique name of the behavior.
+func (m *Manager) Name() string {
+	return BehaviorName
+}
+
+// Run starts the background price synchronization loop.
+func (m *Manager) Run(ctx context.Context) error {
+	m.logger.Info("PriceDB Sync behavior started", log.Duration("interval", m.syncInterval))
+
+	ticker := time.NewTicker(m.syncInterval)
+	defer ticker.Stop()
+
+	// Initial update
+	if err := m.Update(ctx); err != nil {
+		m.logger.Error("Initial PriceDB update failed", log.Err(err))
+	}
+
+	// Start Socket.IO real-time listener
+	go func() {
+		if err := m.socket.Run(ctx); err != nil {
+			m.logger.Error("PriceDB socket listener stopped", log.Err(err))
+		}
+	}()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			if err := m.Update(ctx); err != nil {
+				m.logger.Error("PriceDB background sync failed", log.Err(err))
+			}
+		}
 	}
 }
 
@@ -149,31 +200,21 @@ func (m *Manager) Fetch(ctx context.Context, skus []string) (map[string]*Price, 
 	return result, nil
 }
 
-// Name returns the unique name of the behavior.
-func (m *Manager) Name() string {
-	return BehaviorName
-}
-
-// Run starts the background price synchronization loop.
-func (m *Manager) Run(ctx context.Context) error {
-	m.logger.Info("PriceDB Sync behavior started", log.Duration("interval", m.syncInterval))
-
-	ticker := time.NewTicker(m.syncInterval)
-	defer ticker.Stop()
-
-	// Initial update
-	if err := m.Update(ctx); err != nil {
-		m.logger.Error("Initial PriceDB update failed", log.Err(err))
+// SeedFromBackpack populates the watched SKUs from the given inventory.
+// This is useful for initial seeding at startup.
+func (m *Manager) SeedFromBackpack(ctx context.Context, items []string) error {
+	if len(items) == 0 {
+		return nil
 	}
 
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-ticker.C:
-			if err := m.Update(ctx); err != nil {
-				m.logger.Error("PriceDB update failed", log.Err(err))
-			}
-		}
+	m.mu.Lock()
+	for _, sku := range items {
+		m.watchedSKUs[sku] = struct{}{}
 	}
+
+	m.mu.Unlock()
+
+	m.logger.Info("Seeding prices from backpack...", log.Int("skus", len(items)))
+
+	return m.Update(ctx)
 }

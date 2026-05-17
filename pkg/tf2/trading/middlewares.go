@@ -17,6 +17,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/tf2/crafting"
 	"github.com/lemon4ksan/g-man/pkg/tf2/currency"
 	"github.com/lemon4ksan/g-man/pkg/tf2/pricedb"
+	tf2reason "github.com/lemon4ksan/g-man/pkg/tf2/reason"
 	"github.com/lemon4ksan/g-man/pkg/tf2/rep"
 	"github.com/lemon4ksan/g-man/pkg/tf2/sku"
 	"github.com/lemon4ksan/g-man/pkg/trading"
@@ -95,6 +96,10 @@ func StockLimitMiddleware(bp *backpack.Backpack, cfg StockConfig, logger log.Log
 }
 
 // PricerMiddleware enriches trade context with prices from PriceDB.
+// It acts as the primary price authority:
+// 1. Checks local cache for prices.
+// 2. If missing, requests them from the PriceDB microservice.
+// 3. Flags the trade for manual review if any item remains unpriced.
 func PricerMiddleware(mgr *pricedb.Manager, logger log.Logger) engine.Middleware {
 	return func(next engine.Handler) engine.Handler {
 		return func(ctx *engine.TradeContext) error {
@@ -120,7 +125,7 @@ func PricerMiddleware(mgr *pricedb.Manager, logger log.Logger) engine.Middleware
 				fetched, err := mgr.Fetch(ctx, skuList)
 				if err != nil {
 					logger.Warn("Failed to fetch prices from PriceDB", log.Err(err))
-					ctx.Review(reason.ReviewPricerDown)
+					ctx.Review(tf2reason.ReviewPricerDown)
 					return err
 				}
 
@@ -133,7 +138,7 @@ func PricerMiddleware(mgr *pricedb.Manager, logger log.Logger) engine.Middleware
 			for _, item := range append(ctx.Offer.ItemsToGive, ctx.Offer.ItemsToReceive...) {
 				if _, ok := priceMap[item.SKU]; !ok {
 					logger.Warn("Item in trade is not priced", log.String("sku", item.SKU))
-					ctx.Review(reason.ReviewUnpricedItem)
+					ctx.Review(tf2reason.ReviewUnpricedItem)
 					return errors.New("unpriced item in trade")
 				}
 			}
@@ -202,7 +207,7 @@ func DupeCheckMiddleware(checker *bptf.BackpackTFChecker, logger log.Logger) eng
 
 					if status.Recorded && status.IsDuped {
 						logger.Warn("Item is DUPED!", log.Uint64("assetid", item.AssetID))
-						ctx.Review(reason.ReviewDupedItems)
+						ctx.Review(tf2reason.ReviewDupedItems)
 						// We don't return nil here, we just mark for review
 						// and let subsequent middlewares decide if they want to decline or continue.
 					}
@@ -235,7 +240,7 @@ func BanCheckMiddleware(bans *rep.BansManager, logger log.Logger) engine.Middlew
 				if _, ok := res.Details["steamrep.com"]; ok {
 					ctx.Decline(reason.DeclineBanned)
 				} else {
-					ctx.Decline(reason.DeclineBannedBptf)
+					ctx.Decline(tf2reason.DeclineBannedBptf)
 				}
 
 				return nil
@@ -247,9 +252,10 @@ func BanCheckMiddleware(bans *rep.BansManager, logger log.Logger) engine.Middlew
 }
 
 // SmartCounterMiddleware automatically adjusts the trade if there's a value mismatch.
-// 1. If overpaid: Adds our metal change to the trade (smelting if needed).
-// 2. If underpaid: Attempts to find missing currency in the partner's inventory to balance it.
-// 3. If exact: Accepts with AcceptCorrectValue reason.
+// This is the core "settlement" logic of the bot:
+// 1. Overpaid: Bot adds metal change to our side (using MetalManager).
+// 2. Underpaid: Bot scans partner's inventory for missing currency to balance the trade.
+// 3. Exact: Trade is accepted as correct.
 func SmartCounterMiddleware(
 	metalMgr *crafting.MetalManager,
 	bp *backpack.Backpack,
@@ -290,7 +296,7 @@ func SmartCounterMiddleware(
 							return nil
 						}
 
-						ctx.Decline(reason.DeclineNoChange)
+						ctx.Decline(tf2reason.DeclineNoChange)
 
 						return nil
 					}
@@ -330,7 +336,7 @@ func SmartCounterMiddleware(
 						Message:        "You were missing some change, I've added it for you!",
 					})
 				} else {
-					ctx.Decline(reason.DeclineUnderpaid)
+					ctx.Decline(tf2reason.DeclineUnderpaid)
 				}
 			}
 
@@ -356,7 +362,7 @@ func calculateValueDiff(ctx *engine.TradeContext) (currency.Scrap, error) {
 	}
 
 	if keyPriceScrap <= 0 {
-		ctx.Review(reason.ReviewInvalidKeyPrice)
+		ctx.Review(tf2reason.ReviewInvalidKeyPrice)
 		return 0, errors.New("invalid or missing key price in pricelist")
 	}
 
@@ -367,7 +373,7 @@ func calculateValueDiff(ctx *engine.TradeContext) (currency.Scrap, error) {
 	for _, item := range ctx.Offer.ItemsToGive {
 		p, ok := priceMap[item.SKU]
 		if !ok {
-			ctx.Review(reason.ReviewUnpricedItem)
+			ctx.Review(tf2reason.ReviewUnpricedItem)
 			return 0, fmt.Errorf("unpriced item in 'give' side: %s", item.SKU)
 		}
 
@@ -378,7 +384,7 @@ func calculateValueDiff(ctx *engine.TradeContext) (currency.Scrap, error) {
 	for _, item := range ctx.Offer.ItemsToReceive {
 		p, ok := priceMap[item.SKU]
 		if !ok {
-			ctx.Review(reason.ReviewUnpricedItem)
+			ctx.Review(tf2reason.ReviewUnpricedItem)
 			return 0, fmt.Errorf("unpriced item in 'receive' side: %s", item.SKU)
 		}
 

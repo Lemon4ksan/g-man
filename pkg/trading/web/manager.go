@@ -18,12 +18,13 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam"
-	"github.com/lemon4ksan/g-man/pkg/steam/api"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/community/inventory"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"github.com/lemon4ksan/g-man/pkg/trading"
 	"github.com/lemon4ksan/g-man/pkg/trading/web/processor"
@@ -85,6 +86,10 @@ type Config struct {
 	PollInterval time.Duration
 	// Language is the language to use for trade offers.
 	Language string
+	// AppID is the Steam AppID for the current game (e.g. 440 for TF2).
+	AppID uint32
+	// ContextID is the Steam ContextID for the current game (e.g. 2 for TF2).
+	ContextID int64
 }
 
 // DefaultConfig returns the default configuration.
@@ -92,6 +97,8 @@ func DefaultConfig() Config {
 	return Config{
 		PollInterval: 30 * time.Second,
 		Language:     "english",
+		AppID:        440,
+		ContextID:    2,
 	}
 }
 
@@ -113,6 +120,7 @@ type Manager struct {
 	lastSeenOffers map[uint64]time.Time
 
 	rateLimiter *rate.Limiter
+	trigger     chan struct{}
 }
 
 // New creates a new instance of the trade manager.
@@ -127,6 +135,7 @@ func New(cfg Config) *Manager {
 		knownOffers:    make(map[uint64]trading.OfferState),
 		lastSeenOffers: make(map[uint64]time.Time),
 		rateLimiter:    rate.NewLimiter(rate.Every(2*time.Second), 1),
+		trigger:        make(chan struct{}, 1),
 	}
 }
 
@@ -137,6 +146,11 @@ func (m *Manager) Init(init module.InitContext) error {
 	}
 
 	m.web = init.Service()
+
+	init.RegisterPacketHandler(enums.EMsg_ClientTradeOffersStateChanged, func(pkt *protocol.Packet) {
+		m.Logger.Debug("Received trade offers state change notification")
+		m.TriggerPoll()
+	})
 
 	return nil
 }
@@ -341,8 +355,15 @@ func (m *Manager) GetPartnerInventory(ctx context.Context, partnerID id.ID) ([]*
 		return nil, processor.ErrCommunityNotReady
 	}
 
-	// For TF2 we use appid 440 and contextid 2
-	inv, _, _, err := inventory.GetUserInventoryContents(ctx, c, uint64(partnerID), 440, 2, true, m.config.Language)
+	inv, _, _, err := inventory.GetUserInventoryContents(
+		ctx,
+		c,
+		uint64(partnerID),
+		m.config.AppID,
+		m.config.ContextID,
+		true,
+		m.config.Language,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -380,17 +401,13 @@ func (m *Manager) GetEscrowDuration(ctx context.Context, offerID uint64) (proces
 		return processor.Details{}, processor.ErrCommunityNotReady
 	}
 
-	resp, err := community.Get[[]byte](ctx, c, fmt.Sprintf("tradeoffer/%d/", offerID), nil,
-		api.WithFormat(api.FormatRaw),
-	)
+	resp, err := community.GetHTML(ctx, c, fmt.Sprintf("tradeoffer/%d/", offerID))
 	if err != nil {
 		return processor.Details{}, fmt.Errorf("failed to fetch offer page: %w", err)
 	}
 
-	html := string(*resp)
-
-	theirMatches := processor.RxTheir.FindStringSubmatch(html)
-	myMatches := processor.RxMy.FindStringSubmatch(html)
+	theirMatches := processor.RxTheir.FindStringSubmatch(string(resp))
+	myMatches := processor.RxMy.FindStringSubmatch(string(resp))
 
 	if len(theirMatches) < 2 || len(myMatches) < 2 {
 		return processor.Details{}, processor.ErrEscrowNotFound
@@ -417,6 +434,10 @@ func (m *Manager) pollingLoop(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
+		case <-m.trigger:
+			// Wait a bit for Steam to sync its database
+			time.Sleep(1 * time.Second)
+			m.doPoll(ctx)
 		case <-ticker.C:
 			if m.State.Load() != StatePolling {
 				return
@@ -424,6 +445,15 @@ func (m *Manager) pollingLoop(ctx context.Context) {
 
 			m.doPoll(ctx)
 		}
+	}
+}
+
+// TriggerPoll manually triggers a trade offer poll.
+func (m *Manager) TriggerPoll() {
+	select {
+	case m.trigger <- struct{}{}:
+	default:
+		// Already triggered
 	}
 }
 

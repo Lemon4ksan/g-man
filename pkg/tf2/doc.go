@@ -10,41 +10,41 @@ Coordinator (GC) connection to maintaining a real-time inventory snapshot.
 # Architectural Role
 
 This module is designed to be the single source of truth for all things TF2
-within the G-man framework. It is composed of two main sub-systems that work
-in tandem:
+within the G-man framework. It provides the core primitives (Items, SKUs,
+GC actions) used by the high-level trading engine.
+
+The package is supported by several specialized sub-packages:
+  - 'backpack': High-level management of the bot's inventory (via SOCache) and external auditing.
+  - 'bptf': Integration with backpack.tf for listings and reputation.
+  - 'pricedb': Real-time consolidated price authority.
+  - 'schema': High-fidelity item schema manager and SKU generator.
+  - 'trading': The business logic and middleware engine for automated trades.
+
+# Core Components
 
  1. The GC Client (TF2 struct):
-    This is the state machine responsible for managing the connection to the TF2
-    Game Coordinator. Its duties include:
-    - Sending a `ClientHello` message to initiate the GC session after the
-    main Steam Client has logged on and launched the "game" (AppID 440).
-    - Periodically re-sending `ClientHello` until a `ClientWelcome` is received.
-    - Handling `ServerGoodbye` messages and managing the auto-reconnect logic.
-    - Providing high-level, game-specific actions such as `Craft()`,
-    `UseItem()`, and `InviteToTrade()`.
+    The state machine responsible for managing the connection to the TF2
+    Game Coordinator. It handles the 'ClientHello' handshake, manages
+    connection lifecycle, and provides high-level actions like 'Craft()'
+    or 'UseItem()'.
 
  2. The SOCache (SOCache struct):
-    This is the "live" in-memory inventory manager. It subscribes to all incoming
-    GC messages and listens for Shared Object (SO) updates to maintain an
-    up-to-the-millisecond representation of the bot's backpack. It handles:
-    - Parsing the initial `k_ESOMsg_CacheSubscribed` message to perform a full
-    inventory sync.
-    - Processing incremental updates (`Create`, `Update`, `Destroy`) to reflect
-    changes from trades, crafting, or item drops.
-    - Responding to `k_ESOMsg_CacheSubscriptionCheck` to ensure data consistency
-    and trigger a full refresh if desynchronization is detected.
+    The "live" in-memory inventory manager. It subscribes to GC Shared Object
+    (SO) updates to maintain an up-to-the-millisecond representation of
+    the bot's backpack. It is the primary source of inventory data for
+    all internal logic.
 
 # Event-Driven Integration
 
 The module communicates its state to the rest of the application via the global
 Event Bus. Key events include:
 
-  - `ConnectedEvent`: Fired when the GC handshake is complete.
-  - `BackpackLoadedEvent`: Fired after the SOCache has finished its initial sync.
-  - `ItemAcquiredEvent`/`ItemRemovedEvent`: Fired in real-time as the inventory changes.
+  - 'ConnectedEvent': Fired when the GC handshake is complete.
+  - 'BackpackLoadedEvent': Fired after the SOCache has finished its initial sync.
+  - 'ItemAcquiredEvent'/'ItemRemovedEvent': Fired in real-time as the inventory changes.
 
-By subscribing to `BackpackLoadedEvent`, other modules or business logic can
-safely begin operations that depend on knowing the current inventory state,
-such as pricing or automated trading.
+By subscribing to 'BackpackLoadedEvent', other modules can safely begin operations
+that depend on knowing the current inventory state, such as price seeding or
+listing synchronization.
 */
 package tf2

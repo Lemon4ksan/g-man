@@ -169,6 +169,16 @@ func (m *Backpack) UnlockItems(ids []uint64) {
 	}
 }
 
+// Cache returns the underlying item cache.
+func (m *Backpack) Cache() ItemCache {
+	return m.cache
+}
+
+// Schema returns the schema provider.
+func (m *Backpack) Schema() SchemaProvider {
+	return m.manager
+}
+
 // GetItem returns the item with the given ID.
 func (m *Backpack) GetItem(id uint64) (*tf2.Item, bool) {
 	return m.cache.GetItem(id)

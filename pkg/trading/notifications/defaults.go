@@ -30,15 +30,11 @@ var (
 		"decline." + reason.DeclineEscrow.String(): "/pre ❌ Your offer was declined because it would result in a trade hold (escrow). Please enable the Steam Guard Mobile Authenticator.",
 
 		// Declines (Value & Items)
-		"decline." + reason.ReviewInvalidValue.String():   "/pre ❌ Your offer was declined due to an invalid value. {{if .MissingValue}}Missing: {{.MissingValue}}{{end}}",
 		"decline." + reason.ReviewInvalidItems.String():   "/pre ❌ Your offer was declined because it contains items I am not currently trading for.",
 		"decline." + reason.ReviewOverstocked.String():    "/pre ❌ Your offer was declined because I am overstocked on the items you are offering.",
 		"decline." + reason.ReviewUnderstocked.String():   "/pre ❌ Your offer was declined because I am understocked on the items you are requesting.",
 		"decline." + reason.DeclineBlacklisted.String():   "/pre ❌ You are blacklisted from using this bot.",
 		"decline." + reason.DeclineBegging.String():       "/pre ❌ You are asking for items for free. Please provide equivalent value.",
-		"decline." + reason.DeclineNoChange.String():      "/pre ❌ I don't have enough small items to give you change right now. Please try again later.",
-		"decline." + reason.DeclineBannedBptf.String():    "/pre ❌ You are banned on backpack.tf. I do not trade with banned users.",
-		"decline." + reason.DeclineUnderpaid.String():     "/pre ❌ You have underpaid for the items. Please check the prices and try again.",
 		"decline." + reason.DeclineInternalError.String(): "/pre ❌ An internal error occurred while processing your trade. Please try again in a few minutes.",
 	}
 )

@@ -71,6 +71,11 @@ type ListingsResponse struct {
 	Cursor  Cursor            `json:"cursor"`
 }
 
+// SnapshotResponse represents the response from the classifieds listings snapshot API.
+type SnapshotResponse struct {
+	Listings []ListingResponse `json:"listings"`
+}
+
 // ListingBatchCreateResult represents a batch create result.
 type ListingBatchCreateResult struct {
 	Result *ListingResponse `json:"result,omitempty"`
@@ -231,4 +236,18 @@ type ItemDocument struct {
 	ElevatedQuality *Entity `json:"elevatedQuality,omitempty"`
 	Tradable        bool    `json:"tradable"`
 	Craftable       bool    `json:"craftable"`
+}
+
+// ListingDropRequest represents a request to delete all active or archived listings.
+type ListingDropRequest struct {
+	Intent string `json:"intent,omitempty"`
+}
+
+// ListingPatchRequest represents a request to update some fields of a listing.
+type ListingPatchRequest struct {
+	Currencies           map[string]float64 `json:"currencies,omitempty"`
+	Details              *string            `json:"details,omitempty"`
+	Count                *int               `json:"count,omitempty"`
+	TradeOffersPreferred *bool              `json:"tradeOffersPreferred,omitempty"`
+	BuyoutOnly           *bool              `json:"buyoutOnly,omitempty"`
 }

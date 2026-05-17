@@ -39,14 +39,15 @@ var reasonRegistry = map[reason.TradeReason]struct {
 			return fmt.Sprintf("%s (%s)", f.Item(s.GetName(r.SKU, false)), r.Price)
 		},
 	},
-	reason.ReviewDupedItems: {
-		Description: "Items appeared to be duped.",
-		Processor: func(raw any, s SchemaProvider, f Formatter) string {
-			r := raw.(*ReasonDuped)
-			name := s.GetName(r.SKU, false)
-			link := "https://backpack.tf/item/" + r.AssetID
+}
 
-			return fmt.Sprintf("%s - history: %s", f.Item(name), f.Link("view", link))
-		},
-	},
+// RegisterReason adds or updates a reason in the registry.
+func RegisterReason(r reason.TradeReason, description string, processor ReasonProcessor) {
+	reasonRegistry[r] = struct {
+		Description string
+		Processor   ReasonProcessor
+	}{
+		Description: description,
+		Processor:   processor,
+	}
 }

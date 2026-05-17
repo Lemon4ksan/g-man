@@ -10,10 +10,8 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/storage/memory"
-	"github.com/lemon4ksan/g-man/pkg/tf2/pricedb"
-	"github.com/lemon4ksan/g-man/pkg/trading"
+	tf2reason "github.com/lemon4ksan/g-man/pkg/tf2/reason"
 	"github.com/lemon4ksan/g-man/pkg/trading/engine"
-	"github.com/lemon4ksan/g-man/pkg/trading/reason"
 )
 
 // SafetyMiddleware checks bans and user trust levels on backpack.tf.
@@ -44,7 +42,7 @@ func SafetyMiddleware(bptfClient *Client, cache *memory.TTLCache, logger log.Log
 			}
 
 			if user.Bans != nil {
-				ctx.Decline(reason.DeclineBannedBptf)
+				ctx.Decline(tf2reason.DeclineBannedBptf)
 				return nil
 			}
 
@@ -66,41 +64,6 @@ func ValueTierMiddleware(bptfClient *Client) engine.Middleware {
 
 			if val.Value > 500 {
 				ctx.Set("is_whale", true)
-			}
-
-			return next(ctx)
-		}
-	}
-}
-
-// FallbackPricerMiddleware requests the price from bptf if it has not been set previously.
-func FallbackPricerMiddleware(manager *PriceManager) engine.Middleware {
-	return func(next engine.Handler) engine.Handler {
-		return func(ctx *engine.TradeContext) error {
-			existingPricesRaw, _ := ctx.Get("prices")
-			priceMap := existingPricesRaw.(map[string]*pricedb.Price)
-
-			allItems := make([]*trading.Item, len(ctx.Offer.ItemsToGive)+len(ctx.Offer.ItemsToReceive))
-			copy(allItems, ctx.Offer.ItemsToGive)
-			copy(allItems[len(ctx.Offer.ItemsToGive):], ctx.Offer.ItemsToReceive)
-
-			for _, item := range allItems {
-				if _, ok := priceMap[item.SKU]; ok {
-					continue
-				}
-
-				if bptfPrice, ok := manager.GetPrice(item.SKU); ok {
-					p := &pricedb.Price{}
-					if bptfPrice.Currency == "keys" {
-						p.Buy.Keys = int(bptfPrice.Value)
-						p.Sell.Keys = int(bptfPrice.Value)
-					} else {
-						p.Buy.Metal = bptfPrice.Value
-						p.Sell.Metal = bptfPrice.Value
-					}
-
-					priceMap[item.SKU] = p
-				}
 			}
 
 			return next(ctx)
