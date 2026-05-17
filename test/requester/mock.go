@@ -237,3 +237,21 @@ func (m *Mock) identifyTarget(target any) string {
 		return fmt.Sprintf("%v", t)
 	}
 }
+
+type mockHTTPDoer struct {
+	mock *Mock
+}
+
+func (m *mockHTTPDoer) Do(req *http.Request) (*http.Response, error) {
+	var bodyBytes []byte
+	if req.Body != nil {
+		bodyBytes, _ = io.ReadAll(req.Body)
+		req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+	}
+	return m.mock.Request(req.Context(), req.Method, req.URL.String(), bodyBytes, nil)
+}
+
+func (m *Mock) HTTP() rest.HTTPDoer {
+	return &mockHTTPDoer{mock: m}
+}
+

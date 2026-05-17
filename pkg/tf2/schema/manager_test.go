@@ -116,7 +116,7 @@ func TestSchemaManager_Refresh_Success(t *testing.T) {
 			}, nil
 		}
 
-		if strings.Contains(path, "items_game.txt") {
+		if strings.Contains(path, "items_game") {
 			vdf := "\"items_game\"\n{\n\t\"valid_key\" \"value\"\n}\n"
 
 			return &http.Response{
@@ -189,7 +189,7 @@ func TestSchemaManager_Refresh_PriceDB_Success(t *testing.T) {
 			}, nil
 		}
 
-		if strings.Contains(path, "items_game.txt") {
+		if strings.Contains(path, "items_game") {
 			content := "\"items_game\"\n{\n\t\"valid_key\" \"value\"\n}\n"
 
 			return &http.Response{

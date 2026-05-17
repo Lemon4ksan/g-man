@@ -70,20 +70,22 @@ func TestStock_Undercutting(t *testing.T) {
 		competitorBuyPrice  = 53.0
 	)
 
-	// 2. Set up a mock http server to simulate backpack.tf classified search api response
+	// 2. Set up a mock http server to simulate backpack.tf classified snapshot response
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/api/v2/classifieds/search", r.URL.Path)
+		assert.Equal(t, "/api/classifieds/listings/snapshot", r.URL.Path)
 		sku := r.URL.Query().Get("sku")
-		intent := r.URL.Query().Get("intent")
+		appid := r.URL.Query().Get("appid")
 
 		assert.Equal(t, "5021;6", sku)
+		assert.Equal(t, "440", appid)
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 
-		var results []bptf.ListingResponse
-		if intent == "sell" {
-			results = []bptf.ListingResponse{
+		resp := struct {
+			Listings []bptf.ListingResponse `json:"listings"`
+		}{
+			Listings: []bptf.ListingResponse{
 				{
 					ID:      "comp1",
 					SteamID: "competitor_steam_id_1",
@@ -92,9 +94,6 @@ func TestStock_Undercutting(t *testing.T) {
 						"metal": competitorSellPrice,
 					},
 				},
-			}
-		} else {
-			results = []bptf.ListingResponse{
 				{
 					ID:      "comp3",
 					SteamID: "competitor_steam_id_3",
@@ -103,11 +102,7 @@ func TestStock_Undercutting(t *testing.T) {
 						"metal": competitorBuyPrice,
 					},
 				},
-			}
-		}
-
-		resp := bptf.ListingsResponse{
-			Results: results,
+			},
 		}
 		_ = json.NewEncoder(w).Encode(resp)
 	}))
