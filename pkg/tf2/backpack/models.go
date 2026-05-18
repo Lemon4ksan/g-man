@@ -99,7 +99,7 @@ func mapCEconToTF2(econ inventory.CEconItem, s *schema.Schema) TF2Item {
 			switch tag.Category {
 			case "Quality":
 				if item.Quality == 0 {
-					item.Quality = s.QualityIdByName(tag.LocalizedTagName)
+					item.Quality = s.QualityIDByName(tag.LocalizedTagName)
 				}
 			case "Type":
 			}
@@ -130,7 +130,7 @@ func mapCEconToTF2(econ inventory.CEconItem, s *schema.Schema) TF2Item {
 		}
 
 		if effectName, ok := strings.CutPrefix(val, "★ Unusual Effect: "); ok {
-			if effectID := s.EffectIdByName(effectName); effectID != 0 {
+			if effectID := s.EffectIDByName(effectName); effectID != 0 {
 				item.Attributes = append(item.Attributes, TF2Attribute{
 					Defindex: schema.AttrUnusualEffect,
 					Value:    float64(effectID),
@@ -215,7 +215,7 @@ func mapCEconToTF2(econ inventory.CEconItem, s *schema.Schema) TF2Item {
 		// Spells (Color: 7ea9d1)
 		if d.Color == "7ea9d1" {
 			spellName := strings.TrimSpace(val)
-			if spell, ok := s.SpellIdByName(spellName); ok {
+			if spell, ok := s.SpellIDByName(spellName); ok {
 				item.Attributes = append(item.Attributes, TF2Attribute{
 					Defindex: schema.DefSpellProxy + len(item.Attributes),
 					Value:    spell,

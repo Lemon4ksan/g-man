@@ -124,9 +124,7 @@ func (m *Backpack) Init(init module.InitContext) error {
 
 // StartAuthed starts the backpack module.
 func (m *Backpack) StartAuthed(ctx context.Context, authCtx module.AuthContext) error {
-	m.Go(func(ctx context.Context) {
-		m.eventLoop(ctx)
-	})
+	m.Go(m.eventLoop)
 
 	if m.trading != nil {
 		m.Go(func(ctx context.Context) {

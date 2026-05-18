@@ -289,20 +289,20 @@ func TestGetQualityByIdAndName(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		if name := s.QualityById(tt.id); name != tt.name {
+		if name := s.QualityByID(tt.id); name != tt.name {
 			t.Errorf("GetQualityById(%d): expected %s, got %s", tt.id, tt.name, name)
 		}
 
-		if id := s.QualityIdByName(tt.name); id != tt.id {
+		if id := s.QualityIDByName(tt.name); id != tt.id {
 			t.Errorf("GetQualityIdByName(%s): expected %d, got %d", tt.name, tt.id, id)
 		}
 	}
 
-	if name := s.QualityById(99); name != "" {
+	if name := s.QualityByID(99); name != "" {
 		t.Errorf("expected empty for unknown id, got %s", name)
 	}
 
-	if id := s.QualityIdByName("nonexistent"); id != 0 {
+	if id := s.QualityIDByName("nonexistent"); id != 0 {
 		t.Errorf("expected 0, got %d", id)
 	}
 }
@@ -320,21 +320,21 @@ func TestGetEffectByIdAndName(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		if name := s.EffectById(tt.id); name != tt.name {
+		if name := s.EffectByID(tt.id); name != tt.name {
 			t.Errorf("GetEffectById(%d): expected %s, got %s", tt.id, tt.name, name)
 		}
 
-		if id := s.EffectIdByName(tt.name); id != tt.id {
+		if id := s.EffectIDByName(tt.name); id != tt.id {
 			t.Errorf("GetEffectIdByName(%s): expected %d, got %d", tt.name, tt.id, id)
 		}
 
 		// Case insensitivity
-		if id := s.EffectIdByName(strings.ToLower(tt.name)); id != tt.id {
+		if id := s.EffectIDByName(strings.ToLower(tt.name)); id != tt.id {
 			t.Errorf("Case insensitive GetEffectIdByName failed for %s", tt.name)
 		}
 	}
 
-	if name := s.EffectById(999); name != "" {
+	if name := s.EffectByID(999); name != "" {
 		t.Errorf("expected empty for unknown effect, got %s", name)
 	}
 }
@@ -356,7 +356,7 @@ func TestGetSpellIdByName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			spell, ok := s.SpellIdByName(tt.name)
+			spell, ok := s.SpellIDByName(tt.name)
 			if ok != tt.shouldFind {
 				t.Errorf("GetSpellIdByName(%s) ok = %v, want %v", tt.name, ok, tt.shouldFind)
 			}
@@ -371,19 +371,19 @@ func TestGetSpellIdByName(t *testing.T) {
 func TestGetSkinByIdAndName(t *testing.T) {
 	s := New(minimalRawSchema())
 
-	if name := s.SkinById(15013); name != "Pistol Skin" {
+	if name := s.SkinByID(15013); name != "Pistol Skin" {
 		t.Errorf("expected Pistol Skin, got %s", name)
 	}
 
-	if name := s.SkinById(999); name != "" {
+	if name := s.SkinByID(999); name != "" {
 		t.Errorf("expected empty, got %s", name)
 	}
 
-	if id := s.SkinIdByName("Pistol Skin"); id != 15013 {
+	if id := s.SkinIDByName("Pistol Skin"); id != 15013 {
 		t.Errorf("expected 15013, got %d", id)
 	}
 
-	if id := s.SkinIdByName("pistol skin"); id != 15013 {
+	if id := s.SkinIDByName("pistol skin"); id != 15013 {
 		t.Errorf("case insensitive failed, got %d", id)
 	}
 }
@@ -964,20 +964,20 @@ func TestSchema_Getters(t *testing.T) {
 	s := New(minimalRawSchema())
 
 	t.Run("Qualities", func(t *testing.T) {
-		assert.Equal(t, "Unique", s.QualityById(6))
-		assert.Equal(t, 6, s.QualityIdByName("Unique"))
+		assert.Equal(t, "Unique", s.QualityByID(6))
+		assert.Equal(t, 6, s.QualityIDByName("Unique"))
 		assert.NotEmpty(t, s.Qualities())
 	})
 
 	t.Run("Effects", func(t *testing.T) {
-		assert.Equal(t, "Orbiting Fire", s.EffectById(33))
-		assert.Equal(t, 33, s.EffectIdByName("Orbiting Fire"))
+		assert.Equal(t, "Orbiting Fire", s.EffectByID(33))
+		assert.Equal(t, 33, s.EffectIDByName("Orbiting Fire"))
 		assert.NotEmpty(t, s.ParticleEffects())
 	})
 
 	t.Run("Skins", func(t *testing.T) {
-		assert.Equal(t, "Woodsy Widowmaker", s.SkinById(102))
-		assert.Equal(t, 102, s.SkinIdByName("Woodsy Widowmaker"))
+		assert.Equal(t, "Woodsy Widowmaker", s.SkinByID(102))
+		assert.Equal(t, 102, s.SkinIDByName("Woodsy Widowmaker"))
 		assert.NotEmpty(t, s.PaintKits())
 	})
 

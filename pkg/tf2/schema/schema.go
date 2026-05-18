@@ -415,33 +415,33 @@ func (s *Schema) AttributeByDef(def int) *AttributeSchema {
 	return s.attrsByDef[def]
 }
 
-// QualityById returns the quality name with the given id.
-func (s *Schema) QualityById(id int) string {
+// QualityByID returns the quality name with the given id.
+func (s *Schema) QualityByID(id int) string {
 	return s.qualByID[id]
 }
 
-// QualityIdByName returns the quality id with the given name.
-func (s *Schema) QualityIdByName(name string) int {
+// QualityIDByName returns the quality id with the given name.
+func (s *Schema) QualityIDByName(name string) int {
 	return s.qualByName[strings.ToLower(name)]
 }
 
-// EffectById returns the effect name with the given id.
-func (s *Schema) EffectById(id int) string {
+// EffectByID returns the effect name with the given id.
+func (s *Schema) EffectByID(id int) string {
 	return s.effByID[id]
 }
 
-// EffectIdByName returns the ID for a particle effect name.
-func (s *Schema) EffectIdByName(name string) int {
+// EffectIDByName returns the ID for a particle effect name.
+func (s *Schema) EffectIDByName(name string) int {
 	return s.effByName[strings.ToLower(name)]
 }
 
-// SkinById returns the skin name with the given id.
-func (s *Schema) SkinById(id int) string {
+// SkinByID returns the skin name with the given id.
+func (s *Schema) SkinByID(id int) string {
 	return s.paintKitByID[id]
 }
 
-// SkinIdByName returns the skin id with the given name.
-func (s *Schema) SkinIdByName(name string) int {
+// SkinIDByName returns the skin id with the given name.
+func (s *Schema) SkinIDByName(name string) int {
 	return s.paintKitByName[strings.ToLower(name)]
 }
 
@@ -575,8 +575,8 @@ func (s *Schema) SpellNameFromSKU(spell sku.Spell) string {
 	return name
 }
 
-// SpellIdByName returns the attribute and value IDs for a spell name.
-func (s *Schema) SpellIdByName(name string) (sku.Spell, bool) {
+// SpellIDByName returns the attribute and value IDs for a spell name.
+func (s *Schema) SpellIDByName(name string) (sku.Spell, bool) {
 	return IdentifySpell(name)
 }
 
@@ -852,7 +852,7 @@ func (s *Schema) ItemName(item *sku.Item, proper, usePipeForSkin, scmFormat bool
 	}
 
 	if item.Quality2 != 0 {
-		qName := s.QualityById(item.Quality2)
+		qName := s.QualityByID(item.Quality2)
 		if qName != "" {
 			if !scmFormat && (item.Wear != 0 || item.Paintkit != 0) {
 				qName += "(e)"
@@ -873,14 +873,14 @@ func (s *Schema) ItemName(item *sku.Item, proper, usePipeForSkin, scmFormat bool
 	}
 
 	if addPrimaryQuality {
-		qName := s.QualityById(item.Quality)
+		qName := s.QualityByID(item.Quality)
 		if qName != "" {
 			parts = append(parts, qName)
 		}
 	}
 
 	if !scmFormat && item.Effect != 0 {
-		effName := s.EffectById(item.Effect)
+		effName := s.EffectByID(item.Effect)
 		if effName != "" {
 			parts = append(parts, effName)
 		}
@@ -909,7 +909,7 @@ func (s *Schema) ItemName(item *sku.Item, proper, usePipeForSkin, scmFormat bool
 	}
 
 	if item.OutputQuality != 0 && item.OutputQuality != 6 {
-		oqName := s.QualityById(item.OutputQuality)
+		oqName := s.QualityByID(item.OutputQuality)
 		if oqName != "" {
 			parts = append([]string{oqName}, parts...)
 		}
@@ -927,7 +927,7 @@ func (s *Schema) ItemName(item *sku.Item, proper, usePipeForSkin, scmFormat bool
 	}
 
 	if item.Paintkit != 0 {
-		skinName := s.SkinById(item.Paintkit)
+		skinName := s.SkinByID(item.Paintkit)
 		if skinName != "" {
 			if usePipeForSkin {
 				parts = append(parts, skinName+" |")
@@ -1832,7 +1832,7 @@ func (s *Schema) SKUFromEconItem(item *trading.Item) string {
 			skuItem.Quality == QualityDecorated
 		if isUnusual && skuItem.Effect == 0 {
 			if after, ok := strings.CutPrefix(val, "★ Unusual Effect: "); ok {
-				if id := s.EffectIdByName(after); id != 0 {
+				if id := s.EffectIDByName(after); id != 0 {
 					skuItem.Effect = id
 				}
 			}
@@ -1892,7 +1892,7 @@ func (s *Schema) SKUFromEconItem(item *trading.Item) string {
 		// Spells (Color: 7ea9d1)
 		if strings.ToLower(d.Color) == "7ea9d1" {
 			spellName := strings.TrimSpace(val)
-			if spell, ok := s.SpellIdByName(spellName); ok {
+			if spell, ok := s.SpellIDByName(spellName); ok {
 				skuItem.Spells = append(skuItem.Spells, spell)
 			}
 		}
