@@ -272,7 +272,7 @@ func TestLogger_RaceAndMidClose(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			for j := 0; j < 100; j++ {
+			for range 100 {
 				l.Info("log")
 			}
 		}()

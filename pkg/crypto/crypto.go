@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package crypto provides cryptographic utilities for the steam client, including totp.
 package crypto
 
 import (
@@ -47,9 +48,7 @@ func GenerateSessionKey(nonce []byte) (sessionKey, encrypted []byte, err error) 
 		copy(toEncrypt[len(sessionKey):], nonce)
 	}
 
-	h := sha1.New()
-
-	encrypted, err = rsa.EncryptOAEP(h, rand.Reader, pubKeySystem, toEncrypt, nil)
+	encrypted, err = rsa.EncryptOAEP(sha1.New(), rand.Reader, pubKeySystem, toEncrypt, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -64,8 +63,6 @@ func SymmetricEncrypt(input, key, iv []byte) ([]byte, error) {
 		return nil, errors.New("key must be 32 bytes for AES-256")
 	}
 
-	block, _ := aes.NewCipher(key)
-
 	if iv == nil {
 		iv = make([]byte, aes.BlockSize)
 		if _, err := io.ReadFull(rand.Reader, iv); err != nil {
@@ -75,20 +72,16 @@ func SymmetricEncrypt(input, key, iv []byte) ([]byte, error) {
 		return nil, errors.New("IV must be 16 bytes")
 	}
 
-	ecbIV := make([]byte, aes.BlockSize)
+	block, _ := aes.NewCipher(key)
+
+	padded := pkcs7Pad(input, aes.BlockSize)
+	cbcBytes := make([]byte, len(padded))
+	cipher.NewCBCEncrypter(block, iv).CryptBlocks(cbcBytes, padded)
+
+	ecbIV := make([]byte, aes.BlockSize, aes.BlockSize+len(cbcBytes))
 	block.Encrypt(ecbIV, iv)
 
-	paddedInput := pkcs7Pad(input, aes.BlockSize)
-
-	cbcCipher := cipher.NewCBCEncrypter(block, iv)
-	ciphertext := make([]byte, len(paddedInput))
-	cbcCipher.CryptBlocks(ciphertext, paddedInput)
-
-	result := make([]byte, len(ecbIV)+len(ciphertext))
-	copy(result, ecbIV)
-	copy(result[len(ecbIV):], ciphertext)
-
-	return result, nil
+	return append(ecbIV, cbcBytes...), nil
 }
 
 // SymmetricEncryptWithHmacIv is a custom encryption that constructs the IV from
@@ -98,25 +91,17 @@ func SymmetricEncryptWithHmacIv(input, key []byte) ([]byte, error) {
 		return nil, errors.New("key must be 32 bytes")
 	}
 
-	// Generate 3 random bytes
 	random := make([]byte, 3)
 	if _, err := io.ReadFull(rand.Reader, random); err != nil {
 		return nil, err
 	}
 
-	// HMAC-SHA1 using first 16 bytes of key
-	hmacKey := key[:16]
-	h := hmac.New(sha1.New, hmacKey)
+	h := hmac.New(sha1.New, key[:16])
 	h.Write(random)
 	h.Write(input)
-	partialHmac := h.Sum(nil)[:13] // take first 13 bytes (16-3)
 
 	// Build IV: partialHmac (13 bytes) + random (3 bytes)
-	iv := make([]byte, 16)
-	copy(iv, partialHmac)
-	copy(iv[13:], random)
-
-	return SymmetricEncrypt(input, key, iv)
+	return SymmetricEncrypt(input, key, append(h.Sum(nil)[:13], random...))
 }
 
 // SymmetricDecrypt decrypts data produced by SymmetricEncrypt or SymmetricEncryptWithHmacIv.
@@ -130,41 +115,30 @@ func SymmetricDecrypt(input, key []byte, checkHmac bool) ([]byte, error) {
 		return nil, errors.New("input too short")
 	}
 
-	block, _ := aes.NewCipher(key)
-
-	// Decrypt first 16 bytes (encrypted IV) with ECB (no padding)
-	encIV := input[:aes.BlockSize]
-	iv := make([]byte, aes.BlockSize)
-	block.Decrypt(iv, encIV)
-
-	// CBC decrypt the rest
-	ciphertext := input[aes.BlockSize:]
-	if len(ciphertext)%aes.BlockSize != 0 {
+	cbcBytes := input[aes.BlockSize:]
+	if len(cbcBytes)%aes.BlockSize != 0 {
 		return nil, errors.New("ciphertext length is not a multiple of block size")
 	}
 
-	cbcCipher := cipher.NewCBCDecrypter(block, iv)
-	plaintextPadded := make([]byte, len(ciphertext))
-	cbcCipher.CryptBlocks(plaintextPadded, ciphertext)
+	iv := make([]byte, aes.BlockSize)
+	padded := make([]byte, len(cbcBytes))
 
-	// Remove PKCS7 padding
-	plaintext, err := pkcs7Unpad(plaintextPadded, aes.BlockSize)
+	block, _ := aes.NewCipher(key)
+	block.Decrypt(iv, input[:aes.BlockSize])
+	cipher.NewCBCDecrypter(block, iv).CryptBlocks(padded, cbcBytes)
+
+	plaintext, err := pkcs7Unpad(padded, aes.BlockSize)
 	if err != nil {
 		return nil, err
 	}
 
 	if checkHmac {
-		partialHmac := iv[:13]
-		random := iv[13:]
-
-		hmacKey := key[:16]
-		h := hmac.New(sha1.New, hmacKey)
-		h.Write(random)
+		h := hmac.New(sha1.New, key[:16])
+		h.Write(iv[13:])
 		h.Write(plaintext)
 
-		expectedPartial := h.Sum(nil)[:13]
-		if !hmac.Equal(partialHmac, expectedPartial) {
-			return nil, errors.New("received invalid HMAC from remote host")
+		if !hmac.Equal(iv[:13], h.Sum(nil)[:13]) {
+			return nil, errors.New("received invalid HMAC")
 		}
 	}
 
@@ -183,13 +157,11 @@ func SymmetricDecryptECB(input, key []byte) ([]byte, error) {
 
 	block, _ := aes.NewCipher(key)
 
-	// ECB mode: decrypt block by block
 	plaintext := make([]byte, len(input))
 	for i := 0; i < len(input); i += aes.BlockSize {
 		block.Decrypt(plaintext[i:i+aes.BlockSize], input[i:i+aes.BlockSize])
 	}
 
-	// Remove PKCS7 padding
 	return pkcs7Unpad(plaintext, aes.BlockSize)
 }
 
@@ -205,7 +177,6 @@ func GenerateAccountMachineID(accountName string) []byte {
 
 // CreateVDFMachineID packs three hashes into the Valve VDF binary format.
 func CreateVDFMachineID(v1, v2, v3 string) []byte {
-	buf := new(bytes.Buffer)
 	sha1Hex := func(s string) string {
 		h := sha1.New()
 		h.Write([]byte(s))
@@ -213,6 +184,7 @@ func CreateVDFMachineID(v1, v2, v3 string) []byte {
 		return hex.EncodeToString(h.Sum(nil))
 	}
 
+	buf := new(bytes.Buffer)
 	buf.WriteByte(0x00) // Type Map
 	buf.WriteString("MessageObject")
 	buf.WriteByte(0x00)

@@ -429,6 +429,7 @@ func (m *Manager) CheckEscrow(ctx context.Context, offer *trading.TradeOffer) (b
 	if err != nil {
 		return false, err
 	}
+
 	return details.HasHold(), nil
 }
 

@@ -76,6 +76,7 @@ func main() {
 
 			logger.Info("Declining non-donation offer", log.Uint64("trade_id", ctx.Offer.ID))
 			ctx.Decline(reason.DeclineBegging)
+
 			return next(ctx)
 		}
 	})
@@ -104,7 +105,9 @@ func main() {
 
 				go func(cb func(string)) {
 					var code string
+
 					fmt.Print("Enter Steam Guard Code: ")
+
 					_, _ = fmt.Scanln(&code)
 					cb(code)
 				}(ev.Callback)
@@ -120,6 +123,7 @@ func main() {
 	defer cancel()
 
 	dir := directory.New(client.Service())
+
 	server, err := dir.GetOptimalCMServer(ctx)
 	if err != nil {
 		logger.Error("Failed to get CM server list", log.Err(err))

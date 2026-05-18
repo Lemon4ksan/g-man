@@ -94,6 +94,7 @@ func main() {
 	tradeEngine := engine.New()
 
 	tradeCfg := tradeCfgManager.GetConfig()
+
 	stockCfg := tf2trading.StockConfig{
 		MaxTotal:   tradeCfg.GlobalMaxStock,
 		DefaultMax: tradeCfg.DefaultMaxStock,
@@ -133,7 +134,9 @@ func main() {
 
 				go func(cb func(string)) {
 					var code string
+
 					fmt.Print("Enter Steam Guard Code: ")
+
 					_, _ = fmt.Scanln(&code)
 					cb(code)
 				}(ev.Callback)
@@ -149,6 +152,7 @@ func main() {
 	defer cancel()
 
 	dir := directory.New(client.Service())
+
 	server, err := dir.GetOptimalCMServer(ctx)
 	if err != nil {
 		logger.Error("Failed to get CM server list", log.Err(err))

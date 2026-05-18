@@ -195,6 +195,7 @@ func NewClient(cfg Config, opts ...Option) (*Client, error) {
 	if cfg.Socket.Connector.ProxyURL == "" {
 		cfg.Socket.Connector.ProxyURL = cfg.ProxyURL
 	}
+
 	c.socket = socket.NewSocket(cfg.Socket, c.logger)
 	c.session = NewSessionManager(cfg, c.bus, c.logger, c.socket)
 	c.router = NewServiceRouter(c.session, c.socket)

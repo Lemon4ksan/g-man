@@ -91,6 +91,7 @@ func main() {
 				ctx.Review(reason.ReviewHalted) // Mark for review instead of declining
 				return nil
 			}
+
 			return next(ctx)
 		}
 	})
@@ -104,6 +105,7 @@ func main() {
 				ctx.Accept(reason.AcceptDonation)
 				return nil
 			}
+
 			return next(ctx)
 		}
 	})
@@ -121,10 +123,13 @@ func main() {
 			case *auth.SteamGuardRequiredEvent:
 				go func(cb func(string)) {
 					var code string
+
 					fmt.Print("Enter Steam Guard Code: ")
+
 					_, _ = fmt.Scanln(&code)
 					cb(code)
 				}(ev.Callback)
+
 			case *auth.LoggedOnEvent:
 				logger.Info("Logged in!", log.Uint64("steam_id", ev.SteamID))
 			}
