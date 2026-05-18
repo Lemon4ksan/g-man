@@ -9,7 +9,7 @@
 [![License](https://img.shields.io/github/license/lemon4ksan/g-man?style=flat-square)](LICENSE)
 [![GitHub Stars](https://img.shields.io/github/stars/lemon4ksan/g-man?style=flat-square)](https://github.com/lemon4ksan/g-man/stargazers)
 
-> *"Правильный бот в неправильном месте может изменить весь рынок скинов."*
+> _"Правильный бот в неправильном месте может изменить весь рынок скинов."_
 
 #### 🇺🇸 [English](README.md) • 🇷🇺 [Русский](README_RU.md)
 
@@ -68,12 +68,12 @@ flowchart LR
     Steam <--> Socket & WebAPI
     Socket & WebAPI <--> Router
     Router <--> Bus
-    
+
     Bus <--> TF2 & Social & Ach
-    
+
     TF2 -- "Новое предложение" --> P1
     P4 --> Verdict
-    
+
     Verdict -- "Принять/Отклонить" --> Router
     Router -- "Выполнить" --> Steam
 ```
@@ -81,23 +81,29 @@ flowchart LR
 ## ⚡ Ключевые возможности
 
 ### 🔄 Самовосстанавливающиеся сессии (Silent Re-auth)
+
 Простой бота — это потерянная прибыль. G-man в фоновом режиме отслеживает состояние веб-сессий и токенов доступа. Если веб-куки истекают прямо во время выполнения запроса, оркестратор приостанавливает активные операции, атомарно обновляет OAuth2-сессию, сохраняет новые токены в хранилище и возобновляет запросы прозрачно для пользователя. Ваша бизнес-логика никогда не столкнется с ошибками `401 Unauthorized` или разрывом сессии.
 
 ### 🌐 Двухстековый транспортный движок
+
 Больше не нужно выбирать между WebAPI и сокетами Connection Manager (CM). Протокольно-независимый слой маршрутизации G-man динамически выбирает оптимальный путь: **TCP/WebSocket CM-каналы** для синхронизации состояния в реальном времени с минимальной задержкой или **HTTPS WebAPI** для массовых транзакций и минимизации лимитов запросов. При разрыве сокета движок автоматически и плавно переходит на HTTP.
 
 ### 🧅 Конвейерная система сделок (Onion Trade Middleware)
+
 Стройте сложную логику проверки сделок в виде независимых middleware-компонентов. Обрабатывайте входящие предложения через цепочку фильтров: `Deduplicator` $\rightarrow$ `SecurityEscrowCheck` $\rightarrow$ `BlacklistFilter` $\rightarrow$ `PriceDBValidator` $\rightarrow$ `AutoSmelter`. Если любой из middleware выносит окончательный вердикт (Принять/Отклонить/Контр-предложение), цепочка прерывается, исключая состояние гонки.
 
 ### 🌡️ Защитный веб-скрейпинг
+
 Steam часто возвращает «мягкие ошибки» — HTML-страницы со статусом `200 OK`, содержащие текст с предупреждением (например, «Превышен лимит запросов», блок «Семейного просмотра» или форму авторизации). Защитный скрейпер модуля `community` сканирует тела ответов, переводит двусмысленный HTML в строго типизированные ошибки Go и инициирует обработчики безопасности.
 
 ### 🎒 Торговый инструментарий Team Fortress 2 (TF2)
+
 G-man поставляется с готовым к промышленной эксплуатации модулем для автоматизации экономики TF2:
-* **Стейтфул-система PriceDB и автооценщик:** Обновление цен в реальном времени через Socket.IO и локальное кеширование.
-* **Конкурентный демпинг и защита от резких скачков (Price Swing Limits):** Анализ снапшотов backpack.tf для автоматического перебивания цен конкурентов с защитой от резкого падения или взлета стоимости, предотвращая манипуляции с рынком.
-* **Умные встречные предложения и плавка металла:** Автоматический расчет разницы в стоимости сделки, плавка или объединение металлов (`Refined` $\leftrightarrow$ `Reclaimed` $\leftrightarrow$ `Scrap`) для точной сдачи, а также извлечение недостающих ключей или предметов из инвентаря партнера для создания встречного предложения.
-* **Симулятор достижений:** Имитирует реалистичное разблокирование достижений и отправку статистики игрового координатора, маскируя бота под обычного игрока.
+
+- **Стейтфул-система PriceDB и автооценщик:** Обновление цен в реальном времени через Socket.IO и локальное кеширование.
+- **Конкурентный демпинг и защита от резких скачков (Price Swing Limits):** Анализ снапшотов backpack.tf для автоматического перебивания цен конкурентов с защитой от резкого падения или взлета стоимости, предотвращая манипуляции с рынком.
+- **Умные встречные предложения и плавка металла:** Автоматический расчет разницы в стоимости сделки, плавка или объединение металлов (`Refined` $\leftrightarrow$ `Reclaimed` $\leftrightarrow$ `Scrap`) для точной сдачи, а также извлечение недостающих ключей или предметов из инвентаря партнера для создания встречного предложения.
+- **Симулятор достижений:** Имитирует реалистичное разблокирование достижений и отправку статистики игрового координатора, маскируя бота под обычного игрока.
 
 ## 📂 Структура проекта
 
@@ -130,100 +136,89 @@ pkg/
 
 ### 1. Инициализация и запуск клиента
 
-Подключитесь к сети Steam, пройдите авторизацию и запустите автоматические фоновые модули всего несколькими строками кода:
+Подключитесь к сети Steam, пройдите авторизацию и запустите автоматический обработчик сделок всего несколькими строками кода:
 
 ```go
 package main
 
 import (
 	"context"
-	"fmt"
 	"os"
-	"time"
 
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
+	"github.com/lemon4ksan/g-man/pkg/steam/sys/directory"
 	"github.com/lemon4ksan/g-man/pkg/storage/jsonfile"
 	"github.com/lemon4ksan/g-man/pkg/tf2"
+	"github.com/lemon4ksan/g-man/pkg/trading/engine"
+	webtrading "github.com/lemon4ksan/g-man/pkg/trading/web"
 )
 
 func main() {
 	// 1. Настраиваем хранилище сессий в JSON-файле для сохранения токенов авторизации
-	store, err := jsonfile.New("storage.json")
-	if err != nil {
-		panic(err)
-	}
+	store, _ := jsonfile.New("storage.json")
+	logger := log.New(log.DefaultConfig(log.LevelInfo))
 
-	logger := log.New(log.DefaultConfig(log.InfoLevel))
-	cfg := steam.DefaultConfig()
-	cfg.Storage = store
-
-	// 2. Инициализируем оркестратор с модулем TF2 и логированием
-	client, err := steam.NewClient(cfg,
+	// 2. Инициализируем оркестратор с модулями TF2 и торговли
+	client, _ := steam.NewClient(steam.Config{Storage: store},
 		steam.WithLogger(logger),
-		tf2.WithModule(), // Включает игровой координатор TF2 и SOCache
+		tf2.WithModule(), 
+		webtrading.WithModule(webtrading.Config{}),
 	)
-	if err != nil {
-		panic(err)
-	}
 	defer client.Close()
 
-	// 3. Асинхронно слушаем шину событий авторизации
-	go func() {
-		sub := client.Bus().Subscribe(&auth.LoggedOnEvent{})
-		for event := range sub.C() {
-			ev := event.(*auth.LoggedOnEvent)
-			logger.Info("Успешное подключение к Steam Network!", log.Uint64("steam_id", ev.SteamID))
-		}
-	}()
+	// 3. Подключаем движок middleware к менеджеру сделок через автоматический процессор
+	tradeEngine := engine.New()
+	// Добавьте ваши middleware здесь...
+	
+	webTradeManager := client.Module("trading").(*webtrading.Manager)
+	webTradeManager.SetOfferHandler(context.Background(), engine.NewBotHandler(tradeEngine, logger), nil)
 
-	// 4. Подключаемся к сети и выполняем вход
-	loginDetails := auth.NewLogOnDetails(os.Getenv("STEAM_USER"), os.Getenv("STEAM_PASS"))
-	server := socket.NewCMServer("cm1.steampowered.com:27015") // Или запрашиваем динамически через sys/directory
+	// 4. Запрашиваем оптимальный сервер и выполняем вход
+	dir := directory.New(client.Service())
+	server, _ := dir.GetOptimalCMServer(context.Background())
+	login := auth.NewLogOnDetails(os.Getenv("STEAM_USER"), os.Getenv("STEAM_PASS"))
 
-	if err := client.ConnectAndLogin(context.Background(), server, loginDetails); err != nil {
-		logger.Error("Не удалось инициализировать сессию Steam", log.Err(err))
-		return
+	if err := client.ConnectAndLogin(context.Background(), server, login); err != nil {
+		panic(err)
 	}
 
-	client.Wait() // Блокируем главный поток до завершения работы
+	client.Wait()
 }
 ```
 
 ### 2. Конфигурация промежуточного ПО сделок (Onion Trade Middlewares)
 
-Вы можете строить гибкие сценарии фильтрации предложений с помощью создания модульных middleware-компонентов. Пример middleware-прослойки, валидирующей стоимость предметов на основе базы данных `pricedb`:
+Вы можете строить гибкие сценарии фильтрации предложений с помощью создания модульных middleware-компонентов. Пример middleware-прослойки, валидирующей стоимость предметов:
 
 ```go
 package main
 
 import (
+	"github.com/lemon4ksan/g-man/pkg/trading"
 	"github.com/lemon4ksan/g-man/pkg/trading/engine"
 	"github.com/lemon4ksan/g-man/pkg/trading/reason"
 )
 
-// PriceValidationMiddleware выполняет строгую валидацию цен на основе модуля PriceDB
+// PriceValidationMiddleware выполняет строгую валидацию цен
 func PriceValidationMiddleware(priceProvider PriceProvider) engine.Middleware {
 	return func(next engine.Handler) engine.Handler {
 		return func(ctx *engine.TradeContext) error {
-			// Перебираем предметы, которые мы отдаем в сделке
 			for _, item := range ctx.Offer.ItemsToGive {
 				price, err := priceProvider.GetPrice(item.SKU)
 				if err != nil {
-					// Прерываем цепочку и отправляем сделку на ручную модерацию администратору
 					ctx.Review(reason.ReviewEngineError)
 					return err
 				}
 
 				if item.Value < price.SellMinVal {
-					// Наш партнер предложил слишком мало за предмет: мгновенно отклоняем сделку
+					// Партнер предложил слишком мало: мгновенно отклоняем сделку
 					ctx.Decline(reason.DeclineUnderpaid)
-					return nil // Прерываем распространение по цепочке
+					return nil // Прерываем цепочку
 				}
 			}
 
-			// Все проверки пройдены – передаем управление следующему обработчику в конвейере
 			return next(ctx)
 		}
 	}
@@ -233,6 +228,7 @@ func PriceValidationMiddleware(priceProvider PriceProvider) engine.Middleware {
 ## 🏗 План развития (Roadmap)
 
 ### Ядро инфраструктуры
+
 - [x] **Умная маршрутизация транспорта:** Потокобезопасная отправка через Socket или HTTP.
 - [x] **WebSession Keep-Alive:** Фоновое поддержание веб-куков и API-ключей в актуальном состоянии.
 - [x] **Невидимое переподключение (Silent Re-auth):** Фоновое обновление сессий без прерывания запросов.
@@ -240,6 +236,7 @@ func PriceValidationMiddleware(priceProvider PriceProvider) engine.Middleware {
 - [ ] **Steam CDN Downloader:** Модуль парсинга манифестов приложений и загрузки игровых ресурсов.
 
 ### Модуль TF2 и Игровой координатор
+
 - [x] **Объединенный кэш инвентаря:** Синхронизация данных SOCache координатора и веб-инвентаря.
 - [x] **Динамический SKU-нормализатор:** Парсинг качеств, эффектов и свойств предметов.
 - [x] **Автоматическая плавка:** Многоэтапная плавка металлов и крафтинг оружия.
@@ -250,6 +247,7 @@ func PriceValidationMiddleware(priceProvider PriceProvider) engine.Middleware {
 ## 🤝 Участие в разработке
 
 Мы приветствуем вклад сообщества в развитие G-man! Если вы хотите добавить поддержку новых хранилищ, реализовать структуры GC для CS2/Dota 2 или улучшить алгоритмы защитного скрейпинга:
+
 1. Ознакомьтесь с философией архитектуры в [CONTRIBUTING.md](CONTRIBUTING.md).
 2. Убедитесь, что сетевые запросы проходят через абстракцию `transport.Doer`.
 3. Напишите соответствующие юнит-тесты и проверьте потокобезопасность с помощью `go test -race ./...`.
@@ -262,7 +260,7 @@ func PriceValidationMiddleware(priceProvider PriceProvider) engine.Middleware {
 
 [![Trade Offer](https://img.shields.io/badge/Steam-Trade_Offer-blue?style=for-the-badge&logo=steam)](https://steamcommunity.com/tradeoffer/new/?partner=1141078357&token=HjsTJQFX)
 
-> *"Пожертвования... не являются обязательными, но... они соответствуют условиям нашего... соглашения."*
+> _"Пожертвования... не являются обязательными, но... они соответствуют условиям нашего... соглашения."_
 
 </div>
 
