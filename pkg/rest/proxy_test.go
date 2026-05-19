@@ -15,6 +15,7 @@ import (
 )
 
 type mockDoer struct {
+	mu         sync.RWMutex
 	id         int
 	calls      int
 	forceError bool
@@ -22,22 +23,46 @@ type mockDoer struct {
 }
 
 func (m *mockDoer) Do(req *http.Request) (*http.Response, error) {
+	m.mu.Lock()
 	m.calls++
+	forceError := m.forceError
+	statusCode := m.statusCode
+	m.mu.Unlock()
 
 	if err := req.Context().Err(); err != nil {
 		return nil, err
 	}
 
 	var err error
-	if m.forceError {
+	if forceError {
 		err = errors.New("forced error")
 	}
 
-	if m.statusCode == 0 {
-		m.statusCode = http.StatusOK
+	if statusCode == 0 {
+		statusCode = http.StatusOK
 	}
 
-	return &http.Response{StatusCode: m.statusCode, Body: io.NopCloser(nil)}, err
+	return &http.Response{StatusCode: statusCode, Body: io.NopCloser(nil)}, err
+}
+
+func (m *mockDoer) SetStatusCode(code int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.statusCode = code
+}
+
+func (m *mockDoer) SetForceError(force bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.forceError = force
+}
+
+func (m *mockDoer) GetCalls() int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.calls
 }
 
 func TestNewProxyClient(t *testing.T) {
@@ -146,16 +171,16 @@ func TestProxyRotator(t *testing.T) {
 			}
 		}
 
-		if m1.calls != 1 {
-			t.Errorf("m1 expected 1 call, got %d", m1.calls)
+		if m1.GetCalls() != 1 {
+			t.Errorf("m1 expected 1 call, got %d", m1.GetCalls())
 		}
 
-		if m2.calls != 2 {
-			t.Errorf("m2 expected 2 calls, got %d", m2.calls)
+		if m2.GetCalls() != 2 {
+			t.Errorf("m2 expected 2 calls, got %d", m2.GetCalls())
 		}
 
-		if m3.calls != 1 {
-			t.Errorf("m3 expected 1 call, got %d", m3.calls)
+		if m3.GetCalls() != 1 {
+			t.Errorf("m3 expected 1 call, got %d", m3.GetCalls())
 		}
 	})
 
@@ -190,7 +215,7 @@ func TestProxyRotator(t *testing.T) {
 
 		totalCalls := 0
 		for _, m := range mocks {
-			totalCalls += m.calls
+			totalCalls += m.GetCalls()
 		}
 
 		if totalCalls != iterations {
@@ -221,7 +246,7 @@ func TestProxyRotator_HealthCheck(t *testing.T) {
 			continue
 		}
 
-		if resp != nil && m1.calls == 0 {
+		if resp != nil && m1.GetCalls() == 0 {
 			t.Error("expected calls to go to m1 only")
 		}
 	}
@@ -232,7 +257,7 @@ func TestProxyRotator_HealthCheck(t *testing.T) {
 	for range 5 {
 		rotator.Do(req)
 
-		if m2.calls > 2 {
+		if m2.GetCalls() > 2 {
 			foundM2 = true
 			break
 		}
@@ -266,7 +291,7 @@ func TestProxyRotator_BackgroundHealthCheck(t *testing.T) {
 		t.Fatal("proxy should be unhealthy")
 	}
 
-	m1.forceError = false
+	m1.SetForceError(false)
 
 	time.Sleep(150 * time.Millisecond)
 

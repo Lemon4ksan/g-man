@@ -277,18 +277,24 @@ func (m *Manager[T]) Remove(id uint64) bool {
 func (m *Manager[T]) WaitFor(ctx context.Context, id uint64) (T, error) {
 	m.mu.RLock()
 	e, ok := m.jobs[id]
+
+	var wCh chan result[T]
+	if ok {
+		wCh = e.waitCh
+	}
+
 	m.mu.RUnlock()
 
 	if !ok {
 		return *new(T), ErrJobNotFound
 	}
 
-	if e.waitCh == nil {
+	if wCh == nil {
 		return *new(T), ErrWaitFor
 	}
 
 	select {
-	case res, ok := <-e.waitCh:
+	case res, ok := <-wCh:
 		if !ok {
 			return *new(T), ErrJobClosed
 		}
@@ -304,6 +310,7 @@ func (m *Manager[T]) WaitFor(ctx context.Context, id uint64) (T, error) {
 func (m *Manager[T]) CancelAll(err error) {
 	m.mu.Lock()
 	pending := m.jobs
+	m.jobs = make(map[uint64]*entry[T])
 	m.mu.Unlock()
 
 	for _, e := range pending {
@@ -317,11 +324,10 @@ func (m *Manager[T]) CancelAll(err error) {
 
 		if e.waitCh != nil {
 			close(e.waitCh)
-			e.waitCh = nil
 		}
 
 		if e.callback != nil {
-			e.callback(*new(T), err)
+			go e.callback(*new(T), err)
 		}
 	}
 }

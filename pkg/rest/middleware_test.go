@@ -30,7 +30,7 @@ func TestRetryMiddleware(t *testing.T) {
 		go func() {
 			time.Sleep(10 * time.Millisecond)
 
-			m1.statusCode = 200
+			m1.SetStatusCode(200)
 		}()
 
 		resp, err := client.Do(req)
@@ -39,8 +39,8 @@ func TestRetryMiddleware(t *testing.T) {
 		}
 		defer resp.Body.Close()
 
-		if m1.calls < 2 {
-			t.Errorf("expected at least 2 calls, got %d", m1.calls)
+		if m1.GetCalls() < 2 {
+			t.Errorf("expected at least 2 calls, got %d", m1.GetCalls())
 		}
 
 		if resp.StatusCode != 200 {
@@ -65,8 +65,8 @@ func TestRetryMiddleware(t *testing.T) {
 			t.Fatal("expected error after max retries, got nil")
 		}
 
-		if m1.calls != 2 { // Initial + 1 retry
-			t.Errorf("expected 2 calls, got %d", m1.calls)
+		if m1.GetCalls() != 2 { // Initial + 1 retry
+			t.Errorf("expected 2 calls, got %d", m1.GetCalls())
 		}
 	})
 }

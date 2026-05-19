@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -33,6 +34,7 @@ const (
 
 type mockCoordinator struct {
 	bm.Base
+	mu              sync.RWMutex
 	lastSendMsgType uint32
 	lastSendPayload []byte
 
@@ -78,6 +80,9 @@ func (m *mockAppsProvider) PlayGames(ctx context.Context, appIDs []uint32, force
 }
 
 func (m *mockCoordinator) Send(ctx context.Context, appID, msgType uint32, msg proto.Message) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	m.lastSendMsgType = msgType
 	m.lastSendPayload, _ = proto.Marshal(msg)
 
@@ -85,10 +90,19 @@ func (m *mockCoordinator) Send(ctx context.Context, appID, msgType uint32, msg p
 }
 
 func (m *mockCoordinator) SendRaw(ctx context.Context, appID, msgType uint32, payload []byte) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	m.lastSendMsgType = msgType
 	m.lastSendPayload = payload
 
 	return nil
+}
+
+func (m *mockCoordinator) GetLastSendMsgType() uint32 {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.lastSendMsgType
 }
 
 func (m *mockCoordinator) Call(
@@ -221,7 +235,7 @@ func TestTF2_Lifecycle(t *testing.T) {
 
 		// Should have sent Hello (it's in a goroutine, so wait a bit)
 		assert.Eventually(t, func() bool {
-			return mCoord.lastSendMsgType == uint32(pb.EGCBaseClientMsg_k_EMsgGCClientHello)
+			return mCoord.GetLastSendMsgType() == uint32(pb.EGCBaseClientMsg_k_EMsgGCClientHello)
 		}, 1*time.Second, 10*time.Millisecond)
 	})
 

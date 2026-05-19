@@ -45,6 +45,13 @@ func (m *backpackMock) UnlockItems(ids []uint64) {
 	}
 }
 
+func (m *backpackMock) GetCalls() (lockCalls, unlockCalls int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	return m.lockCalls, m.unlockCalls
+}
+
 type mockManager struct {
 	mu           sync.Mutex
 	acceptCalls  int
@@ -101,13 +108,15 @@ type mockOfferHandler struct {
 func (h *mockOfferHandler) ProcessOffer(ctx context.Context, off *trading.TradeOffer) (trading.ActionDecision, error) {
 	h.mu.Lock()
 	h.processCalls++
+	decision := h.decision
+	sleep := h.sleepDuration
 	h.mu.Unlock()
 
-	if h.sleepDuration > 0 {
-		time.Sleep(h.sleepDuration)
+	if sleep > 0 {
+		time.Sleep(sleep)
 	}
 
-	return h.decision, nil
+	return decision, nil
 }
 
 func (h *mockOfferHandler) OnActionFailed(
@@ -121,6 +130,20 @@ func (h *mockOfferHandler) OnActionFailed(
 	defer h.mu.Unlock()
 
 	h.failedCalled = true
+}
+
+func (h *mockOfferHandler) GetProcessCalls() int {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	return h.processCalls
+}
+
+func (h *mockOfferHandler) IsFailedCalled() bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	return h.failedCalled
 }
 
 func TestProcessor_DuplicatePrevention(t *testing.T) {
@@ -137,16 +160,13 @@ func TestProcessor_DuplicatePrevention(t *testing.T) {
 	p.Enqueue(off)
 
 	waitForCondition(func() bool {
-		mockHdl.mu.Lock()
-		defer mockHdl.mu.Unlock()
-		return mockHdl.processCalls > 0
+		return mockHdl.GetProcessCalls() > 0
 	}, 1*time.Second)
 
-	// Ждем завершения
 	time.Sleep(100 * time.Millisecond)
 
-	if mockHdl.processCalls != 1 {
-		t.Errorf("expected offer to be processed only once, got %d calls", mockHdl.processCalls)
+	if mockHdl.GetProcessCalls() != 1 {
+		t.Errorf("expected offer to be processed only once, got %d calls", mockHdl.GetProcessCalls())
 	}
 }
 
@@ -166,17 +186,12 @@ func TestProcessor_SequentialProcessing(t *testing.T) {
 
 	time.Sleep(20 * time.Millisecond)
 
-	mockHdl.mu.Lock()
-	if mockHdl.processCalls != 1 {
-		t.Errorf("expected only 1 offer in processing due to sleep, got %d", mockHdl.processCalls)
+	if mockHdl.GetProcessCalls() != 1 {
+		t.Errorf("expected only 1 offer in processing due to sleep, got %d", mockHdl.GetProcessCalls())
 	}
 
-	mockHdl.mu.Unlock()
-
 	waitForCondition(func() bool {
-		mockHdl.mu.Lock()
-		defer mockHdl.mu.Unlock()
-		return mockHdl.processCalls == 2
+		return mockHdl.GetProcessCalls() == 2
 	}, 1*time.Second)
 }
 
@@ -209,22 +224,22 @@ func TestProcessor_LockUnlockLifecycle(t *testing.T) {
 			p.Enqueue(off)
 
 			waitForCondition(func() bool {
-				mockHdl.mu.Lock()
-				defer mockHdl.mu.Unlock()
-				return mockHdl.processCalls == 1
+				return mockHdl.GetProcessCalls() == 1
 			}, 1*time.Second)
 
 			time.Sleep(10 * time.Millisecond)
 
-			if mockBp.lockCalls != 1 {
+			lockCalls, unlockCalls := mockBp.GetCalls()
+
+			if lockCalls != 1 {
 				t.Error("expected LockItems to be called")
 			}
 
-			if tt.expectUnlock && mockBp.unlockCalls != 1 {
+			if tt.expectUnlock && unlockCalls != 1 {
 				t.Error("expected UnlockItems to be called")
 			}
 
-			if !tt.expectUnlock && mockBp.unlockCalls != 0 {
+			if !tt.expectUnlock && unlockCalls != 0 {
 				t.Error("expected UnlockItems NOT to be called")
 			}
 		})

@@ -227,7 +227,7 @@ func New(cfg Config) (*Guardian, error) {
 	return g, nil
 }
 
-// Init initializes the module dependencies and starts background event listeners.
+// Init initializes the module dependencies.
 func (g *Guardian) Init(init module.InitContext) error {
 	if err := g.Base.Init(init); err != nil {
 		return err
@@ -238,8 +238,17 @@ func (g *Guardian) Init(init module.InitContext) error {
 	}
 
 	g.Logger = g.Logger.With(log.String("device_id", maskDeviceID(g.config.DeviceID)))
-	sub := init.Bus().Subscribe(auth.StateEvent{})
 
+	return nil
+}
+
+// Start initializes the module's lifecycle context and starts background listeners.
+func (g *Guardian) Start(ctx context.Context) error {
+	if err := g.Base.Start(ctx); err != nil {
+		return err
+	}
+
+	sub := g.Bus.Subscribe(auth.StateEvent{})
 	g.Go(func(ctx context.Context) {
 		g.listenEvents(ctx, sub)
 	})

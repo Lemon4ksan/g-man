@@ -51,7 +51,7 @@ clean: ## Delete temporary files and binaries
 
 format: ## Run go code formatting
 	cd cmd/generator && go run main.go format
-	addlicense -c "Lemon4ksan" -l bsd -ignore "cmd/generator/protobufs/**" -ignore "*.yml" .
+	addlicense -c "Lemon4ksan" -l bsd -ignore "cmd/generator/protobufs/**" -ignore "**/*.yml" .
 	golangci-lint run --fix
 
 help: ## Show this message
