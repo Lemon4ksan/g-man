@@ -362,6 +362,53 @@ func TestClient_PathTemplates(t *testing.T) {
 	})
 }
 
+func TestClient_Validation(t *testing.T) {
+	type RequiredParams struct {
+		ID   int    `url:"id"   validate:"required"`
+		Name string `url:"name"`
+	}
+
+	type RequiredPayload struct {
+		Key string `json:"key" validate:"required"`
+	}
+
+	client := NewClient(nil).WithBaseURL("http://localhost")
+
+	t.Run("Missing query param", func(t *testing.T) {
+		params := RequiredParams{Name: "test"} // ID is 0 (zero value)
+		_, err := GetJSON[any](context.Background(), client, "/test", params)
+		assert.Error(t, err)
+
+		var valErr *ValidationError
+		if assert.ErrorAs(t, err, &valErr) {
+			assert.Equal(t, "ID", valErr.Field)
+		}
+	})
+
+	t.Run("Missing payload field", func(t *testing.T) {
+		payload := RequiredPayload{} // Key is empty
+		_, err := PostJSON[RequiredPayload, any](context.Background(), client, "/test", payload, nil)
+		assert.Error(t, err)
+
+		var valErr *ValidationError
+		if assert.ErrorAs(t, err, &valErr) {
+			assert.Equal(t, "Key", valErr.Field)
+		}
+	})
+
+	t.Run("Validation success", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer server.Close()
+
+		client := NewClient(nil).WithBaseURL(server.URL)
+		params := RequiredParams{ID: 1}
+		_, err := GetJSON[any](context.Background(), client, "/test", params)
+		assert.NoError(t, err)
+	})
+}
+
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) &&
 		(s == substr || (len(substr) > 0 && (s[:len(substr)] == substr || contains(s[1:], substr))))

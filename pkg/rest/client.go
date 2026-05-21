@@ -223,6 +223,10 @@ func (c *Client) Request(
 	query any,
 	mods ...RequestModifier,
 ) (*http.Response, error) {
+	if err := Validate(query); err != nil {
+		return nil, err
+	}
+
 	rel, err := url.Parse(strings.TrimLeft(path, "/"))
 	if err != nil {
 		return nil, fmt.Errorf("rest: invalid path: %w", err)
@@ -296,6 +300,10 @@ func PostJSON[Req, Resp any](
 	query any,
 	mods ...RequestModifier,
 ) (*Resp, error) {
+	if err := Validate(payload); err != nil {
+		return nil, err
+	}
+
 	bodyBytes, err := json.Marshal(payload)
 	if err != nil {
 		return nil, fmt.Errorf("rest: failed to marshal payload: %w", err)
@@ -332,6 +340,10 @@ func PatchJSON[Req, Resp any](
 	query any,
 	mods ...RequestModifier,
 ) (*Resp, error) {
+	if err := Validate(payload); err != nil {
+		return nil, err
+	}
+
 	bodyBytes, err := json.Marshal(payload)
 	if err != nil {
 		return nil, fmt.Errorf("rest: failed to marshal payload: %w", err)
@@ -367,6 +379,10 @@ func DeleteJSON[Req, Resp any](
 	query any,
 	mods ...RequestModifier,
 ) (*Resp, error) {
+	if err := Validate(payload); err != nil {
+		return nil, err
+	}
+
 	var (
 		bodyBytes []byte
 		err       error

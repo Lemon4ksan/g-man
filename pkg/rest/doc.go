@@ -12,6 +12,9 @@
 // # Core Features
 //
 //   - Generics: Automatic JSON/VDF decoding directly into structs using GetJSON[T](...).
+//   - BaseResponse: Automated validation and unwrapping of standard API response wrappers.
+//   - Path Templates: Dynamic path variables using WithVar("id", 123) modifiers.
+//   - Validation: Built-in support for validate:"required" tags to prevent invalid requests.
 //   - Immutability: Client methods return new instances, making it safe to share
 //     a base client across different parts of an application.
 //   - Proxy Rotation: Robust [ProxyRotator] with passive health checks (Circuit Breaker).
