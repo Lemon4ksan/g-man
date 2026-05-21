@@ -313,6 +313,55 @@ func TestClient_BaseResponse(t *testing.T) {
 	})
 }
 
+func TestClient_PathTemplates(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Path", r.URL.Path)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := NewClient(nil).WithBaseURL(server.URL)
+
+	t.Run("WithVar single replacement", func(t *testing.T) {
+		resp, err := client.Request(
+			context.Background(),
+			http.MethodGet,
+			"/user/{id}/profile",
+			nil,
+			nil,
+			WithVar("id", 123),
+		)
+		require.NoError(t, err)
+		assert.Equal(t, "/user/123/profile", resp.Header.Get("X-Path"))
+	})
+
+	t.Run("WithVars multiple replacements", func(t *testing.T) {
+		resp, err := client.Request(
+			context.Background(),
+			http.MethodGet,
+			"/{group}/{member}",
+			nil,
+			nil,
+			WithVars("group", "admins", "member", "bob"),
+		)
+		require.NoError(t, err)
+		assert.Equal(t, "/admins/bob", resp.Header.Get("X-Path"))
+	})
+
+	t.Run("Escaping", func(t *testing.T) {
+		resp, err := client.Request(
+			context.Background(),
+			http.MethodGet,
+			"/search/{query}",
+			nil,
+			nil,
+			WithVar("query", "hello world"),
+		)
+		require.NoError(t, err)
+		assert.Equal(t, "/search/hello%20world", resp.Header.Get("X-Path"))
+	})
+}
+
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) &&
 		(s == substr || (len(substr) > 0 && (s[:len(substr)] == substr || contains(s[1:], substr))))

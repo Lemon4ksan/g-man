@@ -75,6 +75,36 @@ type BaseResponseProvider interface {
 // This is used for adding one-off headers, authentication tokens, or logging.
 type RequestModifier func(req *http.Request)
 
+// WithVar replaces a placeholder in the path (e.g., "{id}") with a value.
+// The value is automatically URL-escaped.
+func WithVar(key string, value any) RequestModifier {
+	return func(req *http.Request) {
+		placeholder := "{" + key + "}"
+		escapedValue := url.PathEscape(fmt.Sprint(value))
+
+		req.URL.Path = strings.ReplaceAll(req.URL.Path, placeholder, escapedValue)
+		if req.URL.RawPath != "" {
+			req.URL.RawPath = strings.ReplaceAll(req.URL.RawPath, placeholder, escapedValue)
+		}
+	}
+}
+
+// WithVars replaces multiple placeholders in the path.
+// It accepts pairs of key-value arguments.
+func WithVars(pairs ...any) RequestModifier {
+	return func(req *http.Request) {
+		if len(pairs)%2 != 0 {
+			return
+		}
+
+		for i := 0; i < len(pairs); i += 2 {
+			key := fmt.Sprint(pairs[i])
+			value := fmt.Sprint(pairs[i+1])
+			WithVar(key, value)(req)
+		}
+	}
+}
+
 // BaseResponse is an interface for response wrappers that include
 // status information and a data payload.
 //
