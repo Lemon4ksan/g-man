@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package stock provides stock control behavior for the TF2 trading bot.
 package stock
 
 import (
@@ -26,8 +27,8 @@ import (
 // BehaviorName is the name of the stock control behavior.
 const BehaviorName = "stock_control"
 
-// WithBehavior returns an option that registers the stock control behavior with the orchestrator.
-func WithBehavior(
+// Control returns an option that registers the stock control behavior with the orchestrator.
+func Control(
 	bp *backpack.Backpack,
 	mgr *bptf.ListingManager,
 	priceMgr *pricedb.Manager,

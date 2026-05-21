@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file.
 
 /*
-Package coordinator provides a multiplexing gateway for communicating with
+Package gc provides a multiplexing gateway for communicating with
 Steam's Game Coordinators (GC).
 
 A Game Coordinator is a dedicated backend server for a specific game (like

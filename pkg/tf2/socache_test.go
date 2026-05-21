@@ -22,7 +22,7 @@ func TestSOCache_Lifecycle(t *testing.T) {
 	cache := tf.Cache()
 
 	t.Run("Create and GetItem", func(t *testing.T) {
-		itemBytes := createItemPayload(100, Item_Scrap)
+		itemBytes := createItemPayload(100, ItemScrap)
 
 		msg := &pb.CMsgSOSingleObject{
 			TypeId:     proto.Int32(SOTypeEconItem),
@@ -36,12 +36,12 @@ func TestSOCache_Lifecycle(t *testing.T) {
 		item, ok := cache.GetItem(100)
 		require.True(t, ok)
 		assert.Equal(t, uint64(100), item.ID)
-		assert.Equal(t, uint32(Item_Scrap), item.DefIndex)
+		assert.Equal(t, uint32(ItemScrap), item.DefIndex)
 	})
 
 	t.Run("Update", func(t *testing.T) {
 		// Update item 100 to defindex Key
-		itemBytes := createItemPayload(100, Item_Key)
+		itemBytes := createItemPayload(100, ItemKey)
 
 		msg := &pb.CMsgSOSingleObject{
 			TypeId:     proto.Int32(SOTypeEconItem),
@@ -54,7 +54,7 @@ func TestSOCache_Lifecycle(t *testing.T) {
 
 		item, ok := cache.GetItem(100)
 		require.True(t, ok)
-		assert.Equal(t, uint32(Item_Key), item.DefIndex)
+		assert.Equal(t, uint32(ItemKey), item.DefIndex)
 	})
 
 	t.Run("UpdateMultiple", func(t *testing.T) {
@@ -62,11 +62,11 @@ func TestSOCache_Lifecycle(t *testing.T) {
 			Objects: []*pb.CMsgSOMultipleObjects_SingleObject{
 				{
 					TypeId:     proto.Int32(SOTypeEconItem),
-					ObjectData: createItemPayload(100, Item_Scrap), // change back to scrap
+					ObjectData: createItemPayload(100, ItemScrap), // change back to scrap
 				},
 				{
 					TypeId:     proto.Int32(SOTypeEconItem),
-					ObjectData: createItemPayload(200, Item_Key), // add new item
+					ObjectData: createItemPayload(200, ItemKey), // add new item
 				},
 			},
 		}
@@ -76,13 +76,13 @@ func TestSOCache_Lifecycle(t *testing.T) {
 		cache.handleSOUpdate(pkt)
 
 		assert.Equal(t, 2, len(cache.GetItems()))
-		assert.Equal(t, 1, cache.GetMetalCount(Item_Scrap))
+		assert.Equal(t, 1, cache.GetMetalCount(ItemScrap))
 	})
 
 	t.Run("Destroy", func(t *testing.T) {
 		msg := &pb.CMsgSOSingleObject{
 			TypeId:     proto.Int32(SOTypeEconItem),
-			ObjectData: createItemPayload(100, Item_Scrap),
+			ObjectData: createItemPayload(100, ItemScrap),
 		}
 		payload, _ := proto.Marshal(msg)
 		pkt := &protocol.GCPacket{MsgType: uint32(pb.ESOMsg_k_ESOMsg_Destroy), Payload: payload}
@@ -112,9 +112,9 @@ func TestSOCache_Getters(t *testing.T) {
 			{
 				TypeId: proto.Int32(SOTypeEconItem),
 				ObjectData: [][]byte{
-					createItemPayload(1, Item_Scrap),
-					createItemPayload(2, Item_Scrap),
-					createItemPayload(3, Item_Key),
+					createItemPayload(1, ItemScrap),
+					createItemPayload(2, ItemScrap),
+					createItemPayload(3, ItemKey),
 				},
 			},
 		},
@@ -123,15 +123,15 @@ func TestSOCache_Getters(t *testing.T) {
 	cache.handleSubscribed(&protocol.GCPacket{Payload: payload})
 
 	t.Run("GetMetalCount", func(t *testing.T) {
-		assert.Equal(t, 2, cache.GetMetalCount(Item_Scrap))
+		assert.Equal(t, 2, cache.GetMetalCount(ItemScrap))
 		assert.Equal(t, 0, cache.GetMetalCount(5001)) // Reclaimed
 	})
 
 	t.Run("FindCraftableItems", func(t *testing.T) {
-		items := cache.FindCraftableItems(Item_Scrap, 2)
+		items := cache.FindCraftableItems(ItemScrap, 2)
 		assert.Equal(t, 2, len(items))
 
-		items = cache.FindCraftableItems(Item_Scrap, 5)
+		items = cache.FindCraftableItems(ItemScrap, 5)
 		assert.Equal(t, 2, len(items)) // only 2 available
 	})
 
@@ -153,8 +153,8 @@ func TestSOCache_ExtraGetters(t *testing.T) {
 			{
 				TypeId: proto.Int32(SOTypeEconItem),
 				ObjectData: [][]byte{
-					createItemPayload(1, Item_Scrap),
-					createItemPayload(2, Item_Key),
+					createItemPayload(1, ItemScrap),
+					createItemPayload(2, ItemKey),
 				},
 			},
 		},
@@ -162,7 +162,7 @@ func TestSOCache_ExtraGetters(t *testing.T) {
 	cache.handleSubscribed(createPacket(pb.ESOMsg_k_ESOMsg_CacheSubscribed, msg))
 
 	t.Run("GetMetal", func(t *testing.T) {
-		metal := cache.GetMetal(Item_Scrap, 10)
+		metal := cache.GetMetal(ItemScrap, 10)
 		assert.Equal(t, 1, len(metal))
 
 		if len(metal) > 0 {

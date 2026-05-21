@@ -33,6 +33,11 @@ func WithModule() steam.Option {
 	}
 }
 
+// From returns the gc module from the client.
+func From(c *steam.Client) *Coordinator {
+	return steam.GetModule[*Coordinator](c)
+}
+
 // MessageEvent is triggered when a Game Coordinator message is received.
 // and WAS NOT handled by a specific Job callback.
 type MessageEvent struct {

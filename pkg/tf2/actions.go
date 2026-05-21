@@ -145,7 +145,7 @@ func (t *TF2) AcknowledgeAll(ctx context.Context) error {
 	for _, it := range items {
 		isNew := (it.Inventory >> 30) & 1
 		if it.Position() == 0 || isNew == 1 {
-			toMove = append(toMove, ItemPos{Id: it.ID, Position: nextSlot})
+			toMove = append(toMove, ItemPos{ID: it.ID, Position: nextSlot})
 			nextSlot++
 		}
 	}
@@ -386,7 +386,7 @@ func (t *TF2) CancelTradeRequest(ctx context.Context) error {
 
 // ItemPos represents an item position.
 type ItemPos struct {
-	Id       uint64
+	ID       uint64
 	Position uint32
 }
 
@@ -401,7 +401,7 @@ func (t *TF2) MoveItems(ctx context.Context, items []ItemPos) error {
 
 		for _, item := range batch {
 			req.ItemPositions = append(req.ItemPositions, &pb.CMsgSetItemPositions_ItemPosition{
-				ItemId:   proto.Uint64(item.Id),
+				ItemId:   proto.Uint64(item.ID),
 				Position: proto.Uint32(item.Position),
 			})
 		}

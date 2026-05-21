@@ -34,13 +34,15 @@ type Orchestrator struct {
 	running   bool
 	cancel    context.CancelFunc
 	wg        sync.WaitGroup
+	bus       *bus.Bus
 }
 
 // NewOrchestrator creates a new orchestrator.
-func NewOrchestrator(logger log.Logger) *Orchestrator {
+func NewOrchestrator(logger log.Logger, bus *bus.Bus) *Orchestrator {
 	return &Orchestrator{
 		logger:    logger.With(log.Module("orchestrator")),
 		behaviors: make([]Behavior, 0),
+		bus:       bus,
 	}
 }
 
@@ -49,10 +51,29 @@ func (o *Orchestrator) Logger() log.Logger {
 	return o.logger
 }
 
+// Bus returns the bus of the orchestrator.
+func (o *Orchestrator) Bus() *bus.Bus {
+	return o.bus
+}
+
+// Install applies the given options to the orchestrator.
+func (o *Orchestrator) Install(opt ...Option) {
+	for _, opt := range opt {
+		opt(o)
+	}
+}
+
 // Register adds a behavior to the orchestrator.
 func (o *Orchestrator) Register(b Behavior) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
+
+	for _, existing := range o.behaviors {
+		if existing.Name() == b.Name() {
+			o.logger.Warn("Behavior already registered, skipping", log.String("name", b.Name()))
+			return
+		}
+	}
 
 	o.behaviors = append(o.behaviors, b)
 }

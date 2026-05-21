@@ -38,6 +38,11 @@ func WithModule() steam.Option {
 	}
 }
 
+// From returns the chat module from the client.
+func From(c *steam.Client) *Chat {
+	return steam.GetModule[*Chat](c)
+}
+
 // Chat handles sending and receiving messages via Steam's Unified Services.
 type Chat struct {
 	module.Base

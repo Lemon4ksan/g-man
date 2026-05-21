@@ -21,6 +21,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/community/inventory"
+	"github.com/lemon4ksan/g-man/pkg/steam/guard"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
@@ -38,6 +39,11 @@ func WithModule(cfg Config) steam.Option {
 	return func(c *steam.Client) {
 		c.RegisterModule(New(cfg))
 	}
+}
+
+// From returns the trade manager module from the client.
+func From(c *steam.Client) *Manager {
+	return steam.GetModule[*Manager](c)
 }
 
 var (
@@ -166,7 +172,7 @@ func (m *Manager) StartAuthed(ctx context.Context, authCtx module.AuthContext) e
 	m.mu.Unlock()
 
 	// Listen for auth events to handle disconnects
-	sub := m.Bus.Subscribe(auth.StateEvent{})
+	sub := m.Bus.Subscribe(&auth.StateEvent{})
 	m.Go(func(ctx context.Context) {
 		m.listenEvents(ctx, sub)
 	})
@@ -270,6 +276,14 @@ func (m *Manager) SendOffer(ctx context.Context, p trading.OfferParams) (uint64,
 		return 0, err
 	}
 
+	if resp.NeedsMobile || resp.NeedsEmail {
+		m.Bus.Publish(&guard.ConfirmationRequiredEvent{
+			TradeOfferID: resp.TradeOfferID,
+			IsAppConfirm: resp.NeedsMobile,
+			IsEmail:      resp.NeedsEmail,
+		})
+	}
+
 	id, _ := strconv.ParseUint(resp.TradeOfferID, 10, 64)
 
 	return id, nil
@@ -285,9 +299,29 @@ func (m *Manager) AcceptOffer(ctx context.Context, offerID uint64) error {
 		TradeOfferID uint64 `url:"tradeofferid"`
 		ServerID     int    `url:"serverid"`
 	}{offerID, 1}
-	_, err := service.WebAPI[service.NoResponse](ctx, m.web, "POST", "IEconService", "AcceptTradeOffer", 1, req)
 
-	return err
+	type acceptResponse struct {
+		TradeID                 string `json:"tradeid"`
+		NeedsMobileConfirmation bool   `json:"needs_mobile_confirmation"`
+		NeedsEmailConfirmation  bool   `json:"needs_email_confirmation"`
+		EmailDomain             string `json:"email_domain"`
+	}
+
+	resp, err := service.WebAPI[acceptResponse](ctx, m.web, "POST", "IEconService", "AcceptTradeOffer", 1, req)
+	if err != nil {
+		return err
+	}
+
+	if resp.NeedsMobileConfirmation || resp.NeedsEmailConfirmation {
+		m.Bus.Publish(&guard.ConfirmationRequiredEvent{
+			TradeOfferID: strconv.FormatUint(offerID, 10),
+			IsAppConfirm: resp.NeedsMobileConfirmation,
+			IsEmail:      resp.NeedsEmailConfirmation,
+			EmailDomain:  resp.EmailDomain,
+		})
+	}
+
+	return nil
 }
 
 // DeclineOffer declines a trade offer.

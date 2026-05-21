@@ -214,7 +214,7 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 	defer cancel()
 
 	if len(details.MachineID) == 0 {
-		a.acquireMachineId(ctx, details)
+		a.acquireMachineID(ctx, details)
 	}
 
 	if err := a.acquireAuthToken(ctx, details); err != nil {
@@ -470,7 +470,7 @@ func (a *Authenticator) failLogin(err error) {
 	}
 }
 
-func (a *Authenticator) acquireMachineId(ctx context.Context, details *LogOnDetails) {
+func (a *Authenticator) acquireMachineID(ctx context.Context, details *LogOnDetails) {
 	saved, err := a.store.GetMachineID(ctx, details.AccountName)
 	if err == nil && len(saved) > 0 {
 		a.logger.Debug("Found saved MachineID in storage")

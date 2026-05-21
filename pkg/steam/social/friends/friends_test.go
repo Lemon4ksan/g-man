@@ -25,8 +25,8 @@ import (
 )
 
 const (
-	FriendID_1 = id.ID(101)
-	FriendID_2 = id.ID(102)
+	FriendID1  = id.ID(101)
+	FriendID2  = id.ID(102)
 	BotSteamID = id.ID(76561198000000000)
 )
 
@@ -64,23 +64,23 @@ func TestManager_FriendCache(t *testing.T) {
 	m, _ := setupFriends(t)
 
 	m.mu.Lock()
-	m.relationships[FriendID_1] = enums.EFriendRelationship_Friend
-	m.relationships[FriendID_2] = enums.EFriendRelationship_RequestRecipient
-	m.users[FriendID_1] = &PersonaState{PlayerName: "G-man"}
+	m.relationships[FriendID1] = enums.EFriendRelationship_Friend
+	m.relationships[FriendID2] = enums.EFriendRelationship_RequestRecipient
+	m.users[FriendID1] = &PersonaState{PlayerName: "G-man"}
 	m.mu.Unlock()
 
 	t.Run("Status Checks", func(t *testing.T) {
-		assert.True(t, m.IsFriend(FriendID_1))
-		assert.False(t, m.IsFriend(FriendID_2))
+		assert.True(t, m.IsFriend(FriendID1))
+		assert.False(t, m.IsFriend(FriendID2))
 	})
 
 	t.Run("Getters", func(t *testing.T) {
-		p := m.GetFriend(FriendID_1)
+		p := m.GetFriend(FriendID1)
 		assert.NotNil(t, p)
 		assert.Equal(t, "G-man", p.PlayerName)
 
 		friends := m.GetFriends()
-		assert.ElementsMatch(t, []id.ID{FriendID_1}, friends)
+		assert.ElementsMatch(t, []id.ID{FriendID1}, friends)
 	})
 }
 
@@ -117,21 +117,21 @@ func TestManager_AddAndRemoveFriend(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("Add", func(t *testing.T) {
-		err := m.AddFriend(ctx, uint64(FriendID_1))
+		err := m.AddFriend(ctx, uint64(FriendID1))
 		assert.NoError(t, err)
 
 		req := &pb.CMsgClientAddFriend{}
 		ictx.MockService().GetLastCall(req)
-		assert.Equal(t, uint64(FriendID_1), req.GetSteamidToAdd())
+		assert.Equal(t, uint64(FriendID1), req.GetSteamidToAdd())
 	})
 
 	t.Run("Remove", func(t *testing.T) {
-		err := m.RemoveFriend(ctx, uint64(FriendID_1))
+		err := m.RemoveFriend(ctx, uint64(FriendID1))
 		assert.NoError(t, err)
 
 		req := &pb.CMsgClientRemoveFriend{}
 		ictx.MockService().GetLastCall(req)
-		assert.Equal(t, uint64(FriendID_1), req.GetFriendid())
+		assert.Equal(t, uint64(FriendID1), req.GetFriendid())
 	})
 }
 
@@ -145,13 +145,13 @@ func TestManager_InviteToGroups(t *testing.T) {
 
 	t.Run("Skip Non-Friend", func(t *testing.T) {
 		comm.ClearCalls()
-		m.InviteToGroups(ctx, FriendID_2, []uint64{999})
+		m.InviteToGroups(ctx, FriendID2, []uint64{999})
 		assert.Equal(t, 0, comm.CallsCount())
 	})
 
 	t.Run("Success and Ignore 400", func(t *testing.T) {
 		m.mu.Lock()
-		m.relationships[FriendID_1] = enums.EFriendRelationship_Friend
+		m.relationships[FriendID1] = enums.EFriendRelationship_Friend
 		m.mu.Unlock()
 
 		comm.ClearCalls()
@@ -159,7 +159,7 @@ func TestManager_InviteToGroups(t *testing.T) {
 
 		comm.ResponseErrs[path] = &rest.APIError{StatusCode: 400, Body: []byte("already in group")}
 
-		m.InviteToGroups(ctx, FriendID_1, []uint64{1001, 1002})
+		m.InviteToGroups(ctx, FriendID1, []uint64{1001, 1002})
 
 		assert.Equal(t, 2, comm.CallsCount())
 	})
@@ -179,11 +179,11 @@ func TestManager_HandleFriendsList(t *testing.T) {
 		ictx.EmitPacket(t, enums.EMsg_ClientFriendsList, &pb.CMsgClientFriendsList{
 			Friends: []*pb.CMsgClientFriendsList_Friend{
 				{
-					Ulfriendid:          proto.Uint64(uint64(FriendID_1)),
+					Ulfriendid:          proto.Uint64(uint64(FriendID1)),
 					Efriendrelationship: proto.Uint32(uint32(enums.EFriendRelationship_Friend)),
 				},
 				{
-					Ulfriendid:          proto.Uint64(uint64(FriendID_1)), // No change
+					Ulfriendid:          proto.Uint64(uint64(FriendID1)), // No change
 					Efriendrelationship: proto.Uint32(uint32(enums.EFriendRelationship_Friend)),
 				},
 			},
@@ -192,7 +192,7 @@ func TestManager_HandleFriendsList(t *testing.T) {
 		select {
 		case ev := <-sub.C():
 			e := ev.(*RelationshipChangedEvent)
-			assert.Equal(t, FriendID_1, e.SteamID)
+			assert.Equal(t, FriendID1, e.SteamID)
 			assert.Equal(t, enums.EFriendRelationship_Friend, e.New)
 		case <-time.After(100 * time.Millisecond):
 			t.Fatal("Event not received")
@@ -216,27 +216,27 @@ func TestManager_HandlePersonaState(t *testing.T) {
 		ictx.EmitPacket(t, enums.EMsg_ClientPersonaState, &pb.CMsgClientPersonaState{
 			Friends: []*pb.CMsgClientPersonaState_Friend{
 				{
-					Friendid:   proto.Uint64(uint64(FriendID_1)),
+					Friendid:   proto.Uint64(uint64(FriendID1)),
 					PlayerName: proto.String("New Name"),
 					AvatarHash: []byte("abc"),
 				},
 				{
-					Friendid:   proto.Uint64(uint64(FriendID_1)), // Update existing
+					Friendid:   proto.Uint64(uint64(FriendID1)), // Update existing
 					PlayerName: proto.String("Updated Name"),
 				},
 				{
-					Friendid: proto.Uint64(uint64(FriendID_2)), // New user, missing fields
+					Friendid: proto.Uint64(uint64(FriendID2)), // New user, missing fields
 				},
 			},
 		})
 
 		// Check Friend 1
-		p1 := m.GetFriend(FriendID_1)
+		p1 := m.GetFriend(FriendID1)
 		assert.Equal(t, "Updated Name", p1.PlayerName)
 		assert.Equal(t, []byte("abc"), p1.AvatarHash)
 
 		// Check Friend 2
-		p2 := m.GetFriend(FriendID_2)
+		p2 := m.GetFriend(FriendID2)
 		assert.NotNil(t, p2)
 		assert.Empty(t, p2.PlayerName)
 

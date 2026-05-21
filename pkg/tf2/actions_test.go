@@ -271,7 +271,7 @@ func TestTF2_ProtoActions(t *testing.T) {
 	})
 
 	t.Run("MoveItems", func(t *testing.T) {
-		items := []ItemPos{{Id: 1, Position: 2}, {Id: 3, Position: 4}}
+		items := []ItemPos{{ID: 1, Position: 2}, {ID: 3, Position: 4}}
 		err := tf.MoveItems(ctx, items)
 		require.NoError(t, err)
 		assert.Equal(t, uint32(pb.EGCItemMsg_k_EMsgGCSetItemPositions), mCoord.lastSendMsgType)

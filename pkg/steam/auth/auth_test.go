@@ -98,7 +98,7 @@ func (s *AuthenticatorSuite) TestAcquireMachineId_Generation() {
 	s.store.On("GetMachineID", mock.Anything, "new").Return(nil, errors.New("not found"))
 	s.store.On("SaveMachineID", mock.Anything, "new", mock.Anything).Return(errors.New("log coverage error"))
 
-	s.auth.acquireMachineId(context.Background(), details)
+	s.auth.acquireMachineID(context.Background(), details)
 	s.Len(details.MachineID, 42)
 }
 

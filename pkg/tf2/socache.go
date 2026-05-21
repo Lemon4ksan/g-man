@@ -28,22 +28,22 @@ import (
 type EconItemFlag uint32
 
 const (
-	// EconItemFlag_CannotTrade indicates the item cannot be traded.
-	EconItemFlag_CannotTrade EconItemFlag = 1 << iota
-	// EconItemFlag_CannotBeUsedInCrafting indicates the item cannot be used in crafting.
-	EconItemFlag_CannotBeUsedInCrafting
-	// EconItemFlag_CanBeTradedByFreeAccounts indicates the item can be traded even if the account is not premium.
-	EconItemFlag_CanBeTradedByFreeAccounts
-	// EconItemFlag_NonEconomy indicates the item is a non-economy item (e.g., achievement items).
-	EconItemFlag_NonEconomy
-	// EconItemFlag_PurchasedAfterStoreCraftabilityChanges2012 relates to store items bought after the 2012 craftability update.
-	EconItemFlag_PurchasedAfterStoreCraftabilityChanges2012
-	// EconItemFlag_ForceBlueTeam indicates the item is forced to blue team (client-only).
-	EconItemFlag_ForceBlueTeam
-	// EconItemFlag_StoreItem indicates the item was bought from the Mann Co. Store.
-	EconItemFlag_StoreItem
-	// EconItemFlag_Preview indicates the item is a preview item from the store.
-	EconItemFlag_Preview
+	// EconItemFlagCannotTrade indicates the item cannot be traded.
+	EconItemFlagCannotTrade EconItemFlag = 1 << iota
+	// EconItemFlagCannotBeUsedInCrafting indicates the item cannot be used in crafting.
+	EconItemFlagCannotBeUsedInCrafting
+	// EconItemFlagCanBeTradedByFreeAccounts indicates the item can be traded even if the account is not premium.
+	EconItemFlagCanBeTradedByFreeAccounts
+	// EconItemFlagNonEconomy indicates the item is a non-economy item (e.g., achievement items).
+	EconItemFlagNonEconomy
+	// EconItemFlagPurchasedAfterStoreCraftabilityChanges2012 relates to store items bought after the 2012 craftability update.
+	EconItemFlagPurchasedAfterStoreCraftabilityChanges2012
+	// EconItemFlagForceBlueTeam indicates the item is forced to blue team (client-only).
+	EconItemFlagForceBlueTeam
+	// EconItemFlagStoreItem indicates the item was bought from the Mann Co. Store.
+	EconItemFlagStoreItem
+	// EconItemFlagPreview indicates the item is a preview item from the store.
+	EconItemFlagPreview
 )
 
 // HasFlag checks if the provided flag is set in the bitmask.
@@ -788,8 +788,8 @@ func (c *SOCache) protoToItem(p *pb.CSOEconItem) *Item {
 		CustomDesc: p.GetCustomDesc(),
 
 		// Flags based on GC bitmask
-		IsTradable:   !EconItemFlag(p.GetFlags()).HasFlag(EconItemFlag_CannotTrade),
-		IsMarketable: !EconItemFlag(p.GetFlags()).HasFlag(EconItemFlag_NonEconomy),
+		IsTradable:   !EconItemFlag(p.GetFlags()).HasFlag(EconItemFlagCannotTrade),
+		IsMarketable: !EconItemFlag(p.GetFlags()).HasFlag(EconItemFlagNonEconomy),
 
 		// By default, assume craftable unless a specific attribute/flag is set
 		IsCraftable: true,
@@ -938,13 +938,13 @@ func (c *SOCache) protoToItem(p *pb.CSOEconItem) *Item {
 
 	// Special case: Purchased items (Origin 2)
 	if item.Origin == OriginPurchase {
-		if !item.Flags.HasFlag(EconItemFlag_PurchasedAfterStoreCraftabilityChanges2012) {
+		if !item.Flags.HasFlag(EconItemFlagPurchasedAfterStoreCraftabilityChanges2012) {
 			item.IsCraftable = false
 		}
 	}
 
 	// Preview items are never tradable/craftable
-	if item.Flags.HasFlag(EconItemFlag_Preview) {
+	if item.Flags.HasFlag(EconItemFlagPreview) {
 		item.IsTradable = false
 		item.IsCraftable = false
 	}

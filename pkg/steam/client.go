@@ -57,6 +57,20 @@ func NewReadyClient(ctx context.Context, cfg Config, details *auth.LogOnDetails,
 	return c, nil
 }
 
+// GetModule returns the first registered module that matches type T.
+// This is a type-safe helper that eliminates the need for manual type assertions.
+func GetModule[T any](c *Client) T {
+	for _, m := range c.modules.All() {
+		if typed, ok := m.(T); ok {
+			return typed
+		}
+	}
+
+	var zero T
+
+	return zero
+}
+
 // ErrNotRunning is returned when the client is not running.
 var ErrNotRunning = errors.New("client must be running (call Run() first)")
 

@@ -69,7 +69,7 @@ func main() {
 	// If the user is on our friends list, we might want to skip some checks or handle them differently.
 	tradeEngine.Use(func(next engine.Handler) engine.Handler {
 		return func(ctx *engine.TradeContext) error {
-			friendsMod := client.Module("friends").(*friends.Manager)
+			friendsMod := friends.From(client)
 
 			if friendsMod.IsFriend(ctx.Offer.OtherSteamID) {
 				logger.Info("Trade partner is a friend! Applying whitelist logic.",
@@ -111,8 +111,8 @@ func main() {
 	})
 
 	// 3. Connect Engine to Trade Manager
-	bp := client.Module(backpack.ModuleName).(*backpack.Backpack)
-	webTradeManager := client.Module("trading").(*webtrading.Manager)
+	bp := backpack.From(client)
+	webTradeManager := webtrading.From(client)
 	webTradeManager.SetOfferHandler(context.Background(), engine.NewBotHandler(tradeEngine, logger), bp)
 
 	// 4. Standard Login Boilerplate

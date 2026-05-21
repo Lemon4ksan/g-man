@@ -32,6 +32,11 @@ func WithModule() steam.Option {
 	}
 }
 
+// From returns the friends manager module from the client.
+func From(c *steam.Client) *Manager {
+	return steam.GetModule[*Manager](c)
+}
+
 // Manager handles friends list synchronization and user status tracking.
 // It embeds modules.BaseModule for standardized lifecycle management.
 type Manager struct {

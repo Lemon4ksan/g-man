@@ -17,8 +17,8 @@ import (
 // BehaviorName is the name of the behavior.
 const BehaviorName = "achievements"
 
-// WithBehavior returns an option that registers the achievement manager behavior with the orchestrator.
-func WithBehavior(provider Provider, cfg Config) behavior.Option {
+// Simulate returns an option that registers the achievement manager behavior with the orchestrator.
+func Simulate(provider Provider, cfg Config) behavior.Option {
 	return func(o *behavior.Orchestrator) {
 		o.Register(New(provider, cfg, o.Logger()))
 	}

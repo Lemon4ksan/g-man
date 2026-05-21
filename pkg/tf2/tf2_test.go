@@ -28,8 +28,8 @@ import (
 )
 
 const (
-	Item_Scrap = 5000
-	Item_Key   = 5021
+	ItemScrap = 5000
+	ItemKey   = 5021
 )
 
 type mockCoordinator struct {
@@ -174,8 +174,8 @@ func TestTF2_SOCacheEvents(t *testing.T) {
 				{
 					TypeId: proto.Int32(SOTypeEconItem),
 					ObjectData: [][]byte{
-						createItemPayload(100, Item_Key),
-						createItemPayload(200, Item_Scrap),
+						createItemPayload(100, ItemKey),
+						createItemPayload(200, ItemScrap),
 					},
 				},
 			},
@@ -202,7 +202,7 @@ func TestTF2_SOCacheEvents(t *testing.T) {
 	t.Run("Item Acquired via Bus", func(t *testing.T) {
 		msg := &pb.CMsgSOSingleObject{
 			TypeId:     proto.Int32(SOTypeEconItem),
-			ObjectData: createItemPayload(300, Item_Scrap),
+			ObjectData: createItemPayload(300, ItemScrap),
 		}
 
 		payload, _ := proto.Marshal(msg)
@@ -291,9 +291,9 @@ func TestTF2_AcknowledgeAll(t *testing.T) {
 			{
 				TypeId: proto.Int32(SOTypeEconItem),
 				ObjectData: [][]byte{
-					createItemPayload_Full(1, Item_Scrap, 1<<30), // New bit set
-					createItemPayload_Full(2, Item_Scrap, 0),     // Pos 0
-					createItemPayload_Full(3, Item_Scrap, 5),     // Normal
+					createItemPayloadFull(1, ItemScrap, 1<<30), // New bit set
+					createItemPayloadFull(2, ItemScrap, 0),     // Pos 0
+					createItemPayloadFull(3, ItemScrap, 5),     // Normal
 				},
 			},
 		},
@@ -371,7 +371,7 @@ func TestTF2_SOCache_Metadata(t *testing.T) {
 	})
 }
 
-func createItemPayload_Full(id uint64, defIndex, inventory uint32) []byte {
+func createItemPayloadFull(id uint64, defIndex, inventory uint32) []byte {
 	b, _ := proto.Marshal(&pb.CSOEconItem{
 		Id:        proto.Uint64(id),
 		DefIndex:  proto.Uint32(defIndex),

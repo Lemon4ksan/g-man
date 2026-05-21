@@ -68,6 +68,11 @@ func WithModule(cfg Config) steam.Option {
 	}
 }
 
+// From returns the schema manager module from the client.
+func From(c *steam.Client) *Manager {
+	return steam.GetModule[*Manager](c)
+}
+
 // Manager manages the TF2 item schema, keeping it up to date.
 // It embeds BaseModule for standardized lifecycle and concurrency management.
 type Manager struct {

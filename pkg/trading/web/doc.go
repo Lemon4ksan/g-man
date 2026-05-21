@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file.
 
 /*
-Package trading manages asynchronous trade offers via the Steam WebAPI.
+Package web manages asynchronous trade offers via the Steam WebAPI.
 
 This is one of the most critical modules for any trading bot. It periodically
 polls the `IEconService/GetTradeOffers` endpoint to discover new and updated

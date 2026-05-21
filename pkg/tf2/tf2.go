@@ -45,6 +45,11 @@ func WithModule() steam.Option {
 	}
 }
 
+// From returns the TF2 module from the client.
+func From(c *steam.Client) *TF2 {
+	return steam.GetModule[*TF2](c)
+}
+
 // AchievementConfig returns the standard strategy config for TF2 achievements for achievements manager.
 func AchievementConfig() achievements.Config {
 	return achievements.Config{

@@ -8,22 +8,14 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/bus"
 )
 
-// Event is the base interface that all guard events must implement.
-type Event interface {
-	bus.Event
-	isGuardEvent()
-}
-
-// StateEvent is emitted whenever the guard transitions between states.
-type StateEvent struct {
+// ConfirmationRequiredEvent is emitted when a trade action (sending or accepting)
+// requires mobile or email confirmation.
+type ConfirmationRequiredEvent struct {
 	bus.BaseEvent
-	New State
-}
-
-// ConfirmationReceivedEvent is emitted when guardian receives a new confirmation.
-type ConfirmationReceivedEvent struct {
-	bus.BaseEvent
-	Confirmation *Confirmation
+	TradeOfferID string
+	IsAppConfirm bool
+	IsEmail      bool
+	EmailDomain  string
 }
 
 // NeedAuthEvent is emitted when confirmation is returned with NeedAuth field set to True.

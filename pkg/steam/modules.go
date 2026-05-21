@@ -39,6 +39,19 @@ func (m *ModuleManager) Add(mod module.Module) {
 	m.modules[mod.Name()] = mod
 }
 
+// All returns a slice containing all registered modules.
+func (m *ModuleManager) All() []module.Module {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	res := make([]module.Module, 0, len(m.modules))
+	for _, mod := range m.modules {
+		res = append(res, mod)
+	}
+
+	return res
+}
+
 // Register registers a module with the manager.
 func (m *ModuleManager) Register(ctx context.Context, mod module.Module) error {
 	m.mu.Lock()

@@ -31,6 +31,11 @@ func WithModule(cfg Config) steam.Option {
 	}
 }
 
+// From returns the market module from the client.
+func From(c *steam.Client) *Market {
+	return steam.GetModule[*Market](c)
+}
+
 // Config contains settings for requests to the Trading Platform.
 type Config struct {
 	Currency CurrencyCode

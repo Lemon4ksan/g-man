@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/test/module"
 )
@@ -89,24 +88,12 @@ func TestConfig_Validate(t *testing.T) {
 			Config{
 				IdentitySecret: validSecret,
 				DeviceID:       "android:123",
-				PollInterval:   time.Second,
-				MaxBackoff:     time.Minute,
+				RateLimit:      time.Second,
 			},
 			false,
 		},
 		{"missing secret", Config{DeviceID: "android:123"}, true},
 		{"invalid device prefix", Config{IdentitySecret: validSecret, DeviceID: "pc:123"}, true},
-		{"invalid interval", Config{IdentitySecret: validSecret, DeviceID: "ios:123", PollInterval: 0}, true},
-		{
-			"backoff too small",
-			Config{
-				IdentitySecret: validSecret,
-				DeviceID:       "ios:123",
-				PollInterval:   time.Minute,
-				MaxBackoff:     time.Second,
-			},
-			true,
-		},
 	}
 
 	for _, tt := range tests {
@@ -126,7 +113,7 @@ func TestGuardian_Lifecycle(t *testing.T) {
 	cfg.IdentitySecret = validSecret
 	cfg.DeviceID = "android:123"
 
-	g, ictx, _ := setupGuardian(t, cfg)
+	g, _, _ := setupGuardian(t, cfg)
 	ctx := context.Background()
 
 	// 1. Start normally
@@ -138,27 +125,9 @@ func TestGuardian_Lifecycle(t *testing.T) {
 	actx := module.NewAuthContext(sid)
 	err = g.StartAuthed(ctx, actx)
 	assert.NoError(t, err)
-	assert.Equal(t, int32(StatePolling), g.State.Load())
-
-	// 3. Prevent double polling
-	err = g.StartPolling()
-	assert.ErrorIs(t, err, ErrGuardPolling)
-
-	// 4. Stop
-	g.StopPolling()
 	assert.Equal(t, int32(StateStopped), g.State.Load())
 
-	// 5. Disconnect event should stop polling
-	_ = g.StartPolling()
-
-	ictx.Bus().Publish(&auth.StateEvent{New: auth.StateDisconnected})
-
-	// Wait for event processing
-	assert.Eventually(t, func() bool {
-		return g.State.Load() == int32(StateStopped)
-	}, 100*time.Millisecond, 10*time.Millisecond)
-
-	// 6. Close
+	// 3. Close
 	err = g.Close()
 	assert.NoError(t, err)
 	assert.Equal(t, int32(StateClosed), g.State.Load())
@@ -234,100 +203,12 @@ func TestGuardian_AcceptReject(t *testing.T) {
 	})
 }
 
-func TestGuardian_PollingAndAutoAccept(t *testing.T) {
-	cfg := Config{
-		IdentitySecret:  validSecret,
-		DeviceID:        "android:123",
-		PollInterval:    10 * time.Millisecond, // Fast poll for test
-		MaxBackoff:      50 * time.Millisecond,
-		AutoAccept:      true,
-		AutoAcceptTypes: []ConfirmationType{ConfTypeTrade},
-		MaxPollFailures: 1,
-	}
-
-	g, _, mockSvc := setupGuardian(t, cfg)
-	g.steamID = id.ID(123)
-
-	// Prepare confirmations: 1 trade (auto), 1 market (manual)
-	tradeConf := &Confirmation{ID: 101, Type: ConfTypeTrade, Title: "Trade"}
-	marketConf := &Confirmation{ID: 102, Type: ConfTypeMarket, Title: "Market"}
-
-	// Step 1: Mock fetch
-	mockSvc.On("GetConfirmations", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-		Return(&ConfirmationsList{Success: true, Confirmations: []*Confirmation{tradeConf, marketConf}}, nil)
-
-	// Step 2: Mock the auto-accept call
-	// Note: Auto-accept runs in a goroutine and uses RespondToConfirmation if count is 1
-	mockSvc.On("RespondToConfirmation", mock.Anything, tradeConf, true, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-		Return(nil)
-
-	// Start polling
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	g.Start(ctx)
-	_ = g.StartPolling()
-
-	// Verify Auto-Accept happened
-	assert.Eventually(t, func() bool {
-		return g.metrics.TotalAccepted.Load() == 1
-	}, 500*time.Millisecond, 20*time.Millisecond)
-
-	// Verify duplicates are not processed (seenIDs logic)
-	// We expect 1 fetch (already happened), metrics should not increment TotalFetched excessively if loop is controlled
-	assert.True(t, g.metrics.TotalFetched.Load() >= 2)
-
-	// Check cleanup seen IDs (manual trigger for coverage)
-	g.mu.Lock()
-	g.seenIDs[999] = time.Now().Add(-20 * time.Minute)
-	g.mu.Unlock()
-	g.cleanupSeenIDs()
-	g.mu.RLock()
-	assert.NotContains(t, g.seenIDs, uint64(999))
-	g.mu.RUnlock()
-}
-
-func TestGuardian_Backoff(t *testing.T) {
-	cfg := Config{
-		IdentitySecret:  validSecret,
-		DeviceID:        "android:123",
-		PollInterval:    10 * time.Millisecond,
-		MaxBackoff:      100 * time.Millisecond,
-		MaxPollFailures: 1,
-	}
-
-	g, _, mockSvc := setupGuardian(t, cfg)
-	g.steamID = id.ID(123)
-
-	// Force failure
-	mockSvc.On("GetConfirmations", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-		Return(nil, assert.AnError)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	g.Start(ctx)
-	_ = g.StartPolling()
-
-	// Wait for metrics to show errors
-	assert.Eventually(t, func() bool {
-		return g.metrics.TotalErrors.Load() > 2
-	}, 500*time.Millisecond, 20*time.Millisecond)
-}
-
 func TestHelpers(t *testing.T) {
 	// Coverage for helper functions
 	assert.Equal(t, "stopped", StateStopped.String())
 	assert.Equal(t, "polling", StatePolling.String())
 	assert.Equal(t, "closed", StateClosed.String())
 	assert.Equal(t, "unknown", State(99).String())
-
-	assert.Equal(t, "trade", ConfTypeTrade.String())
-	assert.Equal(t, "market", ConfTypeMarket.String())
-	assert.Equal(t, "login", ConfTypeLogin.String())
-	assert.Equal(t, "account_change", ConfTypeAccountChange.String())
-	assert.Equal(t, "generic", ConfTypeGeneric.String())
-	assert.Equal(t, "unknown", ConfirmationType(99).String())
 
 	assert.Contains(t, maskDeviceID("android:123456789"), "andr...")
 	assert.Equal(t, "****", maskDeviceID("short"))

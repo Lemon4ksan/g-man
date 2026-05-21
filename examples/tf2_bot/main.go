@@ -13,15 +13,21 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/lemon4ksan/g-man/pkg/behavior"
+	"github.com/lemon4ksan/g-man/pkg/behavior/achievements"
+	guardbeh "github.com/lemon4ksan/g-man/pkg/behavior/guard"
+	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
+	"github.com/lemon4ksan/g-man/pkg/steam/guard"
 	"github.com/lemon4ksan/g-man/pkg/steam/sys/apps"
 	"github.com/lemon4ksan/g-man/pkg/steam/sys/directory"
 	"github.com/lemon4ksan/g-man/pkg/steam/sys/gc"
 	"github.com/lemon4ksan/g-man/pkg/storage/jsonfile"
 	"github.com/lemon4ksan/g-man/pkg/tf2"
 	"github.com/lemon4ksan/g-man/pkg/tf2/backpack"
+	"github.com/lemon4ksan/g-man/pkg/tf2/behavior/stock"
 	"github.com/lemon4ksan/g-man/pkg/tf2/bptf"
 	"github.com/lemon4ksan/g-man/pkg/tf2/crafting"
 	"github.com/lemon4ksan/g-man/pkg/tf2/pricedb"
@@ -59,9 +65,26 @@ func main() {
 	bansManager := rep.NewBansManager(bptfClient, os.Getenv("MPTF_API_KEY"))
 	bptfChecker := bptf.NewBackpackTFChecker(bptfClient)
 
+	// Initialize the behavior orchestrator to manage background tasks
+	orchestrator := behavior.NewOrchestrator(logger, bus.New())
+	orchestrator.Register(pdbManager)
+
 	// 3. Configure the Steam Client with all necessary modules
 	cfg := steam.DefaultConfig()
 	cfg.Storage = jsonStorage
+	cfg.Bus = orchestrator.Bus()
+
+	// Setup Steam Guard configuration for automatic mobile confirmations
+	sharedSecret := os.Getenv("STEAM_SHARED_SECRET")
+	identitySecret := os.Getenv("STEAM_IDENTITY_SECRET")
+	deviceID := os.Getenv("STEAM_DEVICE_ID")
+
+	guardCfg := guard.DefaultConfig()
+	if identitySecret != "" && deviceID != "" {
+		guardCfg.IdentitySecret = identitySecret
+		guardCfg.DeviceID = deviceID
+		guardCfg.SharedSecret = sharedSecret
+	}
 
 	client, err := steam.NewClient(cfg,
 		steam.WithLogger(logger),
@@ -70,6 +93,7 @@ func main() {
 		tf2.WithModule(),
 		schema.WithModule(schema.DefaultConfig()),
 		backpack.WithModule(),
+		guard.WithModule(guardCfg),
 		webtrading.WithModule(webtrading.Config{PollInterval: 30 * time.Second}),
 	)
 	if err != nil {
@@ -82,13 +106,27 @@ func main() {
 		logger.Info("TF2 bot stopped safely.")
 	}()
 
-	// 4. Set up Crafting / Metal Manager
-	bp := client.Module(backpack.ModuleName).(*backpack.Backpack)
-	tf2Mod := client.Module(tf2.ModuleName).(*tf2.TF2)
-	webTradeManager := client.Module("trading").(*webtrading.Manager)
+	// 4. Set up Crafting, Inventory and Listing Management
+	bp := backpack.From(client)
+	tf2Mod := tf2.From(client)
+	schemaMgr := schema.From(client)
+	webTradeManager := webtrading.From(client)
+	guardian := guard.From(client)
+
+	// Listing manager to interact with backpack.tf classifieds
+	listingMgr := bptf.NewListingManager(bptfClient, schemaMgr, logger)
 
 	craftingManager := crafting.NewManager(bp, tf2Mod)
 	metalManager := crafting.NewMetalManager(bp, craftingManager, logger)
+
+	orchestrator.Install(
+		guardbeh.AutoAccept(guardian, guardbeh.Config{
+			AutoAcceptTypes: []guard.ConfirmationType{guard.ConfTypeTrade, guard.ConfTypeLogin},
+			PollOnStart:     true,
+		}),
+		stock.Control(bp, listingMgr, pdbManager, tradeCfgManager),
+		achievements.Simulate(tf2Mod, tf2.AchievementConfig()),
+	)
 
 	// 5. Setup the TF2 Trading Engine Middlewares
 	tradeEngine := engine.New()
@@ -118,34 +156,8 @@ func main() {
 	webTradeManager.SetOfferHandler(context.Background(), engine.NewBotHandler(tradeEngine, logger), bp)
 
 	// 7. Subscribe to Core Events
-	sub := client.Bus().Subscribe(
-		&auth.LoggedOnEvent{},
-		&auth.SteamGuardRequiredEvent{},
-	)
-
-	go func() {
-		for event := range sub.C() {
-			switch ev := event.(type) {
-			case *auth.SteamGuardRequiredEvent:
-				if ev.IsAppConfirm {
-					logger.Info("Please confirm the login on your Steam Mobile Authenticator.")
-					continue
-				}
-
-				go func(cb func(string)) {
-					var code string
-
-					fmt.Print("Enter Steam Guard Code: ")
-
-					_, _ = fmt.Scanln(&code)
-					cb(code)
-				}(ev.Callback)
-
-			case *auth.LoggedOnEvent:
-				logger.Info("Login successful!", log.Uint64("steam_id", ev.SteamID))
-			}
-		}
-	}()
+	sub := client.Bus().Subscribe(&auth.LoggedOnEvent{}, &auth.LoggedOffEvent{})
+	go handleEvents(sub, logger)
 
 	// 8. Connect and Login
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
@@ -176,13 +188,33 @@ func main() {
 		return
 	}
 
-	// 9. Start config hot-reloader
+	// 9. Start background behaviors (Guard, Price syncing, Achievements, etc.)
+	if err := orchestrator.Start(context.Background()); err != nil {
+		logger.Error("Failed to start behavior orchestrator", log.Err(err))
+	}
+
+	defer orchestrator.Stop()
+
+	// 10. Start config hot-reloader
 	tradeCfgManager.StartWatching(context.Background(), 10*time.Second, logger)
 
-	// 10. Wait for exit signal
+	// 11. Wait for exit signal
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 
 	<-stop
 	logger.Info("Shutting down TF2 bot...")
+}
+
+func handleEvents(sub *bus.Subscription, logger log.Logger) {
+	func() {
+		for event := range sub.C() {
+			switch ev := event.(type) {
+			case *auth.LoggedOnEvent:
+				logger.Info("Login successful!", log.Uint64("steam_id", ev.SteamID))
+			case *auth.LoggedOffEvent:
+				logger.Info("Logged off")
+			}
+		}
+	}()
 }

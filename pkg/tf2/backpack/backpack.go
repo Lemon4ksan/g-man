@@ -31,6 +31,11 @@ func WithModule() steam.Option {
 	}
 }
 
+// From returns the backpack module from the client.
+func From(c *steam.Client) *Backpack {
+	return steam.GetModule[*Backpack](c)
+}
+
 const (
 	// ItemsPerPage is the number of items per page.
 	ItemsPerPage = 50
@@ -369,7 +374,7 @@ func (m *Backpack) ApplyLayout(ctx context.Context, layout Layout) error {
 
 					if item.Inventory != targetPos {
 						moves = append(moves, tf2.ItemPos{
-							Id:       item.ID,
+							ID:       item.ID,
 							Position: targetPos,
 						})
 					}

@@ -35,6 +35,11 @@ func WithModule() steam.Option {
 	}
 }
 
+// From returns the apps module from the client.
+func From(c *steam.Client) *Apps {
+	return steam.GetModule[*Apps](c)
+}
+
 // Apps manages the "In-Game" status and interacts with Steam's app services.
 type Apps struct {
 	module.Base
