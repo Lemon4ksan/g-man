@@ -4,6 +4,12 @@
 
 package inventory
 
+import (
+	"time"
+
+	"github.com/lemon4ksan/g-man/pkg/steam/id"
+)
+
 // Asset represents an item in the inventory.
 type Asset struct {
 	AssetID    string `json:"assetid"`
@@ -70,4 +76,48 @@ type ContextDetail struct {
 	ID         string `json:"id"`
 	Name       string `json:"name"`
 	AssetCount int    `json:"asset_count"`
+}
+
+// EconItem represents a flat description of a traded item in history.
+type EconItem struct {
+	AppID           uint32 `json:"appid"`
+	ContextID       string `json:"contextid"`
+	AssetID         string `json:"id"`
+	ClassID         string `json:"classid"`
+	InstanceID      string `json:"instanceid"`
+	Amount          int    `json:"amount,string"`
+	IconURL         string `json:"icon_url"`
+	MarketHashName  string `json:"market_hash_name"`
+	Name            string `json:"name"`
+	Type            string `json:"type"`
+	BackgroundColor string `json:"background_color"`
+	Marketable      bool   `json:"marketable"`
+	Tradable        bool   `json:"tradable"`
+}
+
+// TradeHistoryRow represents a single completed or pending trade history event.
+type TradeHistoryRow struct {
+	Date             time.Time
+	PartnerName      string
+	PartnerSteamID   id.ID
+	PartnerVanityURL string
+	ItemsReceived    []EconItem
+	ItemsGiven       []EconItem
+	OnHold           bool
+}
+
+// TradeHistoryResult aggregates all parsed trades and the pagination markers.
+type TradeHistoryResult struct {
+	Trades         []TradeHistoryRow
+	FirstTradeTime *time.Time
+	FirstTradeID   *uint64
+	LastTradeTime  *time.Time
+	LastTradeID    *uint64
+}
+
+type hoverInfo struct {
+	AppID     string
+	ContextID string
+	AssetID   string
+	Amount    int
 }
