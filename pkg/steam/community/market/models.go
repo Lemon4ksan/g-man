@@ -348,3 +348,47 @@ type SearchResultResponse struct {
 	AssetDescription Asset  `json:"asset_description"`
 	SalePriceText    string `json:"sale_price_text"`
 }
+
+// GemValue represents the gem value info of an item.
+type GemValue struct {
+	PromptTitle string
+	GemValue    int
+}
+
+// GemsResult represents the result of grinding an item into gems.
+type GemsResult struct {
+	GemsReceived int
+	TotalGems    int
+}
+
+// BoosterCatalog represents the booster pack creator catalog details.
+type BoosterCatalog struct {
+	TotalGems      int
+	TradableGems   int
+	UntradableGems int
+	Catalog        map[uint32]*BoosterPackInfo
+}
+
+// BoosterPackInfo represents a single card/game booster pack cost details.
+type BoosterPackInfo struct {
+	AppID           uint32 `json:"appid"`
+	Name            string `json:"name"`
+	Price           int    `json:"price"` // Price in gems
+	Unavailable     bool   `json:"unavailable"`
+	AvailableAtTime string `json:"available_at_time,omitempty"`
+}
+
+// BoosterResult represents the result of creating or opening a booster pack.
+type BoosterResult struct {
+	TotalGems      int
+	TradableGems   int
+	UntradableGems int
+	ResultItem     any // Can be unpacked items details
+}
+
+// GiftDetails represents the details of a Steam Inventory gift pack.
+type GiftDetails struct {
+	GiftName  string
+	PackageID int
+	Owned     bool
+}

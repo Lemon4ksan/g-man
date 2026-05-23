@@ -5,11 +5,18 @@
 package market
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
+	"regexp"
 	"strconv"
+	"strings"
 	"sync"
+
+	"github.com/PuerkitoBio/goquery"
 
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam"
@@ -391,4 +398,391 @@ func withOrigin() api.CallOption {
 	return func(req *tr.Request, _ *api.CallConfig) {
 		req.WithHeader("Origin", "https://steamcommunity.com")
 	}
+}
+
+var (
+	rxBoosterCreator = regexp.MustCompile(`(?s)CBoosterCreatorPage\.Init\(\s*(.*?),\s*(\d+),\s*(\d+),\s*(\d+),\s*\[`)
+	rxMarketApps     = regexp.MustCompile(`https?://steamcommunity.com/market/search\?appid=(\d+)`)
+)
+
+// GetMarketApps retrieves all apps listed on the Steam Community Market.
+func (m *Market) GetMarketApps(ctx context.Context) (map[uint32]string, error) {
+	m.mu.RLock()
+	comm := m.community
+	m.mu.RUnlock()
+
+	if comm == nil {
+		return nil, module.ErrNotAuthenticated
+	}
+
+	body, err := community.GetHTML(ctx, comm, "market")
+	if err != nil {
+		return nil, fmt.Errorf("market: failed to fetch market page: %w", err)
+	}
+
+	doc, err := goquery.NewDocumentFromReader(bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("market: failed to parse HTML: %w", err)
+	}
+
+	apps := make(map[uint32]string)
+	doc.Find(".market_search_game_button_group a.game_button").Each(func(_ int, s *goquery.Selection) {
+		name := strings.TrimSpace(s.Find(".game_button_game_name").Text())
+
+		href, exists := s.Attr("href")
+		if exists {
+			match := rxMarketApps.FindStringSubmatch(href)
+			if len(match) == 2 {
+				appID, _ := strconv.ParseUint(match[1], 10, 32)
+				apps[uint32(appID)] = name
+			}
+		}
+	})
+
+	if len(apps) == 0 {
+		return nil, errors.New("market: failed to parse any market apps")
+	}
+
+	return apps, nil
+}
+
+// GetGemValue checks if an item is eligible to be turned into gems and gets its gem value.
+func (m *Market) GetGemValue(ctx context.Context, appID uint32, assetID uint64) (*GemValue, error) {
+	m.mu.RLock()
+	comm := m.community
+	m.mu.RUnlock()
+
+	if comm == nil {
+		return nil, module.ErrNotAuthenticated
+	}
+
+	path := "ajaxgetgoovalue"
+	req := url.Values{
+		"sessionid": {comm.SessionID(community.BaseURL)},
+		"appid":     {strconv.FormatUint(uint64(appID), 10)},
+		"contextid": {"6"},
+		"assetid":   {strconv.FormatUint(assetID, 10)},
+	}
+
+	type response struct {
+		Success  int    `json:"success"`
+		Message  string `json:"message"`
+		GooValue string `json:"goo_value"`
+		StrTitle string `json:"strTitle"`
+	}
+
+	resp, err := community.Get[response](ctx, comm, path, req)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.Success != 1 {
+		return nil, fmt.Errorf("steam error: %s (success=%d)", resp.Message, resp.Success)
+	}
+
+	gemVal, _ := strconv.Atoi(resp.GooValue)
+
+	return &GemValue{
+		PromptTitle: resp.StrTitle,
+		GemValue:    gemVal,
+	}, nil
+}
+
+// TurnItemIntoGems converts an eligible item into gems.
+func (m *Market) TurnItemIntoGems(
+	ctx context.Context,
+	appID uint32,
+	assetID uint64,
+	expectedGemsValue int,
+) (*GemsResult, error) {
+	m.mu.RLock()
+	comm := m.community
+	m.mu.RUnlock()
+
+	if comm == nil {
+		return nil, module.ErrNotAuthenticated
+	}
+
+	path := "ajaxgrindintogoo"
+	req := url.Values{
+		"sessionid":          {comm.SessionID(community.BaseURL)},
+		"appid":              {strconv.FormatUint(uint64(appID), 10)},
+		"contextid":          {"6"},
+		"assetid":            {strconv.FormatUint(assetID, 10)},
+		"goo_value_expected": {strconv.Itoa(expectedGemsValue)},
+	}
+
+	type response struct {
+		Success          int    `json:"success"`
+		Message          string `json:"message"`
+		GooValueReceived string `json:"goo_value_received "` // Yes, there is a space in the JSON key (valve lol)
+		GooValueTotal    string `json:"goo_value_total"`
+	}
+
+	resp, err := community.PostForm[response](ctx, comm, path, req)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.Success != 1 {
+		return nil, fmt.Errorf("steam error: %s (success=%d)", resp.Message, resp.Success)
+	}
+
+	received, _ := strconv.Atoi(resp.GooValueReceived)
+	total, _ := strconv.Atoi(resp.GooValueTotal)
+
+	return &GemsResult{
+		GemsReceived: received,
+		TotalGems:    total,
+	}, nil
+}
+
+// OpenBoosterPack unpacks a game booster pack into trading cards.
+func (m *Market) OpenBoosterPack(ctx context.Context, appID uint32, assetID uint64) ([]any, error) {
+	m.mu.RLock()
+	comm := m.community
+	m.mu.RUnlock()
+
+	if comm == nil {
+		return nil, module.ErrNotAuthenticated
+	}
+
+	path := "ajaxunpackbooster"
+	req := url.Values{
+		"sessionid":       {comm.SessionID(community.BaseURL)},
+		"appid":           {strconv.FormatUint(uint64(appID), 10)},
+		"communityitemid": {strconv.FormatUint(assetID, 10)},
+	}
+
+	type response struct {
+		Success int    `json:"success"`
+		Message string `json:"message"`
+		RgItems []any  `json:"rgItems"`
+	}
+
+	resp, err := community.PostForm[response](ctx, comm, path, req)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.Success != 1 {
+		return nil, fmt.Errorf("steam error: %s (success=%d)", resp.Message, resp.Success)
+	}
+
+	return resp.RgItems, nil
+}
+
+// GetBoosterPackCatalog retrieves the user's gem count and booster pack creator list.
+func (m *Market) GetBoosterPackCatalog(ctx context.Context) (*BoosterCatalog, error) {
+	m.mu.RLock()
+	comm := m.community
+	m.mu.RUnlock()
+
+	if comm == nil {
+		return nil, module.ErrNotAuthenticated
+	}
+
+	body, err := community.GetHTML(ctx, comm, "tradingcards/boostercreator")
+	if err != nil {
+		return nil, fmt.Errorf("market: failed to fetch booster creator page: %w", err)
+	}
+
+	match := rxBoosterCreator.FindSubmatch(body)
+	if len(match) != 5 {
+		return nil, errors.New("market: failed to parse booster creator catalog from JS")
+	}
+
+	var catalogList []*BoosterPackInfo
+	if err := json.Unmarshal(match[1], &catalogList); err != nil {
+		return nil, fmt.Errorf("market: failed to parse catalog JSON: %w", err)
+	}
+
+	totalGems, _ := strconv.Atoi(string(match[2]))
+	tradableGems, _ := strconv.Atoi(string(match[3]))
+	untradableGems, _ := strconv.Atoi(string(match[4]))
+
+	catalogMap := make(map[uint32]*BoosterPackInfo)
+	for _, app := range catalogList {
+		catalogMap[app.AppID] = app
+	}
+
+	return &BoosterCatalog{
+		TotalGems:      totalGems,
+		TradableGems:   tradableGems,
+		UntradableGems: untradableGems,
+		Catalog:        catalogMap,
+	}, nil
+}
+
+// CreateBoosterPack crafts a booster pack using gems.
+func (m *Market) CreateBoosterPack(ctx context.Context, appID uint32, useUntradableGems bool) (*BoosterResult, error) {
+	m.mu.RLock()
+	comm := m.community
+	m.mu.RUnlock()
+
+	if comm == nil {
+		return nil, module.ErrNotAuthenticated
+	}
+
+	tradability := "2" // Prefer tradable gems only
+	if useUntradableGems {
+		tradability = "3" // Prefer untradable gems
+	}
+
+	path := "tradingcards/ajaxcreatebooster"
+	req := url.Values{
+		"sessionid":              {comm.SessionID(community.BaseURL)},
+		"appid":                  {strconv.FormatUint(uint64(appID), 10)},
+		"series":                 {"1"},
+		"tradability_preference": {tradability},
+	}
+
+	type response struct {
+		PurchaseEResult     int    `json:"purchase_eresult"`
+		GooAmount           string `json:"goo_amount"`
+		TradableGooAmount   string `json:"tradable_goo_amount"`
+		UntradableGooAmount string `json:"untradable_goo_amount"`
+		PurchaseResult      any    `json:"purchase_result"`
+	}
+
+	resp, err := community.PostForm[response](ctx, comm, path, req)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.PurchaseEResult != 1 {
+		return nil, fmt.Errorf("steam purchase error: eresult=%d", resp.PurchaseEResult)
+	}
+
+	total, _ := strconv.Atoi(resp.GooAmount)
+	tradable, _ := strconv.Atoi(resp.TradableGooAmount)
+	untradable, _ := strconv.Atoi(resp.UntradableGooAmount)
+
+	return &BoosterResult{
+		TotalGems:      total,
+		TradableGems:   tradable,
+		UntradableGems: untradable,
+		ResultItem:     resp.PurchaseResult,
+	}, nil
+}
+
+// GetGiftDetails gets information about a gift package in inventory.
+func (m *Market) GetGiftDetails(ctx context.Context, giftID uint64) (*GiftDetails, error) {
+	m.mu.RLock()
+	comm := m.community
+	m.mu.RUnlock()
+
+	if comm == nil {
+		return nil, module.ErrNotAuthenticated
+	}
+
+	path := fmt.Sprintf("gifts/%d/validateunpack", giftID)
+	req := url.Values{
+		"sessionid": {comm.SessionID(community.BaseURL)},
+	}
+
+	type response struct {
+		Success   int    `json:"success"`
+		Message   string `json:"message"`
+		PackageID string `json:"packageid"`
+		GiftName  string `json:"gift_name"`
+		Owned     bool   `json:"owned"`
+	}
+
+	resp, err := community.PostForm[response](ctx, comm, path, req)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.Success != 1 {
+		return nil, fmt.Errorf("steam error: %s (success=%d)", resp.Message, resp.Success)
+	}
+
+	pkgID, _ := strconv.Atoi(resp.PackageID)
+
+	return &GiftDetails{
+		GiftName:  resp.GiftName,
+		PackageID: pkgID,
+		Owned:     resp.Owned,
+	}, nil
+}
+
+// RedeemGift unpacks a gift in inventory to the user's library.
+func (m *Market) RedeemGift(ctx context.Context, giftID uint64) error {
+	m.mu.RLock()
+	comm := m.community
+	m.mu.RUnlock()
+
+	if comm == nil {
+		return module.ErrNotAuthenticated
+	}
+
+	path := fmt.Sprintf("gifts/%d/unpack", giftID)
+	req := url.Values{
+		"sessionid": {comm.SessionID(community.BaseURL)},
+	}
+
+	type response struct {
+		Success int    `json:"success"`
+		Message string `json:"message"`
+	}
+
+	resp, err := community.PostForm[response](ctx, comm, path, req)
+	if err != nil {
+		return err
+	}
+
+	if resp.Success != 1 {
+		return fmt.Errorf("steam error: %s (success=%d)", resp.Message, resp.Success)
+	}
+
+	return nil
+}
+
+// GemExchange exchanges or packs/unpacks gems.
+func (m *Market) GemExchange(ctx context.Context, assetID uint64, denomIn, denomOut, qtyIn, qtyOutExpected int) error {
+	m.mu.RLock()
+	comm := m.community
+	m.mu.RUnlock()
+
+	if comm == nil {
+		return module.ErrNotAuthenticated
+	}
+
+	path := "ajaxexchangegoo"
+	req := url.Values{
+		"sessionid":               {comm.SessionID(community.BaseURL)},
+		"appid":                   {"753"},
+		"assetid":                 {strconv.FormatUint(assetID, 10)},
+		"goo_denomination_in":     {strconv.Itoa(denomIn)},
+		"goo_amount_in":           {strconv.Itoa(qtyIn)},
+		"goo_denomination_out":    {strconv.Itoa(denomOut)},
+		"goo_amount_out_expected": {strconv.Itoa(qtyOutExpected)},
+	}
+
+	type response struct {
+		Success int    `json:"success"`
+		Message string `json:"message"`
+	}
+
+	resp, err := community.PostForm[response](ctx, comm, path, req)
+	if err != nil {
+		return err
+	}
+
+	if resp.Success != 1 {
+		return fmt.Errorf("steam error: %s (success=%d)", resp.Message, resp.Success)
+	}
+
+	return nil
+}
+
+// PackGemSacks packs raw gems into sacks of gems (1 sack = 1000 gems).
+func (m *Market) PackGemSacks(ctx context.Context, assetID uint64, sackCount int) error {
+	return m.GemExchange(ctx, assetID, 1, 1000, sackCount*1000, sackCount)
+}
+
+// UnpackGemSacks unpacks sacks of gems into raw gems (1 sack = 1000 gems).
+func (m *Market) UnpackGemSacks(ctx context.Context, assetID uint64, sackCount int) error {
+	return m.GemExchange(ctx, assetID, 1000, 1, sackCount, sackCount*1000)
 }

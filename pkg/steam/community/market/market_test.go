@@ -325,3 +325,158 @@ func TestMarket_GetMyListings(t *testing.T) {
 		t.Errorf("invalid pagination params: start=%s, count=%s", q.Get("start"), q.Get("count"))
 	}
 }
+
+func TestMarket_CommunityUpdates(t *testing.T) {
+	m, _, auth := setupMarket(t)
+	mockComm := auth.MockCommunity()
+
+	t.Run("GetMarketApps Success", func(t *testing.T) {
+		html := `
+			<div class="market_search_game_button_group">
+				<a class="game_button" href="https://steamcommunity.com/market/search?appid=730">
+					<span class="game_button_game_name">Counter-Strike 2</span>
+				</a>
+			</div>
+		`
+		mockComm.SetHTMLResponse("market", http.StatusOK, html)
+
+		apps, err := m.GetMarketApps(t.Context())
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if apps[730] != "Counter-Strike 2" {
+			t.Errorf("expected CS2 app, got %v", apps)
+		}
+	})
+
+	t.Run("GetGemValue Success", func(t *testing.T) {
+		mockComm.SetJSONResponse("ajaxgetgoovalue", http.StatusOK, struct {
+			Success  int    `json:"success"`
+			GooValue string `json:"goo_value"`
+			StrTitle string `json:"strTitle"`
+		}{Success: 1, GooValue: "100", StrTitle: "Gems info"})
+
+		res, err := m.GetGemValue(t.Context(), 730, 1111)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if res.GemValue != 100 || res.PromptTitle != "Gems info" {
+			t.Errorf("unexpected gem value details: %+v", res)
+		}
+	})
+
+	t.Run("TurnItemIntoGems Success", func(t *testing.T) {
+		mockComm.SetJSONResponse("ajaxgrindintogoo", http.StatusOK, struct {
+			Success          int    `json:"success"`
+			GooValueReceived string `json:"goo_value_received "`
+			GooValueTotal    string `json:"goo_value_total"`
+		}{Success: 1, GooValueReceived: "100", GooValueTotal: "1000"})
+
+		res, err := m.TurnItemIntoGems(t.Context(), 730, 1111, 100)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if res.GemsReceived != 100 || res.TotalGems != 1000 {
+			t.Errorf("unexpected gems result: %+v", res)
+		}
+	})
+
+	t.Run("OpenBoosterPack Success", func(t *testing.T) {
+		mockComm.SetJSONResponse("ajaxunpackbooster", http.StatusOK, struct {
+			Success int   `json:"success"`
+			RgItems []any `json:"rgItems"`
+		}{Success: 1, RgItems: []any{"card1", "card2"}})
+
+		res, err := m.OpenBoosterPack(t.Context(), 730, 2222)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if len(res) != 2 {
+			t.Errorf("expected 2 items, got %d", len(res))
+		}
+	})
+
+	t.Run("GetBoosterPackCatalog Success", func(t *testing.T) {
+		catalogHTML := `
+			CBoosterCreatorPage.Init(
+				[{"appid": 730, "name": "CS2", "price": 100, "unavailable": false}],
+				1000,
+				800,
+				200,
+				[
+		`
+		mockComm.SetHTMLResponse("tradingcards/boostercreator", http.StatusOK, catalogHTML)
+
+		catalog, err := m.GetBoosterPackCatalog(t.Context())
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if catalog.TotalGems != 1000 || catalog.Catalog[730].Price != 100 {
+			t.Errorf("unexpected catalog details: %+v", catalog)
+		}
+	})
+
+	t.Run("CreateBoosterPack Success", func(t *testing.T) {
+		mockComm.SetJSONResponse("tradingcards/ajaxcreatebooster", http.StatusOK, struct {
+			PurchaseEResult     int    `json:"purchase_eresult"`
+			GooAmount           string `json:"goo_amount"`
+			TradableGooAmount   string `json:"tradable_goo_amount"`
+			UntradableGooAmount string `json:"untradable_goo_amount"`
+			PurchaseResult      any    `json:"purchase_result"`
+		}{PurchaseEResult: 1, GooAmount: "900", TradableGooAmount: "700", UntradableGooAmount: "200", PurchaseResult: "crafted_pack"})
+
+		res, err := m.CreateBoosterPack(t.Context(), 730, true)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if res.TotalGems != 900 || res.ResultItem != "crafted_pack" {
+			t.Errorf("unexpected booster pack result: %+v", res)
+		}
+	})
+
+	t.Run("GetGiftDetails Success", func(t *testing.T) {
+		mockComm.SetJSONResponse("gifts/3333/validateunpack", http.StatusOK, struct {
+			Success   int    `json:"success"`
+			PackageID string `json:"packageid"`
+			GiftName  string `json:"gift_name"`
+			Owned     bool   `json:"owned"`
+		}{Success: 1, PackageID: "4444", GiftName: "CS2 Gift", Owned: true})
+
+		res, err := m.GetGiftDetails(t.Context(), 3333)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if res.PackageID != 4444 || res.GiftName != "CS2 Gift" || !res.Owned {
+			t.Errorf("unexpected gift details: %+v", res)
+		}
+	})
+
+	t.Run("RedeemGift Success", func(t *testing.T) {
+		mockComm.SetJSONResponse("gifts/3333/unpack", http.StatusOK, struct {
+			Success int `json:"success"`
+		}{Success: 1})
+
+		err := m.RedeemGift(t.Context(), 3333)
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("PackGemSacks Success", func(t *testing.T) {
+		mockComm.SetJSONResponse("ajaxexchangegoo", http.StatusOK, struct {
+			Success int `json:"success"`
+		}{Success: 1})
+
+		err := m.PackGemSacks(t.Context(), 5555, 3)
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+}
