@@ -222,6 +222,120 @@ func (s *AuthenticatorSuite) TestNopStore() {
 	_, _ = n.GetMachineID(ctx, "")
 }
 
+func (s *AuthenticatorSuite) TestNewLogOnDetails() {
+	details := NewLogOnDetails("acc", "pwd")
+	s.Equal("acc", details.AccountName)
+	s.Equal("pwd", details.Password)
+	s.Equal("english", details.ClientLanguage)
+	s.Equal(uint32(ProtocolVersion), details.ProtocolVersion)
+}
+
+func (s *AuthenticatorSuite) TestLogOn_WebSocket_Success() {
+	server := socket.CMServer{Type: "websockets", Endpoint: "localhost"}
+	details := &LogOnDetails{
+		RefreshToken: "a.eyJzdWIiOiIxMjMifQ.c",
+		MachineID:    []byte("machid"),
+	}
+
+	s.socket.On("Connect", server).Return(nil).Once()
+	s.socket.On("SendProto", mock.Anything, enums.EMsg_ClientLogon, mock.Anything).Return(nil).Once()
+	s.socket.On("StartHeartbeat", 10*time.Second).Return(nil).Once()
+
+	done := make(chan struct{})
+
+	var logonErr error
+	go func() {
+		logonErr = s.auth.LogOn(context.Background(), details, server)
+
+		close(done)
+	}()
+
+	time.Sleep(20 * time.Millisecond)
+
+	packet := &protocol.Packet{
+		EMsg: enums.EMsg_ClientLogOnResponse,
+		Payload: func() []byte {
+			b, _ := proto.Marshal(&pb.CMsgClientLogonResponse{
+				Eresult:          proto.Int32(int32(enums.EResult_OK)),
+				HeartbeatSeconds: proto.Int32(10),
+			})
+
+			return b
+		}(),
+		Header: &mockAuthorizedHeader{steamID: 123, sessionID: 456},
+	}
+	s.auth.handleLogOnResponse(packet)
+
+	<-done
+	s.NoError(logonErr)
+	s.Equal(StateLoggedOn, s.auth.State())
+}
+
+func (s *AuthenticatorSuite) TestLogOn_InvalidPassword_ClearStore() {
+	server := socket.CMServer{Type: "websockets", Endpoint: "localhost"}
+	details := &LogOnDetails{
+		RefreshToken: "a.eyJzdWIiOiIxMjMifQ.c",
+		MachineID:    []byte("machid"),
+		AccountName:  "myuser",
+	}
+
+	s.socket.On("Connect", server).Return(nil).Once()
+	s.socket.On("SendProto", mock.Anything, enums.EMsg_ClientLogon, mock.Anything).Return(nil).Once()
+	s.store.On("Clear", mock.Anything, "myuser").Return(nil).Once()
+
+	done := make(chan struct{})
+
+	var logonErr error
+	go func() {
+		logonErr = s.auth.LogOn(context.Background(), details, server)
+
+		close(done)
+	}()
+
+	time.Sleep(20 * time.Millisecond)
+
+	s.socket.SimulatePacket(enums.EMsg_ClientLogOnResponse, &pb.CMsgClientLogonResponse{
+		Eresult: proto.Int32(int32(enums.EResult_InvalidPassword)),
+	})
+
+	<-done
+	s.Error(logonErr)
+	s.Equal(StateFailed, s.auth.State())
+}
+
+func (s *AuthenticatorSuite) TestHandleLogOnResponse_HeartbeatFailure() {
+	s.auth.loginResult = make(chan error, 1)
+	s.socket.On("StartHeartbeat", mock.Anything).Return(errors.New("heartbeat err")).Once()
+
+	packet := &protocol.Packet{
+		EMsg: enums.EMsg_ClientLogOnResponse,
+		Payload: func() []byte {
+			b, _ := proto.Marshal(&pb.CMsgClientLogonResponse{
+				Eresult:          proto.Int32(int32(enums.EResult_OK)),
+				HeartbeatSeconds: proto.Int32(10),
+			})
+
+			return b
+		}(),
+		Header: &mockAuthorizedHeader{steamID: 123, sessionID: 456},
+	}
+	s.auth.handleLogOnResponse(packet)
+
+	err := <-s.auth.loginResult
+	s.ErrorContains(err, "failed to start heartbeat")
+}
+
+func (s *AuthenticatorSuite) TestFailLogin_DoubleChannelSend() {
+	s.auth.loginResult = make(chan error, 1)
+	err1 := errors.New("err1")
+	err2 := errors.New("err2")
+
+	s.auth.failLogin(err1)
+	s.auth.failLogin(err2)
+
+	s.Equal(err1, <-s.auth.loginResult)
+}
+
 type MockSocketProvider struct {
 	mock.Mock
 	handlers map[enums.EMsg]socket.Handler
@@ -235,8 +349,15 @@ func (m *MockSocketProvider) Connect(ctx context.Context, s socket.CMServer) err
 	return m.Called(s).Error(0)
 }
 
-func (m *MockSocketProvider) Session() socket.Session              { return m.Called().Get(0).(socket.Session) }
-func (m *MockSocketProvider) StartHeartbeat(d time.Duration) error { m.Called(d); return nil }
+func (m *MockSocketProvider) Session() socket.Session { return m.Called().Get(0).(socket.Session) }
+func (m *MockSocketProvider) StartHeartbeat(d time.Duration) error {
+	args := m.Called(d)
+	if len(args) > 0 {
+		return args.Error(0)
+	}
+
+	return nil
+}
 
 func (m *MockSocketProvider) SetEncryptionKey(key []byte) bool { return true }
 

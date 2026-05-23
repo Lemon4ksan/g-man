@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/test/module"
 )
@@ -212,4 +213,103 @@ func TestHelpers(t *testing.T) {
 
 	assert.Contains(t, maskDeviceID("android:123456789"), "andr...")
 	assert.Equal(t, "****", maskDeviceID("short"))
+
+	// ConfirmationType String
+	assert.Equal(t, "generic", ConfTypeGeneric.String())
+	assert.Equal(t, "trade", ConfTypeTrade.String())
+	assert.Equal(t, "market", ConfTypeMarket.String())
+	assert.Equal(t, "login", ConfTypeLogin.String())
+	assert.Equal(t, "account_change", ConfTypeAccountChange.String())
+	assert.Equal(t, "unknown", ConfirmationType(99).String())
+}
+
+func TestClock(t *testing.T) {
+	oc := &OffsetClock{}
+	oc.SetOffset(10 * time.Second)
+	assert.WithinDuration(t, time.Now().Add(10*time.Second), oc.Now(), 2*time.Second)
+
+	sc := SystemClock{}
+	assert.WithinDuration(t, time.Now(), sc.Now(), 2*time.Second)
+}
+
+func TestConfig_Validate_Errors(t *testing.T) {
+	cfg := Config{IdentitySecret: validSecret, DeviceID: ""}
+	assert.ErrorContains(t, cfg.Validate(), "device ID is required")
+
+	cfg2 := Config{IdentitySecret: validSecret, DeviceID: "pc:123"}
+	assert.ErrorContains(t, cfg2.Validate(), "must start with 'android:' or 'ios:'")
+
+	cfg3 := Config{IdentitySecret: "", DeviceID: "android:123"}
+	assert.ErrorContains(t, cfg3.Validate(), "identity secret is required")
+
+	assert.Equal(t, "GuardConfig{DeviceID: andr...2345}", Config{DeviceID: "android:12345"}.String())
+}
+
+func TestConfirmationModel(t *testing.T) {
+	c := &Confirmation{
+		ID:    1,
+		Title: "Trade offer to accept",
+		Time:  "12:34",
+		Type:  ConfTypeTrade,
+	}
+	assert.Equal(t, 2*time.Minute, c.TimeRemaining())
+	assert.False(t, c.IsExpired())
+
+	c.expiresAt = time.Now().Add(-10 * time.Second)
+	assert.True(t, c.IsExpired())
+	assert.Less(t, c.TimeRemaining(), time.Duration(0))
+
+	assert.Contains(t, c.String(), "Confirmation{ID=1, Type=trade, Title=\"Trade offer to ac...\", ExpiresIn=")
+}
+
+type nilCommunityAuthContext struct {
+	module.AuthContext
+}
+
+func (nilCommunityAuthContext) Community() community.Requester { return nil }
+func (nilCommunityAuthContext) SteamID() id.ID                 { return 0 }
+
+func TestGuardian_StartAuthed_Failure(t *testing.T) {
+	g := &Guardian{}
+	err := g.StartAuthed(context.Background(), nilCommunityAuthContext{})
+	assert.ErrorContains(t, err, "community client is required")
+}
+
+func TestGuardian_New_ValidationFailure(t *testing.T) {
+	_, err := New(Config{})
+	assert.Error(t, err)
+}
+
+func TestGuardian_FetchConfirmations_Errors(t *testing.T) {
+	g := &Guardian{}
+	// service nil
+	_, err := g.FetchConfirmations(context.Background())
+	assert.ErrorIs(t, err, ErrNotAuthenticated)
+}
+
+func TestGuardian_Metrics(t *testing.T) {
+	g := &Guardian{metrics: &GuardianMetrics{}}
+	assert.NotNil(t, g.Metrics())
+}
+
+func TestGuardian_GenerateAuthCode(t *testing.T) {
+	g := &Guardian{clock: &OffsetClock{}}
+	// Empty shared secret
+	code, err := g.GenerateAuthCode()
+	assert.NoError(t, err)
+	assert.Empty(t, code)
+
+	g.config.SharedSecret = validSecret
+	code, err = g.GenerateAuthCode()
+	assert.NoError(t, err)
+	assert.NotEmpty(t, code)
+}
+
+func TestGuardian_FetchConfirmations_InvalidSecret(t *testing.T) {
+	cfg := Config{IdentitySecret: "invalid-b64-!!!", DeviceID: "android:123"}
+	g, _, _ := setupGuardian(t, cfg)
+	g.steamID = id.ID(123)
+
+	_, err := g.FetchConfirmations(context.Background())
+	assert.ErrorContains(t, err, "key generation")
 }

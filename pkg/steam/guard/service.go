@@ -38,19 +38,25 @@ func (s *TwoFactorService) QueryTimeOffset(ctx context.Context) (time.Duration, 
 		ServerTime string `json:"server_time"`
 	}
 
+	start := time.Now()
+
 	resp, err := service.WebAPI[respStruct](ctx, s.client, "POST", "ITwoFactorService", "QueryTime", 1, nil)
 	if err != nil {
 		return 0, err
 	}
+
+	rtt := time.Since(start)
 
 	serverTime, err := strconv.ParseInt(resp.ServerTime, 10, 64)
 	if err != nil {
 		return 0, fmt.Errorf("invalid server time format from steam: %w", err)
 	}
 
-	diffSeconds := serverTime - time.Now().Unix()
+	// Adjust server time by adding half of the Round-Trip Time (RTT)
+	adjustedServerTime := time.Unix(serverTime, 0).Add(rtt / 2)
+	diff := time.Until(adjustedServerTime)
 
-	return time.Duration(diffSeconds) * time.Second, nil
+	return diff, nil
 }
 
 // MobileConf provides access to Steam's mobile verification endpoints.

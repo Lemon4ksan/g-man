@@ -161,6 +161,23 @@ func (m *Manager) Init(init module.InitContext) error {
 	return nil
 }
 
+// Start initializes the module's context and starts the processor if configured.
+func (m *Manager) Start(ctx context.Context) error {
+	if err := m.Base.Start(ctx); err != nil {
+		return err
+	}
+
+	m.mu.RLock()
+	proc := m.processor
+	m.mu.RUnlock()
+
+	if proc != nil {
+		proc.Start(m.Ctx)
+	}
+
+	return nil
+}
+
 // StartAuthed starts the trade offer polling loop.
 func (m *Manager) StartAuthed(ctx context.Context, authCtx module.AuthContext) error {
 	if m.State.Load() == StatePolling {
@@ -188,10 +205,14 @@ func (m *Manager) Close() error {
 
 // SetOfferHandler injects the business logic for processing trade offers.
 func (m *Manager) SetOfferHandler(ctx context.Context, handler processor.OfferHandler, bp processor.BackpackProvider) {
+	m.mu.Lock()
 	m.processor = processor.NewProcessor(m, bp, handler, processor.WithLogger(m.Logger))
-	m.Go(func(moduleCtx context.Context) {
-		m.processor.Start(moduleCtx)
-	})
+	m.mu.Unlock()
+
+	// If the module has already started, start the processor immediately.
+	if m.Ctx != nil && m.Ctx.Err() == nil {
+		m.processor.Start(m.Ctx)
+	}
 }
 
 // StartPolling begins the trade offer polling loop.
@@ -592,4 +613,37 @@ func (m *Manager) listenEvents(ctx context.Context, sub *bus.Subscription) {
 			}
 		}
 	}
+}
+
+// GetActiveSentOffers returns all active trade offers sent by us.
+func (m *Manager) GetActiveSentOffers(ctx context.Context) ([]trading.TradeOffer, error) {
+	if err := m.rateLimiter.Wait(ctx); err != nil {
+		return nil, err
+	}
+
+	req := struct {
+		GetReceivedOffers    int   `url:"get_received_offers"`
+		GetSentOffers        int   `url:"get_sent_offers"`
+		ActiveOnly           int   `url:"active_only"`
+		GetDescriptions      int   `url:"get_descriptions"`
+		TimeHistoricalCutoff int64 `url:"time_historical_cutoff"`
+	}{0, 1, 1, 0, time.Now().Add(-24 * time.Hour).Unix()}
+
+	type respStruct struct {
+		Sent []*trading.TradeOffer `json:"trade_offers_sent"`
+	}
+
+	resp, err := service.WebAPI[respStruct](ctx, m.web, "GET", "IEconService", "GetTradeOffers", 1, req)
+	if err != nil {
+		return nil, err
+	}
+
+	offers := make([]trading.TradeOffer, 0, len(resp.Sent))
+	for _, o := range resp.Sent {
+		if o != nil {
+			offers = append(offers, *o)
+		}
+	}
+
+	return offers, nil
 }

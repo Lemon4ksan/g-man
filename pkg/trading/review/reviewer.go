@@ -64,9 +64,11 @@ func (rv *Reviewer) SendDeclinedAlert(
 		sb.WriteString("\nDetails:\n- " + strings.Join(report.Details, "\n- "))
 	}
 
-	keys, ref := stats.GetPureStock()
-	fmt.Fprintf(&sb, "\n\n💰 Stock: %.2f keys, %.2f ref", keys, ref)
-	fmt.Fprintf(&sb, "\n🎒 Backpack: %d/%d", stats.GetTotalItems(), stats.GetBackpackSlots())
+	if stats != nil {
+		keys, ref := stats.GetPureStock()
+		fmt.Fprintf(&sb, "\n\n💰 Stock: %.2f keys, %.2f ref", keys, ref)
+		fmt.Fprintf(&sb, "\n🎒 Backpack: %d/%d", stats.GetTotalItems(), stats.GetBackpackSlots())
+	}
 
 	duration := time.Duration(meta.ProcessTimeMS) * time.Millisecond
 	fmt.Fprintf(&sb, "\n⏱ Processed in: %s", duration.String())

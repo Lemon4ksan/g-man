@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -217,5 +218,112 @@ func TestVerify(t *testing.T) {
 		assert.NoError(t, err)
 		assert.False(t, ok)
 		assert.False(t, ws.IsAuthenticated())
+	})
+
+	t.Run("Verify failure request", func(t *testing.T) {
+		mt := setupMockTransport()
+		mt.handlers[urlVerify] = func(r *http.Request) (*http.Response, error) {
+			return nil, errors.New("network error")
+		}
+		ws := newMockedSession(mt)
+		ws.isAuth = true
+		ok, err := ws.Verify(ctx)
+		assert.Error(t, err)
+		assert.False(t, ok)
+	})
+
+	t.Run("Verify not authenticated", func(t *testing.T) {
+		ws := newMockedSession(setupMockTransport())
+		ok, err := ws.Verify(ctx)
+		assert.NoError(t, err)
+		assert.False(t, ok)
+	})
+}
+
+func TestSessionID(t *testing.T) {
+	t.Run("SessionID invalid URL", func(t *testing.T) {
+		ws := newMockedSession(setupMockTransport())
+		assert.Empty(t, ws.SessionID(":%:invalid"))
+	})
+
+	t.Run("SessionID absent cookie", func(t *testing.T) {
+		ws := newMockedSession(setupMockTransport())
+		assert.Empty(t, ws.SessionID("https://steamcommunity.com"))
+	})
+
+	t.Run("SessionID present cookie", func(t *testing.T) {
+		ws := newMockedSession(setupMockTransport())
+		ws.seedCookies("mysessionid", "mysecure")
+		assert.Equal(t, "mysessionid", ws.SessionID("https://steamcommunity.com"))
+	})
+}
+
+func TestAuthenticate_SlowPath_Errors(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("Slow Path Error Code", func(t *testing.T) {
+		mt := setupMockTransport()
+		mt.handlers[urlFinalize] = func(r *http.Request) (*http.Response, error) {
+			resp, _ := json.Marshal(map[string]any{
+				"error": 42,
+			})
+
+			return &http.Response{
+				StatusCode: 200,
+				Body:       io.NopCloser(bytes.NewReader(resp)),
+				Header:     http.Header{"Content-Type": {"application/json"}},
+			}, nil
+		}
+		ws := newMockedSession(mt)
+		err := ws.Authenticate(ctx, pb.EAuthTokenPlatformType_k_EAuthTokenPlatformType_WebBrowser, "rt", "")
+		assert.ErrorContains(t, err, "finalize login error code: 42")
+	})
+
+	t.Run("Slow Path Network Failure", func(t *testing.T) {
+		mt := setupMockTransport()
+		mt.handlers[urlFinalize] = func(r *http.Request) (*http.Response, error) {
+			return nil, errors.New("network failure")
+		}
+		ws := newMockedSession(mt)
+		err := ws.Authenticate(ctx, pb.EAuthTokenPlatformType_k_EAuthTokenPlatformType_WebBrowser, "rt", "")
+		assert.ErrorContains(t, err, "finalize login failed")
+	})
+
+	t.Run("Slow Path Transfer Exhausted Failure", func(t *testing.T) {
+		mt := setupMockTransport()
+		mt.handlers[urlFinalize] = func(r *http.Request) (*http.Response, error) {
+			resp, _ := json.Marshal(map[string]any{
+				"error": 0,
+				"transfer_info": []map[string]any{
+					{"url": "https://fail-transfer.com", "params": map[string]string{"a": "b"}},
+				},
+			})
+
+			return &http.Response{
+				StatusCode: 200,
+				Body:       io.NopCloser(bytes.NewReader(resp)),
+				Header:     http.Header{"Content-Type": {"application/json"}},
+			}, nil
+		}
+		mt.handlers["https://fail-transfer.com"] = func(r *http.Request) (*http.Response, error) {
+			return nil, errors.New("perma-fail")
+		}
+		ws := newMockedSession(mt)
+		err := ws.Authenticate(ctx, pb.EAuthTokenPlatformType_k_EAuthTokenPlatformType_WebBrowser, "rt", "")
+		assert.ErrorContains(t, err, "perma-fail")
+	})
+
+	t.Run("Transfer Non-OK Result", func(t *testing.T) {
+		ctx := context.Background()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{"result": 2}) // EResult_Fail
+		}))
+		defer server.Close()
+
+		ws := New(id.ID(0), log.Discard, server.Client())
+		err := ws.executeTransferWithRetry(ctx, server.URL, nil)
+		assert.ErrorContains(t, err, "steam error: Fail")
 	})
 }

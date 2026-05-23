@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -129,6 +130,20 @@ func TestAuthenticationService_EncryptPassword_Errors(t *testing.T) {
 			},
 			wantErr: "invalid rsa modulus hex string",
 		},
+		{
+			name: "Invalid Exponent Hex",
+			setup: func() {
+				mock.SetProtoResponse(
+					"Authentication",
+					"GetPasswordRSAPublicKey",
+					&pb.CAuthentication_GetPasswordRSAPublicKey_Response{
+						PublickeyMod: proto.String("010203"),
+						PublickeyExp: proto.String("NOT_HEX"),
+					},
+				)
+			},
+			wantErr: "invalid rsa exponent hex string",
+		},
 	}
 
 	for _, tt := range tests {
@@ -139,6 +154,15 @@ func TestAuthenticationService_EncryptPassword_Errors(t *testing.T) {
 			assert.EqualError(t, err, tt.wantErr)
 		})
 	}
+}
+
+func TestAuthenticationService_EncryptPassword_Oversized(t *testing.T) {
+	svc, mock := setupAuthService(t, nil)
+	mockRSAResponse(t, mock)
+
+	longPassword := strings.Repeat("a", 1000)
+	_, _, err := svc.EncryptPassword(t.Context(), "user", longPassword)
+	assert.ErrorContains(t, err, "encrypt password payload")
 }
 
 func TestAuthenticationService_BeginAuthSessionViaCredentials(t *testing.T) {

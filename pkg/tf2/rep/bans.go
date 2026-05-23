@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package rep provides utilities for checking user bans against various ban lists.
 package rep
 
 import (
@@ -16,15 +17,15 @@ import (
 // BansManager handles checking users against various ban lists.
 type BansManager struct {
 	bptfClient *bptf.Client
-	mptfApiKey string
+	mptfAPIKey string
 	httpClient rest.HTTPDoer
 }
 
 // NewBansManager creates a new bans manager.
-func NewBansManager(bptfClient *bptf.Client, mptfApiKey string) *BansManager {
+func NewBansManager(bptfClient *bptf.Client, mptfAPIKey string) *BansManager {
 	return &BansManager{
 		bptfClient: bptfClient,
-		mptfApiKey: mptfApiKey,
+		mptfAPIKey: mptfAPIKey,
 		httpClient: bptfClient.REST().HTTP(),
 	}
 }
@@ -64,7 +65,7 @@ func (m *BansManager) CheckBans(ctx context.Context, steamID id.ID) (*BanResult,
 	}
 
 	// Check Marketplace.tf (requires API key)
-	if m.mptfApiKey != "" {
+	if m.mptfAPIKey != "" {
 		mptfBanned, err := m.checkMarketplaceTF(ctx, steamID)
 		if err == nil && mptfBanned {
 			result.IsBanned = true
@@ -82,7 +83,7 @@ func (m *BansManager) checkMarketplaceTF(ctx context.Context, steamID id.ID) (bo
 		Key     string `url:"key"`
 		SteamID string `url:"steamid"`
 	}{
-		Key:     m.mptfApiKey,
+		Key:     m.mptfAPIKey,
 		SteamID: steamID.String(),
 	}
 
