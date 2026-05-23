@@ -45,3 +45,13 @@ type PersonaStateUpdatedEvent struct {
 	SteamID id.ID
 	State   *PersonaState
 }
+
+// Comment represents a profile comment.
+type Comment struct {
+	ID            string    `json:"id"`
+	AuthorSteamID id.ID     `json:"author_steam_id"`
+	AuthorName    string    `json:"author_name"`
+	AuthorAvatar  string    `json:"author_avatar"`
+	Date          time.Time `json:"date"`
+	Text          string    `json:"text"`
+}

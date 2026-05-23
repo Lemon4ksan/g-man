@@ -244,3 +244,402 @@ func TestManager_HandlePersonaState(t *testing.T) {
 		assert.Len(t, sub.C(), 3)
 	})
 }
+
+func TestManager_AcceptFriendRequestWeb(t *testing.T) {
+	m, _ := setupFriends(t)
+	ctx := context.Background()
+	comm := tc.New()
+	m.community = comm
+
+	path := "actions/AddFriendAjax"
+
+	t.Run("Success", func(t *testing.T) {
+		comm.ClearCalls()
+		comm.SetJSONResponse(community.BaseURL+path, 200, map[string]any{"success": true})
+
+		err := m.AcceptFriendRequestWeb(ctx, FriendID1)
+		require.NoError(t, err)
+
+		params := comm.GetLastCallParams()
+		assert.Equal(t, "1", params.Get("accept_invite"))
+		assert.Equal(t, comm.MockSessionID, params.Get("sessionID"))
+		assert.Equal(t, FriendID1.String(), params.Get("steamid"))
+	})
+
+	t.Run("Unsuccessful", func(t *testing.T) {
+		comm.ClearCalls()
+		comm.SetJSONResponse(community.BaseURL+path, 200, map[string]any{"success": false})
+
+		err := m.AcceptFriendRequestWeb(ctx, FriendID1)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "web accept request unsuccessful")
+	})
+
+	t.Run("HTTP Error", func(t *testing.T) {
+		comm.ClearCalls()
+		comm.ResponseErrs[community.BaseURL+path] = errors.New("network down")
+
+		err := m.AcceptFriendRequestWeb(ctx, FriendID1)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "network down")
+	})
+
+	t.Run("Uninitialized community", func(t *testing.T) {
+		m2 := New()
+		err := m2.AcceptFriendRequestWeb(ctx, FriendID1)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "community requester is not initialized")
+	})
+}
+
+func TestManager_BlockCommunication(t *testing.T) {
+	m, _ := setupFriends(t)
+	ctx := context.Background()
+	comm := tc.New()
+	m.community = comm
+
+	path := "actions/BlockUserAjax"
+
+	t.Run("Success", func(t *testing.T) {
+		comm.ClearCalls()
+		comm.SetJSONResponse(community.BaseURL+path, 200, map[string]any{"success": true})
+
+		err := m.BlockCommunication(ctx, FriendID1)
+		require.NoError(t, err)
+
+		params := comm.GetLastCallParams()
+		assert.Equal(t, comm.MockSessionID, params.Get("sessionID"))
+		assert.Equal(t, FriendID1.String(), params.Get("steamid"))
+	})
+
+	t.Run("Unsuccessful", func(t *testing.T) {
+		comm.ClearCalls()
+		comm.SetJSONResponse(community.BaseURL+path, 200, map[string]any{"success": false})
+
+		err := m.BlockCommunication(ctx, FriendID1)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "block user request unsuccessful")
+	})
+
+	t.Run("HTTP Error", func(t *testing.T) {
+		comm.ClearCalls()
+		comm.ResponseErrs[community.BaseURL+path] = errors.New("http block error")
+
+		err := m.BlockCommunication(ctx, FriendID1)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "http block error")
+	})
+
+	t.Run("Uninitialized community", func(t *testing.T) {
+		m2 := New()
+		err := m2.BlockCommunication(ctx, FriendID1)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "community requester is not initialized")
+	})
+}
+
+func TestManager_UnblockCommunication(t *testing.T) {
+	m, _ := setupFriends(t)
+	ctx := context.Background()
+	comm := tc.New()
+	m.community = comm
+
+	path := "profiles/76561198000000000/friends/blocked"
+
+	t.Run("Success", func(t *testing.T) {
+		comm.ClearCalls()
+		comm.SetRawResponse(community.BaseURL+path, 200, []byte("OK"))
+
+		err := m.UnblockCommunication(ctx, FriendID1)
+		require.NoError(t, err)
+
+		params := comm.GetLastCallParams()
+		assert.Equal(t, "unignore", params.Get("action"))
+		assert.Equal(t, "1", params.Get("friends["+FriendID1.String()+"]"))
+		assert.Equal(t, comm.MockSessionID, params.Get("sessionid"))
+	})
+
+	t.Run("HTTP Status Error", func(t *testing.T) {
+		comm.ClearCalls()
+		comm.SetRawResponse(community.BaseURL+path, 400, []byte("Bad Request"))
+
+		err := m.UnblockCommunication(ctx, FriendID1)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unblock failed with HTTP status: 400")
+	})
+
+	t.Run("HTTP Error", func(t *testing.T) {
+		comm.ClearCalls()
+		comm.ResponseErrs[community.BaseURL+path] = errors.New("http unblock error")
+
+		err := m.UnblockCommunication(ctx, FriendID1)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "http unblock error")
+	})
+
+	t.Run("Uninitialized community", func(t *testing.T) {
+		m2 := New()
+		err := m2.UnblockCommunication(ctx, FriendID1)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "community requester is not initialized")
+	})
+}
+
+func TestManager_PostUserComment(t *testing.T) {
+	m, _ := setupFriends(t)
+	ctx := context.Background()
+	comm := tc.New()
+	m.community = comm
+
+	path := "comment/Profile/post/101/-1"
+
+	t.Run("Success", func(t *testing.T) {
+		comm.ClearCalls()
+		comm.SetJSONResponse(community.BaseURL+path, 200, map[string]any{
+			"success":       true,
+			"comments_html": `<div class="commentthread_comments"><div class="commentthread_comment" id="comment_987654321"></div></div>`,
+		})
+
+		commentID, err := m.PostUserComment(ctx, FriendID1, "cool profile!")
+		require.NoError(t, err)
+		assert.Equal(t, "987654321", commentID)
+
+		params := comm.GetLastCallParams()
+		assert.Equal(t, "cool profile!", params.Get("comment"))
+		assert.Equal(t, "1", params.Get("count"))
+		assert.Equal(t, comm.MockSessionID, params.Get("sessionid"))
+	})
+
+	t.Run("Unsuccessful with error msg", func(t *testing.T) {
+		comm.ClearCalls()
+		comm.SetJSONResponse(community.BaseURL+path, 200, map[string]any{
+			"success": false,
+			"error":   "Rate limit exceeded",
+		})
+
+		_, err := m.PostUserComment(ctx, FriendID1, "cool profile!")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "post comment failed: Rate limit exceeded")
+	})
+
+	t.Run("Unsuccessful unknown error", func(t *testing.T) {
+		comm.ClearCalls()
+		comm.SetJSONResponse(community.BaseURL+path, 200, map[string]any{
+			"success": false,
+		})
+
+		_, err := m.PostUserComment(ctx, FriendID1, "cool profile!")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "post comment failed: unknown error")
+	})
+
+	t.Run("HTML Missing Comment Element", func(t *testing.T) {
+		comm.ClearCalls()
+		comm.SetJSONResponse(community.BaseURL+path, 200, map[string]any{
+			"success":       true,
+			"comments_html": `<div>No comment here</div>`,
+		})
+
+		_, err := m.PostUserComment(ctx, FriendID1, "cool profile!")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "new comment not found in returned HTML")
+	})
+
+	t.Run("HTML Comment ID Missing Attribute", func(t *testing.T) {
+		comm.ClearCalls()
+		comm.SetJSONResponse(community.BaseURL+path, 200, map[string]any{
+			"success":       true,
+			"comments_html": `<div class="commentthread_comment"></div>`,
+		})
+
+		_, err := m.PostUserComment(ctx, FriendID1, "cool profile!")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "new comment missing id attribute")
+	})
+
+	t.Run("HTML Comment ID Bad Format", func(t *testing.T) {
+		comm.ClearCalls()
+		comm.SetJSONResponse(community.BaseURL+path, 200, map[string]any{
+			"success":       true,
+			"comments_html": `<div class="commentthread_comment" id="comment"></div>`,
+		})
+
+		_, err := m.PostUserComment(ctx, FriendID1, "cool profile!")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid comment element id format")
+	})
+
+	t.Run("HTTP Error", func(t *testing.T) {
+		comm.ClearCalls()
+		comm.ResponseErrs[community.BaseURL+path] = errors.New("post error")
+
+		_, err := m.PostUserComment(ctx, FriendID1, "cool profile!")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "post error")
+	})
+
+	t.Run("Uninitialized community", func(t *testing.T) {
+		m2 := New()
+		_, err := m2.PostUserComment(ctx, FriendID1, "cool profile!")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "community requester is not initialized")
+	})
+}
+
+func TestManager_DeleteUserComment(t *testing.T) {
+	m, _ := setupFriends(t)
+	ctx := context.Background()
+	comm := tc.New()
+	m.community = comm
+
+	path := "comment/Profile/delete/101/-1"
+
+	t.Run("Success", func(t *testing.T) {
+		comm.ClearCalls()
+		comm.SetJSONResponse(community.BaseURL+path, 200, map[string]any{
+			"success":       true,
+			"comments_html": `<div>Comment deleted successfully</div>`,
+		})
+
+		err := m.DeleteUserComment(ctx, FriendID1, "987654321")
+		require.NoError(t, err)
+
+		params := comm.GetLastCallParams()
+		assert.Equal(t, "987654321", params.Get("gidcomment"))
+		assert.Equal(t, "0", params.Get("start"))
+		assert.Equal(t, "1", params.Get("count"))
+		assert.Equal(t, comm.MockSessionID, params.Get("sessionid"))
+		assert.Equal(t, "-1", params.Get("feature2"))
+	})
+
+	t.Run("Unsuccessful with comment ID still in HTML", func(t *testing.T) {
+		comm.ClearCalls()
+		comm.SetJSONResponse(community.BaseURL+path, 200, map[string]any{
+			"success":       true,
+			"comments_html": `<div id="comment_987654321">Failed to delete</div>`,
+		})
+
+		err := m.DeleteUserComment(ctx, FriendID1, "987654321")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to delete comment (comment still in HTML)")
+	})
+
+	t.Run("Unsuccessful response", func(t *testing.T) {
+		comm.ClearCalls()
+		comm.SetJSONResponse(community.BaseURL+path, 200, map[string]any{
+			"success": false,
+			"error":   "Not authorized",
+		})
+
+		err := m.DeleteUserComment(ctx, FriendID1, "987654321")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "delete comment failed: Not authorized")
+	})
+
+	t.Run("HTTP Error", func(t *testing.T) {
+		comm.ClearCalls()
+		comm.ResponseErrs[community.BaseURL+path] = errors.New("delete error")
+
+		err := m.DeleteUserComment(ctx, FriendID1, "987654321")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "delete error")
+	})
+
+	t.Run("Uninitialized community", func(t *testing.T) {
+		m2 := New()
+		err := m2.DeleteUserComment(ctx, FriendID1, "987654321")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "community requester is not initialized")
+	})
+}
+
+func TestManager_GetUserComments(t *testing.T) {
+	m, _ := setupFriends(t)
+	ctx := context.Background()
+	comm := tc.New()
+	m.community = comm
+
+	path := "comment/Profile/render/101/-1"
+
+	t.Run("Success", func(t *testing.T) {
+		comm.ClearCalls()
+
+		html := `<div class="commentthread_comments">
+			<div class="commentthread_comment responsive_body_text" id="comment_555">
+				<div class="playerAvatar">
+					<img src="https://avatar.url/avatar5.jpg">
+				</div>
+				<div class="commentthread_comment_avatar">
+					<a href="https://steamcommunity.com/profiles/76561198000000005" data-miniprofile="5"></a>
+				</div>
+				<bdi>User 5</bdi>
+				<span class="commentthread_comment_timestamp" data-timestamp="1621234567"></span>
+				<div class="commentthread_comment_text">
+					Excellent trader!
+				</div>
+			</div>
+			<div class="commentthread_comment responsive_body_text" id="invalid">
+				<div class="playerAvatar">
+					<img src="https://avatar.url/avatar6.jpg">
+				</div>
+				<bdi>User 6</bdi>
+				<div class="commentthread_comment_text">
+					Bad ID format
+				</div>
+			</div>
+		</div>`
+
+		comm.SetJSONResponse(community.BaseURL+path, 200, map[string]any{
+			"success":       true,
+			"total_count":   15,
+			"comments_html": html,
+		})
+
+		comments, totalCount, err := m.GetUserComments(ctx, FriendID1, 0, 5)
+		require.NoError(t, err)
+		assert.Equal(t, 15, totalCount)
+		require.Len(t, comments, 1)
+
+		c := comments[0]
+		assert.Equal(t, "555", c.ID)
+		assert.Equal(t, id.ID(76561197960265728+5), c.AuthorSteamID)
+		assert.Equal(t, "User 5", c.AuthorName)
+		assert.Equal(t, "https://avatar.url/avatar5.jpg", c.AuthorAvatar)
+		assert.Equal(t, time.Unix(1621234567, 0).UTC(), c.Date)
+		assert.Equal(t, "Excellent trader!", c.Text)
+
+		params := comm.GetLastCallParams()
+		assert.Equal(t, "0", params.Get("start"))
+		assert.Equal(t, "5", params.Get("count"))
+		assert.Equal(t, "-1", params.Get("feature2"))
+		assert.Equal(t, comm.MockSessionID, params.Get("sessionid"))
+	})
+
+	t.Run("Unsuccessful response", func(t *testing.T) {
+		comm.ClearCalls()
+		comm.SetJSONResponse(community.BaseURL+path, 200, map[string]any{
+			"success": false,
+			"error":   "Internal error",
+		})
+
+		_, _, err := m.GetUserComments(ctx, FriendID1, 0, 5)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "render comments failed: Internal error")
+	})
+
+	t.Run("HTTP Error", func(t *testing.T) {
+		comm.ClearCalls()
+		comm.ResponseErrs[community.BaseURL+path] = errors.New("render error")
+
+		_, _, err := m.GetUserComments(ctx, FriendID1, 0, 5)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "render error")
+	})
+
+	t.Run("Uninitialized community", func(t *testing.T) {
+		m2 := New()
+		_, _, err := m2.GetUserComments(ctx, FriendID1, 0, 5)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "community requester is not initialized")
+	})
+}

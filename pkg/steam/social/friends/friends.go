@@ -6,9 +6,16 @@ package friends
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 
+	"github.com/PuerkitoBio/goquery"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/lemon4ksan/g-man/pkg/log"
@@ -38,7 +45,6 @@ func From(c *steam.Client) *Manager {
 }
 
 // Manager handles friends list synchronization and user status tracking.
-// It embeds modules.BaseModule for standardized lifecycle management.
 type Manager struct {
 	module.Base
 
@@ -275,4 +281,306 @@ func (m *Manager) handlePersonaState(packet *protocol.Packet) {
 			State:   user,
 		})
 	}
+}
+
+// AcceptFriendRequestWeb accepts an incoming friend invitation using the web-based Steam Community API.
+func (m *Manager) AcceptFriendRequestWeb(ctx context.Context, steamID id.ID) error {
+	m.mu.RLock()
+	comm := m.community
+	m.mu.RUnlock()
+
+	if comm == nil {
+		return errors.New("friends: community requester is not initialized")
+	}
+
+	form := url.Values{
+		"accept_invite": {"1"},
+		"sessionID":     {comm.SessionID(community.BaseURL)},
+		"steamid":       {strconv.FormatUint(uint64(steamID), 10)},
+	}
+
+	type webResponse struct {
+		Success bool `json:"success"`
+	}
+
+	resp, err := community.PostForm[webResponse](ctx, comm, "actions/AddFriendAjax", form)
+	if err != nil {
+		return fmt.Errorf("friends: web accept request failed: %w", err)
+	}
+
+	if !resp.Success {
+		return errors.New("friends: web accept request unsuccessful")
+	}
+
+	return nil
+}
+
+// BlockCommunication blocks all communications from the specified SteamID.
+func (m *Manager) BlockCommunication(ctx context.Context, steamID id.ID) error {
+	m.mu.RLock()
+	comm := m.community
+	m.mu.RUnlock()
+
+	if comm == nil {
+		return errors.New("friends: community requester is not initialized")
+	}
+
+	form := url.Values{
+		"sessionID": {comm.SessionID(community.BaseURL)},
+		"steamid":   {strconv.FormatUint(uint64(steamID), 10)},
+	}
+
+	type webResponse struct {
+		Success bool `json:"success"`
+	}
+
+	resp, err := community.PostForm[webResponse](ctx, comm, "actions/BlockUserAjax", form)
+	if err != nil {
+		return fmt.Errorf("friends: block user request failed: %w", err)
+	}
+
+	if !resp.Success {
+		return errors.New("friends: block user request unsuccessful")
+	}
+
+	return nil
+}
+
+// UnblockCommunication unblocks communication for the specified SteamID.
+func (m *Manager) UnblockCommunication(ctx context.Context, steamID id.ID) error {
+	m.mu.RLock()
+	comm := m.community
+	mySteamID := m.mySteamID
+	m.mu.RUnlock()
+
+	if comm == nil {
+		return errors.New("friends: community requester is not initialized")
+	}
+
+	form := url.Values{
+		"action":                            {"unignore"},
+		"friends[" + steamID.String() + "]": {"1"},
+		"sessionid":                         {comm.SessionID(community.BaseURL)},
+	}
+
+	path := fmt.Sprintf("profiles/%d/friends/blocked", mySteamID)
+
+	resp, err := comm.Request(
+		ctx,
+		http.MethodPost,
+		path,
+		[]byte(form.Encode()),
+		nil,
+		func(req *http.Request) {
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("friends: unblock request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("friends: unblock failed with HTTP status: %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
+// PostUserComment posts a text comment on the user's profile and returns the new comment ID.
+func (m *Manager) PostUserComment(ctx context.Context, steamID id.ID, message string) (string, error) {
+	m.mu.RLock()
+	comm := m.community
+	m.mu.RUnlock()
+
+	if comm == nil {
+		return "", errors.New("friends: community requester is not initialized")
+	}
+
+	form := url.Values{
+		"comment":   {message},
+		"count":     {"1"},
+		"sessionid": {comm.SessionID(community.BaseURL)},
+	}
+
+	path := fmt.Sprintf("comment/Profile/post/%d/-1", steamID)
+
+	type postCommentResponse struct {
+		Success      bool   `json:"success"`
+		CommentsHTML string `json:"comments_html"`
+		Error        string `json:"error"`
+	}
+
+	resp, err := community.PostForm[postCommentResponse](ctx, comm, path, form)
+	if err != nil {
+		return "", fmt.Errorf("friends: post comment request failed: %w", err)
+	}
+
+	if !resp.Success {
+		errMsg := resp.Error
+		if errMsg == "" {
+			errMsg = "unknown error"
+		}
+
+		return "", fmt.Errorf("friends: post comment failed: %s", errMsg)
+	}
+
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(resp.CommentsHTML))
+	if err != nil {
+		return "", fmt.Errorf("friends: failed to parse comments HTML: %w", err)
+	}
+
+	firstComment := doc.Find(".commentthread_comment").First()
+	if firstComment.Length() == 0 {
+		return "", errors.New("friends: new comment not found in returned HTML")
+	}
+
+	idAttr, exists := firstComment.Attr("id")
+	if !exists {
+		return "", errors.New("friends: new comment missing id attribute")
+	}
+
+	parts := strings.Split(idAttr, "_")
+	if len(parts) < 2 {
+		return "", fmt.Errorf("friends: invalid comment element id format: %s", idAttr)
+	}
+
+	return parts[1], nil
+}
+
+// DeleteUserComment deletes a text comment on the user's profile.
+func (m *Manager) DeleteUserComment(ctx context.Context, steamID id.ID, commentID string) error {
+	m.mu.RLock()
+	comm := m.community
+	m.mu.RUnlock()
+
+	if comm == nil {
+		return errors.New("friends: community requester is not initialized")
+	}
+
+	form := url.Values{
+		"gidcomment": {commentID},
+		"start":      {"0"},
+		"count":      {"1"},
+		"sessionid":  {comm.SessionID(community.BaseURL)},
+		"feature2":   {"-1"},
+	}
+
+	path := fmt.Sprintf("comment/Profile/delete/%d/-1", steamID)
+
+	type deleteCommentResponse struct {
+		Success      bool   `json:"success"`
+		CommentsHTML string `json:"comments_html"`
+		Error        string `json:"error"`
+	}
+
+	resp, err := community.PostForm[deleteCommentResponse](ctx, comm, path, form)
+	if err != nil {
+		return fmt.Errorf("friends: delete comment request failed: %w", err)
+	}
+
+	if !resp.Success {
+		errMsg := resp.Error
+		if errMsg == "" {
+			errMsg = "unknown error"
+		}
+
+		return fmt.Errorf("friends: delete comment failed: %s", errMsg)
+	}
+
+	if strings.Contains(resp.CommentsHTML, commentID) {
+		return errors.New("friends: failed to delete comment (comment still in HTML)")
+	}
+
+	return nil
+}
+
+// GetUserComments retrieves a list of profile comments for the specified user.
+func (m *Manager) GetUserComments(ctx context.Context, steamID id.ID, start, count int) ([]Comment, int, error) {
+	m.mu.RLock()
+	comm := m.community
+	m.mu.RUnlock()
+
+	if comm == nil {
+		return nil, 0, errors.New("friends: community requester is not initialized")
+	}
+
+	form := url.Values{
+		"start":     {strconv.Itoa(start)},
+		"count":     {strconv.Itoa(count)},
+		"feature2":  {"-1"},
+		"sessionid": {comm.SessionID(community.BaseURL)},
+	}
+
+	path := fmt.Sprintf("comment/Profile/render/%d/-1", steamID)
+
+	type renderCommentsResponse struct {
+		Success      bool   `json:"success"`
+		CommentsHTML string `json:"comments_html"`
+		TotalCount   int    `json:"total_count"`
+		Error        string `json:"error"`
+	}
+
+	resp, err := community.PostForm[renderCommentsResponse](ctx, comm, path, form)
+	if err != nil {
+		return nil, 0, fmt.Errorf("friends: render comments request failed: %w", err)
+	}
+
+	if !resp.Success {
+		errMsg := resp.Error
+		if errMsg == "" {
+			errMsg = "unknown error"
+		}
+
+		return nil, 0, fmt.Errorf("friends: render comments failed: %s", errMsg)
+	}
+
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(resp.CommentsHTML))
+	if err != nil {
+		return nil, 0, fmt.Errorf("friends: failed to parse rendered comments: %w", err)
+	}
+
+	var comments []Comment
+	doc.Find(".commentthread_comment.responsive_body_text[id]").Each(func(_ int, s *goquery.Selection) {
+		elID, _ := s.Attr("id")
+
+		parts := strings.Split(elID, "_")
+		if len(parts) < 2 {
+			return
+		}
+
+		commentID := parts[1]
+
+		miniprofile, _ := s.Find("[data-miniprofile]").Attr("data-miniprofile")
+
+		var authorSteamID id.ID
+		if miniprofile != "" {
+			mpID, _ := strconv.ParseUint(miniprofile, 10, 64)
+			authorSteamID = id.ID(76561197960265728 + mpID)
+		}
+
+		name := s.Find("bdi").Text()
+		avatar, _ := s.Find(".playerAvatar img[src]").Attr("src")
+
+		var timestamp time.Time
+
+		tsAttr, _ := s.Find(".commentthread_comment_timestamp").Attr("data-timestamp")
+		if tsAttr != "" {
+			unixTS, _ := strconv.ParseInt(tsAttr, 10, 64)
+			timestamp = time.Unix(unixTS, 0).UTC()
+		}
+
+		commentText := strings.TrimSpace(s.Find(".commentthread_comment_text").Text())
+
+		comments = append(comments, Comment{
+			ID:            commentID,
+			AuthorSteamID: authorSteamID,
+			AuthorName:    name,
+			AuthorAvatar:  avatar,
+			Date:          timestamp,
+			Text:          commentText,
+		})
+	})
+
+	return comments, resp.TotalCount, nil
 }
