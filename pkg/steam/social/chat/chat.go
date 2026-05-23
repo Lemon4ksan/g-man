@@ -286,6 +286,224 @@ func (m *Chat) AckGroupMessage(ctx context.Context, groupID, chatID uint64, time
 	return err
 }
 
+// GetGroupMessageHistory retrieves chat history for a group chatroom.
+func (m *Chat) GetGroupMessageHistory(
+	ctx context.Context,
+	groupID uint64,
+	maxCount uint32,
+) ([]*pb.CChatRoom_GetMessageHistory_Response_ChatMessage, error) {
+	m.stateMu.RLock()
+	chatID, ok := m.activeGroupChats[groupID]
+	m.stateMu.RUnlock()
+
+	if !ok {
+		return nil, ErrNotInGroupChat
+	}
+
+	req := &pb.CChatRoom_GetMessageHistory_Request{
+		ChatGroupId: proto.Uint64(groupID),
+		ChatId:      proto.Uint64(chatID),
+		MaxCount:    proto.Uint32(maxCount),
+	}
+
+	resp, err := service.Unified[pb.CChatRoom_GetMessageHistory_Response](ctx, m.service, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp.GetMessages(), nil
+}
+
+// InviteFriendToGroupChat invites a friend to a Steam group chatroom.
+func (m *Chat) InviteFriendToGroupChat(ctx context.Context, groupID, friendSteamID uint64) error {
+	m.stateMu.RLock()
+	chatID, ok := m.activeGroupChats[groupID]
+	m.stateMu.RUnlock()
+
+	if !ok {
+		return ErrNotInGroupChat
+	}
+
+	req := &pb.CChatRoom_InviteFriendToChatRoomGroup_Request{
+		ChatGroupId: proto.Uint64(groupID),
+		ChatId:      proto.Uint64(chatID),
+		Steamid:     proto.Uint64(friendSteamID),
+	}
+	_, err := service.Unified[pb.CChatRoom_InviteFriendToChatRoomGroup_Response](ctx, m.service, req)
+
+	return err
+}
+
+// KickUserFromGroupChat removes a user from a Steam group chatroom.
+func (m *Chat) KickUserFromGroupChat(
+	ctx context.Context,
+	groupID, targetSteamID uint64,
+	expirationSeconds int32,
+) error {
+	m.stateMu.RLock()
+	_, ok := m.activeGroupChats[groupID]
+	m.stateMu.RUnlock()
+
+	if !ok {
+		return ErrNotInGroupChat
+	}
+
+	req := &pb.CChatRoom_KickUser_Request{
+		ChatGroupId: proto.Uint64(groupID),
+		Steamid:     proto.Uint64(targetSteamID),
+		Expiration:  proto.Int32(expirationSeconds),
+	}
+	_, err := service.Unified[pb.CChatRoom_KickUser_Response](ctx, m.service, req)
+
+	return err
+}
+
+// MuteUserInGroupChat mutes a user in a Steam group chatroom.
+func (m *Chat) MuteUserInGroupChat(ctx context.Context, groupID, targetSteamID uint64, expirationSeconds int32) error {
+	m.stateMu.RLock()
+	_, ok := m.activeGroupChats[groupID]
+	m.stateMu.RUnlock()
+
+	if !ok {
+		return ErrNotInGroupChat
+	}
+
+	req := &pb.CChatRoom_MuteUser_Request{
+		ChatGroupId: proto.Uint64(groupID),
+		Steamid:     proto.Uint64(targetSteamID),
+		Expiration:  proto.Int32(expirationSeconds),
+	}
+	_, err := service.Unified[pb.CChatRoom_MuteUser_Response](ctx, m.service, req)
+
+	return err
+}
+
+// SetUserBanStateInGroupChat bans or unbans a user in a Steam group chatroom.
+func (m *Chat) SetUserBanStateInGroupChat(ctx context.Context, groupID, targetSteamID uint64, ban bool) error {
+	m.stateMu.RLock()
+	_, ok := m.activeGroupChats[groupID]
+	m.stateMu.RUnlock()
+
+	if !ok {
+		return ErrNotInGroupChat
+	}
+
+	req := &pb.CChatRoom_SetUserBanState_Request{
+		ChatGroupId: proto.Uint64(groupID),
+		Steamid:     proto.Uint64(targetSteamID),
+		BanState:    proto.Bool(ban),
+	}
+	_, err := service.Unified[pb.CChatRoom_SetUserBanState_Response](ctx, m.service, req)
+
+	return err
+}
+
+// CreateChatRoomGroup creates a new chat room group and invites people to join it.
+// If name is empty, it creates an "ad-hoc" group chat.
+func (m *Chat) CreateChatRoomGroup(
+	ctx context.Context,
+	name string,
+	inviteeSteamIDs []uint64,
+) (*pb.CChatRoom_CreateChatRoomGroup_Response, error) {
+	req := &pb.CChatRoom_CreateChatRoomGroup_Request{
+		Name:            proto.String(name),
+		SteamidInvitees: inviteeSteamIDs,
+	}
+
+	return service.Unified[pb.CChatRoom_CreateChatRoomGroup_Response](ctx, m.service, req)
+}
+
+// SaveChatRoomGroup saves an unnamed "ad-hoc" group chat and converts it into a full chat room group.
+func (m *Chat) SaveChatRoomGroup(ctx context.Context, groupID uint64, name string) error {
+	req := &pb.CChatRoom_SaveChatRoomGroup_Request{
+		ChatGroupId: proto.Uint64(groupID),
+		Name:        proto.String(name),
+	}
+	_, err := service.Unified[service.NoResponse](ctx, m.service, req)
+
+	return err
+}
+
+// RenameChatRoomGroup renames a saved chat room group.
+func (m *Chat) RenameChatRoomGroup(ctx context.Context, groupID uint64, newName string) (string, error) {
+	req := &pb.CChatRoom_RenameChatRoomGroup_Request{
+		ChatGroupId: proto.Uint64(groupID),
+		Name:        proto.String(newName),
+	}
+
+	resp, err := service.Unified[pb.CChatRoom_RenameChatRoomGroup_Response](ctx, m.service, req)
+	if err != nil {
+		return "", err
+	}
+
+	return resp.GetName(), nil
+}
+
+// GetMyChatRoomGroups retrieves a list of all the chat room groups the bot is currently in.
+func (m *Chat) GetMyChatRoomGroups(ctx context.Context) (*pb.CChatRoom_GetMyChatRoomGroups_Response, error) {
+	req := &pb.CChatRoom_GetMyChatRoomGroups_Request{}
+	return service.Unified[pb.CChatRoom_GetMyChatRoomGroups_Response](ctx, m.service, req)
+}
+
+// GetChatRoomGroupState retrieves the detailed state of a specific chat room group.
+func (m *Chat) GetChatRoomGroupState(
+	ctx context.Context,
+	groupID uint64,
+) (*pb.CChatRoom_GetChatRoomGroupState_Response, error) {
+	req := &pb.CChatRoom_GetChatRoomGroupState_Request{
+		ChatGroupId: proto.Uint64(groupID),
+	}
+
+	return service.Unified[pb.CChatRoom_GetChatRoomGroupState_Response](ctx, m.service, req)
+}
+
+// CreateInviteLink creates an invite link for a given chat group.
+// voiceChatID is optional (can be 0 if not targeting a specific voice chat).
+func (m *Chat) CreateInviteLink(
+	ctx context.Context,
+	groupID uint64,
+	secondsValid uint32,
+	voiceChatID uint64,
+) (*pb.CChatRoom_CreateInviteLink_Response, error) {
+	req := &pb.CChatRoom_CreateInviteLink_Request{
+		ChatGroupId:  proto.Uint64(groupID),
+		SecondsValid: proto.Uint32(secondsValid),
+	}
+	if voiceChatID > 0 {
+		req.ChatId = proto.Uint64(voiceChatID)
+	}
+
+	return service.Unified[pb.CChatRoom_CreateInviteLink_Response](ctx, m.service, req)
+}
+
+// GetInviteLinksForGroup gets all active invite links for a given chat group.
+func (m *Chat) GetInviteLinksForGroup(
+	ctx context.Context,
+	groupID uint64,
+) ([]*pb.CChatRoom_GetInviteLinksForGroup_Response_LinkInfo, error) {
+	req := &pb.CChatRoom_GetInviteLinksForGroup_Request{
+		ChatGroupId: proto.Uint64(groupID),
+	}
+
+	resp, err := service.Unified[pb.CChatRoom_GetInviteLinksForGroup_Response](ctx, m.service, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp.GetInviteLinks(), nil
+}
+
+// DeleteInviteLink revokes and deletes an active invite link by its code.
+func (m *Chat) DeleteInviteLink(ctx context.Context, groupID uint64, inviteCode string) error {
+	req := &pb.CChatRoom_DeleteInviteLink_Request{
+		ChatGroupId: proto.Uint64(groupID),
+		InviteCode:  proto.String(inviteCode),
+	}
+	_, err := service.Unified[service.NoResponse](ctx, m.service, req)
+
+	return err
+}
+
 // handleIncomingMessage dispatches friend messages into the event bus.
 func (m *Chat) handleIncomingMessage(packet *protocol.Packet) {
 	msg := &pb.CFriendMessages_IncomingMessage_Notification{}

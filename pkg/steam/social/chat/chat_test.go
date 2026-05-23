@@ -324,3 +324,297 @@ func TestChat_RateLimit(t *testing.T) {
 
 	assert.GreaterOrEqual(t, elapsed, messageInterval-(200*time.Millisecond))
 }
+
+func TestChat_GroupModerationAndHistory(t *testing.T) {
+	m, ictx := setupChat(t)
+	ctx := context.Background()
+
+	t.Run("GetGroupMessageHistory Success", func(t *testing.T) {
+		m.stateMu.Lock()
+		m.activeGroupChats[ChatGroupID] = ChatID
+		m.stateMu.Unlock()
+
+		ictx.MockService().
+			SetProtoResponse("ChatRoom", "GetMessageHistory", &pb.CChatRoom_GetMessageHistory_Response{
+				Messages: []*pb.CChatRoom_GetMessageHistory_Response_ChatMessage{
+					{
+						Sender:          proto.Uint32(9999),
+						ServerTimestamp: proto.Uint32(1620000000),
+						Message:         proto.String("group scrollback message"),
+						Ordinal:         proto.Uint32(1),
+					},
+				},
+			})
+
+		msgs, err := m.GetGroupMessageHistory(ctx, ChatGroupID, 10)
+		require.NoError(t, err)
+		require.Len(t, msgs, 1)
+		assert.Equal(t, "group scrollback message", msgs[0].GetMessage())
+
+		req := &pb.CChatRoom_GetMessageHistory_Request{}
+		ictx.MockService().GetLastCall(req)
+		assert.Equal(t, ChatGroupID, req.GetChatGroupId())
+		assert.Equal(t, ChatID, req.GetChatId())
+		assert.Equal(t, uint32(10), req.GetMaxCount())
+	})
+
+	t.Run("GetGroupMessageHistory Fail Not In Group", func(t *testing.T) {
+		m.stateMu.Lock()
+		delete(m.activeGroupChats, ChatGroupID)
+		m.stateMu.Unlock()
+
+		_, err := m.GetGroupMessageHistory(ctx, ChatGroupID, 10)
+		assert.ErrorIs(t, err, ErrNotInGroupChat)
+	})
+
+	t.Run("InviteFriendToGroupChat Success", func(t *testing.T) {
+		m.stateMu.Lock()
+		m.activeGroupChats[ChatGroupID] = ChatID
+		m.stateMu.Unlock()
+
+		ictx.MockService().
+			SetProtoResponse("ChatRoom", "InviteFriendToChatRoomGroup", &pb.CChatRoom_InviteFriendToChatRoomGroup_Response{})
+
+		err := m.InviteFriendToGroupChat(ctx, ChatGroupID, FriendSteamID)
+		assert.NoError(t, err)
+
+		req := &pb.CChatRoom_InviteFriendToChatRoomGroup_Request{}
+		ictx.MockService().GetLastCall(req)
+		assert.Equal(t, ChatGroupID, req.GetChatGroupId())
+		assert.Equal(t, ChatID, req.GetChatId())
+		assert.Equal(t, FriendSteamID, req.GetSteamid())
+	})
+
+	t.Run("InviteFriendToGroupChat Fail Not In Group", func(t *testing.T) {
+		m.stateMu.Lock()
+		delete(m.activeGroupChats, ChatGroupID)
+		m.stateMu.Unlock()
+
+		err := m.InviteFriendToGroupChat(ctx, ChatGroupID, FriendSteamID)
+		assert.ErrorIs(t, err, ErrNotInGroupChat)
+	})
+
+	t.Run("KickUserFromGroupChat Success", func(t *testing.T) {
+		m.stateMu.Lock()
+		m.activeGroupChats[ChatGroupID] = ChatID
+		m.stateMu.Unlock()
+
+		ictx.MockService().
+			SetProtoResponse("ChatRoom", "KickUserFromGroup", &pb.CChatRoom_KickUser_Response{})
+
+		err := m.KickUserFromGroupChat(ctx, ChatGroupID, FriendSteamID, 3600)
+		assert.NoError(t, err)
+
+		req := &pb.CChatRoom_KickUser_Request{}
+		ictx.MockService().GetLastCall(req)
+		assert.Equal(t, ChatGroupID, req.GetChatGroupId())
+		assert.Equal(t, FriendSteamID, req.GetSteamid())
+		assert.Equal(t, int32(3600), req.GetExpiration())
+	})
+
+	t.Run("KickUserFromGroupChat Fail Not In Group", func(t *testing.T) {
+		m.stateMu.Lock()
+		delete(m.activeGroupChats, ChatGroupID)
+		m.stateMu.Unlock()
+
+		err := m.KickUserFromGroupChat(ctx, ChatGroupID, FriendSteamID, 3600)
+		assert.ErrorIs(t, err, ErrNotInGroupChat)
+	})
+
+	t.Run("MuteUserInGroupChat Success", func(t *testing.T) {
+		m.stateMu.Lock()
+		m.activeGroupChats[ChatGroupID] = ChatID
+		m.stateMu.Unlock()
+
+		ictx.MockService().
+			SetProtoResponse("ChatRoom", "MuteUserInGroup", &pb.CChatRoom_MuteUser_Response{})
+
+		err := m.MuteUserInGroupChat(ctx, ChatGroupID, FriendSteamID, 600)
+		assert.NoError(t, err)
+
+		req := &pb.CChatRoom_MuteUser_Request{}
+		ictx.MockService().GetLastCall(req)
+		assert.Equal(t, ChatGroupID, req.GetChatGroupId())
+		assert.Equal(t, FriendSteamID, req.GetSteamid())
+		assert.Equal(t, int32(600), req.GetExpiration())
+	})
+
+	t.Run("MuteUserInGroupChat Fail Not In Group", func(t *testing.T) {
+		m.stateMu.Lock()
+		delete(m.activeGroupChats, ChatGroupID)
+		m.stateMu.Unlock()
+
+		err := m.MuteUserInGroupChat(ctx, ChatGroupID, FriendSteamID, 600)
+		assert.ErrorIs(t, err, ErrNotInGroupChat)
+	})
+
+	t.Run("SetUserBanStateInGroupChat Success", func(t *testing.T) {
+		m.stateMu.Lock()
+		m.activeGroupChats[ChatGroupID] = ChatID
+		m.stateMu.Unlock()
+
+		ictx.MockService().
+			SetProtoResponse("ChatRoom", "SetUserBanState", &pb.CChatRoom_SetUserBanState_Response{})
+
+		err := m.SetUserBanStateInGroupChat(ctx, ChatGroupID, FriendSteamID, true)
+		assert.NoError(t, err)
+
+		req := &pb.CChatRoom_SetUserBanState_Request{}
+		ictx.MockService().GetLastCall(req)
+		assert.Equal(t, ChatGroupID, req.GetChatGroupId())
+		assert.Equal(t, FriendSteamID, req.GetSteamid())
+		assert.True(t, req.GetBanState())
+	})
+
+	t.Run("SetUserBanStateInGroupChat Fail Not In Group", func(t *testing.T) {
+		m.stateMu.Lock()
+		delete(m.activeGroupChats, ChatGroupID)
+		m.stateMu.Unlock()
+
+		err := m.SetUserBanStateInGroupChat(ctx, ChatGroupID, FriendSteamID, true)
+		assert.ErrorIs(t, err, ErrNotInGroupChat)
+	})
+}
+
+func TestChat_GroupManagement(t *testing.T) {
+	m, ictx := setupChat(t)
+	ctx := context.Background()
+
+	t.Run("CreateChatRoomGroup Success", func(t *testing.T) {
+		ictx.MockService().
+			SetProtoResponse("ChatRoom", "CreateChatRoomGroup", &pb.CChatRoom_CreateChatRoomGroup_Response{
+				ChatGroupId: proto.Uint64(ChatGroupID),
+			})
+
+		resp, err := m.CreateChatRoomGroup(ctx, "Test Group", []uint64{FriendSteamID})
+		assert.NoError(t, err)
+		assert.Equal(t, ChatGroupID, resp.GetChatGroupId())
+
+		req := &pb.CChatRoom_CreateChatRoomGroup_Request{}
+		ictx.MockService().GetLastCall(req)
+		assert.Equal(t, "Test Group", req.GetName())
+		assert.Equal(t, []uint64{FriendSteamID}, req.GetSteamidInvitees())
+	})
+
+	t.Run("SaveChatRoomGroup Success", func(t *testing.T) {
+		ictx.MockService().
+			SetProtoResponse("ChatRoom", "SaveChatRoomGroup", &pb.CChatRoom_SaveChatRoomGroup_Response{})
+
+		err := m.SaveChatRoomGroup(ctx, ChatGroupID, "Saved Group")
+		assert.NoError(t, err)
+
+		req := &pb.CChatRoom_SaveChatRoomGroup_Request{}
+		ictx.MockService().GetLastCall(req)
+		assert.Equal(t, ChatGroupID, req.GetChatGroupId())
+		assert.Equal(t, "Saved Group", req.GetName())
+	})
+
+	t.Run("RenameChatRoomGroup Success", func(t *testing.T) {
+		ictx.MockService().
+			SetProtoResponse("ChatRoom", "RenameChatRoomGroup", &pb.CChatRoom_RenameChatRoomGroup_Response{
+				Name: proto.String("Renamed Group"),
+			})
+
+		name, err := m.RenameChatRoomGroup(ctx, ChatGroupID, "Renamed Group")
+		assert.NoError(t, err)
+		assert.Equal(t, "Renamed Group", name)
+
+		req := &pb.CChatRoom_RenameChatRoomGroup_Request{}
+		ictx.MockService().GetLastCall(req)
+		assert.Equal(t, ChatGroupID, req.GetChatGroupId())
+		assert.Equal(t, "Renamed Group", req.GetName())
+	})
+
+	t.Run("GetMyChatRoomGroups Success", func(t *testing.T) {
+		ictx.MockService().
+			SetProtoResponse("ChatRoom", "GetMyChatRoomGroups", &pb.CChatRoom_GetMyChatRoomGroups_Response{
+				ChatRoomGroups: []*pb.CChatRoomSummaryPair{
+					{
+						GroupSummary: &pb.CChatRoom_GetChatRoomGroupSummary_Response{
+							ChatGroupId:   proto.Uint64(ChatGroupID),
+							ChatGroupName: proto.String("My Group"),
+						},
+					},
+				},
+			})
+
+		resp, err := m.GetMyChatRoomGroups(ctx)
+		assert.NoError(t, err)
+		require.Len(t, resp.GetChatRoomGroups(), 1)
+		assert.Equal(t, ChatGroupID, resp.GetChatRoomGroups()[0].GetGroupSummary().GetChatGroupId())
+
+		req := &pb.CChatRoom_GetMyChatRoomGroups_Request{}
+		ictx.MockService().GetLastCall(req)
+		assert.NotNil(t, req)
+	})
+
+	t.Run("GetChatRoomGroupState Success", func(t *testing.T) {
+		ictx.MockService().
+			SetProtoResponse("ChatRoom", "GetChatRoomGroupState", &pb.CChatRoom_GetChatRoomGroupState_Response{
+				State: &pb.CChatRoomGroupState{
+					HeaderState: &pb.CChatRoomGroupHeaderState{
+						ChatGroupId: proto.Uint64(ChatGroupID),
+						ChatName:    proto.String("My Group"),
+					},
+				},
+			})
+
+		resp, err := m.GetChatRoomGroupState(ctx, ChatGroupID)
+		assert.NoError(t, err)
+		assert.Equal(t, ChatGroupID, resp.GetState().GetHeaderState().GetChatGroupId())
+
+		req := &pb.CChatRoom_GetChatRoomGroupState_Request{}
+		ictx.MockService().GetLastCall(req)
+		assert.Equal(t, ChatGroupID, req.GetChatGroupId())
+	})
+
+	t.Run("CreateInviteLink Success", func(t *testing.T) {
+		ictx.MockService().
+			SetProtoResponse("ChatRoom", "CreateInviteLink", &pb.CChatRoom_CreateInviteLink_Response{
+				InviteCode: proto.String("XYZ"),
+			})
+
+		resp, err := m.CreateInviteLink(ctx, ChatGroupID, 3600, ChatID)
+		assert.NoError(t, err)
+		assert.Equal(t, "XYZ", resp.GetInviteCode())
+
+		req := &pb.CChatRoom_CreateInviteLink_Request{}
+		ictx.MockService().GetLastCall(req)
+		assert.Equal(t, ChatGroupID, req.GetChatGroupId())
+		assert.Equal(t, uint32(3600), req.GetSecondsValid())
+		assert.Equal(t, ChatID, req.GetChatId())
+	})
+
+	t.Run("GetInviteLinksForGroup Success", func(t *testing.T) {
+		ictx.MockService().
+			SetProtoResponse("ChatRoom", "GetInviteLinksForGroup", &pb.CChatRoom_GetInviteLinksForGroup_Response{
+				InviteLinks: []*pb.CChatRoom_GetInviteLinksForGroup_Response_LinkInfo{
+					{
+						InviteCode: proto.String("XYZ"),
+					},
+				},
+			})
+
+		links, err := m.GetInviteLinksForGroup(ctx, ChatGroupID)
+		assert.NoError(t, err)
+		require.Len(t, links, 1)
+		assert.Equal(t, "XYZ", links[0].GetInviteCode())
+
+		req := &pb.CChatRoom_GetInviteLinksForGroup_Request{}
+		ictx.MockService().GetLastCall(req)
+		assert.Equal(t, ChatGroupID, req.GetChatGroupId())
+	})
+
+	t.Run("DeleteInviteLink Success", func(t *testing.T) {
+		ictx.MockService().
+			SetProtoResponse("ChatRoom", "DeleteInviteLink", &pb.CChatRoom_DeleteInviteLink_Response{})
+
+		err := m.DeleteInviteLink(ctx, ChatGroupID, "XYZ")
+		assert.NoError(t, err)
+
+		req := &pb.CChatRoom_DeleteInviteLink_Request{}
+		ictx.MockService().GetLastCall(req)
+		assert.Equal(t, ChatGroupID, req.GetChatGroupId())
+		assert.Equal(t, "XYZ", req.GetInviteCode())
+	})
+}
