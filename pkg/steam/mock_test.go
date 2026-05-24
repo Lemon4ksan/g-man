@@ -117,6 +117,14 @@ func (m *mockSocket) SendRaw(ctx context.Context, eMsg enums.EMsg, payload []byt
 }
 func (m *mockSocket) StartHeartbeat(duration time.Duration) error { return nil }
 
+func (m *mockSocket) Send(
+	ctx context.Context,
+	build socket.PayloadBuilder,
+	opts ...socket.SendOption,
+) error {
+	return nil
+}
+
 func (m *mockSocket) SendSync(
 	ctx context.Context,
 	build socket.PayloadBuilder,

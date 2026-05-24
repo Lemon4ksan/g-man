@@ -84,7 +84,7 @@ type PayloadBuilder func(sess SessionReader, buf *bytes.Buffer, sourceJobID uint
 // Proto builds a standard Protobuf-wrapped packet.
 func Proto(eMsg enums.EMsg, req proto.Message) PayloadBuilder {
 	return func(sess SessionReader, buf *bytes.Buffer, sourceJobID uint64, token string) (err error) {
-		pkt := newPacket(sess, eMsg, sourceJobID, true, "", token)
+		pkt := newPacket(sess, eMsg, sourceJobID, true, "", token, 0)
 		if req != nil {
 			pkt.Payload, err = proto.Marshal(req)
 			if err != nil {
@@ -99,7 +99,7 @@ func Proto(eMsg enums.EMsg, req proto.Message) PayloadBuilder {
 // Unified builds a Protobuf packet for Unified Service methods.
 func Unified(method string, req proto.Message) PayloadBuilder {
 	return func(sess SessionReader, buf *bytes.Buffer, sourceJobID uint64, token string) (err error) {
-		pkt := newPacket(sess, enums.EMsg_ServiceMethodCallFromClient, sourceJobID, true, method, token)
+		pkt := newPacket(sess, enums.EMsg_ServiceMethodCallFromClient, sourceJobID, true, method, token, 0)
 		if req != nil {
 			pkt.Payload, err = proto.Marshal(req)
 			if err != nil {
@@ -114,7 +114,7 @@ func Unified(method string, req proto.Message) PayloadBuilder {
 // Raw builds a packet using Extended headers (non-protobuf).
 func Raw(eMsg enums.EMsg, payload []byte) PayloadBuilder {
 	return func(sess SessionReader, buf *bytes.Buffer, sourceJobID uint64, _ string) error {
-		pkt := newPacket(sess, eMsg, sourceJobID, false, "", "")
+		pkt := newPacket(sess, eMsg, sourceJobID, false, "", "", 0)
 		pkt.Payload = payload
 		return pkt.SerializeTo(buf)
 	}
@@ -123,13 +123,24 @@ func Raw(eMsg enums.EMsg, payload []byte) PayloadBuilder {
 // DynamicRaw creates a PayloadBuilder that decides between Protobuf and Extended
 // headers based on whether a targetName (Unified Service method) is provided.
 // targetName == "" implies a standard (non-unified) message.
-func DynamicRaw(eMsg enums.EMsg, targetName string, payload []byte) PayloadBuilder {
+func DynamicRaw(eMsg enums.EMsg, targetName string, payload []byte, routingAppID uint32) PayloadBuilder {
 	return func(sess SessionReader, buf *bytes.Buffer, sourceJobID uint64, token string) error {
 		isProto := targetName != ""
 
-		pkt := newPacket(sess, eMsg, sourceJobID, isProto, targetName, token)
+		pkt := newPacket(sess, eMsg, sourceJobID, isProto, targetName, token, routingAppID)
 		pkt.Payload = payload
 
+		return pkt.SerializeTo(buf)
+	}
+}
+
+// DynamicRawProto creates a PayloadBuilder that always uses a Protobuf header.
+// Use this for EMsg-based messages (like EMsg_ClientToGC) that carry a proto body
+// but are not Unified Service methods and therefore have no target name.
+func DynamicRawProto(eMsg enums.EMsg, payload []byte, routingAppID uint32) PayloadBuilder {
+	return func(sess SessionReader, buf *bytes.Buffer, sourceJobID uint64, token string) error {
+		pkt := newPacket(sess, eMsg, sourceJobID, true, "", token, routingAppID)
+		pkt.Payload = payload
 		return pkt.SerializeTo(buf)
 	}
 }
@@ -410,6 +421,7 @@ func newPacket(
 	jobID uint64,
 	isProto bool,
 	jobName, token string,
+	routingAppID uint32,
 ) *protocol.Packet {
 	var (
 		steamID   uint64
@@ -427,6 +439,10 @@ func newPacket(
 		hdr := protocol.NewMsgHdrProtoBuf(eMsg, steamID, sessionID)
 		hdr.Proto.JobidSource = proto.Uint64(jobID)
 
+		if routingAppID > 0 {
+			hdr.Proto.RoutingAppid = proto.Uint32(routingAppID)
+		}
+
 		if jobName != "" {
 			hdr.Proto.TargetJobName = proto.String(jobName)
 		}
@@ -437,9 +453,17 @@ func newPacket(
 
 		pkt.Header = hdr
 	} else {
-		hdr := protocol.NewMsgHdrExtended(eMsg, steamID, sessionID)
-		hdr.SourceJobID = jobID
-		pkt.Header = hdr
+		if eMsg == enums.EMsg_ChannelEncryptRequest ||
+			eMsg == enums.EMsg_ChannelEncryptResponse ||
+			eMsg == enums.EMsg_ChannelEncryptResult {
+			hdr := protocol.NewMsgHdr(eMsg, protocol.NoJob)
+			hdr.SourceJobID = jobID
+			pkt.Header = hdr
+		} else {
+			hdr := protocol.NewMsgHdrExtended(eMsg, steamID, sessionID)
+			hdr.SourceJobID = jobID
+			pkt.Header = hdr
+		}
 	}
 
 	return pkt

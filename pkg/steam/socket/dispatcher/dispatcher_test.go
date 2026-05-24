@@ -132,7 +132,7 @@ func TestDispatcher_Builders(t *testing.T) {
 	t.Run("DynamicRaw Builder", func(t *testing.T) {
 		// As Proto
 		buf := new(bytes.Buffer)
-		build := DynamicRaw(enums.EMsg_ServiceMethodCallFromClient, "Method", []byte("raw"))
+		build := DynamicRaw(enums.EMsg_ServiceMethodCallFromClient, "Method", []byte("raw"), 0)
 		_ = build(sess, buf, 0, "")
 		pkt, _ := protocol.ParsePacket(buf)
 		assert.True(t, pkt.IsProto)
@@ -140,7 +140,7 @@ func TestDispatcher_Builders(t *testing.T) {
 		// As Extended
 		buf.Reset()
 
-		build = DynamicRaw(enums.EMsg_ClientLogon, "", []byte("raw"))
+		build = DynamicRaw(enums.EMsg_ClientLogon, "", []byte("raw"), 0)
 		_ = build(sess, buf, 0, "")
 		pkt, _ = protocol.ParsePacket(buf)
 		assert.False(t, pkt.IsProto)

@@ -32,6 +32,7 @@ type SocketTarget interface {
 // SocketCaller defines the minimum interface required by the transport to interact
 // with the underlying socket.
 type SocketCaller interface {
+	Send(ctx context.Context, build socket.PayloadBuilder, opts ...socket.SendOption) error
 	SendSync(ctx context.Context, build socket.PayloadBuilder, opts ...socket.SendOption) (*protocol.Packet, error)
 	Session() socket.Session
 }
@@ -68,8 +69,31 @@ func (t *SocketTransport) Do(ctx context.Context, req *Request) (*Response, erro
 
 	isAuth := sess.IsAuthenticated()
 
+	// Build payload: use DynamicRawProto for messages that require a Protobuf CM
+	// header but have no Unified Service target name (e.g. EMsg_ClientToGC).
+	var builder socket.PayloadBuilder
+	if req.IsForceProto() {
+		builder = socket.DynamicRawProto(target.EMsg(isAuth), req.Body(), req.RoutingAppID())
+	} else {
+		builder = socket.DynamicRaw(target.EMsg(isAuth), target.ObjectName(), req.Body(), req.RoutingAppID())
+	}
+
+	if req.Params().Get("__no_response") == "true" {
+		err := t.caller.Send(ctx,
+			builder,
+			socket.WithToken(req.Token()),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("socket_transport send failed: %w", err)
+		}
+
+		return NewResponse(nil, SocketMetadata{
+			Result: enums.EResult_OK,
+		}), nil
+	}
+
 	p, err := t.caller.SendSync(ctx,
-		socket.DynamicRaw(target.EMsg(isAuth), target.ObjectName(), req.Body()),
+		builder,
 		socket.WithToken(req.Token()),
 	)
 	if err != nil {

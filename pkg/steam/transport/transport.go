@@ -29,10 +29,12 @@ type Target interface {
 // It holds all the information necessary for either HTTP or socket transports
 // to build and send a message.
 type Request struct {
-	target  Target
-	body    []byte
-	params  url.Values
-	headers http.Header
+	target       Target
+	body         []byte
+	params       url.Values
+	headers      http.Header
+	routingAppID uint32
+	forceProto   bool
 }
 
 // NewRequest creates a new Request with a target and payload.
@@ -82,6 +84,26 @@ func (r *Request) Header() http.Header { return r.headers }
 
 // Token retrieves the access token from the request parameters, if present.
 func (r *Request) Token() string { return r.params.Get("access_token") }
+
+// WithRoutingAppID specifies the target AppID for routing this request (used for Rich Presence).
+func (r *Request) WithRoutingAppID(appID uint32) *Request {
+	r.routingAppID = appID
+	return r
+}
+
+// RoutingAppID returns the target AppID for routing this request.
+func (r *Request) RoutingAppID() uint32 { return r.routingAppID }
+
+// WithForceProto marks the request to use a Protobuf packet header even when no
+// Unified Service method name is present. Required for EMsg-based proto messages
+// like EMsg_ClientToGC.
+func (r *Request) WithForceProto() *Request {
+	r.forceProto = true
+	return r
+}
+
+// IsForceProto reports whether the request must use a Protobuf packet header.
+func (r *Request) IsForceProto() bool { return r.forceProto }
 
 // Response represents the result of a Steam API call. It is a protocol-agnostic
 // container for the body and transport-specific metadata.

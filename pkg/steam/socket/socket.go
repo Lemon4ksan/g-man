@@ -50,6 +50,9 @@ var (
 	// headers based on whether a targetName (Unified Service method) is provided.
 	// targetName == "" implies a standard (non-unified) message.
 	DynamicRaw = dispatcher.DynamicRaw
+	// DynamicRawProto creates a PayloadBuilder that always uses a Protobuf header.
+	// Use this for EMsg-based proto messages that are not Unified Service methods.
+	DynamicRawProto = dispatcher.DynamicRawProto
 
 	// WithCallback adds a callback to asynchronously wait for a response to the sent packet.
 	WithCallback = dispatcher.WithCallback

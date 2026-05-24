@@ -79,6 +79,7 @@ var ErrNotRunning = errors.New("client must be running (call Run() first)")
 type SocketProvider interface {
 	auth.SocketProvider
 	IsConnected() bool
+	Send(ctx context.Context, build socket.PayloadBuilder, opts ...socket.SendOption) error
 	SendSync(ctx context.Context, build socket.PayloadBuilder, opts ...socket.SendOption) (*protocol.Packet, error)
 	RegisterServiceHandler(method string, handler socket.Handler)
 	Disconnect() error

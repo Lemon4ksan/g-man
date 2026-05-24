@@ -32,6 +32,24 @@ func (m *mockSocketCaller) Session() socket.Session {
 	return m.session
 }
 
+func (m *mockSocketCaller) Send(
+	ctx context.Context,
+	build socket.PayloadBuilder,
+	opts ...socket.SendOption,
+) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
+	if m.mockCallErr != nil {
+		return m.mockCallErr
+	}
+
+	return nil
+}
+
 func (m *mockSocketCaller) SendSync(
 	ctx context.Context,
 	build socket.PayloadBuilder,
