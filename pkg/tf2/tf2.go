@@ -127,8 +127,6 @@ type TF2 struct {
 	state  atomic.Int32
 	cache  *SOCache
 	schema SchemaProvider
-
-	crcStats atomic.Uint32
 }
 
 // New creates a new TF2 module.
@@ -211,10 +209,8 @@ func (t *TF2) Cache() *SOCache {
 
 // AwardAchievement unlocks the specified achievement in TF2.
 func (t *TF2) AwardAchievement(ctx context.Context, achievementID uint32) error {
-	crc := t.crcStats.Load()
 	req := &custom.CMsgClientStoreUserStats{
-		GameId:   proto.Uint64(AppID),
-		CrcStats: proto.Uint32(crc),
+		GameId: proto.Uint64(AppID),
 		Achievements: []*custom.CMsgClientStoreUserStats_Achievement{
 			{
 				AchievementId: proto.Uint32(achievementID),
@@ -236,10 +232,8 @@ func (t *TF2) AwardAchievement(ctx context.Context, achievementID uint32) error 
 
 // SetStat sets the specified statistic in TF2.
 func (t *TF2) SetStat(ctx context.Context, statID, value uint32) error {
-	crc := t.crcStats.Load()
 	req := &custom.CMsgClientStoreUserStats{
-		GameId:   proto.Uint64(AppID),
-		CrcStats: proto.Uint32(crc),
+		GameId: proto.Uint64(AppID),
 		Stats: []*custom.CMsgClientStoreUserStats_Stat{
 			{
 				StatId:    proto.Uint32(statID),

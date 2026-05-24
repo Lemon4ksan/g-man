@@ -44,7 +44,7 @@ type Config struct {
 	ExcludedSteamIDs            []string              `json:"excluded_steam_ids,omitempty"`
 	TrustedSteamIDs             []string              `json:"trusted_steam_ids,omitempty"`
 	ExcludedListingDescriptions []string              `json:"excluded_listing_descriptions,omitempty"`
-	PriceSwingLimits            PriceSwingLimits      `json:"price_swing_limits,omitempty"`
+	PriceSwingLimits            PriceSwingLimits      `json:"price_swing_limits"`
 	Items                       map[string]ItemConfig `json:"items"`
 }
 
