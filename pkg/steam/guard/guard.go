@@ -56,6 +56,8 @@ var (
 	ErrGuardClosed = errors.New("guard: closed")
 	// ErrNotAuthenticated is returned when the guardian is not yet linked to a session.
 	ErrNotAuthenticated = errors.New("guard: not authenticated")
+	// ErrNotConfigured is returned when the guardian is not configured (e.g. invalid config or missing credentials).
+	ErrNotConfigured = errors.New("guard: not configured")
 )
 
 // ConfService defines the interface for interacting with Steam's mobile confirmation endpoints.
@@ -240,7 +242,7 @@ func (g *Guardian) Metrics() *GuardianMetrics { return g.metrics }
 // GenerateAuthCode generates a 5-digit Steam Guard code for the current time.
 // It returns an empty string if the shared secret is not configured.
 func (g *Guardian) GenerateAuthCode() (string, error) {
-	if g.config.SharedSecret == "" {
+	if g == nil || g.config.SharedSecret == "" {
 		return "", nil
 	}
 
@@ -249,6 +251,10 @@ func (g *Guardian) GenerateAuthCode() (string, error) {
 
 // FetchConfirmations requests the list of active confirmations from Steam.
 func (g *Guardian) FetchConfirmations(ctx context.Context) ([]*Confirmation, error) {
+	if g == nil {
+		return nil, ErrNotConfigured
+	}
+
 	if g.service == nil {
 		return nil, ErrNotAuthenticated
 	}
@@ -306,6 +312,10 @@ func (g *Guardian) CancelMultiple(ctx context.Context, confs []*Confirmation) er
 }
 
 func (g *Guardian) respond(ctx context.Context, confs []*Confirmation, accept bool) error {
+	if g == nil {
+		return ErrNotConfigured
+	}
+
 	if err := g.rateLimiter.Wait(ctx); err != nil {
 		return err
 	}
