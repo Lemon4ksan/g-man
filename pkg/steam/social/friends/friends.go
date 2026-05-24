@@ -175,7 +175,7 @@ func (m *Manager) AddFriend(ctx context.Context, steamID uint64) error {
 	req := &pb.CMsgClientAddFriend{
 		SteamidToAdd: &steamID,
 	}
-	_, err := service.Legacy[service.NoResponse](ctx, m.client, enums.EMsg_ClientAddFriend, req)
+	_, err := service.LegacyProto[service.NoResponse](ctx, m.client, enums.EMsg_ClientAddFriend, req)
 
 	return err
 }
@@ -185,7 +185,7 @@ func (m *Manager) RemoveFriend(ctx context.Context, steamID uint64) error {
 	req := &pb.CMsgClientRemoveFriend{
 		Friendid: &steamID,
 	}
-	_, err := service.Legacy[service.NoResponse](ctx, m.client, enums.EMsg_ClientRemoveFriend, req)
+	_, err := service.LegacyProto[service.NoResponse](ctx, m.client, enums.EMsg_ClientRemoveFriend, req)
 
 	return err
 }

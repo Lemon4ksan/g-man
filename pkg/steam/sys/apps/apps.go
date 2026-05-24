@@ -100,7 +100,7 @@ func (a *Apps) GetPlayerCount(ctx context.Context, appID uint32) (int32, error) 
 		Appid: proto.Uint32(appID),
 	}
 
-	resp, err := service.Legacy[pb.CMsgDPGetNumberOfCurrentPlayersResponse](
+	resp, err := service.LegacyProto[pb.CMsgDPGetNumberOfCurrentPlayersResponse](
 		ctx,
 		a.client,
 		enums.EMsg_ClientGetNumberOfCurrentPlayersDP,
@@ -168,7 +168,7 @@ func (a *Apps) StopPlaying(ctx context.Context) error {
 // KickPlayingSession sends a request to Steam to terminate any other active
 // game-playing sessions on this account (e.g., on another PC).
 func (a *Apps) KickPlayingSession(ctx context.Context) error {
-	_, err := service.Legacy[service.NoResponse](
+	_, err := service.LegacyProto[service.NoResponse](
 		ctx,
 		a.client,
 		enums.EMsg_ClientKickPlayingSession,
@@ -187,7 +187,7 @@ func (a *Apps) sendGamesPlayed(
 		GamesPlayed: games,
 	}
 
-	_, err := service.Legacy[service.NoResponse](ctx, a.client, enums.EMsg_ClientGamesPlayedWithDataBlob, req)
+	_, err := service.LegacyProto[service.NoResponse](ctx, a.client, enums.EMsg_ClientGamesPlayedWithDataBlob, req)
 	if err != nil {
 		return fmt.Errorf("apps: failed to update playing status: %w", err)
 	}

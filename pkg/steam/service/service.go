@@ -219,6 +219,9 @@ func WebAPI[Resp any](
 
 // Legacy executes a low-level Protobuf request based on an EMsg.
 // This is primarily used for Socket communication.
+//
+// Deprecated: Use LegacyProto instead. This function exists for special cases
+// where the CM header is not needed.
 func Legacy[Resp any](
 	ctx context.Context,
 	d Doer,
@@ -232,6 +235,33 @@ func Legacy[Resp any](
 	}
 
 	return execute[Resp](ctx, d, req, api.FormatProtobuf, opts...)
+}
+
+// LegacyProto is like Legacy but forces a Protobuf CM header on the outer Steam
+// packet. Use this for EMsg-based messages that carry a proto body but are NOT
+// Unified Service methods — most notably EMsg_ClientToGC.
+func LegacyProto[Resp any](
+	ctx context.Context,
+	d Doer,
+	eMsg enums.EMsg,
+	reqMsg proto.Message,
+	opts ...api.CallOption,
+) (*Resp, error) {
+	req, err := NewLegacyProtoRequest(eMsg, reqMsg)
+	if err != nil {
+		return nil, err
+	}
+
+	return execute[Resp](ctx, d, req, api.FormatProtobuf, opts...)
+}
+
+// WithRoutingAppID returns a CallOption that sets the routing AppID in the
+// outer CM packet's proto header. Required when sending to EMsg_ClientToGC so
+// Steam knows which Game Coordinator to forward the message to.
+func WithRoutingAppID(appID uint32) api.CallOption {
+	return func(req *tr.Request, _ *api.CallConfig) {
+		req.WithRoutingAppID(appID)
+	}
 }
 
 func execute[Resp any](
@@ -255,6 +285,10 @@ func execute[Resp any](
 
 	for _, opt := range opts {
 		opt(req, cfg)
+	}
+
+	if reflect.TypeFor[Resp]() == reflect.TypeFor[NoResponse]() {
+		req.WithParam("__no_response", "true")
 	}
 
 	resp, err := d.Do(ctx, req)

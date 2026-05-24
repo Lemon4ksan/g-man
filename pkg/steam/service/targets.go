@@ -163,6 +163,9 @@ type LegacyTarget struct {
 }
 
 // NewLegacyRequest creates a request identified solely by its EMsg.
+//
+// Deprecated: Use NewLegacyProtoRequest instead. This function exists for special
+// cases where the CM header is not needed.
 func NewLegacyRequest(eMsg enums.EMsg, msg proto.Message) (*tr.Request, error) {
 	var body []byte
 
@@ -176,6 +179,18 @@ func NewLegacyRequest(eMsg enums.EMsg, msg proto.Message) (*tr.Request, error) {
 	}
 
 	return tr.NewRequest(&LegacyTarget{eMsg}, body), nil
+}
+
+// NewLegacyProtoRequest is like NewLegacyRequest but forces a Protobuf CM header
+// for the outer Steam packet. Use this for EMsg-based proto messages that are NOT
+// Unified Service calls, such as EMsg_ClientToGC.
+func NewLegacyProtoRequest(eMsg enums.EMsg, msg proto.Message) (*tr.Request, error) {
+	req, err := NewLegacyRequest(eMsg, msg)
+	if err != nil {
+		return nil, err
+	}
+
+	return req.WithForceProto(), nil
 }
 
 // String returns the string representation of the underlying EMsg.

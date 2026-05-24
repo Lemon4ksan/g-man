@@ -212,7 +212,13 @@ func (c *Coordinator) send(
 		log.Uint64("job_id", sourceJobID),
 	)
 
-	_, err = service.Legacy[service.NoResponse](ctx, c.client, enums.EMsg_ClientToGC, wrapper)
+	_, err = service.LegacyProto[service.NoResponse](
+		ctx,
+		c.client,
+		enums.EMsg_ClientToGC,
+		wrapper,
+		service.WithRoutingAppID(appID),
+	)
 	if err != nil {
 		if cb != nil {
 			c.jobManager.Resolve(sourceJobID, nil, err)
