@@ -277,8 +277,6 @@ func (t *TF2) GetCurrentAchievements(ctx context.Context) (map[uint32]bool, erro
 		return nil, err
 	}
 
-	t.crcStats.Store(resp.GetCrcStats())
-
 	unlocked := make(map[uint32]bool)
 	for _, block := range resp.GetAchievementBlocks() {
 		if len(block.GetUnlockTime()) > 0 {

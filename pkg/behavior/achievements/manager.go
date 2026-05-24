@@ -40,6 +40,7 @@ type Config struct {
 	UnlockChance     float32
 	BreakChance      float32
 	CheckInterval    time.Duration
+	InitialDelay     time.Duration
 	AchievementPool  [][]uint32 // Ranges of achievement IDs [start, end].
 }
 
@@ -79,6 +80,15 @@ func (m *Manager) Run(ctx context.Context) error {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
+	// Wait a brief moment for games played status to propagate to Steam CM if configured
+	if m.config.InitialDelay > 0 {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(m.config.InitialDelay):
+		}
+	}
+
 	targetCount := int(
 		float64(
 			m.config.TotalCount,
@@ -89,6 +99,13 @@ func (m *Manager) Run(ctx context.Context) error {
 		unlocked, err := m.provider.GetCurrentAchievements(ctx)
 		if err != nil {
 			logger.Error("Failed to fetch progress", log.Err(err))
+			// Retry in 1 minute on failure instead of waiting for the full ticker
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(1 * time.Minute):
+				continue
+			}
 		} else {
 			currentCount := len(unlocked)
 			logger.Info("Progress status", log.Int("current", currentCount), log.Int("target", targetCount))
