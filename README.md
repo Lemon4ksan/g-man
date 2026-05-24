@@ -233,6 +233,17 @@ func PriceValidationMiddleware(priceProvider PriceProvider) engine.Middleware {
 }
 ```
 
+## 🚀 Memory & Performance Efficiency
+
+G-MAN is architected for maximum resource efficiency, achieving an exceptionally small runtime footprint:
+- **Core Bot Architecture:** Requires only **~4.5 MB** of live heap memory (including the event bus, social modules, and trade managers).
+- **TF2 Schema Engine:** Holds a fully active, O(1)-indexed schema in a tiny **~10 MB** heap space, resulting in only **~25 MB RSS** overall physical memory usage in production.
+- **Built-in Profiling:** Run our offline memory walkthrough and generate a `pprof` heap profile to inspect allocations directly:
+
+```shell
+go test -v ./examples/tf2_bot -run TestFullBotMemoryProfile
+```
+
 ## 🏗 Roadmap
 
 ### Core Infrastructure

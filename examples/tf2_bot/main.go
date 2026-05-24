@@ -207,6 +207,12 @@ func main() {
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 
+	// Uncomment to reduce memory usage by +- 15 mb
+	// time.AfterFunc(30*time.Second, func() {
+	// 	runtime.GC()
+	// 	debug.FreeOSMemory()
+	// })
+
 	<-stop
 	logger.Info("Shutting down TF2 bot...")
 }
