@@ -5,13 +5,16 @@
 package schema
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -594,6 +597,11 @@ func (m *Manager) getPaintKits(ctx context.Context) (map[string]string, error) {
 	return paintKits, nil
 }
 
+var (
+	rxDefindex = regexp.MustCompile(`^\s*"(\d+)"\s*$`)
+	rxSeries   = regexp.MustCompile(`^\s*"set supply crate series"\s+"(\d+)"\s*$`)
+)
+
 func (m *Manager) getItemsGame(ctx context.Context, url string) (map[string]any, error) {
 	if url == "" {
 		url = m.config.ItemsGameMirrorURL
@@ -614,19 +622,68 @@ func (m *Manager) getItemsGame(ctx context.Context, url string) (map[string]any,
 		return nil, fmt.Errorf("github returned status: %d", resp.StatusCode)
 	}
 
-	parser := vdf.NewParser(resp.Body)
+	seriesMap := make(map[string]any)
+	scanner := bufio.NewScanner(resp.Body)
 
-	parsed, err := parser.Parse()
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse VDF: %w", err)
+	var currentDefindex string
+
+	inItemsSection := false
+	bracketCount := 0
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		trimmed := strings.TrimSpace(line)
+
+		if trimmed == "{" {
+			bracketCount++
+			continue
+		}
+
+		if trimmed == "}" {
+			bracketCount--
+			if bracketCount == 2 {
+				currentDefindex = ""
+			}
+
+			if bracketCount == 1 {
+				inItemsSection = false
+			}
+
+			continue
+		}
+
+		if trimmed == "\"items\"" && bracketCount == 1 {
+			inItemsSection = true
+			continue
+		}
+
+		if inItemsSection {
+			if bracketCount == 2 {
+				if match := rxDefindex.FindStringSubmatch(line); len(match) == 2 {
+					currentDefindex = match[1]
+				}
+			} else if bracketCount == 4 && currentDefindex != "" {
+				if match := rxSeries.FindStringSubmatch(line); len(match) == 2 {
+					series, _ := strconv.Atoi(match[1])
+
+					seriesMap[currentDefindex] = map[string]any{
+						"static_attrs": map[string]any{
+							"set supply crate series": float64(series),
+						},
+					}
+					currentDefindex = ""
+				}
+			}
+		}
 	}
 
-	itemsGame, ok := parsed["items_game"].(map[string]any)
-	if !ok {
-		return nil, errors.New("missing 'items_game' in VDF")
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("error reading items_game stream: %w", err)
 	}
 
-	return itemsGame, nil
+	return map[string]any{
+		"items": seriesMap,
+	}, nil
 }
 
 func (m *Manager) isForbiddenError(err error) bool {
