@@ -33,6 +33,7 @@ type BlockInfo struct {
 
 func main() {
 	coverageFilePath := flag.String("file", "./coverage.out", "path to the go coverage profile file")
+
 	flag.Parse()
 
 	file, err := os.Open(*coverageFilePath)

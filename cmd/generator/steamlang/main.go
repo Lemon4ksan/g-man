@@ -25,7 +25,7 @@ import (
 var (
 	outputFile = flag.String("out", "", "Output Go file path")
 	pkgName    = flag.String("pkg", "protocol", "Go package name")
-	apiUrl     = flag.String(
+	apiURL     = flag.String(
 		"url",
 		"https://api.github.com/repos/SteamRE/SteamKit/contents/Resources/SteamLanguage",
 		"GitHub API URL for SteamLanguage files",
@@ -79,7 +79,7 @@ func main() {
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 
-	files, err := fetchFileList(ctx, *apiUrl)
+	files, err := fetchFileList(ctx, *apiURL)
 	if err != nil {
 		cancel()
 		os.Exit(1)
