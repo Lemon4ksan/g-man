@@ -180,6 +180,14 @@ func (m *Manager) handleUpdateRequested(req *UpdateRequestedEvent) {
 
 	// Trigger a refresh in a separate goroutine to avoid blocking the bus
 	m.Go(func(ctx context.Context) {
+		// Prioritize PriceDB first
+		if err := m.refreshPriceDB(ctx); err == nil {
+			m.Logger.Info("Schema updated via PriceDB after update request")
+			return
+		} else {
+			m.Logger.Warn("PriceDB schema update failed on manual request, falling back to legacy", log.Err(err))
+		}
+
 		if err := m.refreshLegacy(ctx, req.ItemsGameURL); err != nil {
 			m.Logger.Error("Manual schema refresh failed", log.Err(err))
 		}
@@ -196,12 +204,22 @@ func (m *Manager) Get() *Schema {
 
 // Refresh manually triggers a full schema update from PriceDB and GitHub sources.
 func (m *Manager) Refresh(ctx context.Context) error {
+	if err := m.refreshPriceDB(ctx); err == nil {
+		return nil
+	} else {
+		m.Logger.Warn("PriceDB schema fetch failed, falling back to Steam API", log.Err(err))
+	}
+
+	return m.refreshLegacy(ctx, m.config.ItemsGameMirrorURL)
+}
+
+// refreshPriceDB updates the schema from PriceDB.
+func (m *Manager) refreshPriceDB(ctx context.Context) error {
 	m.Logger.Debug("Fetching complete schema from PriceDB...")
 
 	resp, err := m.pricedbClient.GetSchema(ctx)
 	if err != nil {
-		m.Logger.Warn("PriceDB schema fetch failed, falling back to Steam API", log.Err(err))
-		return m.refreshLegacy(ctx, m.config.ItemsGameMirrorURL)
+		return fmt.Errorf("pricedb schema fetch failed: %w", err)
 	}
 
 	raw, ok := resp["raw"].(map[string]any)
