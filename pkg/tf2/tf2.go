@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/protoadapt"
 
 	"github.com/lemon4ksan/g-man/pkg/behavior/achievements"
 	"github.com/lemon4ksan/g-man/pkg/bus"
@@ -223,7 +224,7 @@ func (t *TF2) AwardAchievement(ctx context.Context, achievementID uint32) error 
 		ctx,
 		t.service,
 		enums.EMsg_ClientStoreUserStats,
-		req,
+		protoadapt.MessageV2Of(req),
 		service.WithRoutingAppID(AppID),
 	)
 
@@ -246,7 +247,7 @@ func (t *TF2) SetStat(ctx context.Context, statID, value uint32) error {
 		ctx,
 		t.service,
 		enums.EMsg_ClientStoreUserStats,
-		req,
+		protoadapt.MessageV2Of(req),
 		service.WithRoutingAppID(AppID),
 	)
 
@@ -254,16 +255,11 @@ func (t *TF2) SetStat(ctx context.Context, statID, value uint32) error {
 }
 
 // GetCurrentAchievements returns a map of achievements that have already been unlocked.
-//
-// NOTE: Currently doesn't work (Eresult_Fail).
 func (t *TF2) GetCurrentAchievements(ctx context.Context) (map[uint32]bool, error) {
 	t.Logger.Debug("Querying achievements progress", log.Uint64("steam_idForUser", t.steamID.Uint64()))
 
 	req := &pb_steam.CMsgClientGetUserStats{
-		GameId:             proto.Uint64(AppID),
-		SteamIdForUser:     proto.Uint64(t.steamID.Uint64()),
-		SchemaLocalVersion: proto.Int32(10),
-		CrcStats:           proto.Uint32(0),
+		GameId: proto.Uint64(AppID),
 	}
 
 	resp, err := service.LegacyProto[pb_steam.CMsgClientGetUserStatsResponse](
@@ -279,8 +275,13 @@ func (t *TF2) GetCurrentAchievements(ctx context.Context) (map[uint32]bool, erro
 
 	unlocked := make(map[uint32]bool)
 	for _, block := range resp.GetAchievementBlocks() {
-		if len(block.GetUnlockTime()) > 0 {
-			unlocked[block.GetAchievementId()] = true
+		baseID := block.GetAchievementId()
+
+		for idx, unlockTime := range block.GetUnlockTime() {
+			if unlockTime > 0 {
+				achievementID := baseID + uint32(idx)
+				unlocked[achievementID] = true
+			}
 		}
 	}
 

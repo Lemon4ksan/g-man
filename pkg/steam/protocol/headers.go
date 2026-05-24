@@ -217,7 +217,13 @@ func (h *MsgHdrProtoBuf) GetSteamID() uint64 { return h.Proto.GetSteamid() }
 func (h *MsgHdrProtoBuf) GetSessionID() int32 { return h.Proto.GetClientSessionid() }
 
 // GetEResult returns the result code from the header if present.
-func (h *MsgHdrProtoBuf) GetEResult() enums.EResult { return enums.EResult(h.Proto.GetEresult()) }
+func (h *MsgHdrProtoBuf) GetEResult() enums.EResult {
+	if h.Proto.Eresult == nil {
+		return enums.EResult_OK // Cretified steam moment right here. Sometimes it just omits the field
+	}
+
+	return enums.EResult(h.Proto.GetEresult())
+}
 
 // SerializeTo marshals the Protobuf header and writes it to the writer,
 // preceded by the EMsg (with ProtoMask set) and the header length.
