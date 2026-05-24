@@ -643,3 +643,105 @@ func TestManager_GetUserComments(t *testing.T) {
 		assert.Contains(t, err.Error(), "community requester is not initialized")
 	})
 }
+
+func TestManager_UploadRichPresence(t *testing.T) {
+	m, ictx := setupFriends(t)
+	ctx := context.Background()
+
+	err := m.UploadRichPresence(ctx, 440, map[string]string{
+		"steam_display": "#Status_AtMainMenu",
+	})
+	assert.NoError(t, err)
+
+	req := &pb.CMsgClientRichPresenceUpload{}
+	ictx.MockService().GetLastCall(req)
+
+	// Verify that the payload contains Section "RP" and Key "steam_display"
+	kv := req.GetRichPresenceKv()
+	assert.NotEmpty(t, kv)
+	assert.Contains(t, string(kv), "RP")
+	assert.Contains(t, string(kv), "steam_display")
+	assert.Contains(t, string(kv), "#Status_AtMainMenu")
+}
+
+func TestManager_SetUIMode(t *testing.T) {
+	m, ictx := setupFriends(t)
+	ctx := context.Background()
+
+	err := m.SetUIMode(ctx, UIModeMobile)
+	assert.NoError(t, err)
+
+	req := &pb.CMsgClientUIMode{}
+	ictx.MockService().GetLastCall(req)
+	assert.Equal(t, UIModeMobile, req.GetUimode())
+}
+
+func TestManager_FriendInviteTokens(t *testing.T) {
+	m, ictx := setupFriends(t)
+	ctx := context.Background()
+
+	t.Run("CreateFriendInviteToken Success", func(t *testing.T) {
+		ictx.MockService().
+			SetJSONResponse("UserAccount", "CreateFriendInviteToken", map[string]any{
+				"response": map[string]any{
+					"invite_token": "TOKEN_123",
+				},
+			})
+
+		token, err := m.CreateFriendInviteToken(ctx, 5, 3600)
+		require.NoError(t, err)
+		assert.Equal(t, "TOKEN_123", token)
+
+		req := ictx.MockService().GetLastRequest()
+		assert.Equal(t, "5", req.Params().Get("invite_limit"))
+		assert.Equal(t, "3600", req.Params().Get("invite_duration"))
+	})
+
+	t.Run("GetFriendInviteTokens Success", func(t *testing.T) {
+		ictx.MockService().
+			SetJSONResponse("UserAccount", "GetFriendInviteTokens", map[string]any{
+				"response": map[string]any{
+					"tokens": []map[string]any{
+						{
+							"invite_token": "TOKEN_ABC",
+						},
+					},
+				},
+			})
+
+		tokens, err := m.GetFriendInviteTokens(ctx)
+		require.NoError(t, err)
+		require.Len(t, tokens, 1)
+		assert.Equal(t, "TOKEN_ABC", tokens[0].GetInviteToken())
+	})
+
+	t.Run("RevokeFriendInviteToken Success", func(t *testing.T) {
+		ictx.MockService().
+			SetJSONResponse("UserAccount", "RevokeFriendInviteToken", map[string]any{
+				"response": map[string]any{},
+			})
+
+		err := m.RevokeFriendInviteToken(ctx, "TOKEN_XYZ")
+		assert.NoError(t, err)
+
+		req := ictx.MockService().GetLastRequest()
+		assert.Equal(t, "TOKEN_XYZ", req.Params().Get("invite_token"))
+	})
+
+	t.Run("ViewFriendInviteToken Success", func(t *testing.T) {
+		ictx.MockService().
+			SetJSONResponse("UserAccount", "ViewFriendInviteToken", map[string]any{
+				"response": map[string]any{
+					"valid": true,
+				},
+			})
+
+		resp, err := m.ViewFriendInviteToken(ctx, 76561198000000001, "TOKEN_VIEW")
+		require.NoError(t, err)
+		assert.True(t, resp.GetValid())
+
+		req := ictx.MockService().GetLastRequest()
+		assert.Equal(t, "76561198000000001", req.Params().Get("steamid"))
+		assert.Equal(t, "TOKEN_VIEW", req.Params().Get("invite_token"))
+	})
+}

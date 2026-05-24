@@ -5,6 +5,7 @@
 package friends
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -583,4 +584,51 @@ func (m *Manager) GetUserComments(ctx context.Context, steamID id.ID, start, cou
 	})
 
 	return comments, resp.TotalCount, nil
+}
+
+// UIMode constants represent the client user interface modes.
+const (
+	UIModeNone       uint32 = 0
+	UIModeDesktop    uint32 = 1
+	UIModeBigPicture uint32 = 2
+	UIModeMobile     uint32 = 3
+	UIModeWeb        uint32 = 4
+)
+
+// SetUIMode sets your current client UI mode (e.g. Desktop, Mobile, Big Picture).
+func (m *Manager) SetUIMode(ctx context.Context, mode uint32) error {
+	req := &pb.CMsgClientUIMode{
+		Uimode: &mode,
+	}
+
+	_, err := service.LegacyProto[service.NoResponse](ctx, m.client, enums.EMsg_ClientCurrentUIMode, req)
+
+	return err
+}
+
+// UploadRichPresence uploads custom rich presence data to Steam for a specific AppID.
+// Example: richPresence = map[string]string{"steam_display": "#Status_AtMainMenu"}
+func (m *Manager) UploadRichPresence(ctx context.Context, appID uint32, richPresence map[string]string) error {
+	var buf bytes.Buffer
+
+	// Binary Valve KeyValues (KV) format encoder
+	buf.WriteByte(0)            // Section start (type 0)
+	buf.Write([]byte("RP\x00")) // Section name "RP" null-terminated
+
+	for k, v := range richPresence {
+		buf.WriteByte(1)              // Value type String (type 1)
+		buf.Write([]byte(k + "\x00")) // Key name null-terminated
+		buf.Write([]byte(v + "\x00")) // Value string null-terminated
+	}
+
+	buf.WriteByte(8) // End of section (0x08)
+	buf.WriteByte(8) // End of KV document (0x08)
+
+	req := &pb.CMsgClientRichPresenceUpload{
+		RichPresenceKv: buf.Bytes(),
+	}
+
+	_, err := service.LegacyProto[service.NoResponse](ctx, m.client, enums.EMsg_ClientRichPresenceUpload, req)
+
+	return err
 }
