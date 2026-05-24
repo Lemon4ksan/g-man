@@ -233,4 +233,3 @@ func TestSessionManager_CustomFactories(t *testing.T) {
 	assert.True(t, webCalled, "custom WebFactory should be invoked")
 	assert.True(t, commCalled, "custom CommunityFactory should be invoked")
 }
-

@@ -80,12 +80,18 @@ type SessionManager struct {
 
 // NewSessionManager creates a new session manager.
 func NewSessionManager(cfg Config, bus *bus.Bus, logger log.Logger, sock SocketProvider) *SessionManager {
+	device := cfg.Device
+	if device == nil {
+		d := auth.DefaultDeviceConfig()
+		device = &d
+	}
+
 	c := &SessionManager{
 		bus:          bus,
 		logger:       logger,
 		socket:       sock,
 		storage:      cfg.Storage,
-		device:       cfg.Device,
+		device:       device,
 		verifyTicker: time.NewTicker(5 * time.Minute),
 		registry:     cfg.Registry,
 		http:         cfg.HTTP,
@@ -119,7 +125,7 @@ func NewSessionManager(cfg Config, bus *bus.Bus, logger log.Logger, sock SocketP
 
 	c.auth = auth.NewAuthenticator(
 		sock,
-		auth.NewAuthenticationService(c.unified, cfg.Device),
+		auth.NewAuthenticationService(c.unified, device),
 		bus,
 		auth.WithLogger(c.logger),
 		auth.WithStorage(c.storage.Auth()),
