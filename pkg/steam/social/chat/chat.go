@@ -80,13 +80,19 @@ func (m *Chat) Init(init module.InitContext) error {
 
 	friendHandler := "FriendMessagesClient.IncomingMessage#1"
 	groupHandler := "ChatRoomClient.NotifyIncomingChatMessage#1"
+	friendReactionHandler := "FriendMessagesClient.MessageReaction#1"
+	groupReactionHandler := "ChatRoomClient.NotifyMessageReaction#1"
 
 	init.RegisterServiceHandler(friendHandler, m.handleIncomingMessage)
 	init.RegisterServiceHandler(groupHandler, m.handleGroupMessage)
+	init.RegisterServiceHandler(friendReactionHandler, m.handleFriendReaction)
+	init.RegisterServiceHandler(groupReactionHandler, m.handleGroupReaction)
 
 	m.unregFuncs = append(m.unregFuncs, func() {
 		init.UnregisterServiceHandler(friendHandler)
 		init.UnregisterServiceHandler(groupHandler)
+		init.UnregisterServiceHandler(friendReactionHandler)
+		init.UnregisterServiceHandler(groupReactionHandler)
 	})
 
 	return nil
@@ -561,6 +567,45 @@ func (m *Chat) handleGroupMessage(packet *protocol.Packet) {
 		SenderID:    msg.GetSteamidSender(),
 		Message:     msg.GetMessage(),
 		Timestamp:   time.Unix(int64(msg.GetTimestamp()), 0),
+	})
+}
+
+// handleFriendReaction dispatches friend reaction notifications into the event bus.
+func (m *Chat) handleFriendReaction(packet *protocol.Packet) {
+	msg := &pb.CFriendMessages_MessageReaction_Notification{}
+	if err := proto.Unmarshal(packet.Payload, msg); err != nil {
+		m.Logger.Error("Failed to unmarshal friend reaction notification", log.Err(err))
+		return
+	}
+
+	m.Bus.Publish(&ReactionEvent{
+		FriendSteamID:   msg.GetSteamidFriend(),
+		ReactorSteamID:  msg.GetReactor(),
+		ServerTimestamp: msg.GetServerTimestamp(),
+		Ordinal:         msg.GetOrdinal(),
+		Reaction:        msg.GetReaction(),
+		ReactionType:    int32(msg.GetReactionType()),
+		IsAdd:           msg.GetIsAdd(),
+	})
+}
+
+// handleGroupReaction dispatches group reaction notifications into the event bus.
+func (m *Chat) handleGroupReaction(packet *protocol.Packet) {
+	msg := &pb.CChatRoom_MessageReaction_Notification{}
+	if err := proto.Unmarshal(packet.Payload, msg); err != nil {
+		m.Logger.Error("Failed to unmarshal group reaction notification", log.Err(err))
+		return
+	}
+
+	m.Bus.Publish(&GroupReactionEvent{
+		ChatGroupID:     msg.GetChatGroupId(),
+		ChatID:          msg.GetChatId(),
+		ReactorSteamID:  msg.GetReactor(),
+		ServerTimestamp: msg.GetServerTimestamp(),
+		Ordinal:         msg.GetOrdinal(),
+		Reaction:        msg.GetReaction(),
+		ReactionType:    int32(msg.GetReactionType()),
+		IsAdd:           msg.GetIsAdd(),
 	})
 }
 

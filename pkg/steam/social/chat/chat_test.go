@@ -618,3 +618,145 @@ func TestChat_GroupManagement(t *testing.T) {
 		assert.Equal(t, "XYZ", req.GetInviteCode())
 	})
 }
+
+func TestChat_ModernChatRooms(t *testing.T) {
+	m, ictx := setupChat(t)
+	ctx := context.Background()
+
+	t.Run("SendChatMessage Success", func(t *testing.T) {
+		ictx.MockService().
+			SetProtoResponse("ChatRoom", "SendChatMessage", &pb.CChatRoom_SendChatMessage_Response{})
+
+		err := m.SendChatMessage(ctx, ChatGroupID, ChatID, "modern message")
+		assert.NoError(t, err)
+
+		req := &pb.CChatRoom_SendChatMessage_Request{}
+		ictx.MockService().GetLastCall(req)
+		assert.Equal(t, ChatGroupID, req.GetChatGroupId())
+		assert.Equal(t, ChatID, req.GetChatId())
+		assert.Equal(t, "modern message", req.GetMessage())
+	})
+
+	t.Run("SendChatReaction Success", func(t *testing.T) {
+		ictx.MockService().
+			SetProtoResponse("ChatRoom", "UpdateMessageReaction", &pb.CChatRoom_UpdateMessageReaction_Response{})
+
+		err := m.SendChatReaction(
+			ctx,
+			ChatGroupID,
+			ChatID,
+			123456,
+			1,
+			"👍",
+			pb.EChatRoomMessageReactionType_k_EChatRoomMessageReactionType_Emoticon,
+			true,
+		)
+		assert.NoError(t, err)
+
+		req := &pb.CChatRoom_UpdateMessageReaction_Request{}
+		ictx.MockService().GetLastCall(req)
+		assert.Equal(t, ChatGroupID, req.GetChatGroupId())
+		assert.Equal(t, ChatID, req.GetChatId())
+		assert.Equal(t, uint32(123456), req.GetServerTimestamp())
+		assert.Equal(t, uint32(1), req.GetOrdinal())
+		assert.Equal(t, "👍", req.GetReaction())
+		assert.Equal(t, pb.EChatRoomMessageReactionType_k_EChatRoomMessageReactionType_Emoticon, req.GetReactionType())
+		assert.True(t, req.GetIsAdd())
+	})
+
+	t.Run("GetChatHistory Success", func(t *testing.T) {
+		ictx.MockService().
+			SetProtoResponse("ChatRoom", "GetMessageHistory", &pb.CChatRoom_GetMessageHistory_Response{
+				Messages: []*pb.CChatRoom_GetMessageHistory_Response_ChatMessage{
+					{
+						Message: proto.String("history msg"),
+					},
+				},
+			})
+
+		msgs, err := m.GetChatHistory(ctx, ChatGroupID, ChatID, 1620000000, 1, 5)
+		assert.NoError(t, err)
+		require.Len(t, msgs, 1)
+		assert.Equal(t, "history msg", msgs[0].GetMessage())
+
+		req := &pb.CChatRoom_GetMessageHistory_Request{}
+		ictx.MockService().GetLastCall(req)
+		assert.Equal(t, ChatGroupID, req.GetChatGroupId())
+		assert.Equal(t, ChatID, req.GetChatId())
+		assert.Equal(t, uint32(1620000000), req.GetStartTime())
+		assert.Equal(t, uint32(1), req.GetStartOrdinal())
+		assert.Equal(t, uint32(5), req.GetMaxCount())
+	})
+}
+
+func TestChat_ReactionEvents(t *testing.T) {
+	m, ictx := setupChat(t)
+
+	t.Run("Friend Reaction Event", func(t *testing.T) {
+		sub := ictx.Bus().Subscribe(&ReactionEvent{})
+
+		msg := &pb.CFriendMessages_MessageReaction_Notification{
+			SteamidFriend:   proto.Uint64(FriendSteamID),
+			Reactor:         proto.Uint64(BotSteamID),
+			ServerTimestamp: proto.Uint32(111),
+			Ordinal:         proto.Uint32(2),
+			Reaction:        proto.String("🚀"),
+			ReactionType:    pb.EMessageReactionType_k_EMessageReactionType_Emoticon.Enum(),
+			IsAdd:           proto.Bool(true),
+		}
+		b, _ := proto.Marshal(msg)
+		m.handleFriendReaction(&protocol.Packet{Payload: b})
+
+		select {
+		case ev := <-sub.C():
+			rev := ev.(*ReactionEvent)
+			assert.Equal(t, FriendSteamID, rev.FriendSteamID)
+			assert.Equal(t, BotSteamID, rev.ReactorSteamID)
+			assert.Equal(t, uint32(111), rev.ServerTimestamp)
+			assert.Equal(t, uint32(2), rev.Ordinal)
+			assert.Equal(t, "🚀", rev.Reaction)
+			assert.Equal(t, int32(pb.EMessageReactionType_k_EMessageReactionType_Emoticon), rev.ReactionType)
+			assert.True(t, rev.IsAdd)
+
+		case <-time.After(100 * time.Millisecond):
+			t.Fatal("ReactionEvent not received")
+		}
+	})
+
+	t.Run("Group Reaction Event", func(t *testing.T) {
+		sub := ictx.Bus().Subscribe(&GroupReactionEvent{})
+
+		msg := &pb.CChatRoom_MessageReaction_Notification{
+			ChatGroupId:     proto.Uint64(ChatGroupID),
+			ChatId:          proto.Uint64(ChatID),
+			Reactor:         proto.Uint64(FriendSteamID),
+			ServerTimestamp: proto.Uint32(222),
+			Ordinal:         proto.Uint32(3),
+			Reaction:        proto.String("❤️"),
+			ReactionType:    pb.EChatRoomMessageReactionType_k_EChatRoomMessageReactionType_Emoticon.Enum(),
+			IsAdd:           proto.Bool(false),
+		}
+		b, _ := proto.Marshal(msg)
+		m.handleGroupReaction(&protocol.Packet{Payload: b})
+
+		select {
+		case ev := <-sub.C():
+			grev := ev.(*GroupReactionEvent)
+			assert.Equal(t, ChatGroupID, grev.ChatGroupID)
+			assert.Equal(t, ChatID, grev.ChatID)
+			assert.Equal(t, FriendSteamID, grev.ReactorSteamID)
+			assert.Equal(t, uint32(222), grev.ServerTimestamp)
+			assert.Equal(t, uint32(3), grev.Ordinal)
+			assert.Equal(t, "❤️", grev.Reaction)
+			assert.Equal(
+				t,
+				int32(pb.EChatRoomMessageReactionType_k_EChatRoomMessageReactionType_Emoticon),
+				grev.ReactionType,
+			)
+			assert.False(t, grev.IsAdd)
+
+		case <-time.After(100 * time.Millisecond):
+			t.Fatal("GroupReactionEvent not received")
+		}
+	})
+}

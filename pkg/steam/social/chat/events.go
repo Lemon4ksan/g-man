@@ -52,3 +52,28 @@ type GroupMessageEvent struct {
 	Message     string
 	Timestamp   time.Time
 }
+
+// ReactionEvent represents a reaction to a friend message.
+type ReactionEvent struct {
+	bus.BaseEvent
+	FriendSteamID   uint64
+	ReactorSteamID  uint64
+	ServerTimestamp uint32
+	Ordinal         uint32
+	Reaction        string
+	ReactionType    int32
+	IsAdd           bool
+}
+
+// GroupReactionEvent represents a reaction to a message in a group chat room.
+type GroupReactionEvent struct {
+	bus.BaseEvent
+	ChatGroupID     uint64
+	ChatID          uint64
+	ReactorSteamID  uint64
+	ServerTimestamp uint32
+	Ordinal         uint32
+	Reaction        string
+	ReactionType    int32
+	IsAdd           bool
+}
