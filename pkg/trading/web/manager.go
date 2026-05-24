@@ -9,6 +9,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
+	"net/url"
 	"strconv"
 	"sync"
 	"time"
@@ -96,15 +98,24 @@ type Config struct {
 	AppID uint32
 	// ContextID is the Steam ContextID for the current game (e.g. 2 for TF2).
 	ContextID int64
+	// CancelOfferCount is the limit of active sent offers, exceeding which will auto-cancel the oldest active sent offer.
+	CancelOfferCount int
+	// CancelOfferCountMinAge is the minimum duration an offer must have existed before it is eligible for CancelOfferCount auto-cancellation.
+	CancelOfferCountMinAge time.Duration
+	// CancelTime is the duration after which active sent offers are automatically cancelled.
+	CancelTime time.Duration
 }
 
 // DefaultConfig returns the default configuration.
 func DefaultConfig() Config {
 	return Config{
-		PollInterval: 30 * time.Second,
-		Language:     "english",
-		AppID:        440,
-		ContextID:    2,
+		PollInterval:           30 * time.Second,
+		Language:               "english",
+		AppID:                  440,
+		ContextID:              2,
+		CancelOfferCount:       25,
+		CancelOfferCountMinAge: 5 * time.Minute,
+		CancelTime:             24 * time.Hour,
 	}
 }
 
@@ -122,7 +133,9 @@ type Manager struct {
 
 	// Polling synchronization
 	mu             sync.RWMutex
-	knownOffers    map[uint64]trading.OfferState
+	offersSince    int64
+	sentOffers     map[uint64]trading.OfferState
+	receivedOffers map[uint64]trading.OfferState
 	lastSeenOffers map[uint64]time.Time
 
 	rateLimiter *rate.Limiter
@@ -138,7 +151,8 @@ func New(cfg Config) *Manager {
 	return &Manager{
 		Base:           module.New(ModuleName),
 		config:         cfg,
-		knownOffers:    make(map[uint64]trading.OfferState),
+		sentOffers:     make(map[uint64]trading.OfferState),
+		receivedOffers: make(map[uint64]trading.OfferState),
 		lastSeenOffers: make(map[uint64]time.Time),
 		rateLimiter:    rate.NewLimiter(rate.Every(2*time.Second), 1),
 		trigger:        make(chan struct{}, 1),
@@ -221,9 +235,7 @@ func (m *Manager) StartPolling() error {
 		return ErrManagerPolling
 	}
 
-	m.Go(func(ctx context.Context) {
-		m.pollingLoop(ctx)
-	})
+	m.Go(m.pollingLoop)
 
 	m.Logger.Info("Trade polling started", log.Duration("interval", m.config.PollInterval))
 
@@ -371,6 +383,109 @@ func (m *Manager) CancelOffer(ctx context.Context, offerID uint64) error {
 	_, err := service.WebAPI[service.NoResponse](ctx, m.web, "POST", "IEconService", "CancelTradeOffer", 1, req)
 
 	return err
+}
+
+// GetPollData returns the current polling state.
+func (m *Manager) GetPollData() trading.PollData {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	sent := make(map[uint64]trading.OfferState, len(m.sentOffers))
+	maps.Copy(sent, m.sentOffers)
+
+	received := make(map[uint64]trading.OfferState, len(m.receivedOffers))
+	maps.Copy(received, m.receivedOffers)
+
+	return trading.PollData{
+		OffersSince: m.offersSince,
+		Sent:        sent,
+		Received:    received,
+	}
+}
+
+// SetPollData restores a previously saved polling state.
+func (m *Manager) SetPollData(data trading.PollData) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.offersSince = data.OffersSince
+
+	m.sentOffers = make(map[uint64]trading.OfferState)
+	maps.Copy(m.sentOffers, data.Sent)
+
+	m.receivedOffers = make(map[uint64]trading.OfferState)
+	maps.Copy(m.receivedOffers, data.Received)
+}
+
+// ParseTradeURL extracts the partner's Steam ID and the trade token from a trade offer URL.
+func ParseTradeURL(tradeURL string) (id.ID, string, error) {
+	u, err := url.Parse(tradeURL)
+	if err != nil {
+		return 0, "", fmt.Errorf("failed to parse trade URL: %w", err)
+	}
+
+	q := u.Query()
+
+	partnerStr := q.Get("partner")
+	if partnerStr == "" {
+		return 0, "", errors.New("trade URL is missing partner parameter")
+	}
+
+	partnerAccountID, err := strconv.ParseUint(partnerStr, 10, 32)
+	if err != nil {
+		return 0, "", fmt.Errorf("invalid partner ID in trade URL: %w", err)
+	}
+
+	partnerID := id.FromAccountID(uint32(partnerAccountID))
+	token := q.Get("token")
+
+	return partnerID, token, nil
+}
+
+// GetExchangeDetails retrieves the status, timing, and assets with their new IDs for a completed trade.
+func (m *Manager) GetExchangeDetails(ctx context.Context, tradeID uint64) (*trading.ExchangeDetails, error) {
+	if err := m.rateLimiter.Wait(ctx); err != nil {
+		return nil, err
+	}
+
+	req := struct {
+		TradeID         uint64 `url:"tradeid"`
+		GetDescriptions bool   `url:"get_descriptions"`
+		Language        string `url:"language"`
+	}{
+		TradeID:         tradeID,
+		GetDescriptions: false,
+		Language:        m.config.Language,
+	}
+
+	type tradeStatusResp struct {
+		Trades []struct {
+			TradeID        uint64                  `json:"tradeid,string"`
+			SteamIDOther   uint64                  `json:"steamid_other,string"`
+			TimeInit       int64                   `json:"time_init"`
+			Status         int                     `json:"status"`
+			AssetsReceived []trading.ExchangeAsset `json:"assets_received"`
+			AssetsGiven    []trading.ExchangeAsset `json:"assets_given"`
+		} `json:"trades"`
+	}
+
+	resp, err := service.WebAPI[tradeStatusResp](ctx, m.web, "GET", "IEconService", "GetTradeStatus", 1, req)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(resp.Trades) == 0 {
+		return nil, fmt.Errorf("trade %d not found", tradeID)
+	}
+
+	t := resp.Trades[0]
+
+	return &trading.ExchangeDetails{
+		Status:         t.Status,
+		TimeInit:       t.TimeInit,
+		AssetsReceived: t.AssetsReceived,
+		AssetsGiven:    t.AssetsGiven,
+	}, nil
 }
 
 // GetOffer fetches details for a single offer.
@@ -528,14 +643,23 @@ func (m *Manager) doPoll(ctx context.Context) {
 		return
 	}
 
-	// Fetch active sent and received offers from the last 24 hours
+	m.mu.RLock()
+
+	cutoff := time.Now().Add(-24 * time.Hour).Unix()
+	if m.offersSince > 0 {
+		cutoff = m.offersSince - 1800 // 30-minute buffer
+	}
+
+	m.mu.RUnlock()
+
+	// Fetch active sent and received offers
 	req := struct {
 		GetReceivedOffers    int   `url:"get_received_offers"`
 		GetSentOffers        int   `url:"get_sent_offers"`
 		ActiveOnly           int   `url:"active_only"`
 		GetDescriptions      int   `url:"get_descriptions"`
 		TimeHistoricalCutoff int64 `url:"time_historical_cutoff"`
-	}{1, 1, 1, 0, time.Now().Add(-24 * time.Hour).Unix()}
+	}{1, 1, 1, 0, cutoff}
 
 	type respStruct struct {
 		Sent     []*trading.TradeOffer `json:"trade_offers_sent"`
@@ -551,8 +675,75 @@ func (m *Manager) doPoll(ctx context.Context) {
 		return
 	}
 
+	// Auto-cancellation checks for active sent offers (CancelTime) and pending limits (CancelOfferCount)
+	if len(resp.Sent) > 0 {
+		var activeSent []*trading.TradeOffer
+		for _, off := range resp.Sent {
+			if off.State == trading.OfferStateActive {
+				activeSent = append(activeSent, off)
+			}
+		}
+
+		// CancelTime auto-cancellation
+		if m.config.CancelTime > 0 {
+			for _, off := range activeSent {
+				age := time.Since(off.UpdatedAt())
+				if age >= m.config.CancelTime {
+					m.Logger.Info("Auto-cancelling active sent offer due to CancelTime timeout",
+						log.Uint64("offer_id", off.ID),
+						log.Duration("age", age),
+					)
+
+					go func(id uint64) {
+						if err := m.CancelOffer(ctx, id); err != nil {
+							m.Logger.Error("Failed to auto-cancel offer", log.Uint64("offer_id", id), log.Err(err))
+						}
+					}(off.ID)
+				}
+			}
+		}
+
+		// CancelOfferCount limit auto-cancellation
+		if m.config.CancelOfferCount > 0 && len(activeSent) >= m.config.CancelOfferCount {
+			var oldest *trading.TradeOffer
+			for _, off := range activeSent {
+				age := time.Since(off.UpdatedAt())
+				if m.config.CancelOfferCountMinAge > 0 && age < m.config.CancelOfferCountMinAge {
+					continue
+				}
+
+				if oldest == nil || off.TimeUpdated < oldest.TimeUpdated {
+					oldest = off
+				}
+			}
+
+			if oldest != nil {
+				m.Logger.Info("Auto-cancelling oldest active sent offer due to limit",
+					log.Uint64("offer_id", oldest.ID),
+					log.Int("active_count", len(activeSent)),
+					log.Int("limit", m.config.CancelOfferCount),
+				)
+
+				go func(id uint64) {
+					if err := m.CancelOffer(ctx, id); err != nil {
+						m.Logger.Error("Failed to auto-cancel oldest offer", log.Uint64("offer_id", id), log.Err(err))
+					}
+				}(oldest.ID)
+			}
+		}
+	}
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
+	// Clone original poll data for comparison
+	origPollData := trading.PollData{
+		OffersSince: m.offersSince,
+		Sent:        make(map[uint64]trading.OfferState, len(m.sentOffers)),
+		Received:    make(map[uint64]trading.OfferState, len(m.receivedOffers)),
+	}
+	maps.Copy(origPollData.Sent, m.sentOffers)
+	maps.Copy(origPollData.Received, m.receivedOffers)
 
 	now := time.Now()
 
@@ -562,8 +753,19 @@ func (m *Manager) doPoll(ctx context.Context) {
 
 	for _, off := range allOffers {
 		m.lastSeenOffers[off.ID] = now
-		oldState, exists := m.knownOffers[off.ID]
-		m.knownOffers[off.ID] = off.State
+
+		var (
+			oldState trading.OfferState
+			exists   bool
+		)
+
+		if off.IsOurOffer {
+			oldState, exists = m.sentOffers[off.ID]
+			m.sentOffers[off.ID] = off.State
+		} else {
+			oldState, exists = m.receivedOffers[off.ID]
+			m.receivedOffers[off.ID] = off.State
+		}
 
 		if !exists && off.State == trading.OfferStateActive {
 			m.Bus.Publish(&NewOfferEvent{Offer: off})
@@ -579,15 +781,65 @@ func (m *Manager) doPoll(ctx context.Context) {
 		}
 	}
 
+	// Update offersSince
+	latest := m.offersSince
+	for _, off := range allOffers {
+		if off.TimeUpdated > latest {
+			latest = off.TimeUpdated
+		}
+	}
+
+	m.offersSince = latest
+
 	m.gcKnownOffers(now)
+
+	// Compare with old poll data and trigger PollDataEvent if changed
+	newPollData := trading.PollData{
+		OffersSince: m.offersSince,
+		Sent:        make(map[uint64]trading.OfferState, len(m.sentOffers)),
+		Received:    make(map[uint64]trading.OfferState, len(m.receivedOffers)),
+	}
+	maps.Copy(newPollData.Sent, m.sentOffers)
+	maps.Copy(newPollData.Received, m.receivedOffers)
+
+	isEqual := origPollData.OffersSince == newPollData.OffersSince &&
+		len(origPollData.Sent) == len(newPollData.Sent) &&
+		len(origPollData.Received) == len(newPollData.Received)
+
+	if isEqual {
+		for k, v := range origPollData.Sent {
+			if newPollData.Sent[k] != v {
+				isEqual = false
+				break
+			}
+		}
+	}
+
+	if isEqual {
+		for k, v := range origPollData.Received {
+			if newPollData.Received[k] != v {
+				isEqual = false
+				break
+			}
+		}
+	}
+
+	if !isEqual {
+		m.Bus.Publish(&PollDataEvent{
+			PollData: newPollData,
+		})
+	}
 }
 
 // gcKnownOffers removes stale offers from memory to prevent memory leaks.
 func (m *Manager) gcKnownOffers(now time.Time) {
 	for id, lastSeen := range m.lastSeenOffers {
 		if now.Sub(lastSeen) > 1*time.Hour {
-			if state, ok := m.knownOffers[id]; ok && state != trading.OfferStateActive {
-				delete(m.knownOffers, id)
+			if state, ok := m.sentOffers[id]; ok && state != trading.OfferStateActive {
+				delete(m.sentOffers, id)
+				delete(m.lastSeenOffers, id)
+			} else if state, ok := m.receivedOffers[id]; ok && state != trading.OfferStateActive {
+				delete(m.receivedOffers, id)
 				delete(m.lastSeenOffers, id)
 			}
 		}

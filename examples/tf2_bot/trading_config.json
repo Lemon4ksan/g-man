@@ -1,6 +1,9 @@
 {
   "global_max_stock": 3000,
   "default_max_stock": 5,
+  "listing_comment_template": "",
+  "excluded_steam_ids": [],
+  "trusted_steam_ids": [],
   "excluded_listing_descriptions": [
     "spell",
     "spells",
@@ -18,15 +21,29 @@
     "max_sell_decrease": 0.1
   },
   "items": {
-    "sku": "sku_12345",
-    "name": "name_12345",
-    "max_stock": 100,
-    "min_stock": 10,
-    "enable_buy": true,
-    "enable_sell": true,
-    "min_buy_price": 100,
-    "max_buy_price": 200,
-    "min_sell_price": 50,
-    "max_sell_price": 100
+    "sku_12345": {
+      "sku": "sku_12345",
+      "name": "name_12345",
+      "max_stock": 100,
+      "min_stock": 10,
+      "enable_buy": true,
+      "enable_sell": true,
+      "min_buy_price": {
+        "keys": 100,
+        "metal": 100
+      },
+      "max_buy_price": {
+        "keys": 200,
+        "metal": 200
+      },
+      "min_sell_price": {
+        "keys": 50,
+        "metal": 50
+      },
+      "max_sell_price": {
+        "keys": 100,
+        "metal": 100
+      }
+    }
   }
 }

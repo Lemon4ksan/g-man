@@ -89,3 +89,30 @@ type Item struct {
 	SKU        string      `json:"sku,omitempty"`
 	Attributes []Attribute `json:"attributes,omitempty"`
 }
+
+// PollData represents the polling state that can be saved and restored.
+type PollData struct {
+	OffersSince int64                 `json:"offers_since"`
+	Sent        map[uint64]OfferState `json:"sent"`
+	Received    map[uint64]OfferState `json:"received"`
+}
+
+// ExchangeDetails contains information about the details of a completed exchange (receipt).
+type ExchangeDetails struct {
+	Status         int             `json:"status"`
+	TimeInit       int64           `json:"time_init"`
+	AssetsReceived []ExchangeAsset `json:"assets_received"`
+	AssetsGiven    []ExchangeAsset `json:"assets_given"`
+}
+
+// ExchangeAsset represents an item in a completed exchange, including new Asset IDs.
+type ExchangeAsset struct {
+	AppID        uint32 `json:"appid"`
+	ContextID    int64  `json:"contextid,string"`
+	AssetID      uint64 `json:"assetid,string"`
+	Amount       int64  `json:"amount,string"`
+	ClassID      uint64 `json:"classid,string"`
+	InstanceID   uint64 `json:"instanceid,string"`
+	NewAssetID   uint64 `json:"new_assetid,string"`
+	NewContextID int64  `json:"new_contextid,string"`
+}

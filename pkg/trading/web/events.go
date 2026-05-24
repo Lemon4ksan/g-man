@@ -32,3 +32,9 @@ type OfferChangedEvent struct {
 type PollSuccessEvent struct {
 	bus.BaseEvent
 }
+
+// PollDataEvent is emitted when polling state changes and needs to be persisted.
+type PollDataEvent struct {
+	bus.BaseEvent
+	PollData trading.PollData
+}
