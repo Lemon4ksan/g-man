@@ -186,3 +186,52 @@ func TestCoordinator_Errors(t *testing.T) {
 		assert.ErrorContains(t, err, "gc job track")
 	})
 }
+
+func TestCoordinator_SpecificHandlers(t *testing.T) {
+	c, ictx := setupCoordinator(t)
+
+	t.Run("Specific Handler Routed", func(t *testing.T) {
+		called := make(chan *protocol.GCPacket, 1)
+
+		c.RegisterGCHandler(AppidTf2, 6001, func(packet *protocol.GCPacket) {
+			called <- packet
+		})
+
+		// Also subscribe to the bus to verify it does NOT receive the message
+		sub := ictx.Bus().Subscribe(&MessageEvent{})
+		defer sub.Unsubscribe()
+
+		emitGC(t, ictx, AppidTf2, 6001, []byte("specific-data"), protocol.NoJob)
+
+		select {
+		case p := <-called:
+			assert.Equal(t, []byte("specific-data"), p.Payload)
+		case <-time.After(100 * time.Millisecond):
+			t.Fatal("specific handler was not called")
+		}
+
+		select {
+		case ev := <-sub.C():
+			t.Fatalf("bus received message that should have been routed to specific handler: %v", ev)
+		case <-time.After(100 * time.Millisecond):
+			// Success, didn't reach the bus
+		}
+	})
+
+	t.Run("Unregistered Fallback to Bus", func(t *testing.T) {
+		c.UnregisterGCHandler(AppidTf2, 6001)
+
+		sub := ictx.Bus().Subscribe(&MessageEvent{})
+		defer sub.Unsubscribe()
+
+		emitGC(t, ictx, AppidTf2, 6001, []byte("fallback-data"), protocol.NoJob)
+
+		select {
+		case ev := <-sub.C():
+			assert.Equal(t, uint32(6001), ev.(*MessageEvent).Packet.MsgType)
+			assert.Equal(t, []byte("fallback-data"), ev.(*MessageEvent).Packet.Payload)
+		case <-time.After(100 * time.Millisecond):
+			t.Fatal("event should have fallen back to bus after unregistering handler")
+		}
+	})
+}

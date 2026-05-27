@@ -45,8 +45,11 @@ func From(c *steam.Client) *Coordinator {
 	return steam.GetModule[*Coordinator](c)
 }
 
-// MessageEvent is triggered when a Game Coordinator message is received.
-// and WAS NOT handled by a specific Job callback.
+// Handler represents a function that processes a specific GCPacket.
+type Handler func(packet *protocol.GCPacket)
+
+// MessageEvent is triggered when a Game Coordinator message is received
+// and WAS NOT handled by a specific Job callback or GC handler.
 type MessageEvent struct {
 	bus.BaseEvent
 	Packet *protocol.GCPacket
@@ -62,6 +65,9 @@ type Coordinator struct {
 
 	mu         sync.Mutex
 	unregFuncs []func()
+
+	handlersMu sync.RWMutex
+	gcHandlers map[uint32]map[uint32]Handler
 }
 
 // New creates a new Game Coordinator module.
@@ -69,6 +75,7 @@ func New() *Coordinator {
 	return &Coordinator{
 		Base:       module.New(ModuleName),
 		jobManager: jobs.NewManager[*protocol.GCPacket](2000),
+		gcHandlers: make(map[uint32]map[uint32]Handler),
 	}
 }
 
@@ -230,6 +237,34 @@ func (c *Coordinator) send(
 	return nil
 }
 
+// RegisterGCHandler registers a handler for a specific AppID and MsgType.
+// When a matching GC message is received, this handler is executed and the
+// message is not published to the global event bus.
+func (c *Coordinator) RegisterGCHandler(appID, msgType uint32, handler Handler) {
+	c.handlersMu.Lock()
+	defer c.handlersMu.Unlock()
+
+	if c.gcHandlers == nil {
+		c.gcHandlers = make(map[uint32]map[uint32]Handler)
+	}
+
+	if c.gcHandlers[appID] == nil {
+		c.gcHandlers[appID] = make(map[uint32]Handler)
+	}
+
+	c.gcHandlers[appID][msgType] = handler
+}
+
+// UnregisterGCHandler removes a registered handler for a specific AppID and MsgType.
+func (c *Coordinator) UnregisterGCHandler(appID, msgType uint32) {
+	c.handlersMu.Lock()
+	defer c.handlersMu.Unlock()
+
+	if c.gcHandlers != nil && c.gcHandlers[appID] != nil {
+		delete(c.gcHandlers[appID], msgType)
+	}
+}
+
 func (c *Coordinator) handleClientFromGC(packet *protocol.Packet) {
 	wrapper := &pb.CMsgGCClient{}
 	if err := proto.Unmarshal(packet.Payload, wrapper); err != nil {
@@ -253,6 +288,20 @@ func (c *Coordinator) handleClientFromGC(packet *protocol.Packet) {
 		if c.jobManager.Resolve(gcPacket.TargetJobID, gcPacket, nil) {
 			return
 		}
+	}
+
+	c.handlersMu.RLock()
+
+	var handler Handler
+	if c.gcHandlers != nil && c.gcHandlers[gcPacket.AppID] != nil {
+		handler = c.gcHandlers[gcPacket.AppID][gcPacket.MsgType]
+	}
+
+	c.handlersMu.RUnlock()
+
+	if handler != nil {
+		handler(gcPacket)
+		return
 	}
 
 	c.Bus.Publish(&MessageEvent{
