@@ -152,7 +152,7 @@ type Dispatcher struct {
 	logger     log.Logger
 	writer     Writer
 	session    SessionReader
-	jobManager *jobs.Manager[*protocol.Packet]
+	jobManager *jobs.Manager[uint64, *protocol.Packet]
 
 	handlers        map[enums.EMsg]Handler
 	serviceHandlers map[string]Handler
@@ -163,7 +163,12 @@ type Dispatcher struct {
 }
 
 // New initializes a new packet dispatcher.
-func New(jm *jobs.Manager[*protocol.Packet], writer Writer, session SessionReader, logger log.Logger) *Dispatcher {
+func New(
+	jm *jobs.Manager[uint64, *protocol.Packet],
+	writer Writer,
+	session SessionReader,
+	logger log.Logger,
+) *Dispatcher {
 	d := &Dispatcher{
 		writer:             writer,
 		session:            session,

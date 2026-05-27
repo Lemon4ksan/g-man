@@ -61,7 +61,7 @@ type Coordinator struct {
 	module.Base
 
 	client     service.Doer
-	jobManager *jobs.Manager[*protocol.GCPacket]
+	jobManager *jobs.Manager[uint64, *protocol.GCPacket]
 
 	mu         sync.Mutex
 	unregFuncs []func()
@@ -74,7 +74,7 @@ type Coordinator struct {
 func New() *Coordinator {
 	return &Coordinator{
 		Base:       module.New(ModuleName),
-		jobManager: jobs.NewManager[*protocol.GCPacket](2000),
+		jobManager: jobs.NewManager[uint64, *protocol.GCPacket](2000),
 		gcHandlers: make(map[uint32]map[uint32]Handler),
 	}
 }

@@ -135,7 +135,7 @@ func NewSocket(cfg Config, logger log.Logger) *Socket {
 	s.conn = connector.New(cfg.Connector, s.logger)
 
 	s.dispatch = dispatcher.New(
-		jobs.NewManager[*protocol.Packet](cfg.MaxJobs),
+		jobs.NewManager[uint64, *protocol.Packet](cfg.MaxJobs),
 		s.conn,
 		s.session,
 		s.logger,
@@ -205,7 +205,7 @@ func (s *Socket) SendSync(ctx context.Context, build PayloadBuilder, opts ...Sen
 	}
 
 	resCh := make(chan result, 1)
-	cb := func(pkt *protocol.Packet, err error) {
+	cb := func(ctx context.Context, pkt *protocol.Packet, err error) {
 		resCh <- result{pkt, err}
 	}
 

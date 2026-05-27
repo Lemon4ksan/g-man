@@ -6,18 +6,17 @@
 Package jobs provides a concurrent-safe mechanism for tracking asynchronous
 request-response cycles.
 
-It is designed for building protocol implementations (like TCP/UDP/WebSockets)
+It is designed for building protocol implementations (like TCP, UDP, or WebSockets)
 where a request is sent with a unique correlation ID, and a response is expected
 later. The package handles job lifecycle, including timeouts, context
 cancellation, and synchronous waiting.
 
-# Key Features
+# Key Components
 
-  - Generic support: Works with any response type.
-  - Lifecycle management: Automatic cleanup via timeouts or contexts.
-  - Multiple styles: Supports both non-blocking callbacks and blocking Wait patterns.
-  - Resource safety: Capacity limits to prevent memory exhaustion and panic recovery
-    in callbacks.
+  - [Manager]: The central orchestrator that coordinates job registration,
+    resolution, and lifetime.
+  - [Callback]: A function signature used to process job results asynchronously.
+  - [Option]: A configuration function used to customize timeouts and contexts.
 
 # Basic Usage (Callback style)
 
@@ -25,11 +24,11 @@ cancellation, and synchronous waiting.
 	id := mgr.NextID()
 
 	err := mgr.Add(id, func(res string, err error) {
-	    if err != nil {
-	        log.Printf("Job %d failed: %v", id, err)
-	        return
-	    }
-	    fmt.Printf("Job %d received: %s", id, res)
+		if err != nil {
+			log.Printf("Job %d failed: %v", id, err)
+			return
+		}
+		fmt.Printf("Job %d received: %s", id, res)
 	})
 
 	// Somewhere else when response arrives:
@@ -43,12 +42,10 @@ cancellation, and synchronous waiting.
 	// Add with WithWait option to enable WaitFor
 	mgr.Add(id, nil, jobs.WithWait[string](), jobs.WithTimeout[string](time.Second))
 
-	// Send your request to the network...
-
 	// Block until response or timeout
 	res, err := mgr.WaitFor(context.Background(), id)
 	if err != nil {
-	    log.Fatal(err)
+		log.Fatal(err)
 	}
 */
 package jobs

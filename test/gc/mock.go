@@ -85,7 +85,7 @@ func (m *Mock) Call(
 		go func() {
 			b, _ := proto.Marshal(msg)
 			respPayload, err := handler(b)
-			cb(&protocol.GCPacket{MsgType: msgType, Payload: respPayload}, err)
+			cb(ctx, &protocol.GCPacket{MsgType: msgType, Payload: respPayload}, err)
 		}()
 	}
 
@@ -107,7 +107,7 @@ func (m *Mock) CallRaw(
 	if handler, ok := m.autoReplies[msgType]; ok {
 		go func() {
 			respPayload, err := handler(payload)
-			cb(&protocol.GCPacket{MsgType: msgType, Payload: respPayload}, err)
+			cb(ctx, &protocol.GCPacket{MsgType: msgType, Payload: respPayload}, err)
 		}()
 	}
 
@@ -159,7 +159,7 @@ func (m *Mock) ReplyToLastCall(msgType uint32, payload []byte, err error) error 
 		return errors.New("no pending call for this msgType")
 	}
 
-	go cb(&protocol.GCPacket{
+	go cb(context.Background(), &protocol.GCPacket{
 		MsgType: msgType,
 		Payload: payload,
 	}, err)

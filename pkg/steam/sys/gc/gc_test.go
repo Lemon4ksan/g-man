@@ -5,6 +5,7 @@
 package gc
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -94,11 +95,17 @@ func TestCoordinator_CallAndResolve(t *testing.T) {
 
 	t.Run("Call and Resolve Success", func(t *testing.T) {
 		resolved := make(chan struct{})
-		err := c.Call(ctx, AppidTf2, 1001, &pb.CMsgGCClient{}, func(p *protocol.GCPacket, err error) {
-			assert.NoError(t, err)
-			assert.Equal(t, []byte("pong"), p.Payload)
-			close(resolved)
-		})
+		err := c.Call(
+			ctx,
+			AppidTf2,
+			1001,
+			&pb.CMsgGCClient{},
+			func(_ context.Context, p *protocol.GCPacket, err error) {
+				assert.NoError(t, err)
+				assert.Equal(t, []byte("pong"), p.Payload)
+				close(resolved)
+			},
+		)
 		require.NoError(t, err)
 
 		jobID := c.jobManager.NextID() - 1
@@ -112,7 +119,7 @@ func TestCoordinator_CallAndResolve(t *testing.T) {
 	})
 
 	t.Run("CallRaw Success", func(t *testing.T) {
-		err := c.CallRaw(ctx, AppidTf2, 1001, nil, func(p *protocol.GCPacket, err error) {})
+		err := c.CallRaw(ctx, AppidTf2, 1001, nil, func(_ context.Context, p *protocol.GCPacket, err error) {})
 		assert.NoError(t, err)
 	})
 }
@@ -161,7 +168,7 @@ func TestCoordinator_Errors(t *testing.T) {
 		ictx.MockServiceAccessor().ResponseErrs[enums.EMsg_ClientToGC.String()] = errors.New("io timeout")
 
 		resolved := make(chan struct{})
-		err := c.Call(ctx, AppidTf2, 1001, nil, func(p *protocol.GCPacket, err error) {
+		err := c.Call(ctx, AppidTf2, 1001, nil, func(_ context.Context, p *protocol.GCPacket, err error) {
 			assert.Error(t, err)
 			assert.Contains(t, err.Error(), "io timeout")
 			close(resolved)
@@ -179,10 +186,10 @@ func TestCoordinator_Errors(t *testing.T) {
 	t.Run("Job Manager Full", func(t *testing.T) {
 		// Fill manager manually to hit error branch in .Add
 		for i := range 2000 {
-			_ = c.jobManager.Add(uint64(i+10), func(p *protocol.GCPacket, err error) {})
+			_ = c.jobManager.Add(uint64(i+10), func(_ context.Context, p *protocol.GCPacket, err error) {})
 		}
 
-		err := c.Call(ctx, AppidTf2, 1001, nil, func(p *protocol.GCPacket, err error) {})
+		err := c.Call(ctx, AppidTf2, 1001, nil, func(_ context.Context, p *protocol.GCPacket, err error) {})
 		assert.ErrorContains(t, err, "gc job track")
 	})
 }

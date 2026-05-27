@@ -46,8 +46,8 @@ func (m *mockWriter) Send(_ context.Context, data []byte) error {
 
 // --- Helpers ---
 
-func setup(t *testing.T) (*Dispatcher, *jobs.Manager[*protocol.Packet], *mockWriter) {
-	jm := jobs.NewManager[*protocol.Packet](10)
+func setup(t *testing.T) (*Dispatcher, *jobs.Manager[uint64, *protocol.Packet], *mockWriter) {
+	jm := jobs.NewManager[uint64, *protocol.Packet](10)
 	mw := &mockWriter{}
 	sess := &mockSession{steamID: 1, sessionID: 2}
 	d := New(jm, mw, sess, log.Discard)
@@ -64,7 +64,7 @@ func TestDispatcher_Send_Logic(t *testing.T) {
 		called := make(chan struct{})
 
 		err := d.Send(context.Background(), Proto(enums.EMsg_ClientLogon, &emptypb.Empty{}),
-			WithCallback(func(p *protocol.Packet, err error) {
+			WithCallback(func(ctx context.Context, p *protocol.Packet, err error) {
 				close(called)
 			}),
 		)
@@ -99,9 +99,13 @@ func TestDispatcher_Send_Logic(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 
 		errChan := make(chan error, 1)
-		_ = d.Send(ctx, Raw(enums.EMsg_ClientLogon, nil), WithCallback(func(p *protocol.Packet, err error) {
-			errChan <- err
-		}))
+		_ = d.Send(
+			ctx,
+			Raw(enums.EMsg_ClientLogon, nil),
+			WithCallback(func(ctx context.Context, p *protocol.Packet, err error) {
+				errChan <- err
+			}),
+		)
 
 		cancel()
 
@@ -157,7 +161,7 @@ func TestDispatcher_Dispatch_SpecialCases(t *testing.T) {
 		d, jm, _ := setup(t)
 		jobID := jm.NextID()
 		errChan := make(chan error, 1)
-		_ = jm.Add(jobID, func(p *protocol.Packet, err error) { errChan <- err })
+		_ = jm.Add(jobID, func(ctx context.Context, p *protocol.Packet, err error) { errChan <- err })
 
 		// Create EMsg_DestJobFailed packet
 		pkt := &protocol.Packet{EMsg: enums.EMsg_DestJobFailed}
