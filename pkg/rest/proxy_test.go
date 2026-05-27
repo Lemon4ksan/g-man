@@ -12,6 +12,9 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type mockDoer struct {
@@ -346,4 +349,75 @@ func TestProxyRotator_RetryOnProxyError(t *testing.T) {
 	if !rotator.clients[0].unhealthy.Load() {
 		t.Error("proxy 1 should be unhealthy after 407 error")
 	}
+}
+
+func TestProxyConfig_CustomTransport(t *testing.T) {
+	t.Run("Custom RoundTripper", func(t *testing.T) {
+		mw := &mockRoundTripper{}
+		cfg := ProxyConfig{
+			Transport: mw,
+		}
+		client, err := NewProxyClient(cfg)
+		require.NoError(t, err)
+		assert.Equal(t, mw, client.Transport)
+	})
+
+	t.Run("Custom RoundTripper Factory", func(t *testing.T) {
+		mw := &mockRoundTripper{}
+		cfg := ProxyConfig{
+			TransportFactory: func(c ProxyConfig) (http.RoundTripper, error) {
+				return mw, nil
+			},
+		}
+		client, err := NewProxyClient(cfg)
+		require.NoError(t, err)
+		assert.Equal(t, mw, client.Transport)
+	})
+}
+
+type mockRoundTripper struct{}
+
+func (m *mockRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	return nil, nil
+}
+
+func TestProxyRotator_StickySessionCleanup(t *testing.T) {
+	m1 := &mockDoer{id: 1}
+	r, err := NewProxyRotator(ProxyRotatorConfig{}, m1)
+	require.NoError(t, err)
+
+	defer r.Close()
+
+	r.sessionTTL = 10 * time.Millisecond
+	r.stickyKeyFunc = func(req *http.Request) string {
+		return "session1"
+	}
+
+	req, _ := http.NewRequest("GET", "http://test", nil)
+	_, err = r.Do(req)
+	require.NoError(t, err)
+
+	r.mu.RLock()
+	entry, exists := r.sessions["session1"]
+	r.mu.RUnlock()
+	assert.True(t, exists)
+	assert.Equal(t, 0, entry.clientIdx)
+
+	time.Sleep(20 * time.Millisecond)
+
+	r.mu.Lock()
+
+	now := time.Now()
+	for k, v := range r.sessions {
+		if now.Sub(v.lastSeen) > r.sessionTTL {
+			delete(r.sessions, k)
+		}
+	}
+
+	r.mu.Unlock()
+
+	r.mu.RLock()
+	_, exists = r.sessions["session1"]
+	r.mu.RUnlock()
+	assert.False(t, exists, "session should be cleaned up after expiration")
 }

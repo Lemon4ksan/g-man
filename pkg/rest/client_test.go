@@ -603,3 +603,48 @@ func contains(s, substr string) bool {
 	return len(s) >= len(substr) &&
 		(s == substr || (len(substr) > 0 && (s[:len(substr)] == substr || contains(s[1:], substr))))
 }
+
+func TestClient_WithMultipart(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Contains(t, r.Header.Get("Content-Type"), "multipart/form-data")
+		err := r.ParseMultipartForm(10 * 1024 * 1024)
+		require.NoError(t, err)
+
+		assert.Equal(t, "val1", r.FormValue("field1"))
+		assert.Equal(t, "val2", r.FormValue("field2"))
+
+		file, _, err := r.FormFile("file1")
+		require.NoError(t, err)
+		data, err := io.ReadAll(file)
+		require.NoError(t, err)
+		assert.Equal(t, "file content", string(data))
+
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := NewClient(nil).WithBaseURL(server.URL)
+	fields := map[string]string{
+		"field1": "val1",
+		"field2": "val2",
+	}
+	files := map[string]io.Reader{
+		"file1": strings.NewReader("file content"),
+	}
+
+	resp, err := client.Request(context.Background(), http.MethodPost, "/", nil, nil, WithMultipart(fields, files))
+	require.NoError(t, err)
+
+	_ = resp.Body.Close()
+}
+
+func TestClient_TransportMethod(t *testing.T) {
+	client := NewClient(nil)
+	tr := client.Transport()
+	require.NotNil(t, tr)
+
+	nonStandardClient := NewClient(DoerFunc(func(r *http.Request) (*http.Response, error) {
+		return nil, nil
+	}))
+	assert.Nil(t, nonStandardClient.Transport())
+}

@@ -56,8 +56,10 @@ func RateLimitMiddleware(rps float64, burst int) Middleware {
 
 // RetryOptions defines the configuration for the [RetryMiddleware].
 type RetryOptions struct {
+	// MaxRetries is the maximum number of attempts before giving up.
 	MaxRetries uint32
-	Backoff    time.Duration // Initial backoff duration (e.g., 1s)
+	// Backoff is the initial delay duration before the first retry.
+	Backoff time.Duration
 }
 
 // RetryMiddleware returns a middleware that retries requests on proxy-related faults.

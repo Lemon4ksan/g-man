@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"mime/multipart"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -140,6 +141,8 @@ func WithVar(key string, value any) RequestModifier {
 
 // WithVars replaces multiple placeholders in the path.
 // It accepts pairs of key-value arguments.
+// If the pairs slice has an odd length, the function returns early
+// without modifying the request.
 func WithVars(pairs ...any) RequestModifier {
 	return func(req *http.Request) {
 		if len(pairs)%2 != 0 {
@@ -219,6 +222,43 @@ func WithBody(r io.Reader) RequestModifier {
 	}
 }
 
+// WithMultipart creates a RequestModifier that sets the request body to a multipart form
+// containing the specified fields and files.
+// It automatically sets the Content-Type header to multipart/form-data with the correct boundary.
+func WithMultipart(fields map[string]string, files map[string]io.Reader) RequestModifier {
+	return func(req *http.Request) {
+		body := &bytes.Buffer{}
+		writer := multipart.NewWriter(body)
+
+		// Write text fields
+		for k, v := range fields {
+			if err := writer.WriteField(k, v); err != nil {
+				return
+			}
+		}
+
+		// Write files
+		for key, r := range files {
+			part, err := writer.CreateFormFile(key, key)
+			if err != nil {
+				return
+			}
+
+			if _, err := io.Copy(part, r); err != nil {
+				return
+			}
+		}
+
+		if err := writer.Close(); err != nil {
+			return
+		}
+
+		req.Body = io.NopCloser(body)
+		req.ContentLength = int64(body.Len())
+		req.Header.Set("Content-Type", writer.FormDataContentType())
+	}
+}
+
 // WithOrigin sets the "Origin" header.
 func WithOrigin(origin string) RequestModifier {
 	return func(req *http.Request) {
@@ -273,8 +313,10 @@ type BaseResponse interface {
 	SetData(data any)
 }
 
-// Client is a concrete implementation of the Requester interface.
+// Client is a concrete implementation of the [Requester] interface.
 // It maintains a base URL and a set of default headers applied to every request.
+//
+// Create new instances of Client using the [NewClient] constructor.
 type Client struct {
 	http         HTTPDoer
 	baseURL      *url.URL
@@ -468,6 +510,34 @@ func (c *Client) BaseResponse() BaseResponse {
 // HTTP returns the underlying [HTTPDoer].
 func (c *Client) HTTP() HTTPDoer {
 	return c.http
+}
+
+// Transport returns the underlying *http.Transport of the client if the HTTPDoer
+// is an *http.Client and its Transport is an *http.Transport.
+// Otherwise, it returns nil.
+func (c *Client) Transport() *http.Transport {
+	if httpClient, ok := c.http.(*http.Client); ok {
+		if httpClient.Transport == nil {
+			httpClient.Transport = &http.Transport{
+				Proxy: http.ProxyFromEnvironment,
+				DialContext: (&net.Dialer{
+					Timeout:   30 * time.Second,
+					KeepAlive: 30 * time.Second,
+				}).DialContext,
+				ForceAttemptHTTP2:     true,
+				MaxIdleConns:          100,
+				IdleConnTimeout:       90 * time.Second,
+				TLSHandshakeTimeout:   10 * time.Second,
+				ExpectContinueTimeout: 1 * time.Second,
+			}
+		}
+
+		if transport, ok := httpClient.Transport.(*http.Transport); ok {
+			return transport
+		}
+	}
+
+	return nil
 }
 
 // Request builds and executes an HTTP request.
@@ -718,7 +788,6 @@ func DeleteJSON[Req, Resp any](
 	return result, nil
 }
 
-// handleResponse closes the body and handles status code validation.
 func handleResponse(resp *http.Response, target any, requester Requester) error {
 	if resp == nil {
 		return errors.New("rest: response is nil")
@@ -742,7 +811,7 @@ func handleResponse(resp *http.Response, target any, requester Requester) error 
 	}
 
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		bodyBytes, _ := io.ReadAll(resp.Body)
+		bodyBytes, _ := io.ReadAll(io.LimitReader(resp.Body, 1024*1024))
 		return &APIError{StatusCode: resp.StatusCode, Body: bodyBytes}
 	}
 

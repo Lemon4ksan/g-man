@@ -19,9 +19,12 @@ import (
 
 // ProxyConfig contains parameters for configuring an HTTP client with proxy support.
 type ProxyConfig struct {
-	ProxyURL           string        // Format: http://user:pass@ip:port or socks5://ip:port
-	Timeout            time.Duration // Overall request timeout (recommended 15-30s for proxies)
-	InsecureSkipVerify bool          // Disable SSL verification
+	ProxyURL           string            // Format: http://user:pass@ip:port or socks5://ip:port
+	Timeout            time.Duration     // Overall request timeout (recommended 15-30s for proxies)
+	InsecureSkipVerify bool              // Disable SSL verification. Overidden by Transport or TransportFactory if provided
+	Transport          http.RoundTripper // Custom transport/RoundTripper if provided
+
+	TransportFactory func(ProxyConfig) (http.RoundTripper, error) // Custom transport factory
 }
 
 // NewProxyClient creates a standard *http.Client configured to work through a proxy.
@@ -32,38 +35,59 @@ func NewProxyClient(cfg ProxyConfig) (*http.Client, error) {
 		timeout = 15 * time.Second
 	}
 
-	transport := &http.Transport{
-		MaxIdleConns:          100,
-		MaxIdleConnsPerHost:   10,
-		IdleConnTimeout:       90 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
-		// #nosec G402 -- InsecureSkipVerify is configurable by the user for proxy compatibility.
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: cfg.InsecureSkipVerify},
-	}
+	var rt http.RoundTripper
 
-	if cfg.ProxyURL != "" {
-		u, err := url.Parse(cfg.ProxyURL)
+	switch {
+	case cfg.TransportFactory != nil:
+		var err error
+
+		rt, err = cfg.TransportFactory(cfg)
 		if err != nil {
-			return nil, fmt.Errorf("rest: invalid proxy URL %q: %w", cfg.ProxyURL, err)
+			return nil, fmt.Errorf("rest: custom transport factory: %w", err)
 		}
 
-		// Go natively supports http://, https:// и socks5://
-		transport.Proxy = http.ProxyURL(u)
+	case cfg.Transport != nil:
+		rt = cfg.Transport
+	default:
+		transport := &http.Transport{
+			MaxIdleConns:          100,
+			MaxIdleConnsPerHost:   10,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+			// #nosec G402 -- InsecureSkipVerify is configurable by the user for proxy compatibility.
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: cfg.InsecureSkipVerify},
+		}
+
+		if cfg.ProxyURL != "" {
+			u, err := url.Parse(cfg.ProxyURL)
+			if err != nil {
+				return nil, fmt.Errorf("rest: invalid proxy URL %q: %w", cfg.ProxyURL, err)
+			}
+
+			// Go natively supports http://, https:// and socks5://
+			transport.Proxy = http.ProxyURL(u)
+		}
+
+		rt = transport
 	}
 
 	return &http.Client{
-		Transport: transport,
+		Transport: rt,
 		Timeout:   timeout,
 	}, nil
 }
 
 // ProxyRotatorConfig defines proxy health checking parameters.
 type ProxyRotatorConfig struct {
-	MaxFails            uint32        // How many errors in a row are allowed before shutdown (for example, 3)
-	RetryAfter          time.Duration // The time for which the proxy is excluded from the list (for example, 1 minute)
-	HealthCheckURL      string        // URL for background health checks
-	HealthCheckInterval time.Duration // Interval for background health checks (e.g., 30s)
+	// MaxFails is the number of sequential errors allowed before the proxy is marked unhealthy.
+	MaxFails uint32
+	// RetryAfter is the duration for which an unhealthy proxy is excluded from rotation.
+	RetryAfter time.Duration
+	// HealthCheckURL is the endpoint used for background proxy health checks.
+	HealthCheckURL string
+	// HealthCheckInterval is the interval at which background health checks run.
+	HealthCheckInterval time.Duration
 }
 
 // StickyKeyFunc defines how to extract a session identifier from a request.
@@ -91,16 +115,24 @@ type trackedClient struct {
 	recoveredAt atomic.Int64
 }
 
-// ProxyRotator allows distributing requests between multiple proxies.
-// Implements the HTTPDoer interface, so it can be passed to [NewClient].
-type ProxyRotator struct {
-	mu      sync.RWMutex // Protects clients slice
-	clients []*trackedClient
-	config  ProxyRotatorConfig
-	current atomic.Uint64
+type sessionEntry struct {
+	clientIdx int
+	lastSeen  time.Time
+}
 
+// ProxyRotator allows distributing requests between multiple proxies.
+// It implements the [HTTPDoer] interface and can be passed to [NewClient].
+//
+// Create new instances of ProxyRotator using the [NewProxyRotator] constructor.
+// It supports round-robin scheduling, health monitoring, and sticky sessions via [StickyKeyFunc].
+type ProxyRotator struct {
+	mu            sync.RWMutex // Protects clients slice and sessions map
+	clients       []*trackedClient
+	config        ProxyRotatorConfig
+	current       atomic.Uint64
 	stickyKeyFunc StickyKeyFunc
-	sessions      sync.Map // map[string]int (index in clients)
+	sessions      map[string]*sessionEntry
+	sessionTTL    time.Duration
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -128,11 +160,15 @@ func NewProxyRotator(config ProxyRotatorConfig, clients ...HTTPDoer) (*ProxyRota
 
 	ctx, cancel := context.WithCancel(context.Background())
 	r := &ProxyRotator{
-		ctx:     ctx,
-		cancel:  cancel,
-		clients: tracked,
-		config:  config,
+		ctx:        ctx,
+		cancel:     cancel,
+		clients:    tracked,
+		config:     config,
+		sessions:   make(map[string]*sessionEntry),
+		sessionTTL: 24 * time.Hour,
 	}
+
+	r.wg.Go(r.cleanupSessionsLoop)
 
 	if config.HealthCheckURL != "" {
 		if config.HealthCheckInterval == 0 {
@@ -161,13 +197,8 @@ func (r *ProxyRotator) UpdateClients(clients ...HTTPDoer) {
 	r.mu.Lock()
 	r.clients = tracked
 	r.current.Store(0)
+	r.sessions = make(map[string]*sessionEntry)
 	r.mu.Unlock()
-
-	// Clear sticky sessions as indices have changed
-	r.sessions.Range(func(key, value any) bool {
-		r.sessions.Delete(key)
-		return true
-	})
 }
 
 // Close stops background health checks.
@@ -216,6 +247,29 @@ func (r *ProxyRotator) checkHealth(tc *trackedClient) {
 	}
 }
 
+func (r *ProxyRotator) cleanupSessionsLoop() {
+	ticker := time.NewTicker(1 * time.Hour)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-r.ctx.Done():
+			return
+		case <-ticker.C:
+			r.mu.Lock()
+
+			now := time.Now()
+			for k, v := range r.sessions {
+				if now.Sub(v.lastSeen) > r.sessionTTL {
+					delete(r.sessions, k)
+				}
+			}
+
+			r.mu.Unlock()
+		}
+	}
+}
+
 // WithStickySessions enables sticky sessions using the provided key extractor.
 // Returns the copy of the proxy rotator with the sticky key function set.
 func (r *ProxyRotator) WithStickySessions(f StickyKeyFunc) *ProxyRotator {
@@ -224,6 +278,8 @@ func (r *ProxyRotator) WithStickySessions(f StickyKeyFunc) *ProxyRotator {
 		cancel:        r.cancel,
 		clients:       make([]*trackedClient, len(r.clients)),
 		config:        r.config,
+		sessions:      make(map[string]*sessionEntry),
+		sessionTTL:    r.sessionTTL,
 		stickyKeyFunc: f,
 	}
 	copy(c.clients, r.clients)
@@ -232,8 +288,10 @@ func (r *ProxyRotator) WithStickySessions(f StickyKeyFunc) *ProxyRotator {
 	return c
 }
 
-// Do performs an HTTP request using the next available client in the rotation (Round-Robin).
-// If sticky sessions are enabled, it attempts to use the same proxy for the same session ID.
+// Do performs an HTTP request using the next available client in the rotation.
+//
+// If all proxies in the pool fail or are marked unhealthy, Do returns an error
+// indicating that no healthy proxies are available.
 func (r *ProxyRotator) Do(req *http.Request) (*http.Response, error) {
 	r.mu.RLock()
 	clients := r.clients
@@ -250,9 +308,13 @@ func (r *ProxyRotator) Do(req *http.Request) (*http.Response, error) {
 	if r.stickyKeyFunc != nil {
 		sessionID = r.stickyKeyFunc(req)
 		if sessionID != "" {
-			if val, ok := r.sessions.Load(sessionID); ok {
-				stickyIdx = val.(int)
+			r.mu.Lock()
+			if val, ok := r.sessions[sessionID]; ok {
+				stickyIdx = val.clientIdx
+				val.lastSeen = time.Now()
 			}
+
+			r.mu.Unlock()
 		}
 	}
 
@@ -307,7 +369,12 @@ func (r *ProxyRotator) Do(req *http.Request) (*http.Response, error) {
 
 		// Update or set the sticky association for future requests
 		if sessionID != "" {
-			r.sessions.Store(sessionID, int(idx))
+			r.mu.Lock()
+			r.sessions[sessionID] = &sessionEntry{
+				clientIdx: int(idx),
+				lastSeen:  time.Now(),
+			}
+			r.mu.Unlock()
 		}
 
 		return resp, err

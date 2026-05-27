@@ -21,9 +21,9 @@ func (e *APIError) Error() string {
 	return fmt.Sprintf("rest: status %d", e.StatusCode)
 }
 
-// ValidationError is returned when a request structure fails validation
-// (e.g., missing fields marked with validate:"required").
+// ValidationError is returned when a request structure fails validation.
 type ValidationError struct {
+	// Field is the name of the missing or invalid struct field.
 	Field string
 }
 
