@@ -239,6 +239,11 @@ func (d *Dispatcher) Dispatch(packet *protocol.Packet) {
 		return
 	}
 
+	if packet.Ctx == nil {
+		id := "pkt-" + log.GenerateCorrelationID()
+		packet.Ctx = log.WithCorrelationID(context.Background(), id)
+	}
+
 	// Handle special infrastructure messages first
 	switch packet.EMsg {
 	case enums.EMsg_Multi:
@@ -256,7 +261,7 @@ func (d *Dispatcher) Dispatch(packet *protocol.Packet) {
 
 	// Check if this packet is a response to a previously registered Job
 	if d.handleJobResponse(packet) {
-		l.Debug("Packet routed to job callback")
+		l.DebugContext(packet.Context(), "Packet routed to job callback")
 		return
 	}
 
@@ -266,10 +271,10 @@ func (d *Dispatcher) Dispatch(packet *protocol.Packet) {
 	d.mu.RUnlock()
 
 	if ok {
-		l.Debug("Packet routed to handler")
+		l.DebugContext(packet.Context(), "Packet routed to handler")
 		d.invokeHandler(handler, packet)
 	} else {
-		l.Debug("Unhandled message")
+		l.DebugContext(packet.Context(), "Unhandled message")
 	}
 }
 
@@ -281,7 +286,7 @@ func (d *Dispatcher) Close() error {
 func (d *Dispatcher) invokeHandler(handler Handler, packet *protocol.Packet) {
 	defer func() {
 		if r := recover(); r != nil {
-			d.logger.Error("Recovered from handler panic",
+			d.logger.ErrorContext(packet.Context(), "Recovered from handler panic",
 				log.EMsg(packet.EMsg),
 				log.Any("panic", r),
 			)
@@ -294,7 +299,7 @@ func (d *Dispatcher) invokeHandler(handler Handler, packet *protocol.Packet) {
 func (d *Dispatcher) handleService(packet *protocol.Packet) {
 	header, ok := packet.Header.(*protocol.MsgHdrProtoBuf)
 	if !ok {
-		d.logger.Warn("Received ServiceMethod with non-protobuf header")
+		d.logger.WarnContext(packet.Context(), "Received ServiceMethod with non-protobuf header")
 		return
 	}
 
@@ -307,7 +312,7 @@ func (d *Dispatcher) handleService(packet *protocol.Packet) {
 	if ok {
 		d.invokeHandler(handler, packet)
 	} else {
-		d.logger.Debug("Unhandled ServiceMethod", log.String("method", methodName))
+		d.logger.DebugContext(packet.Context(), "Unhandled ServiceMethod", log.String("method", methodName))
 	}
 }
 
@@ -328,7 +333,7 @@ func (d *Dispatcher) handleJobResponse(packet *protocol.Packet) bool {
 func (d *Dispatcher) handleMulti(packet *protocol.Packet) {
 	msg := &pb.CMsgMulti{}
 	if err := proto.Unmarshal(packet.Payload, msg); err != nil {
-		d.logger.Error("Failed to unmarshal CMsgMulti", log.Err(err))
+		d.logger.ErrorContext(packet.Context(), "Failed to unmarshal CMsgMulti", log.Err(err))
 		return
 	}
 
@@ -338,7 +343,7 @@ func (d *Dispatcher) handleMulti(packet *protocol.Packet) {
 
 		payload, err = d.decompressPayload(payload, int64(size))
 		if err != nil {
-			d.logger.Error("Multi-packet decompression failed", log.Err(err))
+			d.logger.ErrorContext(packet.Context(), "Multi-packet decompression failed", log.Err(err))
 			return
 		}
 	}
@@ -347,15 +352,18 @@ func (d *Dispatcher) handleMulti(packet *protocol.Packet) {
 	for reader.Len() > 0 {
 		var subSize uint32
 		if err := binary.Read(reader, binary.LittleEndian, &subSize); err != nil {
-			d.logger.Warn("Failed to read multi-packet sub-size", log.Err(err))
+			d.logger.WarnContext(packet.Context(), "Failed to read multi-packet sub-size", log.Err(err))
 			break
 		}
 
 		subPkt, err := protocol.ParsePacket(io.LimitReader(reader, int64(subSize)))
 		if err != nil {
-			d.logger.Warn("Failed to parse nested multi-packet", log.Err(err))
+			d.logger.WarnContext(packet.Context(), "Failed to parse nested multi-packet", log.Err(err))
 			continue
 		}
+
+		// Propagate parent packet's context (and correlation ID) to sub-packets
+		subPkt.Ctx = packet.Context()
 
 		// Recursively dispatch nested packets
 		d.Dispatch(subPkt)

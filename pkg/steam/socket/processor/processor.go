@@ -28,13 +28,8 @@ type Config struct {
 
 // DefaultConfig returns a balanced configuration based on the available CPU cores.
 func DefaultConfig() Config {
-	workers := runtime.NumCPU()
-	if workers < 2 {
-		workers = 2
-	}
-
 	return Config{
-		WorkerCount: workers,
+		WorkerCount: max(runtime.NumCPU(), 2),
 	}
 }
 
@@ -109,6 +104,10 @@ func (p *Processor) Process(data network.NetMessage) {
 		p.logger.Error("Failed to parse incoming packet", log.Err(err))
 		return
 	}
+
+	// Initialize the packet context deriving it from connection context with a unique Correlation ID
+	id := "pkt-" + log.GenerateCorrelationID()
+	packet.Ctx = log.WithCorrelationID(p.ctx, id)
 
 	p.dist.Dispatch(packet)
 }

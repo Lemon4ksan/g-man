@@ -6,6 +6,7 @@ package processor
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -93,10 +94,14 @@ func (p *Processor) Enqueue(offer *trading.TradeOffer) {
 func (p *Processor) handleOffer(ctx context.Context, offer *trading.TradeOffer) {
 	start := time.Now()
 
-	p.logger.Info("Processing offer", log.Uint64("id", offer.ID))
+	// Generate a unique CorrelationID for this trade offer reasoning execution
+	corrID := fmt.Sprintf("offer-%d-%s", offer.ID, log.GenerateCorrelationID()[:8])
+	ctx = log.WithCorrelationID(ctx, corrID)
+
+	p.logger.InfoContext(ctx, "Processing offer", log.Uint64("id", offer.ID))
 
 	if p.isAnyItemBusy(offer) {
-		p.logger.Warn("Offer skipped: items are busy in another trade", log.Uint64("id", offer.ID))
+		p.logger.WarnContext(ctx, "Offer skipped: items are busy in another trade", log.Uint64("id", offer.ID))
 		return
 	}
 
@@ -105,7 +110,7 @@ func (p *Processor) handleOffer(ctx context.Context, offer *trading.TradeOffer) 
 
 	verdict, err := p.engine.Process(ctx, offer)
 	if err != nil {
-		p.logger.Error("Engine failed to process offer", log.Err(err), log.Uint64("id", offer.ID))
+		p.logger.ErrorContext(ctx, "Engine failed to process offer", log.Err(err), log.Uint64("id", offer.ID))
 		return
 	}
 
@@ -131,12 +136,12 @@ func (p *Processor) executeVerdict(
 		}
 
 	case trading.ActionReview:
-		p.logger.Info("Offer sent to manual review", log.Uint64("id", offer.ID))
+		p.logger.InfoContext(ctx, "Offer sent to manual review", log.Uint64("id", offer.ID))
 		_ = p.notif.SendNotification(ctx, p.makeNotifInfo(offer, notifications.StateActive, v))
 		_ = p.reviewer.SendReviewAlert(ctx, offer.ID, offer.OtherSteamID, p.makeReviewMeta(v, duration))
 
 	case trading.ActionIgnore:
-		p.logger.Debug("Offer ignored by engine", log.Uint64("id", offer.ID))
+		p.logger.DebugContext(ctx, "Offer ignored by engine", log.Uint64("id", offer.ID))
 	}
 }
 

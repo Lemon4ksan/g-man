@@ -6,6 +6,7 @@ package protocol
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -63,6 +64,17 @@ type Packet struct {
 	// Payload is the raw message body, which can be further
 	// unmarshaled into a specific Protobuf struct or VDF map.
 	Payload []byte
+	// Ctx represents the request context associated with the packet execution.
+	Ctx context.Context
+}
+
+// Context returns the packet's execution context, defaulting to context.Background() if nil.
+func (p *Packet) Context() context.Context {
+	if p.Ctx == nil {
+		p.Ctx = context.Background()
+	}
+
+	return p.Ctx
 }
 
 // ParsePacket decodes a steam network message from an [io.Reader].

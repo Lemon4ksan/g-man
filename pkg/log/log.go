@@ -250,7 +250,7 @@ func (l *AsyncLogger) Debug(msg string, f ...Field) { l.log(LevelDebug, msg, f) 
 
 // DebugContext logs a message at the Debug level with the provided context.
 func (l *AsyncLogger) DebugContext(ctx context.Context, msg string, f ...Field) {
-	l.log(LevelDebug, msg, f)
+	l.logCtx(ctx, LevelDebug, msg, f)
 }
 
 // Info logs a message at the Info level.
@@ -258,7 +258,7 @@ func (l *AsyncLogger) Info(msg string, f ...Field) { l.log(LevelInfo, msg, f) }
 
 // InfoContext logs a message at the Info level with the provided context.
 func (l *AsyncLogger) InfoContext(ctx context.Context, msg string, f ...Field) {
-	l.log(LevelInfo, msg, f)
+	l.logCtx(ctx, LevelInfo, msg, f)
 }
 
 // Warn logs a message at the Warn level.
@@ -266,7 +266,7 @@ func (l *AsyncLogger) Warn(msg string, f ...Field) { l.log(LevelWarn, msg, f) }
 
 // WarnContext logs a message at the Warn level with the provided context.
 func (l *AsyncLogger) WarnContext(ctx context.Context, msg string, f ...Field) {
-	l.log(LevelWarn, msg, f)
+	l.logCtx(ctx, LevelWarn, msg, f)
 }
 
 // Error logs a message at the Error level.
@@ -274,16 +274,29 @@ func (l *AsyncLogger) Error(msg string, f ...Field) { l.log(LevelError, msg, f) 
 
 // ErrorContext logs a message at the Error level with the provided context.
 func (l *AsyncLogger) ErrorContext(ctx context.Context, msg string, f ...Field) {
-	l.log(LevelError, msg, f)
+	l.logCtx(ctx, LevelError, msg, f)
 }
 
 func (l *AsyncLogger) log(lvl Level, msg string, fields []Field) {
+	l.logCtx(context.Background(), lvl, msg, fields)
+}
+
+func (l *AsyncLogger) logCtx(ctx context.Context, lvl Level, msg string, fields []Field) {
 	if lvl < l.cfg.Level || l.closed.Load() {
 		return
 	}
 
 	buf := bufPool.Get().(*bytes.Buffer)
 	buf.Reset()
+
+	if ctx != nil {
+		if id, ok := CorrelationID(ctx); ok {
+			fieldsWithCorr := make([]Field, 0, len(fields)+1)
+			fieldsWithCorr = append(fieldsWithCorr, fields...)
+			fieldsWithCorr = append(fieldsWithCorr, String("correlation_id", id))
+			fields = fieldsWithCorr
+		}
+	}
 
 	if l.cfg.JSON {
 		l.formatJSON(buf, lvl, msg, fields)
@@ -851,9 +864,15 @@ func (s *slogAdapter) ErrorContext(ctx context.Context, msg string, fields ...Fi
 }
 
 func (s *slogAdapter) log(ctx context.Context, lvl slog.Level, msg string, fields []Field) {
-	attrs := make([]any, len(fields))
-	for i, f := range fields {
-		attrs[i] = slog.Any(f.Key, f.Value)
+	var attrs []any
+	if ctx != nil {
+		if id, ok := CorrelationID(ctx); ok {
+			attrs = append(attrs, slog.String("correlation_id", id))
+		}
+	}
+
+	for _, f := range fields {
+		attrs = append(attrs, slog.Any(f.Key, f.Value))
 	}
 
 	s.l.Log(ctx, lvl, msg, attrs...)

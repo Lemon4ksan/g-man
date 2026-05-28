@@ -413,7 +413,8 @@ func (m *Manager) eventLoop(ctx context.Context) {
 			if !trusted {
 				limiter := m.getLimiter(mev.SenderID)
 				if !limiter.Allow() {
-					m.Logger.Warn(
+					m.Logger.WarnContext(
+						mev.Context(),
 						"Rate limit exceeded for user",
 						log.String("command", cmdName),
 						log.Uint64("sender", mev.SenderID),
@@ -432,7 +433,8 @@ func (m *Manager) eventLoop(ctx context.Context) {
 			}
 
 			if cmd.IsAdmin && !trusted {
-				m.Logger.Warn(
+				m.Logger.WarnContext(
+					mev.Context(),
 					"Unauthorized command execution attempt",
 					log.String("command", cmdName),
 					log.Uint64("sender", mev.SenderID),
@@ -446,6 +448,10 @@ func (m *Manager) eventLoop(ctx context.Context) {
 			}
 
 			m.Go(func(ctx context.Context) {
+				if corrID, ok := log.CorrelationID(mev.Context()); ok {
+					ctx = log.WithCorrelationID(ctx, corrID)
+				}
+
 				caller := SteamCaller{
 					steamID: mev.SenderID,
 					isAdmin: trusted,
@@ -455,14 +461,19 @@ func (m *Manager) eventLoop(ctx context.Context) {
 
 				response, err := m.engine.Execute(cmdCtx, msgText)
 				if err != nil {
-					m.Logger.Error("Chat command execution failed", log.String("command", cmdName), log.Err(err))
+					m.Logger.ErrorContext(
+						cmdCtx,
+						"Chat command execution failed",
+						log.String("command", cmdName),
+						log.Err(err),
+					)
 
 					if m.chat != nil {
-						_ = m.chat.SendMessage(ctx, mev.SenderID, fmt.Sprintf("Error: %v", err))
+						_ = m.chat.SendMessage(cmdCtx, mev.SenderID, fmt.Sprintf("Error: %v", err))
 					}
 				} else if response != "" {
 					if m.chat != nil {
-						_ = m.chat.SendMessage(ctx, mev.SenderID, response)
+						_ = m.chat.SendMessage(cmdCtx, mev.SenderID, response)
 					}
 				}
 			})

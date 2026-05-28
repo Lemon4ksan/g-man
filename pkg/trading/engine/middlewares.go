@@ -22,7 +22,8 @@ func RecoverMiddleware(logger log.Logger) Middleware {
 			defer func() {
 				if r := recover(); r != nil {
 					err = fmt.Errorf("panic in trade engine: %v", r)
-					logger.Error(
+					logger.ErrorContext(
+						ctx,
 						"Trade engine recovered from panic",
 						log.Any("panic", r),
 						log.Uint64("offer_id", ctx.Offer.ID),
@@ -46,7 +47,7 @@ func LoggerMiddleware(logger log.Logger) Middleware {
 			err := next(ctx)
 			duration := time.Since(start)
 
-			logger.Info("Trade offer processed",
+			logger.InfoContext(ctx, "Trade offer processed",
 				log.Uint64("offer_id", ctx.Offer.ID),
 				log.String("verdict", string(ctx.Verdict.Action)),
 				log.String("reason", ctx.Verdict.Reason.String()),

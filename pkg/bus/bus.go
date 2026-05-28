@@ -5,6 +5,7 @@
 package bus
 
 import (
+	"context"
 	"maps"
 	"reflect"
 	"slices"
@@ -23,9 +24,26 @@ type Event interface {
 
 // BaseEvent provides a default implementation of the [Event] interface.
 // Custom event structures should embed this type to act as valid events.
-type BaseEvent struct{}
+type BaseEvent struct {
+	// Ctx represents the request context associated with the event execution.
+	Ctx context.Context
+}
 
 func (BaseEvent) isEvent() {}
+
+// Context returns the event's execution context, defaulting to context.Background() if nil.
+func (b *BaseEvent) Context() context.Context {
+	if b.Ctx == nil {
+		b.Ctx = context.Background()
+	}
+
+	return b.Ctx
+}
+
+// SetContext sets the execution context on the event.
+func (b *BaseEvent) SetContext(ctx context.Context) {
+	b.Ctx = ctx
+}
 
 // Subscription represents an active event listener on a Bus instance.
 // It must be obtained via Bus.Subscribe or Bus.SubscribeAll. It manages

@@ -610,31 +610,41 @@ func (m *Chat) handleIncomingMessage(packet *protocol.Packet) {
 
 	switch msg.GetChatEntryType() {
 	case ChatEntryTypeChatMsg, ChatEntryTypeEmote:
-		m.Bus.Publish(&MessageEvent{
+		evt := &MessageEvent{
 			SenderID:  senderID,
 			Message:   msg.GetMessage(),
 			Timestamp: timestamp,
 			Ordinal:   msg.GetOrdinal(),
-		})
+		}
+		evt.SetContext(packet.Context())
+		m.Bus.Publish(evt)
 
 	case ChatEntryTypeSticker:
-		m.Bus.Publish(&StickerEvent{
+		evt := &StickerEvent{
 			SenderID:  senderID,
 			StickerID: msg.GetMessage(), // The message body contains sticker data
 			Timestamp: timestamp,
-		})
+		}
+		evt.SetContext(packet.Context())
+		m.Bus.Publish(evt)
 
 	case ChatEntryTypeTyping:
-		m.Bus.Publish(&TypingEvent{SenderID: senderID})
+		evt := &TypingEvent{SenderID: senderID}
+		evt.SetContext(packet.Context())
+		m.Bus.Publish(evt)
 	default:
-		m.Logger.Debug("Received unhandled chat entry type", log.Int32("type", msg.GetChatEntryType()))
+		m.Logger.DebugContext(
+			packet.Context(),
+			"Received unhandled chat entry type",
+			log.Int32("type", msg.GetChatEntryType()),
+		)
 	}
 }
 
 func (m *Chat) handleGroupMessage(packet *protocol.Packet) {
 	msg := &pb.CChatRoom_IncomingChatMessage_Notification{}
 	if err := proto.Unmarshal(packet.Payload, msg); err != nil {
-		m.Logger.Error("Failed to unmarshal incoming group message", log.Err(err))
+		m.Logger.ErrorContext(packet.Context(), "Failed to unmarshal incoming group message", log.Err(err))
 		return
 	}
 
@@ -643,13 +653,15 @@ func (m *Chat) handleGroupMessage(packet *protocol.Packet) {
 	m.activeGroupChats[msg.GetChatGroupId()] = msg.GetChatId()
 	m.stateMu.Unlock()
 
-	m.Bus.Publish(&GroupMessageEvent{
+	evt := &GroupMessageEvent{
 		ChatGroupID: msg.GetChatGroupId(),
 		ChatID:      msg.GetChatId(),
 		SenderID:    msg.GetSteamidSender(),
 		Message:     msg.GetMessage(),
 		Timestamp:   time.Unix(int64(msg.GetTimestamp()), 0),
-	})
+	}
+	evt.SetContext(packet.Context())
+	m.Bus.Publish(evt)
 }
 
 func (m *Chat) handleFriendReaction(packet *protocol.Packet) {
