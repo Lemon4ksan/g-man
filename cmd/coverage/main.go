@@ -9,6 +9,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -33,6 +34,11 @@ type BlockInfo struct {
 
 func main() {
 	coverageFilePath := flag.String("file", "./coverage.out", "path to the go coverage profile file")
+	sortBy := flag.String(
+		"sort",
+		"name",
+		"sort package coverage by 'name' (alphabetical) or 'percent' (coverage percentage)",
+	)
 
 	flag.Parse()
 
@@ -180,14 +186,51 @@ func main() {
 	fmt.Println()
 
 	fmt.Println("=== CORE HANDWRITTEN PACKAGE COVERAGE ===")
-	// Print packages
+
+	type PackageCoverage struct {
+		Name  string
+		Stats *CoverageStats
+	}
+
+	var sortedPackages []PackageCoverage
 	for pkg, stats := range packageStats {
+		sortedPackages = append(sortedPackages, PackageCoverage{Name: pkg, Stats: stats})
+	}
+
+	if *sortBy == "percent" {
+		sort.Slice(sortedPackages, func(i, j int) bool {
+			pi := sortedPackages[i].Stats.Percent()
+
+			pj := sortedPackages[j].Stats.Percent()
+			if pi != pj {
+				return pi > pj // Descending by percentage
+			}
+
+			return sortedPackages[i].Name < sortedPackages[j].Name
+		})
+	} else {
+		sort.Slice(sortedPackages, func(i, j int) bool {
+			return sortedPackages[i].Name < sortedPackages[j].Name // Alphabetical by name
+		})
+	}
+
+	// Find max package name length for alignment
+	maxLen := 0
+	for _, pc := range sortedPackages {
+		if len(pc.Name) > maxLen {
+			maxLen = len(pc.Name)
+		}
+	}
+
+	// Print sorted packages
+	for _, pc := range sortedPackages {
 		fmt.Printf(
-			"- %s: %d / %d statements (%.2f%%)\n",
-			pkg,
-			stats.CoveredStatements,
-			stats.TotalStatements,
-			stats.Percent(),
+			"- %-*s: %4d / %4d statements (%6.2f%%)\n",
+			maxLen,
+			pc.Name,
+			pc.Stats.CoveredStatements,
+			pc.Stats.TotalStatements,
+			pc.Stats.Percent(),
 		)
 	}
 }

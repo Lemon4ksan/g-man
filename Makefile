@@ -1,5 +1,4 @@
 # Project variables
-BINARY_NAME=g-man-bot
 PKG=$(shell go list ./... | grep -v /vendor/)
 COVER_OUT?=coverage.out
 COVER_PKG?=$(PKG)
@@ -12,9 +11,7 @@ GEN_OUT=pkg/steam/webapi/generated.go
 CYAN  := \033[0;36m
 RESET := \033[0m
 
-.PHONY: all build test race cover cover-clean lint generate clean help
-
-all: generate race build ## Run the full cycle: generation, tests and assembly
+.PHONY: test race cover cover-clean lint generate clean format help
 
 test: ## Run normal quick tests
 	@printf "$(CYAN)Running unit tests...$(RESET)\n"
@@ -32,28 +29,19 @@ cover: ## Run tests and open the coverage report in a browser
 cover-clean: ## Display the clean coverage report in the terminal
 	@printf "$(CYAN)Generating clean coverage report...$(RESET)\n"
 	go test -coverprofile=$(COVER_OUT) $(COVER_PKG)
-	go run cmd/coverage/main.go --file=$(COVER_OUT)
+	go run cmd/coverage/main.go --file=$(COVER_OUT) --sort=percent
 
 generate: ## Update all generated files (manual review required)
 	cd cmd/generator && go run main.go webapi proto steamlang format
-
-build: ## Build the bot executable file
-	@printf "$(CYAN)Building bot binary...$(RESET)\n"
-	go build -o bin/$(BINARY_NAME) cmd/bot/main.go
 
 lint: ## Check the code with a linter (requires golangci-lint)
 	@printf "$(CYAN)Running linter...$(RESET)\n"
 	golangci-lint run ./...
 
-tidy: ## Clean and update go.mod dependencies
-	@printf "$(CYAN)Tidying up go modules...$(RESET)\n"
-	go mod tidy
-
 clean: ## Delete temporary files and binaries
 	@printf "$(CYAN)Cleaning up...$(RESET)\n"
 	rm -rf bin/
 	rm -f coverage.out
-	rm -f $(GEN_OUT)
 
 format: ## Run go code formatting
 	cd cmd/generator && go run main.go format
