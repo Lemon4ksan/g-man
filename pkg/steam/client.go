@@ -279,6 +279,16 @@ func (c *Client) Run() (err error) {
 // State returns the current client lifecycle state.
 func (c *Client) State() State { return State(c.state.Load()) }
 
+// Session returns the client's session manager.
+func (c *Client) Session() *SessionManager {
+	return c.session
+}
+
+// Router returns the client's service router.
+func (c *Client) Router() *ServiceRouter {
+	return c.router
+}
+
 // RegisterModule adds a module to the client and initializes it immediately.
 func (c *Client) RegisterModule(m module.Module) {
 	if err := c.modules.Register(c.ctx, m); err != nil {

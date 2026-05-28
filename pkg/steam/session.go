@@ -204,6 +204,26 @@ func (c *SessionManager) LogOn(
 	return nil
 }
 
+// IsAuthenticated reports whether the current session is authenticated.
+func (c *SessionManager) IsAuthenticated() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.web != nil && c.web.IsAuthenticated()
+}
+
+// Verify checks if the current web session is still valid.
+func (c *SessionManager) Verify(ctx context.Context) (bool, error) {
+	c.mu.RLock()
+	web := c.web
+	c.mu.RUnlock()
+
+	if web == nil {
+		return false, nil
+	}
+
+	return web.Verify(ctx)
+}
+
 // Refresh is the central method for refreshing all tokens (Access and Web tokens).
 // It is protected by single-flight double-checked locking to avoid Thundering Herd.
 func (c *SessionManager) Refresh(ctx context.Context) error {
