@@ -258,6 +258,27 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 
 	defer a.ensureTerminalState()
 
+	var (
+		enrichedAccount string
+		enrichedSteamID id.ID
+	)
+
+	// Enrich the authenticator's logger with details.AccountName and SteamID if available
+	var logFields []log.Field
+	if details.AccountName != "" && enrichedAccount == "" {
+		logFields = append(logFields, log.String("account", details.AccountName))
+		enrichedAccount = details.AccountName
+	}
+
+	if details.SteamID != 0 && enrichedSteamID == 0 {
+		logFields = append(logFields, log.SteamID(details.SteamID.Uint64()))
+		enrichedSteamID = details.SteamID
+	}
+
+	if len(logFields) > 0 {
+		a.logger = a.logger.With(logFields...)
+	}
+
 	if err := a.validate(details); err != nil {
 		return err
 	}
@@ -271,6 +292,20 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 
 	if err := a.acquireAuthToken(ctx, details); err != nil {
 		return err
+	}
+
+	// Enrich logger again in case SteamID was fetched/saved during acquireAuthToken
+	logFields = nil
+	if details.AccountName != "" && enrichedAccount == "" {
+		logFields = append(logFields, log.String("account", details.AccountName))
+	}
+
+	if details.SteamID != 0 && enrichedSteamID == 0 {
+		logFields = append(logFields, log.SteamID(details.SteamID.Uint64()))
+	}
+
+	if len(logFields) > 0 {
+		a.logger = a.logger.With(logFields...)
 	}
 
 	a.setState(StateLoggingOn)

@@ -89,6 +89,7 @@ type SocketProvider interface {
 	RegisterServiceHandler(method string, handler socket.Handler)
 	Disconnect() error
 	Close() error
+	UpdateLogger(logger log.Logger)
 }
 
 // Config aggregates configurations for all core subsystems and standard modules.
@@ -157,7 +158,7 @@ type Option func(*Client)
 
 // WithLogger sets a custom logger for the Steam client.
 func WithLogger(l log.Logger) Option {
-	return func(c *Client) { c.logger = l }
+	return func(c *Client) { c.logger = l.With(log.Module("steam")) }
 }
 
 // WithModule adds a module to the client and initializes it immediately.
@@ -175,9 +176,10 @@ func WithModule(m module.Module) Option {
 //
 // Create new instances of Client using [NewClient] or [NewReadyClient].
 type Client struct {
-	cfg    Config
-	logger log.Logger
-	bus    *bus.Bus
+	cfg      Config
+	loggerMu sync.RWMutex
+	logger   log.Logger
+	bus      *bus.Bus
 
 	socket  SocketProvider
 	session *SessionManager
@@ -191,6 +193,9 @@ type Client struct {
 	wg        sync.WaitGroup
 	state     atomic.Int32
 	closeOnce sync.Once
+
+	enrichedAccount string
+	enrichedSteamID id.ID
 }
 
 // NewClient initializes a Steam Client.
@@ -292,7 +297,7 @@ func (c *Client) Router() *ServiceRouter {
 // RegisterModule adds a module to the client and initializes it immediately.
 func (c *Client) RegisterModule(m module.Module) {
 	if err := c.modules.Register(c.ctx, m); err != nil {
-		c.logger.Error("Failed to register module",
+		c.Logger().Error("Failed to register module",
 			log.String("name", m.Name()),
 			log.Err(err))
 	}
@@ -333,7 +338,40 @@ func (c *Client) Bus() *bus.Bus { return c.bus }
 func (c *Client) Socket() SocketProvider { return c.socket }
 
 // Logger returns the client's logger.
-func (c *Client) Logger() log.Logger { return c.logger }
+func (c *Client) Logger() log.Logger {
+	c.loggerMu.RLock()
+	defer c.loggerMu.RUnlock()
+	return c.logger
+}
+
+// enrichLogger adds the account and/or steamID to the loggers of the client and all its subsystems.
+func (c *Client) enrichLogger(account string, steamID id.ID) {
+	c.loggerMu.Lock()
+	defer c.loggerMu.Unlock()
+
+	var logFields []log.Field
+	if account != "" && c.enrichedAccount == "" {
+		logFields = append(logFields, log.String("account", account))
+		c.enrichedAccount = account
+	}
+
+	if steamID != 0 && c.enrichedSteamID == 0 {
+		logFields = append(logFields, log.SteamID(steamID.Uint64()))
+		c.enrichedSteamID = steamID
+	}
+
+	if len(logFields) == 0 {
+		return
+	}
+
+	c.logger = c.logger.With(logFields...)
+
+	c.session.enrichLogger(account, steamID)
+
+	if c.socket != nil {
+		c.socket.UpdateLogger(c.logger)
+	}
+}
 
 // Rest returns the low-level REST requester.
 func (c *Client) Rest() rest.Requester { return c.rest }
@@ -383,14 +421,18 @@ func (c *Client) ConnectAndLogin(ctx context.Context, server socket.CMServer, de
 		return errors.New("socket transport is disabled")
 	}
 
+	c.enrichLogger(details.AccountName, details.SteamID)
+
 	if err := c.session.LogOn(ctx, server, details); err != nil {
 		return err
 	}
 
+	c.enrichLogger(details.AccountName, details.SteamID)
+
 	c.state.Store(int32(StateAuthorized))
 
 	if err := c.modules.StartAuthedAll(c.ctx, c); err != nil {
-		c.logger.Error("Some modules failed to start authorized", log.Err(err))
+		c.Logger().Error("Some modules failed to start authorized", log.Err(err))
 		return err
 	}
 
@@ -467,5 +509,6 @@ func (noopSocketProvider) RegisterServiceHandler(method string, handler socket.H
 func (noopSocketProvider) StartHeartbeat(time.Duration) error {
 	return errors.New("socket transport disabled")
 }
-func (noopSocketProvider) Disconnect() error { return nil }
-func (noopSocketProvider) Close() error      { return nil }
+func (noopSocketProvider) Disconnect() error       { return nil }
+func (noopSocketProvider) Close() error            { return nil }
+func (noopSocketProvider) UpdateLogger(log.Logger) {}

@@ -38,6 +38,7 @@ func DefaultConfig() Config {
 // ensuring the network thread remains unblocked.
 type Processor struct {
 	cfg    Config
+	mu     sync.RWMutex
 	logger log.Logger
 	dist   Dispatcher
 
@@ -69,10 +70,18 @@ func New(cfg Config, input <-chan []byte, dist Dispatcher, logger log.Logger) *P
 	}
 }
 
+// UpdateLogger updates the logger used by the processor.
+func (p *Processor) UpdateLogger(logger log.Logger) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	p.logger = logger.With(log.Component("proc"))
+}
+
 // Start spawns the worker pool. This method is idempotent.
 func (p *Processor) Start() {
 	p.isStarted.Do(func() {
-		p.logger.Debug("Starting worker pool", log.Int("workers", p.cfg.WorkerCount))
+		p.getLogger().Debug("Starting worker pool", log.Int("workers", p.cfg.WorkerCount))
 
 		for range p.cfg.WorkerCount {
 			p.wg.Go(p.worker)
@@ -83,10 +92,10 @@ func (p *Processor) Start() {
 // Stop gracefully shuts down the worker pool, waiting for all pending packets to be processed.
 func (p *Processor) Stop() {
 	p.isStopped.Do(func() {
-		p.logger.Debug("Stopping processor...")
+		p.getLogger().Debug("Stopping processor...")
 		p.cancel()
 		p.wg.Wait()
-		p.logger.Debug("Processor stopped")
+		p.getLogger().Debug("Processor stopped")
 	})
 }
 
@@ -101,7 +110,7 @@ func (p *Processor) Process(data network.NetMessage) {
 
 	packet, err := protocol.ParsePacket(reader)
 	if err != nil {
-		p.logger.Error("Failed to parse incoming packet", log.Err(err))
+		p.getLogger().Error("Failed to parse incoming packet", log.Err(err))
 		return
 	}
 
@@ -135,7 +144,13 @@ func (p *Processor) worker() {
 
 func (p *Processor) recoverPanic() {
 	if r := recover(); r != nil {
-		p.logger.Error("Processor worker recovered from panic",
+		p.getLogger().Error("Processor worker recovered from panic",
 			log.Any("panic", r))
 	}
+}
+
+func (p *Processor) getLogger() log.Logger {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.logger
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/lemon4ksan/g-man/pkg/log"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/rest"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
@@ -101,6 +102,7 @@ func (m *mockHTTPDoer) Do(req *http.Request) (*http.Response, error) {
 type mockSocket struct{ mock.Mock }
 
 func (m *mockSocket) SetEncryptionKey(key []byte) bool                             { return false }
+func (m *mockSocket) UpdateLogger(logger log.Logger)                               {}
 func (m *mockSocket) Connect(ctx context.Context, server connector.CMServer) error { return nil }
 
 func (m *mockSocket) SendProto(

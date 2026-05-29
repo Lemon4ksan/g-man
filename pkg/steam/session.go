@@ -83,6 +83,9 @@ type SessionManager struct {
 	refreshMu   sync.Mutex
 	refreshing  bool
 	refreshCond *sync.Cond
+
+	enrichedAccount string
+	enrichedSteamID id.ID
 }
 
 // NewSessionManager creates a new session manager.
@@ -161,9 +164,13 @@ func (c *SessionManager) LogOn(
 	server socket.CMServer,
 	details *auth.LogOnDetails,
 ) error {
+	c.enrichLogger(details.AccountName, details.SteamID)
+
 	if err := c.auth.LogOn(ctx, details, server); err != nil {
 		return fmt.Errorf("login: %w", err)
 	}
+
+	c.enrichLogger(details.AccountName, details.SteamID)
 
 	c.mu.Lock()
 	if c.web == nil {
@@ -190,11 +197,11 @@ func (c *SessionManager) LogOn(
 
 	apiKey, err := c.community.GetOrRegisterAPIKey(ctx, "g-man-bot.dev")
 	if err != nil {
-		c.logger.Warn("Could not auto-fetch API Key", log.Err(err))
+		c.getLogger().Warn("Could not auto-fetch API Key", log.Err(err))
 		return err
 	}
 
-	c.logger.Info("WebAPI Key acquired automatically", log.String("key", apiKey[:4]+"***"))
+	c.getLogger().Info("WebAPI Key acquired automatically", log.String("key", apiKey[:4]+"***"))
 
 	c.mu.Lock()
 	c.unified = c.unified.WithAPIKey(apiKey)
@@ -308,7 +315,7 @@ func (c *SessionManager) StartRefreshLoop(ctx context.Context) error {
 					isAlive, _ := c.web.Verify(ctx)
 					if !isAlive && ctx.Err() == nil {
 						if err := c.Refresh(ctx); err != nil {
-							c.logger.Warn("Periodic session refresh failed", log.Err(err))
+							c.getLogger().Warn("Periodic session refresh failed", log.Err(err))
 						}
 					}
 				}()
@@ -317,7 +324,7 @@ func (c *SessionManager) StartRefreshLoop(ctx context.Context) error {
 	}
 
 shutdown:
-	c.logger.Debug("Orchestrator shutting down...")
+	c.getLogger().Debug("Orchestrator shutting down...")
 
 	return c.Disconnect()
 }
@@ -331,4 +338,30 @@ func (c *SessionManager) Disconnect() error {
 func (c *SessionManager) Close() error {
 	c.closed.Store(true)
 	return c.socket.Close()
+}
+
+func (c *SessionManager) getLogger() log.Logger {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.logger
+}
+
+func (c *SessionManager) enrichLogger(account string, steamID id.ID) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	var logFields []log.Field
+	if account != "" && c.enrichedAccount == "" {
+		logFields = append(logFields, log.String("account", account))
+		c.enrichedAccount = account
+	}
+
+	if steamID != 0 && c.enrichedSteamID == 0 {
+		logFields = append(logFields, log.SteamID(steamID.Uint64()))
+		c.enrichedSteamID = steamID
+	}
+
+	if len(logFields) > 0 {
+		c.logger = c.logger.With(logFields...)
+	}
 }

@@ -170,6 +170,14 @@ func New(cfg Config, logger log.Logger) *Connector {
 	return c
 }
 
+// UpdateLogger updates the logger used by the connector.
+func (c *Connector) UpdateLogger(logger log.Logger) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.logger = logger.With(log.Component("connector"))
+}
+
 // Done returns a channel that is closed if the connector is permanently closed.
 func (c *Connector) Done() <-chan struct{} {
 	return c.ctx.Done()
@@ -219,7 +227,7 @@ func (c *Connector) Connect(ctx context.Context, server CMServer) error {
 		return fmt.Errorf("%w: %s", ErrUnsupportedType, server.Type)
 	}
 
-	conn, err := dialer(ctx, c.logger, server.Endpoint, c.cfg.ProxyURL, c.cfg.Headers)
+	conn, err := dialer(ctx, c.getLogger(), server.Endpoint, c.cfg.ProxyURL, c.cfg.Headers)
 	if err != nil {
 		return err
 	}
@@ -235,7 +243,7 @@ func (c *Connector) Connect(ctx context.Context, server CMServer) error {
 
 	go c.monitorConnection(conn)
 
-	c.logger.Info("Transport connected", log.String("endpoint", server.Endpoint), log.Int64("conn_id", conn.ID()))
+	c.getLogger().Info("Transport connected", log.String("endpoint", server.Endpoint), log.Int64("conn_id", conn.ID()))
 
 	return nil
 }
@@ -323,7 +331,7 @@ func (c *Connector) monitorConnection(conn network.Connection) {
 				return
 			}
 
-			c.logger.Error("Transport error", log.Err(err))
+			c.getLogger().Error("Transport error", log.Err(err))
 
 		case <-conn.Closed():
 			c.handleDisconnect()
@@ -365,7 +373,7 @@ func (c *Connector) reconnectLoop(ctx context.Context) {
 	last := c.lastServer
 	c.mu.RUnlock()
 
-	c.logger.Info("Reconnection loop started")
+	c.getLogger().Info("Reconnection loop started")
 
 	for att := 1; att <= policy.MaxAttempts; att++ {
 		select {
@@ -389,11 +397,11 @@ func (c *Connector) reconnectLoop(ctx context.Context) {
 		dialCancel()
 
 		if err == nil {
-			c.logger.Info("Reconnection successful", log.Int("attempts", att))
+			c.getLogger().Info("Reconnection successful", log.Int("attempts", att))
 			return
 		}
 
-		c.logger.Warn("Reconnection attempt failed", log.Err(err), log.Int("attempt", att))
+		c.getLogger().Warn("Reconnection attempt failed", log.Err(err), log.Int("attempt", att))
 
 		timer := time.NewTimer(backoff)
 		select {
@@ -405,5 +413,11 @@ func (c *Connector) reconnectLoop(ctx context.Context) {
 		}
 	}
 
-	c.logger.Error("Reconnection failed permanently", log.Err(ErrReconnectionFailed))
+	c.getLogger().Error("Reconnection failed permanently", log.Err(ErrReconnectionFailed))
+}
+
+func (c *Connector) getLogger() log.Logger {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.logger
 }

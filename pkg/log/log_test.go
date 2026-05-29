@@ -643,3 +643,50 @@ func TestLogger_JSONFormat_ExtraTypes(t *testing.T) {
 	assert.Equal(t, "5s", entry["dur"])
 	assert.Equal(t, "10.0.0.1", entry["ip_raw"])
 }
+
+func TestLogger_OmitFields(t *testing.T) {
+	t.Run("Standard format omitting fields", func(t *testing.T) {
+		var buf bytes.Buffer
+
+		cfg := DefaultConfig(LevelDebug)
+		cfg.Output = &buf
+		cfg.Colors = false
+		cfg.OmitFields = []string{"account", "steam_id"}
+
+		l := New(cfg)
+		l.Info("testing", String("account", "arseny_sn"), SteamID(12345), String("keep", "me"))
+		err := l.Close()
+		require.NoError(t, err)
+
+		output := buf.String()
+		assert.Contains(t, output, "keep=me")
+		assert.NotContains(t, output, "account=")
+		assert.NotContains(t, output, "steam_id=")
+	})
+
+	t.Run("JSON format omitting fields", func(t *testing.T) {
+		var buf bytes.Buffer
+
+		cfg := DefaultConfig(LevelDebug)
+		cfg.Output = &buf
+		cfg.Colors = false
+		cfg.JSON = true
+		cfg.OmitFields = []string{"account", "steam_id"}
+
+		l := New(cfg)
+		l.Info("testing", String("account", "arseny_sn"), SteamID(12345), String("keep", "me"))
+		err := l.Close()
+		require.NoError(t, err)
+
+		var entry map[string]any
+
+		err = json.Unmarshal(buf.Bytes(), &entry)
+		require.NoError(t, err)
+
+		assert.Equal(t, "me", entry["keep"])
+		_, ok := entry["account"]
+		assert.False(t, ok)
+		_, ok = entry["steam_id"]
+		assert.False(t, ok)
+	})
+}

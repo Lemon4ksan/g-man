@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -137,6 +138,9 @@ type Config struct {
 
 	// JSON, if true, outputs logs as structured JSON lines instead of human-readable text.
 	JSON bool
+
+	// OmitFields defines a list of field keys to exclude from the printed output (e.g., "account", "steam_id").
+	OmitFields []string
 }
 
 // DefaultConfig returns a configuration balanced for local development.
@@ -397,6 +401,10 @@ func (l *AsyncLogger) formatJSON(b *bytes.Buffer, lvl Level, msg string, callFie
 			return
 		}
 
+		if slices.Contains(l.cfg.OmitFields, f.Key) {
+			return
+		}
+
 		b.WriteByte(',')
 		b.WriteString(strconv.Quote(f.Key))
 		b.WriteByte(':')
@@ -528,6 +536,10 @@ func (l *AsyncLogger) format(b *bytes.Buffer, lvl Level, msg string, callFields 
 
 	processField := func(f Field) {
 		if f.Key == "" {
+			return
+		}
+
+		if slices.Contains(l.cfg.OmitFields, f.Key) {
 			return
 		}
 

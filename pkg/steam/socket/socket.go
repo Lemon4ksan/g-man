@@ -117,6 +117,7 @@ func DefaultConfig() Config {
 // Create new instances of Socket using the [NewSocket] constructor.
 type Socket struct {
 	cfg    Config
+	mu     sync.RWMutex
 	logger log.Logger
 
 	// Subsystems
@@ -134,7 +135,7 @@ type Socket struct {
 func NewSocket(cfg Config, logger log.Logger) *Socket {
 	s := &Socket{
 		cfg:     cfg,
-		logger:  logger,
+		logger:  logger.With(log.Module("sock")),
 		session: &session.Session{},
 	}
 
@@ -150,6 +151,17 @@ func NewSocket(cfg Config, logger log.Logger) *Socket {
 	s.proc = processor.New(cfg.Processor, s.conn.C(), s.dispatch, s.logger)
 
 	return s
+}
+
+// UpdateLogger updates the logger used by the socket.
+func (s *Socket) UpdateLogger(logger log.Logger) {
+	s.mu.Lock()
+	s.logger = logger.With(log.Module("sock"))
+	s.mu.Unlock()
+
+	s.conn.UpdateLogger(s.getLogger())
+	s.dispatch.UpdateLogger(s.getLogger())
+	s.proc.UpdateLogger(s.getLogger())
 }
 
 // IsConnected returns true if the underlying transport is currently active.
@@ -241,7 +253,7 @@ func (s *Socket) StartHeartbeat(interval time.Duration) error {
 		return ErrClosed
 	}
 
-	s.logger.Debug("Starting heartbeat loop", log.Duration("interval", interval))
+	s.getLogger().Debug("Starting heartbeat loop", log.Duration("interval", interval))
 
 	go func() {
 		ticker := time.NewTicker(interval)
@@ -258,11 +270,11 @@ func (s *Socket) StartHeartbeat(interval time.Duration) error {
 				// but Send internally checks if the socket is closed.
 				err := s.SendProto(context.Background(), enums.EMsg_ClientHeartBeat, &pb.CMsgClientHeartBeat{})
 				if err != nil {
-					s.logger.Warn("Failed to send heartbeat", log.Err(err))
+					s.getLogger().Warn("Failed to send heartbeat", log.Err(err))
 				}
 
 			case <-s.conn.Done():
-				s.logger.Debug("Heartbeat loop stopped")
+				s.getLogger().Debug("Heartbeat loop stopped")
 				return
 			}
 		}
@@ -317,3 +329,9 @@ func (s *Socket) Session() Session { return s.session }
 
 // SetEncryptionKey upgrades the connection to encrypted mode.
 func (s *Socket) SetEncryptionKey(key []byte) bool { return s.conn.SetEncryptionKey(key) }
+
+func (s *Socket) getLogger() log.Logger {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.logger
+}

@@ -175,6 +175,14 @@ func New(
 	return d
 }
 
+// UpdateLogger updates the logger used by the dispatcher.
+func (d *Dispatcher) UpdateLogger(logger log.Logger) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	d.logger = logger.With(log.Component("dispatch"))
+}
+
 // RegisterMsgHandler registers a callback for a specific EMsg.
 func (d *Dispatcher) RegisterMsgHandler(eMsg enums.EMsg, handler Handler) {
 	d.mu.Lock()
@@ -254,7 +262,7 @@ func (d *Dispatcher) Dispatch(packet *protocol.Packet) {
 		return
 	}
 
-	l := d.logger.With(
+	l := d.getLogger().With(
 		log.EMsg(packet.EMsg),
 		log.JobID(packet.GetTargetJobID()),
 	)
@@ -286,7 +294,7 @@ func (d *Dispatcher) Close() error {
 func (d *Dispatcher) invokeHandler(handler Handler, packet *protocol.Packet) {
 	defer func() {
 		if r := recover(); r != nil {
-			d.logger.ErrorContext(packet.Context(), "Recovered from handler panic",
+			d.getLogger().ErrorContext(packet.Context(), "Recovered from handler panic",
 				log.EMsg(packet.EMsg),
 				log.Any("panic", r),
 			)
@@ -299,7 +307,7 @@ func (d *Dispatcher) invokeHandler(handler Handler, packet *protocol.Packet) {
 func (d *Dispatcher) handleService(packet *protocol.Packet) {
 	header, ok := packet.Header.(*protocol.MsgHdrProtoBuf)
 	if !ok {
-		d.logger.WarnContext(packet.Context(), "Received ServiceMethod with non-protobuf header")
+		d.getLogger().WarnContext(packet.Context(), "Received ServiceMethod with non-protobuf header")
 		return
 	}
 
@@ -312,7 +320,7 @@ func (d *Dispatcher) handleService(packet *protocol.Packet) {
 	if ok {
 		d.invokeHandler(handler, packet)
 	} else {
-		d.logger.DebugContext(packet.Context(), "Unhandled ServiceMethod", log.String("method", methodName))
+		d.getLogger().DebugContext(packet.Context(), "Unhandled ServiceMethod", log.String("method", methodName))
 	}
 }
 
@@ -333,7 +341,7 @@ func (d *Dispatcher) handleJobResponse(packet *protocol.Packet) bool {
 func (d *Dispatcher) handleMulti(packet *protocol.Packet) {
 	msg := &pb.CMsgMulti{}
 	if err := proto.Unmarshal(packet.Payload, msg); err != nil {
-		d.logger.ErrorContext(packet.Context(), "Failed to unmarshal CMsgMulti", log.Err(err))
+		d.getLogger().ErrorContext(packet.Context(), "Failed to unmarshal CMsgMulti", log.Err(err))
 		return
 	}
 
@@ -343,7 +351,7 @@ func (d *Dispatcher) handleMulti(packet *protocol.Packet) {
 
 		payload, err = d.decompressPayload(payload, int64(size))
 		if err != nil {
-			d.logger.ErrorContext(packet.Context(), "Multi-packet decompression failed", log.Err(err))
+			d.getLogger().ErrorContext(packet.Context(), "Multi-packet decompression failed", log.Err(err))
 			return
 		}
 	}
@@ -352,13 +360,13 @@ func (d *Dispatcher) handleMulti(packet *protocol.Packet) {
 	for reader.Len() > 0 {
 		var subSize uint32
 		if err := binary.Read(reader, binary.LittleEndian, &subSize); err != nil {
-			d.logger.WarnContext(packet.Context(), "Failed to read multi-packet sub-size", log.Err(err))
+			d.getLogger().WarnContext(packet.Context(), "Failed to read multi-packet sub-size", log.Err(err))
 			break
 		}
 
 		subPkt, err := protocol.ParsePacket(io.LimitReader(reader, int64(subSize)))
 		if err != nil {
-			d.logger.WarnContext(packet.Context(), "Failed to parse nested multi-packet", log.Err(err))
+			d.getLogger().WarnContext(packet.Context(), "Failed to parse nested multi-packet", log.Err(err))
 			continue
 		}
 
@@ -470,4 +478,10 @@ func newPacket(
 	}
 
 	return pkt
+}
+
+func (d *Dispatcher) getLogger() log.Logger {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	return d.logger
 }
