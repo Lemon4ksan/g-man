@@ -1,4 +1,5 @@
 # Project variables
+BINARY_NAME=g-man-bot
 PKG=$(shell go list ./... | grep -v /vendor/)
 COVER_OUT?=coverage.out
 COVER_PKG?=$(PKG)
@@ -11,7 +12,9 @@ GEN_OUT=pkg/steam/webapi/generated.go
 CYAN  := \033[0;36m
 RESET := \033[0m
 
-.PHONY: test race cover cover-clean lint generate clean format help
+.PHONY: all build test race cover cover-clean lint generate clean format help
+
+all: generate race build ## Run the full cycle: generation, tests and assembly
 
 test: ## Run normal quick tests
 	@printf "$(CYAN)Running unit tests...$(RESET)\n"
@@ -33,6 +36,10 @@ cover-clean: ## Display the clean coverage report in the terminal
 
 generate: ## Update all generated files (manual review required)
 	cd cmd/generator && go run main.go webapi proto steamlang format
+
+build: ## Build the bot executable file
+	@printf "$(CYAN)Building bot binary...$(RESET)\n"
+	go build -o bin/$(BINARY_NAME) cmd/bot/main.go
 
 lint: ## Check the code with a linter (requires golangci-lint)
 	@printf "$(CYAN)Running linter...$(RESET)\n"
