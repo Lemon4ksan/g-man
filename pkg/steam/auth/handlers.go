@@ -27,7 +27,7 @@ import (
 // handleChannelEncryptRequest processes the initial TCP handshake from Steam CM.
 // It generates a symmetric session key and sends it back encrypted with Steam's public key.
 func (a *Authenticator) handleChannelEncryptRequest(packet *protocol.Packet) {
-	a.logger.Debug("Received ChannelEncryptRequest", log.Int("size", len(packet.Payload)))
+	a.getLogger().Debug("Received ChannelEncryptRequest", log.Int("size", len(packet.Payload)))
 
 	r := bytes.NewReader(packet.Payload)
 
@@ -66,7 +66,7 @@ func (a *Authenticator) handleChannelEncryptRequest(packet *protocol.Packet) {
 	_ = binary.Write(resp, binary.LittleEndian, crc32.ChecksumIEEE(encryptedKey))
 	_ = binary.Write(resp, binary.LittleEndian, uint32(0))
 
-	a.logger.Debug("Sending ChannelEncryptResponse", log.Int("key_size", len(encryptedKey)))
+	a.getLogger().Debug("Sending ChannelEncryptResponse", log.Int("key_size", len(encryptedKey)))
 
 	// This is a network-level response, independent of the user's LogOn context.
 	if err := a.socket.SendRaw(context.Background(), enums.EMsg_ChannelEncryptResponse, resp.Bytes()); err != nil {
@@ -98,7 +98,7 @@ func (a *Authenticator) handleChannelEncryptResult(packet *protocol.Packet) {
 	}
 
 	a.socket.SetEncryptionKey(*keyPtr)
-	a.logger.Info("TCP Encryption established")
+	a.getLogger().Info("TCP Encryption established")
 
 	// Get the context and details for the current login attempt
 	details := a.activeDetails.Load()
@@ -121,7 +121,7 @@ func (a *Authenticator) handleLogOnResponse(packet *protocol.Packet) {
 	}
 
 	if res := enums.EResult(msg.GetEresult()); res != enums.EResult_OK {
-		a.logger.Error("Logon denied by CM", log.EResult(res))
+		a.getLogger().Error("Logon denied by CM", log.EResult(res))
 
 		a.failLogin(api.NewEResultError(res, nil))
 
@@ -149,7 +149,7 @@ func (a *Authenticator) handleLogOnResponse(packet *protocol.Packet) {
 	}
 
 	if err := a.socket.StartHeartbeat(interval); err != nil {
-		a.logger.Error("Failed to start heartbeat", log.Err(err))
+		a.getLogger().Error("Failed to start heartbeat", log.Err(err))
 		a.failLogin(fmt.Errorf("logon_response: failed to start heartbeat: %w", err))
 		return
 	}
@@ -160,7 +160,7 @@ func (a *Authenticator) handleLogOnResponse(packet *protocol.Packet) {
 
 	a.succeedLogin()
 
-	a.logger.Info("Logon successful",
+	a.getLogger().Info("Logon successful",
 		log.Int32("heartbeat_seconds", msg.GetHeartbeatSeconds()),
 		log.Uint32("public_ip", msg.GetPublicIp().GetV4()),
 	)
@@ -170,12 +170,12 @@ func (a *Authenticator) handleLogOnResponse(packet *protocol.Packet) {
 func (a *Authenticator) handleLoggedOff(packet *protocol.Packet) {
 	resp := &pb.CMsgClientLoggedOff{}
 	if err := proto.Unmarshal(packet.Payload, resp); err != nil {
-		a.logger.Error("Unmarshal failed in handleLoggedOff", log.Err(err))
+		a.getLogger().Error("Unmarshal failed in handleLoggedOff", log.Err(err))
 		return
 	}
 
 	res := enums.EResult(resp.GetEresult())
-	a.logger.Warn("Logged off by server", log.EResult(res))
+	a.getLogger().Warn("Logged off by server", log.EResult(res))
 
 	if api.IsAuthError(res) {
 		a.failLogin(api.ErrSessionExpired)

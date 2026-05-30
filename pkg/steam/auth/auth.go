@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -156,7 +157,7 @@ type Option func(*Authenticator)
 
 // WithLogger sets a custom logger for the Authenticator.
 func WithLogger(l log.Logger) Option {
-	return func(a *Authenticator) { a.logger = l.With(log.Module("auth")) }
+	return func(a *Authenticator) { a.setLogger(l.With(log.Module("auth"))) }
 }
 
 // WithStorage sets a persistent storage provider for authentication data.
@@ -206,10 +207,11 @@ func ExtractSteamIDFromJWT(token string) id.ID {
 type Authenticator struct {
 	state atomic.Int32
 
-	logger  log.Logger
-	bus     *bus.Bus
-	socket  SocketProvider
-	service WebAuthenticator
+	loggerMu sync.RWMutex
+	logger   log.Logger
+	bus      *bus.Bus
+	socket   SocketProvider
+	service  WebAuthenticator
 
 	activeDetails atomic.Pointer[LogOnDetails]
 	tempKey       atomic.Pointer[[]byte]
@@ -217,6 +219,24 @@ type Authenticator struct {
 	loginCancel atomic.Value
 	loginResult chan error
 	store       Store
+}
+
+func (a *Authenticator) getLogger() log.Logger {
+	a.loggerMu.RLock()
+	defer a.loggerMu.RUnlock()
+
+	if a.logger == nil {
+		return log.Discard
+	}
+
+	return a.logger
+}
+
+func (a *Authenticator) setLogger(l log.Logger) {
+	a.loggerMu.Lock()
+	defer a.loggerMu.Unlock()
+
+	a.logger = l
 }
 
 // NewAuthenticator creates a new instance of Authenticator.
@@ -277,7 +297,7 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 		}
 
 		if len(logFields) > 0 {
-			a.logger = a.logger.With(logFields...)
+			a.setLogger(a.getLogger().With(logFields...))
 		}
 	}
 
@@ -307,7 +327,7 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 	}
 
 	if len(logFields) > 0 {
-		a.logger = a.logger.With(logFields...)
+		a.setLogger(a.getLogger().With(logFields...))
 	}
 
 	a.setState(StateLoggingOn)
@@ -325,7 +345,7 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 	}
 
 	if server.Type == "websockets" {
-		a.logger.Debug("WebSocket detected, starting logon sequence immediately")
+		a.getLogger().Debug("WebSocket detected, starting logon sequence immediately")
 		a.sendLogOn(ctx, details)
 	}
 
@@ -343,7 +363,7 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 
 	var eResErr *api.EResultError
 	if errors.As(resultErr, &eResErr) && eResErr.Result == enums.EResult_InvalidPassword {
-		a.logger.Warn("Session rejected by CM (Invalid Password/Token), clearing local storage")
+		a.getLogger().Warn("Session rejected by CM (Invalid Password/Token), clearing local storage")
 		_ = a.store.Clear(ctx, details.AccountName)
 	}
 
@@ -466,7 +486,7 @@ func (a *Authenticator) resolveConfirmation(
 			msg = "Email confirmation required"
 		}
 
-		a.logger.Info(msg, log.String("associated_message", conf.GetAssociatedMessage()))
+		a.getLogger().Info(msg, log.String("associated_message", conf.GetAssociatedMessage()))
 
 		a.bus.Publish(&SteamGuardRequiredEvent{
 			Is2FA:       is2FA,
@@ -485,7 +505,7 @@ func (a *Authenticator) resolveConfirmation(
 						confType,
 					)
 					if err != nil {
-						a.logger.Error("Failed to submit guard code", log.Err(err))
+						a.getLogger().Error("Failed to submit guard code", log.Err(err))
 						a.failLogin(fmt.Errorf("steam guard rejected: %w", err))
 					}
 				}()
@@ -493,7 +513,7 @@ func (a *Authenticator) resolveConfirmation(
 		})
 
 	case pb.EAuthSessionGuardType_k_EAuthSessionGuardType_DeviceConfirmation:
-		a.logger.Info("Mobile app confirmation required (Accept prompt on phone)")
+		a.getLogger().Info("Mobile app confirmation required (Accept prompt on phone)")
 		a.bus.Publish(&SteamGuardRequiredEvent{IsAppConfirm: true})
 	}
 }
@@ -524,7 +544,7 @@ func (a *Authenticator) pollAuthStatus(
 			pollRes, err := a.service.PollAuthSessionStatus(ctx, clientID, requestID)
 			if err != nil {
 				if !strings.Contains(err.Error(), "DuplicateRequest") {
-					a.logger.Debug("Poll status warning", log.Err(err))
+					a.getLogger().Debug("Poll status warning", log.Err(err))
 				}
 
 				continue
@@ -565,15 +585,15 @@ func (a *Authenticator) failLogin(err error) {
 func (a *Authenticator) acquireMachineID(ctx context.Context, details *LogOnDetails) {
 	saved, err := a.store.GetMachineID(ctx, details.AccountName)
 	if err == nil && len(saved) > 0 {
-		a.logger.Debug("Found saved MachineID in storage")
+		a.getLogger().Debug("Found saved MachineID in storage")
 
 		details.MachineID = saved
 	} else {
-		a.logger.Info("Generating new MachineID for account")
+		a.getLogger().Info("Generating new MachineID for account")
 
 		details.MachineID = generateMachineID()
 		if err := a.store.SaveMachineID(ctx, details.AccountName, details.MachineID); err != nil {
-			a.logger.Error("Storage save failed", log.Err(err))
+			a.getLogger().Error("Storage save failed", log.Err(err))
 		}
 	}
 }
@@ -582,7 +602,7 @@ func (a *Authenticator) acquireAuthToken(ctx context.Context, details *LogOnDeta
 	if details.RefreshToken == "" {
 		token, err := a.store.GetRefreshToken(ctx, details.AccountName)
 		if err == nil && token != "" {
-			a.logger.Info("Found saved refresh token in storage")
+			a.getLogger().Info("Found saved refresh token in storage")
 
 			details.RefreshToken = token
 		}
@@ -591,12 +611,12 @@ func (a *Authenticator) acquireAuthToken(ctx context.Context, details *LogOnDeta
 	if details.SteamID == 0 {
 		details.SteamID = ExtractSteamIDFromJWT(details.RefreshToken)
 		if details.SteamID != 0 {
-			a.logger.Debug("Extracted SteamID from saved token", log.SteamID(details.SteamID.Uint64()))
+			a.getLogger().Debug("Extracted SteamID from saved token", log.SteamID(details.SteamID.Uint64()))
 		}
 	}
 
 	if details.RefreshToken == "" {
-		a.logger.Info("No saved token, performing password authentication via WebAPI")
+		a.getLogger().Info("No saved token, performing password authentication via WebAPI")
 
 		refresh, access, steamID, err := a.performPasswordAuth(ctx, details)
 		if err != nil {
@@ -608,7 +628,7 @@ func (a *Authenticator) acquireAuthToken(ctx context.Context, details *LogOnDeta
 		details.SteamID = id.ID(steamID)
 
 		if err := a.store.SaveRefreshToken(ctx, details.AccountName, refresh); err != nil {
-			a.logger.Error("Storage save failed", log.Err(err))
+			a.getLogger().Error("Storage save failed", log.Err(err))
 		}
 	}
 
