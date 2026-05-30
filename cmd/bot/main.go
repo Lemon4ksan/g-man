@@ -15,12 +15,11 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/g-man/pkg/behavior"
-	guardbehavior "github.com/lemon4ksan/g-man/pkg/behavior/guard"
+	"github.com/lemon4ksan/g-man/pkg/behavior/guard"
 	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
-	"github.com/lemon4ksan/g-man/pkg/steam/guard"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
 	"github.com/lemon4ksan/g-man/pkg/steam/sys/directory"
 	"github.com/lemon4ksan/g-man/pkg/storage"
@@ -64,12 +63,7 @@ func NewBot(cfg Config, store storage.Provider, logger log.Logger) (*Bot, error)
 
 	opts := []steam.Option{
 		steam.WithLogger(logger),
-		guard.WithModule(guard.Config{
-			SharedSecret:   cfg.SharedSecret,
-			IdentitySecret: cfg.IdentitySecret,
-			DeviceID:       cfg.DeviceID,
-			RateLimit:      2 * time.Second,
-		}),
+		guard.WithModule(guard.DefaultGuardConfig(cfg.SharedSecret, cfg.IdentitySecret, cfg.DeviceID)),
 	}
 
 	client, err := steam.NewClient(clientCfg, opts...)
@@ -175,7 +169,7 @@ func (b *Bot) setupOrchestrator() {
 	b.orchestrator = behavior.NewOrchestrator(b.logger, b.client.Bus())
 	guardModule := guard.From(b.client)
 
-	guardBehaviorCfg := guardbehavior.Config{
+	guardBehaviorCfg := guard.Config{
 		AutoAcceptTypes: []guard.ConfirmationType{
 			guard.ConfTypeTrade,
 			guard.ConfTypeMarket,
@@ -184,7 +178,7 @@ func (b *Bot) setupOrchestrator() {
 		PollOnStart: true,
 	}
 
-	b.orchestrator.Install(guardbehavior.AutoAccept(guardModule, guardBehaviorCfg))
+	b.orchestrator.Install(guard.AutoAccept(guardModule, guardBehaviorCfg))
 }
 
 func (b *Bot) handleEvents(ctx context.Context) {
