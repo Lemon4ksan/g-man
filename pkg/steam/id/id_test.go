@@ -203,3 +203,35 @@ func TestResolveVanityURL(t *testing.T) {
 		assert.Contains(t, err.Error(), "success=42")
 	})
 }
+
+func TestParseTradeURL(t *testing.T) {
+	t.Run("empty URL", func(t *testing.T) {
+		_, _, err := id.ParseTradeURL("")
+		assert.Error(t, err)
+		assert.Equal(t, "trade url is empty", err.Error())
+	})
+
+	t.Run("invalid URL syntax", func(t *testing.T) {
+		_, _, err := id.ParseTradeURL("http://[fe80::%d]/")
+		assert.Error(t, err)
+	})
+
+	t.Run("missing partner parameter", func(t *testing.T) {
+		_, _, err := id.ParseTradeURL("https://steamcommunity.com/tradeoffer/new/?token=abc")
+		assert.Error(t, err)
+		assert.Equal(t, "missing partner parameter in trade URL", err.Error())
+	})
+
+	t.Run("invalid partner integer", func(t *testing.T) {
+		_, _, err := id.ParseTradeURL("https://steamcommunity.com/tradeoffer/new/?partner=not-an-int&token=abc")
+		assert.Error(t, err)
+	})
+
+	t.Run("valid trade URL", func(t *testing.T) {
+		partnerID, token, err := id.ParseTradeURL("https://steamcommunity.com/tradeoffer/new/?partner=12345&token=abc")
+		assert.NoError(t, err)
+		assert.Equal(t, "abc", token)
+		assert.True(t, partnerID.IsValid())
+		assert.Equal(t, uint32(12345), partnerID.AccountID())
+	})
+}

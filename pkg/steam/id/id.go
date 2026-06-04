@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -311,4 +312,31 @@ func ResolveVanityURL(ctx context.Context, d service.Doer, vanityURL string) (ID
 	}
 
 	return Parse(res.SteamID), nil
+}
+
+// ParseTradeURL parses a Steam trade link, extracting the partner's 64-bit SteamID64 and token.
+func ParseTradeURL(tradeURL string) (ID, string, error) {
+	if tradeURL == "" {
+		return 0, "", errors.New("trade url is empty")
+	}
+
+	u, err := url.Parse(tradeURL)
+	if err != nil {
+		return 0, "", err
+	}
+
+	queryParams := u.Query()
+	partnerStr := queryParams.Get("partner")
+	token := queryParams.Get("token")
+
+	if partnerStr == "" {
+		return 0, "", errors.New("missing partner parameter in trade URL")
+	}
+
+	accountID, err := strconv.ParseUint(partnerStr, 10, 32)
+	if err != nil {
+		return 0, "", err
+	}
+
+	return FromAccountID(uint32(accountID)), token, nil
 }
