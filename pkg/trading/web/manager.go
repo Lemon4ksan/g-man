@@ -19,6 +19,7 @@ import (
 
 	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/log"
+	"github.com/lemon4ksan/g-man/pkg/rest"
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
@@ -521,12 +522,14 @@ func (m *Manager) GetOffer(ctx context.Context, offerID uint64) (*trading.TradeO
 	}
 
 	req := struct {
-		TradeOfferID uint64 `url:"tradeofferid"`
-		Language     string `url:"language"`
-	}{offerID, m.config.Language}
+		TradeOfferID    uint64 `url:"tradeofferid"`
+		GetDescriptions bool   `url:"get_descriptions"`
+		Language        string `url:"language"`
+	}{offerID, true, m.config.Language}
 
 	type respStruct struct {
-		Offer *trading.TradeOffer `json:"offer"`
+		Offer        *trading.TradeOffer `json:"offer"`
+		Descriptions []rawDescription    `json:"descriptions"`
 	}
 
 	resp, err := service.WebAPI[respStruct](ctx, m.web, "GET", "IEconService", "GetTradeOffer", 1, req)
@@ -537,6 +540,8 @@ func (m *Manager) GetOffer(ctx context.Context, offerID uint64) (*trading.TradeO
 	if resp.Offer == nil {
 		return nil, fmt.Errorf("offer %d not found", offerID)
 	}
+
+	mapDescriptionsToOffer(resp.Offer, resp.Descriptions)
 
 	return resp.Offer, nil
 }
@@ -716,11 +721,12 @@ func (m *Manager) doPoll(ctx context.Context) {
 		ActiveOnly           int   `url:"active_only"`
 		GetDescriptions      int   `url:"get_descriptions"`
 		TimeHistoricalCutoff int64 `url:"time_historical_cutoff"`
-	}{1, 1, 1, 0, cutoff}
+	}{1, 1, 1, 1, cutoff}
 
 	type respStruct struct {
-		Sent     []*trading.TradeOffer `json:"trade_offers_sent"`
-		Received []*trading.TradeOffer `json:"trade_offers_received"`
+		Sent         []*trading.TradeOffer `json:"trade_offers_sent"`
+		Received     []*trading.TradeOffer `json:"trade_offers_received"`
+		Descriptions []rawDescription      `json:"descriptions"`
 	}
 
 	resp, err := service.WebAPI[respStruct](ctx, m.web, "GET", "IEconService", "GetTradeOffers", 1, req)
@@ -730,6 +736,18 @@ func (m *Manager) doPoll(ctx context.Context) {
 		}
 
 		return
+	}
+
+	for _, o := range resp.Sent {
+		if o != nil {
+			mapDescriptionsToOffer(o, resp.Descriptions)
+		}
+	}
+
+	for _, o := range resp.Received {
+		if o != nil {
+			mapDescriptionsToOffer(o, resp.Descriptions)
+		}
 	}
 
 	// Auto-cancellation checks for active sent offers (CancelTime) and pending limits (CancelOfferCount)
@@ -941,10 +959,11 @@ func (m *Manager) GetActiveSentOffers(ctx context.Context) ([]trading.TradeOffer
 		ActiveOnly           int   `url:"active_only"`
 		GetDescriptions      int   `url:"get_descriptions"`
 		TimeHistoricalCutoff int64 `url:"time_historical_cutoff"`
-	}{0, 1, 1, 0, time.Now().Add(-24 * time.Hour).Unix()}
+	}{0, 1, 1, 1, time.Now().Add(-24 * time.Hour).Unix()}
 
 	type respStruct struct {
-		Sent []*trading.TradeOffer `json:"trade_offers_sent"`
+		Sent         []*trading.TradeOffer `json:"trade_offers_sent"`
+		Descriptions []rawDescription      `json:"descriptions"`
 	}
 
 	resp, err := service.WebAPI[respStruct](ctx, m.web, "GET", "IEconService", "GetTradeOffers", 1, req)
@@ -955,9 +974,68 @@ func (m *Manager) GetActiveSentOffers(ctx context.Context) ([]trading.TradeOffer
 	offers := make([]trading.TradeOffer, 0, len(resp.Sent))
 	for _, o := range resp.Sent {
 		if o != nil {
+			mapDescriptionsToOffer(o, resp.Descriptions)
 			offers = append(offers, *o)
 		}
 	}
 
 	return offers, nil
+}
+
+type rawDescription struct {
+	AppID          uint32                `json:"appid"`
+	ClassID        string                `json:"classid"`
+	InstanceID     string                `json:"instanceid"`
+	Name           string                `json:"name"`
+	NameColor      string                `json:"name_color"`
+	Type           string                `json:"type"`
+	MarketName     string                `json:"market_name"`
+	MarketHashName string                `json:"market_hash_name"`
+	IconURL        string                `json:"icon_url"`
+	Tradable       rest.BoolInt          `json:"tradable"`
+	Marketable     rest.BoolInt          `json:"marketable"`
+	Descriptions   []trading.Description `json:"descriptions"`
+	Tags           []trading.Tag         `json:"tags"`
+	Actions        []trading.Action      `json:"actions"`
+}
+
+func mapDescriptionsToOffer(offer *trading.TradeOffer, rawDescs []rawDescription) {
+	if offer == nil || len(rawDescs) == 0 {
+		return
+	}
+
+	type descKey struct {
+		ClassID    uint64
+		InstanceID uint64
+	}
+
+	descMap := make(map[descKey]*rawDescription)
+	for i := range rawDescs {
+		d := &rawDescs[i]
+		classID, _ := strconv.ParseUint(d.ClassID, 10, 64)
+		instanceID, _ := strconv.ParseUint(d.InstanceID, 10, 64)
+		descMap[descKey{ClassID: classID, InstanceID: instanceID}] = d
+	}
+
+	mapItems := func(items []*trading.Item) {
+		for _, it := range items {
+			key := descKey{ClassID: it.ClassID, InstanceID: it.InstanceID}
+			if d, ok := descMap[key]; ok {
+				it.Name = d.Name
+				it.NameColor = d.NameColor
+				it.Type = d.Type
+				it.MarketName = d.MarketName
+				it.MarketHashName = d.MarketHashName
+				it.IconURL = d.IconURL
+				it.Tradable = bool(d.Tradable)
+				it.Marketable = bool(d.Marketable)
+				it.Descriptions = d.Descriptions
+				it.Tags = d.Tags
+				it.Actions = d.Actions
+			}
+		}
+	}
+
+	mapItems(offer.ItemsToGive)
+	mapItems(offer.ItemsToReceive)
 }
