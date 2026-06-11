@@ -22,6 +22,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/rest"
 	"github.com/lemon4ksan/g-man/pkg/steam"
+	"github.com/lemon4ksan/g-man/pkg/steam/api"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/community/inventory"
@@ -277,22 +278,41 @@ func (m *Manager) SendOffer(ctx context.Context, p trading.OfferParams) (uint64,
 		AssetID   string `json:"assetid"`
 	}
 
+	type sideObject struct {
+		Assets   []steamObject `json:"assets"`
+		Currency []any         `json:"currency"`
+		Ready    bool          `json:"ready"`
+	}
+
 	tradeOfferObj := struct {
-		NewVersion bool          `json:"new_version"`
-		Version    int           `json:"version"`
-		Me         []steamObject `json:"me"`
-		Them       []steamObject `json:"them"`
-	}{true, 2, make([]steamObject, 0), make([]steamObject, 0)}
+		NewVersion bool       `json:"newversion"`
+		Version    int        `json:"version"`
+		Me         sideObject `json:"me"`
+		Them       sideObject `json:"them"`
+	}{
+		NewVersion: true,
+		Version:    2,
+		Me: sideObject{
+			Assets:   make([]steamObject, 0),
+			Currency: make([]any, 0),
+			Ready:    false,
+		},
+		Them: sideObject{
+			Assets:   make([]steamObject, 0),
+			Currency: make([]any, 0),
+			Ready:    false,
+		},
+	}
 
 	for _, it := range p.ItemsToGive {
-		tradeOfferObj.Me = append(tradeOfferObj.Me, steamObject{
+		tradeOfferObj.Me.Assets = append(tradeOfferObj.Me.Assets, steamObject{
 			AppID: it.AppID, ContextID: strconv.FormatInt(it.ContextID, 10),
 			AssetID: strconv.FormatUint(it.AssetID, 10), Amount: it.Amount,
 		})
 	}
 
 	for _, it := range p.ItemsToReceive {
-		tradeOfferObj.Them = append(tradeOfferObj.Them, steamObject{
+		tradeOfferObj.Them.Assets = append(tradeOfferObj.Them.Assets, steamObject{
 			AppID: it.AppID, ContextID: strconv.FormatInt(it.ContextID, 10),
 			AssetID: strconv.FormatUint(it.AssetID, 10), Amount: it.Amount,
 		})
@@ -301,16 +321,27 @@ func (m *Manager) SendOffer(ctx context.Context, p trading.OfferParams) (uint64,
 	jsonObj, _ := json.Marshal(tradeOfferObj)
 	sessionID := m.community.SessionID(community.BaseURL)
 
+	type createParams struct {
+		TradeOfferAccessToken string `json:"trade_offer_access_token"`
+	}
+
+	var paramsStr string
+	if p.Token != "" {
+		paramsObj := createParams{TradeOfferAccessToken: p.Token}
+		paramsBytes, _ := json.Marshal(paramsObj)
+		paramsStr = string(paramsBytes)
+	}
+
 	payload := struct {
-		SessionID   string `url:"sessionid"`
-		ServerID    int    `url:"serverid"`
-		PartnerID   id.ID  `url:"partner"`
-		Message     string `url:"tradeoffermessage"`
-		JSON        string `url:"json_tradeoffer"`
-		Token       string `url:"trade_offer_access_token,omitempty"`
-		CounteredID uint64 `url:"tradeofferid_countered,omitempty"`
+		SessionID    string `url:"sessionid"`
+		ServerID     int    `url:"serverid"`
+		PartnerID    id.ID  `url:"partner"`
+		Message      string `url:"tradeoffermessage"`
+		JSON         string `url:"json_tradeoffer"`
+		CreateParams string `url:"trade_offer_create_params,omitempty"`
+		CounteredID  uint64 `url:"tradeofferid_countered,omitempty"`
 	}{
-		sessionID, 1, p.PartnerID, p.Message, string(jsonObj), p.Token, p.CounteredID,
+		sessionID, 1, p.PartnerID, p.Message, string(jsonObj), paramsStr, p.CounteredID,
 	}
 
 	type sendResponse struct {
@@ -319,7 +350,19 @@ func (m *Manager) SendOffer(ctx context.Context, p trading.OfferParams) (uint64,
 		NeedsEmail   bool   `json:"needs_email_confirmation"`
 	}
 
-	resp, err := community.PostForm[sendResponse](ctx, m.community, "tradeoffer/new/send", payload)
+	referer := fmt.Sprintf("https://steamcommunity.com/tradeoffer/new/?partner=%d", p.PartnerID.AccountID())
+	if p.Token != "" {
+		referer = fmt.Sprintf("%s&token=%s", referer, p.Token)
+	}
+
+	resp, err := community.PostForm[sendResponse](
+		ctx,
+		m.community,
+		"tradeoffer/new/send",
+		payload,
+		api.WithHeader("Referer", referer),
+		api.WithHeader("Origin", "https://steamcommunity.com"),
+	)
 	if err != nil {
 		return 0, err
 	}
