@@ -389,6 +389,21 @@ func (g *Guardian) Close() error {
 	return g.Base.Close()
 }
 
+// SetConfig dynamically updates the guardian configuration.
+func (g *Guardian) SetConfig(cfg Config) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	g.config = cfg
+}
+
+// Config returns the current guardian configuration.
+func (g *Guardian) Config() Config {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.config
+}
+
 func maskDeviceID(deviceID string) string {
 	if len(deviceID) <= 8 {
 		return "****"
