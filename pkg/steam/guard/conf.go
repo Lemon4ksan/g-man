@@ -102,6 +102,9 @@ type Confirmation struct {
 	// Requester is the person/entity requesting the action (if applicable)
 	Requester string `json:"requester,omitempty"`
 
+	// Description is a human-readable description of the confirmation
+	Description string `json:"description,omitempty"`
+
 	// expiresAt is calculated internally, not from JSON
 	expiresAt time.Time
 }

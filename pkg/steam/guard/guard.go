@@ -243,6 +243,13 @@ func (g *Guardian) StartAuthed(ctx context.Context, authCtx module.AuthContext) 
 	return nil
 }
 
+// Service returns the confirmation service used by the guardian.
+//
+// If the service is not yet initialized by [steam.Client], it returns nil.
+func (g *Guardian) Service() ConfService {
+	return g.service
+}
+
 // Metrics returns the operational metrics of the guardian.
 func (g *Guardian) Metrics() *GuardianMetrics { return g.metrics }
 
@@ -348,7 +355,7 @@ func (g *Guardian) respond(ctx context.Context, confs []*Confirmation, accept bo
 		tag = "cancel"
 	}
 
-	timestamp := time.Now().Unix()
+	timestamp := g.clock.Now().Unix()
 
 	key, err := crypto.GenerateConfirmationKey(g.config.IdentitySecret, timestamp, tag)
 	if err != nil {
