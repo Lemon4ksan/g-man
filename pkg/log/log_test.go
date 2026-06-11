@@ -158,6 +158,14 @@ func TestLogger_Formatting(t *testing.T) {
 			expected: []string{"M1 › M2", "long:"},
 		},
 		{
+			name:     "Multi-byte Alignment Logic",
+			fullPath: true,
+			setup:    func(l Logger) Logger { return l.With(Module("M1"), Module("M2")) },
+			msg:      "hello",
+			fields:   []Field{String("k", "v")},
+			expected: []string{"hello" + strings.Repeat(" ", 20) + "k=v"}, // 50 - (17 + 8 + 5) = 20 spaces
+		},
+		{
 			name:     "Alignment Logic",
 			fullPath: false,
 			setup:    func(l Logger) Logger { return l },

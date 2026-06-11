@@ -19,6 +19,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 )
@@ -502,7 +503,7 @@ func (l *AsyncLogger) format(b *bytes.Buffer, lvl Level, msg string, callFields 
 			l.writeColor(b, ansiReset)
 			b.WriteByte(' ')
 
-			visibleLen += len(fullPath) + 1
+			visibleLen += utf8.RuneCountInString(fullPath) + 1
 		} else {
 			indent := strings.Repeat("   ", depth-1)
 
@@ -514,13 +515,13 @@ func (l *AsyncLogger) format(b *bytes.Buffer, lvl Level, msg string, callFields 
 			l.writeColor(b, ansiReset)
 			b.WriteByte(' ')
 
-			visibleLen += len(indent) + 3 + len(l.path[depth-1]) + 1
+			visibleLen += len(indent) + 3 + utf8.RuneCountInString(l.path[depth-1]) + 1
 		}
 	}
 
 	// Message
 	b.WriteString(msg)
-	visibleLen += len(msg)
+	visibleLen += utf8.RuneCountInString(msg)
 
 	// Fields
 	totalFields := len(l.context) + len(callFields)
@@ -603,7 +604,7 @@ func (l *AsyncLogger) blockPadding(depth int) int {
 	if depth > 0 {
 		if l.cfg.FullPath {
 			pathStr := strings.Join(l.path, l.cfg.PathSep)
-			base += len(pathStr) + 1
+			base += utf8.RuneCountInString(pathStr) + 1
 		} else {
 			base += (depth-1)*3 + 3
 		}
