@@ -1358,3 +1358,17 @@ func (m *Manager) enrichOfferDescriptions(ctx context.Context, offer *trading.Tr
 
 	return nil
 }
+
+// Web returns the internal service.Doer.
+func (m *Manager) Web() service.Doer {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.web
+}
+
+// Community returns the internal community.Requester.
+func (m *Manager) Community() community.Requester {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.community
+}
