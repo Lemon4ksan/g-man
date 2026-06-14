@@ -7,6 +7,7 @@ package chat
 import (
 	"context"
 	"errors"
+	"net/http"
 	"sync"
 	"time"
 
@@ -712,9 +713,13 @@ func (m *Chat) synchronizeOfflineMessages(ctx context.Context) {
 	)
 
 	for attempt := range 3 {
-		sessionsResp, err = service.Unified[pb.CFriendsMessages_GetActiveMessageSessions_Response](
+		sessionsResp, err = service.UnifiedExplicit[pb.CFriendsMessages_GetActiveMessageSessions_Response](
 			ctx,
 			m.service,
+			http.MethodPost,
+			"FriendMessages",
+			"GetActiveMessageSessions",
+			1,
 			req,
 		)
 		if err == nil {

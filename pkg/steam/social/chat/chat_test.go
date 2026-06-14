@@ -278,7 +278,7 @@ func TestChat_OfflineSync(t *testing.T) {
 	t.Run("Sync Unread Loop", func(t *testing.T) {
 		// Mock 1 unread session
 		ictx.MockService().
-			SetProtoResponse("FriendsMessages", "GetActiveMessageSessions", &pb.CFriendsMessages_GetActiveMessageSessions_Response{
+			SetProtoResponse("FriendMessages", "GetActiveMessageSessions", &pb.CFriendsMessages_GetActiveMessageSessions_Response{
 				MessageSessions: []*pb.CFriendsMessages_GetActiveMessageSessions_Response_FriendMessageSession{
 					{
 						AccountidFriend: proto.Uint32(id.ID(FriendSteamID).AccountID()),
