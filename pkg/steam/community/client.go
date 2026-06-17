@@ -118,6 +118,11 @@ func NewClient(httpClient aoni.HTTPDoer, sessionFunc func(string) string, opts .
 	return c
 }
 
+// Unwrap returns the underlying [aoni.Requester] if this is a wrapped client.
+func (c *Client) Unwrap() aoni.Requester {
+	return c.restClient
+}
+
 // SessionID retrieves the session identifier for the specified URI.
 func (c *Client) SessionID(targetURI string) string {
 	if c.sessionFunc == nil {
