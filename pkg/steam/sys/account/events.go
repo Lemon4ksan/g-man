@@ -4,7 +4,7 @@
 
 package account
 
-import "github.com/lemon4ksan/g-man/pkg/bus"
+import "github.com/lemon4ksan/miyako/bus"
 
 // InfoEvent is emitted when Steam sends us updated account details.
 type InfoEvent struct {

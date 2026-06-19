@@ -18,8 +18,8 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/miyako/generic"
 
-	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam/encoding"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
@@ -70,7 +70,7 @@ func Decorate(r Requester, mods ...aoni.RequestModifier) Requester {
 }
 
 // Option defines a functional configuration for the Client.
-type Option = bus.Option[*Client]
+type Option = generic.Option[*Client]
 
 // WithLogger sets a custom logger for the client.
 func WithLogger(l log.Logger) Option {

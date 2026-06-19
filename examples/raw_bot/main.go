@@ -12,9 +12,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/lemon4ksan/miyako/bus"
+	"github.com/lemon4ksan/miyako/generic"
+
 	"github.com/lemon4ksan/g-man/pkg/behavior"
 	"github.com/lemon4ksan/g-man/pkg/behavior/guard"
-	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
@@ -112,12 +114,13 @@ func main() {
 	logger.Info("Starting G-man Generic Raw Trading Bot Example...")
 
 	// 1. Initialize the behavior orchestrator to manage background tasks
-	orchestrator := behavior.NewOrchestrator(logger, bus.New())
+	orchBus := bus.New()
+	orchestrator := behavior.NewOrchestrator(orchBus, logger)
 
 	// 2. Configure the Steam Client with necessary modules
 	cfg := steam.DefaultConfig()
 	cfg.Storage = jsonStorage
-	cfg.Bus = orchestrator.Bus()
+	cfg.Bus = orchBus
 
 	// Setup Steam Guard configuration for automatic mobile confirmations
 	sharedSecret := os.Getenv("STEAM_SHARED_SECRET")
@@ -145,12 +148,10 @@ func main() {
 	webTradeManager := webtrading.From(client)
 	guardian := guard.From(client)
 
-	orchestrator.Install(
-		guard.AutoAccept(guardian, guard.Config{
-			AutoAcceptTypes: []guard.ConfirmationType{guard.ConfTypeTrade, guard.ConfTypeLogin},
-			PollOnStart:     true,
-		}),
-	)
+	guard.AutoAccept(orchestrator, guardian, guard.Config{
+		AutoAcceptTypes: generic.NewSet(guard.ConfTypeTrade, guard.ConfTypeLogin),
+		PollOnStart:     true,
+	})
 
 	// 4. Setup the Generic Trading Engine
 	tradeEngine := engine.New()

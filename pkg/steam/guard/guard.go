@@ -13,10 +13,15 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/lemon4ksan/miyako/batto"
+	"github.com/lemon4ksan/miyako/generic"
+	"github.com/lemon4ksan/miyako/kata"
+	"github.com/lemon4ksan/miyako/sync/lazy"
 	"golang.org/x/time/rate"
 
 	"github.com/lemon4ksan/g-man/pkg/crypto"
 	"github.com/lemon4ksan/g-man/pkg/log"
+	pbSteam "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
@@ -35,6 +40,18 @@ const (
 	StatePolling
 	// StateClosed indicates the module has been shut down.
 	StateClosed
+)
+
+// Event represents a trigger that drives a Guardian state transition.
+type Event int32
+
+const (
+	// EventStartPolling triggers transition from Stopped to Polling.
+	EventStartPolling Event = iota
+	// EventStopPolling triggers transition from Polling to Stopped.
+	EventStopPolling
+	// EventClose triggers transition to Closed from any active state.
+	EventClose
 )
 
 // String returns a human-readable representation of the State.
@@ -174,7 +191,7 @@ type Guardian struct {
 	service      ConfService
 	config       Config
 	clock        *OffsetClock
-	twoFactorSvc *TwoFactorService
+	twoFactorSvc *lazy.Lazy[*TwoFactorService]
 
 	// Confirmation tracking
 	mu            sync.RWMutex
@@ -183,6 +200,8 @@ type Guardian struct {
 
 	metrics     *GuardianMetrics
 	rateLimiter *rate.Limiter
+	fsm         *kata.FSM[State, Event]
+	fetchGroup  *batto.Group[string, []*Confirmation]
 }
 
 // New creates a new confirmation guardian instance.
@@ -201,6 +220,16 @@ func New(cfg Config) (*Guardian, error) {
 		rateLimiter:   rate.NewLimiter(rate.Every(cfg.RateLimit), 1),
 	}
 
+	fsm := kata.NewFSM[State, Event](StateStopped)
+	fsm.AddRules(
+		kata.TransitionRule[State, Event]{From: StateStopped, Event: EventStartPolling, To: StatePolling},
+		kata.TransitionRule[State, Event]{From: StatePolling, Event: EventStopPolling, To: StateStopped},
+		kata.TransitionRule[State, Event]{From: StateStopped, Event: EventClose, To: StateClosed},
+		kata.TransitionRule[State, Event]{From: StatePolling, Event: EventClose, To: StateClosed},
+	)
+	g.fsm = fsm
+	g.fetchGroup = &batto.Group[string, []*Confirmation]{}
+
 	return g, nil
 }
 
@@ -211,7 +240,9 @@ func (g *Guardian) Init(init module.InitContext) error {
 	}
 
 	if web := init.Service(); web != nil {
-		g.twoFactorSvc = NewTwoFactorService(web)
+		g.twoFactorSvc = lazy.New(func() (*TwoFactorService, error) {
+			return NewTwoFactorService(web), nil
+		})
 	}
 
 	g.Logger = g.Logger.With(log.String("device_id", maskDeviceID(g.config.DeviceID)))
@@ -219,8 +250,7 @@ func (g *Guardian) Init(init module.InitContext) error {
 	return nil
 }
 
-// StartAuthed is called when the Steam Client successfully logs in.
-// It synchronizes time.
+// StartAuthed starts the guardian in an authenticated state.
 func (g *Guardian) StartAuthed(ctx context.Context, authCtx module.AuthContext) error {
 	communityClient := authCtx.Community()
 	if communityClient == nil {
@@ -230,17 +260,64 @@ func (g *Guardian) StartAuthed(ctx context.Context, authCtx module.AuthContext) 
 	g.mu.Lock()
 	g.steamID = authCtx.SteamID()
 	g.service = NewMobileConf(communityClient)
-
-	if g.twoFactorSvc != nil {
-		offset, err := g.twoFactorSvc.QueryTimeOffset(ctx)
-		if err == nil {
-			g.clock.SetOffset(offset)
-		}
-	}
-
 	g.mu.Unlock()
 
+	offsetFuture := generic.NewFuture(func() (time.Duration, error) {
+		if g.twoFactorSvc != nil {
+			svc, err := g.twoFactorSvc.Get()
+			if err == nil && svc != nil {
+				offset, err := svc.QueryTimeOffset(ctx)
+				if err == nil {
+					g.clock.SetOffset(offset)
+				}
+			}
+		}
+
+		return 0, nil
+	})
+
+	statusFuture := generic.NewFuture(func() (*pbSteam.CTwoFactor_Status_Response, error) {
+		if g.twoFactorSvc != nil {
+			if svc, err := g.twoFactorSvc.Get(); err == nil && svc != nil {
+				return svc.QueryStatus(ctx, authCtx.SteamID())
+			}
+		}
+
+		return nil, nil
+	})
+
+	if offset, err := offsetFuture.Get(ctx); err == nil && offset != 0 {
+		g.clock.SetOffset(offset)
+		g.Logger.Debug("Time offset synchronized", log.Duration("offset", offset))
+	}
+
+	if status, err := statusFuture.Get(ctx); err == nil && status != nil {
+		g.Logger.Info("Steam Guard Status loaded",
+			log.String("device_id", status.GetDeviceIdentifier()),
+		)
+	}
+
 	return nil
+}
+
+// State returns the current lifecycle state of the Guardian.
+func (g *Guardian) State() State {
+	return g.fsm.CurrentState()
+}
+
+// SetConfig dynamically updates the guardian configuration.
+func (g *Guardian) SetConfig(cfg Config) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	g.config = cfg
+}
+
+// Config returns the current guardian configuration.
+func (g *Guardian) Config() Config {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.config
 }
 
 // Service returns the confirmation service used by the guardian.
@@ -281,32 +358,38 @@ func (g *Guardian) FetchConfirmations(ctx context.Context) ([]*Confirmation, err
 		return nil, err
 	}
 
-	timestamp := g.clock.Now().Unix()
-
-	key, err := crypto.GenerateConfirmationKey(g.config.IdentitySecret, timestamp, "conf")
-	if err != nil {
-		return nil, fmt.Errorf("guard: key generation: %w", err)
-	}
-
-	resp, err := g.service.GetConfirmations(ctx, g.config.DeviceID, g.steamID, key, timestamp)
-	if err != nil {
-		g.metrics.TotalErrors.Add(1)
-		return nil, err
-	}
-
-	if !resp.Success {
-		g.metrics.TotalErrors.Add(1)
-
-		if resp.NeedAuth {
-			g.Bus.Publish(&NeedAuthEvent{Message: resp.Message})
+	return g.fetchGroup.Do(ctx, "fetch_confirmations", func(workerCtx context.Context) ([]*Confirmation, error) {
+		if err := g.rateLimiter.Wait(workerCtx); err != nil {
+			return nil, err
 		}
 
-		return nil, fmt.Errorf("guard: steam rejected request: %s", resp.Message)
-	}
+		timestamp := g.clock.Now().Unix()
 
-	g.metrics.TotalFetched.Add(int64(len(resp.Confirmations)))
+		key, err := crypto.GenerateConfirmationKey(g.config.IdentitySecret, timestamp, "conf")
+		if err != nil {
+			return nil, fmt.Errorf("guard: key generation: %w", err)
+		}
 
-	return resp.Confirmations, nil
+		resp, err := g.service.GetConfirmations(workerCtx, g.config.DeviceID, g.steamID, key, timestamp)
+		if err != nil {
+			g.metrics.TotalErrors.Add(1)
+			return nil, err
+		}
+
+		if !resp.Success {
+			g.metrics.TotalErrors.Add(1)
+
+			if resp.NeedAuth {
+				g.Bus.Publish(&NeedAuthEvent{Message: resp.Message})
+			}
+
+			return nil, fmt.Errorf("guard: steam rejected request: %s", resp.Message)
+		}
+
+		g.metrics.TotalFetched.Add(int64(len(resp.Confirmations)))
+
+		return resp.Confirmations, nil
+	})
 }
 
 // Accept approves a single confirmation.
@@ -385,23 +468,8 @@ func (g *Guardian) respond(ctx context.Context, confs []*Confirmation, accept bo
 
 // Close shuts down the guardian module.
 func (g *Guardian) Close() error {
-	g.State.Store(int32(StateClosed))
+	_ = g.fsm.Transition(context.Background(), EventClose)
 	return g.Base.Close()
-}
-
-// SetConfig dynamically updates the guardian configuration.
-func (g *Guardian) SetConfig(cfg Config) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-
-	g.config = cfg
-}
-
-// Config returns the current guardian configuration.
-func (g *Guardian) Config() Config {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	return g.config
 }
 
 func maskDeviceID(deviceID string) string {

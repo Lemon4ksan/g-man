@@ -9,19 +9,19 @@ import (
 	"context"
 	"time"
 
+	"github.com/lemon4ksan/miyako/bus"
+	"github.com/lemon4ksan/miyako/generic"
+
 	"github.com/lemon4ksan/g-man/pkg/behavior"
-	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/log"
 )
 
 // BehaviorName is the unique identifier for the session keep-alive behavior.
 const BehaviorName = "session_keepalive"
 
-// KeepAlive returns an option that registers the session keep-alive behavior with the orchestrator.
-func KeepAlive(provider Provider, cfg Config) behavior.Option {
-	return func(o *behavior.Orchestrator) {
-		o.Register(New(provider, o.Logger(), o.Bus(), cfg))
-	}
+// KeepAlive registers the session keep-alive behavior with the orchestrator.
+func KeepAlive(orch *behavior.Orchestrator, provider Provider, cfg Config) {
+	orch.Register(New(provider, orch.Logger(), orch.Bus(), cfg))
 }
 
 // Provider defines the contract needed to verify and refresh a Steam session.
@@ -50,9 +50,7 @@ type Verifier struct {
 
 // New creates a new session keep-alive manager behavior.
 func New(provider Provider, logger log.Logger, bus *bus.Bus, cfg Config) *Verifier {
-	if cfg.Interval <= 0 {
-		cfg.Interval = 5 * time.Minute
-	}
+	cfg.Interval = generic.Coalesce(cfg.Interval, 5*time.Minute)
 
 	return &Verifier{
 		provider: provider,

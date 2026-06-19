@@ -14,9 +14,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/lemon4ksan/miyako/bus"
+	"github.com/lemon4ksan/miyako/generic"
+
 	"github.com/lemon4ksan/g-man/pkg/behavior"
 	"github.com/lemon4ksan/g-man/pkg/behavior/guard"
-	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
@@ -166,19 +168,19 @@ func (b *Bot) discoverCMServer(ctx context.Context) (socket.CMServer, error) {
 }
 
 func (b *Bot) setupOrchestrator() {
-	b.orchestrator = behavior.NewOrchestrator(b.logger, b.client.Bus())
+	b.orchestrator = behavior.NewOrchestrator(b.client.Bus(), b.logger)
 	guardModule := guard.From(b.client)
 
 	guardBehaviorCfg := guard.Config{
-		AutoAcceptTypes: []guard.ConfirmationType{
+		AutoAcceptTypes: generic.NewSet(
 			guard.ConfTypeTrade,
 			guard.ConfTypeMarket,
 			guard.ConfTypeLogin,
-		},
+		),
 		PollOnStart: true,
 	}
 
-	b.orchestrator.Install(guard.AutoAccept(guardModule, guardBehaviorCfg))
+	guard.AutoAccept(b.orchestrator, guardModule, guardBehaviorCfg)
 }
 
 func (b *Bot) handleEvents(ctx context.Context) {
@@ -221,10 +223,7 @@ func loadEnvConfig() (Config, error) {
 		return Config{}, errors.New("STEAM_USER and STEAM_PASS environment variables are required")
 	}
 
-	storagePath := os.Getenv("STEAM_STORAGE_PATH")
-	if storagePath == "" {
-		storagePath = "storage.json"
-	}
+	storagePath := generic.Coalesce(os.Getenv("STEAM_STORAGE_PATH"), "storage.json")
 
 	return Config{
 		Username:       username,

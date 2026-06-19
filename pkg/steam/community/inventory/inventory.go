@@ -18,6 +18,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/miyako/generic"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
@@ -74,17 +75,15 @@ func GetUserInventoryContents(
 			return inventory, currency, resp.TotalCount, nil
 		}
 
-		descMap := make(map[string]*Description)
-		for _, d := range resp.Descriptions {
-			key := fmt.Sprintf("%s_%s", d.ClassID, d.InstanceID)
-			descMap[key] = &d
-		}
+		descMap := generic.IndexBy(resp.Descriptions, func(d Description) string {
+			return fmt.Sprintf("%s_%s", d.ClassID, d.InstanceID)
+		})
 
 		for _, asset := range resp.Assets {
 			key := fmt.Sprintf("%s_%s", asset.ClassID, asset.InstanceID)
 			description := descMap[key]
 
-			if tradableOnly && (description == nil || description.Tradable == 0) {
+			if tradableOnly && description.Tradable == 0 {
 				continue
 			}
 

@@ -13,7 +13,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lemon4ksan/g-man/pkg/bus"
+	"github.com/lemon4ksan/miyako/generic"
+
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/trading"
@@ -70,7 +71,7 @@ type OfferHandler interface {
 }
 
 // Option defines a functional configuration for the Processor.
-type Option = bus.Option[*Processor]
+type Option = generic.Option[*Processor]
 
 // WithLogger sets a custom logger for the processor.
 func WithLogger(l log.Logger) Option {
@@ -99,7 +100,7 @@ func New(
 	manager ManagerProvider,
 	backpack BackpackProvider,
 	handler OfferHandler,
-	opts ...bus.Option[*Processor],
+	opts ...generic.Option[*Processor],
 ) *Processor {
 	return &Processor{
 		manager:  manager,

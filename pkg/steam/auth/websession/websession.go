@@ -52,13 +52,14 @@ const (
 type WebSession struct {
 	mu sync.RWMutex
 
-	steamID      id.ID
-	baseDoer     aoni.HTTPDoer
-	httpClient   *http.Client
-	jar          http.CookieJar
-	logger       log.Logger
-	isAuth       bool
-	domains      []*url.URL
+	steamID    id.ID
+	baseDoer   aoni.HTTPDoer
+	httpClient *http.Client
+	jar        http.CookieJar
+	logger     log.Logger
+	isAuth     bool
+	domains    []*url.URL
+
 	retryBackoff time.Duration
 }
 

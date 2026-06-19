@@ -126,12 +126,12 @@ func TestGuardian_Lifecycle(t *testing.T) {
 	actx := module.NewAuthContext(sid)
 	err = g.StartAuthed(ctx, actx)
 	assert.NoError(t, err)
-	assert.Equal(t, int32(StateStopped), g.State.Load())
+	assert.Equal(t, StateStopped, g.fsm.CurrentState())
 
 	// 3. Close
 	err = g.Close()
 	assert.NoError(t, err)
-	assert.Equal(t, int32(StateClosed), g.State.Load())
+	assert.Equal(t, StateClosed, g.fsm.CurrentState())
 }
 
 func TestGuardian_FetchConfirmations(t *testing.T) {

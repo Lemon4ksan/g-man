@@ -13,10 +13,56 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/lemon4ksan/miyako/generic"
 )
 
 // TypeParser represents a function that parses a string into a specific type.
 type TypeParser func(valStr string) (any, error)
+
+// ParseArgs is a generic helper that parses command arguments into a typed tuple.
+// It validates that the provided arguments match the expected schema and returns
+// a typed result or an error.
+func ParseArgs[T any](args []any, schema []ArgSchema) (T, error) {
+	if len(args) < len(schema) {
+		var zero T
+		return zero, fmt.Errorf("expected %d arguments, got %d", len(schema), len(args))
+	}
+
+	var result T
+
+	resultVal := reflect.ValueOf(&result).Elem()
+
+	for i, argSchema := range schema {
+		if i >= len(args) {
+			if !argSchema.Optional {
+				var zero T
+				return zero, fmt.Errorf("missing required argument <%s>", argSchema.Name)
+			}
+
+			continue
+		}
+
+		argVal := reflect.ValueOf(args[i])
+		switch {
+		case argVal.Type() == argSchema.Type:
+			resultVal.Field(i).Set(argVal)
+		case argVal.Type().ConvertibleTo(argSchema.Type):
+			resultVal.Field(i).Set(argVal.Convert(argSchema.Type))
+		default:
+			var zero T
+
+			return zero, fmt.Errorf(
+				"argument <%s>: cannot convert %s to %s",
+				argSchema.Name,
+				argVal.Type(),
+				argSchema.Type,
+			)
+		}
+	}
+
+	return result, nil
+}
 
 // Engine coordinates registration, validation, parsing and dispatch of commands.
 //
@@ -71,9 +117,7 @@ func (e *Engine) Register(cmd string, handler any, opts ...Option) {
 		}
 	}
 
-	for _, opt := range opts {
-		opt(&c)
-	}
+	generic.ApplyOptions(&c, opts...)
 
 	e.commandsMu.Lock()
 

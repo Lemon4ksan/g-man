@@ -206,12 +206,13 @@ func TestProcessor_ItemLockingAndBusySkip(t *testing.T) {
 	}
 
 	// Manually set item 500 as busy!
-	proc.mu.Lock()
+	proc.itemLocks.Lock(500)
 	proc.busyItems[500] = 10
-	proc.mu.Unlock()
 
 	// Call handleOffer directly. It should return early because item 500 is busy!
 	proc.handleOffer(context.Background(), offer)
+
+	proc.itemLocks.Unlock(500)
 
 	executor.mu.Lock()
 	assert.Empty(t, executor.acceptedIDs)

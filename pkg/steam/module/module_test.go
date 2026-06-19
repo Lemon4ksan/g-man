@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/miyako/bus"
 
-	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
@@ -148,14 +148,14 @@ func TestBase_InitFallbackContext(t *testing.T) {
 
 func TestBase_State(t *testing.T) {
 	base := New("state")
-	if base.State.Load() != 0 {
-		t.Error("initial state should be 0")
+	if base.State() != StateNew {
+		t.Error("initial state should be StateNew")
 	}
 
-	base.State.Store(1)
+	_ = base.Start(context.Background())
 
-	if base.State.Load() != 1 {
-		t.Error("state was not updated")
+	if base.State() != StateStarted {
+		t.Error("state should be StateStarted after Start")
 	}
 }
 

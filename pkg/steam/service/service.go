@@ -14,9 +14,9 @@ import (
 	"sync"
 
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/miyako/generic"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/steam/encoding"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
@@ -36,8 +36,89 @@ type Doer interface {
 // NoResponse is a sentinel type that indicates that marshaling should be skipped entirely.
 type NoResponse struct{}
 
+// Result wraps a value and an error, providing a convenient way to handle both together.
+// Use Unwrap to get the value or panic on error.
+type Result[T any] struct {
+	Value T
+	Err   error
+}
+
+// Unwrap returns the value or panics if an error is present.
+func (r Result[T]) Unwrap() T {
+	if r.Err != nil {
+		panic(r.Err)
+	}
+
+	return r.Value
+}
+
+// Ok creates a successful Result.
+func Ok[T any](val T) Result[T] {
+	return Result[T]{Value: val}
+}
+
+// Err creates a failed Result.
+func Err[T any](err error) Result[T] {
+	return Result[T]{Err: err}
+}
+
+// FromCall executes a function that returns (T, error) and wraps the result.
+func FromCall[T any](fn func() (T, error)) Result[T] {
+	val, err := fn()
+	return Result[T]{Value: val, Err: err}
+}
+
+// Map transforms a Result by applying a function to its value.
+// If the Result contains an error, the function is not called and the error is preserved.
+func Map[T, U any](r Result[T], fn func(T) U) Result[U] {
+	if r.Err != nil {
+		return Result[U]{Err: r.Err}
+	}
+
+	return Result[U]{Value: fn(r.Value)}
+}
+
+// MapError transforms a Result's error by applying a function to it.
+// If the Result is successful, it is returned unchanged.
+func MapError[T any](r Result[T], fn func(error) error) Result[T] {
+	if r.Err != nil {
+		return Result[T]{Value: r.Value, Err: fn(r.Err)}
+	}
+
+	return r
+}
+
+// FlatMap transforms a Result by applying a function that returns a Result.
+// This is useful for chaining operations that can fail.
+func FlatMap[T, U any](r Result[T], fn func(T) Result[U]) Result[U] {
+	if r.Err != nil {
+		return Result[U]{Err: r.Err}
+	}
+
+	return fn(r.Value)
+}
+
+// UnwrapOr returns the value if successful, or the provided default value.
+func UnwrapOr[T any](r Result[T], def T) T {
+	if r.Err != nil {
+		return def
+	}
+
+	return r.Value
+}
+
+// IsOk returns true if the Result is successful.
+func IsOk[T any](r Result[T]) bool {
+	return r.Err == nil
+}
+
+// IsErr returns true if the Result contains an error.
+func IsErr[T any](r Result[T]) bool {
+	return r.Err != nil
+}
+
 // Option defines a functional configuration for the Client.
-type Option = bus.Option[*Client]
+type Option = generic.Option[*Client]
 
 // Client is the primary entry point for calling Steam Services.
 //
@@ -64,9 +145,7 @@ func (c *Client) AccessToken() string {
 func New(tr tr.Transport, opts ...Option) *Client {
 	c := &Client{transport: tr}
 
-	for _, opt := range opts {
-		opt(c)
-	}
+	generic.ApplyOptions(c, opts...)
 
 	return c
 }
@@ -122,10 +201,7 @@ func (c *Client) validateEResult(resp *tr.Response) error {
 			return NewSteamAPIError("session expired", meta.StatusCode, ErrSessionExpired)
 		}
 
-		res = meta.Result
-		if res == 0 {
-			res = enums.EResult_OK
-		}
+		res = generic.Coalesce(meta.Result, enums.EResult_OK)
 	} else if meta, ok := resp.Socket(); ok {
 		res = meta.Result
 	}

@@ -8,10 +8,11 @@ package guard
 
 import (
 	"context"
-	"slices"
+
+	"github.com/lemon4ksan/miyako/bus"
+	"github.com/lemon4ksan/miyako/generic"
 
 	"github.com/lemon4ksan/g-man/pkg/behavior"
-	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/steam/guard"
@@ -63,11 +64,9 @@ func DefaultGuardConfig(sharedSecret, identitySecret, deviceID string) guard.Con
 // BehaviorName is the unique name of the guard behavior.
 const BehaviorName = "guard_manager"
 
-// AutoAccept returns an option that registers the guard manager behavior with the orchestrator.
-func AutoAccept(provider Provider, cfg Config) behavior.Option {
-	return func(o *behavior.Orchestrator) {
-		o.Register(New(provider, o.Logger(), o.Bus(), cfg))
-	}
+// AutoAccept registers the guard manager behavior with the orchestrator.
+func AutoAccept(orch *behavior.Orchestrator, provider Provider, cfg Config) {
+	orch.Register(New(provider, orch.Logger(), orch.Bus(), cfg))
 }
 
 // Provider defines the interface for fetching and accepting Steam Guard confirmations.
@@ -81,7 +80,7 @@ type Provider interface {
 // Config defines which confirmations should be automatically accepted.
 type Config struct {
 	// AutoAcceptTypes specifies which confirmation types to auto-accept (e.g. Trade, Login).
-	AutoAcceptTypes []guard.ConfirmationType
+	AutoAcceptTypes generic.Set[guard.ConfirmationType]
 	// PollOnStart enables a one-time fetch when the behavior starts to catch missed confirmations.
 	PollOnStart bool
 }
@@ -173,7 +172,7 @@ func (m *Manager) resolveConfirmations(ctx context.Context) {
 
 	var toAccept []*guard.Confirmation
 	for _, conf := range confs {
-		if slices.Contains(m.config.AutoAcceptTypes, conf.Type) {
+		if m.config.AutoAcceptTypes.Has(conf.Type) {
 			toAccept = append(toAccept, conf)
 		} else {
 			m.logger.Info("Confirmation requires manual review",

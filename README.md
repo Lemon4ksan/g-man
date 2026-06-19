@@ -18,7 +18,7 @@
 **G-man** is a high-performance, enterprise-grade Steam client SDK and multi-game automation framework architected in Go. Built for high-frequency trading, industrial-scale inventory management, and ultra-resilient network operations, G-man bridges the Steam Network and Game Coordinators into a single, thread-safe orchestrator. It seamlessly integrates **Socket (CM)**, **WebAPI**, and **Game Coordinator** protocols to keep your automation pipelines live 24/7.
 
 ```shell
-go get github.com/lemon4ksan/g-man@latest
+go get github.com/lemon4ksan/g-man
 ```
 
 ## 🛠 Architecture Overview

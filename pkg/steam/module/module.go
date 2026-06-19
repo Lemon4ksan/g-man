@@ -9,11 +9,13 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"sync/atomic"
 
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/miyako/bus"
+	"github.com/lemon4ksan/miyako/generic"
+	"github.com/lemon4ksan/miyako/kata"
+	"github.com/lemon4ksan/miyako/sync/spinlock"
 
-	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
@@ -21,6 +23,28 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
 	"github.com/lemon4ksan/g-man/pkg/storage"
+)
+
+// State represents the lifecycle state of a module.
+type State int32
+
+const (
+	// StateNew indicates the module is created but not yet initialized.
+	StateNew State = iota
+	// StateStarted indicates the module is running.
+	StateStarted
+	// StateClosed indicates the module has been shut down.
+	StateClosed
+)
+
+// Event represents a trigger that drives a module state transition.
+type Event int32
+
+const (
+	// EventStart triggers the transition from New to Started.
+	EventStart Event = iota
+	// EventClose triggers the transition to Closed.
+	EventClose
 )
 
 var (
@@ -34,16 +58,17 @@ var (
 // Get is a generic helper to retrieve a typed module from the client initialization context,
 // avoiding verbose manual type assertions and custom error handling.
 func Get[T any](init InitContext, name string) (T, error) {
-	var zero T
-
 	mod := init.Module(name)
 	if mod == nil {
-		return zero, fmt.Errorf("module %q not registered", name)
+		return generic.Zero[T](), fmt.Errorf("module %q not registered", name)
 	}
 
 	typed, ok := mod.(T)
 	if !ok {
-		return zero, fmt.Errorf("module %q has invalid type %T (expected %T)", name, mod, zero)
+		return generic.Zero[T](), fmt.Errorf(
+			"module %q has invalid type %T (expected %T)",
+			name, mod, generic.Zero[T](),
+		)
 	}
 
 	return typed, nil
@@ -129,9 +154,8 @@ type Auth interface {
 // Base provides a standard implementation of the module lifecycle.
 //
 // It handles boilerplate like logging setup, event bus storage, and background
-// task synchronization. The [Base.State] and [Base.Wg] fields are pointer-based,
-// which prevents Go's non-copiable synchronization structures (like [sync.WaitGroup])
-// from being copied by value.
+// task synchronization. The [Base.Fsm] field manages lifecycle state transitions,
+// while the [Base.Wg] field tracks goroutines for graceful shutdown.
 //
 // Create new instances of Base using the [New] constructor.
 type Base struct {
@@ -143,8 +167,8 @@ type Base struct {
 	// Bus is the shared event bus for the client.
 	Bus *bus.Bus
 
-	// State is an atomic status indicator for the module.
-	State *atomic.Int32
+	// Fsm is a typed finite state machine tracking the module's lifecycle.
+	Fsm *kata.FSM[State, Event]
 
 	// Ctx is the module's internal context, cancelled when the module stops.
 	Ctx context.Context
@@ -156,18 +180,25 @@ type Base struct {
 	// Deps is a list of names of other modules that this module depends on.
 	Deps []string
 
-	mu *sync.RWMutex
+	mu *spinlock.SpinLock
 }
 
 // New creates a new Base module with the given name.
 // Configure dependencies on the returned module using [Base.WithDeps].
 func New(name string) Base {
+	fsm := kata.NewFSM[State, Event](StateNew)
+	fsm.AddRules(
+		kata.TransitionRule[State, Event]{From: StateNew, Event: EventStart, To: StateStarted},
+		kata.TransitionRule[State, Event]{From: StateStarted, Event: EventClose, To: StateClosed},
+		kata.TransitionRule[State, Event]{From: StateNew, Event: EventClose, To: StateClosed},
+	)
+
 	return Base{
 		NameStr: name,
 		Logger:  log.Discard,
-		State:   new(atomic.Int32),
+		Fsm:     fsm,
 		Wg:      new(sync.WaitGroup),
-		mu:      new(sync.RWMutex),
+		mu:      new(spinlock.SpinLock),
 	}
 }
 
@@ -197,8 +228,14 @@ func (b *Base) Init(ctx InitContext) error {
 	b.Logger = ctx.Logger().With(log.Module(b.NameStr))
 	b.Bus = ctx.Bus()
 
-	if b.State == nil {
-		b.State = new(atomic.Int32)
+	if b.Fsm == nil {
+		fsm := kata.NewFSM[State, Event](StateNew)
+		fsm.AddRules(
+			kata.TransitionRule[State, Event]{From: StateNew, Event: EventStart, To: StateStarted},
+			kata.TransitionRule[State, Event]{From: StateStarted, Event: EventClose, To: StateClosed},
+			kata.TransitionRule[State, Event]{From: StateNew, Event: EventClose, To: StateClosed},
+		)
+		b.Fsm = fsm
 	}
 
 	if b.Wg == nil {
@@ -206,19 +243,16 @@ func (b *Base) Init(ctx InitContext) error {
 	}
 
 	if b.mu == nil {
-		b.mu = new(sync.RWMutex)
+		b.mu = new(spinlock.SpinLock)
 	}
 
 	b.mu.Lock()
 
 	if b.Ctx == nil || b.Ctx.Err() != nil {
-		// For tests where Start might not be called explicitly
 		b.Ctx, b.Cancel = context.WithCancel(context.Background())
 	}
 
 	b.mu.Unlock()
-
-	b.State.Store(0)
 
 	return nil
 }
@@ -228,6 +262,8 @@ func (b *Base) Start(ctx context.Context) error {
 	b.mu.Lock()
 	b.Ctx, b.Cancel = context.WithCancel(ctx)
 	b.mu.Unlock()
+
+	_ = b.Fsm.Transition(context.Background(), EventStart)
 
 	return nil
 }
@@ -239,6 +275,8 @@ func (b *Base) Close() error {
 	cancel := b.Cancel
 	b.mu.Unlock()
 
+	_ = b.Fsm.Transition(context.Background(), EventClose)
+
 	if cancel != nil {
 		cancel()
 	}
@@ -248,6 +286,11 @@ func (b *Base) Close() error {
 	}
 
 	return nil
+}
+
+// State returns the current lifecycle state of the module.
+func (b *Base) State() State {
+	return b.Fsm.CurrentState()
 }
 
 // Go spawns a background goroutine that is tracked by the module's WaitGroup.
@@ -261,12 +304,12 @@ func (b *Base) Go(fn func(ctx context.Context)) {
 	}
 
 	if b.mu == nil {
-		b.mu = new(sync.RWMutex)
+		b.mu = new(spinlock.SpinLock)
 	}
 
-	b.mu.RLock()
+	b.mu.Lock()
 	mCtx := b.Ctx
-	b.mu.RUnlock()
+	b.mu.Unlock()
 
 	b.Wg.Go(func() {
 		fn(mCtx)

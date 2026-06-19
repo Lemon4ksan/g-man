@@ -11,7 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lemon4ksan/g-man/pkg/bus"
+	"github.com/lemon4ksan/miyako/bus"
+
 	"github.com/lemon4ksan/g-man/pkg/log"
 )
 
@@ -41,32 +42,24 @@ func (m *mockBehavior) Run(ctx context.Context) error {
 }
 
 func TestNewOrchestrator(t *testing.T) {
-	o := NewOrchestrator(log.Discard, bus.New())
+	o := NewOrchestrator(bus.New(), log.Discard)
 	if o == nil {
 		t.Fatal("expected orchestrator to be created")
-	}
-
-	if o.Logger() == nil {
-		t.Error("expected logger to be set")
 	}
 }
 
 func TestOrchestrator_Register(t *testing.T) {
-	o := NewOrchestrator(log.Discard, bus.New())
+	o := NewOrchestrator(bus.New(), log.Discard)
 	b := &mockBehavior{name: "test"}
 	o.Register(b)
 
-	if len(o.behaviors) != 1 {
-		t.Errorf("expected 1 behavior, got %d", len(o.behaviors))
-	}
-
-	if o.behaviors[0] != b {
-		t.Error("registered behavior mismatch")
+	if o.Count() != 1 {
+		t.Errorf("expected 1 behavior, got %d", o.Count())
 	}
 }
 
 func TestOrchestrator_StartStop(t *testing.T) {
-	o := NewOrchestrator(log.Discard, bus.New())
+	o := NewOrchestrator(bus.New(), log.Discard)
 	b1 := &mockBehavior{name: "b1"}
 	b2 := &mockBehavior{name: "b2"}
 
@@ -76,10 +69,6 @@ func TestOrchestrator_StartStop(t *testing.T) {
 	ctx := context.Background()
 	if err := o.Start(ctx); err != nil {
 		t.Fatalf("failed to start orchestrator: %v", err)
-	}
-
-	if !o.running {
-		t.Error("orchestrator should be running")
 	}
 
 	// Wait a bit for goroutines to start
@@ -97,14 +86,10 @@ func TestOrchestrator_StartStop(t *testing.T) {
 	}
 
 	o.Stop()
-
-	if o.running {
-		t.Error("orchestrator should not be running")
-	}
 }
 
 func TestOrchestrator_StartAlreadyRunning(t *testing.T) {
-	o := NewOrchestrator(log.Discard, bus.New())
+	o := NewOrchestrator(bus.New(), log.Discard)
 	if err := o.Start(context.Background()); err != nil {
 		t.Fatalf("failed to start: %v", err)
 	}
@@ -112,16 +97,18 @@ func TestOrchestrator_StartAlreadyRunning(t *testing.T) {
 	if err := o.Start(context.Background()); err == nil {
 		t.Error("expected error when starting already running orchestrator")
 	}
+
+	o.Stop()
 }
 
 func TestOrchestrator_StopNotRunning(t *testing.T) {
-	o := NewOrchestrator(log.Discard, bus.New())
+	o := NewOrchestrator(bus.New(), log.Discard)
 	// Should not panic or error
 	o.Stop()
 }
 
 func TestOrchestrator_BehaviorError(t *testing.T) {
-	o := NewOrchestrator(log.Discard, bus.New())
+	o := NewOrchestrator(bus.New(), log.Discard)
 	b := &mockBehavior{
 		name: "failing",
 		runFunc: func(ctx context.Context) error {
@@ -141,7 +128,7 @@ func TestOrchestrator_BehaviorError(t *testing.T) {
 }
 
 func TestOrchestrator_BehaviorStop(t *testing.T) {
-	o := NewOrchestrator(log.Discard, bus.New())
+	o := NewOrchestrator(bus.New(), log.Discard)
 	stopped := make(chan struct{})
 	b := &mockBehavior{
 		name: "stopping",

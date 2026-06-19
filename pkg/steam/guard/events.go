@@ -5,7 +5,7 @@
 package guard
 
 import (
-	"github.com/lemon4ksan/g-man/pkg/bus"
+	"github.com/lemon4ksan/miyako/bus"
 )
 
 // ConfirmationRequiredEvent is emitted when a trade action (sending or accepting)

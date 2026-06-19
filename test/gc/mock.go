@@ -12,9 +12,9 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	"github.com/lemon4ksan/g-man/pkg/jobs"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/miyako/jobs"
 )
 
 type Mock struct {

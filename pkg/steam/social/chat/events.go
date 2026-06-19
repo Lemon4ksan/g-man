@@ -7,7 +7,7 @@ package chat
 import (
 	"time"
 
-	"github.com/lemon4ksan/g-man/pkg/bus"
+	"github.com/lemon4ksan/miyako/bus"
 )
 
 // Chat message types.

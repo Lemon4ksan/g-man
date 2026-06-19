@@ -19,9 +19,12 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/miyako/bus"
+	"github.com/lemon4ksan/miyako/generic"
+	"github.com/lemon4ksan/miyako/kata"
+	"github.com/lemon4ksan/miyako/yumi"
 	"golang.org/x/time/rate"
 
-	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
@@ -59,6 +62,12 @@ var (
 	ErrManagerPolling = errors.New("trade: already polling")
 )
 
+// descKey uniquely identifies an asset class description.
+type descKey struct {
+	ClassID    uint64
+	InstanceID uint64
+}
+
 // ItemsCollection represents items for one side of the offer.
 type ItemsCollection struct {
 	// Items is the list of fully populated items.
@@ -74,16 +83,28 @@ type State int32
 
 const (
 	// StateStopped represents the stopped state.
-	StateStopped int32 = iota
+	StateStopped State = iota
 	// StatePolling represents the polling state.
 	StatePolling
 	// StateClosed represents the closed state.
 	StateClosed
 )
 
+// Event represents a trigger that drives a Manager state transition.
+type Event int32
+
+const (
+	// EventStartPolling triggers transition from Stopped to Polling.
+	EventStartPolling Event = iota
+	// EventStopPolling triggers transition from Polling to Stopped.
+	EventStopPolling
+	// EventClose triggers transition to Closed from any active state.
+	EventClose
+)
+
 // String returns the string representation of the state.
 func (s State) String() string {
-	switch int32(s) {
+	switch s {
 	case StateStopped:
 		return "stopped"
 	case StatePolling:
@@ -152,6 +173,10 @@ type Manager struct {
 
 	rateLimiter *rate.Limiter
 	trigger     chan struct{}
+	fsm         *kata.FSM[State, Event]
+
+	// Cache for asset class descriptions to avoid re-fetching
+	descCache *generic.Cache[descKey, rawAssetClassDescription]
 }
 
 // New creates a new instance of the trade manager.
@@ -159,6 +184,14 @@ func New(cfg Config) *Manager {
 	if cfg.PollInterval < 1*time.Second {
 		cfg.PollInterval = 30 * time.Second
 	}
+
+	fsm := kata.NewFSM[State, Event](StateStopped)
+	fsm.AddRules(
+		kata.TransitionRule[State, Event]{From: StateStopped, Event: EventStartPolling, To: StatePolling},
+		kata.TransitionRule[State, Event]{From: StatePolling, Event: EventStopPolling, To: StateStopped},
+		kata.TransitionRule[State, Event]{From: StateStopped, Event: EventClose, To: StateClosed},
+		kata.TransitionRule[State, Event]{From: StatePolling, Event: EventClose, To: StateClosed},
+	)
 
 	return &Manager{
 		Base:           module.New(ModuleName),
@@ -168,6 +201,8 @@ func New(cfg Config) *Manager {
 		lastSeenOffers: make(map[uint64]time.Time),
 		rateLimiter:    rate.NewLimiter(rate.Every(2*time.Second), 1),
 		trigger:        make(chan struct{}, 1),
+		fsm:            fsm,
+		descCache:      generic.NewCache[descKey, rawAssetClassDescription](),
 	}
 }
 
@@ -206,7 +241,7 @@ func (m *Manager) Start(ctx context.Context) error {
 
 // StartAuthed starts the trade offer polling loop.
 func (m *Manager) StartAuthed(ctx context.Context, authCtx module.AuthContext) error {
-	if m.State.Load() == StatePolling {
+	if m.fsm.CurrentState() == StatePolling {
 		m.StopPolling()
 	}
 
@@ -225,7 +260,7 @@ func (m *Manager) StartAuthed(ctx context.Context, authCtx module.AuthContext) e
 
 // Close stops all background activities and cleans up the module.
 func (m *Manager) Close() error {
-	m.State.Store(StateClosed)
+	_ = m.fsm.Transition(context.Background(), EventClose)
 	return m.Base.Close()
 }
 
@@ -243,7 +278,7 @@ func (m *Manager) SetOfferHandler(ctx context.Context, handler processor.OfferHa
 
 // StartPolling begins the trade offer polling loop.
 func (m *Manager) StartPolling() error {
-	if !m.State.CompareAndSwap(StateStopped, StatePolling) {
+	if err := m.fsm.Transition(context.Background(), EventStartPolling); err != nil {
 		return ErrManagerPolling
 	}
 
@@ -256,7 +291,7 @@ func (m *Manager) StartPolling() error {
 
 // StopPolling halts the trade offer polling loop and waits for completion.
 func (m *Manager) StopPolling() {
-	if m.State.CompareAndSwap(StatePolling, StateStopped) {
+	if err := m.fsm.Transition(context.Background(), EventStopPolling); err == nil {
 		m.Logger.Info("Trade polling stopped")
 	}
 }
@@ -661,6 +696,8 @@ func (m *Manager) GetPartnerInventory(ctx context.Context, partnerID id.ID) ([]*
 		}
 	}
 
+	_ = m.enrichItemsDescriptions(ctx, result)
+
 	return result, nil
 }
 
@@ -721,7 +758,7 @@ func (m *Manager) pollingLoop(ctx context.Context) {
 	defer ticker.Stop()
 
 	for {
-		if m.State.Load() != StatePolling {
+		if m.fsm.CurrentState() != StatePolling {
 			return
 		}
 
@@ -729,11 +766,10 @@ func (m *Manager) pollingLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-m.trigger:
-			// Wait a bit for Steam to sync its database
 			time.Sleep(1 * time.Second)
 			m.doPoll(ctx)
 		case <-ticker.C:
-			if m.State.Load() != StatePolling {
+			if m.fsm.CurrentState() != StatePolling {
 				return
 			}
 
@@ -807,12 +843,9 @@ func (m *Manager) doPoll(ctx context.Context) {
 
 	// Auto-cancellation checks for active sent offers (CancelTime) and pending limits (CancelOfferCount)
 	if len(resp.Sent) > 0 {
-		var activeSent []*trading.TradeOffer
-		for _, off := range resp.Sent {
-			if off.State == trading.OfferStateActive {
-				activeSent = append(activeSent, off)
-			}
-		}
+		activeSent := generic.FilterInPlace(resp.Sent, func(off *trading.TradeOffer) bool {
+			return off.State == trading.OfferStateActive
+		})
 
 		// CancelTime auto-cancellation
 		if m.config.CancelTime > 0 {
@@ -877,9 +910,18 @@ func (m *Manager) doPoll(ctx context.Context) {
 
 	now := time.Now()
 
-	allOffers := make([]*trading.TradeOffer, len(resp.Sent)+len(resp.Received))
-	copy(allOffers, resp.Sent)
-	copy(allOffers[len(resp.Sent):], resp.Received)
+	allOffers := make([]*trading.TradeOffer, 0, len(resp.Sent)+len(resp.Received))
+	for _, off := range resp.Sent {
+		if off != nil {
+			allOffers = append(allOffers, off)
+		}
+	}
+
+	for _, off := range resp.Received {
+		if off != nil {
+			allOffers = append(allOffers, off)
+		}
+	}
 
 	for _, off := range allOffers {
 		m.lastSeenOffers[off.ID] = now
@@ -1060,11 +1102,6 @@ func mapDescriptionsToOffer(offer *trading.TradeOffer, rawDescs []rawDescription
 		return
 	}
 
-	type descKey struct {
-		ClassID    uint64
-		InstanceID uint64
-	}
-
 	descMap := make(map[descKey]*rawDescription)
 	for i := range rawDescs {
 		d := &rawDescs[i]
@@ -1233,31 +1270,50 @@ func (m *Manager) enrichOfferDescriptions(ctx context.Context, offer *trading.Tr
 		return nil
 	}
 
-	type descKey struct {
-		ClassID    uint64
-		InstanceID uint64
+	items := make([]*trading.Item, 0, len(offer.ItemsToGive)+len(offer.ItemsToReceive))
+
+	items = append(items, offer.ItemsToGive...)
+	items = append(items, offer.ItemsToReceive...)
+
+	return m.enrichItemsDescriptions(ctx, items)
+}
+
+func (m *Manager) enrichItemsDescriptions(ctx context.Context, items []*trading.Item) error {
+	if len(items) == 0 {
+		return nil
 	}
 
 	var missingKeys []descKey
 
-	seenKeys := make(map[descKey]bool)
+	seenKeys := generic.NewSet[descKey]()
 
-	collectMissing := func(items []*trading.Item) {
-		for _, it := range items {
-			if it.MarketHashName == "" {
-				k := descKey{ClassID: it.ClassID, InstanceID: it.InstanceID}
-				if !seenKeys[k] {
-					seenKeys[k] = true
-					missingKeys = append(missingKeys, k)
-				}
+	for _, it := range items {
+		if it.MarketHashName == "" {
+			k := descKey{ClassID: it.ClassID, InstanceID: it.InstanceID}
+			if !seenKeys.Has(k) {
+				seenKeys.Add(k)
+				missingKeys = append(missingKeys, k)
 			}
 		}
 	}
 
-	collectMissing(offer.ItemsToGive)
-	collectMissing(offer.ItemsToReceive)
-
 	if len(missingKeys) == 0 {
+		return nil
+	}
+
+	resolvedDescs := make(map[descKey]rawAssetClassDescription)
+
+	var uncachedKeys []descKey
+	for _, k := range missingKeys {
+		if desc, ok := m.descCache.Get(k); ok {
+			resolvedDescs[k] = desc
+		} else {
+			uncachedKeys = append(uncachedKeys, k)
+		}
+	}
+
+	if len(uncachedKeys) == 0 {
+		updateItems(items, resolvedDescs)
 		return nil
 	}
 
@@ -1265,13 +1321,23 @@ func (m *Manager) enrichOfferDescriptions(ctx context.Context, offer *trading.Tr
 		Result map[string]json.RawMessage `json:"result"`
 	}
 
-	resolvedDescs := make(map[descKey]rawAssetClassDescription)
+	type chunkResult struct {
+		descs map[descKey]rawAssetClassDescription
+	}
 
 	chunkSize := 50
-	for i := 0; i < len(missingKeys); i += chunkSize {
-		end := min(i+chunkSize, len(missingKeys))
-		chunk := missingKeys[i:end]
 
+	var chunks [][]descKey
+	for i := 0; i < len(uncachedKeys); i += chunkSize {
+		end := min(i+chunkSize, len(uncachedKeys))
+		chunks = append(chunks, uncachedKeys[i:end])
+	}
+
+	results, err := yumi.Map(ctx, yumi.PipelineConfig{
+		Workers: 3,
+		RPS:     5,
+		Burst:   2,
+	}, chunks, func(chunkCtx context.Context, chunk []descKey) (chunkResult, error) {
 		params := make(url.Values)
 		params.Set("appid", strconv.FormatUint(uint64(m.config.AppID), 10))
 		params.Set("language", m.config.Language)
@@ -1286,7 +1352,7 @@ func (m *Manager) enrichOfferDescriptions(ctx context.Context, offer *trading.Tr
 		}
 
 		apiResp, err := service.WebAPI[GetAssetClassInfoResponse](
-			ctx,
+			chunkCtx,
 			m.web,
 			"GET",
 			"ISteamEconomy",
@@ -1295,9 +1361,10 @@ func (m *Manager) enrichOfferDescriptions(ctx context.Context, offer *trading.Tr
 			params,
 		)
 		if err != nil {
-			return err
+			return chunkResult{}, err
 		}
 
+		resolvedDescs := make(map[descKey]rawAssetClassDescription)
 		if apiResp != nil && apiResp.Result != nil {
 			for key, rawVal := range apiResp.Result {
 				if key == "success" {
@@ -1318,53 +1385,65 @@ func (m *Manager) enrichOfferDescriptions(ctx context.Context, offer *trading.Tr
 				}
 			}
 		}
+
+		return chunkResult{descs: resolvedDescs}, nil
+	})
+	if err != nil {
+		return err
 	}
 
-	updateItems := func(items []*trading.Item) {
-		for _, it := range items {
-			if it.MarketHashName == "" {
-				k := descKey{ClassID: it.ClassID, InstanceID: it.InstanceID}
+	for _, r := range results {
+		maps.Copy(resolvedDescs, r.descs)
+	}
 
-				var desc rawAssetClassDescription
+	for k, desc := range resolvedDescs {
+		m.descCache.Set(k, desc, 5*time.Minute)
+	}
 
-				found := false
-				if desc, found = resolvedDescs[k]; !found {
-					desc, found = resolvedDescs[descKey{ClassID: it.ClassID, InstanceID: 0}]
-				}
+	updateItems(items, resolvedDescs)
 
-				if found {
-					it.Name = desc.Name
-					it.MarketName = desc.MarketName
-					it.MarketHashName = desc.MarketHashName
-					it.Type = desc.Type
-					it.IconURL = desc.IconURL
-					it.Descriptions = desc.Descriptions
-					it.Tradable = bool(desc.Tradable)
-					it.Marketable = bool(desc.Marketable)
+	return nil
+}
 
-					it.Tags = make([]trading.Tag, len(desc.Tags))
-					for idx, t := range desc.Tags {
-						locName := t.LocalizedTagName
-						if locName == "" {
-							locName = t.Name
-						}
+func updateItems(items []*trading.Item, descs map[descKey]rawAssetClassDescription) {
+	for _, it := range items {
+		if it.MarketHashName == "" {
+			k := descKey{ClassID: it.ClassID, InstanceID: it.InstanceID}
 
-						it.Tags[idx] = trading.Tag{
-							Category:      t.Category,
-							InternalName:  t.InternalName,
-							Localized:     t.LocalizedCategoryName,
-							LocalizedName: locName,
-						}
+			var desc rawAssetClassDescription
+
+			found := false
+			if desc, found = descs[k]; !found {
+				desc, found = descs[descKey{ClassID: it.ClassID, InstanceID: 0}]
+			}
+
+			if found {
+				it.Name = desc.Name
+				it.MarketName = desc.MarketName
+				it.MarketHashName = desc.MarketHashName
+				it.Type = desc.Type
+				it.IconURL = desc.IconURL
+				it.Descriptions = desc.Descriptions
+				it.Tradable = bool(desc.Tradable)
+				it.Marketable = bool(desc.Marketable)
+
+				it.Tags = make([]trading.Tag, len(desc.Tags))
+				for idx, t := range desc.Tags {
+					locName := t.LocalizedTagName
+					if locName == "" {
+						locName = t.Name
+					}
+
+					it.Tags[idx] = trading.Tag{
+						Category:      t.Category,
+						InternalName:  t.InternalName,
+						Localized:     t.LocalizedCategoryName,
+						LocalizedName: locName,
 					}
 				}
 			}
 		}
 	}
-
-	updateItems(offer.ItemsToGive)
-	updateItems(offer.ItemsToReceive)
-
-	return nil
 }
 
 // Web returns the internal service.Doer.

@@ -19,7 +19,7 @@
 //		"context"
 //		"fmt"
 //		"time"
-//		"github.com/lemon4ksan/g-man/pkg/bus"
+//		"github.com/lemon4ksan/miyako/bus"
 //		"github.com/lemon4ksan/g-man/pkg/log"
 //		"github.com/lemon4ksan/g-man/pkg/trading/web"
 //	)

@@ -7,8 +7,10 @@ package processor
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
+
+	"github.com/lemon4ksan/miyako/generic"
+	"github.com/lemon4ksan/miyako/sync/keylock"
 
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
@@ -45,13 +47,9 @@ type Processor struct {
 	// Queue for sequential processing (to avoid race conditions in inventory)
 	queue chan *trading.TradeOffer
 
-	// Tracking busy items
-	mu        busyItemsMu
+	// Tracking busy items using striped per-key locking
+	itemLocks *keylock.KeyMutex[uint64]
 	busyItems map[uint64]uint64 // assetID -> offerID
-}
-
-type busyItemsMu struct {
-	sync.RWMutex
 }
 
 // New creates a new Processor instance with the provided execution, decision,
@@ -64,6 +62,7 @@ func New(ex TradeExecutor, eng *engine.Engine, n *notifications.Manager, r *revi
 		reviewer:  r,
 		logger:    l.With(log.Module("processor")),
 		queue:     make(chan *trading.TradeOffer, 100),
+		itemLocks: keylock.New[uint64](),
 		busyItems: make(map[uint64]uint64),
 	}
 }
@@ -169,32 +168,26 @@ func (p *Processor) makeReviewMeta(v *engine.Verdict, d time.Duration) *review.T
 }
 
 func (p *Processor) isAnyItemBusy(offer *trading.TradeOffer) bool {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-
-	for _, item := range append(offer.ItemsToGive, offer.ItemsToReceive...) {
-		if _, busy := p.busyItems[item.AssetID]; busy {
-			return true
-		}
-	}
-
-	return false
+	return generic.Any(append(offer.ItemsToGive, offer.ItemsToReceive...), func(item *trading.Item) bool {
+		return p.itemLocks.IsLocked(item.AssetID)
+	})
 }
 
 func (p *Processor) lockItems(offer *trading.TradeOffer) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	allItems := append(offer.ItemsToGive, offer.ItemsToReceive...) //nolint:gocritic
 
-	for _, item := range append(offer.ItemsToGive, offer.ItemsToReceive...) {
+	for _, item := range allItems {
+		p.itemLocks.Lock(item.AssetID)
+	}
+
+	for _, item := range allItems {
 		p.busyItems[item.AssetID] = offer.ID
 	}
 }
 
 func (p *Processor) unlockItems(offer *trading.TradeOffer) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
 	for _, item := range append(offer.ItemsToGive, offer.ItemsToReceive...) {
 		delete(p.busyItems, item.AssetID)
+		p.itemLocks.Unlock(item.AssetID)
 	}
 }

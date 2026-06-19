@@ -7,6 +7,8 @@ package command
 import (
 	"context"
 	"reflect"
+
+	"github.com/lemon4ksan/miyako/generic"
 )
 
 // Handler is a function that processes raw text commands.
@@ -30,14 +32,12 @@ type ArgSchema struct {
 
 // Required defines a required argument schema using generics.
 func Required[T any](name string) ArgSchema {
-	var zero T
-	return ArgSchema{Name: name, Type: reflect.TypeOf(zero), Optional: false}
+	return ArgSchema{Name: name, Type: reflect.TypeOf(generic.Zero[T]()), Optional: false}
 }
 
 // Optional defines an optional argument schema using generics.
 func Optional[T any](name string) ArgSchema {
-	var zero T
-	return ArgSchema{Name: name, Type: reflect.TypeOf(zero), Optional: true}
+	return ArgSchema{Name: name, Type: reflect.TypeOf(generic.Zero[T]()), Optional: true}
 }
 
 // Command wraps handlers with its associated privilege level and validation metadata.
@@ -61,7 +61,7 @@ type Command struct {
 }
 
 // Option defines a functional option for command registration.
-type Option func(*Command)
+type Option = generic.Option[*Command]
 
 // WithDescription adds a descriptive text for the command.
 func WithDescription(desc string) Option {

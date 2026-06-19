@@ -17,9 +17,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/lemon4ksan/miyako/bus"
+	"github.com/lemon4ksan/miyako/kata"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/log"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
@@ -67,6 +68,22 @@ func (s State) String() string {
 		return "unknown"
 	}
 }
+
+// Event represents a trigger that drives a state transition.
+type Event int32
+
+const (
+	// EventBegin initiates a new login attempt.
+	EventBegin Event = iota
+	// EventLoggingOn transitions from authenticating to logging on.
+	EventLoggingOn
+	// EventSuccess completes the login process.
+	EventSuccess
+	// EventFail indicates a failure during authentication.
+	EventFail
+	// EventDisconnect returns to disconnected state.
+	EventDisconnect
+)
 
 // SocketProvider defines the minimal socket capabilities required by the Authenticator.
 type SocketProvider interface {
@@ -205,7 +222,7 @@ func ExtractSteamIDFromJWT(token string) id.ID {
 // high-level [WebAuthenticator] WebAPI flows. Create and register new instances
 // of Authenticator using the [NewAuthenticator] constructor.
 type Authenticator struct {
-	state atomic.Int32
+	fsm *kata.FSM[State, Event]
 
 	loggerMu sync.RWMutex
 	logger   log.Logger
@@ -217,31 +234,31 @@ type Authenticator struct {
 	tempKey       atomic.Pointer[[]byte]
 
 	loginCancel atomic.Value
-	loginResult chan error
+	loginResult atomic.Value
 	store       Store
-}
-
-func (a *Authenticator) getLogger() log.Logger {
-	a.loggerMu.RLock()
-	defer a.loggerMu.RUnlock()
-
-	if a.logger == nil {
-		return log.Discard
-	}
-
-	return a.logger
-}
-
-func (a *Authenticator) setLogger(l log.Logger) {
-	a.loggerMu.Lock()
-	defer a.loggerMu.Unlock()
-
-	a.logger = l
 }
 
 // NewAuthenticator creates a new instance of Authenticator.
 func NewAuthenticator(s SocketProvider, svc WebAuthenticator, bus *bus.Bus, opts ...Option) *Authenticator {
+	fsm := kata.NewFSM[State, Event](StateDisconnected)
+	fsm.AddRules(
+		// Both idle and failed states can start a new login attempt.
+		kata.TransitionRule[State, Event]{From: StateDisconnected, Event: EventBegin, To: StateAuthenticating},
+		kata.TransitionRule[State, Event]{From: StateFailed, Event: EventBegin, To: StateAuthenticating},
+		// After WebAPI tokens are acquired, initiate the CM handshake.
+		kata.TransitionRule[State, Event]{From: StateAuthenticating, Event: EventLoggingOn, To: StateLoggingOn},
+		// LogOnAnonymous skips WebAPI; EventLoggingOn fires immediately after EventBegin.
+		kata.TransitionRule[State, Event]{From: StateLoggingOn, Event: EventSuccess, To: StateLoggedOn},
+		// Failures at any active stage collapse to Failed.
+		kata.TransitionRule[State, Event]{From: StateAuthenticating, Event: EventFail, To: StateFailed},
+		kata.TransitionRule[State, Event]{From: StateLoggingOn, Event: EventFail, To: StateFailed},
+		// Graceful logout or reset back to idle.
+		kata.TransitionRule[State, Event]{From: StateLoggedOn, Event: EventDisconnect, To: StateDisconnected},
+		kata.TransitionRule[State, Event]{From: StateFailed, Event: EventDisconnect, To: StateDisconnected},
+	)
+
 	auth := &Authenticator{
+		fsm:     fsm,
 		bus:     bus,
 		socket:  s,
 		service: svc,
@@ -252,7 +269,15 @@ func NewAuthenticator(s SocketProvider, svc WebAuthenticator, bus *bus.Bus, opts
 		opt(auth)
 	}
 
-	auth.setState(StateDisconnected)
+	// Publish StateEvent after every successful transition so observers (e.g.
+	// the trading Manager) react to lifecycle changes without polling.
+	publishState := func(_ context.Context, from State, _ Event, to State) error {
+		auth.bus.Publish(&StateEvent{Old: from, New: to})
+		return nil
+	}
+	for _, ev := range []Event{EventBegin, EventLoggingOn, EventSuccess, EventFail, EventDisconnect} {
+		fsm.OnAfter(ev, publishState)
+	}
 
 	s.RegisterMsgHandler(enums.EMsg_ChannelEncryptRequest, auth.handleChannelEncryptRequest)
 	s.RegisterMsgHandler(enums.EMsg_ChannelEncryptResult, auth.handleChannelEncryptResult)
@@ -263,7 +288,7 @@ func NewAuthenticator(s SocketProvider, svc WebAuthenticator, bus *bus.Bus, opts
 }
 
 // State returns the current authentication state.
-func (a *Authenticator) State() State { return State(a.state.Load()) }
+func (a *Authenticator) State() State { return a.fsm.CurrentState() }
 
 // LogOn initiates the login sequence.
 // It blocks until authentication is complete, context is cancelled, or the process fails.
@@ -272,18 +297,20 @@ func (a *Authenticator) State() State { return State(a.state.Load()) }
 // if credential validation fails, if the CM server connection drops, or if credentials
 // are rejected.
 func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server connector.CMServer) error {
-	if !a.tryAcquireState() {
+	if err := a.fsm.Transition(ctx, EventBegin); err != nil {
 		return errors.New("auth: authentication already in progress")
 	}
 
 	defer a.ensureTerminalState()
+
+	runCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	var (
 		enrichedAccount string
 		enrichedSteamID id.ID
 	)
 
-	// Enrich the authenticator's logger with details.AccountName and SteamID if available
 	var logFields []log.Field
 	if details != nil {
 		if details.AccountName != "" && enrichedAccount == "" {
@@ -305,18 +332,14 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 		return err
 	}
 
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
 	if len(details.MachineID) == 0 {
-		a.acquireMachineID(ctx, details)
+		a.acquireMachineID(runCtx, details)
 	}
 
-	if err := a.acquireAuthToken(ctx, details); err != nil {
+	if err := a.acquireAuthToken(runCtx, details); err != nil {
 		return err
 	}
 
-	// Enrich logger again in case SteamID was fetched/saved during acquireAuthToken
 	logFields = nil
 	if details.AccountName != "" && enrichedAccount == "" {
 		logFields = append(logFields, log.String("account", details.AccountName))
@@ -331,11 +354,13 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 	}
 
 	a.setState(StateLoggingOn)
-	a.loginResult = make(chan error, 1)
+
+	ch := make(chan error, 1)
+	a.loginResult.Store(ch)
 	a.loginCancel.Store(cancel)
 	a.activeDetails.Store(details)
 
-	if err := a.socket.Connect(ctx, server); err != nil {
+	if err := a.socket.Connect(runCtx, server); err != nil {
 		return fmt.Errorf("cm connection failed: %w", err)
 	}
 
@@ -346,25 +371,25 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 
 	if server.Type == "websockets" {
 		a.getLogger().Debug("WebSocket detected, starting logon sequence immediately")
-		a.sendLogOn(ctx, details)
+		a.sendLogOn(runCtx, details)
 	}
 
 	var resultErr error
 	select {
-	case resultErr = <-a.loginResult:
-	case <-ctx.Done():
-		resultErr = ctx.Err()
+	case resultErr = <-ch:
+	case <-runCtx.Done():
+		resultErr = runCtx.Err()
 	}
 
 	if resultErr == nil {
-		a.setState(StateLoggedOn)
+		_ = a.fsm.Transition(context.Background(), EventSuccess)
 		return nil
 	}
 
 	var eResErr *service.EResultError
 	if errors.As(resultErr, &eResErr) && eResErr.Result == enums.EResult_InvalidPassword {
 		a.getLogger().Warn("Session rejected by CM (Invalid Password/Token), clearing local storage")
-		_ = a.store.Clear(ctx, details.AccountName)
+		_ = a.store.Clear(runCtx, details.AccountName)
 	}
 
 	return resultErr
@@ -375,7 +400,7 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 // It returns an error if another authentication attempt is already in progress,
 // or if the CM server connection drops.
 func (a *Authenticator) LogOnAnonymous(ctx context.Context, server connector.CMServer) error {
-	if !a.tryAcquireState() {
+	if err := a.fsm.Transition(ctx, EventBegin); err != nil {
 		return errors.New("auth: authentication already in progress")
 	}
 
@@ -389,8 +414,10 @@ func (a *Authenticator) LogOnAnonymous(ctx context.Context, server connector.CMS
 		ClientOSType:    uint32(enums.EOSType_Windows10),
 	}
 
-	a.setState(StateLoggingOn)
-	a.loginResult = make(chan error, 1)
+	_ = a.fsm.Transition(context.Background(), EventLoggingOn)
+
+	ch := make(chan error, 1)
+	a.loginResult.Store(ch)
 	a.loginCancel.Store(cancel)
 	a.activeDetails.Store(anonDetails)
 
@@ -404,7 +431,7 @@ func (a *Authenticator) LogOnAnonymous(ctx context.Context, server connector.CMS
 
 	var resultErr error
 	select {
-	case resultErr = <-a.loginResult:
+	case resultErr = <-ch:
 	case <-loginCtx.Done():
 		resultErr = loginCtx.Err()
 	}
@@ -413,28 +440,14 @@ func (a *Authenticator) LogOnAnonymous(ctx context.Context, server connector.CMS
 		return resultErr
 	}
 
-	a.setState(StateLoggedOn)
+	_ = a.fsm.Transition(context.Background(), EventSuccess)
 
 	return nil
 }
 
-func (a *Authenticator) tryAcquireState() bool {
-	for {
-		current := a.state.Load()
-		if current == int32(StateAuthenticating) || current == int32(StateLoggingOn) ||
-			current == int32(StateLoggedOn) {
-			return false
-		}
-
-		if a.state.CompareAndSwap(current, int32(StateAuthenticating)) {
-			return true
-		}
-	}
-}
-
 func (a *Authenticator) ensureTerminalState() {
 	if a.State() != StateLoggedOn {
-		a.setState(StateFailed)
+		_ = a.fsm.Transition(context.Background(), EventFail)
 	}
 }
 
@@ -536,10 +549,8 @@ func (a *Authenticator) pollAuthStatus(
 		select {
 		case <-ctx.Done():
 			return "", "", 0, context.Cause(ctx)
-
 		case <-timeout.C:
 			return "", "", 0, errors.New("auth: polling session timed out after 5 minutes")
-
 		case <-ticker.C:
 			pollRes, err := a.service.PollAuthSessionStatus(ctx, clientID, requestID)
 			if err != nil {
@@ -558,16 +569,35 @@ func (a *Authenticator) pollAuthStatus(
 }
 
 func (a *Authenticator) setState(state State) {
-	old := State(a.state.Swap(int32(state)))
-	if old != state {
-		a.bus.Publish(&StateEvent{Old: old, New: state})
+	var event Event
+	switch state {
+	case StateLoggingOn:
+		event = EventLoggingOn
+	case StateLoggedOn:
+		event = EventSuccess
+	case StateFailed:
+		event = EventFail
+	case StateDisconnected:
+		event = EventDisconnect
+	default:
+		return
 	}
+
+	_ = a.fsm.Transition(context.Background(), event)
+}
+
+// setStateDirect directly sets the FSM state without transition validation.
+// Used for testing edge cases only.
+func (a *Authenticator) setStateDirect(state State) {
+	a.fsm.ForceSet(state)
 }
 
 func (a *Authenticator) succeedLogin() {
-	select {
-	case a.loginResult <- nil:
-	default:
+	if ch, ok := a.loginResult.Load().(chan error); ok && ch != nil {
+		select {
+		case ch <- nil:
+		default:
+		}
 	}
 }
 
@@ -576,9 +606,11 @@ func (a *Authenticator) failLogin(err error) {
 		cancelFunc()
 	}
 
-	select {
-	case a.loginResult <- err:
-	default:
+	if ch, ok := a.loginResult.Load().(chan error); ok && ch != nil {
+		select {
+		case ch <- err:
+		default:
+		}
 	}
 }
 
@@ -635,6 +667,24 @@ func (a *Authenticator) acquireAuthToken(ctx context.Context, details *LogOnDeta
 	return nil
 }
 
+func (a *Authenticator) getLogger() log.Logger {
+	a.loggerMu.RLock()
+	defer a.loggerMu.RUnlock()
+
+	if a.logger == nil {
+		return log.Discard
+	}
+
+	return a.logger
+}
+
+func (a *Authenticator) setLogger(l log.Logger) {
+	a.loggerMu.Lock()
+	defer a.loggerMu.Unlock()
+
+	a.logger = l
+}
+
 func generateMachineID() []byte {
 	var b [42]byte
 
@@ -650,3 +700,17 @@ func (nopStore) GetRefreshToken(ctx context.Context, acc string) (string, error)
 func (nopStore) SaveMachineID(ctx context.Context, acc string, id []byte) error  { return nil }
 func (nopStore) GetMachineID(ctx context.Context, acc string) ([]byte, error)    { return nil, nil }
 func (nopStore) Clear(ctx context.Context, acc string) error                     { return nil }
+
+func (a *Authenticator) setLoginResult(ch chan error) {
+	a.loginResult.Store(ch)
+}
+
+func (a *Authenticator) getLoginResult() chan error {
+	if val := a.loginResult.Load(); val != nil {
+		if ch, ok := val.(chan error); ok {
+			return ch
+		}
+	}
+
+	return nil
+}

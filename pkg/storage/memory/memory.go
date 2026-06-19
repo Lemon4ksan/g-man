@@ -10,7 +10,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/lemon4ksan/g-man/pkg/storage"
 )
@@ -22,7 +21,6 @@ import (
 // Create new instances of Provider using the [New] constructor.
 type Provider struct {
 	kvStores map[string]*kvStore
-	ttl      *TTLCache
 	mu       sync.Mutex
 }
 
@@ -30,7 +28,6 @@ type Provider struct {
 func New() *Provider {
 	return &Provider{
 		kvStores: make(map[string]*kvStore),
-		ttl:      NewTTLCache(),
 	}
 }
 
@@ -47,11 +44,6 @@ func (p *Provider) KV(namespace string) storage.KV {
 	p.kvStores[namespace] = store
 
 	return store
-}
-
-// TTLCache returns the time-to-live cache.
-func (p *Provider) TTLCache() *TTLCache {
-	return p.ttl
 }
 
 // Close closes the provider.
@@ -122,48 +114,4 @@ func (s *kvStore) Keys(ctx context.Context, prefix string) ([]string, error) {
 	sort.Strings(keys)
 
 	return keys, nil
-}
-
-// --- Time-to-Live Cache implementation ---
-
-type entry struct {
-	value      any
-	expiration int64
-}
-
-// TTLCache is a thread-safe in-memory cache with time-to-live support.
-//
-// Create new instances of TTLCache using the [NewTTLCache] constructor.
-type TTLCache struct {
-	mu      sync.RWMutex
-	entries map[string]entry
-}
-
-// NewTTLCache creates a new time-to-live cache.
-func NewTTLCache() *TTLCache {
-	return &TTLCache{entries: make(map[string]entry)}
-}
-
-// Set adds a key-value pair to the cache with a specific time-to-live duration.
-func (c *TTLCache) Set(key string, value any, ttl time.Duration) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	c.entries[key] = entry{
-		value:      value,
-		expiration: time.Now().Add(ttl).UnixNano(),
-	}
-}
-
-// Get retrieves a value from the cache by key if it has not expired.
-func (c *TTLCache) Get(key string) (any, bool) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	e, ok := c.entries[key]
-	if !ok || time.Now().UnixNano() > e.expiration {
-		return nil, false
-	}
-
-	return e.value, true
 }

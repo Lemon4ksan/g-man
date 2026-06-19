@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"net/http"
 	"sync"
 	"testing"
 
@@ -15,7 +16,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/lemon4ksan/aoni"
-	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
@@ -28,7 +28,19 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/storage"
 	cm "github.com/lemon4ksan/g-man/test/community"
 	"github.com/lemon4ksan/g-man/test/requester"
+	"github.com/lemon4ksan/miyako/bus"
 )
+
+type requesterDoer struct {
+	r aoni.Requester
+}
+
+func (d *requesterDoer) Do(req *http.Request) (*http.Response, error) {
+	return d.r.Request(req.Context(), req.Method, req.URL.String(), func(r *http.Request) {
+		r.Header = req.Header
+		r.Body = req.Body
+	})
+}
 
 type InitContext struct {
 	mu              sync.RWMutex
@@ -52,10 +64,21 @@ func NewInitContext() *InitContext {
 	}
 }
 
-func (m *InitContext) Bus() *bus.Bus                { return m.eventBus }
-func (m *InitContext) Logger() log.Logger           { return m.logger }
-func (m *InitContext) Service() service.Doer        { return m.mockService }
-func (m *InitContext) Rest() aoni.Requester         { return m.mockService }
+func (m *InitContext) Bus() *bus.Bus         { return m.eventBus }
+func (m *InitContext) Logger() log.Logger    { return m.logger }
+func (m *InitContext) Service() service.Doer { return m.mockService }
+
+func (m *InitContext) Rest() aoni.Requester {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if m.mockService == nil {
+		return nil
+	}
+
+	return aoni.NewClient(&requesterDoer{r: m.mockService})
+}
+
 func (m *InitContext) Storage() storage.Provider    { return m.storage }
 func (m *InitContext) MockService() *requester.Mock { return m.mockService }
 

@@ -10,10 +10,10 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/lemon4ksan/miyako/bus"
+	"github.com/lemon4ksan/miyako/jobs"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/lemon4ksan/g-man/pkg/bus"
-	"github.com/lemon4ksan/g-man/pkg/jobs"
 	"github.com/lemon4ksan/g-man/pkg/log"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam"

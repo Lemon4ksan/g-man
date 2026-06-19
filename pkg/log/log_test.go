@@ -257,6 +257,8 @@ func TestLogger_QueueOverflow(t *testing.T) {
 
 	// 1. First msg enters the loop and blocks on the writer
 	l.Info("msg 1")
+	time.Sleep(50 * time.Millisecond) // Wait for writerLoop to process msg 1 and block
+
 	// 2. Second msg fills the channel (size 1)
 	al.queue <- new(bytes.Buffer)
 	// 3. Third msg must drop

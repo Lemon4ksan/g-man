@@ -72,7 +72,7 @@ type CEconItem struct {
 	// Asset is the underlying inventory asset details.
 	Asset Asset
 	// Description is the parsed item description details.
-	Description *Description
+	Description Description
 }
 
 type inventoryResponse struct {

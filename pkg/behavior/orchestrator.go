@@ -6,120 +6,58 @@
 package behavior
 
 import (
-	"context"
-	"errors"
-	"sync"
+	"github.com/lemon4ksan/miyako/behavior"
+	"github.com/lemon4ksan/miyako/bus"
 
-	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/log"
 )
 
-// Behavior represents a modular task or strategy that the orchestrator can run.
-type Behavior interface {
-	// Name returns the unique name of the behavior.
-	Name() string
-	// Run starts the behavior's main loop. It should block until the context is canceled
-	// or an unrecoverable error occurs.
-	Run(ctx context.Context) error
-}
+// Behavior is an alias for miyako's Behavior interface.
+type Behavior = behavior.Behavior
 
-// Option is an option for the orchestrator.
-type Option bus.Option[*Orchestrator]
-
-// Orchestrator manages the lifecycle of multiple behaviors.
+// Orchestrator wraps miyako's behavior.Orchestrator and stores a shared bus and logger
+// so that behaviors can receive them without explicit parameter passing.
 type Orchestrator struct {
-	logger    log.Logger
-	behaviors []Behavior
-	mu        sync.RWMutex
-	running   bool
-	cancel    context.CancelFunc
-	wg        sync.WaitGroup
-	bus       *bus.Bus
+	*behavior.Orchestrator
+	bus    *bus.Bus
+	logger log.Logger
 }
 
-// NewOrchestrator creates a new orchestrator.
-func NewOrchestrator(logger log.Logger, bus *bus.Bus) *Orchestrator {
+// NewOrchestrator creates a new orchestrator with the given bus and logger.
+func NewOrchestrator(b *bus.Bus, logger log.Logger, opts ...behavior.Option) *Orchestrator {
 	return &Orchestrator{
-		logger:    logger.With(log.Module("orchestrator")),
-		behaviors: make([]Behavior, 0),
-		bus:       bus,
+		Orchestrator: behavior.NewOrchestrator(
+			append([]behavior.Option{behavior.WithLogger(&logAdapter{logger})}, opts...)...),
+		bus:    b,
+		logger: logger,
 	}
 }
 
-// Logger returns the logger of the orchestrator.
-func (o *Orchestrator) Logger() log.Logger {
-	return o.logger
+// Bus returns the shared event bus.
+func (o *Orchestrator) Bus() *bus.Bus { return o.bus }
+
+// Logger returns the shared logger.
+func (o *Orchestrator) Logger() log.Logger { return o.logger }
+
+// logAdapter wraps g-man's log.Logger to implement miyako's behavior.Logger.
+type logAdapter struct {
+	l log.Logger
 }
 
-// Bus returns the bus of the orchestrator.
-func (o *Orchestrator) Bus() *bus.Bus {
-	return o.bus
-}
+func (a *logAdapter) Info(msg string, args ...any)  { a.l.Info(msg, toFields(args)...) }
+func (a *logAdapter) Error(msg string, args ...any) { a.l.Error(msg, toFields(args)...) }
+func (a *logAdapter) Warn(msg string, args ...any)  { a.l.Warn(msg, toFields(args)...) }
 
-// Install applies the given options to the orchestrator.
-func (o *Orchestrator) Install(opt ...Option) {
-	for _, opt := range opt {
-		opt(o)
-	}
-}
-
-// Register adds a behavior to the orchestrator.
-func (o *Orchestrator) Register(b Behavior) {
-	o.mu.Lock()
-	defer o.mu.Unlock()
-
-	for _, existing := range o.behaviors {
-		if existing.Name() == b.Name() {
-			o.logger.Warn("Behavior already registered, skipping", log.String("name", b.Name()))
-			return
+func toFields(args []any) []log.Field {
+	fields := make([]log.Field, 0, len(args)/2)
+	for i := 0; i < len(args)-1; i += 2 {
+		key, ok := args[i].(string)
+		if !ok {
+			continue
 		}
+
+		fields = append(fields, log.Any(key, args[i+1]))
 	}
 
-	o.behaviors = append(o.behaviors, b)
-}
-
-// Start starts all registered behaviors in separate goroutines.
-func (o *Orchestrator) Start(ctx context.Context) error {
-	o.mu.Lock()
-	defer o.mu.Unlock()
-
-	if o.running {
-		return errors.New("orchestrator is already running")
-	}
-
-	o.running = true
-	runCtx, cancel := context.WithCancel(ctx)
-	o.cancel = cancel
-
-	for _, b := range o.behaviors {
-		o.wg.Add(1)
-
-		go func(beh Behavior) {
-			defer o.wg.Done()
-
-			o.logger.Info("Starting behavior", log.String("name", beh.Name()))
-
-			if err := beh.Run(runCtx); err != nil {
-				o.logger.Error("Behavior failed", log.String("name", beh.Name()), log.Err(err))
-			} else {
-				o.logger.Info("Behavior stopped", log.String("name", beh.Name()))
-			}
-		}(b)
-	}
-
-	return nil
-}
-
-// Stop stops all running behaviors and waits for them to finish.
-func (o *Orchestrator) Stop() {
-	o.mu.Lock()
-	defer o.mu.Unlock()
-
-	if !o.running {
-		return
-	}
-
-	o.cancel()
-	o.wg.Wait()
-	o.running = false
+	return fields
 }

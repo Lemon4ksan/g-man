@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/lemon4ksan/miyako/generic"
+
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/trading"
@@ -60,12 +62,10 @@ func LoggerMiddleware(logger log.Logger) Middleware {
 }
 
 // BlacklistMiddleware rejects offers from specific SteamIDs.
-func BlacklistMiddleware(blacklist map[id.ID]struct{}) Middleware {
+func BlacklistMiddleware(blacklist generic.Set[id.ID]) Middleware {
 	return func(next Handler) Handler {
 		return func(ctx *TradeContext) error {
-			// Check precondition
-			if _, blacklisted := blacklist[ctx.Offer.OtherSteamID]; blacklisted {
-				// We found a match! Decline the offer and DO NOT call next(ctx).
+			if blacklist.Has(ctx.Offer.OtherSteamID) {
 				ctx.Decline(reason.DeclineBlacklisted)
 				return nil
 			}

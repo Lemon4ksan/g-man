@@ -12,7 +12,6 @@ import (
 	"maps"
 	"net/http"
 	"net/url"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -20,6 +19,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/miyako/generic"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/lemon4ksan/g-man/pkg/log"
@@ -220,7 +220,7 @@ func (m *Manager) InviteToGroups(ctx context.Context, steamID id.ID, groupIDs []
 		return
 	}
 
-	for _, groupID := range groupIDs {
+	_ = generic.ParallelForEach(ctx, groupIDs, 5, func(ctx context.Context, groupID uint64) error {
 		req := struct {
 			JSON    int    `url:"json"`
 			Type    string `url:"type"`
@@ -231,17 +231,13 @@ func (m *Manager) InviteToGroups(ctx context.Context, steamID id.ID, groupIDs []
 
 		_, err := community.PostForm[service.NoResponse](ctx, m.community, "actions/GroupInvite", req)
 		if err != nil {
-			if strings.Contains(err.Error(), "400") {
-				continue
+			if !strings.Contains(err.Error(), "400") {
+				m.Logger.Warn("Failed to invite to group", log.Uint64("group_id", groupID), log.Err(err))
 			}
-
-			m.Logger.Warn("Failed to invite to group", log.Uint64("group_id", groupID), log.Err(err))
-
-			continue
 		}
 
-		m.Logger.Debug("Invited user to group", log.SteamID(steamID.Uint64()), log.Uint64("group_id", groupID))
-	}
+		return nil
+	})
 }
 
 func (m *Manager) handleFriendsList(packet *protocol.Packet) {
@@ -369,11 +365,9 @@ func (m *Manager) handleFriendsGroupsList(packet *protocol.Packet) {
 
 		g, ok := m.friendGroups[groupID]
 		if ok {
-			found := slices.Contains(g.Members, memberID)
-			if !found {
-				g.Members = append(g.Members, memberID)
-				m.friendGroups[groupID] = g
-			}
+			g.Members = append(g.Members, memberID)
+			g.Members = generic.Unique(g.Members)
+			m.friendGroups[groupID] = g
 		}
 	}
 

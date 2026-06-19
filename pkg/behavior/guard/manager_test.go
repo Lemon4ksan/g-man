@@ -10,10 +10,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lemon4ksan/miyako/bus"
+	"github.com/lemon4ksan/miyako/generic"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/steam/guard"
@@ -42,7 +43,7 @@ func TestManager_Run(t *testing.T) {
 		provider := new(mockGuardianProvider)
 		eventBus := bus.New()
 		cfg := Config{
-			AutoAcceptTypes: []guard.ConfirmationType{guard.ConfTypeTrade},
+			AutoAcceptTypes: generic.NewSet(guard.ConfTypeTrade),
 			PollOnStart:     true,
 		}
 
@@ -68,7 +69,7 @@ func TestManager_Run(t *testing.T) {
 		provider := new(mockGuardianProvider)
 		eventBus := bus.New()
 		cfg := Config{
-			AutoAcceptTypes: []guard.ConfirmationType{guard.ConfTypeLogin},
+			AutoAcceptTypes: generic.NewSet(guard.ConfTypeLogin),
 		}
 
 		confs := []*guard.Confirmation{
@@ -100,7 +101,7 @@ func TestManager_Run(t *testing.T) {
 		provider := new(mockGuardianProvider)
 		eventBus := bus.New()
 		cfg := Config{
-			AutoAcceptTypes: []guard.ConfirmationType{guard.ConfTypeTrade},
+			AutoAcceptTypes: generic.NewSet(guard.ConfTypeTrade),
 		}
 
 		confs := []*guard.Confirmation{
@@ -131,7 +132,7 @@ func TestManager_Run(t *testing.T) {
 		provider := new(mockGuardianProvider)
 		eventBus := bus.New()
 		cfg := Config{
-			AutoAcceptTypes: []guard.ConfirmationType{guard.ConfTypeMarket},
+			AutoAcceptTypes: generic.NewSet(guard.ConfTypeMarket),
 		}
 
 		confs := []*guard.Confirmation{
@@ -199,7 +200,7 @@ func TestManager_Run(t *testing.T) {
 		provider := new(mockGuardianProvider)
 		eventBus := bus.New()
 		cfg := Config{
-			AutoAcceptTypes: []guard.ConfirmationType{guard.ConfTypeTrade},
+			AutoAcceptTypes: generic.NewSet(guard.ConfTypeTrade),
 			PollOnStart:     true,
 		}
 

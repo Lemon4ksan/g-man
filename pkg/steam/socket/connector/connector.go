@@ -198,7 +198,7 @@ func (c *Connector) IsConnected() bool {
 
 func (c *Connector) cancelReconnect() {
 	c.mu.Lock()
-	if r := c.reconnectCancel; r != nil { // syntax error fixed
+	if r := c.reconnectCancel; r != nil {
 		r()
 
 		c.reconnectCancel = nil
@@ -348,17 +348,14 @@ func (c *Connector) monitorConnection(conn network.Connection) {
 		case <-conn.Closed():
 			c.handleDisconnect(conn)
 			return
-
 		case <-c.ctx.Done():
 			return
 		}
 	}
 }
 
-// handleDisconnect coordinates reconnection when a transport is lost.
 func (c *Connector) handleDisconnect(closedConn network.Connection) {
 	c.mu.Lock()
-
 	if c.conn != closedConn {
 		c.mu.Unlock()
 		return

@@ -6,38 +6,54 @@ package steam
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"maps"
+	"slices"
 	"sync"
-	"sync/atomic"
+
+	"github.com/lemon4ksan/miyako/kata"
+	"github.com/lemon4ksan/miyako/lifecycle"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 )
 
 // ModuleManager manages the lifecycle of modules.
 type ModuleManager struct {
-	modules map[string]module.Module
+	orchestrator *lifecycle.Orchestrator
+
 	mu      sync.RWMutex
+	modules map[string]module.Module
 
 	initCtx module.InitContext
 	authCtx module.AuthContext
-	state   *atomic.Int32
+	fsm     *kata.FSM[State, Event]
 }
 
-// Get returns a module by name.
+// Get returns the module with the given name, or nil if not found.
 func (m *ModuleManager) Get(name string) module.Module {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
 	return m.modules[name]
 }
 
-// Add adds a module to the manager.
-func (m *ModuleManager) Add(mod module.Module) {
+// Add adds a module to the manager. If the module is already registered, it returns an error.
+func (m *ModuleManager) Add(mod module.Module) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	if _, exists := m.modules[mod.Name()]; exists {
+		return fmt.Errorf("module %q already registered", mod.Name())
+	}
+
 	m.modules[mod.Name()] = mod
+	if m.orchestrator == nil {
+		m.orchestrator = lifecycle.NewOrchestrator()
+	}
+
+	m.orchestrator.Register(&moduleAdapter{mod: mod, initCtx: m.initCtx})
+
+	return nil
 }
 
 // All returns a slice containing all registered modules.
@@ -45,42 +61,34 @@ func (m *ModuleManager) All() []module.Module {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	res := make([]module.Module, 0, len(m.modules))
-	for _, mod := range m.modules {
-		res = append(res, mod)
-	}
-
-	return res
+	return slices.Collect(maps.Values(m.modules))
 }
 
 // Register registers a module with the manager.
 func (m *ModuleManager) Register(ctx context.Context, mod module.Module) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	name := mod.Name()
-	if _, exists := m.modules[name]; exists {
-		return fmt.Errorf("module %q already registered", name)
+	if err := m.Add(mod); err != nil {
+		return err
 	}
 
-	m.modules[name] = mod
+	var state State
+	if m.fsm != nil {
+		state = m.fsm.CurrentState()
+	}
 
-	currentState := State(m.state.Load())
-
-	if currentState >= StateRunning {
+	if state >= StateRunning {
 		if err := mod.Init(m.initCtx); err != nil {
-			return err
+			return fmt.Errorf("module %q: dynamic init failed: %w", mod.Name(), err)
 		}
 
 		if err := mod.Start(ctx); err != nil {
-			return err
+			return fmt.Errorf("module %q: dynamic start failed: %w", mod.Name(), err)
 		}
 	}
 
-	if currentState == StateAuthorized {
-		if authed, ok := mod.(module.Auth); ok {
-			if err := authed.StartAuthed(ctx, m.authCtx); err != nil {
-				return err
+	if state == StateAuthorized {
+		if authMod, ok := mod.(module.Auth); ok {
+			if err := authMod.StartAuthed(ctx, m.authCtx); err != nil {
+				return fmt.Errorf("module %q: dynamic start authed failed: %w", mod.Name(), err)
 			}
 		}
 	}
@@ -88,119 +96,91 @@ func (m *ModuleManager) Register(ctx context.Context, mod module.Module) error {
 	return nil
 }
 
-// InitAll initializes all registered modules in topological dependency order.
-func (m *ModuleManager) InitAll(ctx module.InitContext) error {
-	m.mu.RLock()
-	modules := make(map[string]module.Module, len(m.modules))
-	maps.Copy(modules, m.modules)
-	m.mu.RUnlock()
-
-	sorted, err := topologicalSort(modules)
-	if err != nil {
-		return fmt.Errorf("module dependencies: %w", err)
+// InitAll initializes all registered modules.
+func (m *ModuleManager) InitAll(ctx context.Context) error {
+	m.mu.Lock()
+	if m.orchestrator == nil {
+		m.orchestrator = lifecycle.NewOrchestrator()
 	}
 
-	var errs []error
-	for _, mod := range sorted {
-		if err := mod.Init(ctx); err != nil {
-			errs = append(errs, fmt.Errorf("failed to init module %q: %w", mod.Name(), err))
-		}
-	}
+	o := m.orchestrator
+	m.mu.Unlock()
 
-	return errors.Join(errs...)
+	return o.InitAll(ctx)
 }
 
-// StartAll starts all registered modules in topological dependency order.
+// StartAll starts all registered modules.
 func (m *ModuleManager) StartAll(ctx context.Context) error {
-	m.mu.RLock()
-	modules := make(map[string]module.Module, len(m.modules))
-	maps.Copy(modules, m.modules)
-	m.mu.RUnlock()
-
-	sorted, err := topologicalSort(modules)
-	if err != nil {
-		return fmt.Errorf("module dependencies: %w", err)
+	m.mu.Lock()
+	if m.orchestrator == nil {
+		m.orchestrator = lifecycle.NewOrchestrator()
 	}
 
-	var errs []error
-	for _, mod := range sorted {
-		if err := mod.Start(ctx); err != nil {
-			errs = append(errs, fmt.Errorf("failed to start module %q: %w", mod.Name(), err))
-		}
-	}
+	o := m.orchestrator
+	m.mu.Unlock()
 
-	return errors.Join(errs...)
+	return o.StartAll(ctx)
 }
 
-// StartAuthedAll starts all registered modules that implement the Auth interface in topological dependency order.
-func (m *ModuleManager) StartAuthedAll(ctx context.Context, actx module.AuthContext) error {
-	m.mu.RLock()
-	modules := make(map[string]module.Module, len(m.modules))
-	maps.Copy(modules, m.modules)
-	m.mu.RUnlock()
-
-	sorted, err := topologicalSort(modules)
-	if err != nil {
-		return fmt.Errorf("module dependencies: %w", err)
+// StopAll stops all registered modules.
+func (m *ModuleManager) StopAll(ctx context.Context) error {
+	m.mu.Lock()
+	if m.orchestrator == nil {
+		m.orchestrator = lifecycle.NewOrchestrator()
 	}
 
-	var errs []error
-	for _, mod := range sorted {
-		if authedMod, ok := mod.(module.Auth); ok {
-			if err := authedMod.StartAuthed(ctx, actx); err != nil {
-				errs = append(errs, fmt.Errorf("module %q failed StartAuthed: %w", mod.Name(), err))
-			}
-		}
-	}
+	o := m.orchestrator
+	m.mu.Unlock()
 
-	return errors.Join(errs...)
+	return o.StopAll(ctx)
 }
 
-func topologicalSort(modules map[string]module.Module) ([]module.Module, error) {
-	order := make([]module.Module, 0, len(modules))
-	visited := make(map[string]int) // 0 = unvisited, 1 = visiting, 2 = visited
+// StartAuthedAll starts all registered modules with the given auth context.
+func (m *ModuleManager) StartAuthedAll(ctx context.Context, authCtx module.AuthContext) error {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 
-	var visit func(name string) error
-
-	visit = func(name string) error {
-		state := visited[name]
-		if state == 1 {
-			return fmt.Errorf("circular dependency detected involving module %q", name)
-		}
-
-		if state == 2 {
-			return nil
-		}
-
-		visited[name] = 1
-
-		mod, ok := modules[name]
-		if ok {
-			if depMod, ok := mod.(module.Dependent); ok {
-				for _, dep := range depMod.Dependencies() {
-					if err := visit(dep); err != nil {
-						return err
-					}
-				}
-			}
-		}
-
-		visited[name] = 2
-
-		if ok {
-			order = append(order, mod)
-		}
-
-		return nil
-	}
-
-	for name := range modules {
-		if visited[name] == 0 {
-			if err := visit(name); err != nil {
-				return nil, err
+	for _, mod := range m.modules {
+		if authMod, ok := mod.(module.Auth); ok {
+			if err := authMod.StartAuthed(ctx, authCtx); err != nil {
+				return fmt.Errorf("module %q: start authed failed: %w", mod.Name(), err)
 			}
 		}
 	}
 
-	return order, nil
+	return nil
+}
+
+type moduleAdapter struct {
+	mod     module.Module
+	initCtx module.InitContext
+	cancel  context.CancelFunc
+}
+
+func (a *moduleAdapter) Name() string { return a.mod.Name() }
+
+func (a *moduleAdapter) Dependencies() []string {
+	if dep, ok := a.mod.(module.Dependent); ok {
+		return dep.Dependencies()
+	}
+
+	return nil
+}
+
+func (a *moduleAdapter) Init(ctx context.Context) error {
+	return a.mod.Init(a.initCtx)
+}
+
+func (a *moduleAdapter) Start(ctx context.Context) error {
+	startCtx, cancel := context.WithCancel(ctx)
+	a.cancel = cancel
+	return a.mod.Start(startCtx)
+}
+
+func (a *moduleAdapter) Stop(ctx context.Context) error {
+	if a.cancel != nil {
+		a.cancel()
+	}
+
+	return nil
 }

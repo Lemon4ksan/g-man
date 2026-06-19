@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lemon4ksan/miyako/bus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/log"
 )
 

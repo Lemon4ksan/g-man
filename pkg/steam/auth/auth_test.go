@@ -13,11 +13,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lemon4ksan/miyako/bus"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/log"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
@@ -105,9 +105,9 @@ func (s *AuthenticatorSuite) TestAcquireMachineId_Generation() {
 func (s *AuthenticatorSuite) TestLogOnAnonymous_Coverage() {
 	server := socket.CMServer{Type: "websockets"}
 
-	s.auth.setState(StateLoggingOn)
+	s.auth.setStateDirect(StateLoggingOn)
 	s.ErrorContains(s.auth.LogOnAnonymous(context.Background(), server), "already in progress")
-	s.auth.setState(StateDisconnected)
+	s.auth.setStateDirect(StateDisconnected)
 
 	s.socket.On("Connect", server).Return(errors.New("dial timeout")).Once()
 	s.ErrorContains(s.auth.LogOnAnonymous(context.Background(), server), "dial timeout")
@@ -137,7 +137,7 @@ func (s *AuthenticatorSuite) TestResolveConfirmation_Coverage() {
 
 	s.webAPI.On("UpdateAuthSessionWithSteamGuardCode", mock.Anything, mock.Anything, mock.Anything, "code", mock.Anything).
 		Return(errors.New("fail"))
-	s.auth.loginResult = make(chan error, 1)
+	s.auth.setLoginResult(make(chan error, 1))
 
 	ev.Callback("code") // Triggers goroutine
 	time.Sleep(50 * time.Millisecond)
@@ -188,12 +188,12 @@ func (s *AuthenticatorSuite) TestHandlers_Coverage() {
 	s.Nil(s.auth.tempKey.Load())
 
 	// handleLogOnResponse failure (clear coverage)
-	s.auth.loginResult = make(chan error, 1)
+	s.auth.setLoginResult(make(chan error, 1))
 	s.socket.SimulatePacket(
 		enums.EMsg_ClientLogOnResponse,
 		&pb.CMsgClientLogonResponse{Eresult: proto.Int32(int32(enums.EResult_NoConnection))},
 	)
-	s.Error(<-s.auth.loginResult)
+	s.Error(<-s.auth.getLoginResult())
 }
 
 func (s *AuthenticatorSuite) TestAcquireAuthToken_Coverage() {
@@ -304,7 +304,7 @@ func (s *AuthenticatorSuite) TestLogOn_InvalidPassword_ClearStore() {
 }
 
 func (s *AuthenticatorSuite) TestHandleLogOnResponse_HeartbeatFailure() {
-	s.auth.loginResult = make(chan error, 1)
+	s.auth.setLoginResult(make(chan error, 1))
 	s.socket.On("StartHeartbeat", mock.Anything).Return(errors.New("heartbeat err")).Once()
 
 	packet := &protocol.Packet{
@@ -321,19 +321,20 @@ func (s *AuthenticatorSuite) TestHandleLogOnResponse_HeartbeatFailure() {
 	}
 	s.auth.handleLogOnResponse(packet)
 
-	err := <-s.auth.loginResult
+	err := <-s.auth.getLoginResult()
 	s.ErrorContains(err, "failed to start heartbeat")
 }
 
 func (s *AuthenticatorSuite) TestFailLogin_DoubleChannelSend() {
-	s.auth.loginResult = make(chan error, 1)
+	s.auth.setLoginResult(make(chan error, 1))
+
 	err1 := errors.New("err1")
 	err2 := errors.New("err2")
 
 	s.auth.failLogin(err1)
 	s.auth.failLogin(err2)
 
-	s.Equal(err1, <-s.auth.loginResult)
+	s.Equal(err1, <-s.auth.getLoginResult())
 }
 
 type MockSocketProvider struct {

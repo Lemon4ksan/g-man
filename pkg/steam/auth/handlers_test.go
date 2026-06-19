@@ -29,19 +29,19 @@ func (m *mockAuthorizedHeader) GetSessionID() int32 { return m.sessionID }
 
 func (s *AuthenticatorSuite) TestHandleChannelEncryptRequest_Failures() {
 	// Fail to read protocol version (payload too short)
-	s.auth.loginResult = make(chan error, 1)
+	s.auth.setLoginResult(make(chan error, 1))
 	s.socket.SimulatePacketRaw(enums.EMsg_ChannelEncryptRequest, []byte{1, 2})
-	s.ErrorContains(<-s.auth.loginResult, "failed to read protocol version")
+	s.ErrorContains(<-s.auth.getLoginResult(), "failed to read protocol version")
 
 	// Fail to read universe
 	payload := make([]byte, 4) // only protocol version
 	s.socket.SimulatePacketRaw(enums.EMsg_ChannelEncryptRequest, payload)
-	s.ErrorContains(<-s.auth.loginResult, "failed to read universe")
+	s.ErrorContains(<-s.auth.getLoginResult(), "failed to read universe")
 
 	// Fail to read nonce
 	payload = make([]byte, 8) // protocol + universe, no nonce
 	s.socket.SimulatePacketRaw(enums.EMsg_ChannelEncryptRequest, payload)
-	s.ErrorContains(<-s.auth.loginResult, "failed to read nonce")
+	s.ErrorContains(<-s.auth.getLoginResult(), "failed to read nonce")
 
 	// SendRaw failure
 	payload = make([]byte, 8+16)
@@ -50,53 +50,53 @@ func (s *AuthenticatorSuite) TestHandleChannelEncryptRequest_Failures() {
 		Return(errors.New("network down")).
 		Once()
 	s.socket.SimulatePacketRaw(enums.EMsg_ChannelEncryptRequest, payload)
-	s.ErrorContains(<-s.auth.loginResult, "failed to send response")
+	s.ErrorContains(<-s.auth.getLoginResult(), "failed to send response")
 }
 
 func (s *AuthenticatorSuite) TestHandleChannelEncryptResult_Failures() {
 	// Fail to read result (empty payload)
-	s.auth.loginResult = make(chan error, 1)
+	s.auth.setLoginResult(make(chan error, 1))
 	s.socket.SimulatePacketRaw(enums.EMsg_ChannelEncryptResult, []byte{})
-	s.ErrorContains(<-s.auth.loginResult, "failed to read result code")
+	s.ErrorContains(<-s.auth.getLoginResult(), "failed to read result code")
 
 	// EResult not OK
 	payload := make([]byte, 4)
 	binary.LittleEndian.PutUint32(payload, uint32(enums.EResult_Fail))
 	s.socket.SimulatePacketRaw(enums.EMsg_ChannelEncryptResult, payload)
-	s.ErrorContains(<-s.auth.loginResult, "encryption failed with EResult")
+	s.ErrorContains(<-s.auth.getLoginResult(), "encryption failed with EResult")
 
 	// No temporary session key found
 	binary.LittleEndian.PutUint32(payload, uint32(enums.EResult_OK))
 	s.auth.tempKey.Store(nil)
 	s.socket.SimulatePacketRaw(enums.EMsg_ChannelEncryptResult, payload)
-	s.ErrorContains(<-s.auth.loginResult, "no temporary session key found")
+	s.ErrorContains(<-s.auth.getLoginResult(), "no temporary session key found")
 
 	// Missing active details
 	key := []byte("secret")
 	s.auth.tempKey.Store(&key)
 	s.auth.activeDetails.Store(nil)
 	s.socket.SimulatePacketRaw(enums.EMsg_ChannelEncryptResult, payload)
-	s.ErrorContains(<-s.auth.loginResult, "login context or details are missing")
+	s.ErrorContains(<-s.auth.getLoginResult(), "login context or details are missing")
 }
 
 func (s *AuthenticatorSuite) TestHandleLogOnResponse_Coverage() {
 	// Unmarshal failure
-	s.auth.loginResult = make(chan error, 1)
+	s.auth.setLoginResult(make(chan error, 1))
 	s.socket.SimulatePacketRaw(enums.EMsg_ClientLogOnResponse, []byte{0xFF, 0x01}) // Invalid proto
-	s.ErrorContains(<-s.auth.loginResult, "unmarshal failed")
+	s.ErrorContains(<-s.auth.getLoginResult(), "unmarshal failed")
 
 	// Denied by CM (Publishes LoggedOffEvent)
 	sub := s.bus.Subscribe(&LoggedOffEvent{})
 	s.socket.SimulatePacket(enums.EMsg_ClientLogOnResponse, &pb.CMsgClientLogonResponse{
 		Eresult: proto.Int32(int32(enums.EResult_AccessDenied)),
 	})
-	s.Error(<-s.auth.loginResult)
+	s.Error(<-s.auth.getLoginResult())
 
 	ev := (<-sub.C()).(*LoggedOffEvent)
 	s.Equal(enums.EResult_AccessDenied, ev.Result)
 
 	// Success with Header mapping and Heartbeat logic
-	s.auth.loginResult = make(chan error, 1)
+	s.auth.setLoginResult(make(chan error, 1))
 	s.socket.On("StartHeartbeat", 10*time.Second).Return().Once() // Case for 0 heartbeat seconds
 
 	packet := &protocol.Packet{
@@ -113,7 +113,7 @@ func (s *AuthenticatorSuite) TestHandleLogOnResponse_Coverage() {
 	}
 
 	s.auth.handleLogOnResponse(packet)
-	s.NoError(<-s.auth.loginResult)
+	s.NoError(<-s.auth.getLoginResult())
 }
 
 func (s *AuthenticatorSuite) TestHandleLoggedOff_Coverage() {
@@ -123,7 +123,7 @@ func (s *AuthenticatorSuite) TestHandleLoggedOff_Coverage() {
 
 	// Session Expired (Auth Error)
 	sub := s.bus.Subscribe(&LoggedOffEvent{})
-	s.auth.loginResult = make(chan error, 1)
+	s.auth.setLoginResult(make(chan error, 1))
 	s.socket.SimulatePacket(enums.EMsg_ClientLoggedOff, &pb.CMsgClientLoggedOff{
 		Eresult: proto.Int32(int32(enums.EResult_AccountLogonDeniedVerifiedEmailRequired)),
 	})
@@ -161,8 +161,8 @@ func (s *AuthenticatorSuite) TestSendLogOn_Branches() {
 	s.auth.sendLogOn(context.Background(), details2)
 
 	// Send Failure
-	s.auth.loginResult = make(chan error, 1)
+	s.auth.setLoginResult(make(chan error, 1))
 	s.socket.On("SendProto", mock.Anything, mock.Anything, mock.Anything).Return(errors.New("fail")).Once()
 	s.auth.sendLogOn(context.Background(), details2)
-	s.ErrorContains(<-s.auth.loginResult, "send logon failed")
+	s.ErrorContains(<-s.auth.getLoginResult(), "send logon failed")
 }

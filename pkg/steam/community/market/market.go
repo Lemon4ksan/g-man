@@ -19,6 +19,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/miyako/generic"
 
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam"
@@ -568,10 +569,9 @@ func (m *Market) GetBoosterPackCatalog(ctx context.Context) (*BoosterCatalog, er
 	tradableGems, _ := strconv.Atoi(string(match[3]))
 	untradableGems, _ := strconv.Atoi(string(match[4]))
 
-	catalogMap := make(map[uint32]*BoosterPackInfo)
-	for _, app := range catalogList {
-		catalogMap[app.AppID] = app
-	}
+	catalogMap := generic.IndexBy(catalogList, func(app *BoosterPackInfo) uint32 {
+		return app.AppID
+	})
 
 	return &BoosterCatalog{
 		TotalGems:      totalGems,

@@ -10,13 +10,15 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/miyako/bus"
+	"github.com/lemon4ksan/miyako/generic"
+	"github.com/lemon4ksan/miyako/kata"
+	"github.com/lemon4ksan/miyako/lifecycle"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
@@ -71,9 +73,7 @@ func GetModule[T any](c *Client) T {
 		}
 	}
 
-	var zero T
-
-	return zero
+	return generic.Zero[T]()
 }
 
 // ErrNotRunning is returned when the client is not running.
@@ -136,6 +136,18 @@ const (
 	StateClosed
 )
 
+// Event represents a trigger that drives a client state transition.
+type Event int32
+
+const (
+	// EventRun triggers transition from New to Running.
+	EventRun Event = iota
+	// EventAuthorize triggers transition from Running to Authorized.
+	EventAuthorize
+	// EventClose triggers transition to Closed from any active state.
+	EventClose
+)
+
 // String returns a human-readable representation of the client state.
 func (s State) String() string {
 	switch s {
@@ -143,6 +155,8 @@ func (s State) String() string {
 		return "new"
 	case StateRunning:
 		return "running"
+	case StateAuthorized:
+		return "authorized"
 	case StateClosed:
 		return "closed"
 	default:
@@ -151,7 +165,7 @@ func (s State) String() string {
 }
 
 // Option defines a functional configuration option for custom overrides.
-type Option func(*Client)
+type Option = generic.Option[*Client]
 
 // WithLogger sets a custom logger for the Steam client.
 func WithLogger(l log.Logger) Option {
@@ -161,7 +175,7 @@ func WithLogger(l log.Logger) Option {
 // WithModule adds a module to the client and initializes it immediately.
 func WithModule(m module.Module) Option {
 	return func(c *Client) {
-		c.modules.Add(m)
+		_ = c.modules.Add(m)
 	}
 }
 
@@ -188,7 +202,7 @@ type Client struct {
 	cancel    context.CancelFunc
 	closed    chan struct{}
 	wg        sync.WaitGroup
-	state     atomic.Int32
+	fsm       *kata.FSM[State, Event]
 	closeOnce sync.Once
 
 	enrichedAccount string
@@ -211,6 +225,15 @@ func NewClient(cfg Config, opts ...Option) (*Client, error) {
 		cfg.Bus = bus.New()
 	}
 
+	fsm := kata.NewFSM[State, Event](StateNew)
+	fsm.AddRules(
+		kata.TransitionRule[State, Event]{From: StateNew, Event: EventRun, To: StateRunning},
+		kata.TransitionRule[State, Event]{From: StateRunning, Event: EventAuthorize, To: StateAuthorized},
+		kata.TransitionRule[State, Event]{From: StateAuthorized, Event: EventClose, To: StateClosed},
+		kata.TransitionRule[State, Event]{From: StateRunning, Event: EventClose, To: StateClosed},
+		kata.TransitionRule[State, Event]{From: StateNew, Event: EventClose, To: StateClosed},
+	)
+
 	c := &Client{
 		cfg:    cfg,
 		ctx:    ctx,
@@ -218,18 +241,17 @@ func NewClient(cfg Config, opts ...Option) (*Client, error) {
 		bus:    cfg.Bus,
 		logger: log.Discard,
 		closed: make(chan struct{}),
+		fsm:    fsm,
 	}
 
 	c.modules = &ModuleManager{
-		modules: make(map[string]module.Module),
-		state:   &c.state,
-		initCtx: c,
-		authCtx: c,
+		orchestrator: lifecycle.NewOrchestrator(),
+		modules:      make(map[string]module.Module),
+		fsm:          fsm,
+		initCtx:      c,
+		authCtx:      c,
 	}
-
-	for _, opt := range opts {
-		opt(c)
-	}
+	generic.ApplyOptions(c, opts...)
 
 	if cfg.Socket.Connector.ProxyURL == "" {
 		cfg.Socket.Connector.ProxyURL = cfg.ProxyURL
@@ -254,28 +276,26 @@ func NewClient(cfg Config, opts ...Option) (*Client, error) {
 }
 
 // Run initializes and starts all modules, and runs the CM session refresh loop.
-func (c *Client) Run() (err error) {
-	if err := c.modules.InitAll(c); err != nil {
-		err = fmt.Errorf("init modules: %w", err)
-		return err
+func (c *Client) Run() error {
+	if err := c.modules.InitAll(c.ctx); err != nil {
+		return fmt.Errorf("init modules: %w", err)
 	}
 
 	if err := c.modules.StartAll(c.ctx); err != nil {
-		err = fmt.Errorf("start modules: %w", err)
-		return err
+		return fmt.Errorf("start modules: %w", err)
 	}
 
 	c.wg.Go(func() {
 		_ = c.session.StartRefreshLoop(c.ctx)
 	})
 
-	c.state.Store(int32(StateRunning))
+	_ = c.fsm.Transition(context.Background(), EventRun)
 
-	return err
+	return nil
 }
 
 // State returns the current client lifecycle state.
-func (c *Client) State() State { return State(c.state.Load()) }
+func (c *Client) State() State { return c.fsm.CurrentState() }
 
 // Session returns the client's session manager.
 func (c *Client) Session() *SessionManager {
@@ -337,35 +357,6 @@ func (c *Client) Logger() log.Logger {
 	return c.logger
 }
 
-// enrichLogger adds the account and/or steamID to the loggers of the client and all its subsystems.
-func (c *Client) enrichLogger(account string, steamID id.ID) {
-	c.loggerMu.Lock()
-	defer c.loggerMu.Unlock()
-
-	var logFields []log.Field
-	if account != "" && c.enrichedAccount == "" {
-		logFields = append(logFields, log.String("account", account))
-		c.enrichedAccount = account
-	}
-
-	if steamID != 0 && c.enrichedSteamID == 0 {
-		logFields = append(logFields, log.SteamID(steamID.Uint64()))
-		c.enrichedSteamID = steamID
-	}
-
-	if len(logFields) == 0 {
-		return
-	}
-
-	c.logger = c.logger.With(logFields...)
-
-	c.session.enrichLogger(account, steamID)
-
-	if c.socket != nil {
-		c.socket.UpdateLogger(c.logger)
-	}
-}
-
 // Rest returns the low-level REST requester.
 func (c *Client) Rest() aoni.Requester { return c.rest }
 
@@ -422,7 +413,7 @@ func (c *Client) ConnectAndLogin(ctx context.Context, server socket.CMServer, de
 
 	c.enrichLogger(details.AccountName, details.SteamID)
 
-	c.state.Store(int32(StateAuthorized))
+	_ = c.fsm.Transition(context.Background(), EventAuthorize)
 
 	if err := c.modules.StartAuthedAll(c.ctx, c); err != nil {
 		c.Logger().Error("Some modules failed to start authorized", log.Err(err))
@@ -441,7 +432,7 @@ func (c *Client) Disconnect() error {
 func (c *Client) Close() error {
 	var err error
 	c.closeOnce.Do(func() {
-		c.state.Store(int32(StateClosed))
+		_ = c.fsm.Transition(context.Background(), EventClose)
 		c.cancel()
 		c.wg.Wait()
 		err = c.session.Close()
@@ -454,6 +445,35 @@ func (c *Client) Close() error {
 // Wait blocks until the client is fully stopped.
 func (c *Client) Wait() {
 	<-c.closed
+}
+
+// enrichLogger adds the account and/or steamID to the loggers of the client and all its subsystems.
+func (c *Client) enrichLogger(account string, steamID id.ID) {
+	c.loggerMu.Lock()
+	defer c.loggerMu.Unlock()
+
+	var logFields []log.Field
+	if account != "" && c.enrichedAccount == "" {
+		logFields = append(logFields, log.String("account", account))
+		c.enrichedAccount = account
+	}
+
+	if steamID != 0 && c.enrichedSteamID == 0 {
+		logFields = append(logFields, log.SteamID(steamID.Uint64()))
+		c.enrichedSteamID = steamID
+	}
+
+	if len(logFields) == 0 {
+		return
+	}
+
+	c.logger = c.logger.With(logFields...)
+
+	c.session.enrichLogger(account, steamID)
+
+	if c.socket != nil {
+		c.socket.UpdateLogger(c.logger)
+	}
 }
 
 type noopSocketProvider struct{}

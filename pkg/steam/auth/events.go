@@ -5,7 +5,8 @@
 package auth
 
 import (
-	"github.com/lemon4ksan/g-man/pkg/bus"
+	"github.com/lemon4ksan/miyako/bus"
+
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 )

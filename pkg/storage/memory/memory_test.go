@@ -8,7 +8,6 @@ import (
 	"context"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -119,39 +118,6 @@ func TestKVStore_Operations(t *testing.T) {
 		keys, err = kv.Keys(ctx, "nonexistent:")
 		assert.NoError(t, err)
 		assert.Empty(t, keys)
-	})
-}
-
-func TestTTLCache(t *testing.T) {
-	p := memory.New()
-	cache := p.TTLCache()
-
-	t.Run("Immediate Get", func(t *testing.T) {
-		cache.Set("key1", "val1", time.Minute)
-
-		val, ok := cache.Get("key1")
-		assert.True(t, ok)
-		assert.Equal(t, "val1", val)
-	})
-
-	t.Run("Expiration", func(t *testing.T) {
-		cache.Set("key2", "val2", 10*time.Millisecond)
-
-		time.Sleep(20 * time.Millisecond)
-
-		_, ok := cache.Get("key2")
-		assert.False(t, ok, "expected key to be expired")
-	})
-
-	t.Run("Overwrite TTL", func(t *testing.T) {
-		cache.Set("key3", "old", time.Millisecond)
-		cache.Set("key3", "new", time.Hour)
-
-		time.Sleep(5 * time.Millisecond)
-
-		val, ok := cache.Get("key3")
-		assert.True(t, ok)
-		assert.Equal(t, "new", val, "new TTL should overwrite the expired one")
 	})
 }
 

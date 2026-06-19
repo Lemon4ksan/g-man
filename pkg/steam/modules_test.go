@@ -7,9 +7,9 @@ package steam
 import (
 	"context"
 	"errors"
-	"sync/atomic"
 	"testing"
 
+	"github.com/lemon4ksan/miyako/kata"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
@@ -17,12 +17,15 @@ import (
 )
 
 func TestModuleManager_Register(t *testing.T) {
-	state := &atomic.Int32{}
-	state.Store(int32(StateRunning))
+	fsm := kata.NewFSM[State, Event](StateNew)
+	fsm.AddRules(
+		kata.TransitionRule[State, Event]{From: StateNew, Event: EventRun, To: StateRunning},
+	)
+	fsm.Transition(context.Background(), EventRun)
 
 	mm := &ModuleManager{
 		modules: make(map[string]module.Module),
-		state:   state,
+		fsm:     fsm,
 	}
 
 	m := new(mockModule)
@@ -51,10 +54,15 @@ func TestModuleManager_AddAndGet(t *testing.T) {
 }
 
 func TestModuleManager_Register_Errors(t *testing.T) {
-	state := &atomic.Int32{}
+	fsm := kata.NewFSM[State, Event](StateNew)
+	fsm.AddRules(
+		kata.TransitionRule[State, Event]{From: StateNew, Event: EventRun, To: StateRunning},
+		kata.TransitionRule[State, Event]{From: StateRunning, Event: EventAuthorize, To: StateAuthorized},
+	)
+
 	mm := &ModuleManager{
 		modules: make(map[string]module.Module),
-		state:   state,
+		fsm:     fsm,
 	}
 
 	t.Run("Duplicate", func(t *testing.T) {
@@ -66,7 +74,7 @@ func TestModuleManager_Register_Errors(t *testing.T) {
 	})
 
 	t.Run("Init Fail", func(t *testing.T) {
-		state.Store(int32(StateRunning))
+		fsm.ForceSet(StateRunning)
 
 		mod := new(mockModule)
 		mod.On("Name").Return("init_fail")
@@ -76,6 +84,8 @@ func TestModuleManager_Register_Errors(t *testing.T) {
 	})
 
 	t.Run("Start Fail", func(t *testing.T) {
+		fsm.ForceSet(StateRunning)
+
 		mod := new(mockModule)
 		mod.On("Name").Return("start_fail")
 		mod.On("Init", mock.Anything).Return(nil).Once()
@@ -85,7 +95,7 @@ func TestModuleManager_Register_Errors(t *testing.T) {
 	})
 
 	t.Run("StartAuthed Fail", func(t *testing.T) {
-		state.Store(int32(StateAuthorized))
+		fsm.ForceSet(StateAuthorized)
 
 		mod := new(mockAuthModule)
 		mod.On("Name").Return("auth_fail")
@@ -115,7 +125,9 @@ func TestModuleManager_AllOps(t *testing.T) {
 	mm.Add(mod1)
 	mm.Add(mod2)
 
-	err := mm.InitAll(nil)
+	var ctx context.Context
+
+	err := mm.InitAll(ctx)
 	assert.ErrorContains(t, err, "init err")
 
 	err = mm.StartAll(context.Background())

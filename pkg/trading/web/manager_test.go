@@ -58,16 +58,16 @@ func TestManager_Lifecycle(t *testing.T) {
 	m, _, _ := setupTrading(t)
 
 	t.Run("State Transitions", func(t *testing.T) {
-		if m.State.Load() != StateStopped {
-			t.Errorf("expected Stopped, got %d", m.State.Load())
+		if m.fsm.CurrentState() != StateStopped {
+			t.Errorf("expected Stopped, got %d", m.fsm.CurrentState())
 		}
 
 		if err := m.StartPolling(); err != nil {
 			t.Fatalf("failed to start: %v", err)
 		}
 
-		if m.State.Load() != StatePolling {
-			t.Errorf("expected Polling, got %d", m.State.Load())
+		if m.fsm.CurrentState() != StatePolling {
+			t.Errorf("expected Polling, got %d", m.fsm.CurrentState())
 		}
 
 		if err := m.StartPolling(); !errors.Is(err, ErrManagerPolling) {
@@ -76,13 +76,13 @@ func TestManager_Lifecycle(t *testing.T) {
 
 		m.StopPolling()
 
-		if m.State.Load() != StateStopped {
-			t.Errorf("expected Stopped after stop, got %d", m.State.Load())
+		if m.fsm.CurrentState() != StateStopped {
+			t.Errorf("expected Stopped after stop, got %d", m.fsm.CurrentState())
 		}
 
 		_ = m.Close()
-		if m.State.Load() != StateClosed {
-			t.Errorf("expected Closed, got %d", m.State.Load())
+		if m.fsm.CurrentState() != StateClosed {
+			t.Errorf("expected Closed, got %d", m.fsm.CurrentState())
 		}
 	})
 }
@@ -218,8 +218,8 @@ func TestManager_HandleAuthEvents(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	if m.State.Load() != StateStopped {
-		t.Errorf("expected state Stopped after Disconnect event, got %d", m.State.Load())
+	if m.fsm.CurrentState() != StateStopped {
+		t.Errorf("expected state Stopped after Disconnect event, got %d", m.fsm.CurrentState())
 	}
 }
 

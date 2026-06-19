@@ -11,9 +11,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/lemon4ksan/miyako/generic"
+	"github.com/lemon4ksan/miyako/jobs"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/lemon4ksan/g-man/pkg/jobs"
 	"github.com/lemon4ksan/g-man/pkg/log"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
@@ -244,6 +245,17 @@ func (s *Socket) SendSync(ctx context.Context, build PayloadBuilder, opts ...Sen
 
 		return res.pkt, res.err
 	}
+}
+
+// SendAsync sends a packet asynchronously and returns a future that resolves when the response is received or the context is canceled.
+func (s *Socket) SendAsync(
+	ctx context.Context,
+	build PayloadBuilder,
+	opts ...SendOption,
+) *generic.Future[*protocol.Packet] {
+	return generic.NewFuture(func() (*protocol.Packet, error) {
+		return s.SendSync(ctx, build, opts...)
+	})
 }
 
 // StartHeartbeat begins sending periodic ClientHeartBeat messages to Steam.

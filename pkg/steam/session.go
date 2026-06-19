@@ -14,8 +14,9 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/miyako/bus"
+	"github.com/lemon4ksan/miyako/generic"
 
-	"github.com/lemon4ksan/g-man/pkg/bus"
 	"github.com/lemon4ksan/g-man/pkg/log"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
@@ -79,9 +80,7 @@ type SessionManager struct {
 	verifyTicker *time.Ticker
 	closed       atomic.Bool
 
-	refreshMu   sync.Mutex
-	refreshing  bool
-	refreshCond *sync.Cond
+	refreshSF *generic.SingleFlight[struct{}]
 
 	enrichedAccount string
 	enrichedSteamID id.ID
@@ -103,8 +102,8 @@ func NewSessionManager(cfg Config, bus *bus.Bus, logger log.Logger, sock SocketP
 		device:       device,
 		verifyTicker: time.NewTicker(5 * time.Minute),
 		http:         cfg.HTTP,
+		refreshSF:    generic.NewSingleFlight[struct{}](),
 	}
-	c.refreshCond = sync.NewCond(&c.refreshMu)
 
 	if c.storage == nil {
 		c.storage = memory.New()
@@ -234,26 +233,9 @@ func (c *SessionManager) Refresh(ctx context.Context) error {
 		return module.ErrClosed
 	}
 
-	c.refreshMu.Lock()
-	if c.refreshing {
-		for c.refreshing {
-			c.refreshCond.Wait()
-		}
-
-		c.refreshMu.Unlock()
-
-		return nil
-	}
-
-	c.refreshing = true
-	c.refreshMu.Unlock()
-
-	err := c.doRefresh(ctx)
-
-	c.refreshMu.Lock()
-	c.refreshing = false
-	c.refreshCond.Broadcast()
-	c.refreshMu.Unlock()
+	_, err := c.refreshSF.Do("refresh", func() (struct{}, error) {
+		return struct{}{}, c.doRefresh(ctx)
+	})
 
 	return err
 }

@@ -10,6 +10,8 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/lemon4ksan/miyako/generic"
+
 	"github.com/lemon4ksan/g-man/pkg/behavior"
 	"github.com/lemon4ksan/g-man/pkg/log"
 )
@@ -17,11 +19,9 @@ import (
 // BehaviorName is the name of the behavior.
 const BehaviorName = "achievements"
 
-// Simulate returns an option that registers the achievement manager behavior with the orchestrator.
-func Simulate(provider Provider, cfg Config) behavior.Option {
-	return func(o *behavior.Orchestrator) {
-		o.Register(New(provider, cfg, o.Logger()))
-	}
+// Simulate registers the achievement manager behavior with the orchestrator.
+func Simulate(orch *behavior.Orchestrator, provider Provider, cfg Config) {
+	orch.Register(New(provider, cfg, orch.Logger()))
 }
 
 // Provider describes the interface for interaction with the game for the manager.
@@ -72,10 +72,7 @@ func (m *Manager) Run(ctx context.Context) error {
 	logger := m.logger.With(log.Uint32("app_id", m.config.AppID))
 	logger.Info("Achievement Manager started")
 
-	interval := m.config.CheckInterval
-	if interval == 0 {
-		interval = 24 * time.Hour
-	}
+	interval := generic.Coalesce(m.config.CheckInterval, 24*time.Hour)
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()

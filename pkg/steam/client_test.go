@@ -135,7 +135,7 @@ func TestClient_SteamID(t *testing.T) {
 
 func TestClient_Do_State(t *testing.T) {
 	c, _ := setupTestClient(t)
-	c.state.Store(int32(StateClosed))
+	c.fsm.ForceSet(StateClosed)
 
 	_, err := c.Do(context.Background(), tr.NewRequest(&mockTarget{}, nil))
 	assert.ErrorIs(t, err, ErrNotRunning)
@@ -147,12 +147,12 @@ func TestClient_ConnectAndLogin_Failures(t *testing.T) {
 	details := &auth.LogOnDetails{}
 
 	t.Run("Already Closed", func(t *testing.T) {
-		c.state.Store(int32(StateClosed))
+		c.fsm.ForceSet(StateClosed)
 		err := c.ConnectAndLogin(context.Background(), server, details)
 		assert.ErrorIs(t, err, module.ErrClosed)
 	})
 
-	c.state.Store(int32(StateRunning))
+	c.fsm.ForceSet(StateRunning)
 
 	t.Run("LogOn Fails", func(t *testing.T) {
 		m.auth.On("LogOn", mock.Anything, details, server).Return(errors.New("logon fail")).Once()
