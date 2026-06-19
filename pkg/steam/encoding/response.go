@@ -83,6 +83,19 @@ var SteamJSONDecoder = aoni.DecoderFunc(func(r io.Reader, target any) error {
 		return err
 	}
 
+	firstNonSpace := byte(0)
+	for _, b := range data {
+		if b != ' ' && b != '\t' && b != '\r' && b != '\n' {
+			firstNonSpace = b
+			break
+		}
+	}
+
+	if firstNonSpace == '<' {
+		limit := min(len(data), 100)
+		return fmt.Errorf("expected JSON but got HTML/XML (possible steam API outage): %s", string(data[:limit]))
+	}
+
 	var wrapper map[string]json.RawMessage
 	if err := json.Unmarshal(data, &wrapper); err == nil {
 		if inner, ok := wrapper["response"]; ok {
