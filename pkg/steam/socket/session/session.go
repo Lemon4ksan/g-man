@@ -2,16 +2,14 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-/*
-Package session provides thread-safe storage for Steam session state.
-
-Unlike connection-oriented designs, this session object is long-lived.
-It holds identity data (SteamID, SessionID) and security credentials
-(Access/Refresh tokens) that survive transport reconnections.
-
-It uses atomic primitives to ensure high-performance access during
-asynchronous packet processing.
-*/
+// Package session provides thread-safe storage for Steam session state.
+//
+// Unlike connection-oriented designs, this session object is long-lived.
+// It holds identity data (SteamID, SessionID) and security credentials
+// (Access/Refresh tokens) that survive transport reconnections.
+//
+// It uses atomic primitives to ensure high-performance access during
+// asynchronous packet processing.
 package session
 
 import (
