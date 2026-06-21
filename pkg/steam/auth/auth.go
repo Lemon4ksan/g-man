@@ -21,6 +21,7 @@ import (
 	"github.com/lemon4ksan/miyako/kata"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/lemon4ksan/g-man/pkg/crypto"
 	"github.com/lemon4ksan/g-man/pkg/log"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
@@ -623,7 +624,7 @@ func (a *Authenticator) acquireMachineID(ctx context.Context, details *LogOnDeta
 	} else {
 		a.getLogger().Info("Generating new MachineID for account")
 
-		details.MachineID = generateMachineID()
+		details.MachineID = generateMachineID(details.AccountName)
 		if err := a.store.SaveMachineID(ctx, details.AccountName, details.MachineID); err != nil {
 			a.getLogger().Error("Storage save failed", log.Err(err))
 		}
@@ -685,12 +686,15 @@ func (a *Authenticator) setLogger(l log.Logger) {
 	a.logger = l
 }
 
-func generateMachineID() []byte {
-	var b [42]byte
+func generateMachineID(accountName string) []byte {
+	if accountName == "" {
+		var b [42]byte
 
-	_, _ = rand.Read(b[:])
+		_, _ = rand.Read(b[:])
+		return b[:]
+	}
 
-	return b[:]
+	return crypto.GenerateAccountMachineID(accountName)
 }
 
 type nopStore struct{}
