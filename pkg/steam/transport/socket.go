@@ -92,10 +92,7 @@ func (t *SocketTransport) Do(ctx context.Context, req *Request) (*Response, erro
 	}
 
 	if req.Params().Get("__no_response") == "true" {
-		err := t.caller.Send(ctx,
-			builder,
-			socket.WithToken(req.Token()),
-		)
+		err := t.caller.Send(ctx, builder, socket.WithToken(req.Token()))
 		if err != nil {
 			return nil, fmt.Errorf("socket_transport send failed: %w", err)
 		}
@@ -105,10 +102,7 @@ func (t *SocketTransport) Do(ctx context.Context, req *Request) (*Response, erro
 		}), nil
 	}
 
-	p, err := t.caller.SendSync(ctx,
-		builder,
-		socket.WithToken(req.Token()),
-	)
+	p, err := t.caller.SendSync(ctx, builder, socket.WithToken(req.Token()))
 	if err != nil {
 		return nil, fmt.Errorf("socket_transport call failed: %w", err)
 	}

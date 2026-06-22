@@ -691,6 +691,7 @@ func generateMachineID(accountName string) []byte {
 		var b [42]byte
 
 		_, _ = rand.Read(b[:])
+
 		return b[:]
 	}
 

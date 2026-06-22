@@ -125,8 +125,7 @@ func (r *Request) WithRoutingAppID(appID uint32) *Request {
 func (r *Request) RoutingAppID() uint32 { return r.routingAppID }
 
 // WithForceProto marks the request to use a Protobuf packet header even when no
-// Unified Service method name is present. Required for EMsg-based proto messages
-// like EMsg_ClientToGC.
+// Unified Service method name is present. Required for EMsg-based proto messages.
 func (r *Request) WithForceProto() *Request {
 	r.forceProto = true
 	return r
@@ -153,7 +152,7 @@ func NewResponse(body io.ReadCloser, meta any) *Response {
 }
 
 // As provides a type-safe way to extract protocol-specific metadata from a [Response].
-// It functions similarly to errors.As, populating the target if the types match.
+// It functions similarly to [errors.As], populating the target if the types match.
 //
 // The target argument must be a non-nil pointer. If target is nil or not a pointer,
 // As panics with an invalid target description.
