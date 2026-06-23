@@ -427,10 +427,25 @@ func (m *Manager) AcceptOffer(ctx context.Context, offerID uint64) error {
 		return err
 	}
 
+	m.mu.RLock()
+	comm := m.community
+	m.mu.RUnlock()
+
+	if comm == nil {
+		return errors.New("trade: community client not authenticated or initialized")
+	}
+
+	sessionID := comm.SessionID(community.BaseURL)
+
 	req := struct {
-		TradeOfferID uint64 `url:"tradeofferid"`
+		SessionID    string `url:"sessionid"`
 		ServerID     int    `url:"serverid"`
-	}{offerID, 1}
+		TradeOfferID uint64 `url:"tradeofferid"`
+	}{
+		SessionID:    sessionID,
+		ServerID:     1,
+		TradeOfferID: offerID,
+	}
 
 	type acceptResponse struct {
 		TradeID                 string `json:"tradeid"`
@@ -439,7 +454,12 @@ func (m *Manager) AcceptOffer(ctx context.Context, offerID uint64) error {
 		EmailDomain             string `json:"email_domain"`
 	}
 
-	resp, err := service.WebAPI[acceptResponse](ctx, m.web, "POST", "IEconService", "AcceptTradeOffer", 1, req)
+	resp, err := community.PostForm[acceptResponse](
+		ctx, comm, "tradeoffer/{offerID}/accept", req,
+		aoni.WithVar("offerID", offerID),
+		aoni.WithOrigin("https://steamcommunity.com"),
+		aoni.WithHeader("Referer", fmt.Sprintf("https://steamcommunity.com/tradeoffer/%d/", offerID)),
+	)
 	if err != nil {
 		return err
 	}
