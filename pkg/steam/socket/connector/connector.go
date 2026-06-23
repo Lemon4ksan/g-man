@@ -7,6 +7,7 @@ package connector
 import (
 	"context"
 	"fmt"
+	"math/rand/v2"
 	"net/http"
 	"net/url"
 	"sync"
@@ -131,7 +132,7 @@ func DefaultReconnectPolicy() ReconnectPolicy {
 				return CMServer{}
 			}
 
-			return servers[0]
+			return servers[rand.IntN(len(servers))] //nolint:gosec
 		},
 	}
 }
