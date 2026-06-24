@@ -437,16 +437,27 @@ func (c *Client) Disconnect() error {
 
 // Close shuts down the client, stops all modules, and releases resources.
 func (c *Client) Close() error {
-	var err error
+	var errs []error
 	c.closeOnce.Do(func() {
-		_ = c.fsm.Transition(context.Background(), EventClose)
+		if err := c.fsm.Transition(context.Background(), EventClose); err != nil {
+			errs = append(errs, err)
+		}
+
+		if err := c.modules.StopAll(context.Background()); err != nil {
+			errs = append(errs, err)
+		}
+
 		c.cancel()
 		c.wg.Wait()
-		err = c.session.Close()
+
+		if err := c.session.Close(); err != nil {
+			errs = append(errs, err)
+		}
+
 		close(c.closed)
 	})
 
-	return err
+	return errors.Join(errs...)
 }
 
 // Wait blocks until the client is fully stopped.

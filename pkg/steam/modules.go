@@ -182,5 +182,9 @@ func (a *moduleAdapter) Stop(ctx context.Context) error {
 		a.cancel()
 	}
 
+	if closer, ok := a.mod.(interface{ Close() error }); ok {
+		return closer.Close()
+	}
+
 	return nil
 }

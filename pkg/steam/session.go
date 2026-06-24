@@ -254,11 +254,12 @@ func (c *SessionManager) Refresh(ctx context.Context) error {
 }
 
 func (c *SessionManager) doRefresh(ctx context.Context) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.mu.RLock()
+	web := c.web
+	c.mu.RUnlock()
 
 	// Check if session is actually dead before doing heavy work
-	if c.web != nil {
+	if web != nil {
 		if isAlive, _ := c.web.Verify(ctx); isAlive {
 			return nil
 		}
@@ -271,7 +272,8 @@ func (c *SessionManager) doRefresh(ctx context.Context) error {
 		return errors.New("cannot refresh session: socket is not connected")
 	}
 
-	socketAuthSvc := auth.NewAuthenticationService(c.socketAPI, c.device)
+	_, sClient := c.Clients()
+	socketAuthSvc := auth.NewAuthenticationService(sClient, c.device)
 
 	resp, err := socketAuthSvc.GenerateAccessTokenForApp(ctx, sess.RefreshToken(), sess.SteamID())
 	if err != nil {
@@ -281,10 +283,12 @@ func (c *SessionManager) doRefresh(ctx context.Context) error {
 	newAccessToken := resp.GetAccessToken()
 	sess.SetAccessToken(newAccessToken)
 
+	c.mu.Lock()
 	c.unified = c.unified.WithAccessToken(newAccessToken)
 	c.socketAPI = c.socketAPI.WithAccessToken(newAccessToken)
+	c.mu.Unlock()
 
-	err = c.web.Authenticate(ctx, c.device.PlatformType, sess.RefreshToken(), sess.AccessToken())
+	err = web.Authenticate(ctx, c.device.PlatformType, sess.RefreshToken(), sess.AccessToken())
 	if err != nil {
 		return fmt.Errorf("web auth failed during refresh: %w", err)
 	}
