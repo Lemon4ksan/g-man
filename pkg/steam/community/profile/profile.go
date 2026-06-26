@@ -30,8 +30,8 @@ func WithAvatarUpload(fields map[string]string, filename string, image []byte) a
 		body := &bytes.Buffer{}
 		writer := multipart.NewWriter(body)
 
-		for k, v := range fields {
-			if err := writer.WriteField(k, v); err != nil {
+		for name, val := range fields {
+			if err := writer.WriteField(name, val); err != nil {
 				return
 			}
 		}
@@ -132,9 +132,6 @@ type PrivacySettings struct {
 }
 
 // EditProfile retrieves the existing profile configuration, merges the changes, and saves the updated settings.
-//
-// It returns an error if the request fails, if the edit page cannot be parsed,
-// or if Steam rejects the updated parameters with an error description.
 func EditProfile(ctx context.Context, client community.Requester, steamID id.ID, settings Settings) error {
 	html, err := community.GetHTML(
 		ctx, client, "profiles/{steamID}/edit/info",
@@ -145,89 +142,12 @@ func EditProfile(ctx context.Context, client community.Requester, steamID id.ID,
 	}
 	defer html.Close()
 
-	doc, err := goquery.NewDocumentFromReader(html)
+	currentConfig, err := parseProfileEditConfig(html)
 	if err != nil {
-		return fmt.Errorf("profile: failed to parse HTML: %w", err)
+		return err
 	}
 
-	configEl := doc.Find("#profile_edit_config")
-	if configEl.Length() == 0 {
-		return errors.New("profile: could not find profile_edit_config element")
-	}
-
-	dataVal, exists := configEl.Attr("data-profile-edit")
-	if !exists {
-		return errors.New("profile: missing data-profile-edit attribute")
-	}
-
-	var existing rawProfileEditConfig
-	if err := json.Unmarshal([]byte(dataVal), &existing); err != nil {
-		return fmt.Errorf("profile: failed to parse existing settings JSON: %w", err)
-	}
-
-	// Merge overrides
-	name := existing.PersonaName
-	if settings.Name != nil {
-		name = *settings.Name
-	}
-
-	realName := existing.RealName
-	if settings.RealName != nil {
-		realName = *settings.RealName
-	}
-
-	summary := existing.Summary
-	if settings.Summary != nil {
-		summary = *settings.Summary
-	}
-
-	country := existing.LocationData.CountryCode
-	if settings.Country != nil {
-		country = *settings.Country
-	}
-
-	state := existing.LocationData.StateCode
-	if settings.State != nil {
-		state = *settings.State
-	}
-
-	city := existing.LocationData.CityCode
-	if settings.City != nil {
-		city = *settings.City
-	}
-
-	customURL := existing.CustomURL
-	if settings.CustomURL != nil {
-		customURL = *settings.CustomURL
-	}
-
-	req := struct {
-		Type          string `url:"type"`
-		Weblink1Title string `url:"weblink_1_title"`
-		Weblink1URL   string `url:"weblink_1_url"`
-		Weblink2Title string `url:"weblink_2_title"`
-		Weblink2URL   string `url:"weblink_2_url"`
-		Weblink3Title string `url:"weblink_3_title"`
-		Weblink3URL   string `url:"weblink_3_url"`
-		PersonaName   string `url:"personaName"`
-		RealName      string `url:"real_name"`
-		Summary       string `url:"summary"`
-		Country       string `url:"country"`
-		State         string `url:"state"`
-		City          string `url:"city"`
-		CustomURL     string `url:"customURL"`
-		JSON          int    `url:"json"`
-	}{
-		Type:        "profileSave",
-		PersonaName: name,
-		RealName:    realName,
-		Summary:     summary,
-		Country:     country,
-		State:       state,
-		City:        city,
-		CustomURL:   customURL,
-		JSON:        1,
-	}
+	reqPayload := buildProfileSaveRequest(currentConfig, settings)
 
 	type saveResponse struct {
 		Success int    `json:"success"`
@@ -235,7 +155,7 @@ func EditProfile(ctx context.Context, client community.Requester, steamID id.ID,
 	}
 
 	resp, err := community.PostForm[saveResponse](
-		ctx, client, "profiles/{steamID}/edit", req,
+		ctx, client, "profiles/{steamID}/edit", reqPayload,
 		aoni.WithVar("steamID", steamID),
 	)
 	if err != nil {
@@ -255,9 +175,6 @@ func EditProfile(ctx context.Context, client community.Requester, steamID id.ID,
 }
 
 // UpdatePrivacySettings fetches the current privacy status, merges the changes, and posts updates.
-//
-// It returns an error if the request fails, if the settings page cannot be parsed,
-// or if the update request is rejected by Steam.
 func UpdatePrivacySettings(
 	ctx context.Context,
 	client community.Requester,
@@ -273,34 +190,212 @@ func UpdatePrivacySettings(
 	}
 	defer html.Close()
 
+	currentConfig, err := parsePrivacyConfig(html)
+	if err != nil {
+		return err
+	}
+
+	reqPayload, err := buildPrivacySaveRequest(currentConfig, settings)
+	if err != nil {
+		return err
+	}
+
+	type privacyResponse struct {
+		Success int `json:"success"`
+	}
+
+	resp, err := community.PostForm[privacyResponse](
+		ctx, client, "profiles/{steamID}/ajaxsetprivacy", reqPayload,
+		aoni.WithVar("steamID", steamID),
+	)
+	if err != nil {
+		return fmt.Errorf("profile: failed to post privacy settings: %w", err)
+	}
+
+	if resp.Success != 1 {
+		return fmt.Errorf("profile: privacy save failed: success=%d", resp.Success)
+	}
+
+	return nil
+}
+
+// UploadAvatar uploads a new profile avatar image and returns its secure hash.
+func UploadAvatar(
+	ctx context.Context,
+	client community.Requester,
+	steamID id.ID,
+	image []byte,
+	contentType string,
+) (string, error) {
+	if len(image) == 0 {
+		return "", errors.New("profile: empty avatar image buffer")
+	}
+
+	filename, err := resolveAvatarFilename(contentType)
+	if err != nil {
+		return "", err
+	}
+
+	fields := map[string]string{
+		"MAX_FILE_SIZE": strconv.Itoa(len(image)),
+		"type":          "player_avatar_image",
+		"sId":           strconv.FormatUint(uint64(steamID), 10),
+		"sessionid":     client.SessionID(community.BaseURL),
+		"doSub":         "1",
+		"json":          "1",
+	}
+
+	type upload struct {
+		Success bool   `json:"success"`
+		Message string `json:"message"`
+		Hash    string `json:"hash"`
+	}
+
+	resp, err := aoni.PostJSON[upload](
+		ctx, client, "actions/FileUploader", nil,
+		WithAvatarUpload(fields, filename, image),
+		aoni.WithHeader("Accept", "application/json, text/javascript; q=0.01"),
+	)
+	if err != nil {
+		return "", fmt.Errorf("profile: upload request failed: %w", err)
+	}
+
+	if !resp.Success {
+		errMsg := resp.Message
+		if errMsg == "" {
+			errMsg = "upload was not successful"
+		}
+
+		return "", fmt.Errorf("profile: upload failed: %s", errMsg)
+	}
+
+	return resp.Hash, nil
+}
+
+func parseProfileEditConfig(html io.Reader) (*rawProfileEditConfig, error) {
 	doc, err := goquery.NewDocumentFromReader(html)
 	if err != nil {
-		return fmt.Errorf("profile: failed to parse HTML: %w", err)
+		return nil, fmt.Errorf("profile: failed to parse HTML: %w", err)
 	}
 
 	configEl := doc.Find("#profile_edit_config")
 	if configEl.Length() == 0 {
-		return errors.New("profile: could not find profile_edit_config element")
+		return nil, errors.New("profile: could not find profile_edit_config element")
 	}
 
 	dataVal, exists := configEl.Attr("data-profile-edit")
 	if !exists {
-		return errors.New("profile: missing data-profile-edit attribute")
+		return nil, errors.New("profile: missing data-profile-edit attribute")
 	}
 
-	var existing rawPrivacyConfig
-	if err := json.Unmarshal([]byte(dataVal), &existing); err != nil {
-		return fmt.Errorf("profile: failed to parse existing privacy settings JSON: %w", err)
+	var config rawProfileEditConfig
+	if err := json.Unmarshal([]byte(dataVal), &config); err != nil {
+		return nil, fmt.Errorf("profile: failed to parse existing settings JSON: %w", err)
 	}
 
+	return &config, nil
+}
+
+type profileSaveRequest struct {
+	Type          string `url:"type"`
+	Weblink1Title string `url:"weblink_1_title"`
+	Weblink1URL   string `url:"weblink_1_url"`
+	Weblink2Title string `url:"weblink_2_title"`
+	Weblink2URL   string `url:"weblink_2_url"`
+	Weblink3Title string `url:"weblink_3_title"`
+	Weblink3URL   string `url:"weblink_3_url"`
+	PersonaName   string `url:"personaName"`
+	RealName      string `url:"real_name"`
+	Summary       string `url:"summary"`
+	Country       string `url:"country"`
+	State         string `url:"state"`
+	City          string `url:"city"`
+	CustomURL     string `url:"customURL"`
+	JSON          int    `url:"json"`
+}
+
+func buildProfileSaveRequest(current *rawProfileEditConfig, settings Settings) profileSaveRequest {
+	req := profileSaveRequest{
+		Type:        "profileSave",
+		PersonaName: current.PersonaName,
+		RealName:    current.RealName,
+		Summary:     current.Summary,
+		Country:     current.LocationData.CountryCode,
+		State:       current.LocationData.StateCode,
+		City:        current.LocationData.CityCode,
+		CustomURL:   current.CustomURL,
+		JSON:        1,
+	}
+
+	if settings.Name != nil {
+		req.PersonaName = *settings.Name
+	}
+
+	if settings.RealName != nil {
+		req.RealName = *settings.RealName
+	}
+
+	if settings.Summary != nil {
+		req.Summary = *settings.Summary
+	}
+
+	if settings.Country != nil {
+		req.Country = *settings.Country
+	}
+
+	if settings.State != nil {
+		req.State = *settings.State
+	}
+
+	if settings.City != nil {
+		req.City = *settings.City
+	}
+
+	if settings.CustomURL != nil {
+		req.CustomURL = *settings.CustomURL
+	}
+
+	return req
+}
+
+func parsePrivacyConfig(html io.Reader) (*rawPrivacyConfig, error) {
+	doc, err := goquery.NewDocumentFromReader(html)
+	if err != nil {
+		return nil, fmt.Errorf("profile: failed to parse HTML: %w", err)
+	}
+
+	configEl := doc.Find("#profile_edit_config")
+	if configEl.Length() == 0 {
+		return nil, errors.New("profile: could not find profile_edit_config element")
+	}
+
+	dataVal, exists := configEl.Attr("data-profile-edit")
+	if !exists {
+		return nil, errors.New("profile: missing data-profile-edit attribute")
+	}
+
+	var config rawPrivacyConfig
+	if err := json.Unmarshal([]byte(dataVal), &config); err != nil {
+		return nil, fmt.Errorf("profile: failed to parse existing privacy settings JSON: %w", err)
+	}
+
+	return &config, nil
+}
+
+type privacySaveRequest struct {
+	Privacy            string `url:"Privacy"`
+	ECommentPermission int    `url:"eCommentPermission"`
+}
+
+func buildPrivacySaveRequest(current *rawPrivacyConfig, settings PrivacySettings) (privacySaveRequest, error) {
 	commentMapping := map[CommentPermission]int{
 		CommentFriendsOnly: 0,
 		CommentAnyone:      1,
 		CommentPrivate:     2,
 	}
 
-	privacy := existing.Privacy.PrivacySettings
-	comments := existing.Privacy.ECommentPermission
+	privacy := current.Privacy.PrivacySettings
+	comments := current.Privacy.ECommentPermission
 
 	if settings.Profile != nil {
 		privacy.PrivacyProfile = int(*settings.Profile)
@@ -340,93 +435,24 @@ func UpdatePrivacySettings(
 
 	privacyJSON, err := json.Marshal(privacy)
 	if err != nil {
-		return fmt.Errorf("profile: failed to marshal privacy settings: %w", err)
+		return privacySaveRequest{}, fmt.Errorf("profile: failed to marshal privacy settings: %w", err)
 	}
 
-	form := struct {
-		Privacy            string `url:"Privacy"`
-		ECommentPermission int    `url:"eCommentPermission"`
-	}{string(privacyJSON), comments}
-
-	type privacyResponse struct {
-		Success int `json:"success"`
-	}
-
-	resp, err := community.PostForm[privacyResponse](
-		ctx, client, "profiles/{steamID}/ajaxsetprivacy", form,
-		aoni.WithVar("steamID", steamID),
-	)
-	if err != nil {
-		return fmt.Errorf("profile: failed to post privacy settings: %w", err)
-	}
-
-	if resp.Success != 1 {
-		return fmt.Errorf("profile: privacy save failed: success=%d", resp.Success)
-	}
-
-	return nil
+	return privacySaveRequest{
+		Privacy:            string(privacyJSON),
+		ECommentPermission: comments,
+	}, nil
 }
 
-// UploadAvatar uploads a new profile avatar image and returns its secure hash.
-//
-// It accepts "image/jpeg", "image/png", and "image/gif" content types.
-// It returns an error if the image buffer is empty, if the content type is unsupported,
-// if the multipart form cannot be constructed, or if the upload is rejected.
-func UploadAvatar(
-	ctx context.Context,
-	client community.Requester,
-	steamID id.ID,
-	image []byte,
-	contentType string,
-) (string, error) {
-	if len(image) == 0 {
-		return "", errors.New("profile: empty avatar image buffer")
-	}
-
-	var filename string
+func resolveAvatarFilename(contentType string) (string, error) {
 	switch strings.ToLower(contentType) {
 	case "image/jpeg", "image/jpg", "jpg", "jpeg":
-		filename = "avatar.jpg"
+		return "avatar.jpg", nil
 	case "image/png", "png":
-		filename = "avatar.png"
+		return "avatar.png", nil
 	case "image/gif", "gif":
-		filename = "avatar.gif"
+		return "avatar.gif", nil
 	default:
 		return "", fmt.Errorf("profile: unsupported content-type: %s", contentType)
 	}
-
-	fields := map[string]string{
-		"MAX_FILE_SIZE": strconv.Itoa(len(image)),
-		"type":          "player_avatar_image",
-		"sId":           strconv.FormatUint(uint64(steamID), 10),
-		"sessionid":     client.SessionID(community.BaseURL),
-		"doSub":         "1",
-		"json":          "1",
-	}
-
-	type upload struct {
-		Success bool   `json:"success"`
-		Message string `json:"message"`
-		Hash    string `json:"hash"`
-	}
-
-	resp, err := aoni.PostJSON[upload](
-		ctx, client, "actions/FileUploader", nil,
-		WithAvatarUpload(fields, filename, image),
-		aoni.WithHeader("Accept", "application/json, text/javascript; q=0.01"),
-	)
-	if err != nil {
-		return "", fmt.Errorf("profile: upload request failed: %w", err)
-	}
-
-	if !resp.Success {
-		errMsg := resp.Message
-		if errMsg == "" {
-			errMsg = "upload was not successful"
-		}
-
-		return "", fmt.Errorf("profile: upload failed: %s", errMsg)
-	}
-
-	return resp.Hash, nil
 }
