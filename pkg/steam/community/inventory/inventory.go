@@ -24,6 +24,17 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 )
 
+var (
+	rxAppContextData   = regexp.MustCompile(`(?s)var g_rgAppContextData\s*=\s*(.*?);`)
+	rxHistoryInventory = regexp.MustCompile(`(?s)var g_rgHistoryInventory\s*=\s*(.*?);`)
+	rxHoverScript      = regexp.MustCompile(
+		`HistoryPageCreateItemHover\(\s*'\s*([^']+)\s*'\s*,\s*(\d+)\s*,\s*['"]([^'"]+)['"]\s*,\s*['"]([^'"]+)['"]\s*,\s*['"]([^'"]+)['"]\s*\)`,
+	)
+	rxTimestamp       = regexp.MustCompile(`(\d+):(\d+)\s*(am|pm|AM|PM)`)
+	rxPaginationTime  = regexp.MustCompile(`after_time=(\d+)`)
+	rxPaginationTrade = regexp.MustCompile(`after_trade=(\d+)`)
+)
+
 // GetUserInventoryContents recursively parses user inventory using community requester
 // and returns the list of items and currencies with their total count.
 //
@@ -32,16 +43,14 @@ import (
 // an unsuccessful status payload.
 func GetUserInventoryContents(
 	ctx context.Context,
-	c community.Requester,
+	client community.Requester,
 	steamID uint64,
 	appID uint32,
 	contextID int64,
 	tradableOnly bool,
 	language string,
 ) ([]CEconItem, []CEconItem, int, error) {
-	if language == "" {
-		language = "english"
-	}
+	language = generic.Coalesce(language, "english")
 
 	var (
 		inventory    []CEconItem
@@ -53,108 +62,57 @@ func GetUserInventoryContents(
 	pos := 1
 
 	for {
-		req := struct {
-			Language     string `url:"l"`
-			Count        int    `url:"count"`
-			StartAssetID string `url:"start_assetid,omitempty"`
-		}{Language: language, Count: 1000, StartAssetID: startAssetID}
-
-		resp, err := community.Get[inventoryResponse](ctx, c, "inventory/{steamID}/{appID}/{contextID}", req,
-			aoni.WithVars("steamID", steamID, "appID", appID, "contextID", contextID),
-			aoni.WithHeader("Referer", fmt.Sprintf("https://steamcommunity.com/profiles/%d/inventory", steamID)),
-		)
+		page, err := fetchInventoryPage(ctx, client, steamID, appID, contextID, startAssetID, language)
 		if err != nil {
 			return nil, nil, 0, err
 		}
 
-		if !resp.Success {
-			return nil, nil, 0, fmt.Errorf("steam error: %s", resp.Error)
+		if page.TotalCount == 0 || len(page.Assets) == 0 {
+			return inventory, currency, page.TotalCount, nil
 		}
 
-		if resp.TotalCount == 0 || (len(resp.Assets) == 0) {
-			return inventory, currency, resp.TotalCount, nil
-		}
-
-		descMap := generic.IndexBy(resp.Descriptions, func(d Description) string {
+		descMap := generic.IndexBy(page.Descriptions, func(d Description) string {
 			return fmt.Sprintf("%s_%s", d.ClassID, d.InstanceID)
 		})
 
-		for _, asset := range resp.Assets {
-			key := fmt.Sprintf("%s_%s", asset.ClassID, asset.InstanceID)
-			description := descMap[key]
+		pageInventory, pageCurrency, newPos := processAssets(page.Assets, descMap, tradableOnly, pos)
 
-			if tradableOnly && description.Tradable == 0 {
-				continue
-			}
+		pos = newPos
 
-			asset.Pos = pos
-			pos++
+		inventory = append(inventory, pageInventory...)
+		currency = append(currency, pageCurrency...)
+		totalCount = page.TotalCount
 
-			item := CEconItem{
-				Asset:       asset,
-				Description: description,
-			}
-
-			if asset.CurrencyID != "" {
-				currency = append(currency, item)
-			} else {
-				inventory = append(inventory, item)
-			}
-		}
-
-		totalCount = resp.TotalCount
-
-		if !resp.MoreItems {
+		if !page.MoreItems {
 			break
 		}
 
-		startAssetID = resp.LastAssetID
+		startAssetID = page.LastAssetID
 	}
 
 	return inventory, currency, totalCount, nil
 }
 
-var rxAppContextData = regexp.MustCompile(`(?s)var g_rgAppContextData\s*=\s*(.*?);`)
-
 // GetUserInventoryContexts retrieves the application and context details for a user's inventory.
-//
-// It returns an error if the user's profile or inventory is private, if the HTML payload
-// is malformed, or if the context data JSON fails to unmarshal.
 func GetUserInventoryContexts(
 	ctx context.Context,
-	c community.Requester,
+	client community.Requester,
 	userID uint64,
 ) (map[string]*AppContext, error) {
-	html, err := community.GetHTML(ctx, c, "profiles/{userID}/inventory",
-		aoni.WithVar("userID", userID),
-	)
+	bodyBytes, err := fetchInventoryPageHTML(ctx, client, userID)
 	if err != nil {
-		return nil, fmt.Errorf("inventory: failed to fetch inventory page: %w", err)
-	}
-	defer html.Close()
-
-	var buf bytes.Buffer
-	if _, err := io.Copy(&buf, html); err != nil {
 		return nil, err
 	}
 
-	if bytes.Contains(buf.Bytes(), []byte("This profile is private.")) {
-		return nil, errors.New("inventory: profile is private")
+	if err := verifyInventoryPrivacy(bodyBytes); err != nil {
+		return nil, err
 	}
 
-	if bytes.Contains(buf.Bytes(), []byte("The inventory is currently private.")) ||
-		bytes.Contains(buf.Bytes(), []byte("inventory is currently private")) {
-		return nil, errors.New("inventory: inventory is private")
+	cleanedJSON, err := extractAppContextJSON(bodyBytes)
+	if err != nil {
+		return nil, err
 	}
 
-	match := rxAppContextData.FindSubmatch(buf.Bytes())
-	if len(match) != 2 {
-		return nil, errors.New("inventory: malformed page (g_rgAppContextData not found)")
-	}
-
-	// In some cases, if the inventory is empty, Steam might return an empty JSON array `[]` instead of `{}`,
-	// which fails to unmarshal into map[string]*AppContext. We check for `[]` first.
-	cleanedJSON := bytes.TrimSpace(match[1])
 	if bytes.Equal(cleanedJSON, []byte("[]")) {
 		return make(map[string]*AppContext), nil
 	}
@@ -183,20 +141,7 @@ type HistoryOptions struct {
 	Direction  TradeDirection
 }
 
-var (
-	rxHistoryInventory = regexp.MustCompile(`(?s)var g_rgHistoryInventory\s*=\s*(.*?);`)
-	rxHover            = regexp.MustCompile(
-		`HistoryPageCreateItemHover\(\s*'\s*([^']+)\s*'\s*,\s*(\d+)\s*,\s*['"]([^'"]+)['"]\s*,\s*['"]([^'"]+)['"]\s*,\s*['"]([^'"]+)['"]\s*\)`,
-	)
-	rxTime       = regexp.MustCompile(`(\d+):(\d+)\s*(am|pm|AM|PM)`)
-	rxAfterTime  = regexp.MustCompile(`after_time=(\d+)`)
-	rxAfterTrade = regexp.MustCompile(`after_trade=(\d+)`)
-)
-
 // GetInventoryHistory fetches and parses the Steam inventory history for the specified user.
-//
-// It returns an error if the request fails, if the page is malformed, or if
-// the HTML elements cannot be successfully parsed.
 func GetInventoryHistory(
 	ctx context.Context,
 	client community.Requester,
@@ -223,77 +168,86 @@ func GetInventoryHistory(
 	}
 	defer html.Close()
 
-	body := aoni.AsReplayable(html)
-
-	var buf bytes.Buffer
-	if _, err := io.Copy(&buf, html); err != nil {
+	bodyBytes, err := io.ReadAll(html)
+	if err != nil {
 		return nil, err
 	}
 
-	body.Reset()
-
-	matchInv := rxHistoryInventory.FindSubmatch(buf.Bytes())
-	if len(matchInv) != 2 {
-		return nil, errors.New("history: malformed page (g_rgHistoryInventory not found)")
+	parser, err := NewHistoryParser(bodyBytes)
+	if err != nil {
+		return nil, err
 	}
 
-	// Map layout: [appid][contextid][assetid_or_description_id]EconItem
-	var historyInventory map[string]map[string]map[string]EconItem
-	if err := json.Unmarshal(matchInv[1], &historyInventory); err != nil {
-		return nil, fmt.Errorf("history: failed to parse history inventory JSON: %w", err)
-	}
+	return parser.Parse()
+}
 
-	doc, err := goquery.NewDocumentFromReader(body)
+// HistoryParser encapsulates all HTML/JS parsing logic for a Steam Trade History page.
+type HistoryParser struct {
+	rawHTML []byte
+	doc     *goquery.Document
+}
+
+// NewHistoryParser initializes a HistoryParser with raw HTML content.
+func NewHistoryParser(rawHTML []byte) (*HistoryParser, error) {
+	doc, err := goquery.NewDocumentFromReader(bytes.NewReader(rawHTML))
 	if err != nil {
 		return nil, fmt.Errorf("history: failed to parse HTML document: %w", err)
 	}
 
-	if doc.Find(".inventory_history_pagingrow").Length() == 0 {
+	return &HistoryParser{
+		rawHTML: rawHTML,
+		doc:     doc,
+	}, nil
+}
+
+// Parse extracts trade records, asset descriptions, hover elements, and pagination links.
+func (p *HistoryParser) Parse() (*TradeHistoryResult, error) {
+	if p.doc.Find(".inventory_history_pagingrow").Length() == 0 {
 		return nil, errors.New("history: malformed page (paging row not found)")
 	}
 
-	output := &TradeHistoryResult{
-		Trades: make([]TradeHistoryRow, 0),
+	inventory, err := p.extractHistoryInventory()
+	if err != nil {
+		return nil, err
 	}
 
-	doc.Find(".inventory_history_nextbtn .pagebtn:not(.disabled)").Each(func(_ int, s *goquery.Selection) {
-		href, exists := s.Attr("href")
-		if !exists {
-			return
-		}
+	hovers := p.extractHovers()
 
-		timeMatch := rxAfterTime.FindStringSubmatch(href)
+	result := &TradeHistoryResult{
+		Trades: p.parseRows(inventory, hovers),
+	}
 
-		tradeMatch := rxAfterTrade.FindStringSubmatch(href)
-		if len(timeMatch) != 2 || len(tradeMatch) != 2 {
-			return
-		}
+	p.parsePagination(result)
 
-		unixTime, _ := strconv.ParseInt(timeMatch[1], 10, 64)
-		tVal := time.Unix(unixTime, 0).UTC()
+	return result, nil
+}
 
-		tradeID, _ := strconv.ParseUint(tradeMatch[1], 10, 64)
+func (p *HistoryParser) extractHistoryInventory() (map[string]map[string]map[string]EconItem, error) {
+	match := rxHistoryInventory.FindSubmatch(p.rawHTML)
+	if len(match) != 2 {
+		return nil, errors.New("history: malformed page (g_rgHistoryInventory not found)")
+	}
 
-		if strings.Contains(href, "prev=1") {
-			output.FirstTradeTime = &tVal
-			output.FirstTradeID = &tradeID
-		} else {
-			output.LastTradeTime = &tVal
-			output.LastTradeID = &tradeID
-		}
-	})
+	var inventory map[string]map[string]map[string]EconItem
+	if err := json.Unmarshal(match[1], &inventory); err != nil {
+		return nil, fmt.Errorf("history: failed to parse history inventory JSON: %w", err)
+	}
 
+	return inventory, nil
+}
+
+func (p *HistoryParser) extractHovers() map[string]hoverInfo {
 	hoverMap := make(map[string]hoverInfo)
+	hovers := rxHoverScript.FindAllSubmatch(p.rawHTML, -1)
 
-	hovers := rxHover.FindAllSubmatch(buf.Bytes(), -1)
 	for _, hover := range hovers {
 		if len(hover) != 6 {
 			continue
 		}
 
-		elID := string(hover[1])
+		elementID := string(hover[1])
 		amount, _ := strconv.Atoi(string(hover[5]))
-		hoverMap[elID] = hoverInfo{
+		hoverMap[elementID] = hoverInfo{
 			AppID:     string(hover[2]),
 			ContextID: string(hover[3]),
 			AssetID:   string(hover[4]),
@@ -301,89 +255,285 @@ func GetInventoryHistory(
 		}
 	}
 
-	doc.Find(".tradehistoryrow").Each(func(_ int, s *goquery.Selection) {
+	return hoverMap
+}
+
+func (p *HistoryParser) parsePagination(result *TradeHistoryResult) {
+	p.doc.Find(".inventory_history_nextbtn .pagebtn:not(.disabled)").Each(func(_ int, buttonSel *goquery.Selection) {
+		href, exists := buttonSel.Attr("href")
+		if !exists {
+			return
+		}
+
+		p.extractPaginationParams(href, result)
+	})
+}
+
+func (p *HistoryParser) extractPaginationParams(href string, result *TradeHistoryResult) {
+	timeMatch := rxPaginationTime.FindStringSubmatch(href)
+
+	tradeMatch := rxPaginationTrade.FindStringSubmatch(href)
+	if len(timeMatch) != 2 || len(tradeMatch) != 2 {
+		return
+	}
+
+	unixTime, err := strconv.ParseInt(timeMatch[1], 10, 64)
+	if err != nil {
+		return
+	}
+
+	timestamp := time.Unix(unixTime, 0).UTC()
+
+	tradeID, err := strconv.ParseUint(tradeMatch[1], 10, 64)
+	if err != nil {
+		return
+	}
+
+	if strings.Contains(href, "prev=1") {
+		result.FirstTradeTime = &timestamp
+		result.FirstTradeID = &tradeID
+	} else {
+		result.LastTradeTime = &timestamp
+		result.LastTradeID = &tradeID
+	}
+}
+
+func (p *HistoryParser) parseRows(
+	historyInventory map[string]map[string]map[string]EconItem,
+	hoverMap map[string]hoverInfo,
+) []TradeHistoryRow {
+	var trades []TradeHistoryRow
+
+	p.doc.Find(".tradehistoryrow").Each(func(_ int, rowSel *goquery.Selection) {
 		row := TradeHistoryRow{
 			ItemsReceived: make([]EconItem, 0),
 			ItemsGiven:    make([]EconItem, 0),
 		}
 
-		holdText := s.Find("span:nth-of-type(2)").Text()
-		row.OnHold = strings.Contains(strings.ToLower(holdText), "trade on hold")
+		row.OnHold = p.parseRowHoldStatus(rowSel)
+		row.Date = p.parseRowTimestamp(rowSel)
 
-		timeText := s.Find(".tradehistory_timestamp").Text()
-
-		time24, err := convertTimeTo24h(timeText)
-		if err == nil {
-			dateText := s.Find(".tradehistory_date").Text()
-
-			parsedTime, err := parseTradeDate(dateText, time24)
-			if err == nil {
-				row.Date = parsedTime
-			}
-		}
-
-		partnerAnchor := s.Find(".tradehistory_event_description a")
+		partnerAnchor := rowSel.Find(".tradehistory_event_description a")
 		row.PartnerName = partnerAnchor.Text()
 
-		profileLink, exists := partnerAnchor.Attr("href")
-		if exists {
-			if strings.Contains(profileLink, "/profiles/") {
-				parts := strings.Split(strings.TrimRight(profileLink, "/"), "/")
-				if len(parts) > 0 {
-					sidVal, _ := strconv.ParseUint(parts[len(parts)-1], 10, 64)
-					row.PartnerSteamID = id.ID(sidVal)
-				}
-			} else {
-				parts := strings.Split(strings.TrimRight(profileLink, "/"), "/")
-				if len(parts) > 0 {
-					row.PartnerVanityURL = parts[len(parts)-1]
-				}
-			}
+		if profileLink, exists := partnerAnchor.Attr("href"); exists {
+			p.parsePartnerProfile(profileLink, &row)
 		}
 
-		s.Find(".history_item").Each(func(_ int, itemSel *goquery.Selection) {
-			elID, exists := itemSel.Attr("id")
-			if !exists {
-				return
-			}
-
-			info, ok := hoverMap[elID]
-			if !ok {
-				return
-			}
-
-			appMap, ok := historyInventory[info.AppID]
-			if !ok {
-				return
-			}
-
-			ctxMap, ok := appMap[info.ContextID]
-			if !ok {
-				return
-			}
-
-			itemDetail, ok := ctxMap[info.AssetID]
-			if !ok {
-				return
-			}
-
-			itemDetail.Amount = info.Amount
-
-			if strings.Contains(elID, "received") {
-				row.ItemsReceived = append(row.ItemsReceived, itemDetail)
-			} else {
-				row.ItemsGiven = append(row.ItemsGiven, itemDetail)
-			}
+		rowSel.Find(".history_item").Each(func(_ int, itemSel *goquery.Selection) {
+			p.parseHistoryItem(itemSel, historyInventory, hoverMap, &row)
 		})
 
-		output.Trades = append(output.Trades, row)
+		trades = append(trades, row)
 	})
 
-	return output, nil
+	return trades
+}
+
+func (p *HistoryParser) parseRowHoldStatus(rowSel *goquery.Selection) bool {
+	holdText := rowSel.Find("span:nth-of-type(2)").Text()
+	return strings.Contains(strings.ToLower(holdText), "trade on hold")
+}
+
+func (p *HistoryParser) parseRowTimestamp(rowSel *goquery.Selection) time.Time {
+	timeText := rowSel.Find(".tradehistory_timestamp").Text()
+
+	time24, err := convertTimeTo24h(timeText)
+	if err != nil {
+		return time.Time{}
+	}
+
+	dateText := rowSel.Find(".tradehistory_date").Text()
+
+	parsedTime, err := parseTradeDate(dateText, time24)
+	if err != nil {
+		return time.Time{}
+	}
+
+	return parsedTime
+}
+
+func (p *HistoryParser) parseHistoryItem(
+	itemSel *goquery.Selection,
+	inventory map[string]map[string]map[string]EconItem,
+	hoverMap map[string]hoverInfo,
+	row *TradeHistoryRow,
+) {
+	elementID, exists := itemSel.Attr("id")
+	if !exists {
+		return
+	}
+
+	hover, exists := hoverMap[elementID]
+	if !exists {
+		return
+	}
+
+	itemDetail, exists := lookupInventoryItem(inventory, hover)
+	if !exists {
+		return
+	}
+
+	itemDetail.Amount = hover.Amount
+
+	if strings.Contains(elementID, "received") {
+		row.ItemsReceived = append(row.ItemsReceived, itemDetail)
+	} else {
+		row.ItemsGiven = append(row.ItemsGiven, itemDetail)
+	}
+}
+
+func (p *HistoryParser) parsePartnerProfile(profileLink string, row *TradeHistoryRow) {
+	parts := strings.Split(strings.TrimRight(profileLink, "/"), "/")
+	if len(parts) == 0 {
+		return
+	}
+
+	lastPart := parts[len(parts)-1]
+
+	if strings.Contains(profileLink, "/profiles/") {
+		sidVal, _ := strconv.ParseUint(lastPart, 10, 64)
+		row.PartnerSteamID = id.ID(sidVal)
+	} else {
+		row.PartnerVanityURL = lastPart
+	}
+}
+
+type inventoryPageRequest struct {
+	Language     string `url:"l"`
+	Count        int    `url:"count"`
+	StartAssetID string `url:"start_assetid,omitempty"`
+}
+
+func fetchInventoryPage(
+	ctx context.Context,
+	client community.Requester,
+	steamID uint64,
+	appID uint32,
+	contextID int64,
+	startAssetID string,
+	language string,
+) (*inventoryResponse, error) {
+	req := inventoryPageRequest{
+		Language:     language,
+		Count:        1000,
+		StartAssetID: startAssetID,
+	}
+
+	resp, err := community.Get[inventoryResponse](
+		ctx, client, "inventory/{steamID}/{appID}/{contextID}", req,
+		aoni.WithVars("steamID", steamID, "appID", appID, "contextID", contextID),
+		aoni.WithHeader("Referer", fmt.Sprintf("https://steamcommunity.com/profiles/%d/inventory", steamID)),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if !resp.Success {
+		return nil, fmt.Errorf("steam error: %s", resp.Error)
+	}
+
+	return resp, nil
+}
+
+func processAssets(
+	assets []Asset,
+	descMap map[string]Description,
+	tradableOnly bool,
+	startPos int,
+) ([]CEconItem, []CEconItem, int) {
+	var (
+		inventory []CEconItem
+		currency  []CEconItem
+	)
+
+	pos := startPos
+
+	for _, asset := range assets {
+		key := fmt.Sprintf("%s_%s", asset.ClassID, asset.InstanceID)
+
+		description, exists := descMap[key]
+		if !exists {
+			continue
+		}
+
+		if tradableOnly && description.Tradable == 0 {
+			continue
+		}
+
+		asset.Pos = pos
+		pos++
+
+		item := CEconItem{
+			Asset:       asset,
+			Description: description,
+		}
+
+		if asset.CurrencyID != "" {
+			currency = append(currency, item)
+		} else {
+			inventory = append(inventory, item)
+		}
+	}
+
+	return inventory, currency, pos
+}
+
+func fetchInventoryPageHTML(ctx context.Context, client community.Requester, userID uint64) ([]byte, error) {
+	html, err := community.GetHTML(ctx, client, "profiles/{userID}/inventory",
+		aoni.WithVar("userID", userID),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("inventory: failed to fetch inventory page: %w", err)
+	}
+	defer html.Close()
+
+	return io.ReadAll(html)
+}
+
+func verifyInventoryPrivacy(bodyBytes []byte) error {
+	if bytes.Contains(bodyBytes, []byte("This profile is private.")) {
+		return errors.New("inventory: profile is private")
+	}
+
+	if bytes.Contains(bodyBytes, []byte("The inventory is currently private.")) ||
+		bytes.Contains(bodyBytes, []byte("inventory is currently private")) {
+		return errors.New("inventory: inventory is private")
+	}
+
+	return nil
+}
+
+func extractAppContextJSON(bodyBytes []byte) ([]byte, error) {
+	match := rxAppContextData.FindSubmatch(bodyBytes)
+	if len(match) != 2 {
+		return nil, errors.New("inventory: malformed page (g_rgAppContextData not found)")
+	}
+
+	return bytes.TrimSpace(match[1]), nil
+}
+
+func lookupInventoryItem(
+	inventory map[string]map[string]map[string]EconItem,
+	hover hoverInfo,
+) (EconItem, bool) {
+	appMap, exists := inventory[hover.AppID]
+	if !exists {
+		return EconItem{}, false
+	}
+
+	contextMap, exists := appMap[hover.ContextID]
+	if !exists {
+		return EconItem{}, false
+	}
+
+	item, exists := contextMap[hover.AssetID]
+
+	return item, exists
 }
 
 func convertTimeTo24h(timestamp string) (string, error) {
-	match := rxTime.FindStringSubmatch(timestamp)
+	match := rxTimestamp.FindStringSubmatch(timestamp)
 	if len(match) != 4 {
 		return "", fmt.Errorf("invalid timestamp format: %s", timestamp)
 	}
@@ -402,11 +552,8 @@ func convertTimeTo24h(timestamp string) (string, error) {
 }
 
 func parseTradeDate(dateText, timeText string) (time.Time, error) {
-	dateText = strings.TrimSpace(dateText)
-	timeText = strings.TrimSpace(timeText)
-
-	// Clean double commas or extra spaces
-	dateText = strings.ReplaceAll(dateText, "  ", " ")
+	dateText = cleanWhitespace(dateText)
+	timeText = cleanWhitespace(timeText)
 
 	if !strings.Contains(dateText, ",") {
 		currentYear := time.Now().UTC().Year()
@@ -415,25 +562,26 @@ func parseTradeDate(dateText, timeText string) (time.Time, error) {
 
 	combined := fmt.Sprintf("%s %s UTC", dateText, timeText)
 
-	// Format: "2 Jan, 2006 15:04:05 MST"
-	t, err := time.Parse("2 Jan, 2006 15:04:05 MST", combined)
-	if err == nil {
-		return t, nil
+	layouts := []string{
+		"2 Jan, 2006 15:04:05 MST",
+		"Jan 2, 2006 15:04:05 MST",
 	}
 
-	// Format: "Jan 2, 2006 15:04:05 MST"
-	t, err = time.Parse("Jan 2, 2006 15:04:05 MST", combined)
-	if err == nil {
-		return t, nil
+	for _, layout := range layouts {
+		if t, err := time.Parse(layout, combined); err == nil {
+			return t, nil
+		}
 	}
 
-	// Format: "2 Jan 2006 15:04:05 MST" (without comma)
 	cleanCombined := strings.ReplaceAll(combined, ",", "")
-
-	t, err = time.Parse("2 Jan 2006 15:04:05 MST", cleanCombined)
-	if err == nil {
+	if t, err := time.Parse("2 Jan 2006 15:04:05 MST", cleanCombined); err == nil {
 		return t, nil
 	}
 
-	return time.Time{}, fmt.Errorf("could not parse date %q: %w", combined, err)
+	return time.Time{}, fmt.Errorf("could not parse date %q", combined)
+}
+
+func cleanWhitespace(input string) string {
+	trimmed := strings.TrimSpace(input)
+	return strings.ReplaceAll(trimmed, "  ", " ")
 }
