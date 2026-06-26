@@ -2,12 +2,11 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package community_test
+package client_test
 
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -21,9 +20,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/lemon4ksan/g-man/pkg/log"
-	"github.com/lemon4ksan/g-man/pkg/steam/community"
+	"github.com/lemon4ksan/g-man/pkg/steam/community/client"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
-	"github.com/lemon4ksan/g-man/test/requester"
+	"github.com/lemon4ksan/g-man/test/mock"
 )
 
 // faultyReader is a reader that always returns an error.
@@ -33,60 +32,39 @@ func (fr faultyReader) Read(p []byte) (n int, err error) {
 	return 0, errors.New("read error")
 }
 
-// mockHTTPDoer is a mock implementation of aoni.HTTPDoer for isolated client tests.
-type mockHTTPDoer struct {
-	doFunc func(req *http.Request) (*http.Response, error)
-}
-
-func (m *mockHTTPDoer) Do(req *http.Request) (*http.Response, error) {
-	return m.doFunc(req)
-}
-
-// A simple struct for testing JSON responses.
-type genericResponse struct {
-	Success bool   `json:"success"`
-	Message string `json:"message"`
-}
-
-// A simple struct for testing request bodies/queries.
-type genericRequest struct {
-	Param1 string `url:"param1"`
-	Param2 int    `url:"param2"`
-}
-
 func TestNewClient(t *testing.T) {
 	mockHTTP := &http.Client{}
 	sessionFunc := func(s string) string { return "session" }
 
 	t.Run("Default Initialization", func(t *testing.T) {
-		c := community.NewClient(mockHTTP, sessionFunc)
+		c := client.New(mockHTTP, sessionFunc)
 		require.NotNil(t, c)
-		assert.Equal(t, "session", c.SessionID(community.BaseURL))
+		assert.Equal(t, "session", c.SessionID(client.BaseURL))
 	})
 
 	t.Run("WithLogger Option", func(t *testing.T) {
 		logger := log.New(log.DefaultConfig(log.LevelDebug))
 		// This test ensures the option can be applied without panicking.
-		c := community.NewClient(mockHTTP, sessionFunc, community.WithLogger(logger))
+		c := client.New(mockHTTP, sessionFunc, client.WithLogger(logger))
 		require.NotNil(t, c)
 	})
 
 	t.Run("WithREST Option", func(t *testing.T) {
 		rc := aoni.NewClient(mockHTTP)
 		// This test ensures the option can be applied without panicking.
-		c := community.NewClient(mockHTTP, sessionFunc, community.WithREST(rc))
+		c := client.New(mockHTTP, sessionFunc, client.WithREST(rc))
 		require.NotNil(t, c)
 	})
 }
 
 func TestClient_SessionID(t *testing.T) {
 	t.Run("With Session Func", func(t *testing.T) {
-		c := community.NewClient(&http.Client{}, func(s string) string { return "test_session_id" })
+		c := client.New(&http.Client{}, func(s string) string { return "test_session_id" })
 		assert.Equal(t, "test_session_id", c.SessionID("any_url"))
 	})
 
 	t.Run("Without Session Func", func(t *testing.T) {
-		c := community.NewClient(&http.Client{}, nil)
+		c := client.New(&http.Client{}, nil)
 		assert.Empty(t, c.SessionID("any_url"))
 	})
 }
@@ -95,14 +73,14 @@ func TestClient_Request(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("Success", func(t *testing.T) {
-		mock := requester.New()
+		mock := mock.NewServiceMock()
 		mock.OnRest = func(method, path string, body any) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: http.StatusOK,
 				Body:       io.NopCloser(strings.NewReader(`{"status": "ok"}`)),
 			}, nil
 		}
-		client := community.NewClient(nil, nil, community.WithREST(mock))
+		client := client.New(nil, nil, client.WithREST(mock))
 
 		resp, err := client.Request(ctx, http.MethodGet, "/test")
 		require.NoError(t, err)
@@ -115,12 +93,12 @@ func TestClient_Request(t *testing.T) {
 	})
 
 	t.Run("Underlying Client Error", func(t *testing.T) {
-		mock := requester.New()
+		mock := mock.NewServiceMock()
 		expectedErr := errors.New("network failure")
 		mock.OnRest = func(method, path string, body any) (*http.Response, error) {
 			return nil, expectedErr
 		}
-		client := community.NewClient(nil, nil, community.WithREST(mock))
+		client := client.New(nil, nil, client.WithREST(mock))
 
 		_, err := client.Request(ctx, http.MethodGet, "/test")
 		require.Error(t, err)
@@ -128,14 +106,14 @@ func TestClient_Request(t *testing.T) {
 	})
 
 	t.Run("Response Body Read Error", func(t *testing.T) {
-		mock := requester.New()
+		mock := mock.NewServiceMock()
 		mock.OnRest = func(method, path string, body any) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: http.StatusOK,
 				Body:       io.NopCloser(faultyReader{}),
 			}, nil
 		}
-		client := community.NewClient(nil, nil, community.WithREST(mock))
+		client := client.New(nil, nil, client.WithREST(mock))
 
 		_, err := client.Request(ctx, http.MethodGet, "/test")
 		require.Error(t, err)
@@ -155,7 +133,7 @@ func TestClient_Request(t *testing.T) {
 				StatusCode: http.StatusTooManyRequests,
 				Body:       io.NopCloser(strings.NewReader("")),
 			},
-			expectedErr: community.ErrRateLimited,
+			expectedErr: client.ErrRateLimited,
 		},
 		{
 			name: "Internal Server Error",
@@ -184,7 +162,7 @@ func TestClient_Request(t *testing.T) {
 					),
 				),
 			},
-			expectedErr: community.ErrFamilyViewRestricted,
+			expectedErr: client.ErrFamilyViewRestricted,
 		},
 		{
 			name: "Soft Auth Fail (g_steamID = false)",
@@ -248,14 +226,14 @@ func TestClient_Request(t *testing.T) {
 
 	for _, tt := range errorTests {
 		t.Run(tt.name, func(t *testing.T) {
-			mock := requester.New()
+			mock := mock.NewServiceMock()
 			// The SUT reads and closes the body, so we need to ensure the mock can provide it again if needed.
 			bodyBytes, _ := io.ReadAll(tt.response.Body)
 			mock.OnRest = func(method, path string, body any) (*http.Response, error) {
 				tt.response.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 				return tt.response, nil
 			}
-			client := community.NewClient(nil, nil, community.WithREST(mock))
+			client := client.New(nil, nil, client.WithREST(mock))
 
 			_, err := client.Request(ctx, http.MethodGet, "/test")
 			require.Error(t, err)
@@ -273,8 +251,8 @@ func TestClient_GetOrRegisterAPIKey(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("Key Already Exists", func(t *testing.T) {
-		mock := requester.New()
-		client := community.NewClient(nil, nil, community.WithREST(mock))
+		mock := mock.NewServiceMock()
+		client := client.New(nil, nil, client.WithREST(mock))
 		htmlWithKey := `<div><p>Key: 1234567890ABCDEF1234567890ABCDEF</p></div>`
 
 		mock.OnRest = func(method, path string, body any) (*http.Response, error) {
@@ -293,8 +271,8 @@ func TestClient_GetOrRegisterAPIKey(t *testing.T) {
 	})
 
 	t.Run("Register New Key Success", func(t *testing.T) {
-		mock := requester.New()
-		client := community.NewClient(nil, mock.SessionID, community.WithREST(mock), community.WithLogger(log.Discard))
+		mock := mock.NewServiceMock()
+		client := client.New(nil, mock.SessionID, client.WithREST(mock), client.WithLogger(log.Discard))
 
 		htmlWithForm := `<div><form id="register_form"></form></div>`
 		htmlWithKey := `<div>Key: FEDCBA0987654321FEDCBA0987654321</div>`
@@ -352,8 +330,8 @@ func TestClient_GetOrRegisterAPIKey(t *testing.T) {
 	})
 
 	t.Run("Register New Key with Default Domain", func(t *testing.T) {
-		mock := requester.New()
-		client := community.NewClient(nil, mock.SessionID, community.WithREST(mock), community.WithLogger(log.Discard))
+		mock := mock.NewServiceMock()
+		c := client.New(nil, mock.SessionID, client.WithREST(mock), client.WithLogger(log.Discard))
 
 		callCount := 0
 		mock.OnRest = func(method, path string, body any) (*http.Response, error) {
@@ -390,13 +368,13 @@ func TestClient_GetOrRegisterAPIKey(t *testing.T) {
 		}
 
 		// Now it will return ErrAPITokenNotFound instead of looping forever
-		_, err := client.GetOrRegisterAPIKey(ctx, "")
-		require.ErrorIs(t, err, community.ErrAPITokenNotFound)
+		_, err := c.GetOrRegisterAPIKey(ctx, "")
+		require.ErrorIs(t, err, client.ErrAPITokenNotFound)
 	})
 
 	t.Run("Initial Page Fetch Fails", func(t *testing.T) {
-		mock := requester.New()
-		client := community.NewClient(nil, nil, community.WithREST(mock))
+		mock := mock.NewServiceMock()
+		client := client.New(nil, nil, client.WithREST(mock))
 		expectedErr := errors.New("network error")
 		mock.OnRest = func(method, path string, body any) (*http.Response, error) {
 			return nil, expectedErr
@@ -408,8 +386,8 @@ func TestClient_GetOrRegisterAPIKey(t *testing.T) {
 	})
 
 	t.Run("Registration Request Fails", func(t *testing.T) {
-		mock := requester.New()
-		client := community.NewClient(nil, nil, community.WithREST(mock), community.WithLogger(log.Discard))
+		mock := mock.NewServiceMock()
+		client := client.New(nil, nil, client.WithREST(mock), client.WithLogger(log.Discard))
 		expectedErr := errors.New("post failed")
 
 		mock.OnRest = func(method, path string, body any) (*http.Response, error) {
@@ -429,8 +407,8 @@ func TestClient_GetOrRegisterAPIKey(t *testing.T) {
 	})
 
 	t.Run("No Key and No Registration Form", func(t *testing.T) {
-		mock := requester.New()
-		client := community.NewClient(nil, nil, community.WithREST(mock))
+		mock := mock.NewServiceMock()
+		c := client.New(nil, nil, client.WithREST(mock))
 		htmlWithoutKeyOrForm := `<html><body><p>Your account is limited.</p></body></html>`
 
 		mock.OnRest = func(method, path string, body any) (*http.Response, error) {
@@ -440,205 +418,8 @@ func TestClient_GetOrRegisterAPIKey(t *testing.T) {
 			}, nil
 		}
 
-		_, err := client.GetOrRegisterAPIKey(ctx, "test.com")
+		_, err := c.GetOrRegisterAPIKey(ctx, "test.com")
 		require.Error(t, err)
-		assert.Equal(t, community.ErrAPITokenNotFound, err)
+		assert.Equal(t, client.ErrAPITokenNotFound, err)
 	})
 }
-
-func TestGet(t *testing.T) {
-	ctx := context.Background()
-	mock := requester.New()
-	client := community.NewClient(nil, nil, community.WithREST(mock))
-	respBody, _ := json.Marshal(genericResponse{Success: true, Message: "OK"})
-
-	t.Run("Success", func(t *testing.T) {
-		mock.OnRest = func(method, path string, body any) (*http.Response, error) {
-			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewReader(respBody))}, nil
-		}
-		resp, err := community.Get[genericResponse](ctx, client, "/test/get", genericRequest{Param1: "hi", Param2: 1})
-		require.NoError(t, err)
-		assert.Equal(t, true, resp.Success)
-	})
-
-	t.Run("Request Struct Conversion Error", func(t *testing.T) {
-		resp, err := community.Get[genericResponse](ctx, client, "/test/get", make(chan int))
-		require.NoError(t, err)
-		assert.NotNil(t, resp)
-	})
-
-	t.Run("Unmarshal Error", func(t *testing.T) {
-		mock.OnRest = func(method, path string, body any) (*http.Response, error) {
-			return &http.Response{
-				StatusCode: http.StatusOK,
-				Body:       io.NopCloser(strings.NewReader(`{"success": "not-a-bool"}`)),
-			}, nil
-		}
-		_, err := community.Get[genericResponse](ctx, client, "/test/get", nil)
-		require.Error(t, err)
-		assert.IsType(t, &json.UnmarshalTypeError{}, err)
-	})
-}
-
-func TestGetHTML(t *testing.T) {
-	ctx := context.Background()
-	mock := requester.New()
-	client := community.NewClient(nil, nil, community.WithREST(mock))
-
-	t.Run("Success", func(t *testing.T) {
-		html := "<html><body>Test</body></html>"
-		mock.OnRest = func(method, path string, body any) (*http.Response, error) {
-			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(html))}, nil
-		}
-		resp, err := community.GetHTML(ctx, client, "/test/html")
-		require.NoError(t, err)
-
-		bodyBytes, _ := io.ReadAll(resp)
-		assert.Equal(t, html, string(bodyBytes))
-	})
-
-	t.Run("Request Fails", func(t *testing.T) {
-		expectedErr := errors.New("network error")
-		mock.OnRest = func(method, path string, body any) (*http.Response, error) {
-			return nil, expectedErr
-		}
-		_, err := community.GetHTML(ctx, client, "/test/html")
-		require.Error(t, err)
-		assert.Equal(t, expectedErr, err)
-	})
-
-	t.Run("Body Read Fails", func(t *testing.T) {
-		mock.OnRest = func(method, path string, body any) (*http.Response, error) {
-			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(faultyReader{})}, nil
-		}
-		_, err := community.GetHTML(ctx, client, "/test/html")
-		require.Error(t, err)
-		assert.EqualError(t, err, "read error")
-	})
-}
-
-func TestPostForm(t *testing.T) {
-	ctx := context.Background()
-	mock := requester.New()
-	client := community.NewClient(nil, mock.SessionID, community.WithREST(mock))
-	respBody, _ := json.Marshal(genericResponse{Success: true})
-
-	t.Run("Success with Request Struct", func(t *testing.T) {
-		mock.OnRest = func(method, path string, body any) (*http.Response, error) {
-			var bodyStr string
-			if b, ok := body.([]byte); ok {
-				bodyStr = string(b)
-			} else {
-				bodyStr = body.(string)
-			}
-
-			vals, err := url.ParseQuery(bodyStr)
-			require.NoError(t, err)
-			assert.Equal(t, "data", vals.Get("param1"))
-			assert.Equal(t, "42", vals.Get("param2"))
-			assert.Equal(t, "mock_session_id", vals.Get("sessionid"))
-
-			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewReader(respBody))}, nil
-		}
-		reqMsg := genericRequest{Param1: "data", Param2: 42}
-		_, err := community.PostForm[genericResponse](ctx, client, "/test/post", reqMsg)
-		require.NoError(t, err)
-	})
-
-	t.Run("Success without Request Struct", func(t *testing.T) {
-		mock.OnRest = func(method, path string, body any) (*http.Response, error) {
-			var bodyStr string
-			if b, ok := body.([]byte); ok {
-				bodyStr = string(b)
-			} else {
-				bodyStr = body.(string)
-			}
-
-			vals, err := url.ParseQuery(bodyStr)
-			require.NoError(t, err)
-			assert.Equal(t, "mock_session_id", vals.Get("sessionid"))
-
-			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewReader(respBody))}, nil
-		}
-		_, err := community.PostForm[genericResponse](ctx, client, "/test/post", nil)
-		require.NoError(t, err)
-	})
-
-	t.Run("Struct Conversion Error", func(t *testing.T) {
-		_, err := community.PostForm[genericResponse](ctx, client, "/test/post", make(chan int))
-		require.Error(t, err)
-	})
-}
-
-func TestPostJSON(t *testing.T) {
-	ctx := context.Background()
-	mock := requester.New()
-	client := community.NewClient(nil, mock.SessionID, community.WithREST(mock))
-	respBody, _ := json.Marshal(genericResponse{Success: true})
-
-	t.Run("Success", func(t *testing.T) {
-		mock.OnRest = func(method, path string, body any) (*http.Response, error) {
-			var reqData genericRequest
-
-			err := json.Unmarshal(body.([]byte), &reqData)
-			require.NoError(t, err)
-			assert.Equal(t, "data", reqData.Param1)
-			assert.Equal(t, 42, reqData.Param2)
-
-			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewReader(respBody))}, nil
-		}
-		reqMsg := genericRequest{Param1: "data", Param2: 42}
-		_, err := community.PostJSON[genericResponse](ctx, client, "/test/post", reqMsg)
-		require.NoError(t, err)
-	})
-
-	t.Run("JSON Marshal Error", func(t *testing.T) {
-		type badJSON struct{ F func() }
-
-		_, err := community.PostJSON[genericResponse](ctx, client, "/test/post", badJSON{})
-		require.Error(t, err)
-		assert.IsType(t, &json.UnsupportedTypeError{}, err)
-	})
-}
-
-func TestPerformRequest(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("Applies Call Options", func(t *testing.T) {
-		var receivedHeaders http.Header
-
-		httpClient := &mockHTTPDoer{
-			doFunc: func(req *http.Request) (*http.Response, error) {
-				receivedHeaders = req.Header
-				return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader("{}"))}, nil
-			},
-		}
-		client := community.NewClient(httpClient, nil)
-		_, err := community.Get[genericResponse](
-			ctx,
-			client,
-			"/test",
-			nil,
-			aoni.WithHeader("X-Test-Header", "Value123"),
-		)
-		require.NoError(t, err)
-		assert.Equal(t, "Value123", receivedHeaders.Get("X-Test-Header"))
-	})
-
-	t.Run("Registry Fallback", func(t *testing.T) {
-		// Define a requester that doesn't implement the registryProvider interface
-		mock := requester.New()
-		mock.OnRest = func(method, path string, body any) (*http.Response, error) {
-			return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"success": true}`))}, nil
-		}
-		req := customRequester{Requester: mock}
-
-		// This call should not panic, indicating the registry fallback worked.
-		_, err := community.Get[genericResponse](ctx, req, "/test", nil)
-		require.NoError(t, err)
-	})
-}
-
-type customRequester struct{ aoni.Requester }
-
-func (cr customRequester) SessionID(baseURL string) string { return "" }

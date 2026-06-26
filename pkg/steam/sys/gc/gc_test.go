@@ -17,7 +17,7 @@ import (
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
-	"github.com/lemon4ksan/g-man/test/module"
+	module "github.com/lemon4ksan/g-man/test/mock"
 )
 
 const (
@@ -165,7 +165,7 @@ func TestCoordinator_Errors(t *testing.T) {
 	})
 
 	t.Run("Transport Send Error Resolves Job", func(t *testing.T) {
-		ictx.MockServiceAccessor().ResponseErrs[enums.EMsg_ClientToGC.String()] = errors.New("io timeout")
+		ictx.MockService().ResponseErrs[enums.EMsg_ClientToGC.String()] = errors.New("io timeout")
 
 		resolved := make(chan struct{})
 		err := c.Call(ctx, AppidTf2, 1001, nil, func(_ context.Context, p *protocol.GCPacket, err error) {

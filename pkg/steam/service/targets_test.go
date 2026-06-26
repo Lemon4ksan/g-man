@@ -95,7 +95,7 @@ func TestNewUnifiedRequest(t *testing.T) {
 		req, err := NewUnifiedRequest("POST", "I", "M", 1, nil)
 		require.NoError(t, err)
 
-		bodyBytes, _ := io.ReadAll(req.Body())
+		bodyBytes, _ := io.ReadAll(req.Body)
 		assert.Empty(t, bodyBytes)
 	})
 
@@ -105,7 +105,7 @@ func TestNewUnifiedRequest(t *testing.T) {
 		require.NoError(t, err)
 
 		expected, _ := proto.Marshal(msg)
-		actual, _ := io.ReadAll(req.Body())
+		actual, _ := io.ReadAll(req.Body)
 		assert.Equal(t, expected, actual)
 	})
 
@@ -114,7 +114,7 @@ func TestNewUnifiedRequest(t *testing.T) {
 		req, err := NewUnifiedRequest("POST", "I", "M", 1, raw)
 		require.NoError(t, err)
 
-		actual, _ := io.ReadAll(req.Body())
+		actual, _ := io.ReadAll(req.Body)
 		assert.Equal(t, raw, actual)
 	})
 
@@ -124,7 +124,7 @@ func TestNewUnifiedRequest(t *testing.T) {
 		require.NoError(t, err)
 
 		expected, _ := json.Marshal(data)
-		actual, _ := io.ReadAll(req.Body())
+		actual, _ := io.ReadAll(req.Body)
 		assert.Equal(t, expected, actual)
 	})
 
@@ -167,7 +167,7 @@ func TestLegacyTarget(t *testing.T) {
 		assert.Empty(t, target.ObjectName())
 
 		expected, _ := proto.Marshal(msg)
-		actual, _ := io.ReadAll(req.Body())
+		actual, _ := io.ReadAll(req.Body)
 		assert.Equal(t, expected, actual)
 	})
 
@@ -175,7 +175,7 @@ func TestLegacyTarget(t *testing.T) {
 		req, err := NewLegacyRequest(enums.EMsg_ClientLogon, nil)
 		require.NoError(t, err)
 
-		bodyBytes, _ := io.ReadAll(req.Body())
+		bodyBytes, _ := io.ReadAll(req.Body)
 		assert.Empty(t, bodyBytes)
 	})
 }

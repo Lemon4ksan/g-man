@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
-	"github.com/lemon4ksan/g-man/test/requester"
+	"github.com/lemon4ksan/g-man/test/mock"
 )
 
 func TestEnums(t *testing.T) {
@@ -138,7 +138,7 @@ func TestID_JSON(t *testing.T) {
 
 func TestResolve(t *testing.T) {
 	ctx := context.Background()
-	mock := requester.New()
+	mock := mock.NewServiceMock()
 
 	t.Run("Valid Direct ID", func(t *testing.T) {
 		sid, err := id.Resolve(ctx, mock, " 76561198044393456 ")
@@ -182,7 +182,7 @@ func TestResolveVanityURL(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("WebAPI Error", func(t *testing.T) {
-		mock := requester.New()
+		mock := mock.NewServiceMock()
 		mock.ResponseErrs["ISteamUser/ResolveVanityURL"] = errors.New("network fail")
 		_, err := id.ResolveVanityURL(ctx, mock, "test")
 		assert.Error(t, err)
@@ -190,7 +190,7 @@ func TestResolveVanityURL(t *testing.T) {
 	})
 
 	t.Run("Steam Success False", func(t *testing.T) {
-		mock := requester.New()
+		mock := mock.NewServiceMock()
 		mock.SetJSONResponse("ISteamUser", "ResolveVanityURL", map[string]any{
 			"response": map[string]any{
 				"success": 42,

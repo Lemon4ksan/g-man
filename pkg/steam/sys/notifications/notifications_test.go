@@ -15,14 +15,14 @@ import (
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
-	tm "github.com/lemon4ksan/g-man/test/module"
+	module "github.com/lemon4ksan/g-man/test/mock"
 )
 
-func setupNotifications(t *testing.T) (*Notifications, *tm.InitContext) {
+func setupNotifications(t *testing.T) (*Notifications, *module.InitContext) {
 	t.Helper()
 
 	n := New()
-	ictx := tm.NewInitContext()
+	ictx := module.NewInitContext()
 
 	require.NoError(t, n.Init(ictx))
 

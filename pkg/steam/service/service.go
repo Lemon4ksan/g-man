@@ -186,6 +186,10 @@ func (c *Client) Do(ctx context.Context, req *tr.Request) (*tr.Response, error) 
 		return nil, NewSteamAPIError("transport error", 0, err)
 	}
 
+	if resp == nil {
+		return nil, nil
+	}
+
 	if err := c.validateEResult(resp); err != nil {
 		return nil, err
 	}

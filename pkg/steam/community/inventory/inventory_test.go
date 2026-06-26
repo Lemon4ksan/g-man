@@ -5,9 +5,11 @@
 package inventory_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"testing"
 
@@ -15,10 +17,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/community/inventory"
-	"github.com/lemon4ksan/g-man/test/requester"
+	"github.com/lemon4ksan/g-man/test/mock"
 )
 
-// Helper to create a JSON response body for the mock
+func newBuffer(b []byte) io.ReadCloser {
+	return io.NopCloser(bytes.NewReader(b))
+}
+
 func jsonResponse(v any) []byte {
 	b, _ := json.Marshal(v)
 	return b
@@ -31,7 +36,7 @@ func TestGetUserInventoryContents(t *testing.T) {
 	contextID := int64(2)
 
 	t.Run("Success Single Page", func(t *testing.T) {
-		mock := requester.New()
+		mock := mock.NewServiceMock()
 
 		resp := inventoryResponseMock{
 			Success:    true,
@@ -52,7 +57,7 @@ func TestGetUserInventoryContents(t *testing.T) {
 
 			return &http.Response{
 				StatusCode: http.StatusOK,
-				Body:       requester.NewBuffer(jsonResponse(resp)),
+				Body:       newBuffer(jsonResponse(resp)),
 			}, nil
 		}
 
@@ -69,7 +74,7 @@ func TestGetUserInventoryContents(t *testing.T) {
 	})
 
 	t.Run("Success Pagination", func(t *testing.T) {
-		mock := requester.New()
+		mock := mock.NewServiceMock()
 		callCount := 0
 
 		mock.OnRest = func(method, path string, body any) (*http.Response, error) {
@@ -97,7 +102,7 @@ func TestGetUserInventoryContents(t *testing.T) {
 
 			return &http.Response{
 				StatusCode: http.StatusOK,
-				Body:       requester.NewBuffer(jsonResponse(resp)),
+				Body:       newBuffer(jsonResponse(resp)),
 			}, nil
 		}
 
@@ -110,13 +115,13 @@ func TestGetUserInventoryContents(t *testing.T) {
 	})
 
 	t.Run("Empty Inventory", func(t *testing.T) {
-		mock := requester.New()
+		mock := mock.NewServiceMock()
 		resp := inventoryResponseMock{Success: true, TotalCount: 0, Assets: nil}
 
 		mock.OnRest = func(method, path string, body any) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: http.StatusOK,
-				Body:       requester.NewBuffer(jsonResponse(resp)),
+				Body:       newBuffer(jsonResponse(resp)),
 			}, nil
 		}
 
@@ -128,7 +133,7 @@ func TestGetUserInventoryContents(t *testing.T) {
 	})
 
 	t.Run("Tradable Only Filter", func(t *testing.T) {
-		mock := requester.New()
+		mock := mock.NewServiceMock()
 		resp := inventoryResponseMock{
 			Success:    true,
 			TotalCount: 2,
@@ -146,7 +151,7 @@ func TestGetUserInventoryContents(t *testing.T) {
 		mock.OnRest = func(method, path string, body any) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: http.StatusOK,
-				Body:       requester.NewBuffer(jsonResponse(resp)),
+				Body:       newBuffer(jsonResponse(resp)),
 			}, nil
 		}
 
@@ -157,7 +162,7 @@ func TestGetUserInventoryContents(t *testing.T) {
 	})
 
 	t.Run("Steam Error Response", func(t *testing.T) {
-		mock := requester.New()
+		mock := mock.NewServiceMock()
 		resp := inventoryResponseMock{
 			Success: false,
 			Error:   "Rate limit exceeded",
@@ -166,7 +171,7 @@ func TestGetUserInventoryContents(t *testing.T) {
 		mock.OnRest = func(method, path string, body any) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: http.StatusOK,
-				Body:       requester.NewBuffer(jsonResponse(resp)),
+				Body:       newBuffer(jsonResponse(resp)),
 			}, nil
 		}
 
@@ -176,7 +181,7 @@ func TestGetUserInventoryContents(t *testing.T) {
 	})
 
 	t.Run("Requester Error", func(t *testing.T) {
-		mock := requester.New()
+		mock := mock.NewServiceMock()
 		mock.OnRest = func(method, path string, body any) (*http.Response, error) {
 			return nil, errors.New("network fail")
 		}
@@ -204,7 +209,7 @@ func TestGetUserInventoryContexts(t *testing.T) {
 	userID := uint64(76561198000000000)
 
 	t.Run("Success Scraped AppContext", func(t *testing.T) {
-		mock := requester.New()
+		mock := mock.NewServiceMock()
 
 		htmlContent := `
 			var g_rgAppContextData = {
@@ -231,7 +236,7 @@ func TestGetUserInventoryContexts(t *testing.T) {
 
 			return &http.Response{
 				StatusCode: http.StatusOK,
-				Body:       requester.NewBuffer([]byte(htmlContent)),
+				Body:       newBuffer([]byte(htmlContent)),
 			}, nil
 		}
 
@@ -249,13 +254,13 @@ func TestGetUserInventoryContexts(t *testing.T) {
 	})
 
 	t.Run("Success Empty Context List", func(t *testing.T) {
-		mock := requester.New()
+		mock := mock.NewServiceMock()
 		htmlContent := `var g_rgAppContextData = [];`
 
 		mock.OnRest = func(method, path string, body any) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: http.StatusOK,
-				Body:       requester.NewBuffer([]byte(htmlContent)),
+				Body:       newBuffer([]byte(htmlContent)),
 			}, nil
 		}
 
@@ -265,13 +270,13 @@ func TestGetUserInventoryContexts(t *testing.T) {
 	})
 
 	t.Run("Private Inventory Error", func(t *testing.T) {
-		mock := requester.New()
+		mock := mock.NewServiceMock()
 		htmlContent := `This profile is private.`
 
 		mock.OnRest = func(method, path string, body any) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: http.StatusOK,
-				Body:       requester.NewBuffer([]byte(htmlContent)),
+				Body:       newBuffer([]byte(htmlContent)),
 			}, nil
 		}
 

@@ -19,9 +19,6 @@ var (
 
 	// ErrRateLimited indicates Steam is blocking requests due to high frequency.
 	ErrRateLimited = errors.New("api: rate limit exceeded")
-
-	// ErrFamilyViewRestricted indicates that the account is in Family View.
-	ErrFamilyViewRestricted = errors.New("api: family view restricted")
 )
 
 // RetriableError defines an interface for errors that represent transient issues.
@@ -116,10 +113,8 @@ func (e *EResultError) IsRetriable() bool {
 type SteamAPIError struct {
 	// Message is the human-readable error description from Steam.
 	Message string
-
 	// StatusCode is the raw HTTP status code.
 	StatusCode int
-
 	// Special error that can be unwrapped.
 	Err error
 }

@@ -40,7 +40,7 @@ func TestRequest_FluentAPI(t *testing.T) {
 		WithHeader("X-Test", "true").
 		WithParam("access_token", "secret")
 
-	body, _ := io.ReadAll(req.Body())
+	body, _ := io.ReadAll(req.Body)
 	assert.Equal(t, "body", string(body))
 	assert.Equal(t, target, req.Target())
 	assert.Equal(t, "1", req.Params().Get("a"))

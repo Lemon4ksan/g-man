@@ -2,12 +2,11 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package community
+package client
 
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -21,24 +20,8 @@ import (
 	"github.com/lemon4ksan/miyako/generic"
 
 	"github.com/lemon4ksan/g-man/pkg/log"
-	"github.com/lemon4ksan/g-man/pkg/steam/encoding"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 )
-
-var (
-	// ErrFamilyViewRestricted is returned when the account is under Family View restrictions.
-	ErrFamilyViewRestricted = service.ErrFamilyViewRestricted
-	// ErrRateLimited is returned when the account is rate limited.
-	ErrRateLimited = service.ErrRateLimited
-)
-
-// Requester defines the requirements for making Community requests.
-// It embeds [aoni.Requester] and adds Steam session management.
-type Requester interface {
-	aoni.Requester
-	// SessionID returns the current Steam session identifier for the given base URL.
-	SessionID(baseURL string) string
-}
 
 // BaseURL is the base url for community requests.
 const BaseURL = "https://steamcommunity.com/"
@@ -52,21 +35,28 @@ var (
 	rxAPIKey     = regexp.MustCompile(`Key: (?i)[0-9A-F]{32}`)
 )
 
-// ErrAPITokenNotFound is returned when automatic key registration fails.
-var ErrAPITokenNotFound = errors.New(
-	"community: could not find api key or registration form (account might be limited)",
+var (
+	// ErrFamilyViewRestricted is returned when the account is under Family View restrictions.
+	ErrFamilyViewRestricted = errors.New("community: family view restricted")
+	// ErrRateLimited is returned when the account is rate limited.
+	ErrRateLimited = service.ErrRateLimited
+	// ErrAPITokenNotFound is returned when automatic key registration fails.
+	ErrAPITokenNotFound = errors.New(
+		"community: could not find api key or registration form (account might be limited)",
+	)
 )
 
-// Decorate wraps an existing Requester and adds global request modifiers.
-func Decorate(r Requester, mods ...aoni.RequestModifier) Requester {
-	if len(mods) == 0 {
-		return r
-	}
+// Requester defines the requirements for making Community requests.
+// It embeds [aoni.Requester] and adds Steam session management.
+type Requester interface {
+	aoni.Requester
+	// SessionID returns the current Steam session identifier for the given base URL.
+	SessionID(baseURL string) string
+}
 
-	return &decoratedRequester{
-		Requester:   r,
-		defaultMods: mods,
-	}
+// SessionProvider defines how the community client retrieves active Steam session IDs.
+type SessionProvider interface {
+	SessionID(baseURL string) string
 }
 
 // Option defines a functional configuration for the Client.
@@ -89,7 +79,7 @@ func WithREST(r aoni.Requester) Option {
 // Client handles communication with Steam Community, backed by a generic REST client.
 //
 // It wraps a [aoni.Client] and automatically configures default headers such as
-// Origin and Referer, which are required by Steam. Use [NewClient] to construct
+// Origin and Referer, which are required by Steam. Use [New] to construct
 // new instances of the client.
 type Client struct {
 	restClient  aoni.Requester
@@ -97,9 +87,9 @@ type Client struct {
 	logger      log.Logger
 }
 
-// NewClient creates a new Community Client.
+// New creates a new Community Client.
 // It initializes a [aoni.Client] with the required default browser-like headers.
-func NewClient(httpClient aoni.HTTPDoer, sessionFunc func(string) string, opts ...Option) *Client {
+func New(httpClient aoni.HTTPDoer, sessionFunc func(string) string, opts ...Option) *Client {
 	rc := aoni.NewClient(httpClient).
 		WithBaseURL(BaseURL).
 		WithOrigin(BaseURL).
@@ -201,13 +191,16 @@ func (c *Client) GetOrRegisterAPIKey(ctx context.Context, domain string) (string
 		domain = "localhost"
 	}
 
-	htmlStream, err := GetHTML(ctx, c, "dev/apikey")
+	resp, err := c.Request(
+		ctx, http.MethodGet, "dev/apikey",
+		aoni.WithAccept("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"),
+	)
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch apikey page: %w", err)
 	}
-	defer htmlStream.Close()
+	defer resp.Body.Close()
 
-	body := aoni.AsReplayable(htmlStream)
+	body := aoni.AsReplayable(resp.Body)
 
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, body); err != nil {
@@ -258,154 +251,6 @@ func (c *Client) registerAPIKey(ctx context.Context, domain string) (string, err
 	return c.GetOrRegisterAPIKey(ctx, domain)
 }
 
-// Get performs a GET request and unmarshals the resulting JSON into the Resp type.
-//
-// If the reqMsg argument is nil, query parameters are omitted.
-func Get[Resp any](
-	ctx context.Context,
-	r Requester,
-	path string,
-	reqMsg any,
-	mods ...aoni.RequestModifier,
-) (*Resp, error) {
-	if reqMsg != nil {
-		mods = append([]aoni.RequestModifier{aoni.WithQuery(reqMsg)}, mods...)
-	}
-
-	mods = append([]aoni.RequestModifier{
-		aoni.WithHeader("Accept", "application/json, text/javascript; q=0.01"),
-		aoni.WithHeader("X-Requested-With", "XMLHttpRequest"),
-	}, mods...)
-
-	return execute[Resp](ctx, r, http.MethodGet, path, mods...)
-}
-
-// GetHTML performs a GET request specifically for raw HTML content.
-//
-// If the reqMsg argument is nil, query parameters are omitted.
-func GetHTML(ctx context.Context, r Requester, path string, mods ...aoni.RequestModifier) (io.ReadCloser, error) {
-	mods = append([]aoni.RequestModifier{
-		aoni.WithHeader(
-			"Accept",
-			"text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-		),
-	}, mods...)
-
-	resp, err := r.Request(ctx, http.MethodGet, path, mods...)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	return resp.Body, nil
-}
-
-// PostForm performs a POST request with application/x-www-form-urlencoded data.
-// It automatically injects the "sessionid" into the form parameters.
-//
-// If the reqMsg argument is nil, form parameters are initialized containing only the session ID.
-func PostForm[Resp any](
-	ctx context.Context,
-	r Requester,
-	path string,
-	reqMsg any,
-	mods ...aoni.RequestModifier,
-) (*Resp, error) {
-	var params url.Values
-
-	if reqMsg != nil {
-		var err error
-
-		params, err = aoni.StructToValues(reqMsg)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		params = make(url.Values)
-	}
-
-	if params.Get("sessionid") == "" {
-		params.Set("sessionid", r.SessionID(BaseURL))
-	}
-
-	mods = append([]aoni.RequestModifier{
-		aoni.WithBody(strings.NewReader(params.Encode())),
-		aoni.WithContentType("application/x-www-form-urlencoded; charset=UTF-8"),
-		aoni.WithHeader("Accept", "application/json, text/javascript; q=0.01"),
-	}, mods...)
-
-	return execute[Resp](ctx, r, http.MethodPost, path, mods...)
-}
-
-// PostJSON performs a POST request with a JSON body.
-// It automatically injects the "sessionid" into the URL query parameters.
-//
-// If the reqMsg argument is nil, the request payload is omitted.
-func PostJSON[Resp any](
-	ctx context.Context,
-	r Requester,
-	path string,
-	reqMsg any,
-	mods ...aoni.RequestModifier,
-) (*Resp, error) {
-	var query url.Values
-	if sid := r.SessionID(BaseURL); sid != "" {
-		query = url.Values{"sessionid": {sid}}
-	}
-
-	if len(query) > 0 {
-		mods = append([]aoni.RequestModifier{aoni.WithQuery(query)}, mods...)
-	}
-
-	if reqMsg != nil {
-		bodyBytes, err := json.Marshal(reqMsg)
-		if err != nil {
-			return nil, err
-		}
-
-		mods = append([]aoni.RequestModifier{aoni.WithBody(bytes.NewReader(bodyBytes))}, mods...)
-	}
-
-	mods = append([]aoni.RequestModifier{
-		aoni.WithContentType("application/json; charset=UTF-8"),
-		aoni.WithHeader("Accept", "application/json"),
-	}, mods...)
-
-	return execute[Resp](ctx, r, http.MethodPost, path, mods...)
-}
-
-func execute[Resp any](
-	ctx context.Context,
-	r Requester,
-	method, path string,
-	mods ...aoni.RequestModifier,
-) (*Resp, error) {
-	resp, err := r.Request(ctx, method, path, mods...)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var zero Resp
-	if _, ok := any(&zero).(*[]byte); ok {
-		raw, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return nil, err
-		}
-
-		p := any(&raw).(*Resp)
-
-		return p, nil
-	}
-
-	result := new(Resp)
-	if err := encoding.SteamJSONDecoder.Decode(resp.Body, result); err != nil {
-		return nil, err
-	}
-
-	return result, nil
-}
-
 func checkSteamErrors(statusCode int, header http.Header, body []byte) error {
 	if statusCode == http.StatusTooManyRequests {
 		return service.NewSteamAPIError("Rate limit exceeded", statusCode, service.ErrRateLimited)
@@ -425,7 +270,7 @@ func checkSteamErrors(statusCode int, header http.Header, body []byte) error {
 
 	// Parental Control (Family View)
 	if statusCode == http.StatusForbidden && rxFamilyView.Match(body) {
-		return service.NewSteamAPIError("Family View enabled", statusCode, service.ErrFamilyViewRestricted)
+		return service.NewSteamAPIError("Family View enabled", statusCode, ErrFamilyViewRestricted)
 	}
 
 	// Soft Auth Failure (Page loaded but user is guest)
@@ -466,21 +311,4 @@ func truncateBody(body []byte, maxLen int) string {
 	}
 
 	return s
-}
-
-type decoratedRequester struct {
-	Requester
-	defaultMods []aoni.RequestModifier
-}
-
-func (d *decoratedRequester) Request(
-	ctx context.Context,
-	method, path string,
-	mods ...aoni.RequestModifier,
-) (*http.Response, error) {
-	allMods := make([]aoni.RequestModifier, 0, len(d.defaultMods)+len(mods))
-	allMods = append(allMods, d.defaultMods...)
-	allMods = append(allMods, mods...)
-
-	return d.Requester.Request(ctx, method, path, allMods...)
 }

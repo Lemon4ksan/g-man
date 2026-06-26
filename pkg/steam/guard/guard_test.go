@@ -15,7 +15,7 @@ import (
 
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
-	"github.com/lemon4ksan/g-man/test/module"
+	module "github.com/lemon4ksan/g-man/test/mock"
 )
 
 const validSecret = "SGVsbG8gV29ybGQ="

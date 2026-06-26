@@ -7,6 +7,7 @@ package friends
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -20,8 +21,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
-	tc "github.com/lemon4ksan/g-man/test/community"
-	"github.com/lemon4ksan/g-man/test/module"
+	"github.com/lemon4ksan/g-man/test/mock"
 )
 
 const (
@@ -30,14 +30,14 @@ const (
 	BotSteamID = id.ID(76561198000000000)
 )
 
-func setupFriends(t *testing.T) (*Manager, *module.InitContext) {
+func setupFriends(t *testing.T) (*Manager, *mock.InitContext) {
 	t.Helper()
 
 	m := New()
-	ictx := module.NewInitContext()
+	ictx := mock.NewInitContext()
 	require.NoError(t, m.Init(ictx))
 
-	auth := module.NewAuthContext(BotSteamID)
+	auth := mock.NewAuthContext(BotSteamID)
 	require.NoError(t, m.StartAuthed(context.Background(), auth))
 
 	t.Cleanup(func() { _ = m.Close() })
@@ -47,7 +47,7 @@ func setupFriends(t *testing.T) (*Manager, *module.InitContext) {
 
 func TestManager_InitAndClose(t *testing.T) {
 	m := New()
-	ictx := module.NewInitContext()
+	ictx := mock.NewInitContext()
 
 	assert.Equal(t, ModuleName, m.Name())
 
@@ -139,7 +139,7 @@ func TestManager_InviteToGroups(t *testing.T) {
 	m, _ := setupFriends(t)
 	ctx := context.Background()
 	// Ensure we use the community mock instance linked to the manager's state
-	comm := tc.New()
+	comm := mock.NewHTTPStub()
 	m.community = comm
 	path := "actions/GroupInvite"
 
@@ -248,7 +248,7 @@ func TestManager_HandlePersonaState(t *testing.T) {
 func TestManager_AcceptFriendRequestWeb(t *testing.T) {
 	m, _ := setupFriends(t)
 	ctx := context.Background()
-	comm := tc.New()
+	comm := mock.NewHTTPStub()
 	m.community = comm
 
 	path := "actions/AddFriendAjax"
@@ -295,7 +295,7 @@ func TestManager_AcceptFriendRequestWeb(t *testing.T) {
 func TestManager_BlockCommunication(t *testing.T) {
 	m, _ := setupFriends(t)
 	ctx := context.Background()
-	comm := tc.New()
+	comm := mock.NewHTTPStub()
 	m.community = comm
 
 	path := "actions/BlockUserAjax"
@@ -341,10 +341,10 @@ func TestManager_BlockCommunication(t *testing.T) {
 func TestManager_UnblockCommunication(t *testing.T) {
 	m, _ := setupFriends(t)
 	ctx := context.Background()
-	comm := tc.New()
+	comm := mock.NewHTTPStub()
 	m.community = comm
 
-	path := "profiles/{mySteamID}/friends/blocked"
+	path := fmt.Sprintf("profiles/%s/friends/blocked", m.mySteamID)
 
 	t.Run("Success", func(t *testing.T) {
 		comm.ClearCalls()
@@ -388,7 +388,7 @@ func TestManager_UnblockCommunication(t *testing.T) {
 func TestManager_PostUserComment(t *testing.T) {
 	m, _ := setupFriends(t)
 	ctx := context.Background()
-	comm := tc.New()
+	comm := mock.NewHTTPStub()
 	m.community = comm
 
 	path := "comment/Profile/post/101/-1"
@@ -489,7 +489,7 @@ func TestManager_PostUserComment(t *testing.T) {
 func TestManager_DeleteUserComment(t *testing.T) {
 	m, _ := setupFriends(t)
 	ctx := context.Background()
-	comm := tc.New()
+	comm := mock.NewHTTPStub()
 	m.community = comm
 
 	path := "comment/Profile/delete/101/-1"
@@ -556,7 +556,7 @@ func TestManager_DeleteUserComment(t *testing.T) {
 func TestManager_GetUserComments(t *testing.T) {
 	m, _ := setupFriends(t)
 	ctx := context.Background()
-	comm := tc.New()
+	comm := mock.NewHTTPStub()
 	m.community = comm
 
 	path := "comment/Profile/render/101/-1"

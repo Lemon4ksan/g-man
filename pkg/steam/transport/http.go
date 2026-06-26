@@ -69,10 +69,10 @@ func (t *HTTPTransport) Do(ctx context.Context, req *Request) (*Response, error)
 	params := req.Params()
 
 	var bodyBytes []byte
-	if req.Body() != nil {
+	if req.Body != nil {
 		var err error
 
-		bodyBytes, err = io.ReadAll(req.Body())
+		bodyBytes, err = io.ReadAll(req.Body)
 		if err != nil {
 			return nil, fmt.Errorf("http: failed to read request body: %w", err)
 		}
@@ -95,15 +95,15 @@ func (t *HTTPTransport) Do(ctx context.Context, req *Request) (*Response, error)
 		},
 	}, req.Modifiers()...)
 
-	httpResp, err := t.client.Request(ctx, target.HTTPMethod(), target.HTTPPath(), mods...) //nolint:bodyclose
+	resp, err := t.client.Request(ctx, target.HTTPMethod(), target.HTTPPath(), mods...) //nolint:bodyclose
 	if err != nil {
 		return nil, err
 	}
 
-	return NewResponse(httpResp.Body, HTTPMetadata{
-		Result:     t.parseEResult(httpResp),
-		Header:     httpResp.Header,
-		StatusCode: httpResp.StatusCode,
+	return NewResponse(resp.Body, HTTPMetadata{
+		Result:     t.parseEResult(resp),
+		Header:     resp.Header,
+		StatusCode: resp.StatusCode,
 	}), nil
 }
 

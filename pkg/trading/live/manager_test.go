@@ -12,7 +12,7 @@ import (
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
-	"github.com/lemon4ksan/g-man/test/module"
+	module "github.com/lemon4ksan/g-man/test/mock"
 )
 
 const (
@@ -76,7 +76,7 @@ func TestManager_Invitations(t *testing.T) {
 		}
 
 		req := &pb.CMsgTrading_InitiateTradeRequest{}
-		ictx.MockServiceAccessor().GetLastCall(req)
+		ictx.MockService().GetLastCall(req)
 
 		if req.GetOtherSteamid() != FriendSteamID {
 			t.Errorf("expected target %d, got %d", FriendSteamID, req.GetOtherSteamid())
@@ -89,7 +89,7 @@ func TestManager_Invitations(t *testing.T) {
 		}
 
 		req := &pb.CMsgTrading_CancelTradeRequest{}
-		ictx.MockServiceAccessor().GetLastCall(req)
+		ictx.MockService().GetLastCall(req)
 
 		if req.GetOtherSteamid() != FriendSteamID {
 			t.Errorf("expected target %d, got %d", FriendSteamID, req.GetOtherSteamid())
@@ -121,7 +121,7 @@ func TestManager_RespondToInvite(t *testing.T) {
 			}
 
 			req := &pb.CMsgTrading_InitiateTradeResponse{}
-			ictx.MockServiceAccessor().GetLastCall(req)
+			ictx.MockService().GetLastCall(req)
 
 			if req.GetTradeRequestId() != TradeID {
 				t.Errorf("expected trade ID %d, got %d", TradeID, req.GetTradeRequestId())
@@ -157,7 +157,7 @@ func TestManager_HandleTradeProposed(t *testing.T) {
 		tradeEv.Respond(true)
 
 		req := &pb.CMsgTrading_InitiateTradeResponse{}
-		ictx.MockServiceAccessor().GetLastCall(req)
+		ictx.MockService().GetLastCall(req)
 
 		if req.GetResponse() != uint32(enums.EEconTradeResponse_Accepted) {
 			t.Error("Respond(true) should send Accepted response")

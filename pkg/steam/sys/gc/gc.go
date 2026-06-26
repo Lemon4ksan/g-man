@@ -106,9 +106,7 @@ func (c *Coordinator) Close() error {
 		unreg()
 	}
 
-	unregFuncs := c.unregFuncs
 	c.unregFuncs = nil
-	_ = unregFuncs // avoid static check error if unused
 	c.mu.Unlock()
 
 	_ = c.jobManager.Close()
@@ -151,6 +149,10 @@ func (c *Coordinator) CallRaw(
 	payload []byte,
 	cb jobs.Callback[*protocol.GCPacket],
 ) error {
+	if cb == nil {
+		return errors.New("gc: callback is required for Call")
+	}
+
 	return c.send(ctx, appID, msgType, nil, payload, cb)
 }
 
@@ -162,9 +164,11 @@ func (c *Coordinator) send(
 	payload []byte,
 	cb jobs.Callback[*protocol.GCPacket],
 ) error {
-	var err error
+	var (
+		err    error
+		bufPtr *[]byte
+	)
 
-	var bufPtr *[]byte
 	if msg != nil {
 		bufPtr = gcBufferPool.Get().(*[]byte)
 		buf := (*bufPtr)[:0]
@@ -228,10 +232,7 @@ func (c *Coordinator) send(
 	)
 
 	_, err = service.LegacyProto[service.NoResponse](
-		ctx,
-		c.client,
-		enums.EMsg_ClientToGC,
-		wrapper,
+		ctx, c.client, enums.EMsg_ClientToGC, wrapper,
 		service.WithRoutingAppID(appID),
 	)
 	if err != nil {

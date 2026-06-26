@@ -39,18 +39,18 @@ var (
 	ErrDuplicate = errors.New("modules: duplicate module")
 )
 
-// ModuleError details an execution failure during a module lifecycle transition.
-type ModuleError struct {
+// Error details an execution failure during a module lifecycle transition.
+type Error struct {
 	Op     string
 	Module string
 	Err    error
 }
 
-func (e ModuleError) Error() string {
+func (e Error) Error() string {
 	return fmt.Sprintf("modules: %s for %q failed: %v", e.Op, e.Module, e.Err)
 }
 
-func (e ModuleError) Unwrap() error {
+func (e Error) Unwrap() error {
 	return e.Err
 }
 
@@ -118,7 +118,7 @@ func (m *Manager) Add(mod module.Module) error {
 
 	m.modules[mod.Name()] = mod
 
-	m.orchestrator.Register(&moduleAdapter{mod: mod, initCtx: m.initCtx})
+	m.orchestrator.Register(&moduleAdapter{Mod: mod, InitCtx: m.initCtx})
 
 	return nil
 }
@@ -148,18 +148,18 @@ func (m *Manager) Register(ctx context.Context, mod module.Module) error {
 
 	if m.stateProvider.IsRunning() {
 		if err := mod.Init(m.initCtx); err != nil {
-			return &ModuleError{Op: "dynamic init", Module: mod.Name(), Err: err}
+			return &Error{Op: "dynamic init", Module: mod.Name(), Err: err}
 		}
 
 		if err := mod.Start(ctx); err != nil {
-			return &ModuleError{Op: "dynamic start", Module: mod.Name(), Err: err}
+			return &Error{Op: "dynamic start", Module: mod.Name(), Err: err}
 		}
 	}
 
 	if m.stateProvider.IsAuthorized() {
 		if authMod, ok := mod.(module.Auth); ok {
 			if err := authMod.StartAuthed(ctx, m.authCtx); err != nil {
-				return &ModuleError{Op: "dynamic start authed", Module: mod.Name(), Err: err}
+				return &Error{Op: "dynamic start authed", Module: mod.Name(), Err: err}
 			}
 		}
 	}
@@ -192,7 +192,7 @@ func (m *Manager) StartAuthedAll(ctx context.Context) error {
 	for _, mod := range m.All() {
 		if authMod, ok := mod.(module.Auth); ok {
 			if err := authMod.StartAuthed(ctx, m.authCtx); err != nil {
-				return &ModuleError{Op: "start authed", Module: mod.Name(), Err: err}
+				return &Error{Op: "start authed", Module: mod.Name(), Err: err}
 			}
 		}
 	}
@@ -201,15 +201,15 @@ func (m *Manager) StartAuthedAll(ctx context.Context) error {
 }
 
 type moduleAdapter struct {
-	mod     module.Module
-	initCtx module.InitContext
-	cancel  context.CancelFunc
+	Mod     module.Module
+	InitCtx module.InitContext
+	Cancel  context.CancelFunc
 }
 
-func (a *moduleAdapter) Name() string { return a.mod.Name() }
+func (a *moduleAdapter) Name() string { return a.Mod.Name() }
 
 func (a *moduleAdapter) Dependencies() []string {
-	if dep, ok := a.mod.(module.Dependent); ok {
+	if dep, ok := a.Mod.(module.Dependent); ok {
 		return dep.Dependencies()
 	}
 
@@ -217,21 +217,21 @@ func (a *moduleAdapter) Dependencies() []string {
 }
 
 func (a *moduleAdapter) Init(ctx context.Context) error {
-	return a.mod.Init(a.initCtx)
+	return a.Mod.Init(a.InitCtx)
 }
 
 func (a *moduleAdapter) Start(ctx context.Context) error {
 	startCtx, cancel := context.WithCancel(ctx)
-	a.cancel = cancel
-	return a.mod.Start(startCtx)
+	a.Cancel = cancel
+	return a.Mod.Start(startCtx)
 }
 
 func (a *moduleAdapter) Stop(ctx context.Context) error {
-	if a.cancel != nil {
-		a.cancel()
+	if a.Cancel != nil {
+		a.Cancel()
 	}
 
-	if closer, ok := a.mod.(interface{ Close() error }); ok {
+	if closer, ok := a.Mod.(interface{ Close() error }); ok {
 		return closer.Close()
 	}
 

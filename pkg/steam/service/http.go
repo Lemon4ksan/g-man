@@ -45,13 +45,6 @@ func WithVersion(version int) CallOption {
 	}
 }
 
-// WithHeader adds a custom HTTP header to the request.
-func WithHeader(key, value string) CallOption {
-	return func(req *tr.Request) {
-		req.WithHeader(key, value)
-	}
-}
-
 // WithDecoder sets the decoder for the response body.
 func WithDecoder(d aoni.Decoder) CallOption {
 	return func(req *tr.Request) {
@@ -81,27 +74,6 @@ func WithFormat(f encoding.ResponseFormat) CallOption {
 			req.SetDecoder(decoder)
 			req.WithModifier(aoni.WithDecoder(decoder))
 		}
-	}
-}
-
-// WithQueryParam adds a single key=value pair to the URL query string.
-func WithQueryParam(key, value string) CallOption {
-	return func(req *tr.Request) {
-		req.WithParam(key, value)
-	}
-}
-
-// WithQueryParams adds multiple key=value pairs to the URL query string.
-func WithQueryParams(v url.Values) CallOption {
-	return func(req *tr.Request) {
-		req.WithParams(v)
-	}
-}
-
-// WithOverrideAPIKey sets or overrides the "key" parameter in the request.
-func WithOverrideAPIKey(key string) CallOption {
-	return func(req *tr.Request) {
-		req.WithParam("key", key)
 	}
 }
 

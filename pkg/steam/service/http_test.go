@@ -6,7 +6,6 @@ package service
 
 import (
 	"io"
-	"net/url"
 	"strings"
 	"testing"
 
@@ -27,17 +26,6 @@ func (m *mockHTTPTarget) SetHTTPMethod(s string) { m.HTTPMethod = s }
 func (m *mockHTTPTarget) SetVersion(v int)       { m.Version = v }
 
 func TestCallOptions_Detailed(t *testing.T) {
-	target := &mockHTTPTarget{URL: "http://api.steampowered.com"}
-	req := tr.NewRequest(target, nil)
-
-	t.Run("WithHeader", func(t *testing.T) {
-		WithHeader("X-Custom-Header", "G-Man-Secret")(req)
-
-		if req.Header().Get("X-Custom-Header") != "G-Man-Secret" {
-			t.Error("WithHeader failed to set header")
-		}
-	})
-
 	t.Run("WithHTTPMethod - Compatibility check", func(t *testing.T) {
 		reqNoSetter := tr.NewRequest(nil, nil)
 		WithHTTPMethod("POST")(reqNoSetter)
@@ -135,7 +123,7 @@ func TestNewHttpRequest_Creation(t *testing.T) {
 		t.Errorf("expected %s, got %s", method, target.Method)
 	}
 
-	bodyBytes, _ := io.ReadAll(req.Body())
+	bodyBytes, _ := io.ReadAll(req.Body)
 	if string(bodyBytes) != "payload" {
 		t.Errorf("expected payload, got %s", string(bodyBytes))
 	}
@@ -178,17 +166,6 @@ func TestCallOptions(t *testing.T) {
 
 		if target.Version != 5 {
 			t.Error("WithVersion failed")
-		}
-	})
-
-	t.Run("QueryParams", func(t *testing.T) {
-		WithQueryParam("a", "1")(req)
-		WithQueryParams(url.Values{"b": {"2"}})(req)
-		WithOverrideAPIKey("secret")(req)
-
-		params := req.Params()
-		if params.Get("a") != "1" || params.Get("b") != "2" || params.Get("key") != "secret" {
-			t.Errorf("query params injection failed: %v", params)
 		}
 	})
 }

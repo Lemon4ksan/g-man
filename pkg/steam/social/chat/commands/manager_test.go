@@ -20,7 +20,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	smod "github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/social/chat"
-	testmodule "github.com/lemon4ksan/g-man/test/module"
+	testmodule "github.com/lemon4ksan/g-man/test/mock"
 )
 
 const (
@@ -31,6 +31,13 @@ const (
 
 type dummyModule struct {
 	smod.Base
+}
+
+func waitForCalls(t *testing.T, ictx *testmodule.InitContext, expectedCount int) {
+	t.Helper()
+	require.Eventually(t, func() bool {
+		return ictx.MockService().CallsCount() >= expectedCount
+	}, 2*time.Second, 5*time.Millisecond)
 }
 
 func TestCommandManager_Init(t *testing.T) {
@@ -123,7 +130,6 @@ func TestCommandManager_EventRouting(t *testing.T) {
 		_, cmdMgr, ictx := setupTest(t, t.Context())
 		eb := ictx.Bus()
 
-		// Setup mock command handlers
 		cmdMgr.Register("ping", func(ctx context.Context, senderID uint64, args []string) (string, error) {
 			return "pong", nil
 		})
@@ -133,8 +139,7 @@ func TestCommandManager_EventRouting(t *testing.T) {
 			Message:  "!ping",
 		})
 
-		// Wait for command execution and check service calls
-		time.Sleep(100 * time.Millisecond)
+		waitForCalls(t, ictx, 1)
 
 		req := &pb.CFriendMessages_SendMessage_Request{}
 		ictx.MockService().GetLastCall(req)
@@ -160,7 +165,7 @@ func TestCommandManager_EventRouting(t *testing.T) {
 			Message:  "!restart",
 		})
 
-		time.Sleep(100 * time.Millisecond)
+		waitForCalls(t, ictx, 1)
 
 		req := &pb.CFriendMessages_SendMessage_Request{}
 		ictx.MockService().GetLastCall(req)
@@ -186,7 +191,7 @@ func TestCommandManager_EventRouting(t *testing.T) {
 			Message:  "/restart",
 		})
 
-		time.Sleep(100 * time.Millisecond)
+		waitForCalls(t, ictx, 1)
 
 		req := &pb.CFriendMessages_SendMessage_Request{}
 		ictx.MockService().GetLastCall(req)
@@ -207,7 +212,7 @@ func TestCommandManager_EventRouting(t *testing.T) {
 			Message:  "!fail",
 		})
 
-		time.Sleep(100 * time.Millisecond)
+		waitForCalls(t, ictx, 1)
 
 		req := &pb.CFriendMessages_SendMessage_Request{}
 		ictx.MockService().GetLastCall(req)
@@ -224,12 +229,10 @@ func TestCommandManager_EventRouting(t *testing.T) {
 			Message:  "!unknown",
 		})
 
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(150 * time.Millisecond)
 
 		assert.Equal(
-			t,
-			0,
-			ictx.MockService().CallsCount(),
+			t, 0, ictx.MockService().CallsCount(),
 			"should be no unified service calls since the command is unregistered",
 		)
 	})
@@ -239,7 +242,6 @@ func TestCommandManager_HelpCommand(t *testing.T) {
 	_, cmdMgr, ictx := setupTest(t, t.Context())
 	eb := ictx.Bus()
 
-	// Register some commands with descriptions and schemas
 	cmdMgr.Register("ping", func(ctx context.Context, senderID uint64, args []string) (string, error) {
 		return "pong", nil
 	}, WithDescription("Simple alive check"))
@@ -256,7 +258,7 @@ func TestCommandManager_HelpCommand(t *testing.T) {
 		Message:  "!help",
 	})
 
-	time.Sleep(100 * time.Millisecond)
+	waitForCalls(t, ictx, 1)
 
 	req := &pb.CFriendMessages_SendMessage_Request{}
 	ictx.MockService().GetLastCall(req)
@@ -273,7 +275,6 @@ func TestCommandManager_TypedArguments(t *testing.T) {
 		_, cmdMgr, ictx := setupTest(t, t.Context())
 		eb := ictx.Bus()
 
-		// Register a typed command
 		cmdMgr.Register("math", func(ctx context.Context, senderID uint64, args []any) (string, error) {
 			a := args[0].(int)
 			b := args[1].(float64)
@@ -291,7 +292,7 @@ func TestCommandManager_TypedArguments(t *testing.T) {
 			Message:  "!math 10 5.5 true",
 		})
 
-		time.Sleep(100 * time.Millisecond)
+		waitForCalls(t, ictx, 1)
 
 		req := &pb.CFriendMessages_SendMessage_Request{}
 		ictx.MockService().GetLastCall(req)
@@ -311,10 +312,10 @@ func TestCommandManager_TypedArguments(t *testing.T) {
 
 		eb.Publish(&chat.MessageEvent{
 			SenderID: UserSteamID,
-			Message:  "!math abc", // invalid int
+			Message:  "!math abc",
 		})
 
-		time.Sleep(100 * time.Millisecond)
+		waitForCalls(t, ictx, 1)
 
 		req := &pb.CFriendMessages_SendMessage_Request{}
 		ictx.MockService().GetLastCall(req)
@@ -334,10 +335,10 @@ func TestCommandManager_TypedArguments(t *testing.T) {
 
 		eb.Publish(&chat.MessageEvent{
 			SenderID: UserSteamID,
-			Message:  "!math", // missing required arg
+			Message:  "!math",
 		})
 
-		time.Sleep(100 * time.Millisecond)
+		waitForCalls(t, ictx, 1)
 
 		req := &pb.CFriendMessages_SendMessage_Request{}
 		ictx.MockService().GetLastCall(req)
@@ -361,7 +362,8 @@ func TestCommandManager_SteamIDParsing(t *testing.T) {
 			SenderID: UserSteamID,
 			Message:  "!invite 76561198000000002",
 		})
-		time.Sleep(200 * time.Millisecond)
+
+		waitForCalls(t, ictx, 1)
 
 		req := &pb.CFriendMessages_SendMessage_Request{}
 		ictx.MockService().GetLastCall(req)
@@ -383,7 +385,8 @@ func TestCommandManager_SteamIDParsing(t *testing.T) {
 			SenderID: UserSteamID,
 			Message:  "!invite [U:1:12345]",
 		})
-		time.Sleep(200 * time.Millisecond)
+
+		waitForCalls(t, ictx, 1)
 
 		req := &pb.CFriendMessages_SendMessage_Request{}
 		ictx.MockService().GetLastCall(req)
@@ -404,7 +407,8 @@ func TestCommandManager_SteamIDParsing(t *testing.T) {
 			SenderID: UserSteamID,
 			Message:  "!invite STEAM_0:0:12345",
 		})
-		time.Sleep(200 * time.Millisecond)
+
+		waitForCalls(t, ictx, 1)
 
 		req := &pb.CFriendMessages_SendMessage_Request{}
 		ictx.MockService().GetLastCall(req)
@@ -423,9 +427,10 @@ func TestCommandManager_SteamIDParsing(t *testing.T) {
 
 		eb.Publish(&chat.MessageEvent{
 			SenderID: UserSteamID,
-			Message:  "!invite abc", // invalid SteamID format
+			Message:  "!invite abc",
 		})
-		time.Sleep(200 * time.Millisecond)
+
+		waitForCalls(t, ictx, 1)
 
 		req := &pb.CFriendMessages_SendMessage_Request{}
 		ictx.MockService().GetLastCall(req)
@@ -459,7 +464,8 @@ func TestCommandManager_ArgumentsWithSpaces(t *testing.T) {
 		SenderID: UserSteamID,
 		Message:  `!warn "User Name" "Spamming in chat"`,
 	})
-	time.Sleep(200 * time.Millisecond)
+
+	waitForCalls(t, ictx, 1)
 
 	mu.Lock()
 	user := receivedUser
@@ -468,12 +474,15 @@ func TestCommandManager_ArgumentsWithSpaces(t *testing.T) {
 	assert.Equal(t, "User Name", user)
 	assert.Equal(t, "Spamming in chat", reason)
 
+	ictx.MockService().ClearCalls()
+
 	// Verify escaping works inside quotes
 	eb.Publish(&chat.MessageEvent{
 		SenderID: UserSteamID,
 		Message:  `!warn "User \"Cool\" Name" "Spamming"`,
 	})
-	time.Sleep(200 * time.Millisecond)
+
+	waitForCalls(t, ictx, 1)
 
 	mu.Lock()
 	user = receivedUser
@@ -486,27 +495,24 @@ func TestCommandManager_ArgumentsWithSpaces(t *testing.T) {
 func TestCommandManager_RateLimiter(t *testing.T) {
 	ctx := t.Context()
 
-	// 1. Non-admin sends 10 messages rapidly (burst is 5)
 	t.Run("Non-admin rate limited", func(t *testing.T) {
 		_, cmdMgr, ictx := setupTest(t, ctx)
 		eb := ictx.Bus()
 
-		// Register a command that returns no response when allowed
 		cmdMgr.Register("ping", func(ctx context.Context, senderID uint64) (string, error) {
 			return "", nil
 		})
 
 		for range 10 {
 			eb.Publish(&chat.MessageEvent{
-				SenderID: UserSteamID, // not trusted
+				SenderID: UserSteamID,
 				Message:  "!ping",
 			})
-			time.Sleep(10 * time.Millisecond) // publish rapidly
+			time.Sleep(10 * time.Millisecond)
 		}
 
-		time.Sleep(250 * time.Millisecond)
+		waitForCalls(t, ictx, 1)
 
-		// Since they sent 10 rapidly, they should hit the rate limiter and get the rate limit error response
 		req := &pb.CFriendMessages_SendMessage_Request{}
 
 		assert.NotEmpty(t, ictx.MockService().CallsCount(), "Should have received rate limit responses")
@@ -518,33 +524,28 @@ func TestCommandManager_RateLimiter(t *testing.T) {
 		}
 	})
 
-	// 2. Admin sends 10 messages rapidly and bypasses rate limiting
 	t.Run("Admin bypasses rate limiting", func(t *testing.T) {
 		_, cmdMgr, ictx := setupTest(t, ctx)
 		eb := ictx.Bus()
 
 		cmdMgr.SetTrustedSteamIDs([]string{strconv.FormatUint(AdminSteamID, 10)})
 
-		// Register a command that returns no response when allowed
 		cmdMgr.Register("ping", func(ctx context.Context, senderID uint64) (string, error) {
 			return "", nil
 		})
 
 		for range 10 {
 			eb.Publish(&chat.MessageEvent{
-				SenderID: AdminSteamID, // trusted admin
+				SenderID: AdminSteamID,
 				Message:  "!ping",
 			})
 			time.Sleep(10 * time.Millisecond)
 		}
 
-		time.Sleep(250 * time.Millisecond)
+		time.Sleep(150 * time.Millisecond)
 
-		// Since admin bypasses rate limiting and ping returns "", no calls should be made to the mock service
 		assert.Equal(
-			t,
-			0,
-			ictx.MockService().CallsCount(),
+			t, 0, ictx.MockService().CallsCount(),
 			"Admin should bypass rate limiting completely, making 0 calls",
 		)
 	})
@@ -564,46 +565,57 @@ func TestCommandManager_Aliases(t *testing.T) {
 		receivedUser = user
 		mu.Unlock()
 
-		return "", nil // returning empty to keep mock service calls noise-free
+		return "", nil
 	}, WithArgsSchema(
 		Required[string]("user"),
 	), WithAlias("w", "wrn"))
 
-	// 1. Execute via first alias "w"
 	eb.Publish(&chat.MessageEvent{
 		SenderID: UserSteamID,
 		Message:  "!w Bob",
 	})
-	time.Sleep(200 * time.Millisecond)
+
+	require.Eventually(t, func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return receivedUser == "Bob"
+	}, 2*time.Second, 5*time.Millisecond)
 
 	mu.Lock()
 	user := receivedUser
 	mu.Unlock()
 	assert.Equal(t, "Bob", user)
 
-	// 2. Execute via second alias "wrn"
+	ictx.MockService().ClearCalls()
+
 	eb.Publish(&chat.MessageEvent{
 		SenderID: UserSteamID,
 		Message:  "!wrn Alice",
 	})
-	time.Sleep(200 * time.Millisecond)
+
+	require.Eventually(t, func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return receivedUser == "Alice"
+	}, 2*time.Second, 5*time.Millisecond)
 
 	mu.Lock()
 	user = receivedUser
 	mu.Unlock()
 	assert.Equal(t, "Alice", user)
 
-	// 3. Verify help output lists aliases correctly and does not list aliases as separate commands
+	ictx.MockService().ClearCalls()
+
 	eb.Publish(&chat.MessageEvent{
 		SenderID: UserSteamID,
 		Message:  "!help",
 	})
-	time.Sleep(200 * time.Millisecond)
+
+	waitForCalls(t, ictx, 1)
 
 	req := &pb.CFriendMessages_SendMessage_Request{}
 	require.True(t, ictx.MockService().GetLastCall(req) != nil)
 
-	// Help should show `help (aliases: !h)` and `warn (aliases: !w, !wrn)`
 	helpMessage := req.GetMessage()
 	assert.Contains(t, helpMessage, "- !help (aliases: !h)")
 	assert.Contains(t, helpMessage, "- !warn (aliases: !w, !wrn) <user:string>")
@@ -616,8 +628,6 @@ func TestCommandManager_UniversalSignature(t *testing.T) {
 	_, cmdMgr, ictx := setupTest(t, t.Context())
 	eb := ictx.Bus()
 
-	// Register a purely universal command signature: func(context.Context, string, int) (string, error)
-	// It doesn't take 'senderID uint64' as the second parameter!
 	cmdMgr.Register("create", func(ctx context.Context, name string, count int) (string, error) {
 		return fmt.Sprintf("Created %d instances of %s", count, name), nil
 	})
@@ -626,7 +636,8 @@ func TestCommandManager_UniversalSignature(t *testing.T) {
 		SenderID: UserSteamID,
 		Message:  "!create widget 42",
 	})
-	time.Sleep(200 * time.Millisecond)
+
+	waitForCalls(t, ictx, 1)
 
 	req := &pb.CFriendMessages_SendMessage_Request{}
 	require.True(t, ictx.MockService().GetLastCall(req) != nil)

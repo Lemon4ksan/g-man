@@ -13,7 +13,6 @@ import (
 	"io"
 	"maps"
 	"net/url"
-	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -33,9 +32,8 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/guard"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
+	"github.com/lemon4ksan/g-man/pkg/steam/sys/notifications"
 	"github.com/lemon4ksan/g-man/pkg/trading"
 	"github.com/lemon4ksan/g-man/pkg/trading/web/processor"
 )
@@ -60,23 +58,11 @@ var (
 	ErrManagerClosed = errors.New("trade: closed")
 	// ErrManagerPolling is returned when the manager is already polling.
 	ErrManagerPolling = errors.New("trade: already polling")
+	// ErrCommunityNotReady is returned when the community client is not ready.
+	ErrCommunityNotReady = processor.ErrCommunityNotReady
+	// ErrEscrowNotFound is returned when the escrow data is not found on the page.
+	ErrEscrowNotFound = processor.ErrEscrowNotFound
 )
-
-// descKey uniquely identifies an asset class description.
-type descKey struct {
-	ClassID    uint64
-	InstanceID uint64
-}
-
-// ItemsCollection represents items for one side of the offer.
-type ItemsCollection struct {
-	// Items is the list of fully populated items.
-	Items []trading.Item
-	// Assets is the list of unique asset identifiers.
-	Assets []uint64
-	// Currency is the list of unique currency identifiers.
-	Currency []uint64
-}
 
 // State constants representing the module lifecycle.
 type State int32
@@ -209,6 +195,19 @@ func New(cfg Config) *Manager {
 	}
 }
 
+// Web returns the internal service.Doer.
+// Direct reading is thread-safe as web is immutable after Init.
+func (m *Manager) Web() service.Doer {
+	return m.web
+}
+
+// Community returns the internal community.Requester.
+func (m *Manager) Community() community.Requester {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.community
+}
+
 // Init initializes the trade manager.
 func (m *Manager) Init(init module.InitContext) error {
 	if err := m.Base.Init(init); err != nil {
@@ -216,11 +215,6 @@ func (m *Manager) Init(init module.InitContext) error {
 	}
 
 	m.web = init.Service()
-
-	init.RegisterPacketHandler(enums.EMsg_ClientTradeOffersStateChanged, func(pkt *protocol.Packet) {
-		m.Logger.Debug("Received trade offers state change notification")
-		m.TriggerPoll()
-	})
 
 	return nil
 }
@@ -258,6 +252,12 @@ func (m *Manager) StartAuthed(ctx context.Context, authCtx module.AuthContext) e
 		m.listenEvents(ctx, sub)
 	})
 
+	// Listen for trade offer notification changes to trigger immediate poll
+	notifSub := m.Bus.Subscribe(&notifications.UserNotificationsEvent{})
+	m.Go(func(ctx context.Context) {
+		m.listenNotifications(ctx, notifSub)
+	})
+
 	return m.StartPolling()
 }
 
@@ -265,6 +265,15 @@ func (m *Manager) StartAuthed(ctx context.Context, authCtx module.AuthContext) e
 func (m *Manager) Close() error {
 	_ = m.fsm.Transition(context.Background(), EventClose)
 	return m.Base.Close()
+}
+
+// TriggerPoll manually triggers a trade offer poll.
+func (m *Manager) TriggerPoll() {
+	select {
+	case m.trigger <- struct{}{}:
+	default:
+		// Already triggered
+	}
 }
 
 // SetOfferHandler injects the business logic for processing trade offers.
@@ -286,7 +295,6 @@ func (m *Manager) StartPolling() error {
 	}
 
 	m.Go(m.pollingLoop)
-
 	m.Logger.Info("Trade polling started", log.Duration("interval", m.config.PollInterval))
 
 	return nil
@@ -310,25 +318,12 @@ func (m *Manager) SendOffer(ctx context.Context, p trading.OfferParams) (uint64,
 		return 0, err
 	}
 
-	type steamObject struct {
-		AppID     uint32 `json:"appid"`
-		ContextID string `json:"contextid"`
-		Amount    int64  `json:"amount"`
-		AssetID   string `json:"assetid"`
+	comm := m.Community()
+	if comm == nil {
+		return 0, errors.New("trading: community client not authenticated or initialized")
 	}
 
-	type sideObject struct {
-		Assets   []steamObject `json:"assets"`
-		Currency []any         `json:"currency"`
-		Ready    bool          `json:"ready"`
-	}
-
-	tradeOfferObj := struct {
-		NewVersion bool       `json:"newversion"`
-		Version    int        `json:"version"`
-		Me         sideObject `json:"me"`
-		Them       sideObject `json:"them"`
-	}{
+	tradeOfferObj := tradeOfferObj{
 		NewVersion: true,
 		Version:    2,
 		Me: sideObject{
@@ -359,10 +354,6 @@ func (m *Manager) SendOffer(ctx context.Context, p trading.OfferParams) (uint64,
 
 	jsonObj, _ := json.Marshal(tradeOfferObj)
 
-	type createParams struct {
-		TradeOfferAccessToken string `json:"trade_offer_access_token"`
-	}
-
 	var paramsStr string
 	if p.Token != "" {
 		paramsObj := createParams{TradeOfferAccessToken: p.Token}
@@ -370,19 +361,13 @@ func (m *Manager) SendOffer(ctx context.Context, p trading.OfferParams) (uint64,
 		paramsStr = string(paramsBytes)
 	}
 
-	payload := struct {
-		ServerID     int    `url:"serverid"`
-		PartnerID    id.ID  `url:"partner"`
-		Message      string `url:"tradeoffermessage"`
-		JSON         string `url:"json_tradeoffer"`
-		CreateParams string `url:"trade_offer_create_params,omitempty"`
-		CounteredID  uint64 `url:"tradeofferid_countered,omitempty"`
-	}{1, p.PartnerID, p.Message, string(jsonObj), paramsStr, p.CounteredID}
-
-	type sendResponse struct {
-		TradeOfferID string `json:"tradeofferid"`
-		NeedsMobile  bool   `json:"needs_mobile_confirmation"`
-		NeedsEmail   bool   `json:"needs_email_confirmation"`
+	payload := sendNewReq{
+		ServerID:     1,
+		PartnerID:    p.PartnerID,
+		Message:      p.Message,
+		JSON:         string(jsonObj),
+		CreateParams: paramsStr,
+		CounteredID:  p.CounteredID,
 	}
 
 	referer := fmt.Sprintf("https://steamcommunity.com/tradeoffer/new/?partner=%d", p.PartnerID.AccountID())
@@ -390,11 +375,8 @@ func (m *Manager) SendOffer(ctx context.Context, p trading.OfferParams) (uint64,
 		referer = fmt.Sprintf("%s&token=%s", referer, p.Token)
 	}
 
-	resp, err := community.PostForm[sendResponse](
-		ctx,
-		m.community,
-		"tradeoffer/new/send",
-		payload,
+	resp, err := community.PostForm[sendNewResponse](
+		ctx, comm, "tradeoffer/new/send", payload,
 		aoni.WithHeader("Referer", referer),
 		aoni.WithHeader("Origin", "https://steamcommunity.com"),
 	)
@@ -420,6 +402,7 @@ func (m *Manager) SendOffer(ctx context.Context, p trading.OfferParams) (uint64,
 
 // AcceptOffer accepts a trade offer.
 //
+// It returns [ErrCommunityNotReady] if the community requester is nil.
 // It enforces rate limiting and may block the current goroutine.
 // If the rate limit wait is canceled, or if the underlying HTTP request fails,
 // it returns an error. If the trade requires additional mobile or email confirmation,
@@ -429,25 +412,15 @@ func (m *Manager) AcceptOffer(ctx context.Context, offerID uint64) error {
 		return err
 	}
 
-	m.mu.RLock()
-	comm := m.community
-	m.mu.RUnlock()
-
+	comm := m.Community()
 	if comm == nil {
-		return errors.New("trade: community client not authenticated or initialized")
+		return ErrCommunityNotReady
 	}
 
 	req := struct {
 		ServerID     int    `url:"serverid"`
 		TradeOfferID uint64 `url:"tradeofferid"`
 	}{1, offerID}
-
-	type acceptResponse struct {
-		TradeID                 string `json:"tradeid"`
-		NeedsMobileConfirmation bool   `json:"needs_mobile_confirmation"`
-		NeedsEmailConfirmation  bool   `json:"needs_email_confirmation"`
-		EmailDomain             string `json:"email_domain"`
-	}
 
 	resp, err := community.PostForm[acceptResponse](
 		ctx, comm, "tradeoffer/{offerID}/accept", req,
@@ -570,25 +543,10 @@ func (m *Manager) GetExchangeDetails(ctx context.Context, tradeID uint64) (*trad
 		return nil, err
 	}
 
-	req := struct {
-		TradeID         uint64 `url:"tradeid"`
-		GetDescriptions bool   `url:"get_descriptions"`
-		Language        string `url:"language"`
-	}{
+	req := tradeStatusReq{
 		TradeID:         tradeID,
 		GetDescriptions: false,
 		Language:        m.config.Language,
-	}
-
-	type tradeStatusResp struct {
-		Trades []struct {
-			TradeID        uint64                  `json:"tradeid,string"`
-			SteamIDOther   uint64                  `json:"steamid_other,string"`
-			TimeInit       int64                   `json:"time_init"`
-			Status         int                     `json:"status"`
-			AssetsReceived []trading.ExchangeAsset `json:"assets_received"`
-			AssetsGiven    []trading.ExchangeAsset `json:"assets_given"`
-		} `json:"trades"`
 	}
 
 	resp, err := service.WebAPI[tradeStatusResp](ctx, m.web, "GET", "IEconService", "GetTradeStatus", 1, req)
@@ -616,11 +574,11 @@ func (m *Manager) GetOffer(ctx context.Context, offerID uint64) (*trading.TradeO
 		return nil, err
 	}
 
-	req := struct {
-		TradeOfferID    uint64 `url:"tradeofferid"`
-		GetDescriptions bool   `url:"get_descriptions"`
-		Language        string `url:"language"`
-	}{offerID, true, m.config.Language}
+	req := getOfferReq{
+		TradeOfferID:    offerID,
+		GetDescriptions: true,
+		Language:        m.config.Language,
+	}
 
 	type respStruct struct {
 		Offer        *trading.TradeOffer `json:"offer"`
@@ -644,22 +602,13 @@ func (m *Manager) GetOffer(ctx context.Context, offerID uint64) (*trading.TradeO
 
 // GetPartnerInventory fetches the inventory of a trade partner for the configured game.
 func (m *Manager) GetPartnerInventory(ctx context.Context, partnerID id.ID) ([]*trading.Item, error) {
-	m.mu.RLock()
-	c := m.community
-	m.mu.RUnlock()
-
-	if c == nil {
-		return nil, processor.ErrCommunityNotReady
+	comm := m.Community()
+	if comm == nil {
+		return nil, ErrCommunityNotReady
 	}
 
 	inv, _, _, err := inventory.GetUserInventoryContents(
-		ctx,
-		c,
-		uint64(partnerID),
-		m.config.AppID,
-		m.config.ContextID,
-		true,
-		m.config.Language,
+		ctx, comm, uint64(partnerID), m.config.AppID, m.config.ContextID, true, m.config.Language,
 	)
 	if err != nil {
 		return nil, err
@@ -727,18 +676,16 @@ func (m *Manager) GetPartnerInventory(ctx context.Context, partnerID id.ID) ([]*
 
 // GetEscrowDuration loads the trade page and parses the Trade Hold information.
 //
-// It returns [processor.ErrCommunityNotReady] if the community requester is nil.
-// It returns [processor.ErrEscrowNotFound] if it fails to parse valid escrow hold durations from the page.
+// It returns [ErrCommunityNotReady] if the community requester is nil.
+// It returns [ErrEscrowNotFound] if it fails to parse valid escrow hold durations from the page.
 func (m *Manager) GetEscrowDuration(ctx context.Context, offerID uint64) (processor.Details, error) {
-	m.mu.RLock()
-	c := m.community
-	m.mu.RUnlock()
-
-	if c == nil {
-		return processor.Details{}, processor.ErrCommunityNotReady
+	comm := m.Community()
+	if comm == nil {
+		return processor.Details{}, ErrCommunityNotReady
 	}
 
-	body, err := community.GetHTML(ctx, c, "tradeoffer/{offerID}/",
+	body, err := community.GetHTML(
+		ctx, comm, "tradeoffer/{offerID}/",
 		aoni.WithVar("offerID", offerID),
 	)
 	if err != nil {
@@ -754,7 +701,7 @@ func (m *Manager) GetEscrowDuration(ctx context.Context, offerID uint64) (proces
 	myMatches := processor.RxMy.FindStringSubmatch(buf.String())
 
 	if len(theirMatches) < 2 || len(myMatches) < 2 {
-		return processor.Details{}, processor.ErrEscrowNotFound
+		return processor.Details{}, ErrEscrowNotFound
 	}
 
 	theirDays, _ := strconv.Atoi(theirMatches[1])
@@ -767,7 +714,6 @@ func (m *Manager) GetEscrowDuration(ctx context.Context, offerID uint64) (proces
 }
 
 // CheckEscrow checks if a trade offer has a trade hold.
-// This fulfills the trading.EscrowChecker interface.
 func (m *Manager) CheckEscrow(ctx context.Context, offer *trading.TradeOffer) (bool, error) {
 	details, err := m.GetEscrowDuration(ctx, offer.ID)
 	if err != nil {
@@ -802,13 +748,40 @@ func (m *Manager) pollingLoop(ctx context.Context) {
 	}
 }
 
-// TriggerPoll manually triggers a trade offer poll.
-func (m *Manager) TriggerPoll() {
-	select {
-	case m.trigger <- struct{}{}:
-	default:
-		// Already triggered
+// GetActiveSentOffers returns all active trade offers sent by us.
+func (m *Manager) GetActiveSentOffers(ctx context.Context) ([]trading.TradeOffer, error) {
+	if err := m.rateLimiter.Wait(ctx); err != nil {
+		return nil, err
 	}
+
+	req := getOffersReq{
+		GetReceivedOffers:    0,
+		GetSentOffers:        1,
+		ActiveOnly:           1,
+		GetDescriptions:      1,
+		TimeHistoricalCutoff: time.Now().Add(-24 * time.Hour).Unix(),
+	}
+
+	type respStruct struct {
+		Sent         []*trading.TradeOffer `json:"trade_offers_sent"`
+		Descriptions []rawDescription      `json:"descriptions"`
+	}
+
+	resp, err := service.WebAPI[respStruct](ctx, m.web, "GET", "IEconService", "GetTradeOffers", 1, req)
+	if err != nil {
+		return nil, err
+	}
+
+	offers := make([]trading.TradeOffer, 0, len(resp.Sent))
+	for _, o := range resp.Sent {
+		if o != nil {
+			mapDescriptionsToOffer(o, resp.Descriptions)
+			_ = m.enrichOfferDescriptions(ctx, o)
+			offers = append(offers, *o)
+		}
+	}
+
+	return offers, nil
 }
 
 func (m *Manager) doPoll(ctx context.Context) {
@@ -827,22 +800,15 @@ func (m *Manager) doPoll(ctx context.Context) {
 
 	m.mu.RUnlock()
 
-	// Fetch active sent and received offers
-	req := struct {
-		GetReceivedOffers    int   `url:"get_received_offers"`
-		GetSentOffers        int   `url:"get_sent_offers"`
-		ActiveOnly           int   `url:"active_only"`
-		GetDescriptions      int   `url:"get_descriptions"`
-		TimeHistoricalCutoff int64 `url:"time_historical_cutoff"`
-	}{1, 1, 1, 1, cutoff}
-
-	type respStruct struct {
-		Sent         []*trading.TradeOffer `json:"trade_offers_sent"`
-		Received     []*trading.TradeOffer `json:"trade_offers_received"`
-		Descriptions []rawDescription      `json:"descriptions"`
+	req := getOffersReq{
+		GetReceivedOffers:    1,
+		GetSentOffers:        1,
+		ActiveOnly:           1,
+		GetDescriptions:      1,
+		TimeHistoricalCutoff: cutoff,
 	}
 
-	resp, err := service.WebAPI[respStruct](ctx, m.web, "GET", "IEconService", "GetTradeOffers", 1, req)
+	resp, err := service.WebAPI[getOffersResp](ctx, m.web, "GET", "IEconService", "GetTradeOffers", 1, req)
 	if err != nil {
 		if ctx.Err() == nil {
 			m.Logger.Warn("Trade poll failed", log.Err(err))
@@ -865,74 +831,8 @@ func (m *Manager) doPoll(ctx context.Context) {
 		}
 	}
 
-	// Auto-cancellation checks for active sent offers (CancelTime) and pending limits (CancelOfferCount)
-	if len(resp.Sent) > 0 {
-		activeSent := generic.FilterInPlace(resp.Sent, func(off *trading.TradeOffer) bool {
-			return off.State == trading.OfferStateActive
-		})
-
-		// CancelTime auto-cancellation
-		if m.config.CancelTime > 0 {
-			for _, off := range activeSent {
-				age := time.Since(off.UpdatedAt())
-				if age >= m.config.CancelTime {
-					if _, loaded := m.cancellingOffers.LoadOrStore(off.ID, true); loaded {
-						continue
-					}
-
-					m.Logger.Info("Auto-cancelling active sent offer due to CancelTime timeout",
-						log.Uint64("offer_id", off.ID),
-						log.Duration("age", age),
-					)
-
-					go func(id uint64) {
-						defer m.cancellingOffers.Delete(id)
-
-						if err := m.CancelOffer(ctx, id); err != nil {
-							m.Logger.Error("Failed to auto-cancel offer", log.Uint64("offer_id", id), log.Err(err))
-						}
-					}(off.ID)
-				}
-			}
-		}
-
-		// CancelOfferCount limit auto-cancellation
-		if m.config.CancelOfferCount > 0 && len(activeSent) >= m.config.CancelOfferCount {
-			var oldest *trading.TradeOffer
-			for _, off := range activeSent {
-				age := time.Since(off.UpdatedAt())
-				if m.config.CancelOfferCountMinAge > 0 && age < m.config.CancelOfferCountMinAge {
-					continue
-				}
-
-				if oldest == nil || off.TimeUpdated < oldest.TimeUpdated {
-					oldest = off
-				}
-			}
-
-			if oldest != nil {
-				if _, loaded := m.cancellingOffers.LoadOrStore(oldest.ID, true); !loaded {
-					m.Logger.Info("Auto-cancelling oldest active sent offer due to limit",
-						log.Uint64("offer_id", oldest.ID),
-						log.Int("active_count", len(activeSent)),
-						log.Int("limit", m.config.CancelOfferCount),
-					)
-
-					go func(id uint64) {
-						defer m.cancellingOffers.Delete(id)
-
-						if err := m.CancelOffer(ctx, id); err != nil {
-							m.Logger.Error(
-								"Failed to auto-cancel oldest offer",
-								log.Uint64("offer_id", id),
-								log.Err(err),
-							)
-						}
-					}(oldest.ID)
-				}
-			}
-		}
-	}
+	// Auto-cancellation checks for active sent offers
+	m.handleAutoCancellation(ctx, resp.Sent)
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -947,8 +847,8 @@ func (m *Manager) doPoll(ctx context.Context) {
 	maps.Copy(origPollData.Received, m.receivedOffers)
 
 	now := time.Now()
-
 	allOffers := make([]*trading.TradeOffer, 0, len(resp.Sent)+len(resp.Received))
+
 	for _, off := range resp.Sent {
 		if off != nil {
 			allOffers = append(allOffers, off)
@@ -1012,29 +912,7 @@ func (m *Manager) doPoll(ctx context.Context) {
 	maps.Copy(newPollData.Sent, m.sentOffers)
 	maps.Copy(newPollData.Received, m.receivedOffers)
 
-	isEqual := origPollData.OffersSince == newPollData.OffersSince &&
-		len(origPollData.Sent) == len(newPollData.Sent) &&
-		len(origPollData.Received) == len(newPollData.Received)
-
-	if isEqual {
-		for k, v := range origPollData.Sent {
-			if newPollData.Sent[k] != v {
-				isEqual = false
-				break
-			}
-		}
-	}
-
-	if isEqual {
-		for k, v := range origPollData.Received {
-			if newPollData.Received[k] != v {
-				isEqual = false
-				break
-			}
-		}
-	}
-
-	if !isEqual {
+	if !isPollDataEqual(origPollData, newPollData) {
 		m.Bus.Publish(&PollDataEvent{
 			PollData: newPollData,
 		})
@@ -1044,6 +922,89 @@ func (m *Manager) doPoll(ctx context.Context) {
 		log.Int("sent_active", len(resp.Sent)),
 		log.Int("received_active", len(resp.Received)),
 	)
+}
+
+func (m *Manager) handleAutoCancellation(ctx context.Context, sent []*trading.TradeOffer) {
+	if len(sent) == 0 {
+		return
+	}
+
+	activeSent := generic.FilterInPlace(sent, func(off *trading.TradeOffer) bool {
+		return off.State == trading.OfferStateActive
+	})
+
+	m.cancelTimeouts(ctx, activeSent)
+	m.cancelOverLimit(ctx, activeSent)
+}
+
+func (m *Manager) cancelTimeouts(_ context.Context, active []*trading.TradeOffer) {
+	if m.config.CancelTime <= 0 {
+		return
+	}
+
+	for _, off := range active {
+		age := time.Since(off.UpdatedAt())
+		if age < m.config.CancelTime {
+			continue
+		}
+
+		if _, loaded := m.cancellingOffers.LoadOrStore(off.ID, true); loaded {
+			continue
+		}
+
+		m.Logger.Info("Auto-cancelling active sent offer due to CancelTime timeout",
+			log.Uint64("offer_id", off.ID),
+			log.Duration("age", age),
+		)
+
+		// Spawn background cancel work tied to the persistent lifecycle context (m.Ctx)
+		go func(id uint64) {
+			defer m.cancellingOffers.Delete(id)
+
+			if err := m.CancelOffer(m.Ctx, id); err != nil {
+				m.Logger.Error("Failed to auto-cancel offer", log.Uint64("offer_id", id), log.Err(err))
+			}
+		}(off.ID)
+	}
+}
+
+func (m *Manager) cancelOverLimit(_ context.Context, active []*trading.TradeOffer) {
+	if m.config.CancelOfferCount <= 0 || len(active) < m.config.CancelOfferCount {
+		return
+	}
+
+	var oldest *trading.TradeOffer
+	for _, off := range active {
+		age := time.Since(off.UpdatedAt())
+		if m.config.CancelOfferCountMinAge > 0 && age < m.config.CancelOfferCountMinAge {
+			continue
+		}
+
+		if oldest == nil || off.TimeUpdated < oldest.TimeUpdated {
+			oldest = off
+		}
+	}
+
+	if oldest == nil {
+		return
+	}
+
+	if _, loaded := m.cancellingOffers.LoadOrStore(oldest.ID, true); !loaded {
+		m.Logger.Info("Auto-cancelling oldest active sent offer due to limit",
+			log.Uint64("offer_id", oldest.ID),
+			log.Int("active_count", len(active)),
+			log.Int("limit", m.config.CancelOfferCount),
+		)
+
+		// Spawn background cancel work tied to the persistent lifecycle context (m.Ctx)
+		go func(id uint64) {
+			defer m.cancellingOffers.Delete(id)
+
+			if err := m.CancelOffer(m.Ctx, id); err != nil {
+				m.Logger.Error("Failed to auto-cancel oldest offer", log.Uint64("offer_id", id), log.Err(err))
+			}
+		}(oldest.ID)
+	}
 }
 
 // gcKnownOffers removes stale offers from memory to prevent memory leaks.
@@ -1082,57 +1043,188 @@ func (m *Manager) listenEvents(ctx context.Context, sub *bus.Subscription) {
 	}
 }
 
-// GetActiveSentOffers returns all active trade offers sent by us.
-func (m *Manager) GetActiveSentOffers(ctx context.Context) ([]trading.TradeOffer, error) {
-	if err := m.rateLimiter.Wait(ctx); err != nil {
-		return nil, err
+func (m *Manager) listenNotifications(ctx context.Context, sub *bus.Subscription) {
+	defer sub.Unsubscribe()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case ev, ok := <-sub.C():
+			if !ok {
+				return
+			}
+
+			if e, ok := ev.(*notifications.UserNotificationsEvent); ok {
+				if count, exists := e.Notifications[notifications.NotificationTradeOffer]; exists && count > 0 {
+					m.Logger.Debug("Trade offer notification received, triggering poll",
+						log.Uint32("count", count),
+					)
+					m.TriggerPoll()
+				}
+			}
+		}
+	}
+}
+
+func (m *Manager) enrichOfferDescriptions(ctx context.Context, offer *trading.TradeOffer) error {
+	if offer == nil {
+		return nil
 	}
 
-	req := struct {
-		GetReceivedOffers    int   `url:"get_received_offers"`
-		GetSentOffers        int   `url:"get_sent_offers"`
-		ActiveOnly           int   `url:"active_only"`
-		GetDescriptions      int   `url:"get_descriptions"`
-		TimeHistoricalCutoff int64 `url:"time_historical_cutoff"`
-	}{0, 1, 1, 1, time.Now().Add(-24 * time.Hour).Unix()}
+	items := make([]*trading.Item, 0, len(offer.ItemsToGive)+len(offer.ItemsToReceive))
+	items = append(items, offer.ItemsToGive...)
+	items = append(items, offer.ItemsToReceive...)
 
-	type respStruct struct {
-		Sent         []*trading.TradeOffer `json:"trade_offers_sent"`
-		Descriptions []rawDescription      `json:"descriptions"`
+	return m.enrichItemsDescriptions(ctx, items)
+}
+
+func (m *Manager) enrichItemsDescriptions(ctx context.Context, items []*trading.Item) error {
+	missingKeys := m.getMissingKeys(items)
+	if len(missingKeys) == 0 {
+		return nil
 	}
 
-	resp, err := service.WebAPI[respStruct](ctx, m.web, "GET", "IEconService", "GetTradeOffers", 1, req)
+	resolvedDescs, uncachedKeys := m.resolveCachedKeys(missingKeys)
+	if len(uncachedKeys) > 0 {
+		fetched, err := m.fetchAssetClassInfos(ctx, uncachedKeys)
+		if err != nil {
+			return err
+		}
+
+		for k, desc := range fetched {
+			m.descCache.Set(k, desc, 5*time.Minute)
+			resolvedDescs[k] = desc
+		}
+	}
+
+	updateItems(items, resolvedDescs)
+
+	return nil
+}
+
+func (m *Manager) getMissingKeys(items []*trading.Item) []descKey {
+	var missingKeys []descKey
+
+	seenKeys := generic.NewSet[descKey]()
+
+	for _, it := range items {
+		if it.MarketHashName == "" {
+			k := descKey{ClassID: it.ClassID, InstanceID: it.InstanceID}
+			if !seenKeys.Has(k) {
+				seenKeys.Add(k)
+				missingKeys = append(missingKeys, k)
+			}
+		}
+	}
+
+	return missingKeys
+}
+
+func (m *Manager) resolveCachedKeys(keys []descKey) (map[descKey]rawAssetClassDescription, []descKey) {
+	resolved := make(map[descKey]rawAssetClassDescription)
+
+	var uncached []descKey
+
+	for _, k := range keys {
+		if desc, ok := m.descCache.Get(k); ok {
+			resolved[k] = desc
+		} else if desc, ok := m.descCache.Get(descKey{ClassID: k.ClassID, InstanceID: 0}); ok {
+			resolved[k] = desc
+		} else {
+			uncached = append(uncached, k)
+		}
+	}
+
+	return resolved, uncached
+}
+
+func (m *Manager) fetchAssetClassInfos(
+	ctx context.Context,
+	uncachedKeys []descKey,
+) (map[descKey]rawAssetClassDescription, error) {
+	type chunkResult struct {
+		descs map[descKey]rawAssetClassDescription
+	}
+
+	chunkSize := 50
+
+	var chunks [][]descKey
+	for i := 0; i < len(uncachedKeys); i += chunkSize {
+		end := min(i+chunkSize, len(uncachedKeys))
+		chunks = append(chunks, uncachedKeys[i:end])
+	}
+
+	cfg := yumi.PipelineConfig{Workers: 3, RPS: 5, Burst: 2}
+
+	results, err := yumi.Map(ctx, cfg, chunks, func(chunkCtx context.Context, chunk []descKey) (chunkResult, error) {
+		params := make(url.Values)
+		params.Set("appid", strconv.FormatUint(uint64(m.config.AppID), 10))
+		params.Set("language", m.config.Language)
+		params.Set("class_count", strconv.Itoa(len(chunk)))
+
+		for idx, k := range chunk {
+			params.Set(fmt.Sprintf("classid%d", idx), strconv.FormatUint(k.ClassID, 10))
+
+			if k.InstanceID != 0 {
+				params.Set(fmt.Sprintf("instanceid%d", idx), strconv.FormatUint(k.InstanceID, 10))
+			}
+		}
+
+		apiResp, err := service.WebAPI[getAssetClassInfoResponse](
+			chunkCtx, m.web, "GET", "ISteamEconomy", "GetAssetClassInfo", 1, params,
+		)
+		if err != nil {
+			return chunkResult{}, err
+		}
+
+		resolvedDescs := make(map[descKey]rawAssetClassDescription)
+		if apiResp != nil && apiResp.Result != nil {
+			for key, rawVal := range apiResp.Result {
+				if key == "success" {
+					continue
+				}
+
+				var desc rawAssetClassDescription
+				if err := json.Unmarshal(rawVal, &desc); err == nil {
+					resolvedDescs[newDescKey(desc.ClassID, desc.InstanceID)] = desc
+				}
+			}
+		}
+
+		return chunkResult{descs: resolvedDescs}, nil
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	offers := make([]trading.TradeOffer, 0, len(resp.Sent))
-	for _, o := range resp.Sent {
-		if o != nil {
-			mapDescriptionsToOffer(o, resp.Descriptions)
-			_ = m.enrichOfferDescriptions(ctx, o)
-			offers = append(offers, *o)
+	merged := make(map[descKey]rawAssetClassDescription)
+	for _, r := range results {
+		maps.Copy(merged, r.descs)
+	}
+
+	return merged, nil
+}
+
+// isPollDataEqual deep-compares two PollData objects to check for equality.
+func isPollDataEqual(a, b trading.PollData) bool {
+	if a.OffersSince != b.OffersSince || len(a.Sent) != len(b.Sent) || len(a.Received) != len(b.Received) {
+		return false
+	}
+
+	for k, v := range a.Sent {
+		if b.Sent[k] != v {
+			return false
 		}
 	}
 
-	return offers, nil
-}
+	for k, v := range a.Received {
+		if b.Received[k] != v {
+			return false
+		}
+	}
 
-type rawDescription struct {
-	AppID          uint32                `json:"appid"`
-	ClassID        string                `json:"classid"`
-	InstanceID     string                `json:"instanceid"`
-	Name           string                `json:"name"`
-	NameColor      string                `json:"name_color"`
-	Type           string                `json:"type"`
-	MarketName     string                `json:"market_name"`
-	MarketHashName string                `json:"market_hash_name"`
-	IconURL        string                `json:"icon_url"`
-	Tradable       aoni.BoolInt          `json:"tradable"`
-	Marketable     aoni.BoolInt          `json:"marketable"`
-	Descriptions   []trading.Description `json:"descriptions"`
-	Tags           []trading.Tag         `json:"tags"`
-	Actions        []trading.Action      `json:"actions"`
+	return true
 }
 
 func mapDescriptionsToOffer(offer *trading.TradeOffer, rawDescs []rawDescription) {
@@ -1140,12 +1232,10 @@ func mapDescriptionsToOffer(offer *trading.TradeOffer, rawDescs []rawDescription
 		return
 	}
 
-	descMap := make(map[descKey]*rawDescription)
+	descMap := make(map[descKey]*rawDescription, len(rawDescs))
 	for i := range rawDescs {
 		d := &rawDescs[i]
-		classID, _ := strconv.ParseUint(d.ClassID, 10, 64)
-		instanceID, _ := strconv.ParseUint(d.InstanceID, 10, 64)
-		descMap[descKey{ClassID: classID, InstanceID: instanceID}] = d
+		descMap[newDescKey(d.ClassID, d.InstanceID)] = d
 	}
 
 	mapItems := func(items []*trading.Item) {
@@ -1171,331 +1261,45 @@ func mapDescriptionsToOffer(offer *trading.TradeOffer, rawDescs []rawDescription
 	mapItems(offer.ItemsToReceive)
 }
 
-type assetClassTag struct {
-	Category              string `json:"category"`
-	InternalName          string `json:"internal_name"`
-	LocalizedCategoryName string `json:"localized_category_name"`
-	LocalizedTagName      string `json:"localized_tag_name"`
-	Name                  string `json:"name"`
-}
-
-type flexibleDescriptions []trading.Description
-
-func (fd *flexibleDescriptions) UnmarshalJSON(data []byte) error {
-	if len(data) == 0 {
-		return nil
-	}
-
-	if data[0] == '"' {
-		var s string
-		if err := json.Unmarshal(data, &s); err == nil {
-			*fd = nil
-			return nil
-		}
-	}
-
-	if data[0] == '[' {
-		var arr []trading.Description
-		if err := json.Unmarshal(data, &arr); err == nil {
-			*fd = arr
-			return nil
-		}
-	}
-
-	if data[0] == '{' {
-		var m map[string]trading.Description
-		if err := json.Unmarshal(data, &m); err == nil {
-			type item struct {
-				idx int
-				val trading.Description
-			}
-
-			var items []item
-			for k, v := range m {
-				idx, _ := strconv.Atoi(k)
-				items = append(items, item{idx: idx, val: v})
-			}
-
-			slices.SortFunc(items, func(a, b item) int {
-				return a.idx - b.idx
-			})
-
-			res := make([]trading.Description, len(items))
-			for idx, item := range items {
-				res[idx] = item.val
-			}
-
-			*fd = res
-
-			return nil
-		}
-	}
-
-	return fmt.Errorf("failed to unmarshal descriptions: %s", string(data))
-}
-
-type flexibleTags []assetClassTag
-
-func (ft *flexibleTags) UnmarshalJSON(data []byte) error {
-	if len(data) == 0 {
-		return nil
-	}
-
-	if data[0] == '"' {
-		var s string
-		if err := json.Unmarshal(data, &s); err == nil {
-			*ft = nil
-			return nil
-		}
-	}
-
-	if data[0] == '[' {
-		var arr []assetClassTag
-		if err := json.Unmarshal(data, &arr); err == nil {
-			*ft = arr
-			return nil
-		}
-	}
-
-	if data[0] == '{' {
-		var m map[string]assetClassTag
-		if err := json.Unmarshal(data, &m); err == nil {
-			type item struct {
-				idx int
-				val assetClassTag
-			}
-
-			var items []item
-			for k, v := range m {
-				idx, _ := strconv.Atoi(k)
-				items = append(items, item{idx: idx, val: v})
-			}
-
-			slices.SortFunc(items, func(a, b item) int {
-				return a.idx - b.idx
-			})
-
-			res := make([]assetClassTag, len(items))
-			for idx, item := range items {
-				res[idx] = item.val
-			}
-
-			*ft = res
-
-			return nil
-		}
-	}
-
-	return fmt.Errorf("failed to unmarshal tags: %s", string(data))
-}
-
-type rawAssetClassDescription struct {
-	ClassID        string               `json:"classid"`
-	InstanceID     string               `json:"instanceid"`
-	Name           string               `json:"name"`
-	MarketName     string               `json:"market_name"`
-	Type           string               `json:"type"`
-	MarketHashName string               `json:"market_hash_name"`
-	IconURL        string               `json:"icon_url"`
-	Descriptions   flexibleDescriptions `json:"descriptions"`
-	Tags           flexibleTags         `json:"tags"`
-	Tradable       aoni.BoolInt         `json:"tradable"`
-	Marketable     aoni.BoolInt         `json:"marketable"`
-}
-
-func (m *Manager) enrichOfferDescriptions(ctx context.Context, offer *trading.TradeOffer) error {
-	if offer == nil {
-		return nil
-	}
-
-	items := make([]*trading.Item, 0, len(offer.ItemsToGive)+len(offer.ItemsToReceive))
-
-	items = append(items, offer.ItemsToGive...)
-	items = append(items, offer.ItemsToReceive...)
-
-	return m.enrichItemsDescriptions(ctx, items)
-}
-
-func (m *Manager) enrichItemsDescriptions(ctx context.Context, items []*trading.Item) error {
-	if len(items) == 0 {
-		return nil
-	}
-
-	var missingKeys []descKey
-
-	seenKeys := generic.NewSet[descKey]()
-
-	for _, it := range items {
-		if it.MarketHashName == "" {
-			k := descKey{ClassID: it.ClassID, InstanceID: it.InstanceID}
-			if !seenKeys.Has(k) {
-				seenKeys.Add(k)
-				missingKeys = append(missingKeys, k)
-			}
-		}
-	}
-
-	if len(missingKeys) == 0 {
-		return nil
-	}
-
-	resolvedDescs := make(map[descKey]rawAssetClassDescription)
-
-	var uncachedKeys []descKey
-	for _, k := range missingKeys {
-		if desc, ok := m.descCache.Get(k); ok {
-			resolvedDescs[k] = desc
-		} else if desc, ok := m.descCache.Get(descKey{ClassID: k.ClassID, InstanceID: 0}); ok {
-			resolvedDescs[k] = desc
-		} else {
-			uncachedKeys = append(uncachedKeys, k)
-		}
-	}
-
-	if len(uncachedKeys) == 0 {
-		updateItems(items, resolvedDescs)
-		return nil
-	}
-
-	type GetAssetClassInfoResponse struct {
-		Result map[string]json.RawMessage `json:"result"`
-	}
-
-	type chunkResult struct {
-		descs map[descKey]rawAssetClassDescription
-	}
-
-	chunkSize := 50
-
-	var chunks [][]descKey
-	for i := 0; i < len(uncachedKeys); i += chunkSize {
-		end := min(i+chunkSize, len(uncachedKeys))
-		chunks = append(chunks, uncachedKeys[i:end])
-	}
-
-	results, err := yumi.Map(ctx, yumi.PipelineConfig{
-		Workers: 3,
-		RPS:     5,
-		Burst:   2,
-	}, chunks, func(chunkCtx context.Context, chunk []descKey) (chunkResult, error) {
-		params := make(url.Values)
-		params.Set("appid", strconv.FormatUint(uint64(m.config.AppID), 10))
-		params.Set("language", m.config.Language)
-		params.Set("class_count", strconv.Itoa(len(chunk)))
-
-		for idx, k := range chunk {
-			params.Set(fmt.Sprintf("classid%d", idx), strconv.FormatUint(k.ClassID, 10))
-
-			if k.InstanceID != 0 {
-				params.Set(fmt.Sprintf("instanceid%d", idx), strconv.FormatUint(k.InstanceID, 10))
-			}
-		}
-
-		apiResp, err := service.WebAPI[GetAssetClassInfoResponse](
-			chunkCtx,
-			m.web,
-			"GET",
-			"ISteamEconomy",
-			"GetAssetClassInfo",
-			1,
-			params,
-		)
-		if err != nil {
-			return chunkResult{}, err
-		}
-
-		resolvedDescs := make(map[descKey]rawAssetClassDescription)
-		if apiResp != nil && apiResp.Result != nil {
-			for key, rawVal := range apiResp.Result {
-				if key == "success" {
-					continue
-				}
-
-				var desc rawAssetClassDescription
-				if err := json.Unmarshal(rawVal, &desc); err == nil {
-					var cID uint64
-					if desc.ClassID != "" {
-						cID, _ = strconv.ParseUint(desc.ClassID, 10, 64)
-					} else {
-						cID, _ = strconv.ParseUint(key, 10, 64)
-					}
-
-					instID, _ := strconv.ParseUint(desc.InstanceID, 10, 64)
-					resolvedDescs[descKey{ClassID: cID, InstanceID: instID}] = desc
-				}
-			}
-		}
-
-		return chunkResult{descs: resolvedDescs}, nil
-	})
-	if err != nil {
-		return err
-	}
-
-	for _, r := range results {
-		maps.Copy(resolvedDescs, r.descs)
-	}
-
-	for k, desc := range resolvedDescs {
-		m.descCache.Set(k, desc, 5*time.Minute)
-	}
-
-	updateItems(items, resolvedDescs)
-
-	return nil
-}
-
 func updateItems(items []*trading.Item, descs map[descKey]rawAssetClassDescription) {
 	for _, it := range items {
-		if it.MarketHashName == "" {
-			k := descKey{ClassID: it.ClassID, InstanceID: it.InstanceID}
+		if it.MarketHashName != "" {
+			continue
+		}
 
-			var desc rawAssetClassDescription
+		key := descKey{ClassID: it.ClassID, InstanceID: it.InstanceID}
 
-			found := false
-			if desc, found = descs[k]; !found {
-				desc, found = descs[descKey{ClassID: it.ClassID, InstanceID: 0}]
+		desc, found := descs[key]
+		if !found {
+			desc, found = descs[descKey{ClassID: it.ClassID, InstanceID: 0}]
+		}
+
+		if !found {
+			continue
+		}
+
+		it.Name = desc.Name
+		it.MarketName = desc.MarketName
+		it.MarketHashName = desc.MarketHashName
+		it.Type = desc.Type
+		it.IconURL = desc.IconURL
+		it.Descriptions = desc.Descriptions
+		it.Tradable = bool(desc.Tradable)
+		it.Marketable = bool(desc.Marketable)
+
+		it.Tags = make([]trading.Tag, len(desc.Tags))
+		for idx, t := range desc.Tags {
+			locName := t.LocalizedTagName
+			if locName == "" {
+				locName = t.Name
 			}
 
-			if found {
-				it.Name = desc.Name
-				it.MarketName = desc.MarketName
-				it.MarketHashName = desc.MarketHashName
-				it.Type = desc.Type
-				it.IconURL = desc.IconURL
-				it.Descriptions = desc.Descriptions
-				it.Tradable = bool(desc.Tradable)
-				it.Marketable = bool(desc.Marketable)
-
-				it.Tags = make([]trading.Tag, len(desc.Tags))
-				for idx, t := range desc.Tags {
-					locName := t.LocalizedTagName
-					if locName == "" {
-						locName = t.Name
-					}
-
-					it.Tags[idx] = trading.Tag{
-						Category:      t.Category,
-						InternalName:  t.InternalName,
-						Localized:     t.LocalizedCategoryName,
-						LocalizedName: locName,
-					}
-				}
+			it.Tags[idx] = trading.Tag{
+				Category:      t.Category,
+				InternalName:  t.InternalName,
+				Localized:     t.LocalizedCategoryName,
+				LocalizedName: locName,
 			}
 		}
 	}
-}
-
-// Web returns the internal service.Doer.
-func (m *Manager) Web() service.Doer {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	return m.web
-}
-
-// Community returns the internal community.Requester.
-func (m *Manager) Community() community.Requester {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	return m.community
 }

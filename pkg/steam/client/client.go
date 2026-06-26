@@ -64,23 +64,6 @@ var (
 	ErrNilLogOnDetails = errors.New("steam: logon details cannot be nil")
 )
 
-// GetModule returns the first registered [module.Module] matching type T from the [Client].
-// Returns the zero value of T if no matching module is registered.
-// Returns the zero value of T if c is nil.
-func GetModule[T any](c *Client) T {
-	if c == nil {
-		return generic.Zero[T]()
-	}
-
-	for _, m := range c.modules.All() {
-		if typed, ok := m.(T); ok {
-			return typed
-		}
-	}
-
-	return generic.Zero[T]()
-}
-
 // Config aggregates configuration parameters for all core subsystems of [Client].
 // Use [DefaultConfig] to initialize a configuration with standard settings.
 type Config struct {
@@ -152,6 +135,16 @@ type Option = generic.Option[*Client]
 // WithLogger sets a custom [log.Logger] for [Client].
 func WithLogger(l log.Logger) Option {
 	return func(c *Client) { c.logger = l.With(log.Module("steam")) }
+}
+
+// WithSession sets a custom [session.Session] for [Client].
+func WithSession(s *session.Session) Option {
+	return func(c *Client) { c.session = s }
+}
+
+// WithRouter sets a custom [router.ServiceRouter] for [Client].
+func WithRouter(r *router.ServiceRouter) Option {
+	return func(c *Client) { c.router = r }
 }
 
 // WithModule adds a [module.Module] to [Client] and initializes it immediately.
@@ -283,25 +276,29 @@ func New(cfg Config, opts ...Option) (*Client, error) {
 		c.storage = memory.New()
 	}
 
-	if cfg.DisableSocket {
-		c.socket = noopSocketProvider{}
-	} else {
-		c.socket = socket.New(cfg.Socket, c.logger)
+	if c.socket == nil {
+		if cfg.DisableSocket {
+			c.socket = noopSocketProvider{}
+		} else {
+			c.socket = socket.New(cfg.Socket, c.logger)
+		}
 	}
 
-	sessionCfg := session.Config{
-		Device:           cfg.Device,
-		Storage:          c.storage,
-		HTTP:             c.rest.HTTP(),
-		Bus:              c.bus,
-		Logger:           c.logger,
-		Authenticator:    c.authenticator,
-		WebFactory:       c.webFactory,
-		CommunityFactory: c.communityFactory,
+	if c.session == nil {
+		sessionCfg := session.Config{
+			Device:           cfg.Device,
+			Storage:          c.storage,
+			HTTP:             c.rest.HTTP(),
+			Bus:              c.bus,
+			Logger:           c.logger,
+			Authenticator:    c.authenticator,
+			WebFactory:       c.webFactory,
+			CommunityFactory: c.communityFactory,
+		}
+		c.session = session.New(c.socket, sessionCfg)
 	}
-	c.session = session.New(c.socket, sessionCfg)
 
-	c.modules = modules.New(c, &initContext{client: c}, c.session)
+	c.modules = modules.New(c, &initContext{Client: c}, c.session)
 
 	for _, m := range c.pendingModules {
 		_ = c.modules.Add(m)
@@ -309,36 +306,8 @@ func New(cfg Config, opts ...Option) (*Client, error) {
 
 	c.pendingModules = nil
 
-	c.router = router.New(c.session, c.socket)
-
-	return c, nil
-}
-
-// NewReady creates a [Client], configures a default logger if none is provided, connects to the optimal server, and performs logon.
-// It returns an error if CM server discovery fails, connection fails, or login is rejected.
-// It returns an error if the context ctx is canceled, details is nil, or option application fails.
-func NewReady(ctx context.Context, cfg Config, details *auth.LogOnDetails, opts ...Option) (*Client, error) {
-	logger := log.New(log.DefaultConfig(log.LevelInfo))
-	opts = append([]Option{WithLogger(logger)}, opts...)
-
-	c, err := New(cfg, opts...)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := c.Run(); err != nil {
-		return nil, err
-	}
-
-	srv, err := directory.New(c).GetOptimalCMServer(ctx)
-	if err != nil {
-		_ = c.Close()
-		return nil, err
-	}
-
-	if err = c.ConnectAndLogin(ctx, srv, details); err != nil {
-		_ = c.Close()
-		return nil, err
+	if c.router == nil {
+		c.router = router.New(c.session, c.socket)
 	}
 
 	return c, nil
@@ -364,6 +333,9 @@ func (c *Client) Router() *router.ServiceRouter { return c.router }
 
 // Module returns the registered [module.Module] by its name.
 func (c *Client) Module(name string) module.Module { return c.modules.Get(name) }
+
+// Modules returns all registered [module.Module] instances of the [Client].
+func (c *Client) Modules() []module.Module { return c.modules.All() }
 
 // RegisterModule adds a [module.Module] to the [Client] and initializes it immediately.
 // Logs an error if module registration fails.
@@ -458,15 +430,15 @@ func (c *Client) ConnectAndLogin(ctx context.Context, server socket.CMServer, de
 		return ErrNilLogOnDetails
 	}
 
-	c.enrichLogger(details.AccountName, details.SteamID)
+	c.EnrichLogger(details.AccountName, details.SteamID)
 
 	if err := c.session.LogOn(ctx, server, details); err != nil {
 		return err
 	}
 
-	c.enrichLogger(details.AccountName, details.SteamID)
+	c.EnrichLogger(details.AccountName, details.SteamID)
 
-	if err := c.SetPersonaState(ctx, c.getPersonaState()); err != nil {
+	if err := c.SetPersonaState(ctx, c.GetPersonaState()); err != nil {
 		c.Logger().Warn("Failed to send initial persona status update", log.Err(err))
 	}
 
@@ -505,7 +477,7 @@ func (c *Client) Reconnect(ctx context.Context) error {
 		return fmt.Errorf("steam: reconnect failed: %w", err)
 	}
 
-	if err := c.SetPersonaState(ctx, c.getPersonaState()); err != nil {
+	if err := c.SetPersonaState(ctx, c.GetPersonaState()); err != nil {
 		c.Logger().Warn("Failed to set persona state after reconnect", log.Err(err))
 	}
 
@@ -554,20 +526,8 @@ func (c *Client) Wait() {
 	<-c.closed
 }
 
-func (c *Client) getPersonaState() enums.EPersonaState {
-	c.personaStateMu.RLock()
-	defer c.personaStateMu.RUnlock()
-	return c.personaState
-}
-
-func (c *Client) setPersonaState(state enums.EPersonaState) {
-	c.personaStateMu.Lock()
-	c.personaState = state
-	c.personaStateMu.Unlock()
-}
-
-// enrichLogger adds the account and/or steamID to the loggers of the client and all its subsystems.
-func (c *Client) enrichLogger(account string, steamID id.ID) {
+// EnrichLogger adds the account and/or steamID to the loggers of the client and all its subsystems.
+func (c *Client) EnrichLogger(account string, steamID id.ID) {
 	c.loggerMu.Lock()
 	defer c.loggerMu.Unlock()
 
@@ -593,6 +553,19 @@ func (c *Client) enrichLogger(account string, steamID id.ID) {
 	if c.socket != nil {
 		c.socket.UpdateLogger(c.logger)
 	}
+}
+
+// GetPersonaState returns the current persona state of the client.
+func (c *Client) GetPersonaState() enums.EPersonaState {
+	c.personaStateMu.RLock()
+	defer c.personaStateMu.RUnlock()
+	return c.personaState
+}
+
+func (c *Client) setPersonaState(state enums.EPersonaState) {
+	c.personaStateMu.Lock()
+	c.personaState = state
+	c.personaStateMu.Unlock()
 }
 
 type noopSocketProvider struct{}
@@ -647,28 +620,28 @@ func (noopSocketProvider) UpdateLogger(log.Logger)         {}
 func (noopSocketProvider) UpdateServers([]socket.CMServer) {}
 
 type initContext struct {
-	client *Client
+	Client *Client
 }
 
-func (ctx *initContext) Storage() storage.Provider        { return ctx.client.storage }
-func (ctx *initContext) Bus() *bus.Bus                    { return ctx.client.bus }
-func (ctx *initContext) Logger() log.Logger               { return ctx.client.Logger() }
-func (ctx *initContext) Service() service.Doer            { return ctx.client }
-func (ctx *initContext) Rest() aoni.Requester             { return ctx.client.rest }
-func (ctx *initContext) Module(name string) module.Module { return ctx.client.Module(name) }
+func (ctx *initContext) Storage() storage.Provider        { return ctx.Client.storage }
+func (ctx *initContext) Bus() *bus.Bus                    { return ctx.Client.bus }
+func (ctx *initContext) Logger() log.Logger               { return ctx.Client.Logger() }
+func (ctx *initContext) Service() service.Doer            { return ctx.Client }
+func (ctx *initContext) Rest() aoni.Requester             { return ctx.Client.rest }
+func (ctx *initContext) Module(name string) module.Module { return ctx.Client.Module(name) }
 
 func (ctx *initContext) RegisterPacketHandler(e enums.EMsg, h socket.Handler) {
-	ctx.client.socket.RegisterMsgHandler(e, h)
+	ctx.Client.socket.RegisterMsgHandler(e, h)
 }
 
 func (ctx *initContext) UnregisterPacketHandler(e enums.EMsg) {
-	ctx.client.socket.RegisterMsgHandler(e, nil)
+	ctx.Client.socket.RegisterMsgHandler(e, nil)
 }
 
 func (ctx *initContext) RegisterServiceHandler(method string, h socket.Handler) {
-	ctx.client.socket.RegisterServiceHandler(method, h)
+	ctx.Client.socket.RegisterServiceHandler(method, h)
 }
 
 func (ctx *initContext) UnregisterServiceHandler(method string) {
-	ctx.client.socket.RegisterServiceHandler(method, nil)
+	ctx.Client.socket.RegisterServiceHandler(method, nil)
 }

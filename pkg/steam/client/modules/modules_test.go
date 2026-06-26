@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package modules
+package modules_test
 
 import (
 	"context"
@@ -11,9 +11,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lemon4ksan/g-man/pkg/steam/client/modules"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
-	testmodule "github.com/lemon4ksan/g-man/test/module"
+	steammock "github.com/lemon4ksan/g-man/test/mock"
 )
 
 type testModule struct {
@@ -92,23 +93,23 @@ func (sp *mockStateProvider) IsAuthorized() bool {
 
 func TestNew(t *testing.T) {
 	stateProv := &mockStateProvider{}
-	initCtx := testmodule.NewInitContext()
-	authCtx := testmodule.NewAuthContext(id.ID(12345))
+	initCtx := steammock.NewInitContext()
+	authCtx := steammock.NewAuthContext(id.ID(12345))
 
-	m := New(stateProv, initCtx, authCtx)
+	m := modules.New(stateProv, initCtx, authCtx)
 
 	assert.NotNil(t, m)
-	assert.NotNil(t, m.orchestrator)
-	assert.NotNil(t, m.modules)
-	assert.Equal(t, stateProv, m.stateProvider)
-	assert.Equal(t, initCtx, m.initCtx)
-	assert.Equal(t, authCtx, m.authCtx)
+	assert.NotNil(t, m.Orchestrator())
+	assert.NotNil(t, m.Modules())
+	assert.Equal(t, stateProv, m.StateProvider())
+	assert.Equal(t, initCtx, m.InitCtx())
+	assert.Equal(t, authCtx, m.AuthCtx())
 }
 
 func TestManager_Get(t *testing.T) {
-	initCtx := testmodule.NewInitContext()
-	authCtx := testmodule.NewAuthContext(id.ID(12345))
-	m := New(&mockStateProvider{}, initCtx, authCtx)
+	initCtx := steammock.NewInitContext()
+	authCtx := steammock.NewAuthContext(id.ID(12345))
+	m := modules.New(&mockStateProvider{}, initCtx, authCtx)
 	mod := &testModule{name: "mod1"}
 
 	err := m.Add(mod)
@@ -119,9 +120,9 @@ func TestManager_Get(t *testing.T) {
 }
 
 func TestManager_Add_And_All(t *testing.T) {
-	initCtx := testmodule.NewInitContext()
-	authCtx := testmodule.NewAuthContext(id.ID(12345))
-	m := New(&mockStateProvider{}, initCtx, authCtx)
+	initCtx := steammock.NewInitContext()
+	authCtx := steammock.NewAuthContext(id.ID(12345))
+	m := modules.New(&mockStateProvider{}, initCtx, authCtx)
 
 	mod1 := &testModule{name: "mod1"}
 	mod2 := &testModule{name: "mod2"}
@@ -133,12 +134,12 @@ func TestManager_Add_And_All(t *testing.T) {
 	assert.NoError(t, err)
 
 	err = m.Add(mod1)
-	assert.ErrorIs(t, err, ErrDuplicate)
+	assert.ErrorIs(t, err, modules.ErrDuplicate)
 
-	mNilOrch := New(nil, nil, nil)
+	mNilOrch := modules.New(nil, nil, nil)
 	err = mNilOrch.Add(mod1)
 	assert.NoError(t, err)
-	assert.NotNil(t, mNilOrch.orchestrator)
+	assert.NotNil(t, mNilOrch.Orchestrator())
 
 	all := m.All()
 	assert.Len(t, all, 2)
@@ -147,23 +148,23 @@ func TestManager_Add_And_All(t *testing.T) {
 }
 
 func TestManager_Register(t *testing.T) {
-	initCtx := testmodule.NewInitContext()
-	authCtx := testmodule.NewAuthContext(id.ID(12345))
+	initCtx := steammock.NewInitContext()
+	authCtx := steammock.NewAuthContext(id.ID(12345))
 
 	t.Run("Already registered", func(t *testing.T) {
-		m := New(&mockStateProvider{}, initCtx, authCtx)
+		m := modules.New(&mockStateProvider{}, initCtx, authCtx)
 		mod := &testModule{name: "mod1"}
 
 		err := m.Add(mod)
 		assert.NoError(t, err)
 
 		err = m.Register(t.Context(), mod)
-		assert.ErrorIs(t, err, ErrDuplicate)
+		assert.ErrorIs(t, err, modules.ErrDuplicate)
 	})
 
 	t.Run("Not running and not authorized", func(t *testing.T) {
 		sp := &mockStateProvider{running: false, authed: false}
-		m := New(sp, initCtx, authCtx)
+		m := modules.New(sp, initCtx, authCtx)
 
 		initCalled := false
 		startCalled := false
@@ -187,7 +188,7 @@ func TestManager_Register(t *testing.T) {
 
 	t.Run("Running and authorized", func(t *testing.T) {
 		sp := &mockStateProvider{running: true, authed: true}
-		m := New(sp, initCtx, authCtx)
+		m := modules.New(sp, initCtx, authCtx)
 
 		var initCalledWith module.InitContext
 
@@ -222,7 +223,7 @@ func TestManager_Register(t *testing.T) {
 
 	t.Run("Running but init fails", func(t *testing.T) {
 		sp := &mockStateProvider{running: true, authed: false}
-		m := New(sp, initCtx, authCtx)
+		m := modules.New(sp, initCtx, authCtx)
 
 		errFailed := errors.New("init-failed")
 		mod := &testModule{
@@ -234,7 +235,7 @@ func TestManager_Register(t *testing.T) {
 
 		err := m.Register(t.Context(), mod)
 
-		var modErr *ModuleError
+		var modErr *modules.Error
 		assert.ErrorAs(t, err, &modErr)
 		assert.Equal(t, "dynamic init", modErr.Op)
 		assert.Equal(t, "mod1", modErr.Module)
@@ -243,7 +244,7 @@ func TestManager_Register(t *testing.T) {
 
 	t.Run("Running but start fails", func(t *testing.T) {
 		sp := &mockStateProvider{running: true, authed: false}
-		m := New(sp, initCtx, authCtx)
+		m := modules.New(sp, initCtx, authCtx)
 
 		errFailed := errors.New("start-failed")
 		mod := &testModule{
@@ -258,7 +259,7 @@ func TestManager_Register(t *testing.T) {
 
 		err := m.Register(t.Context(), mod)
 
-		var modErr *ModuleError
+		var modErr *modules.Error
 		assert.ErrorAs(t, err, &modErr)
 		assert.Equal(t, "dynamic start", modErr.Op)
 		assert.Equal(t, "mod1", modErr.Module)
@@ -267,7 +268,7 @@ func TestManager_Register(t *testing.T) {
 
 	t.Run("Authorized but start authed fails", func(t *testing.T) {
 		sp := &mockStateProvider{running: false, authed: true}
-		m := New(sp, initCtx, authCtx)
+		m := modules.New(sp, initCtx, authCtx)
 
 		errFailed := errors.New("auth-failed")
 		mod := &testAuthModule{
@@ -281,7 +282,7 @@ func TestManager_Register(t *testing.T) {
 
 		err := m.Register(t.Context(), mod)
 
-		var modErr *ModuleError
+		var modErr *modules.Error
 		assert.ErrorAs(t, err, &modErr)
 		assert.Equal(t, "dynamic start authed", modErr.Op)
 		assert.Equal(t, "mod1", modErr.Module)
@@ -291,26 +292,26 @@ func TestManager_Register(t *testing.T) {
 
 func TestManager_LifecycleAll(t *testing.T) {
 	t.Run("Lazy init orchestrator on all", func(t *testing.T) {
-		m1 := New(nil, nil, nil)
+		m1 := modules.New(nil, nil, nil)
 		err := m1.InitAll(t.Context())
 		assert.NoError(t, err)
-		assert.NotNil(t, m1.orchestrator)
+		assert.NotNil(t, m1.Orchestrator())
 
-		m2 := New(nil, nil, nil)
+		m2 := modules.New(nil, nil, nil)
 		err = m2.StartAll(t.Context())
 		assert.NoError(t, err)
-		assert.NotNil(t, m2.orchestrator)
+		assert.NotNil(t, m2.Orchestrator())
 
-		m3 := New(nil, nil, nil)
+		m3 := modules.New(nil, nil, nil)
 		err = m3.StopAll(t.Context())
 		assert.NoError(t, err)
-		assert.NotNil(t, m3.orchestrator)
+		assert.NotNil(t, m3.Orchestrator())
 	})
 
 	t.Run("Delegation and success", func(t *testing.T) {
-		initCtx := testmodule.NewInitContext()
-		authCtx := testmodule.NewAuthContext(id.ID(12345))
-		m := New(&mockStateProvider{}, initCtx, authCtx)
+		initCtx := steammock.NewInitContext()
+		authCtx := steammock.NewAuthContext(id.ID(12345))
+		m := modules.New(&mockStateProvider{}, initCtx, authCtx)
 
 		initCalled := false
 		startCalled := false
@@ -351,10 +352,10 @@ func TestManager_LifecycleAll(t *testing.T) {
 	})
 
 	t.Run("Error propagation", func(t *testing.T) {
-		initCtx := testmodule.NewInitContext()
-		authCtx := testmodule.NewAuthContext(id.ID(12345))
+		initCtx := steammock.NewInitContext()
+		authCtx := steammock.NewAuthContext(id.ID(12345))
 
-		mInit := New(&mockStateProvider{}, initCtx, authCtx)
+		mInit := modules.New(&mockStateProvider{}, initCtx, authCtx)
 		mInit.Add(&testModule{
 			name: "mod-fail",
 			initFunc: func(ctx module.InitContext) error {
@@ -364,7 +365,7 @@ func TestManager_LifecycleAll(t *testing.T) {
 		err := mInit.InitAll(t.Context())
 		assert.Error(t, err)
 
-		mStart := New(&mockStateProvider{}, initCtx, authCtx)
+		mStart := modules.New(&mockStateProvider{}, initCtx, authCtx)
 		mStart.Add(&testModule{
 			name: "mod-fail",
 			startFunc: func(ctx context.Context) error {
@@ -376,7 +377,7 @@ func TestManager_LifecycleAll(t *testing.T) {
 		err = mStart.StartAll(t.Context())
 		assert.Error(t, err)
 
-		mStop := New(&mockStateProvider{}, initCtx, authCtx)
+		mStop := modules.New(&mockStateProvider{}, initCtx, authCtx)
 		mStop.Add(&testCloserModule{
 			testModule: testModule{name: "mod-fail"},
 			closeFunc: func() error {
@@ -393,11 +394,11 @@ func TestManager_LifecycleAll(t *testing.T) {
 }
 
 func TestManager_StartAuthedAll(t *testing.T) {
-	initCtx := testmodule.NewInitContext()
-	authCtx := testmodule.NewAuthContext(id.ID(12345))
+	initCtx := steammock.NewInitContext()
+	authCtx := steammock.NewAuthContext(id.ID(12345))
 
 	t.Run("No auth modules", func(t *testing.T) {
-		m := New(&mockStateProvider{}, initCtx, authCtx)
+		m := modules.New(&mockStateProvider{}, initCtx, authCtx)
 		mod := &testModule{name: "mod1"}
 		m.Add(mod)
 
@@ -406,7 +407,7 @@ func TestManager_StartAuthedAll(t *testing.T) {
 	})
 
 	t.Run("With auth modules - success", func(t *testing.T) {
-		m := New(&mockStateProvider{}, initCtx, authCtx)
+		m := modules.New(&mockStateProvider{}, initCtx, authCtx)
 
 		called := false
 		mod := &testAuthModule{
@@ -427,7 +428,7 @@ func TestManager_StartAuthedAll(t *testing.T) {
 	})
 
 	t.Run("With auth modules - failure", func(t *testing.T) {
-		m := New(&mockStateProvider{}, initCtx, authCtx)
+		m := modules.New(&mockStateProvider{}, initCtx, authCtx)
 
 		errFailed := errors.New("auth-fail")
 
@@ -441,7 +442,7 @@ func TestManager_StartAuthedAll(t *testing.T) {
 
 		err := m.StartAuthedAll(t.Context())
 
-		var moduleErr *ModuleError
+		var moduleErr *modules.Error
 		assert.ErrorAs(t, err, &moduleErr)
 		assert.Equal(t, "start authed", moduleErr.Op)
 		assert.Equal(t, "mod1", moduleErr.Module)
@@ -452,13 +453,13 @@ func TestManager_StartAuthedAll(t *testing.T) {
 func TestModuleAdapter(t *testing.T) {
 	t.Run("Name", func(t *testing.T) {
 		mod := &testModule{name: "adapter-test"}
-		adapter := &moduleAdapter{mod: mod}
+		adapter := &modules.ModuleAdapter{Mod: mod}
 		assert.Equal(t, "adapter-test", adapter.Name())
 	})
 
 	t.Run("Dependencies - non-dependent", func(t *testing.T) {
 		mod := &testModule{name: "non-dep"}
-		adapter := &moduleAdapter{mod: mod}
+		adapter := &modules.ModuleAdapter{Mod: mod}
 		assert.Nil(t, adapter.Dependencies())
 	})
 
@@ -467,12 +468,12 @@ func TestModuleAdapter(t *testing.T) {
 			testModule:   testModule{name: "dep"},
 			dependencies: []string{"dep1", "dep2"},
 		}
-		adapter := &moduleAdapter{mod: mod}
+		adapter := &modules.ModuleAdapter{Mod: mod}
 		assert.Equal(t, []string{"dep1", "dep2"}, adapter.Dependencies())
 	})
 
 	t.Run("Init", func(t *testing.T) {
-		initCtx := testmodule.NewInitContext()
+		initCtx := steammock.NewInitContext()
 
 		var calledWith module.InitContext
 
@@ -483,7 +484,7 @@ func TestModuleAdapter(t *testing.T) {
 				return nil
 			},
 		}
-		adapter := &moduleAdapter{mod: mod, initCtx: initCtx}
+		adapter := &modules.ModuleAdapter{Mod: mod, InitCtx: initCtx}
 		err := adapter.Init(t.Context())
 		assert.NoError(t, err)
 		assert.Equal(t, initCtx, calledWith)
@@ -508,7 +509,7 @@ func TestModuleAdapter(t *testing.T) {
 			},
 		}
 
-		adapter := &moduleAdapter{mod: mod}
+		adapter := &modules.ModuleAdapter{Mod: mod}
 
 		err := adapter.Start(t.Context())
 		assert.NoError(t, err)
@@ -523,7 +524,7 @@ func TestModuleAdapter(t *testing.T) {
 
 	t.Run("Stop - non-closer module and no cancel", func(t *testing.T) {
 		mod := &testModule{name: "non-closer"}
-		adapter := &moduleAdapter{mod: mod}
+		adapter := &modules.ModuleAdapter{Mod: mod}
 
 		err := adapter.Stop(t.Context())
 		assert.NoError(t, err)

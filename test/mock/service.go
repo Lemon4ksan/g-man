@@ -2,8 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package requester provides a mock implementation of the requester interface.
-package requester
+package mock
 
 import (
 	"bytes"
@@ -14,12 +13,11 @@ import (
 	"net/http"
 	"sync"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
+	"google.golang.org/protobuf/proto"
 )
 
 type restCall struct {
@@ -35,11 +33,7 @@ type restResponse struct {
 	Header http.Header
 }
 
-func NewBuffer(b []byte) io.ReadCloser {
-	return io.NopCloser(bytes.NewBuffer(b))
-}
-
-type Mock struct {
+type ServiceMock struct {
 	mu    sync.Mutex
 	Calls []*tr.Request
 
@@ -60,8 +54,8 @@ type Mock struct {
 	BaseResponseFunc func() aoni.BaseResponse
 }
 
-func New() *Mock {
-	return &Mock{
+func NewServiceMock() *ServiceMock {
+	return &ServiceMock{
 		ResponseErrs:   make(map[string]error),
 		protoResponses: make(map[string]proto.Message),
 		jsonResponses:  make(map[string]any),
@@ -69,18 +63,10 @@ func New() *Mock {
 	}
 }
 
-func (m *Mock) BaseResponse() aoni.BaseResponse {
-	if m.BaseResponseFunc != nil {
-		return m.BaseResponseFunc()
-	}
-	return nil
-}
-
-func (m *Mock) Do(ctx context.Context, req *tr.Request) (*tr.Response, error) {
+func (m *ServiceMock) Do(ctx context.Context, req *tr.Request) (*tr.Response, error) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	m.Calls = append(m.Calls, req)
+	m.mu.Unlock()
 
 	if m.OnDo != nil {
 		resp, err := m.OnDo(req)
@@ -94,6 +80,9 @@ func (m *Mock) Do(ctx context.Context, req *tr.Request) (*tr.Response, error) {
 	}
 
 	methodName := m.identifyTarget(req.Target())
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
 	if err, ok := m.ResponseErrs[methodName]; ok && err != nil {
 		return nil, err
@@ -116,7 +105,7 @@ func (m *Mock) Do(ctx context.Context, req *tr.Request) (*tr.Response, error) {
 	return tr.NewResponse(io.NopCloser(bytes.NewReader(nil)), tr.SocketMetadata{Result: enums.EResult_OK}), nil
 }
 
-func (m *Mock) Request(
+func (m *ServiceMock) Request(
 	ctx context.Context,
 	method, path string,
 	mods ...aoni.RequestModifier,
@@ -166,46 +155,59 @@ func (m *Mock) Request(
 	}, nil
 }
 
-func (m *Mock) SetJSONResponse(iface, method string, resp any) {
+func (m *ServiceMock) SessionID(targetURI string) string {
+	if m.OnSessionID != nil {
+		return m.OnSessionID(targetURI)
+	}
+	return "mock_session_id"
+}
+
+func (m *ServiceMock) SetJSONResponse(iface, method string, resp any) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-
 	m.jsonResponses[fmt.Sprintf("%s/%s", iface, method)] = resp
 }
 
-func (m *Mock) SetProtoResponse(iface, method string, resp proto.Message) {
+func (m *ServiceMock) SetProtoResponse(iface, method string, resp proto.Message) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-
 	m.protoResponses[fmt.Sprintf("%s.%s", iface, method)] = resp
 }
 
-func (m *Mock) SetLegacyResponse(message enums.EMsg, resp proto.Message) {
+func (m *ServiceMock) SetLegacyResponse(message enums.EMsg, resp proto.Message) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-
 	m.protoResponses[message.String()] = resp
 }
 
-func (m *Mock) SetRawResponse(key string, body []byte) {
+func (m *ServiceMock) SetRawResponse(key string, body []byte) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-
 	m.rawResponses[key] = body
 }
 
-func (m *Mock) GetLastRequest() *tr.Request {
+func (m *ServiceMock) GetLastRequest() *tr.Request {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-
 	if len(m.Calls) == 0 {
 		return nil
 	}
-
 	return m.Calls[len(m.Calls)-1]
 }
 
-func (m *Mock) GetLastCall(out proto.Message) *tr.Request {
+func (m *ServiceMock) CallsCount() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return len(m.Calls)
+}
+
+func (m *ServiceMock) ClearCalls() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.Calls = nil
+}
+
+func (m *ServiceMock) GetLastCall(out proto.Message) *tr.Request {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -215,37 +217,17 @@ func (m *Mock) GetLastCall(out proto.Message) *tr.Request {
 
 	req := m.Calls[len(m.Calls)-1]
 
-	if out != nil && req.Body() != nil {
-		bodyBytes, _ := io.ReadAll(req.Body())
+	if out != nil && req.Body != nil {
+		bodyBytes, _ := io.ReadAll(req.Body)
 		_ = proto.Unmarshal(bodyBytes, out)
+
+		req.Body = bytes.NewReader(bodyBytes)
 	}
 
 	return req
 }
 
-func (m *Mock) SessionID(targetURI string) string {
-	if m.OnSessionID != nil {
-		return m.OnSessionID(targetURI)
-	}
-
-	return "mock_session_id"
-}
-
-func (m *Mock) ClearCalls() {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	clear(m.Calls)
-}
-
-func (m *Mock) CallsCount() int {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	return len(m.Calls)
-}
-
-func (m *Mock) identifyTarget(target any) string {
+func (m *ServiceMock) identifyTarget(target any) string {
 	switch t := target.(type) {
 	case *service.UnifiedTarget:
 		return fmt.Sprintf("%s.%s", t.Interface, t.Method)
@@ -253,26 +235,7 @@ func (m *Mock) identifyTarget(target any) string {
 		return fmt.Sprintf("%s/%s", t.Interface, t.Method)
 	case *service.LegacyTarget:
 		return t.String()
-	case fmt.Stringer:
-		return t.String()
 	default:
-		return fmt.Sprintf("%v", t)
+		return fmt.Sprintf("%v", target)
 	}
-}
-
-type mockHTTPDoer struct {
-	mock *Mock
-}
-
-func (m *mockHTTPDoer) Do(req *http.Request) (*http.Response, error) {
-	var bodyBytes []byte
-	if req.Body != nil {
-		bodyBytes, _ = io.ReadAll(req.Body)
-		req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
-	}
-	return m.mock.Request(req.Context(), req.Method, req.URL.String())
-}
-
-func (m *Mock) HTTP() aoni.HTTPDoer {
-	return &mockHTTPDoer{mock: m}
 }

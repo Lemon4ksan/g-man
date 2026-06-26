@@ -17,7 +17,7 @@ import (
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
-	"github.com/lemon4ksan/g-man/test/module"
+	module "github.com/lemon4ksan/g-man/test/mock"
 )
 
 const (
@@ -62,7 +62,7 @@ func TestApps_GetPlayerCount(t *testing.T) {
 	ctx := t.Context()
 
 	t.Run("Success", func(t *testing.T) {
-		ictx.MockServiceAccessor().SetLegacyResponse(
+		ictx.MockService().SetLegacyResponse(
 			enums.EMsg_ClientGetNumberOfCurrentPlayersDP,
 			&pb.CMsgDPGetNumberOfCurrentPlayersResponse{
 				Eresult:     proto.Int32(int32(enums.EResult_OK)),
@@ -76,7 +76,7 @@ func TestApps_GetPlayerCount(t *testing.T) {
 	})
 
 	t.Run("EResult Error", func(t *testing.T) {
-		ictx.MockServiceAccessor().SetLegacyResponse(
+		ictx.MockService().SetLegacyResponse(
 			enums.EMsg_ClientGetNumberOfCurrentPlayersDP,
 			&pb.CMsgDPGetNumberOfCurrentPlayersResponse{
 				Eresult: proto.Int32(int32(enums.EResult_AccessDenied)),
@@ -89,7 +89,7 @@ func TestApps_GetPlayerCount(t *testing.T) {
 	})
 
 	t.Run("Network Error", func(t *testing.T) {
-		ictx.MockServiceAccessor().ResponseErrs[enums.EMsg_ClientGetNumberOfCurrentPlayersDP.String()] = errors.New(
+		ictx.MockService().ResponseErrs[enums.EMsg_ClientGetNumberOfCurrentPlayersDP.String()] = errors.New(
 			"network timeout",
 		)
 
@@ -188,7 +188,7 @@ func TestApps_PlayGames_BlockedAndForceKick(t *testing.T) {
 		require.NoError(t, err)
 
 		req := &pb.CMsgClientKickPlayingSession{}
-		lastCall := ictx.MockServiceAccessor().GetLastCall(req)
+		lastCall := ictx.MockService().GetLastCall(req)
 
 		// If the last call is NOT KickPlayingSession, we successfully skipped the kick
 		if lastCall != nil {
@@ -201,7 +201,7 @@ func TestApps_PlayGames_BlockedAndForceKick(t *testing.T) {
 		err := a.PlayGames(ctx, []uint32{AppidTf2}, true)
 		require.NoError(t, err)
 
-		calls := ictx.MockServiceAccessor().Calls
+		calls := ictx.MockService().Calls
 
 		foundKick := false
 		for _, c := range calls {
@@ -216,10 +216,7 @@ func TestApps_PlayGames_BlockedAndForceKick(t *testing.T) {
 
 	// Kick fails, but we should continue trying to play anyway
 	t.Run("Force Kick Error Fallback", func(t *testing.T) {
-		ictx.MockServiceAccessor().ResponseErrs[enums.EMsg_ClientKickPlayingSession.String()] = errors.New(
-			"kick failed",
-		)
-
+		ictx.MockService().ResponseErrs[enums.EMsg_ClientKickPlayingSession.String()] = errors.New("kick failed")
 		err := a.PlayGames(ctx, []uint32{AppidTf2}, true)
 		require.NoError(t, err, "PlayGames should succeed even if KickPlayingSession logs an error")
 	})
@@ -234,13 +231,13 @@ func TestApps_PlayCustomGames(t *testing.T) {
 	require.NoError(t, err)
 
 	req := &pb.CMsgClientGamesPlayed{}
-	ictx.MockServiceAccessor().GetLastCall(req)
+	ictx.MockService().GetLastCall(req)
 
 	require.Len(t, req.GetGamesPlayed(), len(gameNames))
 
 	for i, name := range gameNames {
 		game := req.GetGamesPlayed()[i]
-		assert.Equal(t, uint64(nonSteamGameID), game.GetGameId())
+		assert.Equal(t, uint64(NonSteamGameID), game.GetGameId())
 		assert.Equal(t, name, game.GetGameExtraInfo())
 	}
 }
@@ -250,7 +247,7 @@ func TestApps_Errors(t *testing.T) {
 	ctx := t.Context()
 
 	t.Run("PlayGames Send Error", func(t *testing.T) {
-		ictx.MockServiceAccessor().ResponseErrs[enums.EMsg_ClientGamesPlayedWithDataBlob.String()] = errors.New(
+		ictx.MockService().ResponseErrs[enums.EMsg_ClientGamesPlayedWithDataBlob.String()] = errors.New(
 			"socket disconnected",
 		)
 
@@ -261,9 +258,7 @@ func TestApps_Errors(t *testing.T) {
 	})
 
 	t.Run("KickPlayingSession Send Error", func(t *testing.T) {
-		ictx.MockServiceAccessor().ResponseErrs[enums.EMsg_ClientKickPlayingSession.String()] = errors.New(
-			"socket timeout",
-		)
+		ictx.MockService().ResponseErrs[enums.EMsg_ClientKickPlayingSession.String()] = errors.New("socket timeout")
 
 		err := a.KickPlayingSession(ctx)
 		assert.Error(t, err)

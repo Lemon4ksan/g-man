@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package auth
+package auth_test
 
 import (
 	"crypto/rand"
@@ -18,7 +18,8 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
-	"github.com/lemon4ksan/g-man/test/requester"
+	"github.com/lemon4ksan/g-man/pkg/steam/auth"
+	"github.com/lemon4ksan/g-man/test/mock"
 )
 
 const (
@@ -26,16 +27,16 @@ const (
 	TestSteamID   = 123
 )
 
-func setupAuthService(t *testing.T, conf *DeviceConfig) (*AuthenticationService, *requester.Mock) {
+func setupAuthService(t *testing.T, conf *auth.DeviceConfig) (*auth.AuthenticationService, *mock.ServiceMock) {
 	t.Helper()
 
-	mock := requester.New()
-	svc := NewAuthenticationService(mock, conf)
+	mock := mock.NewServiceMock()
+	svc := auth.NewAuthenticationService(mock, conf)
 
 	return svc, mock
 }
 
-func mockRSAResponse(t *testing.T, mock *requester.Mock) *rsa.PrivateKey {
+func mockRSAResponse(t *testing.T, mock *mock.ServiceMock) *rsa.PrivateKey {
 	t.Helper()
 
 	privKey, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -60,11 +61,11 @@ func mockRSAResponse(t *testing.T, mock *requester.Mock) *rsa.PrivateKey {
 func TestNewAuthenticationService(t *testing.T) {
 	t.Run("Default Config", func(t *testing.T) {
 		svc, _ := setupAuthService(t, nil)
-		assert.Equal(t, DefaultDeviceConfig(), svc.DeviceConf())
+		assert.Equal(t, auth.DefaultDeviceConfig(), svc.DeviceConf())
 	})
 
 	t.Run("Custom Config", func(t *testing.T) {
-		custom := &DeviceConfig{DeviceFriendlyName: "G-man Bot"}
+		custom := &auth.DeviceConfig{DeviceFriendlyName: "G-man Bot"}
 		svc, _ := setupAuthService(t, custom)
 		assert.Equal(t, "G-man Bot", svc.DeviceConf().DeviceFriendlyName)
 	})

@@ -11,7 +11,7 @@ import (
 
 	"github.com/lemon4ksan/g-man/pkg/steam/community/market"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
-	"github.com/lemon4ksan/g-man/test/module"
+	module "github.com/lemon4ksan/g-man/test/mock"
 )
 
 func setupMarket(t *testing.T) (*market.Market, *module.InitContext, *module.AuthContext) {

@@ -75,10 +75,10 @@ func (t *SocketTransport) Do(ctx context.Context, req *Request) (*Response, erro
 	isAuth := sess.IsAuthenticated()
 
 	var bodyBytes []byte
-	if req.Body() != nil {
+	if req.Body != nil {
 		var err error
 
-		bodyBytes, err = io.ReadAll(req.Body())
+		bodyBytes, err = io.ReadAll(req.Body)
 		if err != nil {
 			return nil, fmt.Errorf("socket_transport: failed to read request body: %w", err)
 		}

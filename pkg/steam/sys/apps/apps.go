@@ -25,8 +25,8 @@ import (
 // ModuleName is the name of the module.
 const ModuleName string = "apps"
 
-// nonSteamGameID is the special ID used by Steam to represent a "Non-Steam Game" shortcut.
-const nonSteamGameID uint64 = 15190414816125648896
+// NonSteamGameID is the special ID used by Steam to represent a "Non-Steam Game" shortcut.
+const NonSteamGameID uint64 = 15190414816125648896
 
 // WithModule returns a steam Option that registers the Apps module.
 func WithModule() steam.Option {
@@ -165,7 +165,7 @@ func (a *Apps) PlayCustomGames(ctx context.Context, names []string) error {
 	games := make([]*pb.CMsgClientGamesPlayed_GamePlayed, 0, len(names))
 	for _, name := range names {
 		games = append(games, &pb.CMsgClientGamesPlayed_GamePlayed{
-			GameId:        proto.Uint64(nonSteamGameID),
+			GameId:        proto.Uint64(NonSteamGameID),
 			GameExtraInfo: proto.String(name),
 		})
 	}

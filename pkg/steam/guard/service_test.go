@@ -14,13 +14,12 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
-	cm "github.com/lemon4ksan/g-man/test/community"
-	"github.com/lemon4ksan/g-man/test/requester"
+	"github.com/lemon4ksan/g-man/test/mock"
 )
 
 func TestTwoFactorService_QueryTimeOffset(t *testing.T) {
 	ctx := context.Background()
-	mock := requester.New()
+	mock := mock.NewServiceMock()
 	svc := NewTwoFactorService(mock)
 
 	t.Run("Success", func(t *testing.T) {
@@ -61,7 +60,7 @@ func TestTwoFactorService_QueryTimeOffset(t *testing.T) {
 
 func TestMobileConf_GetConfirmations(t *testing.T) {
 	ctx := context.Background()
-	mockComm := cm.New()
+	mockComm := mock.NewHTTPStub()
 	svc := NewMobileConf(mockComm)
 	sid := id.ID(76561198000000001)
 
@@ -84,7 +83,7 @@ func TestMobileConf_GetConfirmations(t *testing.T) {
 
 func TestMobileConf_GetConfirmationOfferID(t *testing.T) {
 	ctx := context.Background()
-	mockComm := cm.New()
+	mockComm := mock.NewHTTPStub()
 	svc := NewMobileConf(mockComm)
 	sid := id.ID(76561198000000001)
 
@@ -108,7 +107,7 @@ func TestMobileConf_GetConfirmationOfferID(t *testing.T) {
 
 func TestMobileConf_RespondToConfirmation(t *testing.T) {
 	ctx := context.Background()
-	mockComm := cm.New()
+	mockComm := mock.NewHTTPStub()
 	svc := NewMobileConf(mockComm)
 	sid := id.ID(76561198000000001)
 	conf := &Confirmation{ID: 111, Nonce: 222}
@@ -136,7 +135,7 @@ func TestMobileConf_RespondToConfirmation(t *testing.T) {
 
 func TestMobileConf_RespondToMultiple(t *testing.T) {
 	ctx := context.Background()
-	mockComm := cm.New()
+	mockComm := mock.NewHTTPStub()
 	svc := NewMobileConf(mockComm)
 	sid := id.ID(76561198000000001)
 

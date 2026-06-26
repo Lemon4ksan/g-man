@@ -13,11 +13,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/sys/directory"
-	"github.com/lemon4ksan/g-man/test/requester"
+	"github.com/lemon4ksan/g-man/test/mock"
 )
 
-func setup(t *testing.T) (*directory.Service, *requester.Mock) {
-	mock := requester.New()
+func setup(t *testing.T) (*directory.Service, *mock.ServiceMock) {
+	mock := mock.NewServiceMock()
 	svc := directory.New(mock)
 	return svc, mock
 }

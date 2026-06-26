@@ -33,7 +33,7 @@ type Target interface {
 // to build and send a message.
 type Request struct {
 	target       Target
-	body         io.Reader
+	Body         io.Reader
 	params       url.Values
 	headers      http.Header
 	routingAppID uint32
@@ -46,7 +46,7 @@ type Request struct {
 func NewRequest(target Target, body io.Reader) *Request {
 	return &Request{
 		target:  target,
-		body:    body,
+		Body:    body,
 		params:  make(url.Values),
 		headers: make(http.Header),
 	}
@@ -102,9 +102,6 @@ func (r *Request) Decoder(def aoni.Decoder) aoni.Decoder {
 
 // Target returns the request destination.
 func (r *Request) Target() Target { return r.target }
-
-// Body returns the raw binary payload of the request.
-func (r *Request) Body() io.Reader { return r.body }
 
 // Params returns the query parameters or arguments for the request.
 func (r *Request) Params() url.Values { return r.params }
