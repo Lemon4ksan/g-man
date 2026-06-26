@@ -9,17 +9,15 @@
 //
 // # Basic Usage Example
 //
-// package main
+//	package main
 //
-// import (
-//
-//	"context"
-//	"fmt"
-//	"net/http"
-//	"github.com/lemon4ksan/aoni"
-//	"github.com/lemon4ksan/g-man/pkg/steam/community/openid"
-//
-// )
+//	import (
+//		"context"
+//		"fmt"
+//		"net/http"
+//		"github.com/lemon4ksan/aoni"
+//		"github.com/lemon4ksan/g-man/pkg/steam/community/openid"
+//	)
 //
 //	func main() {
 //		ctx := context.Background()

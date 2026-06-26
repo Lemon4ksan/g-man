@@ -42,14 +42,10 @@ func Login(ctx context.Context, targetURL string, steamCookies []*http.Cookie) (
 		return nil, fmt.Errorf("openid: invalid target URL: %w", err)
 	}
 
-	steamCommURL, _ := url.Parse("https://steamcommunity.com")
-	steamStoreURL, _ := url.Parse("https://store.steampowered.com")
-
-	jar, _ := cookiejar.New(nil)
-	jar.SetCookies(steamCommURL, steamCookies)
-	jar.SetCookies(steamStoreURL, steamCookies)
-
-	client := aoni.DefaultClient.WithCookieJar(jar)
+	client, err := createClientWithCookies(steamCookies)
+	if err != nil {
+		return nil, err
+	}
 
 	resp, err := client.Request(ctx, http.MethodGet, targetURL)
 	if err != nil {
@@ -57,14 +53,13 @@ func Login(ctx context.Context, targetURL string, steamCookies []*http.Cookie) (
 	}
 	defer resp.Body.Close()
 
-	// Case 1: The site didn't redirect to Steam at all.
-	if resp.Request.URL.Host == parsedTarget.Host {
-		return client, nil
+	redirected, err := verifyRedirect(parsedTarget.Host, resp.Request.URL)
+	if err != nil {
+		return nil, err
 	}
 
-	// Case 2: We were redirected, but not to where we expected.
-	if resp.Request.URL.Host != "steamcommunity.com" {
-		return nil, fmt.Errorf("%w: ended up at %s", ErrWrongHost, resp.Request.URL.Host)
+	if !redirected {
+		return client, nil
 	}
 
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
@@ -72,7 +67,53 @@ func Login(ctx context.Context, targetURL string, steamCookies []*http.Cookie) (
 		return nil, fmt.Errorf("openid: failed to parse HTML: %w", err)
 	}
 
-	// Check if Steam is asking us to log in (meaning cookies are bad)
+	form, err := parseOpenIDForm(doc)
+	if err != nil {
+		return nil, err
+	}
+
+	formData := extractFormInputs(form)
+	postURL := resolveActionURL(resp.Request.URL, form)
+
+	_, err = aoni.PostForm[aoni.NoResponse](
+		ctx, client, postURL, formData,
+		aoni.WithHeader("Referer", resp.Request.URL.String()),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("openid: form submission failed: %w", err)
+	}
+
+	return client, nil
+}
+
+func createClientWithCookies(steamCookies []*http.Cookie) (*aoni.Client, error) {
+	steamCommURL, _ := url.Parse("https://steamcommunity.com")
+	steamStoreURL, _ := url.Parse("https://store.steampowered.com")
+
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		return nil, fmt.Errorf("openid: failed to create cookie jar: %w", err)
+	}
+
+	jar.SetCookies(steamCommURL, steamCookies)
+	jar.SetCookies(steamStoreURL, steamCookies)
+
+	return aoni.DefaultClient.WithCookieJar(jar), nil
+}
+
+func verifyRedirect(originalTargetHost string, responseURL *url.URL) (bool, error) {
+	if responseURL.Host == originalTargetHost {
+		return false, nil
+	}
+
+	if responseURL.Host != "steamcommunity.com" {
+		return false, fmt.Errorf("%w: ended up at %s", ErrWrongHost, responseURL.Host)
+	}
+
+	return true, nil
+}
+
+func parseOpenIDForm(doc *goquery.Document) (*goquery.Selection, error) {
 	if doc.Find("#loginForm").Length() > 0 {
 		return nil, ErrNotSignedIn
 	}
@@ -82,36 +123,41 @@ func Login(ctx context.Context, targetURL string, steamCookies []*http.Cookie) (
 		return nil, ErrNoForm
 	}
 
-	// Extract all hidden input fields from the form
+	return form, nil
+}
+
+func extractFormInputs(form *goquery.Selection) url.Values {
 	formData := url.Values{}
-	form.Find("input").Each(func(i int, s *goquery.Selection) {
-		value, _ := s.Attr("value")
-		if name, exists := s.Attr("name"); exists && name != "" {
-			formData.Set(name, value)
+
+	form.Find("input").Each(func(_ int, inputSel *goquery.Selection) {
+		name, exists := inputSel.Attr("name")
+		if !exists || name == "" {
+			return
 		}
+
+		value, _ := inputSel.Attr("value")
+		formData.Set(name, value)
 	})
 
-	// Emulates a "Sign In" button press
 	if formData.Get("action") == "" {
 		formData.Set("action", "steam_openid_login")
 	}
 
-	currentURL := resp.Request.URL
-	postURL := "https://steamcommunity.com/openid/login"
+	return formData
+}
 
-	if action, exists := form.Attr("action"); exists && action != "" {
-		if parsedAction, err := url.Parse(action); err == nil {
-			postURL = currentURL.ResolveReference(parsedAction).String()
-		}
+func resolveActionURL(currentURL *url.URL, form *goquery.Selection) string {
+	defaultURL := "https://steamcommunity.com/openid/login"
+
+	action, exists := form.Attr("action")
+	if !exists || action == "" {
+		return defaultURL
 	}
 
-	_, err = aoni.PostForm[aoni.NoResponse](
-		ctx, client, postURL, formData,
-		aoni.WithHeader("Referer", currentURL.String()),
-	)
+	parsedAction, err := url.Parse(action)
 	if err != nil {
-		return nil, fmt.Errorf("openid: form submission failed: %w", err)
+		return defaultURL
 	}
 
-	return client, nil
+	return currentURL.ResolveReference(parsedAction).String()
 }

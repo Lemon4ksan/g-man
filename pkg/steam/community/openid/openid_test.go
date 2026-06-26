@@ -5,7 +5,6 @@
 package openid_test
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -14,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/lemon4ksan/aoni"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/community/openid"
 )
@@ -42,20 +42,27 @@ func (m *mockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return nil, fmt.Errorf("no mock response for %s", url)
 }
 
+type errorReader struct{}
+
+func (errorReader) Read(p []byte) (n int, err error) {
+	return 0, errors.New("read error")
+}
+
 func TestLogin(t *testing.T) {
+	t.Parallel()
+
 	targetSite := "https://skin-site.com/login"
 	steamLoginURL := "https://steamcommunity.com/openid/login"
 	finalSiteURL := "https://skin-site.com/auth?confirmed=1"
 	evilSiteURL := "https://evil-site.com/"
 
 	tests := []struct {
-		name          string
-		setupMock     func() *mockTransport
-		wantErr       error
-		expectedCalls []string
+		name      string
+		setupMock func() *mockTransport
+		wantErr   error
 	}{
 		{
-			name: "Success_FullFlow",
+			name: "success_full_flow",
 			setupMock: func() *mockTransport {
 				m := &mockTransport{responses: make(map[string]*http.Response)}
 
@@ -70,8 +77,6 @@ func TestLogin(t *testing.T) {
 					</form></body></html>`
 
 				resp1 := stringResponse(200, formHTML)
-				defer resp1.Body.Close()
-
 				m.responses[steamLoginURL] = resp1
 
 				m.responses["steamcommunity.com/openid/login"] = &http.Response{
@@ -81,8 +86,6 @@ func TestLogin(t *testing.T) {
 				}
 
 				resp2 := stringResponse(200, "Success")
-				defer resp2.Body.Close()
-
 				m.responses[finalSiteURL] = resp2
 
 				return m
@@ -90,13 +93,11 @@ func TestLogin(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "AlreadyAuthenticated_NoRedirect",
+			name: "already_authenticated_no_redirect",
 			setupMock: func() *mockTransport {
 				m := &mockTransport{responses: make(map[string]*http.Response)}
 
 				resp := stringResponse(200, "Welcome back")
-				defer resp.Body.Close()
-
 				m.responses[targetSite] = resp
 
 				return m
@@ -104,7 +105,7 @@ func TestLogin(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "Fail_NotSignedInToSteam",
+			name: "fail_not_signed_in_to_steam",
 			setupMock: func() *mockTransport {
 				m := &mockTransport{responses: make(map[string]*http.Response)}
 				m.responses[targetSite] = &http.Response{
@@ -114,8 +115,6 @@ func TestLogin(t *testing.T) {
 				}
 
 				resp := stringResponse(200, `<form id="loginForm"></form>`)
-				defer resp.Body.Close()
-
 				m.responses[steamLoginURL] = resp
 
 				return m
@@ -123,7 +122,7 @@ func TestLogin(t *testing.T) {
 			wantErr: openid.ErrNotSignedIn,
 		},
 		{
-			name: "Fail_WrongHost",
+			name: "fail_wrong_host",
 			setupMock: func() *mockTransport {
 				m := &mockTransport{responses: make(map[string]*http.Response)}
 				m.responses[targetSite] = &http.Response{
@@ -133,8 +132,6 @@ func TestLogin(t *testing.T) {
 				}
 
 				resp := stringResponse(200, "Evil content")
-				defer resp.Body.Close()
-
 				m.responses[evilSiteURL] = resp
 
 				return m
@@ -142,7 +139,7 @@ func TestLogin(t *testing.T) {
 			wantErr: openid.ErrWrongHost,
 		},
 		{
-			name: "Fail_NoFormOnPage",
+			name: "fail_no_form_on_page",
 			setupMock: func() *mockTransport {
 				m := &mockTransport{responses: make(map[string]*http.Response)}
 				m.responses[targetSite] = &http.Response{
@@ -152,13 +149,91 @@ func TestLogin(t *testing.T) {
 				}
 
 				resp := stringResponse(200, `<html><body>No form here</body></html>`)
-				defer resp.Body.Close()
-
 				m.responses[steamLoginURL] = resp
 
 				return m
 			},
 			wantErr: openid.ErrNoForm,
+		},
+		{
+			name: "fail_initial_request_error",
+			setupMock: func() *mockTransport {
+				return &mockTransport{responses: make(map[string]*http.Response)}
+			},
+			wantErr: errors.New("initial request failed"),
+		},
+		{
+			name: "fail_html_parsing_error",
+			setupMock: func() *mockTransport {
+				m := &mockTransport{responses: make(map[string]*http.Response)}
+				m.responses[targetSite] = &http.Response{
+					StatusCode: http.StatusFound,
+					Header:     http.Header{"Location": {steamLoginURL}},
+					Body:       http.NoBody,
+				}
+
+				m.responses[steamLoginURL] = &http.Response{
+					StatusCode: 200,
+					Body:       io.NopCloser(&errorReader{}),
+				}
+
+				return m
+			},
+			wantErr: errors.New("failed to parse HTML"),
+		},
+		{
+			name: "success_edge_cases_inputs_and_action",
+			setupMock: func() *mockTransport {
+				m := &mockTransport{responses: make(map[string]*http.Response)}
+				m.responses[targetSite] = &http.Response{
+					StatusCode: http.StatusFound,
+					Header:     http.Header{"Location": {steamLoginURL}},
+					Body:       http.NoBody,
+				}
+
+				formHTML := `<html><body><form id="openidForm">
+					<input type="hidden" value="nameless">
+					<input type="hidden" name="" value="emptyname">
+					<input type="hidden" name="action" value="custom_action">
+					</form></body></html>`
+				m.responses[steamLoginURL] = stringResponse(200, formHTML)
+
+				m.responses["steamcommunity.com/openid/login"] = &http.Response{
+					StatusCode: http.StatusFound,
+					Header:     http.Header{"Location": {finalSiteURL}},
+					Body:       http.NoBody,
+				}
+				m.responses[finalSiteURL] = stringResponse(200, "Success")
+
+				return m
+			},
+			wantErr: nil,
+		},
+		{
+			name: "success_invalid_action_url_fallback",
+			setupMock: func() *mockTransport {
+				m := &mockTransport{responses: make(map[string]*http.Response)}
+				m.responses[targetSite] = &http.Response{
+					StatusCode: http.StatusFound,
+					Header:     http.Header{"Location": {steamLoginURL}},
+					Body:       http.NoBody,
+				}
+
+				formHTML := `<html><body><form id="openidForm" action="http://[::1]:namedport">
+					<input type="hidden" name="openid.mode" value="checkid_setup">
+					</form></body></html>`
+				m.responses[steamLoginURL] = stringResponse(200, formHTML)
+
+				m.responses["steamcommunity.com/openid/login"] = &http.Response{
+					StatusCode: http.StatusFound,
+					Header:     http.Header{"Location": {finalSiteURL}},
+					Body:       http.NoBody,
+				}
+				m.responses[finalSiteURL] = stringResponse(200, "Success")
+
+				return m
+			},
+			wantErr: nil,
 		},
 	}
 
@@ -174,7 +249,7 @@ func TestLogin(t *testing.T) {
 
 			defer func() { aoni.DefaultClient = oldClient }()
 
-			_, err := openid.Login(context.Background(), targetSite, nil)
+			_, err := openid.Login(t.Context(), targetSite, nil)
 
 			if tt.wantErr != nil {
 				if err == nil || !errors.Is(err, tt.wantErr) && !strings.Contains(err.Error(), tt.wantErr.Error()) {
@@ -185,6 +260,14 @@ func TestLogin(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestLogin_InvalidTargetURL(t *testing.T) {
+	t.Parallel()
+
+	_, err := openid.Login(t.Context(), "http://[::1]:namedport", nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid target URL")
 }
 
 func stringResponse(status int, body string) *http.Response {
