@@ -12,6 +12,8 @@ import (
 )
 
 func TestAuthErrors(t *testing.T) {
+	t.Parallel()
+
 	authErrors := []enums.EResult{
 		enums.EResult_NotLoggedOn,
 		enums.EResult_Expired,
@@ -30,7 +32,11 @@ func TestAuthErrors(t *testing.T) {
 }
 
 func TestErrorStructures(t *testing.T) {
+	t.Parallel()
+
 	t.Run("EResultError", func(t *testing.T) {
+		t.Parallel()
+
 		baseErr := errors.New("underlying")
 		err := NewEResultError(enums.EResult_Busy, baseErr)
 
@@ -44,6 +50,8 @@ func TestErrorStructures(t *testing.T) {
 	})
 
 	t.Run("SteamAPIError", func(t *testing.T) {
+		t.Parallel()
+
 		baseErr := errors.New("network_fail")
 		err := NewSteamAPIError("fail", 500, baseErr)
 

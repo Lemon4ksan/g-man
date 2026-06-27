@@ -19,22 +19,25 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 )
 
-// ModuleName is the name of the account module.
+// ModuleName is the unique string identifier of the account module.
 const ModuleName string = "account"
 
-// WithModule returns a steam Option that registers the Account module.
+// WithModule returns a [steam.Option] that registers the [Account] module into the client.
 func WithModule() steam.Option {
 	return func(c *steam.Client) {
 		c.RegisterModule(New())
 	}
 }
 
-// From returns the account module from the client.
+// From retrieves the registered [Account] module instance from the specified [steam.Client].
+// It returns nil if the module is not registered or if the client is nil.
 func From(c *steam.Client) *Account {
 	return steam.GetModule[*Account](c)
 }
 
-// Account manages account-related data, limits, bans, wallet, and guest passes.
+// Account manages account-related data, limits, bans, wallet state, and guest passes.
+// It listens to network events from Steam, maintains a thread-safe cache, and triggers state events.
+// Initialize an account manager using [New] or register it directly via [WithModule].
 type Account struct {
 	module.Base
 
@@ -50,14 +53,16 @@ type Account struct {
 	unregFuncs []func()
 }
 
-// New creates a new instance of the Account module.
+// New creates an initialized [Account] module instance.
 func New() *Account {
 	return &Account{
 		Base: module.New(ModuleName),
 	}
 }
 
-// Init registers packet handlers for tracking the account state.
+// Init registers packet handlers for tracking the account state changes.
+// It configures callbacks for account info, email details, wallet updates, and VAC bans.
+// It will panic if the provided [module.InitContext] argument is nil.
 func (a *Account) Init(init module.InitContext) error {
 	if err := a.Base.Init(init); err != nil {
 		return err
@@ -84,7 +89,9 @@ func (a *Account) Init(init module.InitContext) error {
 	return nil
 }
 
-// Close ensures all packet handlers are removed and background tasks are stopped.
+// Close unregisters all packet handlers and releases internal resources.
+// It returns an error if base module shutdown fails.
+// Subsequent calls to Close are safe and will be ignored.
 func (a *Account) Close() error {
 	a.mu.Lock()
 	for _, unreg := range a.unregFuncs {
@@ -97,35 +104,35 @@ func (a *Account) Close() error {
 	return a.Base.Close()
 }
 
-// GetAccountInfo returns the cached account details.
+// GetAccountInfo returns the cached account details as an [InfoEvent].
 func (a *Account) GetAccountInfo() InfoEvent {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	return a.info
 }
 
-// GetEmailInfo returns the cached email address details.
+// GetEmailInfo returns the cached email address details as an [EmailInfoEvent].
 func (a *Account) GetEmailInfo() EmailInfoEvent {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	return a.email
 }
 
-// GetLimitations returns the cached limitations for the account.
+// GetLimitations returns the cached limitations for the account as a [LimitationsEvent].
 func (a *Account) GetLimitations() LimitationsEvent {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	return a.limitations
 }
 
-// GetVACBans returns the cached VAC ban details.
+// GetVACBans returns the cached VAC ban details as a [VACBansEvent].
 func (a *Account) GetVACBans() VACBansEvent {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	return a.vacBans
 }
 
-// GetWalletInfo returns the cached wallet info.
+// GetWalletInfo returns the cached wallet configuration and balances as a [WalletInfoEvent].
 func (a *Account) GetWalletInfo() WalletInfoEvent {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
@@ -139,7 +146,7 @@ func (a *Account) GetVanityURL() string {
 	return a.vanityURL.VanityURL
 }
 
-// GetGifts returns the cached list of guest passes / gifts.
+// GetGifts returns the cached list of guest passes or gifts.
 func (a *Account) GetGifts() []map[string]any {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
@@ -193,7 +200,7 @@ func (a *Account) handleEmailAddrInfo(packet *protocol.Packet) {
 func (a *Account) handleIsLimitedAccount(packet *protocol.Packet) {
 	msg := &pb.CMsgClientIsLimitedAccount{}
 	if err := proto.Unmarshal(packet.Payload, msg); err != nil {
-		a.Logger.Error("Failed to unmarshal limited account info", log.Err(err))
+		a.Logger.Error("Failed to unmarshal ClientIsLimited", log.Err(err))
 		return
 	}
 

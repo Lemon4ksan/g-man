@@ -248,21 +248,20 @@ func (m *InitContext) GetServiceHandler(method string) (socket.Handler, bool) {
 
 // AuthContext is a lightweight manual mock for module.AuthContext.
 type AuthContext struct {
-	mockCommunity *HTTPStub
-	steamID       id.ID
+	MockCommunity *HTTPStub
+	MockSteamID       id.ID
 }
 
 // NewAuthContext creates a new AuthContext with a clean HTTPStub.
 func NewAuthContext(steamID id.ID) *AuthContext {
 	return &AuthContext{
-		mockCommunity: NewHTTPStub(),
-		steamID:       steamID,
+		MockCommunity: NewHTTPStub(),
+		MockSteamID:       steamID,
 	}
 }
 
-func (m *AuthContext) Community() community.Requester { return m.mockCommunity }
-func (m *AuthContext) MockCommunity() *HTTPStub       { return m.mockCommunity }
-func (m *AuthContext) SteamID() id.ID                 { return m.steamID }
+func (m *AuthContext) Community() community.Requester { return m.MockCommunity }
+func (m *AuthContext) SteamID() id.ID                 { return m.MockSteamID }
 
 func ProtoResponse(msg proto.Message) (*tr.Response, error) {
 	b, err := proto.Marshal(msg)

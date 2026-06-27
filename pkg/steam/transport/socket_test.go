@@ -7,6 +7,7 @@ package transport
 import (
 	"context"
 	"errors"
+	"io"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -94,10 +95,20 @@ type simpleHeader struct {
 
 func (s simpleHeader) GetSourceJob() uint64 { return s.sourceJob }
 
-func TestSocketTransport_Do_Coverage(t *testing.T) {
-	ctx := context.Background()
+func TestNewSocketTransport_ValidCaller_CreatesTransport(t *testing.T) {
+	t.Parallel()
 
-	t.Run("Success with EHeader", func(t *testing.T) {
+	caller := &mockSocketCaller{}
+	tr := NewSocketTransport(caller)
+	assert.NotNil(t, tr)
+}
+
+func TestSocketTransportDo_VariousRequests_SendsPacketsAndMapsHeader(t *testing.T) {
+	t.Parallel()
+
+	t.Run("success_with_eheader", func(t *testing.T) {
+		t.Parallel()
+
 		caller := &mockSocketCaller{
 			session: &mockSession{authed: true},
 			mockPacket: &protocol.Packet{
@@ -111,7 +122,7 @@ func TestSocketTransport_Do_Coverage(t *testing.T) {
 		tr := NewSocketTransport(caller)
 		req := NewRequest(mockSocketTarget{emsg: 1}, nil)
 
-		resp, err := tr.Do(ctx, req)
+		resp, err := tr.Do(t.Context(), req)
 		require.NoError(t, err)
 
 		meta, ok := resp.Socket()
@@ -120,8 +131,9 @@ func TestSocketTransport_Do_Coverage(t *testing.T) {
 		assert.Equal(t, uint64(777), meta.SourceJobID)
 	})
 
-	t.Run("Success with Simple Header (No EResult)", func(t *testing.T) {
-		// This tests the branch where Header exists but isn't an EHeader
+	t.Run("success_with_simple_header_no_eresult", func(t *testing.T) {
+		t.Parallel()
+
 		caller := &mockSocketCaller{
 			session: &mockSession{authed: false},
 			mockPacket: &protocol.Packet{
@@ -132,34 +144,101 @@ func TestSocketTransport_Do_Coverage(t *testing.T) {
 		tr := NewSocketTransport(caller)
 		req := NewRequest(mockSocketTarget{emsg: 1}, nil)
 
-		resp, err := tr.Do(ctx, req)
+		resp, err := tr.Do(t.Context(), req)
 		require.NoError(t, err)
 
 		meta, _ := resp.Socket()
-		assert.Equal(t, enums.EResult_OK, meta.Result) // Default
+		assert.Equal(t, enums.EResult_OK, meta.Result)
 		assert.Equal(t, uint64(888), meta.SourceJobID)
 	})
 
-	t.Run("Error - Disconnected (Nil Session)", func(t *testing.T) {
+	t.Run("error_disconnected_nil_session", func(t *testing.T) {
+		t.Parallel()
+
 		caller := &mockSocketCaller{session: nil}
 		tr := NewSocketTransport(caller)
-		_, err := tr.Do(ctx, NewRequest(mockSocketTarget{}, nil))
+		_, err := tr.Do(t.Context(), NewRequest(mockSocketTarget{}, nil))
 		assert.ErrorContains(t, err, "socket is disconnected")
 	})
 
-	t.Run("Error - Unsupported Target", func(t *testing.T) {
-		tr := NewSocketTransport(&mockSocketCaller{})
-		_, err := tr.Do(ctx, NewRequest(mockTarget{name: "http_only"}, nil))
+	t.Run("error_unsupported_target", func(t *testing.T) {
+		t.Parallel()
+
+		tr := NewSocketTransport(&mockSocketCaller{session: &mockSession{}})
+		_, err := tr.Do(t.Context(), NewRequest(mockTarget{name: "http_only"}, nil))
 		assert.ErrorContains(t, err, "does not support socket protocol")
 	})
 
-	t.Run("Error - SendSync Failed", func(t *testing.T) {
+	t.Run("error_sendsync_failed", func(t *testing.T) {
+		t.Parallel()
+
 		caller := &mockSocketCaller{
 			session:     &mockSession{},
 			mockCallErr: errors.New("network error"),
 		}
 		tr := NewSocketTransport(caller)
-		_, err := tr.Do(ctx, NewRequest(mockSocketTarget{}, nil))
+		_, err := tr.Do(t.Context(), NewRequest(mockSocketTarget{}, nil))
 		assert.ErrorContains(t, err, "socket_transport call failed")
+	})
+
+	t.Run("request_body_read_error", func(t *testing.T) {
+		t.Parallel()
+
+		caller := &mockSocketCaller{session: &mockSession{}}
+		tr := NewSocketTransport(caller)
+		req := NewRequest(mockSocketTarget{emsg: 1}, faultyReader{})
+
+		_, err := tr.Do(t.Context(), req)
+		assert.ErrorContains(t, err, "failed to read request body")
+	})
+
+	t.Run("force_proto_enabled", func(t *testing.T) {
+		t.Parallel()
+
+		caller := &mockSocketCaller{
+			session: &mockSession{authed: true},
+			mockPacket: &protocol.Packet{
+				Payload: []byte("proto_payload"),
+				Header:  simpleHeader{sourceJob: 999},
+			},
+		}
+		tr := NewSocketTransport(caller)
+		req := NewRequest(mockSocketTarget{emsg: 1}, nil).WithForceProto()
+
+		resp, err := tr.Do(t.Context(), req)
+		require.NoError(t, err)
+
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		assert.Equal(t, "proto_payload", string(bodyBytes))
+	})
+
+	t.Run("no_response_mode_success", func(t *testing.T) {
+		t.Parallel()
+
+		caller := &mockSocketCaller{
+			session: &mockSession{authed: true},
+		}
+		tr := NewSocketTransport(caller)
+		req := NewRequest(mockSocketTarget{emsg: 1}, nil).WithParam("__no_response", "true")
+
+		resp, err := tr.Do(t.Context(), req)
+		require.NoError(t, err)
+
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		assert.Empty(t, bodyBytes)
+	})
+
+	t.Run("no_response_mode_failure", func(t *testing.T) {
+		t.Parallel()
+
+		caller := &mockSocketCaller{
+			session:     &mockSession{authed: true},
+			mockCallErr: errors.New("send failed"),
+		}
+		tr := NewSocketTransport(caller)
+		req := NewRequest(mockSocketTarget{emsg: 1}, nil).WithParam("__no_response", "true")
+
+		_, err := tr.Do(t.Context(), req)
+		assert.ErrorContains(t, err, "socket_transport send failed")
 	})
 }

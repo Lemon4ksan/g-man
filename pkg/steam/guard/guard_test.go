@@ -5,16 +5,29 @@
 package guard
 
 import (
+	"bytes"
 	"context"
+	"errors"
+	"fmt"
+	"io"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/lemon4ksan/miyako/bus"
+	"github.com/lemon4ksan/miyako/sync/lazy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
+	"github.com/lemon4ksan/g-man/pkg/log"
+	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
+	"github.com/lemon4ksan/g-man/pkg/steam/service"
+	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
 	module "github.com/lemon4ksan/g-man/test/mock"
 )
 
@@ -63,7 +76,61 @@ func (m *MockConfService) RespondToMultiple(
 	return m.Called(ctx, confs, accept, deviceID, steamID, confKey, timestamp).Error(0)
 }
 
+type mockServiceDoer struct {
+	t *testing.T
+}
+
+func (m *mockServiceDoer) Do(ctx context.Context, req *tr.Request) (*tr.Response, error) {
+	targetStr := fmt.Sprintf("%v", req.Target())
+	if strings.Contains(targetStr, "Time") {
+		timeResp := &pb.CTwoFactor_Time_Response{
+			ServerTime: proto.Uint64(uint64(time.Now().Unix() + 10)),
+		}
+		body, _ := proto.Marshal(timeResp)
+
+		return tr.NewResponse(io.NopCloser(bytes.NewReader(body)), tr.SocketMetadata{Result: enums.EResult_OK}), nil
+	}
+
+	if strings.Contains(targetStr, "Status") {
+		statusResp := &pb.CTwoFactor_Status_Response{
+			DeviceIdentifier: proto.String("android:mock_id"),
+		}
+		body, _ := proto.Marshal(statusResp)
+
+		return tr.NewResponse(io.NopCloser(bytes.NewReader(body)), tr.SocketMetadata{Result: enums.EResult_OK}), nil
+	}
+
+	return tr.NewResponse(io.NopCloser(bytes.NewReader(nil)), tr.SocketMetadata{Result: enums.EResult_OK}), nil
+}
+
+type mockInitContextWithService struct {
+	*module.InitContext
+	doer service.Doer
+}
+
+func (m *mockInitContextWithService) Service() service.Doer {
+	return m.doer
+}
+
+func (m *mockInitContextWithService) Logger() log.Logger {
+	return log.Discard
+}
+
+func (m *mockInitContextWithService) Bus() *bus.Bus {
+	return bus.New()
+}
+
+func defaultValidConfig() Config {
+	return Config{
+		IdentitySecret: validSecret,
+		DeviceID:       "android:123",
+		RateLimit:      0,
+	}
+}
+
 func setupGuardian(t *testing.T, cfg Config) (*Guardian, *module.InitContext, *MockConfService) {
+	t.Helper()
+
 	g, err := New(cfg)
 	require.NoError(t, err)
 
@@ -71,230 +138,489 @@ func setupGuardian(t *testing.T, cfg Config) (*Guardian, *module.InitContext, *M
 	err = g.Init(ictx)
 	require.NoError(t, err)
 
-	// Inject mock service
 	mockSvc := new(MockConfService)
 	g.service = mockSvc
 
 	return g, ictx, mockSvc
 }
 
-func TestConfig_Validate(t *testing.T) {
+func setupAuthenticatedGuardian(
+	t *testing.T,
+	cfg Config,
+	steamID id.ID,
+) (*Guardian, *module.InitContext, *MockConfService) {
+	t.Helper()
+	g, ictx, mockSvc := setupGuardian(t, cfg)
+
+	actx := module.NewAuthContext(steamID)
+	err := g.StartAuthed(t.Context(), actx)
+	require.NoError(t, err)
+
+	g.service = mockSvc
+
+	return g, ictx, mockSvc
+}
+
+func TestFrom_NilClient_ReturnsNil(t *testing.T) {
+	t.Parallel()
+
+	assert.Nil(t, From(nil))
+}
+
+func TestWithModule_ValidOption_RegistersGuardian(t *testing.T) {
+	t.Parallel()
+
+	opt := WithModule(defaultValidConfig())
+	assert.NotNil(t, opt)
+}
+
+func TestConfigValidate_VariousConfigs_ReturnsExpectedErrors(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		cfg     Config
 		wantErr bool
+		errStr  string
 	}{
 		{
-			"valid",
-			Config{
+			name: "valid",
+			cfg: Config{
 				IdentitySecret: validSecret,
 				DeviceID:       "android:123",
 				RateLimit:      time.Second,
 			},
-			false,
+			wantErr: false,
 		},
-		{"missing secret", Config{DeviceID: "android:123"}, true},
-		{"invalid device prefix", Config{IdentitySecret: validSecret, DeviceID: "pc:123"}, true},
+		{
+			name: "missing_secret",
+			cfg: Config{
+				DeviceID: "android:123",
+			},
+			wantErr: true,
+			errStr:  "identity secret is required",
+		},
+		{
+			name: "invalid_device_prefix",
+			cfg: Config{
+				IdentitySecret: validSecret,
+				DeviceID:       "pc:123",
+			},
+			wantErr: true,
+			errStr:  "must start with 'android:' or 'ios:'",
+		},
+		{
+			name: "missing_device_id",
+			cfg: Config{
+				IdentitySecret: validSecret,
+				DeviceID:       "",
+			},
+			wantErr: true,
+			errStr:  "device ID is required",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			err := tt.cfg.Validate()
 			if tt.wantErr {
 				assert.Error(t, err)
+
+				if tt.errStr != "" {
+					assert.ErrorContains(t, err, tt.errStr)
+				}
 			} else {
 				assert.NoError(t, err)
 			}
 		})
 	}
+
+	t.Run("config_string_mask", func(t *testing.T) {
+		t.Parallel()
+		assert.Equal(t, "GuardConfig{DeviceID: andr...2345}", Config{DeviceID: "android:12345"}.String())
+	})
 }
 
-func TestGuardian_Lifecycle(t *testing.T) {
-	cfg := DefaultConfig()
-	cfg.IdentitySecret = validSecret
-	cfg.DeviceID = "android:123"
+func TestInit_NilService_DoesNotInitializeTwoFactorSvc(t *testing.T) {
+	t.Parallel()
 
-	g, _, _ := setupGuardian(t, cfg)
-	ctx := context.Background()
+	g, err := New(defaultValidConfig())
+	require.NoError(t, err)
 
-	// 1. Start normally
+	ictx := &mockInitContextWithService{
+		InitContext: module.NewInitContext(),
+		doer:        nil,
+	}
+	err = g.Init(ictx)
+	require.NoError(t, err)
+
+	assert.Nil(t, g.twoFactorSvc)
+}
+
+func TestLifecycle_AuthAndClose_TransitionsPollingState(t *testing.T) {
+	t.Parallel()
+
+	g, _, _ := setupGuardian(t, defaultValidConfig())
+	ctx := t.Context()
+
 	err := g.Start(ctx)
 	assert.NoError(t, err)
 
-	// 2. StartAuthed
 	sid := id.ID(76561198000000001)
 	actx := module.NewAuthContext(sid)
 	err = g.StartAuthed(ctx, actx)
 	assert.NoError(t, err)
-	assert.Equal(t, StateStopped, g.fsm.CurrentState())
+	assert.Equal(t, PollingStopped, g.PollingState())
 
-	// 3. Close
 	err = g.Close()
 	assert.NoError(t, err)
-	assert.Equal(t, StateClosed, g.fsm.CurrentState())
+	assert.Equal(t, PollingStopped, g.PollingState())
 }
 
-func TestGuardian_FetchConfirmations(t *testing.T) {
-	cfg := DefaultConfig()
-	cfg.IdentitySecret = validSecret
-	cfg.DeviceID = "android:123"
-	cfg.RateLimit = 0 // Disable rate limit for test speed
+func TestStartAuthed_ValidDoer_SynchronizesTimeAndLogsStatus(t *testing.T) {
+	t.Parallel()
 
-	g, _, mockSvc := setupGuardian(t, cfg)
-	g.steamID = id.ID(123)
+	g, err := New(defaultValidConfig())
+	require.NoError(t, err)
 
-	t.Run("Success", func(t *testing.T) {
+	doer := &mockServiceDoer{t: t}
+	ictx := &mockInitContextWithService{
+		InitContext: module.NewInitContext(),
+		doer:        doer,
+	}
+
+	err = g.Init(ictx)
+	require.NoError(t, err)
+
+	ctx := t.Context()
+	sid := id.ID(76561198000000001)
+	actx := module.NewAuthContext(sid)
+
+	err = g.StartAuthed(ctx, actx)
+	assert.NoError(t, err)
+}
+
+func TestGuardian_SetConfig_UpdatesConfig(t *testing.T) {
+	t.Parallel()
+
+	cfg := defaultValidConfig()
+	g, _, _ := setupGuardian(t, cfg)
+
+	newCfg := Config{IdentitySecret: "new-secret", DeviceID: "ios:555"}
+	g.SetConfig(newCfg)
+
+	assert.Equal(t, newCfg, g.Config())
+}
+
+func TestGuardian_Service_ReturnsConfService(t *testing.T) {
+	t.Parallel()
+
+	g, _, mockSvc := setupGuardian(t, defaultValidConfig())
+	assert.Equal(t, mockSvc, g.Service())
+}
+
+func TestFetchConfirmations_VariousResponses_HandlesExpectedly(t *testing.T) {
+	t.Parallel()
+
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := defaultValidConfig()
+		g, _, mockSvc := setupAuthenticatedGuardian(t, cfg, id.ID(123))
+
 		expectedConfs := []*Confirmation{{ID: 1, Title: "Trade"}}
-		mockSvc.On("GetConfirmations", mock.Anything, cfg.DeviceID, g.steamID, mock.Anything, mock.Anything).
+		mockSvc.On("GetConfirmations", mock.Anything, cfg.DeviceID, g.SteamID(), mock.Anything, mock.Anything).
 			Return(&ConfirmationsList{Success: true, Confirmations: expectedConfs}, nil).Once()
 
-		confs, err := g.FetchConfirmations(context.Background())
+		confs, err := g.FetchConfirmations(t.Context())
 		assert.NoError(t, err)
 		assert.Len(t, confs, 1)
 		assert.Equal(t, int64(1), g.metrics.TotalFetched.Load())
 	})
 
-	t.Run("Steam Error and Event", func(t *testing.T) {
+	t.Run("steam_error_and_event", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := defaultValidConfig()
+		g, _, mockSvc := setupAuthenticatedGuardian(t, cfg, id.ID(123))
+
 		sub := g.Bus.Subscribe(&NeedAuthEvent{})
 		defer sub.Unsubscribe()
 
-		mockSvc.On("GetConfirmations", mock.Anything, cfg.DeviceID, g.steamID, mock.Anything, mock.Anything).
+		mockSvc.On("GetConfirmations", mock.Anything, cfg.DeviceID, g.SteamID(), mock.Anything, mock.Anything).
 			Return(&ConfirmationsList{Success: false, NeedAuth: true, Message: "reauth"}, nil).Once()
 
-		_, err := g.FetchConfirmations(context.Background())
+		_, err := g.FetchConfirmations(t.Context())
 		assert.Error(t, err)
+
+		waitCtx, cancel := context.WithTimeout(t.Context(), 500*time.Millisecond)
+		t.Cleanup(cancel)
 
 		select {
 		case ev := <-sub.C():
 			assert.Equal(t, "reauth", ev.(*NeedAuthEvent).Message)
-		case <-time.After(100 * time.Millisecond):
-			t.Fatal("did not receive NeedAuthEvent")
+		case <-waitCtx.Done():
+			t.Fatal("timeout waiting for NeedAuthEvent")
 		}
+	})
+
+	t.Run("steam_error_without_need_auth", func(t *testing.T) {
+		t.Parallel()
+
+		g, _, mockSvc := setupAuthenticatedGuardian(t, defaultValidConfig(), id.ID(123))
+
+		mockSvc.On("GetConfirmations", mock.Anything, mock.Anything, g.SteamID(), mock.Anything, mock.Anything).
+			Return(&ConfirmationsList{Success: false, NeedAuth: false, Message: "invalid_key"}, nil).Once()
+
+		_, err := g.FetchConfirmations(t.Context())
+		assert.ErrorContains(t, err, "steam rejected request: invalid_key")
+		assert.Equal(t, int64(1), g.metrics.TotalErrors.Load())
+	})
+
+	t.Run("service_network_error", func(t *testing.T) {
+		t.Parallel()
+
+		g, _, mockSvc := setupAuthenticatedGuardian(t, defaultValidConfig(), id.ID(123))
+
+		mockSvc.On("GetConfirmations", mock.Anything, mock.Anything, g.SteamID(), mock.Anything, mock.Anything).
+			Return(nil, errors.New("network timeout")).Once()
+
+		_, err := g.FetchConfirmations(t.Context())
+		assert.ErrorContains(t, err, "network timeout")
+		assert.Equal(t, int64(1), g.metrics.TotalErrors.Load())
+	})
+
+	t.Run("error_not_authenticated", func(t *testing.T) {
+		t.Parallel()
+
+		g := &Guardian{}
+		_, err := g.FetchConfirmations(t.Context())
+		assert.ErrorIs(t, err, ErrNotAuthenticated)
+	})
+
+	t.Run("error_invalid_secret", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := Config{IdentitySecret: "invalid-b64-!!!", DeviceID: "android:123"}
+		g, _, _ := setupAuthenticatedGuardian(t, cfg, id.ID(123))
+
+		_, err := g.FetchConfirmations(t.Context())
+		assert.ErrorContains(t, err, "key generation")
+	})
+
+	t.Run("error_not_configured", func(t *testing.T) {
+		t.Parallel()
+
+		var g *Guardian
+
+		_, err := g.FetchConfirmations(t.Context())
+		assert.ErrorIs(t, err, ErrNotConfigured)
 	})
 }
 
-func TestGuardian_AcceptReject(t *testing.T) {
-	cfg := DefaultConfig()
-	cfg.IdentitySecret = validSecret
-	cfg.DeviceID = "android:123"
-	g, _, mockSvc := setupGuardian(t, cfg)
-	g.steamID = id.ID(123)
+func TestRespond_AcceptOrCancel_UpdatesMetricsAndCallsService(t *testing.T) {
+	t.Parallel()
 
 	conf := &Confirmation{ID: 99, Title: "Test"}
 
-	t.Run("Accept Single", func(t *testing.T) {
-		mockSvc.On("RespondToConfirmation", mock.Anything, conf, true, cfg.DeviceID, g.steamID, mock.Anything, mock.Anything).
+	t.Run("accept_single", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := defaultValidConfig()
+		g, _, mockSvc := setupAuthenticatedGuardian(t, cfg, id.ID(123))
+
+		mockSvc.On("RespondToConfirmation", mock.Anything, conf, true, cfg.DeviceID, g.SteamID(), mock.Anything, mock.Anything).
 			Return(nil).
 			Once()
 
-		err := g.Accept(context.Background(), conf)
+		err := g.Accept(t.Context(), conf)
 		assert.NoError(t, err)
 		assert.Equal(t, int64(1), g.metrics.TotalAccepted.Load())
 	})
 
-	t.Run("Cancel Multiple", func(t *testing.T) {
+	t.Run("accept_multiple", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := defaultValidConfig()
+		g, _, mockSvc := setupAuthenticatedGuardian(t, cfg, id.ID(123))
+
 		confs := []*Confirmation{{ID: 1}, {ID: 2}}
-		mockSvc.On("RespondToMultiple", mock.Anything, confs, false, cfg.DeviceID, g.steamID, mock.Anything, mock.Anything).
+		mockSvc.On("RespondToMultiple", mock.Anything, confs, true, cfg.DeviceID, g.SteamID(), mock.Anything, mock.Anything).
 			Return(nil).
 			Once()
 
-		err := g.CancelMultiple(context.Background(), confs)
+		err := g.AcceptMultiple(t.Context(), confs)
+		assert.NoError(t, err)
+		assert.Equal(t, int64(2), g.metrics.TotalAccepted.Load())
+	})
+
+	t.Run("cancel_multiple", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := defaultValidConfig()
+		g, _, mockSvc := setupAuthenticatedGuardian(t, cfg, id.ID(123))
+
+		confs := []*Confirmation{{ID: 1}, {ID: 2}}
+		mockSvc.On("RespondToMultiple", mock.Anything, confs, false, cfg.DeviceID, g.SteamID(), mock.Anything, mock.Anything).
+			Return(nil).
+			Once()
+
+		err := g.CancelMultiple(t.Context(), confs)
 		assert.NoError(t, err)
 		assert.Equal(t, int64(2), g.metrics.TotalRejected.Load())
 	})
+
+	t.Run("respond_single_error", func(t *testing.T) {
+		t.Parallel()
+
+		g, _, mockSvc := setupAuthenticatedGuardian(t, defaultValidConfig(), id.ID(123))
+
+		mockSvc.On("RespondToConfirmation", mock.Anything, mock.Anything, true, mock.Anything, g.SteamID(), mock.Anything, mock.Anything).
+			Return(errors.New("respond fail")).
+			Once()
+
+		err := g.Accept(t.Context(), &Confirmation{})
+		assert.ErrorContains(t, err, "respond fail")
+		assert.Equal(t, int64(1), g.metrics.TotalErrors.Load())
+	})
+
+	t.Run("respond_multiple_error", func(t *testing.T) {
+		t.Parallel()
+
+		g, _, mockSvc := setupAuthenticatedGuardian(t, defaultValidConfig(), id.ID(123))
+
+		confs := []*Confirmation{{ID: 1}, {ID: 2}}
+		mockSvc.On("RespondToMultiple", mock.Anything, confs, true, mock.Anything, g.SteamID(), mock.Anything, mock.Anything).
+			Return(errors.New("multiple fail")).
+			Once()
+
+		err := g.AcceptMultiple(t.Context(), confs)
+		assert.ErrorContains(t, err, "multiple fail")
+		assert.Equal(t, int64(1), g.metrics.TotalErrors.Load())
+	})
+
+	t.Run("respond_key_generation_error", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := defaultValidConfig()
+		cfg.IdentitySecret = "invalid-b64-!!!"
+		g, _, _ := setupAuthenticatedGuardian(t, cfg, id.ID(123))
+
+		err := g.Accept(t.Context(), &Confirmation{})
+		assert.ErrorContains(t, err, "illegal base64 data")
+	})
+
+	t.Run("nil_guardian_respond_error", func(t *testing.T) {
+		t.Parallel()
+
+		var g *Guardian
+
+		err := g.Accept(t.Context(), &Confirmation{})
+		assert.ErrorIs(t, err, ErrNotConfigured)
+	})
 }
 
-func TestHelpers(t *testing.T) {
-	// Coverage for helper functions
-	assert.Equal(t, "stopped", StateStopped.String())
-	assert.Equal(t, "polling", StatePolling.String())
-	assert.Equal(t, "closed", StateClosed.String())
-	assert.Equal(t, "unknown", State(99).String())
+func TestHelpers_StateAndMasking_ReturnsExpectedStrings(t *testing.T) {
+	t.Parallel()
 
-	assert.Contains(t, maskDeviceID("android:123456789"), "andr...")
-	assert.Equal(t, "****", maskDeviceID("short"))
+	t.Run("polling_state_string", func(t *testing.T) {
+		t.Parallel()
+		assert.Equal(t, "stopped", PollingStopped.String())
+		assert.Equal(t, "polling", PollingActive.String())
+		assert.Equal(t, "unknown", PollingState(99).String())
+	})
 
-	// ConfirmationType String
-	assert.Equal(t, "generic", ConfTypeGeneric.String())
-	assert.Equal(t, "trade", ConfTypeTrade.String())
-	assert.Equal(t, "market", ConfTypeMarket.String())
-	assert.Equal(t, "login", ConfTypeLogin.String())
-	assert.Equal(t, "account_change", ConfTypeAccountChange.String())
-	assert.Equal(t, "unknown", ConfirmationType(99).String())
+	t.Run("device_id_masking", func(t *testing.T) {
+		t.Parallel()
+		assert.Contains(t, maskDeviceID("android:123456789"), "andr...")
+		assert.Equal(t, "****", maskDeviceID("short"))
+	})
+
+	t.Run("confirmation_type_string", func(t *testing.T) {
+		t.Parallel()
+		assert.Equal(t, "generic", ConfTypeGeneric.String())
+		assert.Equal(t, "trade", ConfTypeTrade.String())
+		assert.Equal(t, "market", ConfTypeMarket.String())
+		assert.Equal(t, "login", ConfTypeLogin.String())
+		assert.Equal(t, "account_change", ConfTypeAccountChange.String())
+		assert.Equal(t, "unknown", ConfirmationType(99).String())
+	})
 }
 
-func TestClock(t *testing.T) {
-	oc := &OffsetClock{}
-	oc.SetOffset(10 * time.Second)
-	assert.WithinDuration(t, time.Now().Add(10*time.Second), oc.Now(), 2*time.Second)
+func TestClock_OffsetAndSystem_ReturnsTimeWithinLimits(t *testing.T) {
+	t.Parallel()
 
-	sc := SystemClock{}
-	assert.WithinDuration(t, time.Now(), sc.Now(), 2*time.Second)
+	t.Run("offset_clock", func(t *testing.T) {
+		t.Parallel()
+
+		oc := &OffsetClock{}
+		oc.SetOffset(10 * time.Second)
+		assert.WithinDuration(t, time.Now().Add(10*time.Second), oc.Now(), 2*time.Second)
+	})
+
+	t.Run("system_clock", func(t *testing.T) {
+		t.Parallel()
+
+		sc := SystemClock{}
+		assert.WithinDuration(t, time.Now(), sc.Now(), 2*time.Second)
+	})
 }
 
-func TestConfig_Validate_Errors(t *testing.T) {
-	cfg := Config{IdentitySecret: validSecret, DeviceID: ""}
-	assert.ErrorContains(t, cfg.Validate(), "device ID is required")
+func TestConfirmation_ExpiryCalculation_ReportsCorrectTimeAndString(t *testing.T) {
+	t.Parallel()
 
-	cfg2 := Config{IdentitySecret: validSecret, DeviceID: "pc:123"}
-	assert.ErrorContains(t, cfg2.Validate(), "must start with 'android:' or 'ios:'")
+	t.Run("expiry_calculation", func(t *testing.T) {
+		t.Parallel()
 
-	cfg3 := Config{IdentitySecret: "", DeviceID: "android:123"}
-	assert.ErrorContains(t, cfg3.Validate(), "identity secret is required")
+		c := &Confirmation{
+			ID:    1,
+			Title: "Trade offer to accept",
+			Time:  "12:34",
+			Type:  ConfTypeTrade,
+		}
+		assert.Equal(t, 2*time.Minute, c.TimeRemaining())
+		assert.False(t, c.IsExpired())
 
-	assert.Equal(t, "GuardConfig{DeviceID: andr...2345}", Config{DeviceID: "android:12345"}.String())
+		c.expiresAt = time.Now().Add(-10 * time.Second)
+		assert.True(t, c.IsExpired())
+		assert.Less(t, c.TimeRemaining(), time.Duration(0))
+
+		assert.Contains(t, c.String(), "Confirmation{ID=1, Type=trade, Title=\"Trade offer to ac...\", ExpiresIn=")
+	})
 }
 
-func TestConfirmationModel(t *testing.T) {
-	c := &Confirmation{
-		ID:    1,
-		Title: "Trade offer to accept",
-		Time:  "12:34",
-		Type:  ConfTypeTrade,
-	}
-	assert.Equal(t, 2*time.Minute, c.TimeRemaining())
-	assert.False(t, c.IsExpired())
+func TestInit_InvalidStartAuthedOrConfig_ReturnsExpectedErrors(t *testing.T) {
+	t.Parallel()
 
-	c.expiresAt = time.Now().Add(-10 * time.Second)
-	assert.True(t, c.IsExpired())
-	assert.Less(t, c.TimeRemaining(), time.Duration(0))
+	t.Run("start_authed_failure", func(t *testing.T) {
+		t.Parallel()
 
-	assert.Contains(t, c.String(), "Confirmation{ID=1, Type=trade, Title=\"Trade offer to ac...\", ExpiresIn=")
+		g := &Guardian{}
+		err := g.StartAuthed(t.Context(), nilCommunityAuthContext{})
+		assert.ErrorContains(t, err, "community client is required")
+	})
+
+	t.Run("new_validation_failure", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := New(Config{})
+		assert.Error(t, err)
+	})
 }
 
-type nilCommunityAuthContext struct {
-	module.AuthContext
-}
+func TestMetrics_Always_ReturnsNonNilMetrics(t *testing.T) {
+	t.Parallel()
 
-func (nilCommunityAuthContext) Community() community.Requester { return nil }
-func (nilCommunityAuthContext) SteamID() id.ID                 { return 0 }
-
-func TestGuardian_StartAuthed_Failure(t *testing.T) {
-	g := &Guardian{}
-	err := g.StartAuthed(context.Background(), nilCommunityAuthContext{})
-	assert.ErrorContains(t, err, "community client is required")
-}
-
-func TestGuardian_New_ValidationFailure(t *testing.T) {
-	_, err := New(Config{})
-	assert.Error(t, err)
-}
-
-func TestGuardian_FetchConfirmations_Errors(t *testing.T) {
-	g := &Guardian{}
-	// service nil
-	_, err := g.FetchConfirmations(context.Background())
-	assert.ErrorIs(t, err, ErrNotAuthenticated)
-}
-
-func TestGuardian_Metrics(t *testing.T) {
 	g := &Guardian{metrics: &GuardianMetrics{}}
 	assert.NotNil(t, g.Metrics())
 }
 
-func TestGuardian_GenerateAuthCode(t *testing.T) {
+func TestGenerateAuthCode_WithOrWithoutSecret_GeneratesExpectedCode(t *testing.T) {
+	t.Parallel()
+
 	g := &Guardian{clock: &OffsetClock{}}
-	// Empty shared secret
 	code, err := g.GenerateAuthCode()
 	assert.NoError(t, err)
 	assert.Empty(t, code)
@@ -305,11 +631,57 @@ func TestGuardian_GenerateAuthCode(t *testing.T) {
 	assert.NotEmpty(t, code)
 }
 
-func TestGuardian_FetchConfirmations_InvalidSecret(t *testing.T) {
-	cfg := Config{IdentitySecret: "invalid-b64-!!!", DeviceID: "android:123"}
-	g, _, _ := setupGuardian(t, cfg)
-	g.steamID = id.ID(123)
+func TestFetchAndAccept_RateLimiterWithCanceledContext_ReturnsCanceledError(t *testing.T) {
+	t.Parallel()
 
-	_, err := g.FetchConfirmations(context.Background())
-	assert.ErrorContains(t, err, "key generation")
+	t.Run("fetch_confirmations_timeout", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := defaultValidConfig()
+		cfg.RateLimit = time.Hour
+
+		g, _, _ := setupAuthenticatedGuardian(t, cfg, id.ID(123))
+
+		ctx, cancel := context.WithCancel(t.Context())
+		cancel()
+
+		_, err := g.FetchConfirmations(ctx)
+		assert.Error(t, err)
+	})
+
+	t.Run("accept_confirmation_timeout", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := defaultValidConfig()
+		cfg.RateLimit = time.Hour
+
+		g, _, _ := setupAuthenticatedGuardian(t, cfg, id.ID(123))
+
+		ctx, cancel := context.WithCancel(t.Context())
+		cancel()
+
+		err := g.Accept(ctx, &Confirmation{})
+		assert.Error(t, err)
+	})
 }
+
+func TestTwoFactorService_QueryErrors_HandlesGracefullyWithoutPanic(t *testing.T) {
+	t.Parallel()
+
+	g := &Guardian{
+		clock: &OffsetClock{},
+	}
+	g.twoFactorSvc = lazy.New(func() (*TwoFactorService, error) {
+		return nil, errors.New("lazy fetch error")
+	})
+
+	g.synchronizeTimeOffset(t.Context())
+	g.logGuardStatus(t.Context(), nilCommunityAuthContext{})
+}
+
+type nilCommunityAuthContext struct {
+	module.AuthContext
+}
+
+func (nilCommunityAuthContext) Community() community.Requester { return nil }
+func (nilCommunityAuthContext) SteamID() id.ID                 { return 0 }

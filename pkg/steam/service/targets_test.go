@@ -18,7 +18,11 @@ import (
 )
 
 func TestUnifiedTarget(t *testing.T) {
+	t.Parallel()
+
 	t.Run("Formatting and Setters", func(t *testing.T) {
+		t.Parallel()
+
 		target := &UnifiedTarget{
 			Interface: "Player",
 			Method:    "GetNickname",
@@ -38,6 +42,8 @@ func TestUnifiedTarget(t *testing.T) {
 	})
 
 	t.Run("HTTPPath Logic", func(t *testing.T) {
+		t.Parallel()
+
 		tests := []struct {
 			name      string
 			iface     string
@@ -84,6 +90,8 @@ func TestUnifiedTarget(t *testing.T) {
 	})
 
 	t.Run("EMsg Branching", func(t *testing.T) {
+		t.Parallel()
+
 		u := &UnifiedTarget{}
 		assert.Equal(t, enums.EMsg_ServiceMethodCallFromClient, u.EMsg(true))
 		assert.Equal(t, enums.EMsg_ServiceMethodCallFromClientNonAuthed, u.EMsg(false))
@@ -91,7 +99,11 @@ func TestUnifiedTarget(t *testing.T) {
 }
 
 func TestNewUnifiedRequest(t *testing.T) {
+	t.Parallel()
+
 	t.Run("Nil Message", func(t *testing.T) {
+		t.Parallel()
+
 		req, err := NewUnifiedRequest("POST", "I", "M", 1, nil)
 		require.NoError(t, err)
 
@@ -100,6 +112,8 @@ func TestNewUnifiedRequest(t *testing.T) {
 	})
 
 	t.Run("Proto Message", func(t *testing.T) {
+		t.Parallel()
+
 		msg := &emptypb.Empty{}
 		req, err := NewUnifiedRequest("POST", "I", "M", 1, msg)
 		require.NoError(t, err)
@@ -110,6 +124,8 @@ func TestNewUnifiedRequest(t *testing.T) {
 	})
 
 	t.Run("Byte Slice", func(t *testing.T) {
+		t.Parallel()
+
 		raw := []byte{0xDE, 0xAD}
 		req, err := NewUnifiedRequest("POST", "I", "M", 1, raw)
 		require.NoError(t, err)
@@ -119,6 +135,8 @@ func TestNewUnifiedRequest(t *testing.T) {
 	})
 
 	t.Run("JSON Struct", func(t *testing.T) {
+		t.Parallel()
+
 		data := struct{ ID int }{ID: 10}
 		req, err := NewUnifiedRequest("POST", "I", "M", 1, data)
 		require.NoError(t, err)
@@ -129,7 +147,8 @@ func TestNewUnifiedRequest(t *testing.T) {
 	})
 
 	t.Run("JSON Error", func(t *testing.T) {
-		// Channels cannot be marshaled to JSON
+		t.Parallel()
+
 		_, err := NewUnifiedRequest("POST", "I", "M", 1, make(chan int))
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to encode unified body")
@@ -137,6 +156,8 @@ func TestNewUnifiedRequest(t *testing.T) {
 }
 
 func TestWebAPITarget(t *testing.T) {
+	t.Parallel()
+
 	w := &WebAPITarget{
 		HttpMethod: "GET",
 		Interface:  "ISteamUser",
@@ -147,6 +168,7 @@ func TestWebAPITarget(t *testing.T) {
 	assert.Equal(t, "ISteamUser/GetPlayer", w.String())
 	assert.Equal(t, "GET", w.HTTPMethod())
 	assert.Equal(t, "ISteamUser/GetPlayer/v2", w.HTTPPath())
+	assert.Equal(t, "ISteamUser/GetPlayer", w.ObjectName())
 
 	w.SetHTTPMethod("POST")
 	assert.Equal(t, "POST", w.HttpMethod)
@@ -156,7 +178,11 @@ func TestWebAPITarget(t *testing.T) {
 }
 
 func TestLegacyTarget(t *testing.T) {
+	t.Parallel()
+
 	t.Run("NewLegacyRequest Success", func(t *testing.T) {
+		t.Parallel()
+
 		msg := &emptypb.Empty{}
 		req, err := NewLegacyRequest(enums.EMsg_ClientLogon, msg)
 		require.NoError(t, err)
@@ -172,6 +198,8 @@ func TestLegacyTarget(t *testing.T) {
 	})
 
 	t.Run("NewLegacyRequest Nil Message", func(t *testing.T) {
+		t.Parallel()
+
 		req, err := NewLegacyRequest(enums.EMsg_ClientLogon, nil)
 		require.NoError(t, err)
 

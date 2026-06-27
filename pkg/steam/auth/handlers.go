@@ -125,8 +125,6 @@ func (a *Authenticator) handleLogOnResponse(packet *protocol.Packet) {
 
 		a.failLogin(service.NewEResultError(res, nil))
 
-		a.bus.Publish(&LoggedOffEvent{Result: res})
-
 		return
 	}
 
@@ -182,11 +180,6 @@ func (a *Authenticator) handleLoggedOff(packet *protocol.Packet) {
 	}
 
 	a.setState(StateDisconnected)
-
-	// Propagate the logoff event to other modules
-	a.bus.Publish(&LoggedOffEvent{
-		Result: res,
-	})
 }
 
 // sendLogOn constructs and sends the ClientLogon message.

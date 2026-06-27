@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package connector handles the connection to the Steam network, including authentication and session management.
 package connector
 
 import (
@@ -366,7 +367,7 @@ func (c *Connector) handleDisconnect(closedConn network.Connection) {
 	c.conn = nil
 	policy := c.cfg.ReconnectPolicy
 
-	if c.ctx.Err() != nil || policy.MaxAttempts <= 0 {
+	if c.ctx.Err() != nil || policy.MaxAttempts < 0 {
 		c.mu.Unlock()
 		return
 	}

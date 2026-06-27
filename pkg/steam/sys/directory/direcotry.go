@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package directory provides a client for the ISteamDirectory WebAPI,
-// which is used to discover Steam Connection Manager (CM) servers.
 package directory
 
 import (
@@ -17,6 +15,7 @@ import (
 )
 
 // CMServer represents a Steam Connection Manager server endpoint with load metrics.
+// Instances of this struct are returned by [Service.GetCMListForConnect].
 type CMServer struct {
 	// Endpoint is the primary host and port address of the server.
 	Endpoint string `json:"endpoint"`
@@ -35,6 +34,7 @@ type CMServer struct {
 }
 
 // CMCfg holds parameters for filtering the CM server list.
+// Pass this configuration structure to [Service.GetCMListForConnect] to restrict endpoints.
 type CMCfg struct {
 	// CellID is the geographical location ID of the client.
 	CellID uint32
@@ -47,14 +47,14 @@ type CMCfg struct {
 }
 
 // Service orchestrates requests to the ISteamDirectory interface.
-//
 // It provides standard methods for retrieving Connection Manager endpoints.
 // Create new instances of Service using the [New] constructor.
 type Service struct {
 	client service.Doer
 }
 
-// New initializes a new DirectoryService with the provided transport client.
+// New initializes a new [Service] with the provided [service.Doer] client.
+// It will panic if the provided client argument is nil.
 func New(client service.Doer) *Service {
 	return &Service{
 		client: client,
@@ -62,7 +62,8 @@ func New(client service.Doer) *Service {
 }
 
 // GetCMList returns the complete list of TCP and WebSocket servers as raw strings.
-// CellID and MaxCount can be used for geographical optimization and limiting.
+// If cellID or maxCount are set to 0, they are omitted from the WebAPI query parameters.
+// It returns an error if the underlying network transport fails or if the context is cancelled.
 func (d *Service) GetCMList(ctx context.Context, cellID, maxCount uint32) ([]string, []string, error) {
 	req := struct {
 		CellID   uint32 `url:"cellid"`
@@ -82,7 +83,9 @@ func (d *Service) GetCMList(ctx context.Context, cellID, maxCount uint32) ([]str
 	return resp.ServerList, resp.ServerListWebsockets, nil
 }
 
-// GetCMListForConnect returns a detailed list of CM servers suitable for establishing a connection.
+// GetCMListForConnect returns a detailed list of [CMServer] endpoints suitable for establishing a connection.
+// If the [CMCfg] structure is empty, it returns a generic unfiltered list of active servers.
+// It returns an error if the underlying network transport fails or if the context is cancelled.
 func (d *Service) GetCMListForConnect(ctx context.Context, cfg CMCfg) ([]CMServer, error) {
 	req := struct {
 		CellID   uint32 `url:"cellid,omitempty"`
@@ -104,8 +107,8 @@ func (d *Service) GetCMListForConnect(ctx context.Context, cfg CMCfg) ([]CMServe
 }
 
 // GetOptimalCMServer discovers available servers and returns the one with the lowest reported load.
-//
-// It returns an error if the WebAPI call fails, or if Steam returns an empty list of servers.
+// It returns a [socket.CMServer] endpoint populated with connection metrics.
+// It returns an error if the WebAPI call fails, if the context is cancelled, or if Steam returns an empty list.
 func (d *Service) GetOptimalCMServer(ctx context.Context) (socket.CMServer, error) {
 	cmList, err := d.GetCMListForConnect(ctx, CMCfg{})
 	if err != nil {
@@ -138,6 +141,7 @@ func (d *Service) GetOptimalCMServer(ctx context.Context) (socket.CMServer, erro
 }
 
 // GetSteamPipeDomains returns a list of domains used by Steam's content delivery system (SteamPipe).
+// It returns an error if the underlying network transport fails or if the context is cancelled.
 func (d *Service) GetSteamPipeDomains(ctx context.Context) ([]string, error) {
 	type respStruct struct {
 		DomainList []string `json:"domainlist"`

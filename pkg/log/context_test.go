@@ -6,7 +6,6 @@ package log_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"testing"
 
@@ -16,16 +15,16 @@ import (
 )
 
 func TestCorrelationID(t *testing.T) {
-	ctx := context.Background()
+	t.Parallel()
 
-	// Initially, should not contain any correlation ID
+	ctx := t.Context()
+
 	id, ok := log.CorrelationID(ctx)
 	assert.False(t, ok)
 	assert.Empty(t, id)
 
-	// Inject and retrieve
 	testID := log.GenerateCorrelationID()
-	assert.Len(t, testID, 32) // 16 bytes hex is 32 characters
+	assert.Len(t, testID, 32)
 
 	ctx = log.WithCorrelationID(ctx, testID)
 	id, ok = log.CorrelationID(ctx)
@@ -34,6 +33,8 @@ func TestCorrelationID(t *testing.T) {
 }
 
 func TestContextLogger_TextFormatting(t *testing.T) {
+	t.Parallel()
+
 	buf := new(bytes.Buffer)
 	cfg := log.DefaultConfig(log.LevelDebug)
 	cfg.Output = buf
@@ -44,11 +45,10 @@ func TestContextLogger_TextFormatting(t *testing.T) {
 	defer func() { _ = logger.Close() }()
 
 	testID := "test-text-correlation-id"
-	ctx := log.WithCorrelationID(context.Background(), testID)
+	ctx := log.WithCorrelationID(t.Context(), testID)
 
 	logger.InfoContext(ctx, "hello from context message", log.String("custom_field", "value"))
 
-	// Close to flush queue
 	_ = logger.Close()
 
 	logOutput := buf.String()
@@ -58,6 +58,8 @@ func TestContextLogger_TextFormatting(t *testing.T) {
 }
 
 func TestContextLogger_JSONFormatting(t *testing.T) {
+	t.Parallel()
+
 	buf := new(bytes.Buffer)
 	cfg := log.DefaultConfig(log.LevelDebug)
 	cfg.Output = buf
@@ -67,17 +69,15 @@ func TestContextLogger_JSONFormatting(t *testing.T) {
 	defer func() { _ = logger.Close() }()
 
 	testID := "test-json-correlation-id"
-	ctx := log.WithCorrelationID(context.Background(), testID)
+	ctx := log.WithCorrelationID(t.Context(), testID)
 
 	logger.ErrorContext(ctx, "an error has occurred", log.String("custom_field", "value"))
 
-	// Close to flush queue
 	_ = logger.Close()
 
 	logOutput := buf.String()
 	assert.NotEmpty(t, logOutput)
 
-	// Parse JSON
 	var logMap map[string]any
 
 	err := json.Unmarshal(buf.Bytes(), &logMap)

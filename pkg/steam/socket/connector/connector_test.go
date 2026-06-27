@@ -2,456 +2,703 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package connector_test
+package connector
 
 import (
 	"context"
 	"errors"
 	"net/http"
-	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/network"
-	"github.com/lemon4ksan/g-man/pkg/steam/socket/connector"
 )
 
-type mockConnection struct {
-	network.BaseConnection
-	sendFunc      func(ctx context.Context, data []byte) error
-	closeFunc     func() error
-	setCipherFunc func(c network.Cipher) bool
-
-	msgChan    chan network.NetMessage
-	errChan    chan error
-	closedChan chan struct{}
+type MockConnection struct {
+	id       int64
+	name     string
+	messages chan network.Message
+	errors   chan error
+	closed   chan struct{}
+	sent     chan []byte
+	closeErr error
+	sendErr  error
 }
 
-func newMockConnection() *mockConnection {
-	return &mockConnection{
-		msgChan:    make(chan network.NetMessage, 10),
-		errChan:    make(chan error, 10),
-		closedChan: make(chan struct{}),
+func (m *MockConnection) ID() int64                        { return m.id }
+func (m *MockConnection) Name() string                     { return m.name }
+func (m *MockConnection) Messages() <-chan network.Message { return m.messages }
+func (m *MockConnection) Errors() <-chan error             { return m.errors }
+func (m *MockConnection) Closed() <-chan struct{}          { return m.closed }
+
+func (m *MockConnection) Close() error {
+	close(m.closed)
+	return m.closeErr
+}
+
+func (m *MockConnection) Send(ctx context.Context, data []byte) error {
+	if m.sendErr != nil {
+		return m.sendErr
+	}
+
+	select {
+	case m.sent <- data:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 }
 
-func (m *mockConnection) Send(ctx context.Context, data []byte) error { return m.sendFunc(ctx, data) }
-func (m *mockConnection) Close() error                                { return m.closeFunc() }
-func (m *mockConnection) Name() string                                { return "mock" }
-func (m *mockConnection) SetCipher(c network.Cipher) bool             { return m.setCipherFunc(c) }
-func (m *mockConnection) Messages() <-chan network.NetMessage         { return m.msgChan }
-func (m *mockConnection) Errors() <-chan error                        { return m.errChan }
-func (m *mockConnection) Closed() <-chan struct{}                     { return m.closedChan }
+type MockEncryptableConn struct {
+	MockConnection
+	Cipher any
+}
 
-func TestConnector_Initialization(t *testing.T) {
-	c := connector.New(connector.DefaultConfig(), log.Discard)
-	defer c.Close()
+func (m *MockEncryptableConn) SetCipher(cipher network.Cipher) bool {
+	m.Cipher = cipher
+	return true
+}
 
-	assert.NotNil(t, c)
+func TestConnectorError(t *testing.T) {
+	t.Parallel()
+
+	err := &connectorError{msg: "test_error", retriable: true}
+	assert.Equal(t, "test_error", err.Error())
+	assert.True(t, err.IsRetriable())
+}
+
+func TestConfig_Defaults(t *testing.T) {
+	t.Parallel()
+
+	cfg := DefaultConfig()
+	assert.NotNil(t, cfg.Dialers)
+	assert.NotNil(t, cfg.ReconnectPolicy)
+	assert.Equal(t, 20*time.Second, cfg.ConnectTimeout)
+
+	policy := DefaultReconnectPolicy()
+	assert.Equal(t, 0, policy.MaxAttempts)
+	assert.Equal(t, 1*time.Second, policy.InitialBackoff)
+	assert.Equal(t, 30*time.Second, policy.MaxBackoff)
+	assert.Equal(t, 2.0, policy.BackoffFactor)
+	assert.NotNil(t, policy.ServerSelector)
+
+	servers := []CMServer{{Endpoint: "a"}, {Endpoint: "b"}}
+	selected := policy.ServerSelector(servers)
+	assert.NotEmpty(t, selected.Endpoint)
+
+	selectedEmpty := policy.ServerSelector(nil)
+	assert.Empty(t, selectedEmpty.Endpoint)
+
+	dialers := DefaultDialers()
+	assert.NotNil(t, dialers["tcp"])
+	assert.NotNil(t, dialers["netfilter"])
+	assert.NotNil(t, dialers["websockets"])
+}
+
+func TestConnector_Lifecycle(t *testing.T) {
+	t.Parallel()
+
+	t.Run("new_lifecycle", func(t *testing.T) {
+		t.Parallel()
+
+		c := New(DefaultConfig(), log.Discard)
+		assert.NotNil(t, c.Done())
+		assert.NotNil(t, c.C())
+		assert.False(t, c.IsConnected())
+
+		c.UpdateLogger(log.Discard)
+
+		err := c.Close()
+		assert.NoError(t, err)
+		assert.True(t, c.closed.Load())
+	})
 }
 
 func TestConnector_Connect(t *testing.T) {
-	t.Run("Successful Connection", func(t *testing.T) {
-		var conn *mockConnection
+	t.Parallel()
 
-		dialers := map[string]connector.Dialer{
-			"mock": func(ctx context.Context, l log.Logger, ep, _ string, _ http.Header) (network.Connection, error) {
-				if conn == nil {
-					conn = newMockConnection()
-					conn.closeFunc = func() error { return nil }
-				}
+	t.Run("unsupported_protocol", func(t *testing.T) {
+		t.Parallel()
 
-				return conn, nil
-			},
+		c := New(DefaultConfig(), log.Discard)
+		err := c.Connect(t.Context(), CMServer{Type: "udp", Endpoint: "1.1.1.1"})
+		assert.ErrorIs(t, err, ErrUnsupportedType)
+	})
+
+	t.Run("already_connecting", func(t *testing.T) {
+		t.Parallel()
+
+		c := New(DefaultConfig(), log.Discard)
+		c.isConnecting.Store(true)
+
+		err := c.Connect(t.Context(), CMServer{Type: "tcp", Endpoint: "1.1.1.1"})
+		assert.ErrorIs(t, err, ErrAlreadyConnecting)
+	})
+
+	t.Run("dialer_failure", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := DefaultConfig()
+		cfg.Dialers["tcp"] = func(ctx context.Context, logger log.Logger, endpoint, proxyURL string, headers http.Header) (network.Connection, error) {
+			return nil, errors.New("dial fail")
 		}
 
-		cfg := connector.DefaultConfig()
-		cfg.Dialers = dialers
+		c := New(cfg, log.Discard)
+		err := c.Connect(t.Context(), CMServer{Type: "tcp", Endpoint: "1.1.1.1"})
+		assert.ErrorContains(t, err, "dial fail")
+	})
 
-		c := connector.New(cfg, log.Discard)
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 
-		err := c.Connect(context.Background(), connector.CMServer{Type: "mock", Endpoint: "localhost"})
+		cfg := DefaultConfig()
+		mockConn := &MockEncryptableConn{
+			MockConnection: MockConnection{
+				id:       1,
+				name:     "tcp",
+				messages: make(chan network.Message, 1),
+				errors:   make(chan error, 1),
+				closed:   make(chan struct{}),
+				sent:     make(chan []byte, 1),
+			},
+		}
+		cfg.Dialers["tcp"] = func(ctx context.Context, logger log.Logger, endpoint, proxyURL string, headers http.Header) (network.Connection, error) {
+			return mockConn, nil
+		}
+
+		c := New(cfg, log.Discard)
+		err := c.Connect(t.Context(), CMServer{Type: "tcp", Endpoint: "1.1.1.1"})
+		require.NoError(t, err)
+		assert.True(t, c.IsConnected())
+
+		err = c.Close()
 		assert.NoError(t, err)
-
-		// Re-connect should close previous
-		closed := atomic.Bool{}
-		conn.closeFunc = func() error { closed.Store(true); return nil }
-
-		err = c.Connect(context.Background(), connector.CMServer{Type: "mock", Endpoint: "localhost:2"})
-		assert.NoError(t, err)
-		assert.True(t, closed.Load())
-	})
-
-	t.Run("Unsupported Type", func(t *testing.T) {
-		c := connector.New(connector.DefaultConfig(), log.Discard)
-		err := c.Connect(context.Background(), connector.CMServer{Type: "invalid"})
-		assert.ErrorIs(t, err, connector.ErrUnsupportedType)
-	})
-
-	t.Run("Dialer Error", func(t *testing.T) {
-		dialers := map[string]connector.Dialer{
-			"fail": func(ctx context.Context, l log.Logger, ep, _ string, _ http.Header) (network.Connection, error) {
-				return nil, errors.New("dial failed")
-			},
-		}
-		cfg := connector.DefaultConfig()
-		cfg.Dialers = dialers
-		c := connector.New(cfg, log.Discard)
-
-		err := c.Connect(context.Background(), connector.CMServer{Type: "fail"})
-		assert.ErrorContains(t, err, "dial failed")
-	})
-
-	t.Run("Concurrent Connection Attempt", func(t *testing.T) {
-		start := make(chan struct{})
-		dialers := map[string]connector.Dialer{
-			"slow": func(ctx context.Context, l log.Logger, ep, _ string, _ http.Header) (network.Connection, error) {
-				<-start
-				return newMockConnection(), nil
-			},
-		}
-		cfg := connector.DefaultConfig()
-		cfg.Dialers = dialers
-		c := connector.New(cfg, log.Discard)
-
-		go func() { _ = c.Connect(context.Background(), connector.CMServer{Type: "slow"}) }()
-
-		time.Sleep(20 * time.Millisecond) // Let it enter the dialer
-
-		err := c.Connect(context.Background(), connector.CMServer{Type: "slow"})
-		assert.ErrorIs(t, err, connector.ErrAlreadyConnecting)
-
-		close(start) // Cleanup
 	})
 }
 
 func TestConnector_Send(t *testing.T) {
-	c := connector.New(connector.DefaultConfig(), log.Discard)
+	t.Parallel()
 
-	// Send when disconnected
-	err := c.Send(context.Background(), []byte("hi"))
-	assert.ErrorIs(t, err, connector.ErrDisconnected)
+	t.Run("send_on_closed", func(t *testing.T) {
+		t.Parallel()
 
-	// Send when connected
-	sent := atomic.Bool{}
+		c := New(DefaultConfig(), log.Discard)
+		_ = c.Close()
 
-	var conn *mockConnection
+		err := c.Send(t.Context(), []byte("data"))
+		assert.ErrorIs(t, err, ErrClosed)
+	})
 
-	dialers := map[string]connector.Dialer{
-		"mock": func(ctx context.Context, l log.Logger, ep, _ string, _ http.Header) (network.Connection, error) {
-			if conn == nil {
-				conn = newMockConnection()
-				conn.sendFunc = func(ctx context.Context, data []byte) error {
-					sent.Store(true)
-					return nil
-				}
-			}
+	t.Run("send_on_disconnected", func(t *testing.T) {
+		t.Parallel()
 
-			return conn, nil
-		},
-	}
-	cfg := connector.DefaultConfig()
-	cfg.Dialers = dialers
-	c = connector.New(cfg, log.Discard)
-	_ = c.Connect(context.Background(), connector.CMServer{Type: "mock"})
+		c := New(DefaultConfig(), log.Discard)
+		err := c.Send(t.Context(), []byte("data"))
+		assert.ErrorIs(t, err, ErrDisconnected)
+	})
 
-	err = c.Send(context.Background(), []byte("payload"))
-	assert.NoError(t, err)
-	assert.True(t, sent.Load())
-}
+	t.Run("send_success", func(t *testing.T) {
+		t.Parallel()
 
-func TestConnector_Encryption(t *testing.T) {
-	cipherReceived := atomic.Pointer[network.Cipher]{}
-
-	var conn *mockConnection
-
-	dialers := map[string]connector.Dialer{
-		"mock": func(ctx context.Context, l log.Logger, ep, _ string, _ http.Header) (network.Connection, error) {
-			if conn == nil {
-				conn = newMockConnection()
-				conn.setCipherFunc = func(c network.Cipher) bool {
-					cipherReceived.Store(&c)
-					return true
-				}
-			}
-
-			return conn, nil
-		},
-	}
-	cfg := connector.DefaultConfig()
-	cfg.Dialers = dialers
-	c := connector.New(cfg, log.Discard)
-	_ = c.Connect(context.Background(), connector.CMServer{Type: "mock"})
-
-	ok := c.SetEncryptionKey([]byte("secret"))
-	assert.True(t, ok)
-	assert.NotNil(t, cipherReceived.Load())
-}
-
-func TestConnector_ReconnectLoop(t *testing.T) {
-	t.Run("Exhaust Attempts", func(t *testing.T) {
-		dialCount := atomic.Int32{}
-
-		dialers := map[string]connector.Dialer{
-			"fail": func(ctx context.Context, l log.Logger, ep, _ string, _ http.Header) (network.Connection, error) {
-				dialCount.Add(1)
-				return nil, errors.New("perma-fail")
-			},
+		cfg := DefaultConfig()
+		mockConn := &MockConnection{
+			id:       1,
+			name:     "tcp",
+			messages: make(chan network.Message, 1),
+			errors:   make(chan error, 1),
+			closed:   make(chan struct{}),
+			sent:     make(chan []byte, 1),
+		}
+		cfg.Dialers["tcp"] = func(ctx context.Context, logger log.Logger, endpoint, proxyURL string, headers http.Header) (network.Connection, error) {
+			return mockConn, nil
 		}
 
-		policy := connector.DefaultReconnectPolicy()
-		policy.MaxAttempts = 2
-		policy.InitialBackoff = time.Millisecond
-		policy.BackoffFactor = 1.0
-		policy.ServerSelector = func(servers []connector.CMServer) connector.CMServer {
-			return servers[0]
-		}
+		c := New(cfg, log.Discard)
+		err := c.Connect(t.Context(), CMServer{Type: "tcp", Endpoint: "1.1.1.1"})
+		require.NoError(t, err)
 
-		cfg := connector.Config{
-			Dialers:         dialers,
-			ReconnectPolicy: policy,
-			ConnectTimeout:  time.Second,
-		}
-
-		c := connector.New(cfg, log.Discard)
-		c.UpdateServers([]connector.CMServer{{Type: "fail", Endpoint: "ep1"}})
-
-		// Initial connect to set "lastServer"
-		_ = c.Connect(context.Background(), connector.CMServer{Type: "fail", Endpoint: "ep1"})
+		err = c.Send(t.Context(), []byte("hi"))
+		assert.NoError(t, err)
+		assert.Equal(t, []byte("hi"), <-mockConn.sent)
 	})
 }
 
-func TestConnector_Lifecycle(t *testing.T) {
-	c := connector.New(connector.DefaultConfig(), log.Discard)
+func TestConnector_Encryption(t *testing.T) {
+	t.Parallel()
 
-	// Close should be idempotent
-	err := c.Close()
-	assert.NoError(t, err)
-	err = c.Close()
-	assert.NoError(t, err)
+	t.Run("non_encryptable", func(t *testing.T) {
+		t.Parallel()
 
-	// Send after close
-	err = c.Send(context.Background(), []byte("fail"))
-	assert.ErrorIs(t, err, connector.ErrClosed)
+		cfg := DefaultConfig()
+		mockConn := &MockConnection{}
+		cfg.Dialers["tcp"] = func(ctx context.Context, logger log.Logger, endpoint, proxyURL string, headers http.Header) (network.Connection, error) {
+			return mockConn, nil
+		}
+
+		c := New(cfg, log.Discard)
+		err := c.Connect(t.Context(), CMServer{Type: "tcp", Endpoint: "1.1.1.1"})
+		require.NoError(t, err)
+
+		ok := c.SetEncryptionKey([]byte("secret"))
+		assert.False(t, ok)
+	})
+
+	t.Run("encryptable", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := DefaultConfig()
+		mockConn := &MockEncryptableConn{
+			MockConnection: MockConnection{
+				id:       1,
+				name:     "tcp",
+				messages: make(chan network.Message, 1),
+				errors:   make(chan error, 1),
+				closed:   make(chan struct{}),
+				sent:     make(chan []byte, 1),
+			},
+		}
+		cfg.Dialers["tcp"] = func(ctx context.Context, logger log.Logger, endpoint, proxyURL string, headers http.Header) (network.Connection, error) {
+			return mockConn, nil
+		}
+
+		c := New(cfg, log.Discard)
+		err := c.Connect(t.Context(), CMServer{Type: "tcp", Endpoint: "1.1.1.1"})
+		require.NoError(t, err)
+
+		ok := c.SetEncryptionKey([]byte("secret_key_32_bytes_long_1234567"))
+		assert.True(t, ok)
+		assert.NotNil(t, mockConn.Cipher)
+	})
 }
 
-func TestConnector_ErrorsAndHelpers(t *testing.T) {
-	// IsRetriable tests
-	assert.False(t, connector.ErrClosed.IsRetriable())
-	assert.True(t, connector.ErrDisconnected.IsRetriable())
-	assert.True(t, connector.ErrAlreadyConnecting.IsRetriable())
-	assert.False(t, connector.ErrUnsupportedType.IsRetriable())
-	assert.False(t, connector.ErrReconnectionFailed.IsRetriable())
-	assert.Equal(t, "connector: instance is permanently closed", connector.ErrClosed.Error())
+func TestConnector_Disconnect(t *testing.T) {
+	t.Parallel()
 
-	// Accessors
-	c := connector.New(connector.DefaultConfig(), log.Discard)
-	defer c.Close()
+	t.Run("disconnect_unconnected", func(t *testing.T) {
+		t.Parallel()
 
-	assert.NotNil(t, c.Done())
-	assert.NotNil(t, c.C())
-	assert.False(t, c.IsConnected())
+		c := New(DefaultConfig(), log.Discard)
+		err := c.Disconnect()
+		assert.NoError(t, err)
+	})
+
+	t.Run("disconnect_active", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := DefaultConfig()
+		mockConn := &MockConnection{
+			id:       1,
+			name:     "tcp",
+			messages: make(chan network.Message, 1),
+			errors:   make(chan error, 1),
+			closed:   make(chan struct{}),
+			sent:     make(chan []byte, 1),
+		}
+		cfg.Dialers["tcp"] = func(ctx context.Context, logger log.Logger, endpoint, proxyURL string, headers http.Header) (network.Connection, error) {
+			return mockConn, nil
+		}
+
+		c := New(cfg, log.Discard)
+		err := c.Connect(t.Context(), CMServer{Type: "tcp", Endpoint: "1.1.1.1"})
+		require.NoError(t, err)
+
+		err = c.Disconnect()
+		assert.NoError(t, err)
+		assert.False(t, c.IsConnected())
+	})
 }
 
-type nonEncryptableConnection struct {
-	network.BaseConnection
-	msgChan    chan network.NetMessage
-	errChan    chan error
-	closedChan chan struct{}
-}
+func TestConnector_MonitorAndReconnect(t *testing.T) {
+	t.Parallel()
 
-func (m *nonEncryptableConnection) Send(ctx context.Context, data []byte) error { return nil }
-func (m *nonEncryptableConnection) Close() error                                { return nil }
-func (m *nonEncryptableConnection) Name() string                                { return "non-enc" }
-func (m *nonEncryptableConnection) Messages() <-chan network.NetMessage         { return m.msgChan }
-func (m *nonEncryptableConnection) Errors() <-chan error                        { return m.errChan }
-func (m *nonEncryptableConnection) Closed() <-chan struct{}                     { return m.closedChan }
+	t.Run("pipe_inbound_messages", func(t *testing.T) {
+		t.Parallel()
 
-func TestConnector_SetEncryptionKey_Failures(t *testing.T) {
-	dialers := map[string]connector.Dialer{
-		"non-enc": func(ctx context.Context, l log.Logger, ep, _ string, _ http.Header) (network.Connection, error) {
-			conn := &nonEncryptableConnection{
-				msgChan:    make(chan network.NetMessage, 1),
-				errChan:    make(chan error, 1),
-				closedChan: make(chan struct{}),
+		cfg := DefaultConfig()
+		mockConn := &MockConnection{
+			id:       1,
+			name:     "tcp",
+			messages: make(chan network.Message, 1),
+			errors:   make(chan error, 1),
+			closed:   make(chan struct{}),
+			sent:     make(chan []byte, 1),
+		}
+		cfg.Dialers["tcp"] = func(ctx context.Context, logger log.Logger, endpoint, proxyURL string, headers http.Header) (network.Connection, error) {
+			return mockConn, nil
+		}
+
+		c := New(cfg, log.Discard)
+		err := c.Connect(t.Context(), CMServer{Type: "tcp", Endpoint: "1.1.1.1"})
+		require.NoError(t, err)
+
+		mockConn.messages <- []byte("hello")
+
+		select {
+		case inbound := <-c.C():
+			assert.Equal(t, []byte("hello"), inbound.Data)
+			assert.Equal(t, "tcp", string(inbound.Transport))
+		case <-time.After(1 * time.Second):
+			t.Fatal("timeout waiting for piped message")
+		}
+	})
+
+	t.Run("pipe_transport_errors", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := DefaultConfig()
+		mockConn := &MockConnection{
+			id:       1,
+			name:     "tcp",
+			messages: make(chan network.Message, 1),
+			errors:   make(chan error, 1),
+			closed:   make(chan struct{}),
+			sent:     make(chan []byte, 1),
+		}
+		cfg.Dialers["tcp"] = func(ctx context.Context, logger log.Logger, endpoint, proxyURL string, headers http.Header) (network.Connection, error) {
+			return mockConn, nil
+		}
+
+		c := New(cfg, log.Discard)
+		err := c.Connect(t.Context(), CMServer{Type: "tcp", Endpoint: "1.1.1.1"})
+		require.NoError(t, err)
+
+		mockConn.errors <- errors.New("socket read error")
+
+		_ = c.Close()
+	})
+
+	t.Run("reconnect_loop_success", func(t *testing.T) {
+		t.Parallel()
+
+		reconnectAttempts := make(chan struct{}, 1)
+		reconnectFinished := make(chan struct{})
+
+		cfg := DefaultConfig()
+		cfg.ReconnectPolicy = ReconnectPolicy{
+			MaxAttempts:    3,
+			InitialBackoff: 1 * time.Millisecond,
+			MaxBackoff:     5 * time.Millisecond,
+			BackoffFactor:  1.5,
+			ServerSelector: func(servers []CMServer) CMServer {
+				return CMServer{Type: "tcp", Endpoint: "1.1.1.1"}
+			},
+		}
+
+		mockConn := &MockConnection{
+			id:       1,
+			name:     "tcp",
+			messages: make(chan network.Message, 1),
+			errors:   make(chan error, 1),
+			closed:   make(chan struct{}),
+			sent:     make(chan []byte, 1),
+		}
+
+		dialCalls := 0
+		cfg.Dialers["tcp"] = func(ctx context.Context, logger log.Logger, endpoint, proxyURL string, headers http.Header) (network.Connection, error) {
+			dialCalls++
+			if dialCalls == 1 {
+				return mockConn, nil
 			}
 
-			return conn, nil
-		},
-	}
-	cfg := connector.DefaultConfig()
-	cfg.Dialers = dialers
-
-	c := connector.New(cfg, log.Discard)
-	defer c.Close()
-
-	// Before connect
-	assert.False(t, c.SetEncryptionKey([]byte("secret")))
-
-	// After connect
-	err := c.Connect(context.Background(), connector.CMServer{Type: "non-enc", Endpoint: "localhost"})
-	assert.NoError(t, err)
-	assert.False(t, c.SetEncryptionKey([]byte("secret")))
-}
-
-func TestConnector_Disconnect_Coverage(t *testing.T) {
-	c := connector.New(connector.DefaultConfig(), log.Discard)
-	// Disconnect when not connected
-	assert.NoError(t, c.Disconnect())
-}
-
-func TestConnector_ReconnectionAndMonitoring(t *testing.T) {
-	// Reconnection loop execution and monitoring error channels
-	dialCount := atomic.Int32{}
-
-	var conn *mockConnection
-
-	dialers := map[string]connector.Dialer{
-		"mock": func(ctx context.Context, l log.Logger, ep, _ string, _ http.Header) (network.Connection, error) {
-			count := dialCount.Add(1)
-			if count == 1 {
-				conn = newMockConnection()
-				conn.closeFunc = func() error { return nil }
-				return conn, nil
+			select {
+			case reconnectAttempts <- struct{}{}:
+			default:
 			}
 
-			// Subsequent reconnects fail
-			return nil, errors.New("reconnect fail")
-		},
-	}
+			reconnectedConn := &MockConnection{
+				id:       2,
+				name:     "tcp",
+				messages: make(chan network.Message, 1),
+				errors:   make(chan error, 1),
+				closed:   make(chan struct{}),
+				sent:     make(chan []byte, 1),
+			}
 
-	policy := connector.DefaultReconnectPolicy()
-	policy.MaxAttempts = 3
-	policy.InitialBackoff = time.Millisecond
-	policy.BackoffFactor = 1.0
+			close(reconnectFinished)
 
-	cfg := connector.Config{
-		Dialers:         dialers,
-		ReconnectPolicy: policy,
-		ConnectTimeout:  time.Second,
-	}
+			return reconnectedConn, nil
+		}
 
-	c := connector.New(cfg, log.Discard)
-	defer c.Close()
+		c := New(cfg, log.Discard)
+		c.UpdateServers([]CMServer{{Type: "tcp", Endpoint: "1.1.1.1"}})
 
-	// Set initial server list
-	c.UpdateServers([]connector.CMServer{{Type: "mock", Endpoint: "ep1"}})
+		err := c.Connect(t.Context(), CMServer{Type: "tcp", Endpoint: "1.1.1.1"})
+		require.NoError(t, err)
 
-	err := c.Connect(context.Background(), connector.CMServer{Type: "mock", Endpoint: "ep1"})
-	assert.NoError(t, err)
-	assert.True(t, c.IsConnected())
+		_ = mockConn.Close()
 
-	// Send an error to connection Errors()
-	conn.errChan <- errors.New("mock transport error")
+		select {
+		case <-reconnectAttempts:
+		case <-time.After(1 * time.Second):
+			t.Fatal("timeout waiting for reconnect attempt")
+		}
 
-	// Trigger connection drop
-	close(conn.closedChan)
+		select {
+		case <-reconnectFinished:
+		case <-time.After(1 * time.Second):
+			t.Fatal("timeout waiting for reconnect finish")
+		}
 
-	// Wait for reconnection loop to exhaust attempts (attempts = 3, initial backoff 1ms)
-	time.Sleep(100 * time.Millisecond)
+		assert.True(t, c.IsConnected())
+	})
 
-	assert.False(t, c.IsConnected())
-	assert.GreaterOrEqual(t, dialCount.Load(), int32(3))
-}
+	t.Run("reconnect_loop_exhausted", func(t *testing.T) {
+		t.Parallel()
 
-func TestConnector_MonitorConnection_Channels(t *testing.T) {
-	var conn *mockConnection
+		reconnectAttempts := make(chan struct{}, 2)
 
-	dialers := map[string]connector.Dialer{
-		"mock": func(ctx context.Context, l log.Logger, ep, _ string, _ http.Header) (network.Connection, error) {
-			conn = newMockConnection()
-			conn.closeFunc = func() error { return nil }
-			return conn, nil
-		},
-	}
-	cfg := connector.DefaultConfig()
-	cfg.Dialers = dialers
+		cfg := DefaultConfig()
+		cfg.ReconnectPolicy = ReconnectPolicy{
+			MaxAttempts:    2,
+			InitialBackoff: 1 * time.Millisecond,
+			MaxBackoff:     5 * time.Millisecond,
+			BackoffFactor:  1.5,
+			ServerSelector: func(servers []CMServer) CMServer {
+				return CMServer{Type: "tcp", Endpoint: "1.1.1.1"}
+			},
+		}
 
-	c := connector.New(cfg, log.Discard)
-	defer c.Close()
+		mockConn := &MockConnection{
+			id:       1,
+			name:     "tcp",
+			messages: make(chan network.Message, 1),
+			errors:   make(chan error, 1),
+			closed:   make(chan struct{}),
+			sent:     make(chan []byte, 1),
+		}
 
-	err := c.Connect(context.Background(), connector.CMServer{Type: "mock", Endpoint: "ep"})
-	assert.NoError(t, err)
+		dialCalls := 0
+		cfg.Dialers["tcp"] = func(ctx context.Context, logger log.Logger, endpoint, proxyURL string, headers http.Header) (network.Connection, error) {
+			dialCalls++
+			if dialCalls == 1 {
+				return mockConn, nil
+			}
 
-	// 1. Send valid message
-	conn.msgChan <- []byte("payload")
+			select {
+			case reconnectAttempts <- struct{}{}:
+			default:
+			}
 
-	select {
-	case msg := <-c.C():
-		assert.Equal(t, []byte("payload"), msg.Data)
-	case <-time.After(100 * time.Millisecond):
-		t.Fatal("timeout waiting for message")
-	}
+			return nil, errors.New("reconnect dial failed")
+		}
 
-	// 2. Trigger Messages channel close (!ok)
-	close(conn.msgChan)
-	time.Sleep(20 * time.Millisecond)
+		c := New(cfg, log.Discard)
 
-	// 3. Trigger Errors channel close (!ok)
-	close(conn.errChan)
-	time.Sleep(20 * time.Millisecond)
-}
+		err := c.Connect(t.Context(), CMServer{Type: "tcp", Endpoint: "1.1.1.1"})
+		require.NoError(t, err)
 
-func TestConnector_Reconnection_Interrupt(t *testing.T) {
-	dialCount := atomic.Int32{}
+		_ = mockConn.Close()
 
-	var conn *mockConnection
+		for range 2 {
+			select {
+			case <-reconnectAttempts:
+			case <-time.After(1 * time.Second):
+				t.Fatal("timeout waiting for reconnect attempt to fail")
+			}
+		}
 
-	dialers := map[string]connector.Dialer{
-		"mock": func(ctx context.Context, l log.Logger, ep, _ string, _ http.Header) (network.Connection, error) {
-			dialCount.Add(1)
+		time.Sleep(10 * time.Millisecond)
+		assert.False(t, c.IsConnected())
+	})
 
-			conn = newMockConnection()
-			conn.closeFunc = func() error { return nil }
+	t.Run("handle_disconnect_mismatched_connection", func(t *testing.T) {
+		t.Parallel()
 
-			return conn, nil
-		},
-		"fail": func(ctx context.Context, l log.Logger, ep, _ string, _ http.Header) (network.Connection, error) {
-			dialCount.Add(1)
+		c := New(DefaultConfig(), log.Discard)
+		mockConn1 := &MockConnection{id: 1, closed: make(chan struct{})}
+		mockConn2 := &MockConnection{id: 2, closed: make(chan struct{})}
+
+		c.conn = mockConn1
+		c.handleDisconnect(mockConn2)
+
+		assert.Equal(t, mockConn1, c.conn)
+	})
+
+	t.Run("disconnect_no_reconnect_when_attempts_negative", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := DefaultConfig()
+		cfg.ReconnectPolicy.MaxAttempts = -1
+
+		mockConn := &MockConnection{id: 1, closed: make(chan struct{})}
+		cfg.Dialers["tcp"] = func(ctx context.Context, logger log.Logger, endpoint, proxyURL string, headers http.Header) (network.Connection, error) {
+			return mockConn, nil
+		}
+
+		c := New(cfg, log.Discard)
+		err := c.Connect(t.Context(), CMServer{Type: "tcp", Endpoint: "1.1.1.1"})
+		require.NoError(t, err)
+
+		_ = mockConn.Close()
+
+		time.Sleep(10 * time.Millisecond)
+
+		c.mu.RLock()
+		assert.Nil(t, c.reconnectCancel)
+		assert.Nil(t, c.conn)
+		c.mu.RUnlock()
+	})
+
+	t.Run("disconnect_no_reconnect_when_connector_closed", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := DefaultConfig()
+		cfg.ReconnectPolicy.MaxAttempts = 3
+
+		mockConn := &MockConnection{id: 1, closed: make(chan struct{})}
+		cfg.Dialers["tcp"] = func(ctx context.Context, logger log.Logger, endpoint, proxyURL string, headers http.Header) (network.Connection, error) {
+			return mockConn, nil
+		}
+
+		c := New(cfg, log.Discard)
+		err := c.Connect(t.Context(), CMServer{Type: "tcp", Endpoint: "1.1.1.1"})
+		require.NoError(t, err)
+
+		_ = c.Close()
+
+		c.handleDisconnect(mockConn)
+
+		c.mu.RLock()
+		assert.Nil(t, c.reconnectCancel)
+		c.mu.RUnlock()
+	})
+
+	t.Run("cancel_active_reconnect_before_starting_new", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := DefaultConfig()
+		cfg.ReconnectPolicy.MaxAttempts = 3
+
+		mockConn := &MockConnection{id: 1, closed: make(chan struct{})}
+		cfg.Dialers["tcp"] = func(ctx context.Context, logger log.Logger, endpoint, proxyURL string, headers http.Header) (network.Connection, error) {
+			return mockConn, nil
+		}
+
+		c := New(cfg, log.Discard)
+		err := c.Connect(t.Context(), CMServer{Type: "tcp", Endpoint: "1.1.1.1"})
+		require.NoError(t, err)
+
+		var cancelCalled bool
+
+		c.reconnectCancel = func() {
+			cancelCalled = true
+		}
+
+		c.handleDisconnect(mockConn)
+		assert.True(t, cancelCalled)
+	})
+
+	t.Run("reconnect_loop_terminated_by_context_cancel", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := DefaultConfig()
+		cfg.ReconnectPolicy = ReconnectPolicy{
+			MaxAttempts:    5,
+			InitialBackoff: 100 * time.Millisecond,
+			MaxBackoff:     200 * time.Millisecond,
+			BackoffFactor:  2.0,
+			ServerSelector: func(servers []CMServer) CMServer {
+				return CMServer{Type: "tcp", Endpoint: "1.1.1.1"}
+			},
+		}
+
+		mockConn := &MockConnection{id: 1, closed: make(chan struct{})}
+		cfg.Dialers["tcp"] = func(ctx context.Context, logger log.Logger, endpoint, proxyURL string, headers http.Header) (network.Connection, error) {
+			return nil, errors.New("always fail")
+		}
+
+		c := New(cfg, log.Discard)
+		c.conn = mockConn
+		c.lastServer = CMServer{Type: "tcp", Endpoint: "1.1.1.1"}
+
+		c.handleDisconnect(mockConn)
+
+		c.mu.RLock()
+		assert.NotNil(t, c.reconnectCancel)
+		c.mu.RUnlock()
+
+		c.cancelReconnect()
+
+		time.Sleep(10 * time.Millisecond)
+		assert.False(t, c.IsConnected())
+	})
+
+	t.Run("reconnect_fallback_to_last_server", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := DefaultConfig()
+		cfg.ReconnectPolicy = ReconnectPolicy{
+			MaxAttempts:    1,
+			InitialBackoff: 1 * time.Millisecond,
+			ServerSelector: func(servers []CMServer) CMServer {
+				return CMServer{}
+			},
+		}
+
+		mockConn := &MockConnection{id: 1, closed: make(chan struct{})}
+		dialedLast := false
+		cfg.Dialers["tcp"] = func(ctx context.Context, logger log.Logger, endpoint, proxyURL string, headers http.Header) (network.Connection, error) {
+			if endpoint == "last_endpoint" {
+				dialedLast = true
+			}
+
 			return nil, errors.New("fail")
-		},
-	}
+		}
 
-	policy := connector.DefaultReconnectPolicy()
-	policy.MaxAttempts = 10
-	policy.InitialBackoff = 50 * time.Millisecond
-	policy.BackoffFactor = 2.0
+		c := New(cfg, log.Discard)
+		c.conn = mockConn
+		c.lastServer = CMServer{Type: "tcp", Endpoint: "last_endpoint"}
 
-	cfg := connector.Config{
-		Dialers:         dialers,
-		ReconnectPolicy: policy,
-		ConnectTimeout:  time.Second,
-	}
+		c.handleDisconnect(mockConn)
 
-	c := connector.New(cfg, log.Discard)
-	c.UpdateServers([]connector.CMServer{{Type: "fail", Endpoint: "ep1"}})
+		time.Sleep(10 * time.Millisecond)
+		assert.True(t, dialedLast)
+	})
 
-	err := c.Connect(context.Background(), connector.CMServer{Type: "mock", Endpoint: "ep1"})
-	assert.NoError(t, err)
+	t.Run("reconnect_loop_cancelled_during_backoff", func(t *testing.T) {
+		t.Parallel()
 
-	// Drop connection
-	close(conn.closedChan)
-	time.Sleep(10 * time.Millisecond)
+		cfg := DefaultConfig()
+		cfg.ReconnectPolicy = ReconnectPolicy{
+			MaxAttempts:    5,
+			InitialBackoff: 500 * time.Millisecond,
+			MaxBackoff:     1000 * time.Millisecond,
+			BackoffFactor:  2.0,
+			ServerSelector: func(servers []CMServer) CMServer {
+				return CMServer{Type: "tcp", Endpoint: "1.1.1.1"}
+			},
+		}
 
-	// Close connector while reconnection is waiting/backing off
-	err = c.Close()
-	assert.NoError(t, err)
+		mockConn := &MockConnection{id: 1, closed: make(chan struct{})}
+		dialAttempts := make(chan struct{}, 1)
+		cfg.Dialers["tcp"] = func(ctx context.Context, logger log.Logger, endpoint, proxyURL string, headers http.Header) (network.Connection, error) {
+			select {
+			case dialAttempts <- struct{}{}:
+			default:
+			}
 
-	time.Sleep(100 * time.Millisecond)
-	// Reconnect loop should exit early due to ctx.Done()
-	assert.Less(t, dialCount.Load(), int32(5))
-}
+			return nil, errors.New("fail")
+		}
 
-func TestConnector_DefaultDialers(t *testing.T) {
-	dialers := connector.DefaultDialers()
-	assert.Contains(t, dialers, "tcp")
-	assert.Contains(t, dialers, "netfilter")
-	assert.Contains(t, dialers, "websockets")
+		c := New(cfg, log.Discard)
+		c.conn = mockConn
+		c.lastServer = CMServer{Type: "tcp", Endpoint: "1.1.1.1"}
 
-	assert.NotNil(t, dialers["tcp"])
-	assert.NotNil(t, dialers["netfilter"])
-	assert.NotNil(t, dialers["websockets"])
+		c.handleDisconnect(mockConn)
+
+		select {
+		case <-dialAttempts:
+		case <-time.After(1 * time.Second):
+			t.Fatal("timeout waiting for first dial")
+		}
+
+		c.cancelReconnect()
+
+		time.Sleep(10 * time.Millisecond)
+		assert.False(t, c.IsConnected())
+	})
 }

@@ -5,7 +5,7 @@
 package engine
 
 import (
-	"context"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -18,6 +18,8 @@ import (
 )
 
 func TestEngine_Process_Basic(t *testing.T) {
+	t.Parallel()
+
 	e := New()
 
 	var order []string
@@ -47,7 +49,7 @@ func TestEngine_Process_Basic(t *testing.T) {
 	e.Use(mw1, mw2)
 
 	offer := &trading.TradeOffer{ID: 100}
-	verdict, err := e.Process(context.Background(), offer)
+	verdict, err := e.Process(t.Context(), offer)
 
 	require.NoError(t, err)
 	assert.Equal(t, trading.ActionSkip, verdict.Action) // Default is ActionSkip
@@ -55,6 +57,8 @@ func TestEngine_Process_Basic(t *testing.T) {
 }
 
 func TestEngine_Process_EarlyTermination(t *testing.T) {
+	t.Parallel()
+
 	e := New()
 
 	mw1 := func(next Handler) Handler {
@@ -74,7 +78,7 @@ func TestEngine_Process_EarlyTermination(t *testing.T) {
 	e.Use(mw1, mw2)
 
 	offer := &trading.TradeOffer{ID: 100}
-	verdict, err := e.Process(context.Background(), offer)
+	verdict, err := e.Process(t.Context(), offer)
 
 	require.NoError(t, err)
 	assert.Equal(t, trading.ActionDecline, verdict.Action)
@@ -82,7 +86,9 @@ func TestEngine_Process_EarlyTermination(t *testing.T) {
 }
 
 func TestTradeContext_VerdictMutations(t *testing.T) {
-	ctx := NewTradeContext(context.Background(), &trading.TradeOffer{ID: 100})
+	t.Parallel()
+
+	ctx := NewTradeContext(t.Context(), &trading.TradeOffer{ID: 100})
 
 	// Test default
 	assert.Equal(t, trading.ActionSkip, ctx.Verdict.Action)
@@ -109,32 +115,49 @@ func TestTradeContext_VerdictMutations(t *testing.T) {
 	assert.Equal(t, reason.ReviewInvalidItems, ctx.Verdict.Reason)
 	assert.Equal(t, params, ctx.Verdict.Data)
 
-	// Test Metadata concurrent-safe store/retrieve
-	ctx.Set("test-key", "test-val")
-	val, ok := ctx.Get("test-key")
-	assert.True(t, ok)
-	assert.Equal(t, "test-val", val)
+	t.Run("metadata_operations", func(t *testing.T) {
+		t.Parallel()
+		ctx.Set("test-key", "test-val")
+		val, ok := ctx.Get("test-key")
+		assert.True(t, ok)
+		assert.Equal(t, "test-val", val)
 
-	_, ok = ctx.Get("non-existent")
-	assert.False(t, ok)
+		_, ok = ctx.Get("non-existent")
+		assert.False(t, ok)
+	})
+
+	t.Run("empty_metadata_key", func(t *testing.T) {
+		t.Parallel()
+		ctx.Set("", "value")
+		_, ok := ctx.Get("")
+		assert.False(t, ok)
+	})
 }
 
 func TestTradeContext_Decision(t *testing.T) {
-	t.Run("Accept", func(t *testing.T) {
+	t.Parallel()
+
+	t.Run("accept", func(t *testing.T) {
+		t.Parallel()
+
 		v := Verdict{Action: trading.ActionAccept, Reason: reason.AcceptDonation}
 		d := v.Decision()
 		assert.Equal(t, trading.ActionAccept, d.Action)
 		assert.Equal(t, reason.AcceptDonation.String(), d.Reason)
 	})
 
-	t.Run("Decline", func(t *testing.T) {
+	t.Run("decline", func(t *testing.T) {
+		t.Parallel()
+
 		v := Verdict{Action: trading.ActionDecline, Reason: reason.DeclineBegging}
 		d := v.Decision()
 		assert.Equal(t, trading.ActionDecline, d.Action)
 		assert.Equal(t, reason.DeclineBegging.String(), d.Reason)
 	})
 
-	t.Run("Counter", func(t *testing.T) {
+	t.Run("counter", func(t *testing.T) {
+		t.Parallel()
+
 		params := &trading.CounterParams{}
 		v := Verdict{Action: trading.ActionCounter, Reason: reason.ReviewInvalidItems, Data: params}
 		d := v.Decision()
@@ -143,7 +166,17 @@ func TestTradeContext_Decision(t *testing.T) {
 		assert.Equal(t, reason.ReviewInvalidItems.String(), d.Reason)
 	})
 
-	t.Run("Skip mapping", func(t *testing.T) {
+	t.Run("counter_invalid_data_type", func(t *testing.T) {
+		t.Parallel()
+
+		v := Verdict{Action: trading.ActionCounter, Reason: reason.ReviewInvalidItems, Data: "invalid_type"}
+		d := v.Decision()
+		assert.Equal(t, trading.ActionCounter, d.Action)
+		assert.Nil(t, d.CounterParams)
+	})
+
+	t.Run("skip_mapping", func(t *testing.T) {
+		t.Parallel()
 		// Review/Ignore/Undecided should map to Skip
 		for _, action := range []trading.ActionType{trading.ActionReview, trading.ActionIgnore, ""} {
 			v := Verdict{Action: action, Reason: reason.ReviewOverstocked}
@@ -154,6 +187,8 @@ func TestTradeContext_Decision(t *testing.T) {
 }
 
 func TestRecoverMiddleware(t *testing.T) {
+	t.Parallel()
+
 	logger := log.New(log.DefaultConfig(log.LevelError))
 	e := New()
 	e.Use(RecoverMiddleware(logger))
@@ -166,7 +201,7 @@ func TestRecoverMiddleware(t *testing.T) {
 	e.Use(mwPanic)
 
 	offer := &trading.TradeOffer{ID: 100}
-	verdict, err := e.Process(context.Background(), offer)
+	verdict, err := e.Process(t.Context(), offer)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "panic in trade engine: something went terribly wrong")
@@ -175,18 +210,22 @@ func TestRecoverMiddleware(t *testing.T) {
 }
 
 func TestLoggerMiddleware(t *testing.T) {
+	t.Parallel()
+
 	logger := log.New(log.DefaultConfig(log.LevelError))
 	e := New()
 	e.Use(LoggerMiddleware(logger))
 
 	offer := &trading.TradeOffer{ID: 100}
-	verdict, err := e.Process(context.Background(), offer)
+	verdict, err := e.Process(t.Context(), offer)
 
 	require.NoError(t, err)
 	assert.Equal(t, trading.ActionSkip, verdict.Action)
 }
 
 func TestBlacklistMiddleware(t *testing.T) {
+	t.Parallel()
+
 	blacklist := map[id.ID]struct{}{
 		id.New(12345): {},
 	}
@@ -194,24 +233,32 @@ func TestBlacklistMiddleware(t *testing.T) {
 	e := New()
 	e.Use(BlacklistMiddleware(blacklist))
 
-	t.Run("Blacklisted", func(t *testing.T) {
+	t.Run("blacklisted", func(t *testing.T) {
+		t.Parallel()
+
 		offer := &trading.TradeOffer{ID: 100, OtherSteamID: id.New(12345)}
-		verdict, err := e.Process(context.Background(), offer)
+		verdict, err := e.Process(t.Context(), offer)
 		require.NoError(t, err)
 		assert.Equal(t, trading.ActionDecline, verdict.Action)
 		assert.Equal(t, reason.DeclineBlacklisted, verdict.Reason)
 	})
 
-	t.Run("Allowed", func(t *testing.T) {
+	t.Run("allowed", func(t *testing.T) {
+		t.Parallel()
+
 		offer := &trading.TradeOffer{ID: 100, OtherSteamID: id.New(99999)}
-		verdict, err := e.Process(context.Background(), offer)
+		verdict, err := e.Process(t.Context(), offer)
 		require.NoError(t, err)
 		assert.Equal(t, trading.ActionSkip, verdict.Action) // Allowed passes through
 	})
 }
 
 func TestEmptyOfferMiddleware(t *testing.T) {
-	t.Run("Begging - We give, they receive nothing", func(t *testing.T) {
+	t.Parallel()
+
+	t.Run("begging", func(t *testing.T) {
+		t.Parallel()
+
 		e := New()
 		e.Use(EmptyOfferMiddleware(nil))
 
@@ -222,13 +269,15 @@ func TestEmptyOfferMiddleware(t *testing.T) {
 			ItemsToReceive: nil,
 		}
 
-		verdict, err := e.Process(context.Background(), offer)
+		verdict, err := e.Process(t.Context(), offer)
 		require.NoError(t, err)
 		assert.Equal(t, trading.ActionDecline, verdict.Action)
 		assert.Equal(t, reason.DeclineBegging, verdict.Reason)
 	})
 
-	t.Run("Donation - Untradable item in their donation", func(t *testing.T) {
+	t.Run("donation_untradable_item", func(t *testing.T) {
+		t.Parallel()
+
 		e := New()
 		e.Use(EmptyOfferMiddleware(nil))
 
@@ -239,13 +288,15 @@ func TestEmptyOfferMiddleware(t *testing.T) {
 			},
 		}
 
-		verdict, err := e.Process(context.Background(), offer)
+		verdict, err := e.Process(t.Context(), offer)
 		require.NoError(t, err)
 		assert.Equal(t, trading.ActionDecline, verdict.Action)
 		assert.Equal(t, reason.DeclineBegging, verdict.Reason)
 	})
 
-	t.Run("Donation - Pure junk (SKU empty)", func(t *testing.T) {
+	t.Run("donation_pure_junk_default", func(t *testing.T) {
+		t.Parallel()
+
 		e := New()
 		e.Use(EmptyOfferMiddleware(nil)) // uses default (if it has SKU, it's not junk)
 
@@ -256,13 +307,15 @@ func TestEmptyOfferMiddleware(t *testing.T) {
 			},
 		}
 
-		verdict, err := e.Process(context.Background(), offer)
+		verdict, err := e.Process(t.Context(), offer)
 		require.NoError(t, err)
 		assert.Equal(t, trading.ActionDecline, verdict.Action)
 		assert.Equal(t, reason.DeclineJunkDonation, verdict.Reason)
 	})
 
-	t.Run("Donation - Pure junk (custom function)", func(t *testing.T) {
+	t.Run("donation_pure_junk_custom_function", func(t *testing.T) {
+		t.Parallel()
+
 		isJunk := func(item *trading.Item) bool {
 			return item.SKU == "junk_sku"
 		}
@@ -277,13 +330,38 @@ func TestEmptyOfferMiddleware(t *testing.T) {
 			},
 		}
 
-		verdict, err := e.Process(context.Background(), offer)
+		verdict, err := e.Process(t.Context(), offer)
 		require.NoError(t, err)
 		assert.Equal(t, trading.ActionDecline, verdict.Action)
 		assert.Equal(t, reason.DeclineJunkDonation, verdict.Reason)
 	})
 
-	t.Run("Donation - Valid donation", func(t *testing.T) {
+	t.Run("donation_not_junk_custom_function", func(t *testing.T) {
+		t.Parallel()
+
+		isJunk := func(item *trading.Item) bool {
+			return item.SKU == "junk_sku"
+		}
+
+		e := New()
+		e.Use(EmptyOfferMiddleware(isJunk))
+
+		offer := &trading.TradeOffer{
+			ItemsToGive: nil,
+			ItemsToReceive: []*trading.Item{
+				{SKU: "valuable_sku", Tradable: true}, // not junk
+			},
+		}
+
+		verdict, err := e.Process(t.Context(), offer)
+		require.NoError(t, err)
+		assert.Equal(t, trading.ActionAccept, verdict.Action)
+		assert.Equal(t, reason.AcceptDonation, verdict.Reason)
+	})
+
+	t.Run("donation_valid_donation", func(t *testing.T) {
+		t.Parallel()
+
 		e := New()
 		e.Use(EmptyOfferMiddleware(nil))
 
@@ -294,13 +372,15 @@ func TestEmptyOfferMiddleware(t *testing.T) {
 			},
 		}
 
-		verdict, err := e.Process(context.Background(), offer)
+		verdict, err := e.Process(t.Context(), offer)
 		require.NoError(t, err)
 		assert.Equal(t, trading.ActionAccept, verdict.Action)
 		assert.Equal(t, reason.AcceptDonation, verdict.Reason)
 	})
 
-	t.Run("Two-way offer passes through", func(t *testing.T) {
+	t.Run("two_way_offer_passes_through", func(t *testing.T) {
+		t.Parallel()
+
 		e := New()
 		e.Use(EmptyOfferMiddleware(nil))
 
@@ -313,8 +393,57 @@ func TestEmptyOfferMiddleware(t *testing.T) {
 			},
 		}
 
-		verdict, err := e.Process(context.Background(), offer)
+		verdict, err := e.Process(t.Context(), offer)
 		require.NoError(t, err)
 		assert.Equal(t, trading.ActionSkip, verdict.Action) // Two-way passes through
+	})
+}
+
+func TestBotHandler(t *testing.T) {
+	t.Parallel()
+
+	t.Run("process_offer_success", func(t *testing.T) {
+		t.Parallel()
+
+		e := New()
+		e.Use(func(next Handler) Handler {
+			return func(ctx *TradeContext) error {
+				ctx.Accept(reason.AcceptDonation)
+				return nil
+			}
+		})
+
+		h := NewBotHandler(e, log.Discard)
+		offer := &trading.TradeOffer{ID: 100}
+		decision, err := h.ProcessOffer(t.Context(), offer)
+		require.NoError(t, err)
+		assert.Equal(t, trading.ActionAccept, decision.Action)
+	})
+
+	t.Run("process_offer_error", func(t *testing.T) {
+		t.Parallel()
+
+		e := New()
+		e.Use(func(next Handler) Handler {
+			return func(ctx *TradeContext) error {
+				return errors.New("engine processing failed")
+			}
+		})
+
+		h := NewBotHandler(e, log.Discard)
+		offer := &trading.TradeOffer{ID: 100}
+		decision, err := h.ProcessOffer(t.Context(), offer)
+		assert.Error(t, err)
+		assert.Equal(t, trading.ActionSkip, decision.Action)
+	})
+
+	t.Run("on_action_failed", func(t *testing.T) {
+		t.Parallel()
+
+		h := NewBotHandler(New(), log.Discard)
+		offer := &trading.TradeOffer{ID: 100}
+		assert.NotPanics(t, func() {
+			h.OnActionFailed(t.Context(), offer, trading.ActionAccept, "reason", errors.New("network fail"))
+		})
 	})
 }

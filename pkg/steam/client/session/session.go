@@ -175,7 +175,7 @@ func (cfg *Config) ResolveDefaults() {
 
 	if cfg.CommunityFactory == nil {
 		cfg.CommunityFactory = func(httpClient *http.Client, sess community.SessionProvider, logger log.Logger) community.Requester {
-			return community.NewClient(httpClient, sess, community.WithLogger(logger))
+			return community.NewClient(httpClient, sess).WithLogger(logger)
 		}
 	}
 }

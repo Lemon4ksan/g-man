@@ -41,27 +41,36 @@ func setup(t *testing.T) (*Apps, *module.InitContext) {
 }
 
 func TestApps_InitAndClose(t *testing.T) {
-	a := New()
-	ictx := module.NewInitContext()
+	t.Parallel()
 
-	assert.Equal(t, ModuleName, a.Name())
+	t.Run("success_lifecycle", func(t *testing.T) {
+		t.Parallel()
 
-	err := a.Init(ictx)
-	require.NoError(t, err)
+		a := New()
+		ictx := module.NewInitContext()
 
-	ictx.AssertPacketHandlerRegistered(t, enums.EMsg_ClientPlayingSessionState)
+		assert.Equal(t, ModuleName, a.Name())
 
-	err = a.Close()
-	require.NoError(t, err)
+		err := a.Init(ictx)
+		require.NoError(t, err)
 
-	ictx.AssertPacketHandlerUnregistered(t, enums.EMsg_ClientPlayingSessionState)
+		ictx.AssertPacketHandlerRegistered(t, enums.EMsg_ClientPlayingSessionState)
+
+		err = a.Close()
+		require.NoError(t, err)
+
+		ictx.AssertPacketHandlerUnregistered(t, enums.EMsg_ClientPlayingSessionState)
+	})
 }
 
 func TestApps_GetPlayerCount(t *testing.T) {
-	a, ictx := setup(t)
-	ctx := t.Context()
+	t.Parallel()
 
-	t.Run("Success", func(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+		a, ictx := setup(t)
+		ctx := t.Context()
+
 		ictx.MockService().SetLegacyResponse(
 			enums.EMsg_ClientGetNumberOfCurrentPlayersDP,
 			&pb.CMsgDPGetNumberOfCurrentPlayersResponse{
@@ -75,7 +84,11 @@ func TestApps_GetPlayerCount(t *testing.T) {
 		assert.Equal(t, int32(100500), count)
 	})
 
-	t.Run("EResult Error", func(t *testing.T) {
+	t.Run("eresult_error", func(t *testing.T) {
+		t.Parallel()
+		a, ictx := setup(t)
+		ctx := t.Context()
+
 		ictx.MockService().SetLegacyResponse(
 			enums.EMsg_ClientGetNumberOfCurrentPlayersDP,
 			&pb.CMsgDPGetNumberOfCurrentPlayersResponse{
@@ -88,7 +101,11 @@ func TestApps_GetPlayerCount(t *testing.T) {
 		assert.Contains(t, err.Error(), "steam error: AccessDenied")
 	})
 
-	t.Run("Network Error", func(t *testing.T) {
+	t.Run("network_error", func(t *testing.T) {
+		t.Parallel()
+		a, ictx := setup(t)
+		ctx := t.Context()
+
 		ictx.MockService().ResponseErrs[enums.EMsg_ClientGetNumberOfCurrentPlayersDP.String()] = errors.New(
 			"network timeout",
 		)
@@ -101,10 +118,15 @@ func TestApps_GetPlayerCount(t *testing.T) {
 }
 
 func TestApps_HandlePlayingSessionState(t *testing.T) {
-	a, ictx := setup(t)
-	subState := ictx.Bus().Subscribe(&PlayingStateEvent{})
+	t.Parallel()
 
-	t.Run("Valid Packet", func(t *testing.T) {
+	t.Run("valid_packet", func(t *testing.T) {
+		t.Parallel()
+		a, ictx := setup(t)
+
+		subState := ictx.Bus().Subscribe(&PlayingStateEvent{})
+		defer subState.Unsubscribe()
+
 		ictx.EmitPacket(t, enums.EMsg_ClientPlayingSessionState, &pb.CMsgClientPlayingSessionState{
 			PlayingBlocked: proto.Bool(true),
 			PlayingApp:     proto.Uint32(AppidCs2),
@@ -126,7 +148,10 @@ func TestApps_HandlePlayingSessionState(t *testing.T) {
 		}
 	})
 
-	t.Run("Invalid Packet", func(t *testing.T) {
+	t.Run("invalid_packet", func(t *testing.T) {
+		t.Parallel()
+		a, _ := setup(t)
+
 		a.handlePlayingSessionState(&protocol.Packet{
 			EMsg:    enums.EMsg_ClientPlayingSessionState,
 			Payload: []byte{0xFF, 0xFF, 0xFF}, // Invalid protobuf
@@ -135,11 +160,16 @@ func TestApps_HandlePlayingSessionState(t *testing.T) {
 }
 
 func TestApps_PlayGames_Sequence(t *testing.T) {
+	t.Parallel()
+
 	a, ictx := setup(t)
 	ctx := t.Context()
 
 	subL := ictx.Bus().Subscribe(&AppLaunchedEvent{})
+	defer subL.Unsubscribe()
+
 	subQ := ictx.Bus().Subscribe(&AppQuitEvent{})
+	defer subQ.Unsubscribe()
 
 	collectIDs := func(ch <-chan bus.Event, count int) []uint32 {
 		ids := make([]uint32, 0, count)
@@ -174,30 +204,37 @@ func TestApps_PlayGames_Sequence(t *testing.T) {
 }
 
 func TestApps_PlayGames_BlockedAndForceKick(t *testing.T) {
-	a, ictx := setup(t)
-	ctx := t.Context()
+	t.Parallel()
 
-	// Simulate that the session is currently blocked by another client playing
-	a.mu.Lock()
-	a.playingBlocked = true
-	a.mu.Unlock()
+	t.Run("no_force_kick", func(t *testing.T) {
+		t.Parallel()
+		a, ictx := setup(t)
+		ctx := t.Context()
 
-	// Blocked, but forceKick is FALSE -> Should NOT kick
-	t.Run("No Force Kick", func(t *testing.T) {
+		a.mu.Lock()
+		a.playingBlocked = true
+		a.mu.Unlock()
+
 		err := a.PlayGames(ctx, []uint32{AppidTf2}, false)
 		require.NoError(t, err)
 
 		req := &pb.CMsgClientKickPlayingSession{}
 		lastCall := ictx.MockService().GetLastCall(req)
 
-		// If the last call is NOT KickPlayingSession, we successfully skipped the kick
 		if lastCall != nil {
 			assert.NotEqual(t, enums.EMsg_ClientKickPlayingSession.String(), lastCall.Target().String())
 		}
 	})
 
-	// Blocked, and forceKick is TRUE -> Should kick
-	t.Run("Force Kick Success", func(t *testing.T) {
+	t.Run("force_kick_success", func(t *testing.T) {
+		t.Parallel()
+		a, ictx := setup(t)
+		ctx := t.Context()
+
+		a.mu.Lock()
+		a.playingBlocked = true
+		a.mu.Unlock()
+
 		err := a.PlayGames(ctx, []uint32{AppidTf2}, true)
 		require.NoError(t, err)
 
@@ -214,8 +251,15 @@ func TestApps_PlayGames_BlockedAndForceKick(t *testing.T) {
 		assert.True(t, foundKick, "expected ClientKickPlayingSession to be called")
 	})
 
-	// Kick fails, but we should continue trying to play anyway
-	t.Run("Force Kick Error Fallback", func(t *testing.T) {
+	t.Run("force_kick_error_fallback", func(t *testing.T) {
+		t.Parallel()
+		a, ictx := setup(t)
+		ctx := t.Context()
+
+		a.mu.Lock()
+		a.playingBlocked = true
+		a.mu.Unlock()
+
 		ictx.MockService().ResponseErrs[enums.EMsg_ClientKickPlayingSession.String()] = errors.New("kick failed")
 		err := a.PlayGames(ctx, []uint32{AppidTf2}, true)
 		require.NoError(t, err, "PlayGames should succeed even if KickPlayingSession logs an error")
@@ -223,6 +267,8 @@ func TestApps_PlayGames_BlockedAndForceKick(t *testing.T) {
 }
 
 func TestApps_PlayCustomGames(t *testing.T) {
+	t.Parallel()
+
 	a, ictx := setup(t)
 	ctx := t.Context()
 	gameNames := []string{"G-man Bot", "Trading"}
@@ -243,10 +289,13 @@ func TestApps_PlayCustomGames(t *testing.T) {
 }
 
 func TestApps_Errors(t *testing.T) {
-	a, ictx := setup(t)
-	ctx := t.Context()
+	t.Parallel()
 
-	t.Run("PlayGames Send Error", func(t *testing.T) {
+	t.Run("play_games_send_error", func(t *testing.T) {
+		t.Parallel()
+		a, ictx := setup(t)
+		ctx := t.Context()
+
 		ictx.MockService().ResponseErrs[enums.EMsg_ClientGamesPlayedWithDataBlob.String()] = errors.New(
 			"socket disconnected",
 		)
@@ -257,7 +306,11 @@ func TestApps_Errors(t *testing.T) {
 		assert.Contains(t, err.Error(), "socket disconnected")
 	})
 
-	t.Run("KickPlayingSession Send Error", func(t *testing.T) {
+	t.Run("kick_playing_session_send_error", func(t *testing.T) {
+		t.Parallel()
+		a, ictx := setup(t)
+		ctx := t.Context()
+
 		ictx.MockService().ResponseErrs[enums.EMsg_ClientKickPlayingSession.String()] = errors.New("socket timeout")
 
 		err := a.KickPlayingSession(ctx)
@@ -267,62 +320,104 @@ func TestApps_Errors(t *testing.T) {
 }
 
 func TestApps_HandleLicenseList(t *testing.T) {
-	a, ictx := setup(t)
+	t.Parallel()
 
-	sub := ictx.Bus().Subscribe(&LicensesEvent{})
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+		a, ictx := setup(t)
 
-	ictx.EmitPacket(t, enums.EMsg_ClientLicenseList, &pb.CMsgClientLicenseList{
-		Eresult: proto.Int32(int32(enums.EResult_OK)),
-		Licenses: []*pb.CMsgClientLicenseList_License{
-			{
-				PackageId:   proto.Uint32(1001),
-				TimeCreated: proto.Uint32(123456),
+		sub := ictx.Bus().Subscribe(&LicensesEvent{})
+		defer sub.Unsubscribe()
+
+		ictx.EmitPacket(t, enums.EMsg_ClientLicenseList, &pb.CMsgClientLicenseList{
+			Eresult: proto.Int32(int32(enums.EResult_OK)),
+			Licenses: []*pb.CMsgClientLicenseList_License{
+				{
+					PackageId:   proto.Uint32(1001),
+					TimeCreated: proto.Uint32(123456),
+				},
 			},
-		},
+		})
+
+		licenses := a.GetLicenses()
+		require.Len(t, licenses, 1)
+		assert.Equal(t, uint32(1001), licenses[0].GetPackageId())
+
+		select {
+		case ev := <-sub.C():
+			e := ev.(*LicensesEvent)
+			require.Len(t, e.Licenses, 1)
+			assert.Equal(t, uint32(1001), e.Licenses[0].GetPackageId())
+		case <-time.After(100 * time.Millisecond):
+			t.Fatal("Event not received")
+		}
 	})
 
-	licenses := a.GetLicenses()
-	require.Len(t, licenses, 1)
-	assert.Equal(t, uint32(1001), licenses[0].GetPackageId())
-
-	select {
-	case ev := <-sub.C():
-		e := ev.(*LicensesEvent)
-		require.Len(t, e.Licenses, 1)
-		assert.Equal(t, uint32(1001), e.Licenses[0].GetPackageId())
-	case <-time.After(100 * time.Millisecond):
-		t.Fatal("Event not received")
-	}
+	t.Run("error_unmarshal", func(t *testing.T) {
+		t.Parallel()
+		a, _ := setup(t)
+		a.handleLicenseList(&protocol.Packet{
+			EMsg:    enums.EMsg_ClientLicenseList,
+			Payload: []byte{0xFF}, // invalid proto
+		})
+	})
 }
 
 func TestApps_HandleGameConnectTokens(t *testing.T) {
-	a, ictx := setup(t)
+	t.Parallel()
 
-	sub := ictx.Bus().Subscribe(&GameConnectTokensEvent{})
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+		a, ictx := setup(t)
 
-	ictx.EmitPacket(t, enums.EMsg_ClientGameConnectTokens, &pb.CMsgClientGameConnectTokens{
-		MaxTokensToKeep: proto.Uint32(2),
-		Tokens: [][]byte{
-			[]byte("token1"),
-			[]byte("token2"),
-			[]byte("token3"),
-		},
+		sub := ictx.Bus().Subscribe(&GameConnectTokensEvent{})
+		defer sub.Unsubscribe()
+
+		ictx.EmitPacket(t, enums.EMsg_ClientGameConnectTokens, &pb.CMsgClientGameConnectTokens{
+			MaxTokensToKeep: proto.Uint32(2),
+			Tokens: [][]byte{
+				[]byte("token1"),
+				[]byte("token2"),
+				[]byte("token3"),
+			},
+		})
+
+		tokens := a.GetConnectTokens()
+		assert.Len(t, tokens, 2)
+		assert.Equal(t, []byte("token2"), tokens[0])
+		assert.Equal(t, []byte("token3"), tokens[1])
+
+		assert.Equal(t, []byte("token2"), a.PopConnectToken())
+		assert.Equal(t, []byte("token3"), a.PopConnectToken())
+		assert.Nil(t, a.PopConnectToken())
+
+		select {
+		case ev := <-sub.C():
+			e := ev.(*GameConnectTokensEvent)
+			assert.Len(t, e.Tokens, 3)
+		case <-time.After(100 * time.Millisecond):
+			t.Fatal("Event not received")
+		}
 	})
 
-	tokens := a.GetConnectTokens()
-	assert.Len(t, tokens, 2)
-	assert.Equal(t, []byte("token2"), tokens[0])
-	assert.Equal(t, []byte("token3"), tokens[1])
+	t.Run("no_max_keep_limit", func(t *testing.T) {
+		t.Parallel()
+		a, ictx := setup(t)
+		ictx.EmitPacket(t, enums.EMsg_ClientGameConnectTokens, &pb.CMsgClientGameConnectTokens{
+			MaxTokensToKeep: proto.Uint32(0), // no limit
+			Tokens: [][]byte{
+				[]byte("token1"),
+			},
+		})
+		assert.Len(t, a.GetConnectTokens(), 1)
+	})
 
-	assert.Equal(t, []byte("token2"), a.PopConnectToken())
-	assert.Equal(t, []byte("token3"), a.PopConnectToken())
-	assert.Nil(t, a.PopConnectToken())
-
-	select {
-	case ev := <-sub.C():
-		e := ev.(*GameConnectTokensEvent)
-		assert.Len(t, e.Tokens, 3)
-	case <-time.After(100 * time.Millisecond):
-		t.Fatal("Event not received")
-	}
+	t.Run("error_unmarshal", func(t *testing.T) {
+		t.Parallel()
+		a, _ := setup(t)
+		a.handleGameConnectTokens(&protocol.Packet{
+			EMsg:    enums.EMsg_ClientGameConnectTokens,
+			Payload: []byte{0xFF}, // invalid proto
+		})
+	})
 }

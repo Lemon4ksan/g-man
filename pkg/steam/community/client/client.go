@@ -3,7 +3,9 @@
 // license that can be found in the LICENSE file.
 
 // Package client provides a client for making HTTP requests to the Steam Community website.
-// It automatically handles typical Steam-specific edge cases such as Family View restrictions, rate limits, session expiration redirects, and temporary maintenance outages.
+// It automatically handles typical Steam-specific edge cases such as Family View restrictions,
+// rate limits, session expiration redirects, and temporary maintenance outages.
+//
 // The primary entry point is the [Client] struct, which is initialized via [New] and configured using [Option] functions.
 // It implements the [Requester] interface to perform authenticated requests and register WebAPI keys.
 //
@@ -98,25 +100,6 @@ type SessionProvider interface {
 	SessionID(baseURL string) string
 }
 
-// Option defines a functional configuration function for a [Client].
-type Option = generic.Option[*Client]
-
-// WithLogger configures a [Client] to use the specified [log.Logger].
-// If the provided logger is nil, the client uses a discard logger to suppress output.
-func WithLogger(l log.Logger) Option {
-	return func(c *Client) {
-		c.logger = l.With(log.Module("community"))
-	}
-}
-
-// WithREST configures a [Client] to use the specified [aoni.Requester] for its underlying HTTP calls.
-// If the provided requester is nil, the client falls back to its default internal REST client.
-func WithREST(r aoni.Requester) Option {
-	return func(c *Client) {
-		c.restClient = r
-	}
-}
-
 // Client executes HTTP requests against the Steam Community website.
 // Use [New] to instantiate and initialize a ready-to-use client.
 // The client relies on an internal [aoni.Requester] and an optional [SessionProvider] to manage authentication and state.
@@ -129,7 +112,7 @@ type Client struct {
 // New creates an initialized [Client] with browser-like headers.
 // If the session provider is nil, the client executes requests as an unauthenticated guest.
 // If the httpClient is nil, the constructor uses the default HTTP client configuration.
-func New(httpClient aoni.HTTPDoer, session SessionProvider, opts ...Option) *Client {
+func New(httpClient aoni.HTTPDoer, session SessionProvider) *Client {
 	rc := aoni.NewClient(httpClient).
 		WithBaseURL(BaseURL).
 		WithOrigin(BaseURL).
@@ -141,13 +124,21 @@ func New(httpClient aoni.HTTPDoer, session SessionProvider, opts ...Option) *Cli
 		logger:     log.Discard,
 	}
 
-	for _, opt := range opts {
-		if opt != nil {
-			opt(c)
-		}
-	}
-
 	return c
+}
+
+// WithLogger returns a new [Client] with the logger set to the given logger.
+func (c *Client) WithLogger(l log.Logger) *Client {
+	copy := *c
+	copy.logger = l.With(log.Module("community"))
+	return &copy
+}
+
+// WithREST returns a new [Client] with the REST client set to the given client.
+func (c *Client) WithREST(r aoni.Requester) *Client {
+	copy := *c
+	copy.restClient = r
+	return &copy
 }
 
 // Unwrap returns the underlying [aoni.Requester] wrapped by the [Client].

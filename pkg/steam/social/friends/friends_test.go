@@ -5,7 +5,6 @@
 package friends
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"testing"
@@ -38,7 +37,7 @@ func setupFriends(t *testing.T) (*Manager, *mock.InitContext) {
 	require.NoError(t, m.Init(ictx))
 
 	auth := mock.NewAuthContext(BotSteamID)
-	require.NoError(t, m.StartAuthed(context.Background(), auth))
+	require.NoError(t, m.StartAuthed(t.Context(), auth))
 
 	t.Cleanup(func() { _ = m.Close() })
 
@@ -46,6 +45,8 @@ func setupFriends(t *testing.T) (*Manager, *mock.InitContext) {
 }
 
 func TestManager_InitAndClose(t *testing.T) {
+	t.Parallel()
+
 	m := New()
 	ictx := mock.NewInitContext()
 
@@ -61,63 +62,82 @@ func TestManager_InitAndClose(t *testing.T) {
 }
 
 func TestManager_FriendCache(t *testing.T) {
-	m, _ := setupFriends(t)
+	t.Parallel()
 
-	m.mu.Lock()
-	m.relationships[FriendID1] = enums.EFriendRelationship_Friend
-	m.relationships[FriendID2] = enums.EFriendRelationship_RequestRecipient
-	m.users[FriendID1] = &PersonaState{PlayerName: "G-man"}
-	m.mu.Unlock()
+	t.Run("status_checks", func(t *testing.T) {
+		t.Parallel()
+		m, _ := setupFriends(t)
 
-	t.Run("Status Checks", func(t *testing.T) {
+		m.mu.Lock()
+		m.relationships[FriendID1] = enums.EFriendRelationship_Friend
+		m.relationships[FriendID2] = enums.EFriendRelationship_RequestRecipient
+		m.mu.Unlock()
+
 		assert.True(t, m.IsFriend(FriendID1))
 		assert.False(t, m.IsFriend(FriendID2))
 	})
 
-	t.Run("Getters", func(t *testing.T) {
+	t.Run("getters", func(t *testing.T) {
+		t.Parallel()
+		m, _ := setupFriends(t)
+
+		m.mu.Lock()
+		m.relationships[FriendID1] = enums.EFriendRelationship_Friend
+		m.users[FriendID1] = &PersonaState{PlayerName: "G-man"}
+		m.mu.Unlock()
+
 		p := m.GetFriend(FriendID1)
 		assert.NotNil(t, p)
 		assert.Equal(t, "G-man", p.PlayerName)
 
-		friends := m.GetFriends()
-		assert.ElementsMatch(t, []id.ID{FriendID1}, friends)
+		frs := m.GetFriends()
+		assert.ElementsMatch(t, []id.ID{FriendID1}, frs)
 	})
 }
 
 func TestManager_GetMaxFriends(t *testing.T) {
-	m, ictx := setupFriends(t)
-	ctx := context.Background()
+	t.Parallel()
 
-	t.Run("API Success", func(t *testing.T) {
+	t.Run("api_success", func(t *testing.T) {
+		t.Parallel()
+		m, ictx := setupFriends(t)
+
 		ictx.MockService().SetJSONResponse("IPlayerService", "GetBadges", map[string]any{
 			"response": map[string]any{"player_level": 10},
 		})
 
-		max, err := m.GetMaxFriends(ctx)
+		max, err := m.GetMaxFriends(t.Context())
 		require.NoError(t, err)
 		assert.Equal(t, 300, max)
+
+		max2, err := m.GetMaxFriends(t.Context())
+		require.NoError(t, err)
+		assert.Equal(t, 300, max2)
 	})
 
-	t.Run("API Error", func(t *testing.T) {
+	t.Run("api_error", func(t *testing.T) {
+		t.Parallel()
+		m, ictx := setupFriends(t)
 		m.mu.Lock()
-		m.maxFriends = 0 // Clear cache to force API call
+		m.maxFriends = 0
 		m.mu.Unlock()
 
-		// Key must be Interface/Method for service calls in the mock
 		ictx.MockService().ResponseErrs["IPlayerService/GetBadges"] = errors.New("api down")
 
-		_, err := m.GetMaxFriends(ctx)
+		_, err := m.GetMaxFriends(t.Context())
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "api down")
 	})
 }
 
 func TestManager_AddAndRemoveFriend(t *testing.T) {
-	m, ictx := setupFriends(t)
-	ctx := context.Background()
+	t.Parallel()
 
-	t.Run("Add", func(t *testing.T) {
-		err := m.AddFriend(ctx, uint64(FriendID1))
+	t.Run("add", func(t *testing.T) {
+		t.Parallel()
+		m, ictx := setupFriends(t)
+
+		err := m.AddFriend(t.Context(), uint64(FriendID1))
 		assert.NoError(t, err)
 
 		req := &pb.CMsgClientAddFriend{}
@@ -125,56 +145,114 @@ func TestManager_AddAndRemoveFriend(t *testing.T) {
 		assert.Equal(t, uint64(FriendID1), req.GetSteamidToAdd())
 	})
 
-	t.Run("Remove", func(t *testing.T) {
-		err := m.RemoveFriend(ctx, uint64(FriendID1))
+	t.Run("remove", func(t *testing.T) {
+		t.Parallel()
+		m, ictx := setupFriends(t)
+
+		err := m.RemoveFriend(t.Context(), uint64(FriendID1))
 		assert.NoError(t, err)
 
 		req := &pb.CMsgClientRemoveFriend{}
 		ictx.MockService().GetLastCall(req)
 		assert.Equal(t, uint64(FriendID1), req.GetFriendid())
 	})
+
+	t.Run("set_persona_with_name", func(t *testing.T) {
+		t.Parallel()
+		m, ictx := setupFriends(t)
+
+		err := m.SetPersona(t.Context(), enums.EPersonaState_Online, "New Bot Name")
+		assert.NoError(t, err)
+
+		req := &pb.CMsgClientChangeStatus{}
+		ictx.MockService().GetLastCall(req)
+		assert.Equal(t, uint32(enums.EPersonaState_Online), req.GetPersonaState())
+		assert.Equal(t, "New Bot Name", req.GetPlayerName())
+	})
+
+	t.Run("set_persona_empty_name", func(t *testing.T) {
+		t.Parallel()
+		m, ictx := setupFriends(t)
+
+		err := m.SetPersona(t.Context(), enums.EPersonaState_Busy, "")
+		assert.NoError(t, err)
+
+		req := &pb.CMsgClientChangeStatus{}
+		ictx.MockService().GetLastCall(req)
+		assert.Equal(t, uint32(enums.EPersonaState_Busy), req.GetPersonaState())
+		assert.Nil(t, req.PlayerName)
+	})
 }
 
 func TestManager_InviteToGroups(t *testing.T) {
-	m, _ := setupFriends(t)
-	ctx := context.Background()
-	// Ensure we use the community mock instance linked to the manager's state
-	comm := mock.NewHTTPStub()
-	m.community = comm
-	path := "actions/GroupInvite"
+	t.Parallel()
 
-	t.Run("Skip Non-Friend", func(t *testing.T) {
+	t.Run("skip_non_friend", func(t *testing.T) {
+		t.Parallel()
+		m, _ := setupFriends(t)
+		comm := mock.NewHTTPStub()
+		m.community = comm
+
 		comm.ClearCalls()
-		m.InviteToGroups(ctx, FriendID2, []uint64{999})
+		m.InviteToGroups(t.Context(), FriendID2, []uint64{999})
 		assert.Equal(t, 0, comm.CallsCount())
 	})
 
-	t.Run("Success and Ignore 400", func(t *testing.T) {
+	t.Run("success_and_ignore_400", func(t *testing.T) {
+		t.Parallel()
+		m, _ := setupFriends(t)
+		comm := mock.NewHTTPStub()
+		m.community = comm
+		path := "actions/GroupInvite"
+
 		m.mu.Lock()
 		m.relationships[FriendID1] = enums.EFriendRelationship_Friend
 		m.mu.Unlock()
 
 		comm.ClearCalls()
 		comm.SetJSONResponse(community.BaseURL+path, 200, map[string]any{"success": true})
-
 		comm.ResponseErrs[path] = &aoni.APIError{StatusCode: 400, Body: []byte("already in group")}
 
-		m.InviteToGroups(ctx, FriendID1, []uint64{1001, 1002})
+		m.InviteToGroups(t.Context(), FriendID1, []uint64{1001, 1002})
 
 		assert.Equal(t, 2, comm.CallsCount())
+	})
+
+	t.Run("non_400_error_logged", func(t *testing.T) {
+		t.Parallel()
+		m, _ := setupFriends(t)
+		comm := mock.NewHTTPStub()
+		m.community = comm
+		path := "actions/GroupInvite"
+
+		m.mu.Lock()
+		m.relationships[FriendID1] = enums.EFriendRelationship_Friend
+		m.mu.Unlock()
+
+		comm.ClearCalls()
+		comm.ResponseErrs[community.BaseURL+path] = &aoni.APIError{StatusCode: 500, Body: []byte("internal error")}
+
+		m.InviteToGroups(t.Context(), FriendID1, []uint64{1001})
+
+		assert.Equal(t, 1, comm.CallsCount())
 	})
 }
 
 func TestManager_HandleFriendsList(t *testing.T) {
-	m, ictx := setupFriends(t)
+	t.Parallel()
 
-	t.Run("Unmarshal Error", func(t *testing.T) {
+	t.Run("unmarshal_error", func(t *testing.T) {
+		t.Parallel()
+		m, _ := setupFriends(t)
 		m.handleFriendsList(&protocol.Packet{Payload: []byte{0xFF, 0xEE}})
-		// Should log and return
 	})
 
-	t.Run("Relationship Changes", func(t *testing.T) {
+	t.Run("relationship_changes", func(t *testing.T) {
+		t.Parallel()
+		_, ictx := setupFriends(t)
+
 		sub := ictx.Bus().Subscribe(&RelationshipChangedEvent{})
+		defer sub.Unsubscribe()
 
 		ictx.EmitPacket(t, enums.EMsg_ClientFriendsList, &pb.CMsgClientFriendsList{
 			Friends: []*pb.CMsgClientFriendsList_Friend{
@@ -183,7 +261,7 @@ func TestManager_HandleFriendsList(t *testing.T) {
 					Efriendrelationship: proto.Uint32(uint32(enums.EFriendRelationship_Friend)),
 				},
 				{
-					Ulfriendid:          proto.Uint64(uint64(FriendID1)), // No change
+					Ulfriendid:          proto.Uint64(uint64(FriendID1)),
 					Efriendrelationship: proto.Uint32(uint32(enums.EFriendRelationship_Friend)),
 				},
 			},
@@ -194,24 +272,29 @@ func TestManager_HandleFriendsList(t *testing.T) {
 			e := ev.(*RelationshipChangedEvent)
 			assert.Equal(t, FriendID1, e.SteamID)
 			assert.Equal(t, enums.EFriendRelationship_Friend, e.New)
-		case <-time.After(100 * time.Millisecond):
+		case <-time.After(1 * time.Second):
 			t.Fatal("Event not received")
 		}
 
-		// Ensure only one event was fired (since second friend update had no change)
 		assert.Empty(t, sub.C())
 	})
 }
 
 func TestManager_HandlePersonaState(t *testing.T) {
-	m, ictx := setupFriends(t)
+	t.Parallel()
 
-	t.Run("Unmarshal Error", func(t *testing.T) {
+	t.Run("unmarshal_error", func(t *testing.T) {
+		t.Parallel()
+		m, _ := setupFriends(t)
 		m.handlePersonaState(&protocol.Packet{Payload: []byte{0xFF}})
 	})
 
-	t.Run("State Updates", func(t *testing.T) {
+	t.Run("state_updates", func(t *testing.T) {
+		t.Parallel()
+		m, ictx := setupFriends(t)
+
 		sub := ictx.Bus().Subscribe(&PersonaStateUpdatedEvent{})
+		defer sub.Unsubscribe()
 
 		ictx.EmitPacket(t, enums.EMsg_ClientPersonaState, &pb.CMsgClientPersonaState{
 			Friends: []*pb.CMsgClientPersonaState_Friend{
@@ -221,43 +304,42 @@ func TestManager_HandlePersonaState(t *testing.T) {
 					AvatarHash: []byte("abc"),
 				},
 				{
-					Friendid:   proto.Uint64(uint64(FriendID1)), // Update existing
+					Friendid:   proto.Uint64(uint64(FriendID1)),
 					PlayerName: proto.String("Updated Name"),
 				},
 				{
-					Friendid: proto.Uint64(uint64(FriendID2)), // New user, missing fields
+					Friendid: proto.Uint64(uint64(FriendID2)),
 				},
 			},
 		})
 
-		// Check Friend 1
 		p1 := m.GetFriend(FriendID1)
 		assert.Equal(t, "Updated Name", p1.PlayerName)
 		assert.Equal(t, []byte("abc"), p1.AvatarHash)
 
-		// Check Friend 2
 		p2 := m.GetFriend(FriendID2)
 		assert.NotNil(t, p2)
 		assert.Empty(t, p2.PlayerName)
 
-		// Verify events were fired
 		assert.Len(t, sub.C(), 3)
 	})
 }
 
 func TestManager_AcceptFriendRequestWeb(t *testing.T) {
-	m, _ := setupFriends(t)
-	ctx := context.Background()
-	comm := mock.NewHTTPStub()
-	m.community = comm
+	t.Parallel()
 
 	path := "actions/AddFriendAjax"
 
-	t.Run("Success", func(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+		m, _ := setupFriends(t)
+		comm := mock.NewHTTPStub()
+		m.community = comm
+
 		comm.ClearCalls()
 		comm.SetJSONResponse(community.BaseURL+path, 200, map[string]any{"success": true})
 
-		err := m.AcceptFriendRequestWeb(ctx, FriendID1)
+		err := m.AcceptFriendRequestWeb(t.Context(), FriendID1)
 		require.NoError(t, err)
 
 		params := comm.GetLastCallParams()
@@ -266,45 +348,59 @@ func TestManager_AcceptFriendRequestWeb(t *testing.T) {
 		assert.Equal(t, FriendID1.String(), params.Get("steamid"))
 	})
 
-	t.Run("Unsuccessful", func(t *testing.T) {
+	t.Run("unsuccessful", func(t *testing.T) {
+		t.Parallel()
+		m, _ := setupFriends(t)
+		comm := mock.NewHTTPStub()
+		m.community = comm
+
 		comm.ClearCalls()
 		comm.SetJSONResponse(community.BaseURL+path, 200, map[string]any{"success": false})
 
-		err := m.AcceptFriendRequestWeb(ctx, FriendID1)
+		err := m.AcceptFriendRequestWeb(t.Context(), FriendID1)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "web accept request unsuccessful")
 	})
 
-	t.Run("HTTP Error", func(t *testing.T) {
+	t.Run("http_error", func(t *testing.T) {
+		t.Parallel()
+		m, _ := setupFriends(t)
+		comm := mock.NewHTTPStub()
+		m.community = comm
+
 		comm.ClearCalls()
 		comm.ResponseErrs[community.BaseURL+path] = errors.New("network down")
 
-		err := m.AcceptFriendRequestWeb(ctx, FriendID1)
+		err := m.AcceptFriendRequestWeb(t.Context(), FriendID1)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "network down")
 	})
 
-	t.Run("Uninitialized community", func(t *testing.T) {
+	t.Run("uninitialized_community", func(t *testing.T) {
+		t.Parallel()
+
 		m2 := New()
-		err := m2.AcceptFriendRequestWeb(ctx, FriendID1)
+		err := m2.AcceptFriendRequestWeb(t.Context(), FriendID1)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "community requester is not initialized")
 	})
 }
 
 func TestManager_BlockCommunication(t *testing.T) {
-	m, _ := setupFriends(t)
-	ctx := context.Background()
-	comm := mock.NewHTTPStub()
-	m.community = comm
+	t.Parallel()
 
 	path := "actions/BlockUserAjax"
 
-	t.Run("Success", func(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+		m, _ := setupFriends(t)
+		comm := mock.NewHTTPStub()
+		m.community = comm
+
 		comm.ClearCalls()
 		comm.SetJSONResponse(community.BaseURL+path, 200, map[string]any{"success": true})
 
-		err := m.BlockCommunication(ctx, FriendID1)
+		err := m.BlockCommunication(t.Context(), FriendID1)
 		require.NoError(t, err)
 
 		params := comm.GetLastCallParams()
@@ -312,45 +408,58 @@ func TestManager_BlockCommunication(t *testing.T) {
 		assert.Equal(t, FriendID1.String(), params.Get("steamid"))
 	})
 
-	t.Run("Unsuccessful", func(t *testing.T) {
+	t.Run("unsuccessful", func(t *testing.T) {
+		t.Parallel()
+		m, _ := setupFriends(t)
+		comm := mock.NewHTTPStub()
+		m.community = comm
+
 		comm.ClearCalls()
 		comm.SetJSONResponse(community.BaseURL+path, 200, map[string]any{"success": false})
 
-		err := m.BlockCommunication(ctx, FriendID1)
+		err := m.BlockCommunication(t.Context(), FriendID1)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "block user request unsuccessful")
 	})
 
-	t.Run("HTTP Error", func(t *testing.T) {
+	t.Run("http_error", func(t *testing.T) {
+		t.Parallel()
+		m, _ := setupFriends(t)
+		comm := mock.NewHTTPStub()
+		m.community = comm
+
 		comm.ClearCalls()
 		comm.ResponseErrs[community.BaseURL+path] = errors.New("http block error")
 
-		err := m.BlockCommunication(ctx, FriendID1)
+		err := m.BlockCommunication(t.Context(), FriendID1)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "http block error")
 	})
 
-	t.Run("Uninitialized community", func(t *testing.T) {
+	t.Run("uninitialized_community", func(t *testing.T) {
+		t.Parallel()
+
 		m2 := New()
-		err := m2.BlockCommunication(ctx, FriendID1)
+		err := m2.BlockCommunication(t.Context(), FriendID1)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "community requester is not initialized")
 	})
 }
 
 func TestManager_UnblockCommunication(t *testing.T) {
-	m, _ := setupFriends(t)
-	ctx := context.Background()
-	comm := mock.NewHTTPStub()
-	m.community = comm
+	t.Parallel()
 
-	path := fmt.Sprintf("profiles/%s/friends/blocked", m.mySteamID)
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+		m, _ := setupFriends(t)
+		comm := mock.NewHTTPStub()
+		m.community = comm
+		path := fmt.Sprintf("profiles/%s/friends/blocked", m.mySteamID)
 
-	t.Run("Success", func(t *testing.T) {
 		comm.ClearCalls()
 		comm.SetRawResponse(community.BaseURL+path, 200, []byte("OK"))
 
-		err := m.UnblockCommunication(ctx, FriendID1)
+		err := m.UnblockCommunication(t.Context(), FriendID1)
 		require.NoError(t, err)
 
 		params := comm.GetLastCallParams()
@@ -359,48 +468,64 @@ func TestManager_UnblockCommunication(t *testing.T) {
 		assert.Equal(t, comm.MockSessionID, params.Get("sessionid"))
 	})
 
-	t.Run("HTTP Status Error", func(t *testing.T) {
+	t.Run("http_status_error", func(t *testing.T) {
+		t.Parallel()
+		m, _ := setupFriends(t)
+		comm := mock.NewHTTPStub()
+		m.community = comm
+		path := fmt.Sprintf("profiles/%s/friends/blocked", m.mySteamID)
+
 		comm.ClearCalls()
 		comm.SetRawResponse(community.BaseURL+path, 400, []byte("Bad Request"))
 
-		err := m.UnblockCommunication(ctx, FriendID1)
+		err := m.UnblockCommunication(t.Context(), FriendID1)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "unblock failed with HTTP status: 400")
 	})
 
-	t.Run("HTTP Error", func(t *testing.T) {
+	t.Run("http_error", func(t *testing.T) {
+		t.Parallel()
+		m, _ := setupFriends(t)
+		comm := mock.NewHTTPStub()
+		m.community = comm
+		path := fmt.Sprintf("profiles/%s/friends/blocked", m.mySteamID)
+
 		comm.ClearCalls()
 		comm.ResponseErrs[community.BaseURL+path] = errors.New("http unblock error")
 
-		err := m.UnblockCommunication(ctx, FriendID1)
+		err := m.UnblockCommunication(t.Context(), FriendID1)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "http unblock error")
 	})
 
-	t.Run("Uninitialized community", func(t *testing.T) {
+	t.Run("uninitialized_community", func(t *testing.T) {
+		t.Parallel()
+
 		m2 := New()
-		err := m2.UnblockCommunication(ctx, FriendID1)
+		err := m2.UnblockCommunication(t.Context(), FriendID1)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "community requester is not initialized")
 	})
 }
 
 func TestManager_PostUserComment(t *testing.T) {
-	m, _ := setupFriends(t)
-	ctx := context.Background()
-	comm := mock.NewHTTPStub()
-	m.community = comm
+	t.Parallel()
 
 	path := "comment/Profile/post/101/-1"
 
-	t.Run("Success", func(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+		m, _ := setupFriends(t)
+		comm := mock.NewHTTPStub()
+		m.community = comm
+
 		comm.ClearCalls()
 		comm.SetJSONResponse(community.BaseURL+path, 200, map[string]any{
 			"success":       true,
 			"comments_html": `<div class="commentthread_comments"><div class="commentthread_comment" id="comment_987654321"></div></div>`,
 		})
 
-		commentID, err := m.PostUserComment(ctx, FriendID1, "cool profile!")
+		commentID, err := m.PostUserComment(t.Context(), FriendID1, "cool profile!")
 		require.NoError(t, err)
 		assert.Equal(t, "987654321", commentID)
 
@@ -410,98 +535,132 @@ func TestManager_PostUserComment(t *testing.T) {
 		assert.Equal(t, comm.MockSessionID, params.Get("sessionid"))
 	})
 
-	t.Run("Unsuccessful with error msg", func(t *testing.T) {
+	t.Run("unsuccessful_with_error_msg", func(t *testing.T) {
+		t.Parallel()
+		m, _ := setupFriends(t)
+		comm := mock.NewHTTPStub()
+		m.community = comm
+
 		comm.ClearCalls()
 		comm.SetJSONResponse(community.BaseURL+path, 200, map[string]any{
 			"success": false,
 			"error":   "Rate limit exceeded",
 		})
 
-		_, err := m.PostUserComment(ctx, FriendID1, "cool profile!")
+		_, err := m.PostUserComment(t.Context(), FriendID1, "cool profile!")
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "post comment failed: Rate limit exceeded")
 	})
 
-	t.Run("Unsuccessful unknown error", func(t *testing.T) {
+	t.Run("unsuccessful_unknown_error", func(t *testing.T) {
+		t.Parallel()
+		m, _ := setupFriends(t)
+		comm := mock.NewHTTPStub()
+		m.community = comm
+
 		comm.ClearCalls()
 		comm.SetJSONResponse(community.BaseURL+path, 200, map[string]any{
 			"success": false,
 		})
 
-		_, err := m.PostUserComment(ctx, FriendID1, "cool profile!")
+		_, err := m.PostUserComment(t.Context(), FriendID1, "cool profile!")
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "post comment failed: unknown error")
 	})
 
-	t.Run("HTML Missing Comment Element", func(t *testing.T) {
+	t.Run("html_missing_comment_element", func(t *testing.T) {
+		t.Parallel()
+		m, _ := setupFriends(t)
+		comm := mock.NewHTTPStub()
+		m.community = comm
+
 		comm.ClearCalls()
 		comm.SetJSONResponse(community.BaseURL+path, 200, map[string]any{
 			"success":       true,
 			"comments_html": `<div>No comment here</div>`,
 		})
 
-		_, err := m.PostUserComment(ctx, FriendID1, "cool profile!")
+		_, err := m.PostUserComment(t.Context(), FriendID1, "cool profile!")
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "new comment not found in returned HTML")
 	})
 
-	t.Run("HTML Comment ID Missing Attribute", func(t *testing.T) {
+	t.Run("html_comment_id_missing_attribute", func(t *testing.T) {
+		t.Parallel()
+		m, _ := setupFriends(t)
+		comm := mock.NewHTTPStub()
+		m.community = comm
+
 		comm.ClearCalls()
 		comm.SetJSONResponse(community.BaseURL+path, 200, map[string]any{
 			"success":       true,
 			"comments_html": `<div class="commentthread_comment"></div>`,
 		})
 
-		_, err := m.PostUserComment(ctx, FriendID1, "cool profile!")
+		_, err := m.PostUserComment(t.Context(), FriendID1, "cool profile!")
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "new comment missing id attribute")
 	})
 
-	t.Run("HTML Comment ID Bad Format", func(t *testing.T) {
+	t.Run("html_comment_id_bad_format", func(t *testing.T) {
+		t.Parallel()
+		m, _ := setupFriends(t)
+		comm := mock.NewHTTPStub()
+		m.community = comm
+
 		comm.ClearCalls()
 		comm.SetJSONResponse(community.BaseURL+path, 200, map[string]any{
 			"success":       true,
 			"comments_html": `<div class="commentthread_comment" id="comment"></div>`,
 		})
 
-		_, err := m.PostUserComment(ctx, FriendID1, "cool profile!")
+		_, err := m.PostUserComment(t.Context(), FriendID1, "cool profile!")
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid comment element id format")
 	})
 
-	t.Run("HTTP Error", func(t *testing.T) {
+	t.Run("http_error", func(t *testing.T) {
+		t.Parallel()
+		m, _ := setupFriends(t)
+		comm := mock.NewHTTPStub()
+		m.community = comm
+
 		comm.ClearCalls()
 		comm.ResponseErrs[community.BaseURL+path] = errors.New("post error")
 
-		_, err := m.PostUserComment(ctx, FriendID1, "cool profile!")
+		_, err := m.PostUserComment(t.Context(), FriendID1, "cool profile!")
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "post error")
 	})
 
-	t.Run("Uninitialized community", func(t *testing.T) {
+	t.Run("uninitialized_community", func(t *testing.T) {
+		t.Parallel()
+
 		m2 := New()
-		_, err := m2.PostUserComment(ctx, FriendID1, "cool profile!")
+		_, err := m2.PostUserComment(t.Context(), FriendID1, "cool profile!")
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "community requester is not initialized")
 	})
 }
 
 func TestManager_DeleteUserComment(t *testing.T) {
-	m, _ := setupFriends(t)
-	ctx := context.Background()
-	comm := mock.NewHTTPStub()
-	m.community = comm
+	t.Parallel()
 
 	path := "comment/Profile/delete/101/-1"
 
-	t.Run("Success", func(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+		m, _ := setupFriends(t)
+		comm := mock.NewHTTPStub()
+		m.community = comm
+
 		comm.ClearCalls()
 		comm.SetJSONResponse(community.BaseURL+path, 200, map[string]any{
 			"success":       true,
 			"comments_html": `<div>Comment deleted successfully</div>`,
 		})
 
-		err := m.DeleteUserComment(ctx, FriendID1, "987654321")
+		err := m.DeleteUserComment(t.Context(), FriendID1, "987654321")
 		require.NoError(t, err)
 
 		params := comm.GetLastCallParams()
@@ -512,57 +671,74 @@ func TestManager_DeleteUserComment(t *testing.T) {
 		assert.Equal(t, "-1", params.Get("feature2"))
 	})
 
-	t.Run("Unsuccessful with comment ID still in HTML", func(t *testing.T) {
+	t.Run("unsuccessful_with_comment_id_still_in_html", func(t *testing.T) {
+		t.Parallel()
+		m, _ := setupFriends(t)
+		comm := mock.NewHTTPStub()
+		m.community = comm
+
 		comm.ClearCalls()
 		comm.SetJSONResponse(community.BaseURL+path, 200, map[string]any{
 			"success":       true,
 			"comments_html": `<div id="comment_987654321">Failed to delete</div>`,
 		})
 
-		err := m.DeleteUserComment(ctx, FriendID1, "987654321")
+		err := m.DeleteUserComment(t.Context(), FriendID1, "987654321")
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to delete comment (comment still in HTML)")
 	})
 
-	t.Run("Unsuccessful response", func(t *testing.T) {
+	t.Run("unsuccessful_response", func(t *testing.T) {
+		t.Parallel()
+		m, _ := setupFriends(t)
+		comm := mock.NewHTTPStub()
+		m.community = comm
+
 		comm.ClearCalls()
 		comm.SetJSONResponse(community.BaseURL+path, 200, map[string]any{
 			"success": false,
 			"error":   "Not authorized",
 		})
 
-		err := m.DeleteUserComment(ctx, FriendID1, "987654321")
+		err := m.DeleteUserComment(t.Context(), FriendID1, "987654321")
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "delete comment failed: Not authorized")
 	})
 
-	t.Run("HTTP Error", func(t *testing.T) {
+	t.Run("http_error", func(t *testing.T) {
+		t.Parallel()
+		m, _ := setupFriends(t)
+		comm := mock.NewHTTPStub()
+		m.community = comm
+
 		comm.ClearCalls()
 		comm.ResponseErrs[community.BaseURL+path] = errors.New("delete error")
 
-		err := m.DeleteUserComment(ctx, FriendID1, "987654321")
+		err := m.DeleteUserComment(t.Context(), FriendID1, "987654321")
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "delete error")
 	})
 
-	t.Run("Uninitialized community", func(t *testing.T) {
+	t.Run("uninitialized_community", func(t *testing.T) {
+		t.Parallel()
+
 		m2 := New()
-		err := m2.DeleteUserComment(ctx, FriendID1, "987654321")
+		err := m2.DeleteUserComment(t.Context(), FriendID1, "987654321")
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "community requester is not initialized")
 	})
 }
 
 func TestManager_GetUserComments(t *testing.T) {
-	m, _ := setupFriends(t)
-	ctx := context.Background()
-	comm := mock.NewHTTPStub()
-	m.community = comm
+	t.Parallel()
 
 	path := "comment/Profile/render/101/-1"
 
-	t.Run("Success", func(t *testing.T) {
-		comm.ClearCalls()
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+		m, _ := setupFriends(t)
+		comm := mock.NewHTTPStub()
+		m.community = comm
 
 		html := `<div class="commentthread_comments">
 			<div class="commentthread_comment responsive_body_text" id="comment_555">
@@ -570,7 +746,7 @@ func TestManager_GetUserComments(t *testing.T) {
 					<img src="https://avatar.url/avatar5.jpg">
 				</div>
 				<div class="commentthread_comment_avatar">
-					<a href="https://steamcommunity.com/profiles/76561198000000005" data-miniprofile="5"></a>
+					<a href="https://steamcommunity.com/profiles/76561190000" data-miniprofile="5"></a>
 				</div>
 				<bdi>User 5</bdi>
 				<span class="commentthread_comment_timestamp" data-timestamp="1621234567"></span>
@@ -578,13 +754,22 @@ func TestManager_GetUserComments(t *testing.T) {
 					Excellent trader!
 				</div>
 			</div>
-			<div class="commentthread_comment responsive_body_text" id="invalid">
+			<div class="commentthread_comment responsive_body_text" id="comment_666">
 				<div class="playerAvatar">
 					<img src="https://avatar.url/avatar6.jpg">
 				</div>
 				<bdi>User 6</bdi>
 				<div class="commentthread_comment_text">
-					Bad ID format
+					Missing timestamp and miniprofile attributes!
+				</div>
+			</div>
+			<div class="commentthread_comment responsive_body_text" id="invalid">
+				<div class="playerAvatar">
+					<img src="https://avatar.url/avatar7.jpg">
+				</div>
+				<bdi>User 7</bdi>
+				<div class="commentthread_comment_text">
+					Bad ID format (no underscore)
 				</div>
 			</div>
 		</div>`
@@ -595,18 +780,26 @@ func TestManager_GetUserComments(t *testing.T) {
 			"comments_html": html,
 		})
 
-		comments, totalCount, err := m.GetUserComments(ctx, FriendID1, 0, 5)
+		comments, totalCount, err := m.GetUserComments(t.Context(), FriendID1, 0, 5)
 		require.NoError(t, err)
 		assert.Equal(t, 15, totalCount)
-		require.Len(t, comments, 1)
+		require.Len(t, comments, 2)
 
-		c := comments[0]
-		assert.Equal(t, "555", c.ID)
-		assert.Equal(t, id.ID(76561197960265728+5), c.AuthorSteamID)
-		assert.Equal(t, "User 5", c.AuthorName)
-		assert.Equal(t, "https://avatar.url/avatar5.jpg", c.AuthorAvatar)
-		assert.Equal(t, time.Unix(1621234567, 0).UTC(), c.Date)
-		assert.Equal(t, "Excellent trader!", c.Text)
+		c1 := comments[0]
+		assert.Equal(t, "555", c1.ID)
+		assert.Equal(t, id.ID(76561197960265728+5), c1.AuthorSteamID)
+		assert.Equal(t, "User 5", c1.AuthorName)
+		assert.Equal(t, "https://avatar.url/avatar5.jpg", c1.AuthorAvatar)
+		assert.Equal(t, time.Unix(1621234567, 0).UTC(), c1.Date)
+		assert.Equal(t, "Excellent trader!", c1.Text)
+
+		c2 := comments[1]
+		assert.Equal(t, "666", c2.ID)
+		assert.Equal(t, id.ID(0), c2.AuthorSteamID)
+		assert.Equal(t, "User 6", c2.AuthorName)
+		assert.Equal(t, "https://avatar.url/avatar6.jpg", c2.AuthorAvatar)
+		assert.True(t, c2.Date.IsZero())
+		assert.Equal(t, "Missing timestamp and miniprofile attributes!", c2.Text)
 
 		params := comm.GetLastCallParams()
 		assert.Equal(t, "0", params.Get("start"))
@@ -615,40 +808,51 @@ func TestManager_GetUserComments(t *testing.T) {
 		assert.Equal(t, comm.MockSessionID, params.Get("sessionid"))
 	})
 
-	t.Run("Unsuccessful response", func(t *testing.T) {
-		comm.ClearCalls()
+	t.Run("unsuccessful_response", func(t *testing.T) {
+		t.Parallel()
+		m, _ := setupFriends(t)
+		comm := mock.NewHTTPStub()
+		m.community = comm
+
 		comm.SetJSONResponse(community.BaseURL+path, 200, map[string]any{
 			"success": false,
 			"error":   "Internal error",
 		})
 
-		_, _, err := m.GetUserComments(ctx, FriendID1, 0, 5)
+		_, _, err := m.GetUserComments(t.Context(), FriendID1, 0, 5)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "render comments failed: Internal error")
 	})
 
-	t.Run("HTTP Error", func(t *testing.T) {
-		comm.ClearCalls()
+	t.Run("http_error", func(t *testing.T) {
+		t.Parallel()
+		m, _ := setupFriends(t)
+		comm := mock.NewHTTPStub()
+		m.community = comm
+
 		comm.ResponseErrs[community.BaseURL+path] = errors.New("render error")
 
-		_, _, err := m.GetUserComments(ctx, FriendID1, 0, 5)
+		_, _, err := m.GetUserComments(t.Context(), FriendID1, 0, 5)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "render error")
 	})
 
-	t.Run("Uninitialized community", func(t *testing.T) {
+	t.Run("uninitialized_community", func(t *testing.T) {
+		t.Parallel()
+
 		m2 := New()
-		_, _, err := m2.GetUserComments(ctx, FriendID1, 0, 5)
+		_, _, err := m2.GetUserComments(t.Context(), FriendID1, 0, 5)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "community requester is not initialized")
 	})
 }
 
 func TestManager_UploadRichPresence(t *testing.T) {
-	m, ictx := setupFriends(t)
-	ctx := context.Background()
+	t.Parallel()
 
-	err := m.UploadRichPresence(ctx, 440, map[string]string{
+	m, ictx := setupFriends(t)
+
+	err := m.UploadRichPresence(t.Context(), 440, map[string]string{
 		"steam_display": "#Status_AtMainMenu",
 	})
 	assert.NoError(t, err)
@@ -656,7 +860,6 @@ func TestManager_UploadRichPresence(t *testing.T) {
 	req := &pb.CMsgClientRichPresenceUpload{}
 	ictx.MockService().GetLastCall(req)
 
-	// Verify that the payload contains Section "RP" and Key "steam_display"
 	kv := req.GetRichPresenceKv()
 	assert.NotEmpty(t, kv)
 	assert.Contains(t, string(kv), "RP")
@@ -665,10 +868,11 @@ func TestManager_UploadRichPresence(t *testing.T) {
 }
 
 func TestManager_SetUIMode(t *testing.T) {
-	m, ictx := setupFriends(t)
-	ctx := context.Background()
+	t.Parallel()
 
-	err := m.SetUIMode(ctx, UIModeMobile)
+	m, ictx := setupFriends(t)
+
+	err := m.SetUIMode(t.Context(), UIModeMobile)
 	assert.NoError(t, err)
 
 	req := &pb.CMsgClientUIMode{}
@@ -677,10 +881,12 @@ func TestManager_SetUIMode(t *testing.T) {
 }
 
 func TestManager_FriendInviteTokens(t *testing.T) {
-	m, ictx := setupFriends(t)
-	ctx := context.Background()
+	t.Parallel()
 
-	t.Run("CreateFriendInviteToken Success", func(t *testing.T) {
+	t.Run("create_friend_invite_token_success", func(t *testing.T) {
+		t.Parallel()
+		m, ictx := setupFriends(t)
+
 		ictx.MockService().
 			SetJSONResponse("UserAccount", "CreateFriendInviteToken", map[string]any{
 				"response": map[string]any{
@@ -688,7 +894,7 @@ func TestManager_FriendInviteTokens(t *testing.T) {
 				},
 			})
 
-		token, err := m.CreateFriendInviteToken(ctx, 5, 3600)
+		token, err := m.CreateFriendInviteToken(t.Context(), 5, 3600)
 		require.NoError(t, err)
 		assert.Equal(t, "TOKEN_123", token)
 
@@ -697,7 +903,10 @@ func TestManager_FriendInviteTokens(t *testing.T) {
 		assert.Equal(t, "3600", req.Params().Get("invite_duration"))
 	})
 
-	t.Run("GetFriendInviteTokens Success", func(t *testing.T) {
+	t.Run("get_friend_invite_tokens_success", func(t *testing.T) {
+		t.Parallel()
+		m, ictx := setupFriends(t)
+
 		ictx.MockService().
 			SetJSONResponse("UserAccount", "GetFriendInviteTokens", map[string]any{
 				"response": map[string]any{
@@ -709,26 +918,32 @@ func TestManager_FriendInviteTokens(t *testing.T) {
 				},
 			})
 
-		tokens, err := m.GetFriendInviteTokens(ctx)
+		tokens, err := m.GetFriendInviteTokens(t.Context())
 		require.NoError(t, err)
 		require.Len(t, tokens, 1)
 		assert.Equal(t, "TOKEN_ABC", tokens[0].GetInviteToken())
 	})
 
-	t.Run("RevokeFriendInviteToken Success", func(t *testing.T) {
+	t.Run("revoke_friend_invite_token_success", func(t *testing.T) {
+		t.Parallel()
+		m, ictx := setupFriends(t)
+
 		ictx.MockService().
 			SetJSONResponse("UserAccount", "RevokeFriendInviteToken", map[string]any{
 				"response": map[string]any{},
 			})
 
-		err := m.RevokeFriendInviteToken(ctx, "TOKEN_XYZ")
+		err := m.RevokeFriendInviteToken(t.Context(), "TOKEN_XYZ")
 		assert.NoError(t, err)
 
 		req := ictx.MockService().GetLastRequest()
 		assert.Equal(t, "TOKEN_XYZ", req.Params().Get("invite_token"))
 	})
 
-	t.Run("ViewFriendInviteToken Success", func(t *testing.T) {
+	t.Run("view_friend_invite_token_success", func(t *testing.T) {
+		t.Parallel()
+		m, ictx := setupFriends(t)
+
 		ictx.MockService().
 			SetJSONResponse("UserAccount", "ViewFriendInviteToken", map[string]any{
 				"response": map[string]any{
@@ -736,7 +951,7 @@ func TestManager_FriendInviteTokens(t *testing.T) {
 				},
 			})
 
-		resp, err := m.ViewFriendInviteToken(ctx, 76561198000000001, "TOKEN_VIEW")
+		resp, err := m.ViewFriendInviteToken(t.Context(), 76561198000000001, "TOKEN_VIEW")
 		require.NoError(t, err)
 		assert.True(t, resp.GetValid())
 
@@ -747,106 +962,238 @@ func TestManager_FriendInviteTokens(t *testing.T) {
 }
 
 func TestManager_HandleFriendsGroupsList(t *testing.T) {
-	m, ictx := setupFriends(t)
+	t.Parallel()
 
-	sub := ictx.Bus().Subscribe(&GroupListEvent{})
+	t.Run("non_incremental_clears_groups", func(t *testing.T) {
+		t.Parallel()
+		m, ictx := setupFriends(t)
 
-	ictx.EmitPacket(t, enums.EMsg_ClientFriendsGroupsList, &pb.CMsgClientFriendsGroupsList{
-		Bremoval:     proto.Bool(false),
-		Bincremental: proto.Bool(false),
-		FriendGroups: []*pb.CMsgClientFriendsGroupsList_FriendGroup{
-			{
-				NGroupID:     proto.Int32(1),
-				StrGroupName: proto.String("Co-workers"),
+		sub := ictx.Bus().Subscribe(&GroupListEvent{})
+		defer sub.Unsubscribe()
+
+		ictx.EmitPacket(t, enums.EMsg_ClientFriendsGroupsList, &pb.CMsgClientFriendsGroupsList{
+			Bremoval:     proto.Bool(false),
+			Bincremental: proto.Bool(false),
+			FriendGroups: []*pb.CMsgClientFriendsGroupsList_FriendGroup{
+				{
+					NGroupID:     proto.Int32(1),
+					StrGroupName: proto.String("Co-workers"),
+				},
 			},
-		},
-		Memberships: []*pb.CMsgClientFriendsGroupsList_FriendGroupsMembership{
-			{
-				UlSteamID: proto.Uint64(uint64(FriendID1)),
-				NGroupID:  proto.Int32(1),
+			Memberships: []*pb.CMsgClientFriendsGroupsList_FriendGroupsMembership{
+				{
+					UlSteamID: proto.Uint64(uint64(FriendID1)),
+					NGroupID:  proto.Int32(1),
+				},
 			},
-		},
+		})
+
+		groups := m.GetFriendGroups()
+		assert.Len(t, groups, 1)
+		assert.Equal(t, "Co-workers", groups[1].Name)
+		assert.Contains(t, groups[1].Members, FriendID1)
+
+		select {
+		case ev := <-sub.C():
+			e := ev.(*GroupListEvent)
+			assert.Len(t, e.Groups, 1)
+			assert.Equal(t, "Co-workers", e.Groups[1].Name)
+		case <-time.After(1 * time.Second):
+			t.Fatal("Event not received")
+		}
 	})
 
-	groups := m.GetFriendGroups()
-	assert.Len(t, groups, 1)
-	assert.Equal(t, "Co-workers", groups[1].Name)
-	assert.Contains(t, groups[1].Members, FriendID1)
+	t.Run("incremental_does_not_clear_groups", func(t *testing.T) {
+		t.Parallel()
+		m, ictx := setupFriends(t)
 
-	select {
-	case ev := <-sub.C():
-		e := ev.(*GroupListEvent)
-		assert.Len(t, e.Groups, 1)
-		assert.Equal(t, "Co-workers", e.Groups[1].Name)
-	case <-time.After(100 * time.Millisecond):
-		t.Fatal("Event not received")
-	}
+		m.mu.Lock()
+		m.friendGroups[9] = FriendGroup{GroupID: 9, Name: "Existing Group"}
+		m.mu.Unlock()
+
+		ictx.EmitPacket(t, enums.EMsg_ClientFriendsGroupsList, &pb.CMsgClientFriendsGroupsList{
+			Bremoval:     proto.Bool(false),
+			Bincremental: proto.Bool(true),
+			FriendGroups: []*pb.CMsgClientFriendsGroupsList_FriendGroup{
+				{
+					NGroupID:     proto.Int32(1),
+					StrGroupName: proto.String("Co-workers"),
+				},
+			},
+		})
+
+		groups := m.GetFriendGroups()
+		assert.Len(t, groups, 2)
+		assert.Equal(t, "Existing Group", groups[9].Name)
+		assert.Equal(t, "Co-workers", groups[1].Name)
+	})
 }
 
 func TestManager_HandlePlayerNicknameList(t *testing.T) {
-	m, ictx := setupFriends(t)
+	t.Parallel()
 
-	sub := ictx.Bus().Subscribe(&NicknameListEvent{})
+	t.Run("incremental_saves_nickname", func(t *testing.T) {
+		t.Parallel()
+		m, ictx := setupFriends(t)
 
-	ictx.EmitPacket(t, enums.EMsg_ClientPlayerNicknameList, &pb.CMsgClientPlayerNicknameList{
-		Removal:     proto.Bool(false),
-		Incremental: proto.Bool(false),
-		Nicknames: []*pb.CMsgClientPlayerNicknameList_PlayerNickname{
-			{
-				Steamid:  proto.Uint64(uint64(FriendID1)),
-				Nickname: proto.String("Bob"),
+		sub := ictx.Bus().Subscribe(&NicknameListEvent{})
+		defer sub.Unsubscribe()
+
+		ictx.EmitPacket(t, enums.EMsg_ClientPlayerNicknameList, &pb.CMsgClientPlayerNicknameList{
+			Removal:     proto.Bool(false),
+			Incremental: proto.Bool(false),
+			Nicknames: []*pb.CMsgClientPlayerNicknameList_PlayerNickname{
+				{
+					Steamid:  proto.Uint64(uint64(FriendID1)),
+					Nickname: proto.String("Bob"),
+				},
 			},
-		},
+		})
+
+		assert.Equal(t, "Bob", m.GetNickname(FriendID1))
+		assert.Len(t, m.GetNicknames(), 1)
+
+		select {
+		case ev := <-sub.C():
+			e := ev.(*NicknameListEvent)
+			assert.Equal(t, "Bob", e.Nicknames[FriendID1])
+		case <-time.After(1 * time.Second):
+			t.Fatal("Event not received")
+		}
 	})
 
-	assert.Equal(t, "Bob", m.GetNickname(FriendID1))
-	assert.Len(t, m.GetNicknames(), 1)
+	t.Run("nickname_removal", func(t *testing.T) {
+		t.Parallel()
+		m, ictx := setupFriends(t)
+		m.mu.Lock()
+		m.nicknames[FriendID1] = "Bob"
+		m.mu.Unlock()
 
-	select {
-	case ev := <-sub.C():
-		e := ev.(*NicknameListEvent)
-		assert.Equal(t, "Bob", e.Nicknames[FriendID1])
-	case <-time.After(100 * time.Millisecond):
-		t.Fatal("Event not received")
-	}
+		ictx.EmitPacket(t, enums.EMsg_ClientPlayerNicknameList, &pb.CMsgClientPlayerNicknameList{
+			Removal:     proto.Bool(true),
+			Incremental: proto.Bool(true),
+			Nicknames: []*pb.CMsgClientPlayerNicknameList_PlayerNickname{
+				{
+					Steamid: proto.Uint64(uint64(FriendID1)),
+				},
+			},
+		})
+
+		assert.Empty(t, m.GetNickname(FriendID1))
+	})
 }
 
 func TestManager_HandleNotifyFriendNicknameChanged(t *testing.T) {
-	m, ictx := setupFriends(t)
-	m.relationships[FriendID1] = enums.EFriendRelationship_Friend
+	t.Parallel()
 
-	sub := ictx.Bus().Subscribe(&NicknameChangedEvent{})
+	t.Run("success_update", func(t *testing.T) {
+		t.Parallel()
+		m, ictx := setupFriends(t)
+		m.relationships[FriendID1] = enums.EFriendRelationship_Friend
 
-	handler, ok := ictx.GetServiceHandler("PlayerClient.NotifyFriendNicknameChanged#1")
-	require.True(t, ok)
+		sub := ictx.Bus().Subscribe(&NicknameChangedEvent{})
+		defer sub.Unsubscribe()
 
-	payload, err := proto.Marshal(&pb.CPlayer_FriendNicknameChanged_Notification{
-		Accountid: proto.Uint32(FriendID1.AccountID()),
-		Nickname:  proto.String("Alice"),
+		handler, ok := ictx.GetServiceHandler("PlayerClient.NotifyFriendNicknameChanged#1")
+		require.True(t, ok)
+
+		payload, err := proto.Marshal(&pb.CPlayer_FriendNicknameChanged_Notification{
+			Accountid: proto.Uint32(FriendID1.AccountID()),
+			Nickname:  proto.String("Alice"),
+		})
+		require.NoError(t, err)
+
+		handler(&protocol.Packet{
+			Payload: payload,
+		})
+
+		assert.Equal(t, "Alice", m.GetNickname(FriendID1))
+
+		select {
+		case ev := <-sub.C():
+			e := ev.(*NicknameChangedEvent)
+			assert.Equal(t, FriendID1, e.SteamID)
+			assert.Equal(t, "Alice", e.Nickname)
+		case <-time.After(1 * time.Second):
+			t.Fatal("Event not received")
+		}
 	})
-	require.NoError(t, err)
 
-	handler(&protocol.Packet{
-		Payload: payload,
+	t.Run("success_delete", func(t *testing.T) {
+		t.Parallel()
+		m, ictx := setupFriends(t)
+		m.relationships[FriendID1] = enums.EFriendRelationship_Friend
+		m.nicknames[FriendID1] = "Alice"
+
+		sub := ictx.Bus().Subscribe(&NicknameChangedEvent{})
+		defer sub.Unsubscribe()
+
+		handler, ok := ictx.GetServiceHandler("PlayerClient.NotifyFriendNicknameChanged#1")
+		require.True(t, ok)
+
+		payload, err := proto.Marshal(&pb.CPlayer_FriendNicknameChanged_Notification{
+			Accountid: proto.Uint32(FriendID1.AccountID()),
+			Nickname:  proto.String(""),
+		})
+		require.NoError(t, err)
+
+		handler(&protocol.Packet{
+			Payload: payload,
+		})
+
+		assert.Empty(t, m.GetNickname(FriendID1))
+
+		select {
+		case ev := <-sub.C():
+			e := ev.(*NicknameChangedEvent)
+			assert.Equal(t, FriendID1, e.SteamID)
+			assert.Empty(t, e.Nickname)
+		case <-time.After(1 * time.Second):
+			t.Fatal("Event not received")
+		}
 	})
 
-	assert.Equal(t, "Alice", m.GetNickname(FriendID1))
+	t.Run("no_fallback_using_full_steamid", func(t *testing.T) {
+		t.Parallel()
+		m, ictx := setupFriends(t)
 
-	select {
-	case ev := <-sub.C():
-		e := ev.(*NicknameChangedEvent)
-		assert.Equal(t, FriendID1, e.SteamID)
-		assert.Equal(t, "Alice", e.Nickname)
-	case <-time.After(100 * time.Millisecond):
-		t.Fatal("Event not received")
-	}
+		sub := ictx.Bus().Subscribe(&NicknameChangedEvent{})
+		defer sub.Unsubscribe()
+
+		handler, ok := ictx.GetServiceHandler("PlayerClient.NotifyFriendNicknameChanged#1")
+		require.True(t, ok)
+
+		payload, err := proto.Marshal(&pb.CPlayer_FriendNicknameChanged_Notification{
+			Accountid: proto.Uint32(FriendID1.AccountID()),
+			Nickname:  proto.String("Alice"),
+		})
+		require.NoError(t, err)
+
+		handler(&protocol.Packet{
+			Payload: payload,
+		})
+
+		expectedSteamID := id.FromAccountID(FriendID1.AccountID())
+		assert.Equal(t, "Alice", m.GetNickname(expectedSteamID))
+
+		select {
+		case ev := <-sub.C():
+			e := ev.(*NicknameChangedEvent)
+			assert.Equal(t, expectedSteamID, e.SteamID)
+			assert.Equal(t, "Alice", e.Nickname)
+		case <-time.After(1 * time.Second):
+			t.Fatal("Event not received")
+		}
+	})
 }
 
 func TestManager_SetFriendNickname(t *testing.T) {
-	m, ictx := setupFriends(t)
-	ctx := context.Background()
+	t.Parallel()
 
 	t.Run("SetFriendNickname Success", func(t *testing.T) {
+		t.Parallel()
+		m, ictx := setupFriends(t)
+
 		ictx.MockService().SetLegacyResponse(
 			enums.EMsg_AMClientSetPlayerNickname,
 			&pb.CMsgClientSetPlayerNicknameResponse{
@@ -854,7 +1201,7 @@ func TestManager_SetFriendNickname(t *testing.T) {
 			},
 		)
 
-		err := m.SetFriendNickname(ctx, uint64(FriendID1), "Best Friend")
+		err := m.SetFriendNickname(t.Context(), uint64(FriendID1), "Best Friend")
 		assert.NoError(t, err)
 
 		req := &pb.CMsgClientSetPlayerNickname{}
@@ -864,6 +1211,9 @@ func TestManager_SetFriendNickname(t *testing.T) {
 	})
 
 	t.Run("SetFriendNickname Steam Error", func(t *testing.T) {
+		t.Parallel()
+		m, ictx := setupFriends(t)
+
 		ictx.MockService().SetLegacyResponse(
 			enums.EMsg_AMClientSetPlayerNickname,
 			&pb.CMsgClientSetPlayerNicknameResponse{
@@ -871,7 +1221,7 @@ func TestManager_SetFriendNickname(t *testing.T) {
 			},
 		)
 
-		err := m.SetFriendNickname(ctx, uint64(FriendID1), "Best Friend")
+		err := m.SetFriendNickname(t.Context(), uint64(FriendID1), "Best Friend")
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "steam error EResult 2")
 	})

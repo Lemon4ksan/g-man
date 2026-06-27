@@ -35,13 +35,6 @@ type SessionProvider = client.SessionProvider
 // NewClient creates a new [Requester] instance using the constructor from [client.New].
 var NewClient = client.New
 
-var (
-	// WithREST returns a [client.Option] to set the underlying REST client, mapped from [client.WithREST].
-	WithREST = client.WithREST
-	// WithLogger returns a [client.Option] to configure the client logger, mapped from [client.WithLogger].
-	WithLogger = client.WithLogger
-)
-
 // Decorate wraps an existing [Requester] to append default global request modifiers to every request.
 // It returns the original requester unchanged if the slice of modifiers is empty or nil.
 // If the original requester is nil, the decorated wrapper will panic upon calling its methods.

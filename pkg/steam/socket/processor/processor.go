@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package processor handles the transformation of raw network messages into structured packets.
 package processor
 
 import (

@@ -6,7 +6,6 @@ package transport
 
 import (
 	"bytes"
-	"context"
 	"encoding/base64"
 	"errors"
 	"io"
@@ -43,14 +42,18 @@ func (f faultyReader) Read(p []byte) (n int, err error) {
 	return 0, errors.New("read failure")
 }
 
-func TestNewHTTPTransport(t *testing.T) {
+func TestNewHTTPTransport_ValidDoer_CreatesClient(t *testing.T) {
+	t.Parallel()
+
 	doer := &mockHTTPDoer{}
 	tr := NewHTTPTransport(doer, "https://api.example.com")
 
 	assert.NotNil(t, tr.client)
 }
 
-func TestHTTPTransport_ParseEResult(t *testing.T) {
+func TestParseEResult_VariousResponseHeaders_ReturnsExpectedEResults(t *testing.T) {
+	t.Parallel()
+
 	tr := &HTTPTransport{}
 
 	tests := []struct {
@@ -58,14 +61,16 @@ func TestHTTPTransport_ParseEResult(t *testing.T) {
 		header   string
 		expected enums.EResult
 	}{
-		{"Valid Result OK", "1", enums.EResult_OK},
-		{"Valid Result Fail", "2", enums.EResult_Fail},
-		{"Missing Header", "", enums.EResult_OK},
-		{"Invalid Integer", "abc", enums.EResult_OK},
+		{"valid_result_ok", "1", enums.EResult_OK},
+		{"valid_result_fail", "2", enums.EResult_Fail},
+		{"missing_header", "", enums.EResult_OK},
+		{"invalid_integer", "abc", enums.EResult_OK},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			resp := &http.Response{Header: make(http.Header)}
 			if tt.header != "" {
 				resp.Header.Set("x-eresult", tt.header)
@@ -80,11 +85,14 @@ type nonHTTPTarget struct{}
 
 func (n nonHTTPTarget) String() string { return "non-http" }
 
-func TestHTTPTransport_Do(t *testing.T) {
-	ctx := context.Background()
+func TestHTTPTransportDo_VariousRequests_ExecutesExpectedRESTCalls(t *testing.T) {
+	t.Parallel()
+
 	baseURL := "https://api.steampowered.com"
 
-	t.Run("Successful Request with Body and Headers", func(t *testing.T) {
+	t.Run("successful_request_with_body_and_headers", func(t *testing.T) {
+		t.Parallel()
+
 		payload := []byte("hello steam")
 		encodedPayload := base64.StdEncoding.EncodeToString(payload)
 
@@ -111,7 +119,7 @@ func TestHTTPTransport_Do(t *testing.T) {
 		req.WithHeader("X-Multi", "multi1")
 		req.WithHeader("X-Multi", "multi2")
 
-		resp, err := tr.Do(ctx, req)
+		resp, err := tr.Do(t.Context(), req)
 		require.NoError(t, err)
 
 		bodyBytes, _ := io.ReadAll(resp.Body)
@@ -123,7 +131,9 @@ func TestHTTPTransport_Do(t *testing.T) {
 		assert.Equal(t, http.StatusOK, meta.StatusCode)
 	})
 
-	t.Run("Empty Body", func(t *testing.T) {
+	t.Run("empty_body", func(t *testing.T) {
+		t.Parallel()
+
 		doer := &mockHTTPDoer{
 			doFunc: func(req *http.Request) (*http.Response, error) {
 				assert.Empty(t, req.URL.Query().Get("input_protobuf_encoded"))
@@ -136,21 +146,25 @@ func TestHTTPTransport_Do(t *testing.T) {
 		}
 		tr := NewHTTPTransport(doer, baseURL)
 		req := NewRequest(mockHTTPTarget{method: "GET", path: "/test"}, nil)
-		_, err := tr.Do(ctx, req)
+		_, err := tr.Do(t.Context(), req)
 		assert.NoError(t, err)
 	})
 
-	t.Run("Unsupported Target Type", func(t *testing.T) {
+	t.Run("unsupported_target_type", func(t *testing.T) {
+		t.Parallel()
+
 		tr := NewHTTPTransport(&mockHTTPDoer{}, baseURL)
 		req := NewRequest(nonHTTPTarget{}, nil)
 
-		resp, err := tr.Do(ctx, req)
+		resp, err := tr.Do(t.Context(), req)
 		assert.Nil(t, resp)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "does not support HTTP transport")
 	})
 
-	t.Run("Rest Client Request Error", func(t *testing.T) {
+	t.Run("rest_client_request_error", func(t *testing.T) {
+		t.Parallel()
+
 		expectedErr := errors.New("network timeout")
 		doer := &mockHTTPDoer{
 			doFunc: func(req *http.Request) (*http.Response, error) {
@@ -160,12 +174,14 @@ func TestHTTPTransport_Do(t *testing.T) {
 		tr := NewHTTPTransport(doer, baseURL)
 		req := NewRequest(mockHTTPTarget{method: "GET", path: "/test"}, nil)
 
-		resp, err := tr.Do(ctx, req)
+		resp, err := tr.Do(t.Context(), req)
 		assert.Nil(t, resp)
 		assert.ErrorIs(t, err, expectedErr)
 	})
 
-	t.Run("Body Read Error", func(t *testing.T) {
+	t.Run("body_read_error", func(t *testing.T) {
+		t.Parallel()
+
 		doer := &mockHTTPDoer{
 			doFunc: func(req *http.Request) (*http.Response, error) {
 				return &http.Response{
@@ -177,7 +193,7 @@ func TestHTTPTransport_Do(t *testing.T) {
 		tr := NewHTTPTransport(doer, baseURL)
 		req := NewRequest(mockHTTPTarget{method: "GET", path: "/test"}, nil)
 
-		resp, err := tr.Do(ctx, req)
+		resp, err := tr.Do(t.Context(), req)
 		if err != nil {
 			assert.Contains(t, err.Error(), "failed to read response")
 		} else {
@@ -185,5 +201,16 @@ func TestHTTPTransport_Do(t *testing.T) {
 			assert.Error(t, readErr)
 			assert.Contains(t, readErr.Error(), "read failure")
 		}
+	})
+
+	t.Run("request_body_read_error", func(t *testing.T) {
+		t.Parallel()
+
+		tr := NewHTTPTransport(&mockHTTPDoer{}, baseURL)
+		req := NewRequest(mockHTTPTarget{method: "POST", path: "/test"}, faultyReader{})
+
+		resp, err := tr.Do(t.Context(), req)
+		assert.Nil(t, resp)
+		assert.ErrorContains(t, err, "failed to read request body")
 	})
 }

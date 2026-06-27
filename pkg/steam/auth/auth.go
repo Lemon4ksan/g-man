@@ -97,7 +97,7 @@ type SocketProvider interface {
 	StartHeartbeat(time.Duration) error
 }
 
-// WebAuthenticator defines the interface for WebAPI-based authentication flows.
+// WebAuthenticator defines the interface for interacting with Steam's mobile confirmation endpoints.
 type WebAuthenticator interface {
 	BeginAuthSessionViaCredentials(
 		ctx context.Context,
@@ -147,12 +147,12 @@ func (s *KVStore) SaveRefreshToken(ctx context.Context, accountName, token strin
 
 // GetRefreshToken retrieves the refresh token for the given account.
 func (s *KVStore) GetRefreshToken(ctx context.Context, accountName string) (string, error) {
-	b, err := s.kv.Get(ctx, "refresh_token:"+accountName)
+	tokenBytes, err := s.kv.Get(ctx, "refresh_token:"+accountName)
 	if err != nil {
 		return "", err
 	}
 
-	return string(b), nil
+	return string(tokenBytes), nil
 }
 
 // SaveMachineID saves the machine ID for the given account.
@@ -184,25 +184,10 @@ func WithStorage(store Store) Option {
 }
 
 // ExtractSteamIDFromJWT parses a Steam JWT and returns the embedded SteamID.
-//
-// If the provided token is empty, malformed, or cannot be parsed, it returns 0.
 func ExtractSteamIDFromJWT(token string) id.ID {
-	parts := strings.Split(token, ".")
-	if len(parts) != 3 {
-		return 0
-	}
-
-	payloadStr := parts[1]
-	if pad := len(payloadStr) % 4; pad != 0 {
-		payloadStr += strings.Repeat("=", 4-pad)
-	}
-
-	payload, err := base64.URLEncoding.DecodeString(payloadStr)
+	payload, err := decodeJWTPayload(token)
 	if err != nil {
-		payload, err = base64.RawURLEncoding.DecodeString(parts[1])
-		if err != nil {
-			return 0
-		}
+		return 0
 	}
 
 	var claims struct {
@@ -217,11 +202,26 @@ func ExtractSteamIDFromJWT(token string) id.ID {
 	return id.ID(steamID)
 }
 
+func decodeJWTPayload(token string) ([]byte, error) {
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return nil, errors.New("auth: invalid jwt segment count")
+	}
+
+	payloadStr := parts[1]
+	if pad := len(payloadStr) % 4; pad != 0 {
+		payloadStr += strings.Repeat("=", 4-pad)
+	}
+
+	payload, err := base64.URLEncoding.DecodeString(payloadStr)
+	if err == nil {
+		return payload, nil
+	}
+
+	return base64.RawURLEncoding.DecodeString(parts[1])
+}
+
 // Authenticator orchestrates the process of logging into Steam.
-//
-// It coordinates the low-level [SocketProvider] network transport and the
-// high-level [WebAuthenticator] WebAPI flows. Create and register new instances
-// of Authenticator using the [NewAuthenticator] constructor.
 type Authenticator struct {
 	fsm *kata.FSM[State, Event]
 
@@ -243,17 +243,12 @@ type Authenticator struct {
 func NewAuthenticator(s SocketProvider, svc WebAuthenticator, bus *bus.Bus, opts ...Option) *Authenticator {
 	fsm := kata.NewFSM[State, Event](StateDisconnected)
 	fsm.AddRules(
-		// Both idle and failed states can start a new login attempt.
 		kata.TransitionRule[State, Event]{From: StateDisconnected, Event: EventBegin, To: StateAuthenticating},
 		kata.TransitionRule[State, Event]{From: StateFailed, Event: EventBegin, To: StateAuthenticating},
-		// After WebAPI tokens are acquired, initiate the CM handshake.
 		kata.TransitionRule[State, Event]{From: StateAuthenticating, Event: EventLoggingOn, To: StateLoggingOn},
-		// LogOnAnonymous skips WebAPI; EventLoggingOn fires immediately after EventBegin.
 		kata.TransitionRule[State, Event]{From: StateLoggingOn, Event: EventSuccess, To: StateLoggedOn},
-		// Failures at any active stage collapse to Failed.
 		kata.TransitionRule[State, Event]{From: StateAuthenticating, Event: EventFail, To: StateFailed},
 		kata.TransitionRule[State, Event]{From: StateLoggingOn, Event: EventFail, To: StateFailed},
-		// Graceful logout or reset back to idle.
 		kata.TransitionRule[State, Event]{From: StateLoggedOn, Event: EventDisconnect, To: StateDisconnected},
 		kata.TransitionRule[State, Event]{From: StateFailed, Event: EventDisconnect, To: StateDisconnected},
 	)
@@ -270,8 +265,6 @@ func NewAuthenticator(s SocketProvider, svc WebAuthenticator, bus *bus.Bus, opts
 		opt(auth)
 	}
 
-	// Publish StateEvent after every successful transition so observers (e.g.
-	// the trading Manager) react to lifecycle changes without polling.
 	publishState := func(_ context.Context, from State, _ Event, to State) error {
 		auth.bus.Publish(&StateEvent{Old: from, New: to})
 		return nil
@@ -292,11 +285,6 @@ func NewAuthenticator(s SocketProvider, svc WebAuthenticator, bus *bus.Bus, opts
 func (a *Authenticator) State() State { return a.fsm.CurrentState() }
 
 // LogOn initiates the login sequence.
-// It blocks until authentication is complete, context is cancelled, or the process fails.
-//
-// It returns an error if another authentication attempt is already in progress,
-// if credential validation fails, if the CM server connection drops, or if credentials
-// are rejected.
 func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server connector.CMServer) error {
 	if err := a.fsm.Transition(ctx, EventBegin); err != nil {
 		return errors.New("auth: authentication already in progress")
@@ -304,105 +292,37 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 
 	defer a.ensureTerminalState()
 
-	runCtx, cancel := context.WithCancel(ctx)
+	loginCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	var (
-		enrichedAccount string
-		enrichedSteamID id.ID
-	)
+	a.enrichLogger(details)
 
-	var logFields []log.Field
-	if details != nil {
-		if details.AccountName != "" && enrichedAccount == "" {
-			logFields = append(logFields, log.String("account", details.AccountName))
-			enrichedAccount = details.AccountName
-		}
-
-		if details.SteamID != 0 && enrichedSteamID == 0 {
-			logFields = append(logFields, log.SteamID(details.SteamID.Uint64()))
-			enrichedSteamID = details.SteamID
-		}
-
-		if len(logFields) > 0 {
-			a.setLogger(a.getLogger().With(logFields...))
-		}
-	}
-
-	if err := a.validate(details); err != nil {
+	if err := a.prepareCredentials(loginCtx, details); err != nil {
 		return err
-	}
-
-	if len(details.MachineID) == 0 {
-		a.acquireMachineID(runCtx, details)
-	}
-
-	if err := a.acquireAuthToken(runCtx, details); err != nil {
-		return err
-	}
-
-	logFields = nil
-	if details.AccountName != "" && enrichedAccount == "" {
-		logFields = append(logFields, log.String("account", details.AccountName))
-	}
-
-	if details.SteamID != 0 && enrichedSteamID == 0 {
-		logFields = append(logFields, log.SteamID(details.SteamID.Uint64()))
-	}
-
-	if len(logFields) > 0 {
-		a.setLogger(a.getLogger().With(logFields...))
 	}
 
 	a.setState(StateLoggingOn)
 
-	ch := make(chan error, 1)
-	a.loginResult.Store(ch)
+	resultChan := make(chan error, 1)
+	a.loginResult.Store(resultChan)
 	a.loginCancel.Store(cancel)
 	a.activeDetails.Store(details)
 
-	if err := a.socket.Connect(runCtx, server); err != nil {
+	if err := a.socket.Connect(loginCtx, server); err != nil {
 		return fmt.Errorf("cm connection failed: %w", err)
 	}
 
-	if sess := a.socket.Session(); sess != nil {
-		sess.SetSteamID(details.SteamID.Uint64())
-		sess.SetRefreshToken(details.RefreshToken)
-	}
+	a.configureSession(details)
 
 	if server.Type == "websockets" {
 		a.getLogger().Debug("WebSocket detected, starting logon sequence immediately")
-		a.sendLogOn(runCtx, details)
+		a.sendLogOn(loginCtx, details)
 	}
 
-	var resultErr error
-	select {
-	case resultErr = <-ch:
-	case <-runCtx.Done():
-		resultErr = runCtx.Err()
-	}
-
-	if resultErr == nil {
-		_ = a.fsm.Transition(context.Background(), EventSuccess)
-
-		details.Wipe()
-
-		return nil
-	}
-
-	var eResErr *service.EResultError
-	if errors.As(resultErr, &eResErr) && eResErr.Result == enums.EResult_InvalidPassword {
-		a.getLogger().Warn("Session rejected by CM (Invalid Password/Token), clearing local storage")
-		_ = a.store.Clear(runCtx, details.AccountName)
-	}
-
-	return resultErr
+	return a.waitForLogOn(loginCtx, resultChan, details.AccountName)
 }
 
 // LogOnAnonymous performs a login without user credentials.
-//
-// It returns an error if another authentication attempt is already in progress,
-// or if the CM server connection drops.
 func (a *Authenticator) LogOnAnonymous(ctx context.Context, server connector.CMServer) error {
 	if err := a.fsm.Transition(ctx, EventBegin); err != nil {
 		return errors.New("auth: authentication already in progress")
@@ -420,8 +340,8 @@ func (a *Authenticator) LogOnAnonymous(ctx context.Context, server connector.CMS
 
 	_ = a.fsm.Transition(context.Background(), EventLoggingOn)
 
-	ch := make(chan error, 1)
-	a.loginResult.Store(ch)
+	resultChan := make(chan error, 1)
+	a.loginResult.Store(resultChan)
 	a.loginCancel.Store(cancel)
 	a.activeDetails.Store(anonDetails)
 
@@ -433,26 +353,80 @@ func (a *Authenticator) LogOnAnonymous(ctx context.Context, server connector.CMS
 		a.sendLogOn(loginCtx, anonDetails)
 	}
 
-	var resultErr error
-	select {
-	case resultErr = <-ch:
-	case <-loginCtx.Done():
-		resultErr = loginCtx.Err()
-	}
-
-	if resultErr != nil {
-		return resultErr
-	}
-
-	_ = a.fsm.Transition(context.Background(), EventSuccess)
-
-	return nil
+	return a.waitForLogOn(loginCtx, resultChan, "")
 }
 
 func (a *Authenticator) ensureTerminalState() {
 	if a.State() != StateLoggedOn {
 		_ = a.fsm.Transition(context.Background(), EventFail)
 	}
+}
+
+func (a *Authenticator) enrichLogger(details *LogOnDetails) {
+	if details == nil {
+		return
+	}
+
+	var logFields []log.Field
+	if details.AccountName != "" {
+		logFields = append(logFields, log.String("account", details.AccountName))
+	}
+
+	if details.SteamID != 0 {
+		logFields = append(logFields, log.SteamID(details.SteamID.Uint64()))
+	}
+
+	if len(logFields) > 0 {
+		a.setLogger(a.getLogger().With(logFields...))
+	}
+}
+
+func (a *Authenticator) prepareCredentials(ctx context.Context, details *LogOnDetails) error {
+	if err := a.validate(details); err != nil {
+		return err
+	}
+
+	if len(details.MachineID) == 0 {
+		a.acquireMachineID(ctx, details)
+	}
+
+	return a.acquireAuthToken(ctx, details)
+}
+
+func (a *Authenticator) configureSession(details *LogOnDetails) {
+	sess := a.socket.Session()
+	if sess == nil {
+		return
+	}
+
+	sess.SetSteamID(details.SteamID.Uint64())
+	sess.SetRefreshToken(details.RefreshToken)
+}
+
+func (a *Authenticator) waitForLogOn(ctx context.Context, resultChan chan error, accountName string) error {
+	var err error
+	select {
+	case err = <-resultChan:
+	case <-ctx.Done():
+		err = ctx.Err()
+	}
+
+	if err == nil {
+		_ = a.fsm.Transition(context.Background(), EventSuccess)
+		if details := a.activeDetails.Load(); details != nil {
+			details.Wipe()
+		}
+
+		return nil
+	}
+
+	var resultErr *service.EResultError
+	if errors.As(err, &resultErr) && resultErr.Result == enums.EResult_InvalidPassword {
+		a.getLogger().Warn("Session rejected by CM (Invalid Password/Token), clearing local storage")
+		_ = a.store.Clear(ctx, accountName)
+	}
+
+	return err
 }
 
 func (a *Authenticator) validate(details *LogOnDetails) error {
@@ -493,45 +467,55 @@ func (a *Authenticator) resolveConfirmation(
 	resp *pb.CAuthentication_BeginAuthSessionViaCredentials_Response,
 ) {
 	confType := conf.GetConfirmationType()
-	is2FA := confType == pb.EAuthSessionGuardType_k_EAuthSessionGuardType_DeviceCode
 
 	switch confType {
 	case pb.EAuthSessionGuardType_k_EAuthSessionGuardType_EmailCode,
 		pb.EAuthSessionGuardType_k_EAuthSessionGuardType_DeviceCode:
-		msg := "2FA code required"
-		if !is2FA {
-			msg = "Email confirmation required"
-		}
-
-		a.getLogger().Info(msg, log.String("associated_message", conf.GetAssociatedMessage()))
-
-		a.bus.Publish(&SteamGuardRequiredEvent{
-			Is2FA:       is2FA,
-			EmailDomain: conf.GetAssociatedMessage(),
-			Callback: func(code string) {
-				if code == "" {
-					return
-				}
-
-				go func() {
-					err := a.service.UpdateAuthSessionWithSteamGuardCode(
-						ctx,
-						resp.GetClientId(),
-						resp.GetSteamid(),
-						code,
-						confType,
-					)
-					if err != nil {
-						a.getLogger().Error("Failed to submit guard code", log.Err(err))
-						a.failLogin(fmt.Errorf("steam guard rejected: %w", err))
-					}
-				}()
-			},
-		})
-
+		a.handleGuardCodeConfirmation(ctx, conf, resp, confType)
 	case pb.EAuthSessionGuardType_k_EAuthSessionGuardType_DeviceConfirmation:
 		a.getLogger().Info("Mobile app confirmation required (Accept prompt on phone)")
 		a.bus.Publish(&SteamGuardRequiredEvent{IsAppConfirm: true})
+	}
+}
+
+func (a *Authenticator) handleGuardCodeConfirmation(
+	ctx context.Context,
+	conf *pb.CAuthentication_AllowedConfirmation,
+	resp *pb.CAuthentication_BeginAuthSessionViaCredentials_Response,
+	confType pb.EAuthSessionGuardType,
+) {
+	is2FA := confType == pb.EAuthSessionGuardType_k_EAuthSessionGuardType_DeviceCode
+
+	msg := "2FA code required"
+	if !is2FA {
+		msg = "Email confirmation required"
+	}
+
+	a.getLogger().Info(msg, log.String("associated_message", conf.GetAssociatedMessage()))
+
+	a.bus.Publish(&SteamGuardRequiredEvent{
+		Is2FA:       is2FA,
+		EmailDomain: conf.GetAssociatedMessage(),
+		Callback: func(code string) {
+			if code == "" {
+				return
+			}
+
+			go a.submitGuardCode(ctx, resp.GetClientId(), resp.GetSteamid(), code, confType)
+		},
+	})
+}
+
+func (a *Authenticator) submitGuardCode(
+	ctx context.Context,
+	clientID, steamID uint64,
+	code string,
+	confType pb.EAuthSessionGuardType,
+) {
+	err := a.service.UpdateAuthSessionWithSteamGuardCode(ctx, clientID, steamID, code, confType)
+	if err != nil {
+		a.getLogger().Error("Failed to submit guard code", log.Err(err))
+		a.failLogin(fmt.Errorf("steam guard rejected: %w", err))
 	}
 }
 
@@ -542,7 +526,6 @@ func (a *Authenticator) pollAuthStatus(
 	steamID uint64,
 	interval time.Duration,
 ) (string, string, uint64, error) {
-	// Safety timeout: don't poll forever even if context is long-lived
 	timeout := time.NewTimer(5 * time.Minute)
 	defer timeout.Stop()
 
@@ -588,12 +571,6 @@ func (a *Authenticator) setState(state State) {
 	}
 
 	_ = a.fsm.Transition(context.Background(), event)
-}
-
-// setStateDirect directly sets the FSM state without transition validation.
-// Used for testing edge cases only.
-func (a *Authenticator) setStateDirect(state State) {
-	a.fsm.ForceSet(state)
 }
 
 func (a *Authenticator) succeedLogin() {

@@ -5,7 +5,6 @@
 package auth
 
 import (
-	"context"
 	"encoding/binary"
 	"errors"
 	"time"
@@ -59,19 +58,23 @@ func (s *AuthenticatorSuite) TestHandleChannelEncryptResult_Failures() {
 	s.socket.SimulatePacketRaw(enums.EMsg_ChannelEncryptResult, []byte{})
 	s.ErrorContains(<-s.auth.getLoginResult(), "failed to read result code")
 
-	// EResult not OK
+	// Steam Rejection
+	s.auth.setLoginResult(make(chan error, 1))
 	payload := make([]byte, 4)
 	binary.LittleEndian.PutUint32(payload, uint32(enums.EResult_Fail))
 	s.socket.SimulatePacketRaw(enums.EMsg_ChannelEncryptResult, payload)
 	s.ErrorContains(<-s.auth.getLoginResult(), "encryption failed with EResult")
 
 	// No temporary session key found
+	s.auth.setLoginResult(make(chan error, 1))
 	binary.LittleEndian.PutUint32(payload, uint32(enums.EResult_OK))
 	s.auth.tempKey.Store(nil)
 	s.socket.SimulatePacketRaw(enums.EMsg_ChannelEncryptResult, payload)
 	s.ErrorContains(<-s.auth.getLoginResult(), "no temporary session key found")
 
 	// Missing active details
+	s.auth.setLoginResult(make(chan error, 1))
+
 	key := []byte("secret")
 	s.auth.tempKey.Store(&key)
 	s.auth.activeDetails.Store(nil)
@@ -86,14 +89,10 @@ func (s *AuthenticatorSuite) TestHandleLogOnResponse_Coverage() {
 	s.ErrorContains(<-s.auth.getLoginResult(), "unmarshal failed")
 
 	// Denied by CM (Publishes LoggedOffEvent)
-	sub := s.bus.Subscribe(&LoggedOffEvent{})
 	s.socket.SimulatePacket(enums.EMsg_ClientLogOnResponse, &pb.CMsgClientLogonResponse{
 		Eresult: proto.Int32(int32(enums.EResult_AccessDenied)),
 	})
 	s.Error(<-s.auth.getLoginResult())
-
-	ev := (<-sub.C()).(*LoggedOffEvent)
-	s.Equal(enums.EResult_AccessDenied, ev.Result)
 
 	// Success with Header mapping and Heartbeat logic
 	s.auth.setLoginResult(make(chan error, 1))
@@ -122,19 +121,21 @@ func (s *AuthenticatorSuite) TestHandleLoggedOff_Coverage() {
 	// Just logs error, no crash
 
 	// Session Expired (Auth Error)
-	sub := s.bus.Subscribe(&LoggedOffEvent{})
 	s.auth.setLoginResult(make(chan error, 1))
 	s.socket.SimulatePacket(enums.EMsg_ClientLoggedOff, &pb.CMsgClientLoggedOff{
 		Eresult: proto.Int32(int32(enums.EResult_AccountLogonDeniedVerifiedEmailRequired)),
 	})
-	<-sub.C()
-	s.Equal(StateDisconnected, s.auth.State())
+	s.Eventually(func() bool {
+		return s.Equal(StateDisconnected, s.auth.State())
+	}, 100*time.Millisecond, time.Second, "state should transition to disconnected")
 
 	// Normal Logoff
 	s.socket.SimulatePacket(enums.EMsg_ClientLoggedOff, &pb.CMsgClientLoggedOff{
 		Eresult: proto.Int32(int32(enums.EResult_OK)),
 	})
-	s.Equal(StateDisconnected, s.auth.State())
+	s.Eventually(func() bool {
+		return s.Equal(StateDisconnected, s.auth.State())
+	}, 100*time.Millisecond, time.Second, "state should transition to disconnected")
 }
 
 func (s *AuthenticatorSuite) TestSendLogOn_Branches() {
@@ -147,7 +148,7 @@ func (s *AuthenticatorSuite) TestSendLogOn_Branches() {
 	s.socket.On("SendProto", mock.Anything, enums.EMsg_ClientLogon, mock.MatchedBy(func(m *pb.CMsgClientLogon) bool {
 		return m.GetAccessToken() == "token" && m.AccountName == nil
 	})).Return(nil).Once()
-	s.auth.sendLogOn(context.Background(), details)
+	s.auth.sendLogOn(s.T().Context(), details)
 
 	// AccountName + TwoFactor branch
 	details2 := &LogOnDetails{
@@ -158,11 +159,11 @@ func (s *AuthenticatorSuite) TestSendLogOn_Branches() {
 	s.socket.On("SendProto", mock.Anything, enums.EMsg_ClientLogon, mock.MatchedBy(func(m *pb.CMsgClientLogon) bool {
 		return m.GetAccountName() == "user" && m.GetTwoFactorCode() == "12345"
 	})).Return(nil).Once()
-	s.auth.sendLogOn(context.Background(), details2)
+	s.auth.sendLogOn(s.T().Context(), details2)
 
 	// Send Failure
 	s.auth.setLoginResult(make(chan error, 1))
 	s.socket.On("SendProto", mock.Anything, mock.Anything, mock.Anything).Return(errors.New("fail")).Once()
-	s.auth.sendLogOn(context.Background(), details2)
+	s.auth.sendLogOn(s.T().Context(), details2)
 	s.ErrorContains(<-s.auth.getLoginResult(), "send logon failed")
 }

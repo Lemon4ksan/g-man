@@ -59,12 +59,18 @@ func mockRSAResponse(t *testing.T, mock *mock.ServiceMock) *rsa.PrivateKey {
 }
 
 func TestNewAuthenticationService(t *testing.T) {
-	t.Run("Default Config", func(t *testing.T) {
+	t.Parallel()
+
+	t.Run("default_config", func(t *testing.T) {
+		t.Parallel()
+
 		svc, _ := setupAuthService(t, nil)
 		assert.Equal(t, auth.DefaultDeviceConfig(), svc.DeviceConf())
 	})
 
-	t.Run("Custom Config", func(t *testing.T) {
+	t.Run("custom_config", func(t *testing.T) {
+		t.Parallel()
+
 		custom := &auth.DeviceConfig{DeviceFriendlyName: "G-man Bot"}
 		svc, _ := setupAuthService(t, custom)
 		assert.Equal(t, "G-man Bot", svc.DeviceConf().DeviceFriendlyName)
@@ -72,172 +78,268 @@ func TestNewAuthenticationService(t *testing.T) {
 }
 
 func TestAuthenticationService_EncryptPassword(t *testing.T) {
-	svc, mock := setupAuthService(t, nil)
-	privKey := mockRSAResponse(t, mock)
+	t.Parallel()
 
-	password := "secret_123"
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 
-	encBase64, ts, err := svc.EncryptPassword(t.Context(), "user", password)
-	require.NoError(t, err)
-	assert.Equal(t, uint64(TestTimestamp), ts)
+		svc, mock := setupAuthService(t, nil)
+		privKey := mockRSAResponse(t, mock)
 
-	cipherText, err := base64.StdEncoding.DecodeString(encBase64)
-	require.NoError(t, err)
+		password := "secret_123"
 
-	plainText, err := rsa.DecryptPKCS1v15(rand.Reader, privKey, cipherText)
-	require.NoError(t, err, "failed to decrypt password")
-	assert.Equal(t, password, string(plainText))
-}
+		encBase64, ts, err := svc.EncryptPassword(t.Context(), "user", password)
+		require.NoError(t, err)
+		assert.Equal(t, uint64(TestTimestamp), ts)
 
-func TestAuthenticationService_EncryptPassword_Errors(t *testing.T) {
-	svc, mock := setupAuthService(t, nil)
-	method := "Authentication.GetPasswordRSAPublicKey"
+		cipherText, err := base64.StdEncoding.DecodeString(encBase64)
+		require.NoError(t, err)
 
-	tests := []struct {
-		name    string
-		setup   func()
-		wantErr string
-	}{
-		{
-			name: "API Down",
-			setup: func() {
-				mock.ResponseErrs[method] = errors.New("api down")
+		plainText, err := rsa.DecryptPKCS1v15(rand.Reader, privKey, cipherText)
+		require.NoError(t, err, "failed to decrypt password")
+		assert.Equal(t, password, string(plainText))
+	})
+
+	t.Run("error_oversized", func(t *testing.T) {
+		t.Parallel()
+
+		svc, mock := setupAuthService(t, nil)
+		mockRSAResponse(t, mock)
+
+		longPassword := strings.Repeat("a", 1000)
+		_, _, err := svc.EncryptPassword(t.Context(), "user", longPassword)
+		assert.ErrorContains(t, err, "encrypt password payload")
+	})
+
+	t.Run("errors_table", func(t *testing.T) {
+		t.Parallel()
+
+		method := "Authentication.GetPasswordRSAPublicKey"
+
+		tests := []struct {
+			name    string
+			setup   func(mock *mock.ServiceMock)
+			wantErr string
+		}{
+			{
+				name: "api_down",
+				setup: func(mock *mock.ServiceMock) {
+					mock.ResponseErrs[method] = errors.New("api down")
+				},
+				wantErr: "fetch rsa key: api down",
 			},
-			wantErr: "fetch rsa key: api down",
-		},
-		{
-			name: "Empty Parameters",
-			setup: func() {
-				mock.ResponseErrs[method] = nil
-				mock.SetProtoResponse(
-					"Authentication",
-					"GetPasswordRSAPublicKey",
-					&pb.CAuthentication_GetPasswordRSAPublicKey_Response{},
-				)
+			{
+				name: "empty_parameters",
+				setup: func(mock *mock.ServiceMock) {
+					mock.SetProtoResponse(
+						"Authentication",
+						"GetPasswordRSAPublicKey",
+						&pb.CAuthentication_GetPasswordRSAPublicKey_Response{},
+					)
+				},
+				wantErr: "steam returned empty rsa parameters",
 			},
-			wantErr: "steam returned empty rsa parameters",
-		},
-		{
-			name: "Invalid Hex",
-			setup: func() {
-				mock.SetProtoResponse(
-					"Authentication",
-					"GetPasswordRSAPublicKey",
-					&pb.CAuthentication_GetPasswordRSAPublicKey_Response{
-						PublickeyMod: proto.String("NOT_HEX"),
-						PublickeyExp: proto.String("010001"),
-					},
-				)
+			{
+				name: "invalid_modulus_hex",
+				setup: func(mock *mock.ServiceMock) {
+					mock.SetProtoResponse(
+						"Authentication",
+						"GetPasswordRSAPublicKey",
+						&pb.CAuthentication_GetPasswordRSAPublicKey_Response{
+							PublickeyMod: proto.String("NOT_HEX"),
+							PublickeyExp: proto.String("010001"),
+						},
+					)
+				},
+				wantErr: "invalid rsa modulus hex string",
 			},
-			wantErr: "invalid rsa modulus hex string",
-		},
-		{
-			name: "Invalid Exponent Hex",
-			setup: func() {
-				mock.SetProtoResponse(
-					"Authentication",
-					"GetPasswordRSAPublicKey",
-					&pb.CAuthentication_GetPasswordRSAPublicKey_Response{
-						PublickeyMod: proto.String("010203"),
-						PublickeyExp: proto.String("NOT_HEX"),
-					},
-				)
+			{
+				name: "invalid_exponent_hex",
+				setup: func(mock *mock.ServiceMock) {
+					mock.SetProtoResponse(
+						"Authentication",
+						"GetPasswordRSAPublicKey",
+						&pb.CAuthentication_GetPasswordRSAPublicKey_Response{
+							PublickeyMod: proto.String("010203"),
+							PublickeyExp: proto.String("NOT_HEX"),
+						},
+					)
+				},
+				wantErr: "invalid rsa exponent hex string",
 			},
-			wantErr: "invalid rsa exponent hex string",
-		},
-	}
+		}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tt.setup()
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
 
-			_, _, err := svc.EncryptPassword(t.Context(), "user", "pwd")
-			assert.EqualError(t, err, tt.wantErr)
-		})
-	}
-}
+				svc, mock := setupAuthService(t, nil)
+				tt.setup(mock)
 
-func TestAuthenticationService_EncryptPassword_Oversized(t *testing.T) {
-	svc, mock := setupAuthService(t, nil)
-	mockRSAResponse(t, mock)
-
-	longPassword := strings.Repeat("a", 1000)
-	_, _, err := svc.EncryptPassword(t.Context(), "user", longPassword)
-	assert.ErrorContains(t, err, "encrypt password payload")
+				_, _, err := svc.EncryptPassword(t.Context(), "user", "pwd")
+				assert.EqualError(t, err, tt.wantErr)
+			})
+		}
+	})
 }
 
 func TestAuthenticationService_BeginAuthSessionViaCredentials(t *testing.T) {
-	svc, mock := setupAuthService(t, nil)
-	mockRSAResponse(t, mock)
+	t.Parallel()
 
-	mock.SetProtoResponse(
-		"Authentication",
-		"BeginAuthSessionViaCredentials",
-		&pb.CAuthentication_BeginAuthSessionViaCredentials_Response{
-			ClientId: proto.Uint64(999),
-		},
-	)
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 
-	resp, err := svc.BeginAuthSessionViaCredentials(t.Context(), "user", "pass", "GUARD_CODE")
-	require.NoError(t, err)
-	assert.Equal(t, uint64(999), resp.GetClientId())
+		svc, mock := setupAuthService(t, nil)
+		mockRSAResponse(t, mock)
 
-	sent := &pb.CAuthentication_BeginAuthSessionViaCredentials_Request{}
-	mock.GetLastCall(sent)
+		mock.SetProtoResponse(
+			"Authentication",
+			"BeginAuthSessionViaCredentials",
+			&pb.CAuthentication_BeginAuthSessionViaCredentials_Response{
+				ClientId: proto.Uint64(999),
+			},
+		)
 
-	assert.Equal(t, "user", sent.GetAccountName())
-	assert.Equal(t, "GUARD_CODE", sent.GetGuardData())
-	assert.NotEmpty(t, sent.GetEncryptedPassword())
+		resp, err := svc.BeginAuthSessionViaCredentials(t.Context(), "user", "pass", "GUARD_CODE")
+		require.NoError(t, err)
+		assert.Equal(t, uint64(999), resp.GetClientId())
+
+		sent := &pb.CAuthentication_BeginAuthSessionViaCredentials_Request{}
+		mock.GetLastCall(sent)
+
+		assert.Equal(t, "user", sent.GetAccountName())
+		assert.Equal(t, "GUARD_CODE", sent.GetGuardData())
+		assert.NotEmpty(t, sent.GetEncryptedPassword())
+	})
+
+	t.Run("error_encrypt", func(t *testing.T) {
+		t.Parallel()
+
+		svc, mock := setupAuthService(t, nil)
+		mock.ResponseErrs["Authentication.GetPasswordRSAPublicKey"] = errors.New("rsa fail")
+
+		_, err := svc.BeginAuthSessionViaCredentials(t.Context(), "user", "pass", "GUARD_CODE")
+		assert.ErrorContains(t, err, "fetch rsa key: rsa fail")
+	})
+
+	t.Run("error_api", func(t *testing.T) {
+		t.Parallel()
+
+		svc, mock := setupAuthService(t, nil)
+		mockRSAResponse(t, mock)
+		mock.ResponseErrs["Authentication.BeginAuthSessionViaCredentials"] = errors.New("api fail")
+
+		_, err := svc.BeginAuthSessionViaCredentials(t.Context(), "user", "pass", "GUARD_CODE")
+		assert.ErrorContains(t, err, "api fail")
+	})
 }
 
 func TestAuthenticationService_PollAuthSessionStatus(t *testing.T) {
-	svc, mock := setupAuthService(t, nil)
+	t.Parallel()
 
-	mock.SetProtoResponse("Authentication", "PollAuthSessionStatus", &pb.CAuthentication_PollAuthSessionStatus_Response{
-		RefreshToken: proto.String("new_token"),
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+
+		svc, mock := setupAuthService(t, nil)
+
+		mock.SetProtoResponse(
+			"Authentication",
+			"PollAuthSessionStatus",
+			&pb.CAuthentication_PollAuthSessionStatus_Response{
+				RefreshToken: proto.String("new_token"),
+			},
+		)
+
+		resp, err := svc.PollAuthSessionStatus(t.Context(), 123, []byte{1, 2})
+		require.NoError(t, err)
+		assert.Equal(t, "new_token", resp.GetRefreshToken())
+
+		sent := &pb.CAuthentication_PollAuthSessionStatus_Request{}
+		mock.GetLastCall(sent)
+
+		assert.Equal(t, uint64(123), sent.GetClientId())
 	})
 
-	resp, err := svc.PollAuthSessionStatus(t.Context(), 123, []byte{1, 2})
-	require.NoError(t, err)
-	assert.Equal(t, "new_token", resp.GetRefreshToken())
+	t.Run("error_api", func(t *testing.T) {
+		t.Parallel()
 
-	sent := &pb.CAuthentication_PollAuthSessionStatus_Request{}
-	mock.GetLastCall(sent)
+		svc, mock := setupAuthService(t, nil)
+		mock.ResponseErrs["Authentication.PollAuthSessionStatus"] = errors.New("poll fail")
 
-	assert.Equal(t, uint64(123), sent.GetClientId())
+		_, err := svc.PollAuthSessionStatus(t.Context(), 123, []byte{1, 2})
+		assert.ErrorContains(t, err, "poll fail")
+	})
 }
 
 func TestAuthenticationService_UpdateAuthSessionWithSteamGuardCode(t *testing.T) {
-	svc, mock := setupAuthService(t, nil)
+	t.Parallel()
 
-	err := svc.UpdateAuthSessionWithSteamGuardCode(
-		t.Context(),
-		111,
-		TestSteamID,
-		"ABCDE",
-		pb.EAuthSessionGuardType_k_EAuthSessionGuardType_DeviceCode,
-	)
-	require.NoError(t, err)
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 
-	sent := &pb.CAuthentication_UpdateAuthSessionWithSteamGuardCode_Request{}
-	mock.GetLastCall(sent)
+		svc, mock := setupAuthService(t, nil)
 
-	assert.Equal(t, "ABCDE", sent.GetCode())
-	assert.Equal(t, uint64(TestSteamID), sent.GetSteamid())
+		err := svc.UpdateAuthSessionWithSteamGuardCode(
+			t.Context(),
+			111,
+			TestSteamID,
+			"ABCDE",
+			pb.EAuthSessionGuardType_k_EAuthSessionGuardType_DeviceCode,
+		)
+		require.NoError(t, err)
+
+		sent := &pb.CAuthentication_UpdateAuthSessionWithSteamGuardCode_Request{}
+		mock.GetLastCall(sent)
+
+		assert.Equal(t, "ABCDE", sent.GetCode())
+		assert.Equal(t, uint64(TestSteamID), sent.GetSteamid())
+	})
+
+	t.Run("error_api", func(t *testing.T) {
+		t.Parallel()
+
+		svc, mock := setupAuthService(t, nil)
+		mock.ResponseErrs["Authentication.UpdateAuthSessionWithSteamGuardCode"] = errors.New("update fail")
+
+		err := svc.UpdateAuthSessionWithSteamGuardCode(
+			t.Context(),
+			111,
+			TestSteamID,
+			"ABCDE",
+			pb.EAuthSessionGuardType_k_EAuthSessionGuardType_DeviceCode,
+		)
+		assert.ErrorContains(t, err, "update fail")
+	})
 }
 
 func TestAuthenticationService_GenerateAccessTokenForApp(t *testing.T) {
-	svc, mock := setupAuthService(t, nil)
+	t.Parallel()
 
-	mock.SetProtoResponse(
-		"Authentication",
-		"GenerateAccessTokenForApp",
-		&pb.CAuthentication_AccessToken_GenerateForApp_Response{
-			AccessToken: proto.String("access_token"),
-		},
-	)
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 
-	resp, err := svc.GenerateAccessTokenForApp(t.Context(), "refresh_token", TestSteamID)
-	require.NoError(t, err)
-	assert.Equal(t, "access_token", resp.GetAccessToken())
+		svc, mock := setupAuthService(t, nil)
+
+		mock.SetProtoResponse(
+			"Authentication",
+			"GenerateAccessTokenForApp",
+			&pb.CAuthentication_AccessToken_GenerateForApp_Response{
+				AccessToken: proto.String("access_token"),
+			},
+		)
+
+		resp, err := svc.GenerateAccessTokenForApp(t.Context(), "refresh_token", TestSteamID)
+		require.NoError(t, err)
+		assert.Equal(t, "access_token", resp.GetAccessToken())
+	})
+
+	t.Run("error_api", func(t *testing.T) {
+		t.Parallel()
+
+		svc, mock := setupAuthService(t, nil)
+		mock.ResponseErrs["Authentication.GenerateAccessTokenForApp"] = errors.New("generate fail")
+
+		_, err := svc.GenerateAccessTokenForApp(t.Context(), "refresh_token", TestSteamID)
+		assert.ErrorContains(t, err, "generate fail")
+	})
 }

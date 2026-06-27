@@ -6,7 +6,6 @@ package steam_test
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"io"
 	"net/http"
@@ -26,13 +25,19 @@ import (
 	steammock "github.com/lemon4ksan/g-man/test/mock"
 )
 
-func TestGetModule(t *testing.T) {
-	t.Run("c is nil", func(t *testing.T) {
+func TestGetModule_VariousClientsAndModules_ReturnsExpectedResult(t *testing.T) {
+	t.Parallel()
+
+	t.Run("client_is_nil", func(t *testing.T) {
+		t.Parallel()
+
 		res := steam.GetModule[*steammock.AuthModule](nil)
 		assert.Nil(t, res)
 	})
 
-	t.Run("module found", func(t *testing.T) {
+	t.Run("module_found", func(t *testing.T) {
+		t.Parallel()
+
 		mod := &steammock.AuthModule{}
 		mod.On("Name").Return("auth")
 
@@ -42,7 +47,9 @@ func TestGetModule(t *testing.T) {
 		c.Close()
 	})
 
-	t.Run("module not found", func(t *testing.T) {
+	t.Run("module_not_found", func(t *testing.T) {
+		t.Parallel()
+
 		mod := &steammock.Module{}
 		mod.On("Name").Return("simple")
 
@@ -53,10 +60,19 @@ func TestGetModule(t *testing.T) {
 	})
 }
 
-func TestNewReady_Success(t *testing.T) {
-	ctx := context.Background()
+type readyClientMocks struct {
+	sock          *steammock.Socket
+	authenticator *steammock.Authenticator
+	webMock       *steammock.WebSession
+	commMock      *steammock.Community
+	httpMock      *steammock.HTTPDoer
+	opts          []steam.Option
+	details       *auth.LogOnDetails
+}
 
-	// Используем плавную инициализацию сокета по умолчанию
+func setupReadyClientMocks(t *testing.T) *readyClientMocks {
+	t.Helper()
+
 	sock := new(steammock.Socket).OnDefault()
 	authenticator := new(steammock.Authenticator)
 	webMock := new(steammock.WebSession)
@@ -79,53 +95,91 @@ func TestNewReady_Success(t *testing.T) {
 
 	details := &auth.LogOnDetails{AccountName: "acc", SteamID: 123}
 
-	authenticator.On("LogOn", mock.Anything, details, mock.Anything).Return(nil).Once()
-	webMock.On("Verify", mock.Anything).Return(true, nil)
-	webMock.On("HTTP").Return(&http.Client{}).Maybe()
-	commMock.On("GetOrRegisterAPIKey", mock.Anything, mock.Anything).Return("key_123", nil).Once()
-
-	httpMock.On("Do", mock.MatchedBy(func(r *http.Request) bool {
-		return r.URL.Path == "/ISteamDirectory/GetCMListForConnect/v1" ||
-			r.URL.Path == "/ISteamDirectory/GetCMListForConnect/v1/" ||
-			r.URL.Path == "/ISteamDirectory/GetCMList/v1" ||
-			r.URL.Path == "/ISteamDirectory/GetCMList/v1/"
-	})).Return(&http.Response{
-		StatusCode: 200,
-		Body: io.NopCloser(
-			bytes.NewBufferString(
-				`{"response":{"serverlist":[{"endpoint": "cm1.steampowered.com:27017"}],"success":true}}`,
-			),
-		),
-	}, nil).Once()
-
-	sock.On("SendProto", mock.Anything, enums.EMsg_ClientChangeStatus, mock.Anything, mock.Anything).
-		Return(nil).
-		Once()
-
-	c, err := steam.NewReadyClient(ctx, steam.Config{}, details, opts...)
-	assert.NoError(t, err)
-	assert.NotNil(t, c)
-
-	err = c.Close()
-	assert.NoError(t, err)
+	return &readyClientMocks{
+		sock:          sock,
+		authenticator: authenticator,
+		webMock:       webMock,
+		commMock:      commMock,
+		httpMock:      httpMock,
+		opts:          opts,
+		details:       details,
+	}
 }
 
-func TestNewReady_DirectoryFailure(t *testing.T) {
-	ctx := context.Background()
+func TestNewReadyClient_VariousScenarios_HandlesExpectedly(t *testing.T) {
+	t.Parallel()
 
-	sock := new(steammock.Socket).OnDefault()
-	http := new(steammock.HTTPDoer)
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 
-	opts := []steam.Option{
-		steam.WithSocket(sock),
-		steam.WithREST(aoni.NewClient(http)),
-	}
+		m := setupReadyClientMocks(t)
 
-	details := &auth.LogOnDetails{AccountName: "acc", SteamID: 123}
+		m.authenticator.On("LogOn", mock.Anything, m.details, mock.Anything).Return(nil).Once()
+		m.webMock.On("Verify", mock.Anything).Return(true, nil)
+		m.webMock.On("HTTP").Return(&http.Client{}).Maybe()
+		m.commMock.On("GetOrRegisterAPIKey", mock.Anything, mock.Anything).Return("key_123", nil).Once()
 
-	http.On("Do", mock.Anything).Return(nil, errors.New("http err")).Once()
+		m.httpMock.On("Do", mock.MatchedBy(func(r *http.Request) bool {
+			return r.URL.Path == "/ISteamDirectory/GetCMListForConnect/v1" ||
+				r.URL.Path == "/ISteamDirectory/GetCMListForConnect/v1/" ||
+				r.URL.Path == "/ISteamDirectory/GetCMList/v1" ||
+				r.URL.Path == "/ISteamDirectory/GetCMList/v1/"
+		})).Return(&http.Response{
+			StatusCode: 200,
+			Body: io.NopCloser(
+				bytes.NewBufferString(
+					`{"response":{"serverlist":[{"endpoint": "cm1.steampowered.com:27017"}],"success":true}}`,
+				),
+			),
+		}, nil).Once()
 
-	c, err := steam.NewReadyClient(ctx, steam.Config{}, details, opts...)
-	assert.ErrorContains(t, err, "http err")
-	assert.Nil(t, c)
+		m.sock.On("SendProto", mock.Anything, enums.EMsg_ClientChangeStatus, mock.Anything, mock.Anything).
+			Return(nil).
+			Once()
+
+		c, err := steam.NewReadyClient(t.Context(), steam.Config{}, m.details, m.opts...)
+		assert.NoError(t, err)
+		assert.NotNil(t, c)
+
+		err = c.Close()
+		assert.NoError(t, err)
+	})
+
+	t.Run("directory_failure", func(t *testing.T) {
+		t.Parallel()
+
+		m := setupReadyClientMocks(t)
+
+		m.httpMock.On("Do", mock.Anything).Return(nil, errors.New("http err")).Once()
+
+		c, err := steam.NewReadyClient(t.Context(), steam.Config{}, m.details, m.opts...)
+		assert.ErrorContains(t, err, "http err")
+		assert.Nil(t, c)
+	})
+
+	t.Run("login_failure", func(t *testing.T) {
+		t.Parallel()
+
+		m := setupReadyClientMocks(t)
+
+		m.authenticator.On("LogOn", mock.Anything, m.details, mock.Anything).Return(errors.New("login rejected")).Once()
+
+		m.httpMock.On("Do", mock.MatchedBy(func(r *http.Request) bool {
+			return r.URL.Path == "/ISteamDirectory/GetCMListForConnect/v1" ||
+				r.URL.Path == "/ISteamDirectory/GetCMListForConnect/v1/" ||
+				r.URL.Path == "/ISteamDirectory/GetCMList/v1" ||
+				r.URL.Path == "/ISteamDirectory/GetCMList/v1/"
+		})).Return(&http.Response{
+			StatusCode: 200,
+			Body: io.NopCloser(
+				bytes.NewBufferString(
+					`{"response":{"serverlist":[{"endpoint": "cm1.steampowered.com:27017"}],"success":true}}`,
+				),
+			),
+		}, nil).Once()
+
+		c, err := steam.NewReadyClient(t.Context(), steam.Config{}, m.details, m.opts...)
+		assert.ErrorContains(t, err, "login rejected")
+		assert.Nil(t, c)
+	})
 }

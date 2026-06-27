@@ -8,64 +8,76 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/lemon4ksan/g-man/pkg/steam/socket/session"
 )
 
 func TestBase_GettersSetters(t *testing.T) {
-	s := &session.Session{}
+	t.Parallel()
 
-	s.SetSteamID(76561197960287930)
+	t.Run("uninitialized_session", func(t *testing.T) {
+		t.Parallel()
 
-	if s.SteamID() != 76561197960287930 {
-		t.Errorf("expected SteamID to be set")
-	}
+		s := &session.Session{}
 
-	s.SetSessionID(12345)
+		// Verify default zero values of uninitialized types (including atomic.Value nil-assert fallback)
+		assert.Equal(t, uint64(0), s.SteamID())
+		assert.Equal(t, int32(0), s.SessionID())
+		assert.Empty(t, s.AccessToken())
+		assert.Empty(t, s.RefreshToken())
+	})
 
-	if s.SessionID() != 12345 {
-		t.Errorf("expected SessionID to be set")
-	}
+	t.Run("setters_and_getters", func(t *testing.T) {
+		t.Parallel()
 
-	s.SetAccessToken("access")
+		s := &session.Session{}
 
-	if s.AccessToken() != "access" {
-		t.Errorf("expected AccessToken to be set")
-	}
+		s.SetSteamID(76561197960287930)
+		assert.Equal(t, uint64(76561197960287930), s.SteamID())
 
-	s.SetRefreshToken("refresh")
+		s.SetSessionID(12345)
+		assert.Equal(t, int32(12345), s.SessionID())
 
-	if s.RefreshToken() != "refresh" {
-		t.Errorf("expected RefreshToken to be set")
-	}
+		s.SetAccessToken("access")
+		assert.Equal(t, "access", s.AccessToken())
+
+		s.SetRefreshToken("refresh")
+		assert.Equal(t, "refresh", s.RefreshToken())
+	})
 }
 
 func TestBase_IsAuthenticated(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name      string
 		steamID   uint64
 		sessionID int32
 		want      bool
 	}{
-		{"Empty", 0, 0, false},
-		{"OnlySession", 0, 123, false},
-		{"OnlySteamID", 76561197960287930, 0, false},
-		{"BothSet", 76561197960287930, 123, true},
+		{"empty", 0, 0, false},
+		{"only_session", 0, 123, false},
+		{"only_steam_id", 76561197960287930, 0, false},
+		{"both_set", 76561197960287930, 123, true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			s := &session.Session{}
 			s.SetSteamID(tt.steamID)
 			s.SetSessionID(tt.sessionID)
 
-			if got := s.IsAuthenticated(); got != tt.want {
-				t.Errorf("IsAuthenticated() = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, s.IsAuthenticated())
 		})
 	}
 }
 
 func TestBase_Concurrency(t *testing.T) {
+	t.Parallel()
+
 	s := &session.Session{}
 	wg := sync.WaitGroup{}
 

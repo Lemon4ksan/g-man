@@ -8,7 +8,6 @@ import (
 	"github.com/lemon4ksan/miyako/bus"
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 )
 
 // StateEvent is emitted whenever the authenticator transitions between states.
@@ -50,11 +49,4 @@ type SteamGuardRequiredEvent struct {
 	EmailDomain string
 	// Callback is the handler function that must be called with the user-provided code to continue login.
 	Callback func(code string)
-}
-
-// LoggedOffEvent is emitted after the auth client disconnected from CM server unexpectedly.
-type LoggedOffEvent struct {
-	bus.BaseEvent
-	// Result is the Steam EResult code explaining why the client was logged off.
-	Result enums.EResult
 }

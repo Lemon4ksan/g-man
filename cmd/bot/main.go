@@ -12,7 +12,6 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
-	"time"
 
 	"github.com/lemon4ksan/miyako/bus"
 	"github.com/lemon4ksan/miyako/generic"
@@ -105,7 +104,7 @@ func (b *Bot) Run(ctx context.Context) error {
 		return fmt.Errorf("orchestrator start failed: %w", err)
 	}
 
-	b.sub = b.client.Bus().Subscribe(&auth.LoggedOnEvent{}, &auth.LoggedOffEvent{})
+	b.sub = b.client.Bus().Subscribe(&auth.LoggedOnEvent{})
 
 	// Explicitly track background task execution using a WaitGroup
 	b.wg.Go(func() {
@@ -183,50 +182,10 @@ func (b *Bot) handleEvents(ctx context.Context) {
 			switch ev := event.(type) {
 			case *auth.LoggedOnEvent:
 				b.logger.Info("Login successful", log.Uint64("steam_id", ev.SteamID))
-			case *auth.LoggedOffEvent:
-				b.logger.Warn("Logged off from Steam", log.Uint32("result", uint32(ev.Result)))
-				b.handleReconnect(ctx)
+			default:
 			}
 		}
 	}
-}
-
-func (b *Bot) handleReconnect(ctx context.Context) {
-	b.logger.Info("Attempting automatic reconnection...")
-
-	maxAttempts := 10
-	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
-
-		b.logger.Info("Reconnection attempt", log.Int("attempt", attempt), log.Int("max_attempts", maxAttempts))
-
-		if err := b.client.Reconnect(ctx); err != nil {
-			b.logger.Error("Reconnection failed", log.Err(err), log.Int("attempt", attempt))
-
-			// Exponential backoff: 1s, 2s, 4s, 8s, 16s, 30s (max)
-			backoff := min(time.Duration(1<<uint(attempt-1))*time.Second, 30*time.Second)
-
-			select {
-			case <-time.After(backoff):
-			case <-ctx.Done():
-				return
-			}
-
-			continue
-		}
-
-		b.logger.Info("Reconnection successful", log.Int("attempt", attempt))
-
-		return
-	}
-
-	b.logger.Error("Reconnection failed permanently after max attempts",
-		log.Int("max_attempts", maxAttempts),
-	)
 }
 
 func (b *Bot) waitForShutdown(ctx context.Context) {

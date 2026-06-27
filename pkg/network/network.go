@@ -13,9 +13,9 @@ import (
 // globalConnectionID is an atomic counter used to generate unique connection IDs.
 var globalConnectionID atomic.Int64
 
-// NetMessage represents a complete, raw binary message received from the network.
+// Message represents a complete, raw binary message received from the network.
 // It is a slice of bytes that represents a framed or protocol-specific network packet.
-type NetMessage []byte
+type Message []byte
 
 // Cipher defines an interface for symmetric encryption and decryption.
 // It abstracts the cryptographic implementation from the transport layer.
@@ -69,7 +69,7 @@ type Connection interface {
 
 	// Messages returns a channel that receives incoming messages from the network.
 	// The channel is closed when the connection is terminated.
-	Messages() <-chan NetMessage
+	Messages() <-chan Message
 
 	// Errors returns a channel that receives non-fatal errors encountered during
 	// connection read or write operations. The channel is closed when the

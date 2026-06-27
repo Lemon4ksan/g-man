@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package dispatcher handles incoming Steam packets and dispatches them to registered handlers.
 package dispatcher
 
 import (

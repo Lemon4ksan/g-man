@@ -5,7 +5,6 @@
 package jsonfile_test
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -19,9 +18,11 @@ import (
 )
 
 func TestProvider_Persistence(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "storage.json")
-	ctx := context.Background()
+	ctx := t.Context()
 
 	p1, err := jsonfile.New(dbPath)
 	require.NoError(t, err, "failed to create provider")
@@ -45,9 +46,11 @@ func TestProvider_Persistence(t *testing.T) {
 }
 
 func TestAuthStore_MachineID(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "auth.json")
-	ctx := context.Background()
+	ctx := t.Context()
 
 	p, err := jsonfile.New(dbPath)
 	require.NoError(t, err)
@@ -57,7 +60,9 @@ func TestAuthStore_MachineID(t *testing.T) {
 	account := "bot_01"
 	machineID := []byte{0xDE, 0xAD, 0xBE, 0xEF}
 
-	t.Run("Save and Get", func(t *testing.T) {
+	t.Run("save_and_get", func(t *testing.T) {
+		t.Parallel()
+
 		err := store.SaveMachineID(ctx, account, machineID)
 		assert.NoError(t, err)
 
@@ -66,12 +71,16 @@ func TestAuthStore_MachineID(t *testing.T) {
 		assert.Equal(t, machineID, got, "machine ID mismatch")
 	})
 
-	t.Run("Not Found", func(t *testing.T) {
+	t.Run("not_found", func(t *testing.T) {
+		t.Parallel()
+
 		_, err := store.GetMachineID(ctx, "non_existent")
 		assert.ErrorIs(t, err, storage.ErrNotFound)
 	})
 
-	t.Run("Clear", func(t *testing.T) {
+	t.Run("clear", func(t *testing.T) {
+		t.Parallel()
+
 		err := store.Clear(ctx, account)
 		assert.NoError(t, err)
 
@@ -81,9 +90,11 @@ func TestAuthStore_MachineID(t *testing.T) {
 }
 
 func TestKVStore(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "kv.json")
-	ctx := context.Background()
+	ctx := t.Context()
 
 	p, err := jsonfile.New(dbPath)
 	require.NoError(t, err)
@@ -91,7 +102,8 @@ func TestKVStore(t *testing.T) {
 	kv1 := p.KV("settings")
 	kv2 := p.KV("cache")
 
-	t.Run("Namespace Isolation", func(t *testing.T) {
+	t.Run("namespace_isolation", func(t *testing.T) {
+		t.Parallel()
 		require.NoError(t, kv1.Set(ctx, "theme", []byte("dark")))
 		require.NoError(t, kv2.Set(ctx, "theme", []byte("light")))
 
@@ -101,7 +113,9 @@ func TestKVStore(t *testing.T) {
 		assert.NotEqual(t, string(v1), string(v2), "namespaces should be isolated")
 	})
 
-	t.Run("CRUD Operations", func(t *testing.T) {
+	t.Run("crud_operations", func(t *testing.T) {
+		t.Parallel()
+
 		key := "my_key"
 		val := []byte("my_value")
 
@@ -131,7 +145,8 @@ func TestKVStore(t *testing.T) {
 		assert.ErrorIs(t, err, storage.ErrNotFound)
 	})
 
-	t.Run("Keys", func(t *testing.T) {
+	t.Run("keys", func(t *testing.T) {
+		t.Parallel()
 		require.NoError(t, kv1.Set(ctx, "prefix:item1", []byte("1")))
 		require.NoError(t, kv1.Set(ctx, "prefix:item2", []byte("2")))
 		require.NoError(t, kv1.Set(ctx, "other:item3", []byte("3")))
@@ -147,6 +162,8 @@ func TestKVStore(t *testing.T) {
 }
 
 func TestProvider_EmptyFile(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "empty.json")
 
@@ -159,6 +176,8 @@ func TestProvider_EmptyFile(t *testing.T) {
 }
 
 func TestProvider_CorruptedFile(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "corrupted.json")
 
@@ -167,4 +186,52 @@ func TestProvider_CorruptedFile(t *testing.T) {
 
 	_, err = jsonfile.New(dbPath)
 	assert.Error(t, err, "expected error when loading corrupted JSON")
+}
+
+func TestProvider_Errors(t *testing.T) {
+	t.Parallel()
+
+	t.Run("load_directory_error", func(t *testing.T) {
+		t.Parallel()
+		// Passing a directory path instead of a file path will trigger
+		// a read directory error from os.ReadFile (e.g. "is a directory")
+		_, err := jsonfile.New(t.TempDir())
+		assert.Error(t, err)
+	})
+
+	t.Run("save_write_error", func(t *testing.T) {
+		t.Parallel()
+		// Passing a path inside a non-existent directory succeeds in New/load()
+		// because it returns NotExist (which returns nil),
+		// but fails on subsequent save() attempts during Set()
+		p, err := jsonfile.New("/invalid_dir/db.json")
+		require.NoError(t, err)
+
+		err = p.KV("test").Set(t.Context(), "key", []byte("val"))
+		assert.Error(t, err)
+	})
+
+	t.Run("uninitialized_namespace_operations", func(t *testing.T) {
+		t.Parallel()
+		tmpDir := t.TempDir()
+		dbPath := filepath.Join(tmpDir, "uninit.json")
+		p, err := jsonfile.New(dbPath)
+		require.NoError(t, err)
+
+		kv := p.KV("never_existed")
+
+		_, err = kv.Get(t.Context(), "key")
+		assert.ErrorIs(t, err, storage.ErrNotFound)
+
+		exists, err := kv.Has(t.Context(), "key")
+		assert.NoError(t, err)
+		assert.False(t, exists)
+
+		err = kv.Delete(t.Context(), "key")
+		assert.NoError(t, err)
+
+		keys, err := kv.Keys(t.Context(), "prefix:")
+		assert.NoError(t, err)
+		assert.Empty(t, keys)
+	})
 }

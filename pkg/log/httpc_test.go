@@ -1,15 +1,19 @@
 // Copyright (c) 2026 Lemon4ksan All rights reserved.
 // Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
+// license[s] that can be found in the LICENSE file.
 
 package log
 
 import (
 	"net/url"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMaskQueryParams(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		input    string
@@ -54,6 +58,8 @@ func TestMaskQueryParams(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			var u *url.URL
 			if tt.input != "" {
 				var err error
@@ -65,14 +71,14 @@ func TestMaskQueryParams(t *testing.T) {
 			}
 
 			result := maskQueryParams(u)
-			if result != tt.expected {
-				t.Errorf("maskQueryParams() = %q, want %q", result, tt.expected)
-			}
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
 
 func TestMaskQueryParams_DoesNotModifyOriginal(t *testing.T) {
+	t.Parallel()
+
 	original := "https://api.steampowered.com/ISteamWebAPI?key=abc123&format=json"
 
 	u, err := url.Parse(original)

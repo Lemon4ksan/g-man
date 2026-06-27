@@ -3,7 +3,6 @@
 // license that can be found in the LICENSE file.
 
 // Package command coordinates registration, validation, parsing, and execution of text commands.
-//
 // It supports raw string handlers, unified typed slice handlers, and dynamic, reflection-based
 // custom signatures.
 //
@@ -23,6 +22,7 @@
 //	import (
 //		"context"
 //		"fmt"
+//
 //		"github.com/lemon4ksan/g-man/pkg/command"
 //	)
 //

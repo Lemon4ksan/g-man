@@ -48,4 +48,17 @@ func TestError(t *testing.T) {
 		assert.NotErrorIs(t, err, &Error{Op: OpDial, Net: "WS"})
 		assert.NotErrorIs(t, err, errors.New("other"))
 	})
+
+	t.Run("Is_MoreCoverage", func(t *testing.T) {
+		t.Parallel()
+
+		errNilInner := NewError(OpClose, "WS", nil)
+		assert.NotErrorIs(t, errNilInner, errors.New("other"))
+
+		// Case where target is *Error, but Op matches and Net is different
+		assert.NotErrorIs(t, errNilInner, &Error{Op: OpClose, Net: "TCP"})
+
+		// Case where target is *Error, Op is different, Net matches
+		assert.NotErrorIs(t, errNilInner, &Error{Op: OpDial, Net: "WS"})
+	})
 }

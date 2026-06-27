@@ -34,24 +34,9 @@ type UnifiedTarget struct {
 // NewUnifiedRequest creates a transport request for a Service method.
 // The msg parameter can be a proto.Message, raw []byte, or a struct (which will be JSON encoded).
 func NewUnifiedRequest(httpMethod, iface, method string, version int, msg any) (*tr.Request, error) {
-	var (
-		body []byte
-		err  error
-	)
-
-	switch v := msg.(type) {
-	case nil:
-		body = nil
-	case proto.Message:
-		body, err = proto.Marshal(v)
-	case []byte:
-		body = v
-	default:
-		body, err = json.Marshal(v)
-	}
-
+	body, err := marshalBody(msg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode unified body: %w", err)
+		return nil, fmt.Errorf("service: failed to encode unified body: %w", err)
 	}
 
 	target := &UnifiedTarget{
@@ -103,28 +88,20 @@ func (u *UnifiedTarget) EMsg(isAuth bool) enums.EMsg {
 }
 
 // SetHTTPMethod updates the HTTP method for the target.
-func (u *UnifiedTarget) SetHTTPMethod(method string) {
-	u.HttpMethod = method
-}
+func (u *UnifiedTarget) SetHTTPMethod(method string) { u.HttpMethod = method }
 
 // SetVersion updates the API method version for the target.
-func (u *UnifiedTarget) SetVersion(v int) {
-	u.Version = v
-}
+func (u *UnifiedTarget) SetVersion(v int) { u.Version = v }
 
 // ObjectName returns the name for the socket representation of the target.
 func (u *UnifiedTarget) ObjectName() string { return u.String() }
 
 // WebAPITarget represents a classic JSON/VDF WebAPI call.
 type WebAPITarget struct {
-	// HttpMethod is the verb used for web requests (such as "GET" or "POST").
 	HttpMethod string
-	// Interface is the WebAPI interface name (such as "ISteamUser").
-	Interface string
-	// Method is the WebAPI method name (such as "GetPlayerSummaries").
-	Method string
-	// Version is the WebAPI version (such as 2).
-	Version int
+	Interface  string
+	Method     string
+	Version    int
 }
 
 // NewWebAPIRequest creates a transport request for a standard WebAPI endpoint.
@@ -149,14 +126,13 @@ func (w *WebAPITarget) HTTPPath() string {
 }
 
 // SetHTTPMethod updates the HTTP method for the target.
-func (w *WebAPITarget) SetHTTPMethod(method string) {
-	w.HttpMethod = method
-}
+func (w *WebAPITarget) SetHTTPMethod(m string) { w.HttpMethod = m }
 
-// SetVersion updates the API method version for the target.
-func (w *WebAPITarget) SetVersion(v int) {
-	w.Version = v
-}
+// ObjectName returns the WebAPI method name for identification purposes.
+func (w *WebAPITarget) ObjectName() string { return fmt.Sprintf("%s/%s", w.Interface, w.Method) }
+
+// SetVersion updates the WebAPI version for the target.
+func (w *WebAPITarget) SetVersion(v int) { w.Version = v }
 
 // LegacyTarget represents a raw EMsg-based message used in socket connections.
 type LegacyTarget struct {
@@ -164,27 +140,16 @@ type LegacyTarget struct {
 }
 
 // NewLegacyRequest creates a request identified solely by its EMsg.
-//
-// Deprecated: Use NewLegacyProtoRequest instead. This function exists for special
-// cases where the CM header is not needed.
 func NewLegacyRequest(eMsg enums.EMsg, msg proto.Message) (*tr.Request, error) {
-	var body []byte
-
-	if msg != nil {
-		var err error
-
-		body, err = proto.Marshal(msg)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal legacy body: %w", err)
-		}
+	body, err := marshalBody(msg)
+	if err != nil {
+		return nil, fmt.Errorf("service: failed to marshal legacy body: %w", err)
 	}
 
 	return tr.NewRequest(&LegacyTarget{eMsg}, bytes.NewReader(body)), nil
 }
 
-// NewLegacyProtoRequest is like NewLegacyRequest but forces a Protobuf CM header
-// for the outer Steam packet. Use this for EMsg-based proto messages that are NOT
-// Unified Service calls, such as EMsg_ClientToGC.
+// NewLegacyProtoRequest forces a Protobuf CM header for the outer Steam packet.
 func NewLegacyProtoRequest(eMsg enums.EMsg, msg proto.Message) (*tr.Request, error) {
 	req, err := NewLegacyRequest(eMsg, msg)
 	if err != nil {
@@ -202,3 +167,18 @@ func (l *LegacyTarget) EMsg(isAuth bool) enums.EMsg { return l.eMsg }
 
 // ObjectName returns an empty string as legacy targets do not have object names.
 func (l *LegacyTarget) ObjectName() string { return "" }
+
+func marshalBody(msg any) ([]byte, error) {
+	if msg == nil {
+		return nil, nil
+	}
+
+	switch v := msg.(type) {
+	case proto.Message:
+		return proto.Marshal(v)
+	case []byte:
+		return v, nil
+	default:
+		return json.Marshal(v)
+	}
+}

@@ -24,26 +24,25 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 )
 
-// ModuleName is the name of the module.
+// ModuleName is the unique string identifier of the notifications coordinator module.
 const ModuleName string = "notifications"
 
-// WithModule returns a steam.Option that registers the Notifications module.
+// WithModule returns a [steam.Option] that registers the [Notifications] module in the client.
 func WithModule() steam.Option {
 	return func(c *steam.Client) {
 		c.RegisterModule(New())
 	}
 }
 
-// From returns the notifications module from the client.
+// From retrieves the registered [Notifications] module instance from the specified [steam.Client].
+// It returns nil if the module is not registered or if the client is nil.
 func From(c *steam.Client) *Notifications {
 	return steam.GetModule[*Notifications](c)
 }
 
-// Notifications handles incoming Steam notification messages
-// and routes them to the event bus.
-//
-// It listens for various notification types and emits events
-// when changes are detected. Create new instances using the [New] constructor.
+// Notifications manages incoming Steam notification messages and routes them to the event bus.
+// It tracks notification counts and publishes events when changes are detected.
+// Register the notifications manager as a client module using [WithModule] or retrieve it via [From].
 type Notifications struct {
 	module.Base
 
@@ -55,7 +54,7 @@ type Notifications struct {
 	unregFuncs []func()
 }
 
-// New creates a new Notifications module.
+// New creates a new [Notifications] module instance.
 func New() *Notifications {
 	return &Notifications{
 		Base:                   module.New(ModuleName),
@@ -63,7 +62,9 @@ func New() *Notifications {
 	}
 }
 
-// Init registers packet handlers for all notification-related messages.
+// Init registers packet handlers for all notification-related network messages.
+// It configures callbacks for item announcements, comment notifications, and offline messages.
+// It will panic if the provided [module.InitContext] argument is nil.
 func (n *Notifications) Init(init module.InitContext) error {
 	if err := n.Base.Init(init); err != nil {
 		return err
@@ -90,7 +91,8 @@ func (n *Notifications) Init(init module.InitContext) error {
 	return nil
 }
 
-// Close ensures all packet handlers are removed.
+// Close unregisters all packet handlers and releases internal resources.
+// Subsequent calls to Close are safe and will be ignored.
 func (n *Notifications) Close() error {
 	n.mu.Lock()
 	for _, unreg := range n.unregFuncs {
@@ -103,7 +105,9 @@ func (n *Notifications) Close() error {
 	return n.Base.Close()
 }
 
-// RequestNotifications sends requests to Steam for current notification counts.
+// RequestNotifications requests current notification counts from Steam.
+// It returns an error if sending the request fails or if the context is cancelled.
+// It will panic if the provided [context.Context] argument is nil.
 func (n *Notifications) RequestNotifications(ctx context.Context) error {
 	_ = n.sendProto(ctx, enums.EMsg_ClientRequestItemAnnouncements, &pb.CMsgClientRequestItemAnnouncements{})
 	_ = n.sendProto(ctx, enums.EMsg_ClientRequestCommentNotifications, &pb.CMsgClientRequestCommentNotifications{})
@@ -112,11 +116,14 @@ func (n *Notifications) RequestNotifications(ctx context.Context) error {
 	return nil
 }
 
-// MarkNotificationsRead marks specific notifications as read by their IDs.
+// MarkNotificationsRead marks specific notifications as read using their IDs.
+// It sends a unified request to Steam and ignores empty slices of notification IDs.
+// It returns an error if the request fails or if the context is cancelled.
+// It will panic if the provided [context.Context] argument is nil.
 func (n *Notifications) MarkNotificationsRead(ctx context.Context, notificationIds []uint64) error {
-	ids := make([]*structpb.Value, 0, len(notificationIds))
+	ids := make([]any, 0, len(notificationIds))
 	for _, id := range notificationIds {
-		ids = append(ids, structpb.NewNumberValue(float64(id)))
+		ids = append(ids, float64(id))
 	}
 
 	body, err := structpb.NewStruct(map[string]any{
@@ -142,7 +149,9 @@ func (n *Notifications) MarkNotificationsRead(ctx context.Context, notificationI
 	return err
 }
 
-// MarkAllNotificationsRead marks all notifications as read.
+// MarkAllNotificationsRead marks all active notifications as read.
+// It returns an error if the request fails or if the context is cancelled.
+// It will panic if the provided [context.Context] argument is nil.
 func (n *Notifications) MarkAllNotificationsRead(ctx context.Context) error {
 	body, err := structpb.NewStruct(map[string]any{
 		"mark_all_read": true,

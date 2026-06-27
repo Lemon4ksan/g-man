@@ -107,7 +107,7 @@ func TestGet(t *testing.T) {
 		t.Parallel()
 
 		mockSvc := mock.NewServiceMock()
-		client := community.NewClient(nil, nil, community.WithREST(mockSvc))
+		client := community.NewClient(nil, nil).WithREST(mockSvc)
 		respBody, _ := json.Marshal(genericResponse{Success: true, Message: "OK"})
 
 		mockSvc.OnRest = func(method, path string, body any) (*http.Response, error) {
@@ -127,7 +127,7 @@ func TestGet(t *testing.T) {
 		t.Parallel()
 
 		mockSvc := mock.NewServiceMock()
-		client := community.NewClient(nil, nil, community.WithREST(mockSvc))
+		client := community.NewClient(nil, nil).WithREST(mockSvc)
 
 		resp, err := community.Get[genericResponse](t.Context(), client, "/test/get", make(chan int))
 		require.NoError(t, err)
@@ -138,7 +138,7 @@ func TestGet(t *testing.T) {
 		t.Parallel()
 
 		mockSvc := mock.NewServiceMock()
-		client := community.NewClient(nil, nil, community.WithREST(mockSvc))
+		client := community.NewClient(nil, nil).WithREST(mockSvc)
 
 		mockSvc.OnRest = func(method, path string, body any) (*http.Response, error) {
 			return nil, errors.New("get request failed")
@@ -152,7 +152,7 @@ func TestGet(t *testing.T) {
 		t.Parallel()
 
 		mockSvc := mock.NewServiceMock()
-		client := community.NewClient(nil, nil, community.WithREST(mockSvc))
+		client := community.NewClient(nil, nil).WithREST(mockSvc)
 
 		mockSvc.OnRest = func(method, path string, body any) (*http.Response, error) {
 			return &http.Response{
@@ -173,7 +173,7 @@ func TestGetHTML(t *testing.T) {
 		t.Parallel()
 
 		mockSvc := mock.NewServiceMock()
-		client := community.NewClient(nil, nil, community.WithREST(mockSvc))
+		client := community.NewClient(nil, nil).WithREST(mockSvc)
 
 		html := "<html><body>Test</body></html>"
 		mockSvc.OnRest = func(method, path string, body any) (*http.Response, error) {
@@ -190,7 +190,7 @@ func TestGetHTML(t *testing.T) {
 		t.Parallel()
 
 		mockSvc := mock.NewServiceMock()
-		client := community.NewClient(nil, nil, community.WithREST(mockSvc))
+		client := community.NewClient(nil, nil).WithREST(mockSvc)
 
 		expectedErr := errors.New("network error")
 		mockSvc.OnRest = func(method, path string, body any) (*http.Response, error) {
@@ -208,7 +208,7 @@ func TestGetHTML(t *testing.T) {
 		mockSvc.OnRest = func(method, path string, body any) (*http.Response, error) {
 			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(faultyReader{})}, nil
 		}
-		client := community.NewClient(nil, nil, community.WithREST(mockSvc))
+		client := community.NewClient(nil, nil).WithREST(mockSvc)
 
 		_, err := community.GetHTML(t.Context(), client, "/test/html")
 		require.Error(t, err)
@@ -225,7 +225,7 @@ func TestPostForm(t *testing.T) {
 		t.Parallel()
 
 		mockSvc := mock.NewServiceMock()
-		client := community.NewClient(nil, mockSvc, community.WithREST(mockSvc))
+		client := community.NewClient(nil, mockSvc).WithREST(mockSvc)
 
 		mockSvc.OnRest = func(method, path string, body any) (*http.Response, error) {
 			var bodyStr string
@@ -252,7 +252,7 @@ func TestPostForm(t *testing.T) {
 		t.Parallel()
 
 		mockSvc := mock.NewServiceMock()
-		client := community.NewClient(nil, mockSvc, community.WithREST(mockSvc))
+		client := community.NewClient(nil, mockSvc).WithREST(mockSvc)
 
 		mockSvc.OnRest = func(method, path string, body any) (*http.Response, error) {
 			var bodyStr string
@@ -283,7 +283,7 @@ func TestPostForm(t *testing.T) {
 		t.Parallel()
 
 		mockSvc := mock.NewServiceMock()
-		client := community.NewClient(nil, mockSvc, community.WithREST(mockSvc))
+		client := community.NewClient(nil, mockSvc).WithREST(mockSvc)
 
 		mockSvc.OnRest = func(method, path string, body any) (*http.Response, error) {
 			var bodyStr string
@@ -307,7 +307,7 @@ func TestPostForm(t *testing.T) {
 		t.Parallel()
 
 		mockSvc := mock.NewServiceMock()
-		client := community.NewClient(nil, mockSvc, community.WithREST(mockSvc))
+		client := community.NewClient(nil, mockSvc).WithREST(mockSvc)
 
 		mockSvc.OnRest = func(method, path string, body any) (*http.Response, error) {
 			return nil, errors.New("post form failed")
@@ -321,7 +321,7 @@ func TestPostForm(t *testing.T) {
 		t.Parallel()
 
 		mockSvc := mock.NewServiceMock()
-		client := community.NewClient(nil, mockSvc, community.WithREST(mockSvc))
+		client := community.NewClient(nil, mockSvc).WithREST(mockSvc)
 
 		_, err := community.PostForm[genericResponse](t.Context(), client, "/test/post", make(chan int))
 		require.Error(t, err)
@@ -337,7 +337,7 @@ func TestPostJSON(t *testing.T) {
 		t.Parallel()
 
 		mockSvc := mock.NewServiceMock()
-		client := community.NewClient(nil, mockSvc, community.WithREST(mockSvc))
+		client := community.NewClient(nil, mockSvc).WithREST(mockSvc)
 
 		mockSvc.OnRest = func(method, path string, body any) (*http.Response, error) {
 			var reqData genericRequest
@@ -358,7 +358,7 @@ func TestPostJSON(t *testing.T) {
 		t.Parallel()
 
 		mockSvc := mock.NewServiceMock()
-		client := community.NewClient(nil, mockSvc, community.WithREST(mockSvc))
+		client := community.NewClient(nil, mockSvc).WithREST(mockSvc)
 
 		mockSvc.OnRest = func(method, path string, body any) (*http.Response, error) {
 			assert.Nil(t, body)
@@ -379,7 +379,7 @@ func TestPostJSON(t *testing.T) {
 			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewReader(respBody))}, nil
 		}
 
-		clientEmptySession := community.NewClient(nil, mockEmptySess, community.WithREST(mockEmptySess))
+		clientEmptySession := community.NewClient(nil, mockEmptySess).WithREST(mockEmptySess)
 		_, err := community.PostJSON[genericResponse](t.Context(), clientEmptySession, "/test/post", nil)
 		require.NoError(t, err)
 	})
@@ -388,7 +388,7 @@ func TestPostJSON(t *testing.T) {
 		t.Parallel()
 
 		mockSvc := mock.NewServiceMock()
-		client := community.NewClient(nil, mockSvc, community.WithREST(mockSvc))
+		client := community.NewClient(nil, mockSvc).WithREST(mockSvc)
 
 		mockSvc.OnRest = func(method, path string, body any) (*http.Response, error) {
 			return nil, errors.New("post json failed")
@@ -402,7 +402,7 @@ func TestPostJSON(t *testing.T) {
 		t.Parallel()
 
 		mockSvc := mock.NewServiceMock()
-		client := community.NewClient(nil, mockSvc, community.WithREST(mockSvc))
+		client := community.NewClient(nil, mockSvc).WithREST(mockSvc)
 
 		type badJSON struct{ F func() }
 

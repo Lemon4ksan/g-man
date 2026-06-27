@@ -17,18 +17,18 @@ import (
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
-	module "github.com/lemon4ksan/g-man/test/mock"
+	"github.com/lemon4ksan/g-man/test/mock"
 )
 
 const (
-	AppidTf2 uint32 = 440
+	AppidTF2 uint32 = 440
 )
 
-func setupCoordinator(t *testing.T) (*Coordinator, *module.InitContext) {
+func setupCoordinator(t *testing.T) (*Coordinator, *mock.InitContext) {
 	t.Helper()
 
 	c := New()
-	ictx := module.NewInitContext()
+	ictx := mock.NewInitContext()
 
 	require.NoError(t, c.Init(ictx))
 
@@ -39,7 +39,7 @@ func setupCoordinator(t *testing.T) (*Coordinator, *module.InitContext) {
 	return c, ictx
 }
 
-func emitGC(t *testing.T, ictx *module.InitContext, appID, msgType uint32, payload []byte, jobID uint64) {
+func emitGC(t *testing.T, ictx *mock.InitContext, appID, msgType uint32, payload []byte, jobID uint64) {
 	t.Helper()
 
 	inner := &protocol.GCPacket{
@@ -59,45 +59,91 @@ func emitGC(t *testing.T, ictx *module.InitContext, appID, msgType uint32, paylo
 	})
 }
 
-func TestCoordinator_InitAndClose(t *testing.T) {
-	c, ictx := setupCoordinator(t)
-	ictx.AssertPacketHandlerRegistered(t, enums.EMsg_ClientFromGC)
+func TestFrom_NilClient_ReturnsNil(t *testing.T) {
+	t.Parallel()
 
-	err := c.Close()
-	require.NoError(t, err)
-	ictx.AssertPacketHandlerUnregistered(t, enums.EMsg_ClientFromGC)
-	assert.Nil(t, c.unregFuncs)
+	assert.Nil(t, From(nil))
 }
 
-func TestCoordinator_SendMethods(t *testing.T) {
-	c, _ := setupCoordinator(t)
+func TestWithModule_ValidOption_ReturnsNonNil(t *testing.T) {
+	t.Parallel()
+
+	opt := WithModule()
+	assert.NotNil(t, opt)
+}
+
+func TestInit_SuccessLifecycle_RegistersAndUnregistersEMsg(t *testing.T) {
+	t.Parallel()
+
+	t.Run("success_lifecycle", func(t *testing.T) {
+		t.Parallel()
+		c, ictx := setupCoordinator(t)
+		assert.Equal(t, ModuleName, c.Name())
+		ictx.AssertPacketHandlerRegistered(t, enums.EMsg_ClientFromGC)
+
+		err := c.Close()
+		require.NoError(t, err)
+		ictx.AssertPacketHandlerUnregistered(t, enums.EMsg_ClientFromGC)
+		assert.Nil(t, c.unregFuncs)
+	})
+}
+
+func TestSend_VariousPayloads_SendsCorrectly(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 
-	t.Run("Send (Proto)", func(t *testing.T) {
-		err := c.Send(ctx, AppidTf2, 1001, &pb.CMsgGCClient{})
+	t.Run("send_proto", func(t *testing.T) {
+		t.Parallel()
+		c, _ := setupCoordinator(t)
+		err := c.Send(ctx, AppidTF2, 1001, &pb.CMsgGCClient{})
 		assert.NoError(t, err)
 	})
 
-	t.Run("SendRaw", func(t *testing.T) {
-		err := c.SendRaw(ctx, AppidTf2, 1002, []byte("raw"))
+	t.Run("send_raw", func(t *testing.T) {
+		t.Parallel()
+		c, _ := setupCoordinator(t)
+		err := c.SendRaw(ctx, AppidTF2, 1002, []byte("raw"))
+		assert.NoError(t, err)
+	})
+
+	t.Run("send_large_payload_bypasses_pool", func(t *testing.T) {
+		t.Parallel()
+		c, _ := setupCoordinator(t)
+
+		largePayload := make([]byte, 70000)
+		err := c.Send(ctx, AppidTF2, 1001, &pb.CMsgGCClient{
+			Payload: largePayload,
+		})
 		assert.NoError(t, err)
 	})
 }
 
-func TestCoordinator_CallAndResolve(t *testing.T) {
-	c, ictx := setupCoordinator(t)
+func TestCall_VariousCallbacks_ResolvesOrReturnsError(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 
-	t.Run("Call Missing Callback", func(t *testing.T) {
-		err := c.Call(ctx, AppidTf2, 1001, nil, nil)
+	t.Run("call_missing_callback", func(t *testing.T) {
+		t.Parallel()
+		c, _ := setupCoordinator(t)
+		err := c.Call(ctx, AppidTF2, 1001, nil, nil)
 		assert.ErrorContains(t, err, "callback is required")
 	})
 
-	t.Run("Call and Resolve Success", func(t *testing.T) {
+	t.Run("call_raw_missing_callback", func(t *testing.T) {
+		t.Parallel()
+		c, _ := setupCoordinator(t)
+		err := c.CallRaw(ctx, AppidTF2, 1001, nil, nil)
+		assert.ErrorContains(t, err, "callback is required")
+	})
+
+	t.Run("call_and_resolve_success", func(t *testing.T) {
+		t.Parallel()
+		c, ictx := setupCoordinator(t)
+
 		resolved := make(chan struct{})
 		err := c.Call(
 			ctx,
-			AppidTf2,
+			AppidTF2,
 			1001,
 			&pb.CMsgGCClient{},
 			func(_ context.Context, p *protocol.GCPacket, err error) {
@@ -109,66 +155,92 @@ func TestCoordinator_CallAndResolve(t *testing.T) {
 		require.NoError(t, err)
 
 		jobID := c.jobManager.NextID() - 1
-		emitGC(t, ictx, AppidTf2, 1002, []byte("pong"), jobID)
+		emitGC(t, ictx, AppidTF2, 1002, []byte("pong"), jobID)
+
+		waitCtx, cancel := context.WithTimeout(t.Context(), 500*time.Millisecond)
+		t.Cleanup(cancel)
 
 		select {
 		case <-resolved:
-		case <-time.After(500 * time.Millisecond):
+		case <-waitCtx.Done():
 			t.Fatal("timeout waiting for job resolution")
 		}
 	})
 
-	t.Run("CallRaw Success", func(t *testing.T) {
-		err := c.CallRaw(ctx, AppidTf2, 1001, nil, func(_ context.Context, p *protocol.GCPacket, err error) {})
+	t.Run("call_raw_success", func(t *testing.T) {
+		t.Parallel()
+		c, _ := setupCoordinator(t)
+		err := c.CallRaw(ctx, AppidTF2, 1001, nil, func(_ context.Context, p *protocol.GCPacket, err error) {})
 		assert.NoError(t, err)
 	})
 }
 
-func TestCoordinator_Routing(t *testing.T) {
-	_, ictx := setupCoordinator(t)
-	sub := ictx.Bus().Subscribe(&MessageEvent{})
+func TestHandleClientFromGC_VariousJobIDs_RoutesToBusOrHandler(t *testing.T) {
+	t.Parallel()
 
-	t.Run("Fallthrough to Bus (No JobID)", func(t *testing.T) {
-		emitGC(t, ictx, AppidTf2, 5001, []byte("data"), protocol.NoJob)
+	t.Run("fallthrough_to_bus_no_job_id", func(t *testing.T) {
+		t.Parallel()
+		_, ictx := setupCoordinator(t)
+
+		sub := ictx.Bus().Subscribe(&MessageEvent{})
+		defer sub.Unsubscribe()
+
+		emitGC(t, ictx, AppidTF2, 5001, []byte("data"), protocol.NoJob)
+
+		waitCtx, cancel := context.WithTimeout(t.Context(), 500*time.Millisecond)
+		t.Cleanup(cancel)
 
 		select {
 		case ev := <-sub.C():
 			assert.Equal(t, uint32(5001), ev.(*MessageEvent).Packet.MsgType)
-		case <-time.After(100 * time.Millisecond):
+		case <-waitCtx.Done():
 			t.Fatal("event not on bus")
 		}
 	})
 
-	t.Run("Fallthrough to Bus (Unrecognized JobID)", func(t *testing.T) {
-		// TargetJobID set to 12345, which we haven't registered
-		emitGC(t, ictx, AppidTf2, 5002, []byte("data"), 12345)
+	t.Run("fallthrough_to_bus_unrecognized_job_id", func(t *testing.T) {
+		t.Parallel()
+		_, ictx := setupCoordinator(t)
+
+		sub := ictx.Bus().Subscribe(&MessageEvent{})
+		defer sub.Unsubscribe()
+
+		emitGC(t, ictx, AppidTF2, 5002, []byte("data"), 12345)
+
+		waitCtx, cancel := context.WithTimeout(t.Context(), 500*time.Millisecond)
+		t.Cleanup(cancel)
 
 		select {
 		case ev := <-sub.C():
 			assert.Equal(t, uint32(5002), ev.(*MessageEvent).Packet.MsgType)
-		case <-time.After(100 * time.Millisecond):
+		case <-waitCtx.Done():
 			t.Fatal("event should have fallen back to bus for unknown job")
 		}
 	})
 }
 
-func TestCoordinator_Errors(t *testing.T) {
-	c, ictx := setupCoordinator(t)
+func TestHandleClientFromGC_ErrorConditions_HandlesGracefully(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 
-	t.Run("Parse GCPacket Failure", func(t *testing.T) {
+	t.Run("parse_gc_packet_failure", func(t *testing.T) {
+		t.Parallel()
+		_, ictx := setupCoordinator(t)
+
 		ictx.EmitPacket(t, enums.EMsg_ClientFromGC, &pb.CMsgGCClient{
 			Appid:   proto.Uint32(440),
-			Payload: []byte{0x00}, // Too short for GC header
+			Payload: []byte{0x00},
 		})
-		// Should log and return gracefully
 	})
 
-	t.Run("Transport Send Error Resolves Job", func(t *testing.T) {
+	t.Run("transport_send_error_resolves_job", func(t *testing.T) {
+		t.Parallel()
+		c, ictx := setupCoordinator(t)
+
 		ictx.MockService().ResponseErrs[enums.EMsg_ClientToGC.String()] = errors.New("io timeout")
 
 		resolved := make(chan struct{})
-		err := c.Call(ctx, AppidTf2, 1001, nil, func(_ context.Context, p *protocol.GCPacket, err error) {
+		err := c.Call(ctx, AppidTF2, 1001, nil, func(_ context.Context, p *protocol.GCPacket, err error) {
 			assert.Error(t, err)
 			assert.Contains(t, err.Error(), "io timeout")
 			close(resolved)
@@ -176,69 +248,133 @@ func TestCoordinator_Errors(t *testing.T) {
 
 		assert.Error(t, err)
 
+		waitCtx, cancel := context.WithTimeout(t.Context(), 500*time.Millisecond)
+		t.Cleanup(cancel)
+
 		select {
 		case <-resolved:
-		case <-time.After(100 * time.Millisecond):
+		case <-waitCtx.Done():
 			t.Fatal("callback not resolved on transport error")
 		}
 	})
 
-	t.Run("Job Manager Full", func(t *testing.T) {
-		// Fill manager manually to hit error branch in .Add
+	t.Run("job_manager_full", func(t *testing.T) {
+		t.Parallel()
+		c, _ := setupCoordinator(t)
+
 		for i := range 2000 {
 			_ = c.jobManager.Add(uint64(i+10), func(_ context.Context, p *protocol.GCPacket, err error) {})
 		}
 
-		err := c.Call(ctx, AppidTf2, 1001, nil, func(_ context.Context, p *protocol.GCPacket, err error) {})
+		err := c.Call(ctx, AppidTF2, 1001, nil, func(_ context.Context, p *protocol.GCPacket, err error) {})
 		assert.ErrorContains(t, err, "gc job track")
+	})
+
+	t.Run("envelope_unmarshal_error", func(t *testing.T) {
+		t.Parallel()
+		c, _ := setupCoordinator(t)
+
+		assert.NotPanics(t, func() {
+			c.handleClientFromGC(&protocol.Packet{
+				EMsg:    enums.EMsg_ClientFromGC,
+				Payload: []byte{0xFF, 0xFF},
+			})
+		})
 	})
 }
 
-func TestCoordinator_SpecificHandlers(t *testing.T) {
-	c, ictx := setupCoordinator(t)
+func TestRegisterGCHandler_CustomHandler_RoutesSuccessfully(t *testing.T) {
+	t.Parallel()
 
-	t.Run("Specific Handler Routed", func(t *testing.T) {
+	t.Run("specific_handler_routed", func(t *testing.T) {
+		t.Parallel()
+		c, ictx := setupCoordinator(t)
 		called := make(chan *protocol.GCPacket, 1)
 
-		c.RegisterGCHandler(AppidTf2, 6001, func(packet *protocol.GCPacket) {
+		c.RegisterGCHandler(AppidTF2, 6001, func(packet *protocol.GCPacket) {
 			called <- packet
 		})
 
-		// Also subscribe to the bus to verify it does NOT receive the message
 		sub := ictx.Bus().Subscribe(&MessageEvent{})
 		defer sub.Unsubscribe()
 
-		emitGC(t, ictx, AppidTf2, 6001, []byte("specific-data"), protocol.NoJob)
+		emitGC(t, ictx, AppidTF2, 6001, []byte("specific-data"), protocol.NoJob)
+
+		waitCtx, cancel := context.WithTimeout(t.Context(), 500*time.Millisecond)
+		t.Cleanup(cancel)
 
 		select {
 		case p := <-called:
 			assert.Equal(t, []byte("specific-data"), p.Payload)
-		case <-time.After(100 * time.Millisecond):
+		case <-waitCtx.Done():
 			t.Fatal("specific handler was not called")
 		}
+
+		negCtx, negCancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
+		t.Cleanup(negCancel)
 
 		select {
 		case ev := <-sub.C():
 			t.Fatalf("bus received message that should have been routed to specific handler: %v", ev)
-		case <-time.After(100 * time.Millisecond):
-			// Success, didn't reach the bus
+		case <-negCtx.Done():
+			// Success, didn't reach the bus before timeout
 		}
 	})
 
-	t.Run("Unregistered Fallback to Bus", func(t *testing.T) {
-		c.UnregisterGCHandler(AppidTf2, 6001)
+	t.Run("unregistered_fallback_to_bus", func(t *testing.T) {
+		t.Parallel()
+		c, ictx := setupCoordinator(t)
+		c.UnregisterGCHandler(AppidTF2, 6001)
 
 		sub := ictx.Bus().Subscribe(&MessageEvent{})
 		defer sub.Unsubscribe()
 
-		emitGC(t, ictx, AppidTf2, 6001, []byte("fallback-data"), protocol.NoJob)
+		emitGC(t, ictx, AppidTF2, 6001, []byte("fallback-data"), protocol.NoJob)
+
+		waitCtx, cancel := context.WithTimeout(t.Context(), 500*time.Millisecond)
+		t.Cleanup(cancel)
 
 		select {
 		case ev := <-sub.C():
 			assert.Equal(t, uint32(6001), ev.(*MessageEvent).Packet.MsgType)
 			assert.Equal(t, []byte("fallback-data"), ev.(*MessageEvent).Packet.Payload)
-		case <-time.After(100 * time.Millisecond):
+		case <-waitCtx.Done():
 			t.Fatal("event should have fallen back to bus after unregistering handler")
 		}
+	})
+}
+
+func TestRegisterGCHandler_NilMap_InitializesAndRegisters(t *testing.T) {
+	t.Parallel()
+
+	c := &Coordinator{}
+	handler := func(packet *protocol.GCPacket) {}
+
+	assert.NotPanics(t, func() {
+		c.RegisterGCHandler(AppidTF2, 1001, handler)
+	})
+
+	c.handlersMu.RLock()
+	assert.NotNil(t, c.gcHandlers)
+	assert.NotNil(t, c.gcHandlers[AppidTF2])
+	assert.NotNil(t, c.gcHandlers[AppidTF2][1001])
+	c.handlersMu.RUnlock()
+}
+
+func TestUnregisterGCHandler_NilMap_DoesNotPanic(t *testing.T) {
+	t.Parallel()
+
+	c := &Coordinator{}
+	assert.NotPanics(t, func() {
+		c.UnregisterGCHandler(AppidTF2, 1001)
+	})
+}
+
+func TestUnregisterGCHandler_NilAppMap_DoesNotPanic(t *testing.T) {
+	t.Parallel()
+
+	c := New()
+	assert.NotPanics(t, func() {
+		c.UnregisterGCHandler(AppidTF2, 1001)
 	})
 }

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
@@ -36,6 +37,15 @@ func (m *mockDispatcher) Dispatch(p *protocol.Packet) {
 	m.packets <- p
 }
 
+type panicDispatcher struct {
+	called chan struct{}
+}
+
+func (p *panicDispatcher) Dispatch(packet *protocol.Packet) {
+	close(p.called)
+	panic("something went wrong inside dispatcher")
+}
+
 func packRaw(eMsg enums.EMsg, targetJob uint64, payload []byte) []byte {
 	pkt := &protocol.Packet{
 		EMsg:    eMsg,
@@ -52,113 +62,202 @@ func packRaw(eMsg enums.EMsg, targetJob uint64, payload []byte) []byte {
 	return buf.Bytes()
 }
 
+func TestProcessor_DefaultConfig(t *testing.T) {
+	t.Parallel()
+
+	cfg := processor.DefaultConfig()
+	assert.True(t, cfg.WorkerCount >= 2)
+}
+
 func TestProcessor_Lifecycle(t *testing.T) {
-	md := newMockDispatcher()
-	cfg := processor.Config{
-		WorkerCount: 2,
-	}
+	t.Parallel()
 
-	input := make(chan *protocol.InboundMessage, 10)
-	p := processor.New(cfg, input, md, log.Discard)
+	t.Run("lifecycle_start_stop", func(t *testing.T) {
+		t.Parallel()
 
-	// Idempotent Start
-	p.Start()
-	p.Start()
-
-	input <- &protocol.InboundMessage{
-		Data: packRaw(enums.EMsg_ClientLogon, 0, []byte("Hello World")),
-	}
-
-	select {
-	case pkt := <-md.packets:
-		assert.Equal(t, enums.EMsg_ClientLogon, pkt.EMsg)
-	case <-time.After(100 * time.Millisecond):
-		t.Fatal("Packet was not dispatched via worker loop")
-	}
-
-	// Graceful Stop
-	p.Stop()
-	p.Stop() // Idempotent Stop
-
-	input <- &protocol.InboundMessage{
-		Data: packRaw(enums.EMsg_ClientHeartBeat, 0, nil),
-	}
-
-	time.Sleep(50 * time.Millisecond)
-	assert.Equal(t, int32(1), md.count.Load(), "Dispatcher should not have received more packets after stop")
-}
-
-func TestProcessor_WorkerPool(t *testing.T) {
-	md := newMockDispatcher()
-	cfg := processor.Config{
-		WorkerCount: 5,
-	}
-	p := processor.New(cfg, nil, md, log.Discard)
-	p.Start()
-
-	const packetCount = 50
-	for i := range packetCount {
-		p.Process(&protocol.InboundMessage{
-			Data: packRaw(enums.EMsg(i+1000), 0, nil),
-		})
-	}
-
-	assert.Eventually(t, func() bool {
-		return md.count.Load() == int32(packetCount)
-	}, time.Second, 10*time.Millisecond)
-
-	p.Stop()
-}
-
-func TestProcessor_ParseFailure(t *testing.T) {
-	md := newMockDispatcher()
-	p := processor.New(processor.DefaultConfig(), nil, md, log.Discard)
-
-	p.Start()
-	defer p.Stop()
-
-	// Send garbage that fails protocol.ParsePacket
-	p.Process(&protocol.InboundMessage{
-		Data: []byte{0x00},
-	}) // Too short for any EMsg
-
-	time.Sleep(50 * time.Millisecond)
-	assert.Equal(t, int32(0), md.count.Load(), "Malformed packets should be dropped before dispatch")
-}
-
-func TestProcessor_ConcurrencySafety(t *testing.T) {
-	md := newMockDispatcher()
-
-	go func() {
-		for range md.packets {
+		md := newMockDispatcher()
+		cfg := processor.Config{
+			WorkerCount: 2,
 		}
-	}()
 
-	p := processor.New(processor.DefaultConfig(), nil, md, log.Discard)
-	p.Start()
+		input := make(chan *protocol.InboundMessage, 10)
+		p := processor.New(cfg, input, md, log.Discard)
 
-	var wg sync.WaitGroup
-	for i := range 10 {
-		wg.Add(1)
+		// Idempotent Start
+		p.Start()
+		p.Start()
 
-		go func(id int) {
-			defer wg.Done()
+		input <- &protocol.InboundMessage{
+			Data: packRaw(enums.EMsg_ClientLogon, 0, []byte("Hello World")),
+		}
 
-			for j := range 100 {
-				p.Process(&protocol.InboundMessage{
-					Data: packRaw(enums.EMsg(id+1000), uint64(id*j), nil),
-				})
+		select {
+		case pkt := <-md.packets:
+			assert.Equal(t, enums.EMsg_ClientLogon, pkt.EMsg)
+		case <-time.After(1 * time.Second):
+			t.Fatal("Packet was not dispatched via worker loop")
+		}
+
+		// Graceful Stop
+		p.Stop()
+		p.Stop() // Idempotent Stop
+
+		input <- &protocol.InboundMessage{
+			Data: packRaw(enums.EMsg_ClientHeartBeat, 0, nil),
+		}
+
+		assert.Equal(t, int32(1), md.count.Load(), "Dispatcher should not have received more packets after stop")
+	})
+
+	t.Run("process_on_closed", func(t *testing.T) {
+		t.Parallel()
+
+		md := newMockDispatcher()
+		p := processor.New(processor.DefaultConfig(), nil, md, log.Discard)
+		p.Stop()
+
+		// Process should return immediately since p.ctx.Err() != nil
+		p.Process(&protocol.InboundMessage{})
+		assert.Equal(t, int32(0), md.count.Load())
+	})
+
+	t.Run("worker_exit_on_input_close", func(t *testing.T) {
+		t.Parallel()
+
+		md := newMockDispatcher()
+		input := make(chan *protocol.InboundMessage)
+		p := processor.New(processor.Config{WorkerCount: 1}, input, md, log.Discard)
+		p.Start()
+
+		close(input)
+		p.Stop() // WaitGroup wait inside Stop unblocks immediately
+		assert.Equal(t, int32(0), md.count.Load())
+	})
+}
+
+func TestProcessor_Concurrency(t *testing.T) {
+	t.Parallel()
+
+	t.Run("worker_pool_processing", func(t *testing.T) {
+		t.Parallel()
+
+		md := newMockDispatcher()
+		cfg := processor.Config{
+			WorkerCount: 5,
+		}
+		p := processor.New(cfg, nil, md, log.Discard)
+		p.Start()
+
+		const packetCount = 50
+		for i := range packetCount {
+			p.Process(&protocol.InboundMessage{
+				Data: packRaw(enums.EMsg(i+1000), 0, nil),
+			})
+		}
+
+		assert.Eventually(t, func() bool {
+			return md.count.Load() == int32(packetCount)
+		}, time.Second, 10*time.Millisecond)
+
+		p.Stop()
+	})
+
+	t.Run("concurrency_safety_stress_test", func(t *testing.T) {
+		t.Parallel()
+
+		md := newMockDispatcher()
+
+		go func() {
+			for range md.packets {
 			}
-		}(i)
-	}
+		}()
 
-	wg.Wait()
-	p.Stop()
+		p := processor.New(processor.DefaultConfig(), nil, md, log.Discard)
+		p.Start()
 
-	assert.Equal(t, int32(1000), md.count.Load())
+		var wg sync.WaitGroup
+		for i := range 10 {
+			wg.Add(1)
+
+			go func(id int) {
+				defer wg.Done()
+
+				for j := range 100 {
+					p.Process(&protocol.InboundMessage{
+						Data: packRaw(enums.EMsg(id+1000), uint64(id*j), nil),
+					})
+				}
+			}(i)
+		}
+
+		wg.Wait()
+		p.Stop()
+
+		assert.Equal(t, int32(1000), md.count.Load())
+	})
+}
+
+func TestProcessor_Errors(t *testing.T) {
+	t.Parallel()
+
+	t.Run("parse_failure", func(t *testing.T) {
+		t.Parallel()
+
+		md := newMockDispatcher()
+		input := make(chan *protocol.InboundMessage, 2)
+		p := processor.New(processor.DefaultConfig(), input, md, log.Discard)
+
+		p.Start()
+		defer p.Stop()
+
+		// Send garbage that fails protocol.ParsePacket
+		input <- &protocol.InboundMessage{
+			Data: []byte{0x00}, // Too short for any EMsg
+		}
+
+		// FIFO synchronization: send a valid packet after the garbage one
+		input <- &protocol.InboundMessage{
+			Data: packRaw(enums.EMsg_ClientHeartBeat, 0, nil),
+		}
+
+		// Wait for the valid packet to be successfully processed.
+		select {
+		case pkt := <-md.packets:
+			assert.Equal(t, enums.EMsg_ClientHeartBeat, pkt.EMsg)
+		case <-time.After(1 * time.Second):
+			t.Fatal("Timeout waiting for subsequent valid packet")
+		}
+
+		// Verify that the garbage packet was safely ignored
+		assert.Equal(t, int32(1), md.count.Load())
+	})
+
+	t.Run("worker_panic_recovery", func(t *testing.T) {
+		t.Parallel()
+
+		pd := &panicDispatcher{called: make(chan struct{})}
+		input := make(chan *protocol.InboundMessage, 1)
+		p := processor.New(processor.Config{WorkerCount: 1}, input, pd, log.Discard)
+
+		p.Start()
+		defer p.Stop()
+
+		input <- &protocol.InboundMessage{
+			Data: packRaw(enums.EMsg_ClientLogon, 0, []byte("Hello")),
+		}
+
+		// Wait until panic is triggered and safely recovered
+		select {
+		case <-pd.called:
+		case <-time.After(1 * time.Second):
+			t.Fatal("worker did not process message")
+		}
+	})
 }
 
 func TestProcessor_MetadataPropagation(t *testing.T) {
+	t.Parallel()
+
 	md := newMockDispatcher()
 	cfg := processor.Config{
 		WorkerCount: 1,
@@ -168,56 +267,73 @@ func TestProcessor_MetadataPropagation(t *testing.T) {
 	p.Start()
 	defer p.Stop()
 
-	data := packRaw(enums.EMsg_ClientHeartBeat, 0, nil)
-	p.Process(&protocol.InboundMessage{
-		Data:       data,
-		ReceivedAt: time.Now(),
-		Transport:  protocol.TransportTCP,
+	t.Run("tcp_metadata", func(t *testing.T) {
+		data := packRaw(enums.EMsg_ClientHeartBeat, 0, nil)
+		p.Process(&protocol.InboundMessage{
+			Data:       data,
+			ReceivedAt: time.Now(),
+			Transport:  protocol.TransportTCP,
+		})
+
+		var pkt *protocol.Packet
+		select {
+		case pkt = <-md.packets:
+			assert.Equal(t, enums.EMsg_ClientHeartBeat, pkt.EMsg)
+			assert.False(t, pkt.ReceivedAt.IsZero())
+			assert.WithinDuration(t, time.Now(), pkt.ReceivedAt, time.Second)
+
+			tr, ok := protocol.GetTransportType(pkt.Context())
+			assert.True(t, ok)
+			assert.Equal(t, protocol.TransportTCP, tr)
+
+		case <-time.After(100 * time.Millisecond):
+			t.Fatal("Timeout waiting for packet")
+		}
 	})
 
-	var pkt *protocol.Packet
-	select {
-	case pkt = <-md.packets:
-		assert.Equal(t, enums.EMsg_ClientHeartBeat, pkt.EMsg)
-		assert.False(t, pkt.ReceivedAt.IsZero())
-		assert.WithinDuration(t, time.Now(), pkt.ReceivedAt, time.Second)
+	t.Run("ws_metadata", func(t *testing.T) {
+		protoPkt := &protocol.Packet{
+			EMsg:    enums.EMsg_ClientLogon,
+			IsProto: true,
+			Header:  protocol.NewMsgHdrProtoBuf(enums.EMsg_ClientLogon, 987654321, 42),
+			Payload: []byte("payload"),
+		}
+		buf := new(bytes.Buffer)
+		err := protoPkt.SerializeTo(buf)
+		require.NoError(t, err)
 
-		tr, ok := protocol.GetTransportType(pkt.Context())
-		assert.True(t, ok)
-		assert.Equal(t, protocol.TransportTCP, tr)
+		protoData := buf.Bytes()
+		p.Process(&protocol.InboundMessage{
+			Data:       protoData,
+			ReceivedAt: time.Now(),
+			Transport:  protocol.TransportWS,
+		})
 
-	case <-time.After(100 * time.Millisecond):
-		t.Fatal("Timeout waiting for packet")
-	}
+		var pkt *protocol.Packet
+		select {
+		case pkt = <-md.packets:
+			assert.Equal(t, enums.EMsg_ClientLogon, pkt.EMsg)
+			assert.False(t, pkt.ReceivedAt.IsZero())
+			assert.WithinDuration(t, time.Now(), pkt.ReceivedAt, time.Second)
 
-	protoPkt := &protocol.Packet{
-		EMsg:    enums.EMsg_ClientLogon,
-		IsProto: true,
-		Header:  protocol.NewMsgHdrProtoBuf(enums.EMsg_ClientLogon, 987654321, 42),
-		Payload: []byte("payload"),
-	}
-	buf := new(bytes.Buffer)
-	err := protoPkt.SerializeTo(buf)
-	assert.NoError(t, err)
+			tr, ok := protocol.GetTransportType(pkt.Context())
+			assert.True(t, ok)
+			assert.Equal(t, protocol.TransportWS, tr)
 
-	protoData := buf.Bytes()
-	p.Process(&protocol.InboundMessage{
-		Data:       protoData,
-		ReceivedAt: time.Now(),
-		Transport:  protocol.TransportWS,
+		case <-time.After(100 * time.Millisecond):
+			t.Fatal("Timeout waiting for protobuf packet")
+		}
 	})
+}
 
-	select {
-	case pkt = <-md.packets:
-		assert.Equal(t, enums.EMsg_ClientLogon, pkt.EMsg)
-		assert.False(t, pkt.ReceivedAt.IsZero())
-		assert.WithinDuration(t, time.Now(), pkt.ReceivedAt, time.Second)
+func TestProcessor_Logger(t *testing.T) {
+	t.Parallel()
 
-		tr, ok := protocol.GetTransportType(pkt.Context())
-		assert.True(t, ok)
-		assert.Equal(t, protocol.TransportWS, tr)
+	t.Run("update_logger", func(t *testing.T) {
+		t.Parallel()
 
-	case <-time.After(100 * time.Millisecond):
-		t.Fatal("Timeout waiting for protobuf packet")
-	}
+		md := newMockDispatcher()
+		p := processor.New(processor.DefaultConfig(), nil, md, log.Discard)
+		p.UpdateLogger(log.Discard)
+	})
 }

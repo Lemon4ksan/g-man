@@ -6,6 +6,7 @@ package protocol_test
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"io"
@@ -18,11 +19,6 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 )
 
-type faultyIO struct{}
-
-func (f *faultyIO) Read(p []byte) (n int, err error)  { return 0, io.ErrUnexpectedEOF }
-func (f *faultyIO) Write(p []byte) (n int, err error) { return 0, io.ErrShortWrite }
-
 type infiniteZeros struct{}
 
 func (infiniteZeros) Read(p []byte) (int, error) {
@@ -34,10 +30,14 @@ func (infiniteZeros) Read(p []byte) (int, error) {
 }
 
 func TestParsePacket(t *testing.T) {
-	t.Run("ProtoPacket", func(t *testing.T) {
+	t.Parallel()
+
+	t.Run("proto_packet", func(t *testing.T) {
+		t.Parallel()
+
 		hdr := protocol.NewMsgHdrProtoBuf(enums.EMsg(100), 1, 1)
 		buf := new(bytes.Buffer)
-		hdr.SerializeTo(buf)
+		_ = hdr.SerializeTo(buf)
 		buf.WriteString("payload")
 
 		pkt, err := protocol.ParsePacket(buf)
@@ -47,11 +47,12 @@ func TestParsePacket(t *testing.T) {
 		assert.Equal(t, []byte("payload"), pkt.Payload)
 	})
 
-	t.Run("EncryptHandshakePacket", func(t *testing.T) {
-		// Test specifically the EMsg branch for standard headers
+	t.Run("encrypt_handshake_packet", func(t *testing.T) {
+		t.Parallel()
+
 		hdr := protocol.NewMsgHdr(enums.EMsg_ChannelEncryptRequest, 0)
 		buf := new(bytes.Buffer)
-		hdr.SerializeTo(buf)
+		_ = hdr.SerializeTo(buf)
 
 		pkt, err := protocol.ParsePacket(buf)
 		require.NoError(t, err)
@@ -60,10 +61,12 @@ func TestParsePacket(t *testing.T) {
 		assert.True(t, ok)
 	})
 
-	t.Run("ExtendedPacket", func(t *testing.T) {
+	t.Run("extended_packet", func(t *testing.T) {
+		t.Parallel()
+
 		hdr := protocol.NewMsgHdrExtended(enums.EMsg(200), 1, 1)
 		buf := new(bytes.Buffer)
-		hdr.SerializeTo(buf)
+		_ = hdr.SerializeTo(buf)
 
 		pkt, err := protocol.ParsePacket(buf)
 		require.NoError(t, err)
@@ -72,44 +75,147 @@ func TestParsePacket(t *testing.T) {
 		assert.True(t, ok)
 	})
 
-	t.Run("PayloadTooLarge", func(t *testing.T) {
+	t.Run("payload_too_large", func(t *testing.T) {
+		t.Parallel()
+
 		hdr := protocol.NewMsgHdr(enums.EMsg_ChannelEncryptRequest, 0)
 		buf := new(bytes.Buffer)
-		hdr.SerializeTo(buf)
+		_ = hdr.SerializeTo(buf)
 
 		reader := io.MultiReader(buf, io.LimitReader(infiniteZeros{}, protocol.MaxPayloadSize+1))
 		_, err := protocol.ParsePacket(reader)
 		assert.ErrorIs(t, err, protocol.ErrPayloadTooLarge)
 	})
+
+	t.Run("payload_read_error", func(t *testing.T) {
+		t.Parallel()
+
+		hdr := protocol.NewMsgHdr(enums.EMsg_ChannelEncryptRequest, 0)
+		buf := new(bytes.Buffer)
+		_ = hdr.SerializeTo(buf)
+
+		reader := io.MultiReader(buf, &faultyIO{})
+		_, err := protocol.ParsePacket(reader)
+		assert.ErrorIs(t, err, io.ErrUnexpectedEOF)
+	})
+
+	t.Run("read_emsg_error", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := protocol.ParsePacket(new(bytes.Buffer))
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "read emsg")
+	})
+
+	t.Run("deserialize_header_error", func(t *testing.T) {
+		t.Parallel()
+
+		buf := bytes.NewReader([]byte{0x01, 0x00, 0x00, 0x00})
+		_, err := protocol.ParsePacket(buf)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "deserialize header")
+	})
 }
 
 func TestPacket_Getters(t *testing.T) {
-	// Case: Header is nil (Coverage for p.Header != nil checks)
-	pkt := &protocol.Packet{Header: nil}
-	assert.Equal(t, protocol.NoJob, pkt.GetSourceJobID())
-	assert.Equal(t, protocol.NoJob, pkt.GetTargetJobID())
-	assert.Equal(t, uint64(0), pkt.GetSteamID())
-	assert.Equal(t, int32(0), pkt.GetSessionID())
-	assert.Equal(t, enums.EResult_Invalid, pkt.GetEResult())
+	t.Parallel()
 
-	// Case: Full Proto Packet
-	hdr := protocol.NewMsgHdrProtoBuf(enums.EMsg(1), 123, 456)
-	pkt = &protocol.Packet{Header: hdr}
-	assert.Equal(t, uint64(123), pkt.GetSteamID())
-	assert.Equal(t, int32(456), pkt.GetSessionID())
+	t.Run("default_values", func(t *testing.T) {
+		t.Parallel()
+
+		pkt := &protocol.Packet{Header: nil}
+		assert.Equal(t, protocol.NoJob, pkt.GetSourceJobID())
+		assert.Equal(t, protocol.NoJob, pkt.GetTargetJobID())
+		assert.Equal(t, uint64(0), pkt.GetSteamID())
+		assert.Equal(t, int32(0), pkt.GetSessionID())
+		assert.Equal(t, enums.EResult_Invalid, pkt.GetEResult())
+	})
+
+	t.Run("protobuf_getters", func(t *testing.T) {
+		t.Parallel()
+
+		hdr := protocol.NewMsgHdrProtoBuf(enums.EMsg(1), 123, 456)
+		pkt := &protocol.Packet{Header: hdr}
+		assert.Equal(t, uint64(123), pkt.GetSteamID())
+		assert.Equal(t, int32(456), pkt.GetSessionID())
+	})
+
+	t.Run("nil_header_getters", func(t *testing.T) {
+		t.Parallel()
+
+		pkt := &protocol.Packet{Header: nil}
+		assert.Equal(t, protocol.NoJob, pkt.GetTargetJobID())
+		assert.Equal(t, protocol.NoJob, pkt.GetSourceJobID())
+	})
+
+	t.Run("eheader_interface_negative", func(t *testing.T) {
+		t.Parallel()
+
+		pkt := &protocol.Packet{Header: &protocol.MsgHdr{}}
+		assert.Equal(t, enums.EResult_Invalid, pkt.GetEResult())
+	})
+}
+
+func TestPacket_Context(t *testing.T) {
+	t.Parallel()
+
+	t.Run("default_context", func(t *testing.T) {
+		t.Parallel()
+
+		pkt := &protocol.Packet{}
+		ctx := pkt.Context()
+		assert.NotNil(t, ctx)
+		assert.Equal(t, context.Background(), ctx)
+	})
+
+	t.Run("custom_context", func(t *testing.T) {
+		t.Parallel()
+
+		var key struct{}
+
+		customCtx := context.WithValue(t.Context(), &key, "test_val")
+		pkt := &protocol.Packet{Ctx: customCtx}
+		ctx := pkt.Context()
+		assert.Equal(t, customCtx, ctx)
+	})
+}
+
+func TestContext_TransportType(t *testing.T) {
+	t.Parallel()
+
+	t.Run("missing_transport_type", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		_, ok := protocol.GetTransportType(ctx)
+		assert.False(t, ok)
+	})
+
+	t.Run("with_transport_type", func(t *testing.T) {
+		t.Parallel()
+		ctx := protocol.WithTransportType(t.Context(), protocol.TransportTCP)
+		tt, ok := protocol.GetTransportType(ctx)
+		assert.True(t, ok)
+		assert.Equal(t, protocol.TransportTCP, tt)
+	})
 }
 
 func TestPacket_SerializeTo(t *testing.T) {
-	t.Run("InvalidHeaderForProto", func(t *testing.T) {
+	t.Parallel()
+
+	t.Run("invalid_header_for_proto", func(t *testing.T) {
+		t.Parallel()
+
 		pkt := &protocol.Packet{
 			IsProto: true,
-			Header:  &protocol.MsgHdr{}, // Not a ProtoBuf header
+			Header:  &protocol.MsgHdr{},
 		}
 		err := pkt.SerializeTo(io.Discard)
 		assert.ErrorIs(t, err, protocol.ErrInvalidHeader)
 	})
 
-	t.Run("Success", func(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+
 		hdr := protocol.NewMsgHdr(enums.EMsg_ChannelEncryptRequest, 0)
 		pkt := &protocol.Packet{Header: hdr, Payload: []byte("hi")}
 		buf := new(bytes.Buffer)
@@ -117,14 +223,29 @@ func TestPacket_SerializeTo(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Contains(t, buf.String(), "hi")
 	})
+
+	t.Run("serialize_to_header_error", func(t *testing.T) {
+		t.Parallel()
+
+		p := &protocol.Packet{
+			Header: protocol.NewMsgHdr(enums.EMsg_ChannelEncryptRequest, 0),
+		}
+		err := p.SerializeTo(&faultyIO{})
+		assert.Error(t, err)
+	})
 }
 
 func TestGCPacket_Roundtrip(t *testing.T) {
-	appID := uint32(440)
+	t.Parallel()
+
+	const appID = uint32(440)
+
 	msgType := uint32(1001)
 	payload := []byte("gc-data")
 
-	t.Run("Proto", func(t *testing.T) {
+	t.Run("proto", func(t *testing.T) {
+		t.Parallel()
+
 		p := protocol.NewGCPacket(appID, msgType, payload)
 		p.IsProto = true
 		p.SourceJobID = 111
@@ -133,7 +254,6 @@ func TestGCPacket_Roundtrip(t *testing.T) {
 		serialized, err := p.Serialize()
 		require.NoError(t, err)
 
-		// ParseGCPacket expects the full serialized data (including MsgType prefix)
 		parsed, err := protocol.ParseGCPacket(appID, msgType|protocol.ProtoMask, serialized)
 		require.NoError(t, err)
 
@@ -144,7 +264,9 @@ func TestGCPacket_Roundtrip(t *testing.T) {
 		assert.Equal(t, payload, parsed.Payload)
 	})
 
-	t.Run("Legacy", func(t *testing.T) {
+	t.Run("legacy", func(t *testing.T) {
+		t.Parallel()
+
 		p := protocol.NewGCPacket(appID, msgType, payload)
 		p.IsProto = false
 		p.SourceJobID = 888
@@ -153,8 +275,6 @@ func TestGCPacket_Roundtrip(t *testing.T) {
 		serialized, err := p.Serialize()
 		require.NoError(t, err)
 
-		// Serialize for Legacy includes [Header(18) | Payload] (No MsgType)
-		// So we pass the whole buffer
 		parsed, err := protocol.ParseGCPacket(appID, msgType, serialized)
 		require.NoError(t, err)
 
@@ -167,73 +287,56 @@ func TestGCPacket_Roundtrip(t *testing.T) {
 }
 
 func TestGCPacket_Errors(t *testing.T) {
-	appID := uint32(440)
+	t.Parallel()
 
-	t.Run("ParseProtoHeaderLenError", func(t *testing.T) {
-		// Can read 4-byte skippedMsgType, but only 2 bytes left, so can't read uint32 hdrLen
-		_, err := protocol.ParseGCPacket(appID, protocol.ProtoMask, []byte{1, 2, 3, 4, 5, 6})
+	const appID = uint32(440)
+
+	t.Run("parse_proto_inner_msgtype_error", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := protocol.ParseGCPacket(appID, protocol.ProtoMask, []byte{1, 2})
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "read proto header len")
+		assert.Contains(t, err.Error(), "gc: read inner msgtype")
 	})
 
-	t.Run("ParseProtoHeaderReadError", func(t *testing.T) {
-		// Prepend 4 bytes for skippedMsgType. HdrLen says 10, but we only give 2 bytes after hdrLen
+	t.Run("parse_proto_header_len_error", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := protocol.ParseGCPacket(appID, protocol.ProtoMask, []byte{1, 2, 3, 4, 5, 6})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "gc: read proto header len")
+	})
+
+	t.Run("parse_proto_header_read_error", func(t *testing.T) {
+		t.Parallel()
+
 		data := []byte{1, 2, 3, 4, 10, 0, 0, 0, 1, 2}
 		_, err := protocol.ParseGCPacket(appID, protocol.ProtoMask, data)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "read proto header")
+		assert.Contains(t, err.Error(), "gc: read proto header")
 	})
 
-	t.Run("ParseLegacyHeaderError", func(t *testing.T) {
-		// Legacy header must be 18 bytes
+	t.Run("parse_proto_header_unmarshal_error", func(t *testing.T) {
+		t.Parallel()
+
+		data := []byte{1, 2, 3, 4, 3, 0, 0, 0, 0xFF, 0xFF, 0xFF}
+		_, err := protocol.ParseGCPacket(appID, protocol.ProtoMask, data)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "gc: unmarshal proto header")
+	})
+
+	t.Run("parse_legacy_header_error", func(t *testing.T) {
+		t.Parallel()
+
 		_, err := protocol.ParseGCPacket(appID, 0, []byte{1, 2, 3})
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "read legacy header")
+		assert.Contains(t, err.Error(), "gc: read legacy header")
 	})
-}
-
-func TestParsePacket_MissingLineCoverage(t *testing.T) {
-	t.Run("Read EMsg Error", func(t *testing.T) {
-		// Triggers: if err := binary.Read(r, binary.LittleEndian, &rawEMsg); err != nil
-		_, err := protocol.ParsePacket(new(bytes.Buffer))
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "read emsg")
-	})
-
-	t.Run("Deserialize Header Error", func(t *testing.T) {
-		// Triggers: if err := header.Deserialize(r); err != nil
-		// Provide EMsg (4 bytes) but nothing for the header
-		buf := bytes.NewReader([]byte{0x01, 0x00, 0x00, 0x00})
-		_, err := protocol.ParsePacket(buf)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "deserialize header")
-	})
-}
-
-func TestPacket_NilHeaderGetters(t *testing.T) {
-	// Triggers: if p.Header != nil { return p.Header.GetTargetJob() } (and SourceJob)
-	p := &protocol.Packet{Header: nil}
-	assert.Equal(t, protocol.NoJob, p.GetTargetJobID())
-	assert.Equal(t, protocol.NoJob, p.GetSourceJobID())
-}
-
-func TestPacket_EHeaderInterfaceNegative(t *testing.T) {
-	// Triggers: if eh, ok := p.Header.(EHeader); ok (failing branch)
-	// MsgHdr does NOT implement EHeader
-	p := &protocol.Packet{Header: &protocol.MsgHdr{}}
-	assert.Equal(t, enums.EResult_Invalid, p.GetEResult())
-}
-
-func TestPacket_SerializeTo_HeaderError(t *testing.T) {
-	// Triggers: if err := p.Header.SerializeTo(w); err != nil
-	p := &protocol.Packet{
-		Header: protocol.NewMsgHdr(enums.EMsg_ChannelEncryptRequest, 0),
-	}
-	err := p.SerializeTo(&faultyIO{})
-	assert.Error(t, err)
 }
 
 func TestTransportMappingRegistry(t *testing.T) {
+	t.Parallel()
+
 	randBytes := make([]byte, 8)
 	_, _ = rand.Read(randBytes)
 	uniqueKey := "CUSTOM_" + hex.EncodeToString(randBytes)

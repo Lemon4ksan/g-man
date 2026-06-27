@@ -30,36 +30,37 @@ var gcBufferPool = sync.Pool{
 	},
 }
 
-// ModuleName is the name of the module.
+// ModuleName is the unique string identifier of the GC coordinator module.
 const ModuleName string = "gc"
 
-// WithModule returns a steam.Option that registers the GC module.
+// WithModule returns a [steam.Option] that registers the [Coordinator] module in the client.
 func WithModule() steam.Option {
 	return func(c *steam.Client) {
 		c.RegisterModule(New())
 	}
 }
 
-// From returns the gc module from the client.
+// From retrieves the registered [Coordinator] module instance from the specified [steam.Client].
+// It returns nil if the module is not registered or if the client is nil.
 func From(c *steam.Client) *Coordinator {
 	return steam.GetModule[*Coordinator](c)
 }
 
-// Handler represents a function that processes a specific GCPacket.
+// Handler processes a specific received [protocol.GCPacket].
+// Register GC handlers using the [Coordinator.RegisterGCHandler] method.
 type Handler func(packet *protocol.GCPacket)
 
-// MessageEvent is triggered when a Game Coordinator message is received
-// and WAS NOT handled by a specific Job callback or GC handler.
+// MessageEvent occurs when a Game Coordinator message is received and has no registered handler or pending job callback.
+// Subscribe to this event using the client's internal bus to handle unmapped GC messages.
 type MessageEvent struct {
 	bus.BaseEvent
 	// Packet is the underlying parsed Game Coordinator message.
 	Packet *protocol.GCPacket
 }
 
-// Coordinator acts as a multiplexer for Game Coordinator messages.
-//
-// It handles routing based on AppID and manages GC-level request-response cycles.
-// Create new instances of Coordinator using the [New] constructor.
+// Coordinator multiplexes Game Coordinator messages and manages GC-level request-response job cycles.
+// It routes outbound payloads, maps incoming packets to pending callbacks, and executes registered handlers.
+// Register the coordinator as a client module using [WithModule] or retrieve it via [From].
 type Coordinator struct {
 	module.Base
 
@@ -73,7 +74,7 @@ type Coordinator struct {
 	gcHandlers map[uint32]map[uint32]Handler
 }
 
-// New creates a new Game Coordinator module.
+// New creates a new [Coordinator] module instance.
 func New() *Coordinator {
 	return &Coordinator{
 		Base:       module.New(ModuleName),
@@ -82,7 +83,9 @@ func New() *Coordinator {
 	}
 }
 
-// Init registers global packet handlers for GC communication.
+// Init registers global packet handlers for GC network communication.
+// It configures callbacks for low-level client-to-GC routing envelopes.
+// It will panic if the provided [module.InitContext] argument is nil.
 func (c *Coordinator) Init(init module.InitContext) error {
 	if err := c.Base.Init(init); err != nil {
 		return err
@@ -99,7 +102,8 @@ func (c *Coordinator) Init(init module.InitContext) error {
 	return nil
 }
 
-// Close ensures all GC jobs are canceled and handlers are removed.
+// Close cancels all pending GC jobs, removes registered packet handlers, and releases resources.
+// Subsequent calls to Close are safe and will be ignored.
 func (c *Coordinator) Close() error {
 	c.mu.Lock()
 	for _, unreg := range c.unregFuncs {
@@ -114,21 +118,24 @@ func (c *Coordinator) Close() error {
 	return c.Base.Close()
 }
 
-// Send sends a message to a Game Coordinator without expecting a response.
+// Send transmits a Protobuf message to the Game Coordinator without expecting a response.
+// It returns an error if serialization or transport delivery fails.
+// It will panic if either the context or message is nil.
 func (c *Coordinator) Send(ctx context.Context, appID, msgType uint32, msg proto.Message) error {
 	return c.send(ctx, appID, msgType, msg, nil, nil)
 }
 
-// SendRaw fires a raw payload to the GC without waiting for a response.
+// SendRaw transmits a raw byte slice to the Game Coordinator without expecting a response.
+// It returns an error if transport delivery fails.
+// It will panic if the context is nil.
 func (c *Coordinator) SendRaw(ctx context.Context, appID, msgType uint32, payload []byte) error {
 	return c.send(ctx, appID, msgType, nil, payload, nil)
 }
 
-// Call sends a message to a Game Coordinator and registers a callback for the response.
-// The response is matched using the GC's internal JobID system.
-//
-// It returns an error if the provided callback cb is nil, if Protobuf marshaling of
-// the message payload fails, or if job registration fails.
+// Call transmits a Protobuf message and registers a callback to handle the asynchronous response.
+// The response is matched to the callback using the GC's internal JobID system.
+// It returns an error if the callback cb is nil, if serialization fails, or if job registration fails.
+// It will panic if either the context or message is nil.
 func (c *Coordinator) Call(
 	ctx context.Context,
 	appID, msgType uint32,
@@ -142,7 +149,10 @@ func (c *Coordinator) Call(
 	return c.send(ctx, appID, msgType, msg, nil, cb)
 }
 
-// CallRaw sends a message to the GC and waits for a response with a matching JobID.
+// CallRaw transmits a raw byte slice and registers a callback to handle the asynchronous response.
+// The response is matched to the callback using the GC's internal JobID system.
+// It returns an error if the callback cb is nil or if job registration fails.
+// It will panic if the context is nil.
 func (c *Coordinator) CallRaw(
 	ctx context.Context,
 	appID, msgType uint32,
@@ -246,9 +256,9 @@ func (c *Coordinator) send(
 	return nil
 }
 
-// RegisterGCHandler registers a handler for a specific AppID and MsgType.
-// When a matching GC message is received, this handler is executed and the
-// message is not published to the global event bus.
+// RegisterGCHandler registers a custom [Handler] for a specific AppID and MsgType.
+// Matching received GC packets are routed to this handler and are not published onto the event bus.
+// It will panic upon execution if the provided handler argument is nil.
 func (c *Coordinator) RegisterGCHandler(appID, msgType uint32, handler Handler) {
 	c.handlersMu.Lock()
 	defer c.handlersMu.Unlock()
@@ -264,7 +274,8 @@ func (c *Coordinator) RegisterGCHandler(appID, msgType uint32, handler Handler) 
 	c.gcHandlers[appID][msgType] = handler
 }
 
-// UnregisterGCHandler removes a registered handler for a specific AppID and MsgType.
+// UnregisterGCHandler removes a registered [Handler] for a specific AppID and MsgType.
+// If no handler is registered for the specified keys, the method does nothing.
 func (c *Coordinator) UnregisterGCHandler(appID, msgType uint32) {
 	c.handlersMu.Lock()
 	defer c.handlersMu.Unlock()

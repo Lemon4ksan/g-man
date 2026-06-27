@@ -37,51 +37,51 @@ func (m *mockSession) SessionID(s string) string {
 }
 
 // newMockedClient is a helper to construct a client with a mocked REST service.
-func newMockedClient(t *testing.T, mock *mock.ServiceMock, opts ...client.Option) *client.Client {
+func newMockedClient(t *testing.T, mock *mock.ServiceMock) *client.Client {
 	t.Helper()
 
-	combinedOpts := append([]client.Option{client.WithREST(mock)}, opts...)
-
-	return client.New(nil, mock, combinedOpts...)
+	return client.New(nil, mock).WithREST(mock)
 }
 
-func TestNew_Options_InitializesCorrectly(t *testing.T) {
+func TestNew_InitializesCorrectly(t *testing.T) {
 	t.Parallel()
 
 	mockHTTP := &http.Client{}
 	logger := log.New(log.DefaultConfig(log.LevelDebug))
 	rc := aoni.NewClient(mockHTTP)
 
-	tests := []struct {
-		name string
-		opts []client.Option
-	}{
-		{
-			name: "default_initialization",
-			opts: nil,
-		},
-		{
-			name: "with_logger_option",
-			opts: []client.Option{client.WithLogger(logger)},
-		},
-		{
-			name: "with_rest_option",
-			opts: []client.Option{client.WithREST(rc)},
-		},
-	}
+	t.Run("Default Initialization", func(t *testing.T) {
+		t.Parallel()
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+		c := client.New(mockHTTP, &mockSession{})
+		require.NotNil(t, c)
+		assert.Equal(t, "test_session_id", c.SessionID(client.BaseURL))
+	})
 
-			c := client.New(mockHTTP, &mockSession{}, tt.opts...)
-			require.NotNil(t, c)
+	t.Run("With Logger Option", func(t *testing.T) {
+		t.Parallel()
 
-			if len(tt.opts) == 0 {
-				assert.Equal(t, "test_session_id", c.SessionID(client.BaseURL))
-			}
-		})
-	}
+		c := client.New(mockHTTP, &mockSession{})
+		require.NotNil(t, c)
+
+		updated := c.WithLogger(logger)
+
+		require.NotNil(t, updated)
+		assert.NotSame(t, c, updated)
+	})
+
+	t.Run("With REST Option", func(t *testing.T) {
+		t.Parallel()
+
+		c := client.New(mockHTTP, &mockSession{})
+		require.NotNil(t, c)
+
+		updated := c.WithREST(rc)
+
+		require.NotNil(t, updated)
+		assert.Equal(t, rc, updated.Unwrap())
+		assert.NotSame(t, c, updated)
+	})
 }
 
 func TestClient_SessionID_VariousSessions_ReturnsExpectedID(t *testing.T) {
@@ -381,7 +381,7 @@ func TestClient_GetOrRegisterAPIKey_VariousScenarios_ReturnsExpected(t *testing.
 		ctx := t.Context()
 
 		mock := mock.NewServiceMock()
-		client := newMockedClient(t, mock, client.WithLogger(log.Discard))
+		client := newMockedClient(t, mock)
 
 		htmlWithForm := `<div><form id="register_form"></form></div>`
 		htmlWithKey := `<div>Key: FEDCBA0987654321FEDCBA0987654321</div>`
@@ -443,7 +443,7 @@ func TestClient_GetOrRegisterAPIKey_VariousScenarios_ReturnsExpected(t *testing.
 		ctx := t.Context()
 
 		mock := mock.NewServiceMock()
-		c := newMockedClient(t, mock, client.WithLogger(log.Discard))
+		c := newMockedClient(t, mock)
 
 		callCount := 0
 		mock.OnRest = func(method, path string, body any) (*http.Response, error) {
@@ -501,7 +501,7 @@ func TestClient_GetOrRegisterAPIKey_VariousScenarios_ReturnsExpected(t *testing.
 		ctx := t.Context()
 
 		mock := mock.NewServiceMock()
-		client := newMockedClient(t, mock, client.WithLogger(log.Discard))
+		client := newMockedClient(t, mock)
 		expectedErr := errors.New("post failed")
 
 		mock.OnRest = func(method, path string, body any) (*http.Response, error) {
@@ -601,7 +601,7 @@ func TestClient_Request_RedirectError_Intercept(t *testing.T) {
 	ctx := t.Context()
 
 	mockService := mock.NewServiceMock()
-	c := newMockedClient(t, mockService, client.WithLogger(log.Discard))
+	c := newMockedClient(t, mockService)
 
 	mockService.OnRest = func(method, path string, body any) (*http.Response, error) {
 		return nil, errors.New("stopped after 10 redirects (redirect loop detected)")
@@ -618,7 +618,7 @@ func TestClient_Request_SessionExpired_Intercept(t *testing.T) {
 	ctx := t.Context()
 
 	mockService := mock.NewServiceMock()
-	c := newMockedClient(t, mockService, client.WithLogger(log.Discard))
+	c := newMockedClient(t, mockService)
 
 	mockService.OnRest = func(method, path string, body any) (*http.Response, error) {
 		return nil, errors.New("unauthorized: session expired")

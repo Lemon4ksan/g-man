@@ -43,6 +43,8 @@ func (w *blockingWriter) Write(p []byte) (n int, err error) {
 }
 
 func TestLevel_Short(t *testing.T) {
+	t.Parallel()
+
 	assert.Equal(t, "D", LevelDebug.Short())
 	assert.Equal(t, "I", LevelInfo.Short())
 	assert.Equal(t, "W", LevelWarn.Short())
@@ -51,6 +53,8 @@ func TestLevel_Short(t *testing.T) {
 }
 
 func TestDefaultConfig(t *testing.T) {
+	t.Parallel()
+
 	cfg := DefaultConfig(LevelInfo)
 	assert.Equal(t, LevelInfo, cfg.Level)
 	assert.True(t, cfg.Colors)
@@ -58,6 +62,8 @@ func TestDefaultConfig(t *testing.T) {
 }
 
 func TestLogger_Lifecycle(t *testing.T) {
+	t.Parallel()
+
 	var buf bytes.Buffer
 
 	cfg := DefaultConfig(LevelDebug)
@@ -74,7 +80,6 @@ func TestLogger_Lifecycle(t *testing.T) {
 	err := l.Close()
 	require.NoError(t, err)
 
-	// Test double close safety
 	assert.NoError(t, l.Close())
 
 	output := buf.String()
@@ -84,13 +89,14 @@ func TestLogger_Lifecycle(t *testing.T) {
 	assert.Contains(t, output, "[W] warn msg")
 	assert.Contains(t, output, "[E] error msg")
 
-	// Ensure no logs after close
 	buf.Reset()
 	l.Info("after close")
 	assert.Empty(t, buf.String())
 }
 
 func TestLogger_LevelFiltering(t *testing.T) {
+	t.Parallel()
+
 	var buf bytes.Buffer
 
 	cfg := DefaultConfig(LevelWarn)
@@ -106,21 +112,18 @@ func TestLogger_LevelFiltering(t *testing.T) {
 }
 
 func TestLogger_With(t *testing.T) {
+	t.Parallel()
+
 	var buf bytes.Buffer
 
 	cfg := DefaultConfig(LevelInfo)
 	cfg.Output = &buf
 	cfg.Colors = false
-	cfg.FullPath = true // Crucial: so we can see the whole path in the output string
+	cfg.FullPath = true
 	l := New(cfg)
 
-	// Branch coverage: Field is not module/component
 	l2 := l.With(String("ctx", "val"))
-
-	// Branch coverage: Field is module/component
 	l3 := l2.With(Module("Auth"), Component("Database"))
-
-	// Branch coverage: Module name is not a string
 	l4 := l3.With(Field{Key: "module", Value: 999})
 
 	l4.Info("query")
@@ -163,7 +166,7 @@ func TestLogger_Formatting(t *testing.T) {
 			setup:    func(l Logger) Logger { return l.With(Module("M1"), Module("M2")) },
 			msg:      "hello",
 			fields:   []Field{String("k", "v")},
-			expected: []string{"hello" + strings.Repeat(" ", 20) + "k=v"}, // 50 - (17 + 8 + 5) = 20 spaces
+			expected: []string{"hello" + strings.Repeat(" ", 20) + "k=v"},
 		},
 		{
 			name:     "Alignment Logic",
@@ -171,7 +174,7 @@ func TestLogger_Formatting(t *testing.T) {
 			setup:    func(l Logger) Logger { return l },
 			msg:      "short",
 			fields:   []Field{String("k", "v")},
-			expected: []string{"short" + strings.Repeat(" ", 5)}, // Based on Default AlignWidth
+			expected: []string{"short" + strings.Repeat(" ", 5)},
 		},
 		{
 			name:     "Message Exceeds Alignment",
@@ -179,12 +182,14 @@ func TestLogger_Formatting(t *testing.T) {
 			setup:    func(l Logger) Logger { return l },
 			msg:      strings.Repeat("m", 100),
 			fields:   []Field{String("k", "v")},
-			expected: []string{"  k=v"}, // Should fallback to 2 spaces
+			expected: []string{"  k=v"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			var buf bytes.Buffer
 
 			cfg := DefaultConfig(LevelInfo)
@@ -207,6 +212,8 @@ func TestLogger_Formatting(t *testing.T) {
 }
 
 func TestFormatValue(t *testing.T) {
+	t.Parallel()
+
 	now := time.Now()
 
 	tests := []struct {
@@ -246,8 +253,10 @@ func TestFormatValue(t *testing.T) {
 }
 
 func TestLogger_QueueOverflow(t *testing.T) {
+	t.Parallel()
+
 	bw := &blockingWriter{}
-	bw.mu.Lock() // Lock the writer to force queue to fill
+	bw.mu.Lock()
 
 	cfg := DefaultConfig(LevelInfo)
 	cfg.Output = bw
@@ -255,24 +264,23 @@ func TestLogger_QueueOverflow(t *testing.T) {
 	l := New(cfg)
 	al := l.(*AsyncLogger)
 
-	// 1. First msg enters the loop and blocks on the writer
 	l.Info("msg 1")
-	time.Sleep(50 * time.Millisecond) // Wait for writerLoop to process msg 1 and block
+	time.Sleep(50 * time.Millisecond)
 
-	// 2. Second msg fills the channel (size 1)
 	al.queue <- new(bytes.Buffer)
-	// 3. Third msg must drop
+
 	l.Info("msg 3")
 
 	assert.Greater(t, al.dropped.Load(), uint64(0))
 
-	bw.mu.Unlock() // Allow drain
+	bw.mu.Unlock()
 
 	_ = l.Close()
 }
 
 func TestLogger_RaceAndMidClose(t *testing.T) {
-	// Tests the safety check: if l.closed.Load() { ... } inside log()
+	t.Parallel()
+
 	for range 50 {
 		l := New(DefaultConfig(LevelInfo))
 		l.(*AsyncLogger).cfg.Output = io.Discard
@@ -298,6 +306,8 @@ func TestLogger_RaceAndMidClose(t *testing.T) {
 }
 
 func TestHelpers(t *testing.T) {
+	t.Parallel()
+
 	assert.Equal(t, Field{Key: "k", Value: "v"}, Any("k", "v"))
 	assert.Equal(t, "v", String("k", "v").Value)
 	assert.Equal(t, 1, Int("k", 1).Value)
@@ -334,6 +344,8 @@ func TestHelpers(t *testing.T) {
 }
 
 func TestMasking(t *testing.T) {
+	t.Parallel()
+
 	assert.Equal(t, "****", Mask("123"))
 	assert.Equal(t, "****", Mask("1234"))
 	assert.Equal(t, "se...et", Mask("secret"))
@@ -343,25 +355,26 @@ func TestMasking(t *testing.T) {
 }
 
 func TestLevelColorDefault(t *testing.T) {
-	// Coverage for the default case in levelColor switch
+	t.Parallel()
+
 	assert.Equal(t, ansiReset, levelColor(Level(127)))
 }
 
 func TestDiscardLogger(t *testing.T) {
+	t.Parallel()
+
 	d := Discard
 	assert.NoError(t, d.Close())
 	assert.Equal(t, d, d.With(String("k", "v")))
 
-	// Coverage for non-interface specific methods on the struct
 	_ = d.(*discard)
 
-	// No-op calls
 	d.Debug("test")
 	d.Info("test")
 	d.Warn("test")
 	d.Error("test")
 
-	ctx := context.Background()
+	ctx := t.Context()
 	d.DebugContext(ctx, "test")
 	d.InfoContext(ctx, "test")
 	d.WarnContext(ctx, "test")
@@ -369,6 +382,8 @@ func TestDiscardLogger(t *testing.T) {
 }
 
 func TestEmptyKeyField(t *testing.T) {
+	t.Parallel()
+
 	var buf bytes.Buffer
 
 	cfg := DefaultConfig(LevelInfo)
@@ -376,7 +391,6 @@ func TestEmptyKeyField(t *testing.T) {
 	cfg.Colors = false
 	l := New(cfg)
 
-	// Hit branch: if f.Key == "" { return }
 	l.Info("msg", Field{Key: "", Value: "ignore"})
 	_ = l.Close()
 
@@ -384,24 +398,30 @@ func TestEmptyKeyField(t *testing.T) {
 }
 
 func TestSlogAdapter(t *testing.T) {
-	var buf bytes.Buffer
+	t.Parallel()
 
-	h := slog.NewJSONHandler(&buf, &slog.HandlerOptions{
-		Level: slog.LevelDebug,
-	})
-	baseSlog := slog.New(h)
+	setupSlog := func() (*bytes.Buffer, Logger) {
+		var buf bytes.Buffer
 
-	l := FromSlog(baseSlog)
+		h := slog.NewJSONHandler(&buf, &slog.HandlerOptions{
+			Level: slog.LevelDebug,
+		})
+		baseSlog := slog.New(h)
 
-	t.Run("Levels and Basic Logging", func(t *testing.T) {
-		buf.Reset()
+		return &buf, FromSlog(baseSlog)
+	}
+
+	t.Run("levels_and_basic_logging", func(t *testing.T) {
+		t.Parallel()
+
+		buf, l := setupSlog()
 
 		l.Debug("debug msg")
 		l.Info("info msg")
 		l.Warn("warn msg")
 		l.Error("error msg")
 
-		ctx := context.Background()
+		ctx := t.Context()
 		l.DebugContext(ctx, "debug msg ctx")
 		l.InfoContext(ctx, "info msg ctx")
 		l.WarnContext(ctx, "warn msg ctx")
@@ -418,8 +438,10 @@ func TestSlogAdapter(t *testing.T) {
 		assert.Contains(t, output, `"level":"ERROR","msg":"error msg ctx"`)
 	})
 
-	t.Run("Fields mapping", func(t *testing.T) {
-		buf.Reset()
+	t.Run("fields_mapping", func(t *testing.T) {
+		t.Parallel()
+
+		buf, l := setupSlog()
 
 		l.Info("message with fields",
 			String("source", "steam"),
@@ -437,8 +459,10 @@ func TestSlogAdapter(t *testing.T) {
 		assert.Equal(t, 42, entry.Value)
 	})
 
-	t.Run("With context fields", func(t *testing.T) {
-		buf.Reset()
+	t.Run("with_context_fields", func(t *testing.T) {
+		t.Parallel()
+
+		buf, l := setupSlog()
 
 		child := l.With(String("request_id", "abc-123"))
 		child.Info("starting process")
@@ -452,8 +476,10 @@ func TestSlogAdapter(t *testing.T) {
 		assert.Equal(t, "starting process", entry.Msg)
 	})
 
-	t.Run("Nesting With", func(t *testing.T) {
-		buf.Reset()
+	t.Run("nesting_with", func(t *testing.T) {
+		t.Parallel()
+
+		buf, l := setupSlog()
 
 		l1 := l.With(String("source", "main"))
 		l2 := l1.With(Int("val", 100))
@@ -470,12 +496,17 @@ func TestSlogAdapter(t *testing.T) {
 		assert.Equal(t, "final", entry.Msg)
 	})
 
-	t.Run("Lifecycle methods", func(t *testing.T) {
+	t.Run("lifecycle_methods", func(t *testing.T) {
+		t.Parallel()
+
+		_, l := setupSlog()
 		assert.NoError(t, l.Close())
 	})
 }
 
 func TestLogger_JSONFormat(t *testing.T) {
+	t.Parallel()
+
 	var buf bytes.Buffer
 
 	cfg := DefaultConfig(LevelDebug)
@@ -517,14 +548,12 @@ func TestLogger_JSONFormat(t *testing.T) {
 	assert.Equal(t, "user logged in", entry["message"])
 	assert.NotEmpty(t, entry["time"])
 
-	// Verify modules array
 	mods, ok := entry["module"].([]any)
 	require.True(t, ok)
 	require.Len(t, mods, 2)
 	assert.Equal(t, "Core", mods[0])
 	assert.Equal(t, "Database", mods[1])
 
-	// Verify fields
 	assert.Equal(t, "ctx_val", entry["ctx_field"])
 	assert.Equal(t, "alice", entry["username"])
 	assert.Equal(t, float64(30), entry["age"])
@@ -537,6 +566,8 @@ func TestLogger_JSONFormat(t *testing.T) {
 }
 
 func TestLogger_ContextAware(t *testing.T) {
+	t.Parallel()
+
 	var buf bytes.Buffer
 
 	cfg := DefaultConfig(LevelDebug)
@@ -547,7 +578,7 @@ func TestLogger_ContextAware(t *testing.T) {
 
 	type ctxKey string
 
-	ctx := context.WithValue(context.Background(), ctxKey("trace_id"), "12345")
+	ctx := context.WithValue(t.Context(), ctxKey("trace_id"), "12345")
 
 	l.DebugContext(ctx, "debug log in ctx", String("k", "v"))
 	l.InfoContext(ctx, "info log in ctx")
@@ -566,6 +597,8 @@ func TestLogger_ContextAware(t *testing.T) {
 }
 
 func TestLogger_JSONFormat_ExtraTypes(t *testing.T) {
+	t.Parallel()
+
 	var buf bytes.Buffer
 
 	cfg := DefaultConfig(LevelDebug)
@@ -575,13 +608,11 @@ func TestLogger_JSONFormat_ExtraTypes(t *testing.T) {
 
 	l := New(cfg)
 
-	// Log with different levels to cover level formatting branch in formatJSON
 	l.Debug("debug msg")
 	l.Warn("warn msg")
 	l.Error("error msg")
 	l.(*AsyncLogger).log(Level(100), "unknown level msg", nil)
 
-	// Log all coverage-specific types
 	l.Info("extra types log",
 		Field{Key: "i8", Value: int8(-8)},
 		Field{Key: "i16", Value: int16(-16)},
@@ -605,35 +636,30 @@ func TestLogger_JSONFormat_ExtraTypes(t *testing.T) {
 	lines := strings.Split(strings.TrimSpace(buf.String()), "\n")
 	require.Len(t, lines, 5)
 
-	// Check Debug line
 	var entryDebug map[string]any
 
 	err = json.Unmarshal([]byte(lines[0]), &entryDebug)
 	require.NoError(t, err)
 	assert.Equal(t, "DEBUG", entryDebug["level"])
 
-	// Check Warn line
 	var entryWarn map[string]any
 
 	err = json.Unmarshal([]byte(lines[1]), &entryWarn)
 	require.NoError(t, err)
 	assert.Equal(t, "WARN", entryWarn["level"])
 
-	// Check Error line
 	var entryError map[string]any
 
 	err = json.Unmarshal([]byte(lines[2]), &entryError)
 	require.NoError(t, err)
 	assert.Equal(t, "ERROR", entryError["level"])
 
-	// Check Unknown Level line
 	var entryUnknown map[string]any
 
 	err = json.Unmarshal([]byte(lines[3]), &entryUnknown)
 	require.NoError(t, err)
 	assert.Equal(t, "UNKNOWN", entryUnknown["level"])
 
-	// Check extra types fields line
 	var entry map[string]any
 
 	err = json.Unmarshal([]byte(lines[4]), &entry)
@@ -655,7 +681,11 @@ func TestLogger_JSONFormat_ExtraTypes(t *testing.T) {
 }
 
 func TestLogger_OmitFields(t *testing.T) {
-	t.Run("Standard format omitting fields", func(t *testing.T) {
+	t.Parallel()
+
+	t.Run("standard_format_omitting_fields", func(t *testing.T) {
+		t.Parallel()
+
 		var buf bytes.Buffer
 
 		cfg := DefaultConfig(LevelDebug)
@@ -674,7 +704,9 @@ func TestLogger_OmitFields(t *testing.T) {
 		assert.NotContains(t, output, "steam_id=")
 	})
 
-	t.Run("JSON format omitting fields", func(t *testing.T) {
+	t.Run("json_format_omitting_fields", func(t *testing.T) {
+		t.Parallel()
+
 		var buf bytes.Buffer
 
 		cfg := DefaultConfig(LevelDebug)

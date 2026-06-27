@@ -155,15 +155,27 @@ func New(cfg Config, logger log.Logger) *Socket {
 	return s
 }
 
+// Dispatcher returns the dispatcher used by the socket.
+func (s *Socket) Dispatcher() *dispatcher.Dispatcher {
+	return s.dispatch
+}
+
+// Logger returns the logger used by the socket.
+func (s *Socket) Logger() log.Logger {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.logger
+}
+
 // UpdateLogger updates the logger used by the socket.
 func (s *Socket) UpdateLogger(logger log.Logger) {
 	s.mu.Lock()
 	s.logger = logger.With(log.Module("sock"))
 	s.mu.Unlock()
 
-	s.conn.UpdateLogger(s.getLogger())
-	s.dispatch.UpdateLogger(s.getLogger())
-	s.proc.UpdateLogger(s.getLogger())
+	s.conn.UpdateLogger(s.Logger())
+	s.dispatch.UpdateLogger(s.Logger())
+	s.proc.UpdateLogger(s.Logger())
 }
 
 // IsConnected returns true if the underlying transport is currently active.
@@ -275,7 +287,7 @@ func (s *Socket) StartHeartbeat(interval time.Duration) error {
 	s.heartbeatCancel = cancel
 	s.mu.Unlock()
 
-	s.getLogger().Debug("Starting heartbeat loop", log.Duration("interval", interval))
+	s.Logger().Debug("Starting heartbeat loop", log.Duration("interval", interval))
 
 	go func() {
 		ticker := time.NewTicker(interval)
@@ -292,11 +304,11 @@ func (s *Socket) StartHeartbeat(interval time.Duration) error {
 				// but Send internally checks if the socket is closed.
 				err := s.SendProto(context.Background(), enums.EMsg_ClientHeartBeat, &pb.CMsgClientHeartBeat{})
 				if err != nil {
-					s.getLogger().Warn("Failed to send heartbeat", log.Err(err))
+					s.Logger().Warn("Failed to send heartbeat", log.Err(err))
 				}
 
 			case <-ctx.Done():
-				s.getLogger().Debug("Heartbeat loop stopped")
+				s.Logger().Debug("Heartbeat loop stopped")
 				return
 			}
 		}
@@ -357,9 +369,3 @@ func (s *Socket) Session() Session { return s.session }
 
 // SetEncryptionKey upgrades the connection to encrypted mode.
 func (s *Socket) SetEncryptionKey(key []byte) bool { return s.conn.SetEncryptionKey(key) }
-
-func (s *Socket) getLogger() log.Logger {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.logger
-}

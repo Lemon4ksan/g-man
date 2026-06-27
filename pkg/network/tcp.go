@@ -48,7 +48,7 @@ type TCP struct {
 	logger log.Logger
 	framer Framer
 
-	msgChan    chan NetMessage
+	msgChan    chan Message
 	errChan    chan error
 	closedChan chan struct{}
 
@@ -100,7 +100,7 @@ func NewTCP(
 		conn:           conn,
 		logger:         logger.With(log.String("transport", ConnTypeTCP), log.String("endpoint", endpoint)),
 		framer:         framer,
-		msgChan:        make(chan NetMessage, 100),
+		msgChan:        make(chan Message, 100),
 		errChan:        make(chan error, 10),
 		closedChan:     make(chan struct{}),
 	}
@@ -115,7 +115,7 @@ func (t *TCP) Name() string { return ConnTypeTCP }
 
 // Messages returns a channel that receives framed messages from the TCP connection.
 // The channel is closed when the connection is terminated.
-func (t *TCP) Messages() <-chan NetMessage { return t.msgChan }
+func (t *TCP) Messages() <-chan Message { return t.msgChan }
 
 // Errors returns a channel that receives non-fatal errors from the TCP read/write loop.
 // The channel is closed when the connection is terminated.

@@ -15,13 +15,12 @@ import (
 
 	"github.com/lemon4ksan/miyako/batto"
 	"github.com/lemon4ksan/miyako/generic"
-	"github.com/lemon4ksan/miyako/kata"
 	"github.com/lemon4ksan/miyako/sync/lazy"
 	"golang.org/x/time/rate"
 
 	"github.com/lemon4ksan/g-man/pkg/crypto"
 	"github.com/lemon4ksan/g-man/pkg/log"
-	pbSteam "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
+	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
@@ -30,39 +29,40 @@ import (
 // ModuleName is the unique identifier for the guard module.
 const ModuleName string = "guard"
 
-// State represents the lifecycle state of the Guardian module.
-type State int32
+// WithModule returns a steam.Option that registers the guardian module in the client.
+func WithModule(config Config) steam.Option {
+	return func(client *steam.Client) {
+		m, err := New(config)
+		if err != nil {
+			client.Logger().Error("Failed to register guardian", log.Err(err))
+		} else {
+			client.RegisterModule(m)
+		}
+	}
+}
+
+// From returns the guardian module from the client.
+func From(client *steam.Client) *Guardian {
+	return steam.GetModule[*Guardian](client)
+}
+
+// PollingState represents the operational polling status of the Guardian.
+type PollingState int32
 
 const (
-	// StateStopped indicates that polling is not active.
-	StateStopped State = iota
-	// StatePolling indicates that the module is actively checking for confirmations.
-	StatePolling
-	// StateClosed indicates the module has been shut down.
-	StateClosed
+	// PollingStopped indicates that confirmation polling is currently inactive.
+	PollingStopped PollingState = iota
+	// PollingActive indicates that the guardian is actively polling for confirmations.
+	PollingActive
 )
 
-// Event represents a trigger that drives a Guardian state transition.
-type Event int32
-
-const (
-	// EventStartPolling triggers transition from Stopped to Polling.
-	EventStartPolling Event = iota
-	// EventStopPolling triggers transition from Polling to Stopped.
-	EventStopPolling
-	// EventClose triggers transition to Closed from any active state.
-	EventClose
-)
-
-// String returns a human-readable representation of the State.
-func (s State) String() string {
+// String returns a human-readable representation of PollingState.
+func (s PollingState) String() string {
 	switch s {
-	case StateStopped:
+	case PollingStopped:
 		return "stopped"
-	case StatePolling:
+	case PollingActive:
 		return "polling"
-	case StateClosed:
-		return "closed"
 	default:
 		return "unknown"
 	}
@@ -73,7 +73,7 @@ var (
 	ErrGuardClosed = errors.New("guard: closed")
 	// ErrNotAuthenticated is returned when the guardian is not yet linked to a session.
 	ErrNotAuthenticated = errors.New("guard: not authenticated")
-	// ErrNotConfigured is returned when the guardian is not configured (e.g. invalid config or missing credentials).
+	// ErrNotConfigured is returned when the guardian is not configured.
 	ErrNotConfigured = errors.New("guard: not configured")
 )
 
@@ -110,13 +110,10 @@ type ConfService interface {
 type Config struct {
 	// SharedSecret is the TOTP secret used to generate 2FA codes.
 	SharedSecret string
-
 	// IdentitySecret is the TOTP secret used to generate confirmation keys.
 	IdentitySecret string
-
 	// DeviceID is the mobile device identifier (e.g., "android:...").
 	DeviceID string
-
 	// RateLimit is the minimum time between API calls to Steam.
 	RateLimit time.Duration
 }
@@ -150,23 +147,6 @@ func (c Config) String() string {
 	return fmt.Sprintf("GuardConfig{DeviceID: %s}", maskDeviceID(c.DeviceID))
 }
 
-// WithModule returns a steam.Option that registers the guardian module in the client.
-func WithModule(cfg Config) steam.Option {
-	return func(c *steam.Client) {
-		m, err := New(cfg)
-		if err != nil {
-			c.Logger().Error("Failed to register guardian", log.Err(err))
-		} else {
-			c.RegisterModule(m)
-		}
-	}
-}
-
-// From returns the guardian module from the client.
-func From(c *steam.Client) *Guardian {
-	return steam.GetModule[*Guardian](c)
-}
-
 // GuardianMetrics tracks operational metrics for monitoring using atomics.
 type GuardianMetrics struct {
 	// TotalFetched is the total number of confirmations retrieved.
@@ -185,13 +165,14 @@ type GuardianMetrics struct {
 // Use [New] to construct new instances of Guardian. It integrates with
 // [Config] to manage device credentials, and exposes [GuardianMetrics] for monitoring.
 type Guardian struct {
-	module.Base
+	module.AuthBase
 
-	steamID      id.ID
 	service      ConfService
 	config       Config
 	clock        *OffsetClock
 	twoFactorSvc *lazy.Lazy[*TwoFactorService]
+
+	pollingState PollingState
 
 	// Confirmation tracking
 	mu            sync.RWMutex
@@ -200,35 +181,26 @@ type Guardian struct {
 
 	metrics     *GuardianMetrics
 	rateLimiter *rate.Limiter
-	fsm         *kata.FSM[State, Event]
 	fetchGroup  *batto.Group[string, []*Confirmation]
 }
 
 // New creates a new confirmation guardian instance.
-func New(cfg Config) (*Guardian, error) {
-	if err := cfg.Validate(); err != nil {
+func New(config Config) (*Guardian, error) {
+	if err := config.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid guard config: %w", err)
 	}
 
 	g := &Guardian{
-		Base:          module.New(ModuleName),
-		config:        cfg,
-		clock:         &OffsetClock{},
+		AuthBase:      module.NewAuthBase(ModuleName),
+		config:        config,
+		clock:         new(OffsetClock),
 		confirmations: make(map[uint64]*Confirmation),
 		seenIDs:       make(map[uint64]time.Time),
-		metrics:       &GuardianMetrics{},
-		rateLimiter:   rate.NewLimiter(rate.Every(cfg.RateLimit), 1),
+		metrics:       new(GuardianMetrics),
+		rateLimiter:   rate.NewLimiter(rate.Every(config.RateLimit), 1),
+		pollingState:  PollingStopped,
+		fetchGroup:    new(batto.Group[string, []*Confirmation]),
 	}
-
-	fsm := kata.NewFSM[State, Event](StateStopped)
-	fsm.AddRules(
-		kata.TransitionRule[State, Event]{From: StateStopped, Event: EventStartPolling, To: StatePolling},
-		kata.TransitionRule[State, Event]{From: StatePolling, Event: EventStopPolling, To: StateStopped},
-		kata.TransitionRule[State, Event]{From: StateStopped, Event: EventClose, To: StateClosed},
-		kata.TransitionRule[State, Event]{From: StatePolling, Event: EventClose, To: StateClosed},
-	)
-	g.fsm = fsm
-	g.fetchGroup = &batto.Group[string, []*Confirmation]{}
 
 	return g, nil
 }
@@ -251,66 +223,31 @@ func (g *Guardian) Init(init module.InitContext) error {
 }
 
 // StartAuthed starts the guardian in an authenticated state.
-func (g *Guardian) StartAuthed(ctx context.Context, authCtx module.AuthContext) error {
-	communityClient := authCtx.Community()
-	if communityClient == nil {
+func (g *Guardian) StartAuthed(ctx context.Context, auth module.AuthContext) error {
+	if err := g.AuthBase.StartAuthed(ctx, auth); err != nil {
+		return err
+	}
+
+	if g.Community() == nil {
 		return errors.New("guard: community client is required")
 	}
 
 	g.mu.Lock()
-	g.steamID = authCtx.SteamID()
-	g.service = NewMobileConf(communityClient)
+	g.service = NewMobileConf(g.Community())
 	g.mu.Unlock()
 
-	offsetFuture := generic.NewFuture(func() (time.Duration, error) {
-		if g.twoFactorSvc != nil {
-			svc, err := g.twoFactorSvc.Get()
-			if err == nil && svc != nil {
-				offset, err := svc.QueryTimeOffset(ctx)
-				if err == nil {
-					g.clock.SetOffset(offset)
-				}
-			}
-		}
-
-		return 0, nil
-	})
-
-	statusFuture := generic.NewFuture(func() (*pbSteam.CTwoFactor_Status_Response, error) {
-		if g.twoFactorSvc != nil {
-			if svc, err := g.twoFactorSvc.Get(); err == nil && svc != nil {
-				return svc.QueryStatus(ctx, authCtx.SteamID())
-			}
-		}
-
-		return nil, nil
-	})
-
-	if offset, err := offsetFuture.Get(ctx); err == nil && offset != 0 {
-		g.clock.SetOffset(offset)
-		g.Logger.Debug("Time offset synchronized", log.Duration("offset", offset))
-	}
-
-	if status, err := statusFuture.Get(ctx); err == nil && status != nil {
-		g.Logger.Info("Steam Guard Status loaded",
-			log.String("device_id", status.GetDeviceIdentifier()),
-		)
-	}
+	g.synchronizeTimeOffset(ctx)
+	g.logGuardStatus(ctx, auth)
 
 	return nil
 }
 
-// State returns the current lifecycle state of the Guardian.
-func (g *Guardian) State() State {
-	return g.fsm.CurrentState()
-}
-
 // SetConfig dynamically updates the guardian configuration.
-func (g *Guardian) SetConfig(cfg Config) {
+func (g *Guardian) SetConfig(config Config) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
-	g.config = cfg
+	g.config = config
 }
 
 // Config returns the current guardian configuration.
@@ -329,6 +266,13 @@ func (g *Guardian) Service() ConfService {
 
 // Metrics returns the operational metrics of the guardian.
 func (g *Guardian) Metrics() *GuardianMetrics { return g.metrics }
+
+// PollingState returns the current operational polling status.
+func (g *Guardian) PollingState() PollingState {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.pollingState
+}
 
 // GenerateAuthCode generates a 5-digit Steam Guard code for the current time.
 // It returns an empty string if the shared secret is not configured.
@@ -359,72 +303,111 @@ func (g *Guardian) FetchConfirmations(ctx context.Context) ([]*Confirmation, err
 	}
 
 	return g.fetchGroup.Do(ctx, "fetch_confirmations", func(workerCtx context.Context) ([]*Confirmation, error) {
-		if err := g.rateLimiter.Wait(workerCtx); err != nil {
-			return nil, err
-		}
-
-		timestamp := g.clock.Now().Unix()
-
-		key, err := crypto.GenerateConfirmationKey(g.config.IdentitySecret, timestamp, "conf")
-		if err != nil {
-			return nil, fmt.Errorf("guard: key generation: %w", err)
-		}
-
-		resp, err := g.service.GetConfirmations(workerCtx, g.config.DeviceID, g.steamID, key, timestamp)
-		if err != nil {
-			g.metrics.TotalErrors.Add(1)
-			return nil, err
-		}
-
-		if !resp.Success {
-			g.metrics.TotalErrors.Add(1)
-
-			if resp.NeedAuth {
-				g.Bus.Publish(&NeedAuthEvent{Message: resp.Message})
-			}
-
-			return nil, fmt.Errorf("guard: steam rejected request: %s", resp.Message)
-		}
-
-		g.metrics.TotalFetched.Add(int64(len(resp.Confirmations)))
-
-		return resp.Confirmations, nil
+		return g.executeFetch(workerCtx)
 	})
 }
 
 // Accept approves a single confirmation.
-//
-// It returns an error if the approval action is rejected by Steam. On failure,
-// the TotalErrors metric in [GuardianMetrics] is incremented.
-func (g *Guardian) Accept(ctx context.Context, conf *Confirmation) error {
-	return g.respond(ctx, []*Confirmation{conf}, true)
+func (g *Guardian) Accept(ctx context.Context, confirmation *Confirmation) error {
+	return g.respond(ctx, []*Confirmation{confirmation}, true)
 }
 
-// AcceptMultiple accepts multiple confirmations at once (uses multiajaxop).
-//
-// It returns an error if any of the approvals fail. On failure,
-// the TotalErrors metric in [GuardianMetrics] is incremented.
-func (g *Guardian) AcceptMultiple(ctx context.Context, confs []*Confirmation) error {
-	return g.respond(ctx, confs, true)
+// AcceptMultiple accepts multiple confirmations at once.
+func (g *Guardian) AcceptMultiple(ctx context.Context, confirmations []*Confirmation) error {
+	return g.respond(ctx, confirmations, true)
 }
 
 // Cancel declines a single confirmation.
-//
-// It returns an error if the cancel action is rejected by Steam. On failure,
-// the TotalErrors metric in [GuardianMetrics] is incremented.
-func (g *Guardian) Cancel(ctx context.Context, conf *Confirmation) error {
-	return g.respond(ctx, []*Confirmation{conf}, false)
+func (g *Guardian) Cancel(ctx context.Context, confirmation *Confirmation) error {
+	return g.respond(ctx, []*Confirmation{confirmation}, false)
 }
 
 // CancelMultiple rejects multiple confirmations at once.
-//
-// It returns an error if any of the rejections fail. On failure,
-// the TotalErrors metric in [GuardianMetrics] is incremented.
-func (g *Guardian) CancelMultiple(ctx context.Context, confs []*Confirmation) error {
-	return g.respond(ctx, confs, false)
+func (g *Guardian) CancelMultiple(ctx context.Context, confirmations []*Confirmation) error {
+	return g.respond(ctx, confirmations, false)
 }
 
-func (g *Guardian) respond(ctx context.Context, confs []*Confirmation, accept bool) error {
+// Close shuts down the guardian module.
+func (g *Guardian) Close() error {
+	_ = g.Fsm.Transition(context.Background(), module.EventClose)
+	return g.Base.Close()
+}
+
+func (g *Guardian) synchronizeTimeOffset(ctx context.Context) {
+	if g.twoFactorSvc == nil {
+		return
+	}
+
+	offsetFuture := generic.NewFuture(func() (time.Duration, error) {
+		svc, err := g.twoFactorSvc.Get()
+		if err != nil || svc == nil {
+			return 0, err
+		}
+
+		return svc.QueryTimeOffset(ctx)
+	})
+
+	if offset, err := offsetFuture.Get(ctx); err == nil && offset != 0 {
+		g.clock.SetOffset(offset)
+		g.Logger.Debug("Time offset synchronized", log.Duration("offset", offset))
+	}
+}
+
+func (g *Guardian) logGuardStatus(ctx context.Context, auth module.AuthContext) {
+	if g.twoFactorSvc == nil {
+		return
+	}
+
+	statusFuture := generic.NewFuture(func() (*pb.CTwoFactor_Status_Response, error) {
+		svc, err := g.twoFactorSvc.Get()
+		if err != nil || svc == nil {
+			return nil, err
+		}
+
+		return svc.QueryStatus(ctx, auth.SteamID())
+	})
+
+	if status, err := statusFuture.Get(ctx); err == nil && status != nil {
+		g.Logger.Info("Steam Guard Status loaded",
+			log.String("device_id", status.GetDeviceIdentifier()),
+		)
+	}
+}
+
+func (g *Guardian) executeFetch(ctx context.Context) ([]*Confirmation, error) {
+	if err := g.rateLimiter.Wait(ctx); err != nil {
+		return nil, err
+	}
+
+	timestamp := g.clock.Now().Unix()
+
+	key, err := crypto.GenerateConfirmationKey(g.config.IdentitySecret, timestamp, "conf")
+	if err != nil {
+		return nil, fmt.Errorf("guard: key generation: %w", err)
+	}
+
+	resp, err := g.service.GetConfirmations(ctx, g.config.DeviceID, g.SteamID(), key, timestamp)
+	if err != nil {
+		g.metrics.TotalErrors.Add(1)
+		return nil, err
+	}
+
+	if !resp.Success {
+		g.metrics.TotalErrors.Add(1)
+
+		if resp.NeedAuth {
+			g.Bus.Publish(&NeedAuthEvent{Message: resp.Message})
+		}
+
+		return nil, fmt.Errorf("guard: steam rejected request: %s", resp.Message)
+	}
+
+	g.metrics.TotalFetched.Add(int64(len(resp.Confirmations)))
+
+	return resp.Confirmations, nil
+}
+
+func (g *Guardian) respond(ctx context.Context, confirmations []*Confirmation, accept bool) error {
 	if g == nil {
 		return ErrNotConfigured
 	}
@@ -433,43 +416,59 @@ func (g *Guardian) respond(ctx context.Context, confs []*Confirmation, accept bo
 		return err
 	}
 
-	tag := "allow"
-	if !accept {
-		tag = "cancel"
-	}
-
 	timestamp := g.clock.Now().Unix()
 
-	key, err := crypto.GenerateConfirmationKey(g.config.IdentitySecret, timestamp, tag)
+	key, err := crypto.GenerateConfirmationKey(g.config.IdentitySecret, timestamp, resolveTag(accept))
 	if err != nil {
 		return err
 	}
 
-	if len(confs) == 1 {
-		err = g.service.RespondToConfirmation(ctx, confs[0], accept, g.config.DeviceID, g.steamID, key, timestamp)
-	} else {
-		err = g.service.RespondToMultiple(ctx, confs, accept, g.config.DeviceID, g.steamID, key, timestamp)
-	}
-
-	if err != nil {
+	if err := g.executeResponse(ctx, confirmations, accept, key, timestamp); err != nil {
 		g.metrics.TotalErrors.Add(1)
 		return err
 	}
 
-	count := int64(len(confs))
-	if accept {
-		g.metrics.TotalAccepted.Add(count)
-	} else {
-		g.metrics.TotalRejected.Add(count)
-	}
+	g.updateMetrics(len(confirmations), accept)
 
 	return nil
 }
 
-// Close shuts down the guardian module.
-func (g *Guardian) Close() error {
-	_ = g.fsm.Transition(context.Background(), EventClose)
-	return g.Base.Close()
+func resolveTag(accept bool) string {
+	if accept {
+		return "allow"
+	}
+
+	return "cancel"
+}
+
+func (g *Guardian) executeResponse(
+	ctx context.Context,
+	confirmations []*Confirmation,
+	accept bool,
+	key string,
+	timestamp int64,
+) error {
+	if len(confirmations) == 1 {
+		return g.service.RespondToConfirmation(
+			ctx,
+			confirmations[0],
+			accept,
+			g.config.DeviceID,
+			g.SteamID(),
+			key,
+			timestamp,
+		)
+	}
+
+	return g.service.RespondToMultiple(ctx, confirmations, accept, g.config.DeviceID, g.SteamID(), key, timestamp)
+}
+
+func (g *Guardian) updateMetrics(count int, accept bool) {
+	if accept {
+		g.metrics.TotalAccepted.Add(int64(count))
+	} else {
+		g.metrics.TotalRejected.Add(int64(count))
+	}
 }
 
 func maskDeviceID(deviceID string) string {

@@ -172,6 +172,12 @@ func (m *ServiceMock) SessionID(targetURI string) string {
 	return "mock_session_id"
 }
 
+func (m *ServiceMock) SetErrorResponse(iface, method string, err error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.ResponseErrs[fmt.Sprintf("%s/%s", iface, method)] = err
+}
+
 func (m *ServiceMock) SetJSONResponse(iface, method string, resp any) {
 	m.mu.Lock()
 	defer m.mu.Unlock()

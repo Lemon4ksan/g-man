@@ -72,13 +72,13 @@ func (s *AuthenticatorSuite) TestExtractSteamIDFromJWT_Coverage() {
 }
 
 func (s *AuthenticatorSuite) TestLogOn_Validation() {
-	s.ErrorContains(s.auth.LogOn(context.Background(), nil, socket.CMServer{}), "nil details")
+	s.ErrorContains(s.auth.LogOn(s.T().Context(), nil, socket.CMServer{}), "nil details")
 	s.ErrorContains(
-		s.auth.LogOn(context.Background(), &LogOnDetails{}, socket.CMServer{}),
+		s.auth.LogOn(s.T().Context(), &LogOnDetails{}, socket.CMServer{}),
 		"account name or refresh token is required",
 	)
 	s.ErrorContains(
-		s.auth.LogOn(context.Background(), &LogOnDetails{AccountName: "a"}, socket.CMServer{}),
+		s.auth.LogOn(s.T().Context(), &LogOnDetails{AccountName: "a"}, socket.CMServer{}),
 		"password is required",
 	)
 
@@ -88,7 +88,7 @@ func (s *AuthenticatorSuite) TestLogOn_Validation() {
 	s.store.On("GetRefreshToken", mock.Anything, "a").Return("", nil)
 	s.webAPI.On("BeginAuthSessionViaCredentials", mock.Anything, "a", "p", "").Return(nil, errors.New("stop"))
 
-	_ = s.auth.LogOn(context.Background(), details, socket.CMServer{})
+	_ = s.auth.LogOn(s.T().Context(), details, socket.CMServer{})
 	s.Equal(uint32(ProtocolVersion), details.ProtocolVersion)
 	s.Equal("english", details.ClientLanguage)
 }
@@ -99,24 +99,24 @@ func (s *AuthenticatorSuite) TestAcquireMachineId_Generation() {
 	s.store.On("GetMachineID", mock.Anything, "new").Return(nil, errors.New("not found"))
 	s.store.On("SaveMachineID", mock.Anything, "new", mock.Anything).Return(errors.New("log coverage error"))
 
-	s.auth.acquireMachineID(context.Background(), details)
+	s.auth.acquireMachineID(s.T().Context(), details)
 	s.True(len(details.MachineID) > 0)
 }
 
 func (s *AuthenticatorSuite) TestLogOnAnonymous_Coverage() {
 	server := socket.CMServer{Type: "websockets"}
 
-	s.auth.setStateDirect(StateLoggingOn)
-	s.ErrorContains(s.auth.LogOnAnonymous(context.Background(), server), "already in progress")
-	s.auth.setStateDirect(StateDisconnected)
+	s.auth.fsm.ForceSet(StateLoggingOn)
+	s.ErrorContains(s.auth.LogOnAnonymous(s.T().Context(), server), "already in progress")
+	s.auth.fsm.ForceSet(StateDisconnected)
 
 	s.socket.On("Connect", server).Return(errors.New("dial timeout")).Once()
-	s.ErrorContains(s.auth.LogOnAnonymous(context.Background(), server), "dial timeout")
+	s.ErrorContains(s.auth.LogOnAnonymous(s.T().Context(), server), "dial timeout")
 
 	s.socket.On("Connect", server).Return(nil)
 	s.socket.On("SendProto", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(s.T().Context())
 	cancel()
 	s.ErrorIs(s.auth.LogOnAnonymous(ctx, server), context.Canceled)
 }
@@ -126,9 +126,11 @@ func (s *AuthenticatorSuite) TestResolveConfirmation_Coverage() {
 		ClientId: proto.Uint64(1),
 		Steamid:  proto.Uint64(123),
 	}
-	sub := s.bus.Subscribe(&SteamGuardRequiredEvent{})
 
-	s.auth.resolveConfirmation(context.Background(), &pb.CAuthentication_AllowedConfirmation{
+	sub := s.bus.Subscribe(&SteamGuardRequiredEvent{})
+	defer sub.Unsubscribe()
+
+	s.auth.resolveConfirmation(s.T().Context(), &pb.CAuthentication_AllowedConfirmation{
 		ConfirmationType:  pb.EAuthSessionGuardType_k_EAuthSessionGuardType_EmailCode.Enum(),
 		AssociatedMessage: proto.String("email.com"),
 	}, resp)
@@ -138,12 +140,16 @@ func (s *AuthenticatorSuite) TestResolveConfirmation_Coverage() {
 
 	s.webAPI.On("UpdateAuthSessionWithSteamGuardCode", mock.Anything, mock.Anything, mock.Anything, "code", mock.Anything).
 		Return(errors.New("fail"))
-	s.auth.setLoginResult(make(chan error, 1))
+
+	errChan := make(chan error, 1)
+	s.auth.setLoginResult(errChan)
 
 	ev.Callback("code") // Triggers goroutine
-	time.Sleep(50 * time.Millisecond)
 
-	s.auth.resolveConfirmation(context.Background(), &pb.CAuthentication_AllowedConfirmation{
+	err := <-errChan
+	s.ErrorContains(err, "fail")
+
+	s.auth.resolveConfirmation(s.T().Context(), &pb.CAuthentication_AllowedConfirmation{
 		ConfirmationType: pb.EAuthSessionGuardType_k_EAuthSessionGuardType_DeviceConfirmation.Enum(),
 	}, resp)
 
@@ -152,13 +158,13 @@ func (s *AuthenticatorSuite) TestResolveConfirmation_Coverage() {
 }
 
 func (s *AuthenticatorSuite) TestPollAuthStatus_Coverage() {
-	ctx, cancel := context.WithCancelCause(context.Background())
+	ctx, cancel := context.WithCancelCause(s.T().Context())
 	cancel(errors.New("dead"))
 
 	_, _, _, err := s.auth.pollAuthStatus(ctx, 1, nil, 0, time.Millisecond)
 	s.ErrorContains(err, "dead")
 
-	ctx2, cancel2 := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	ctx2, cancel2 := context.WithTimeout(s.T().Context(), 50*time.Millisecond)
 	defer cancel2()
 
 	s.webAPI.On("PollAuthSessionStatus", mock.Anything, mock.Anything, mock.Anything).
@@ -199,7 +205,7 @@ func (s *AuthenticatorSuite) TestHandlers_Coverage() {
 
 func (s *AuthenticatorSuite) TestAcquireAuthToken_Coverage() {
 	details := &LogOnDetails{AccountName: "u", RefreshToken: "a.eyJzdWIiOiIxMjMifQ.c"}
-	s.auth.acquireAuthToken(context.Background(), details)
+	s.auth.acquireAuthToken(s.T().Context(), details)
 	s.Equal(id.ID(123), details.SteamID) // Test SteamID logging branch
 
 	details2 := &LogOnDetails{AccountName: "u2"}
@@ -210,12 +216,12 @@ func (s *AuthenticatorSuite) TestAcquireAuthToken_Coverage() {
 	s.webAPI.On("PollAuthSessionStatus", mock.Anything, mock.Anything, mock.Anything).
 		Return(&pb.CAuthentication_PollAuthSessionStatus_Response{RefreshToken: proto.String("rt")}, nil)
 	s.store.On("SaveRefreshToken", mock.Anything, "u2", "rt").Return(errors.New("fail"))
-	s.auth.acquireAuthToken(context.Background(), details2)
+	s.auth.acquireAuthToken(s.T().Context(), details2)
 }
 
 func (s *AuthenticatorSuite) TestNopStore() {
 	n := nopStore{}
-	ctx := context.Background()
+	ctx := s.T().Context()
 	_ = n.SaveRefreshToken(ctx, "", "")
 	_ = n.SaveMachineID(ctx, "", nil)
 	_ = n.Clear(ctx, "")
@@ -238,7 +244,11 @@ func (s *AuthenticatorSuite) TestLogOn_WebSocket_Success() {
 		MachineID:    []byte("machid"),
 	}
 
-	s.socket.On("Connect", server).Return(nil).Once()
+	connected := make(chan struct{})
+	s.socket.On("Connect", server).Return(nil).Run(func(args mock.Arguments) {
+		close(connected)
+	}).Once()
+
 	s.socket.On("SendProto", mock.Anything, enums.EMsg_ClientLogon, mock.Anything).Return(nil).Once()
 	s.socket.On("StartHeartbeat", 10*time.Second).Return(nil).Once()
 
@@ -246,12 +256,12 @@ func (s *AuthenticatorSuite) TestLogOn_WebSocket_Success() {
 
 	var logonErr error
 	go func() {
-		logonErr = s.auth.LogOn(context.Background(), details, server)
+		logonErr = s.auth.LogOn(s.T().Context(), details, server)
 
 		close(done)
 	}()
 
-	time.Sleep(20 * time.Millisecond)
+	<-connected
 
 	packet := &protocol.Packet{
 		EMsg: enums.EMsg_ClientLogOnResponse,
@@ -280,7 +290,11 @@ func (s *AuthenticatorSuite) TestLogOn_InvalidPassword_ClearStore() {
 		AccountName:  "myuser",
 	}
 
-	s.socket.On("Connect", server).Return(nil).Once()
+	connected := make(chan struct{})
+	s.socket.On("Connect", server).Return(nil).Run(func(args mock.Arguments) {
+		close(connected)
+	}).Once()
+
 	s.socket.On("SendProto", mock.Anything, enums.EMsg_ClientLogon, mock.Anything).Return(nil).Once()
 	s.store.On("Clear", mock.Anything, "myuser").Return(nil).Once()
 
@@ -288,12 +302,12 @@ func (s *AuthenticatorSuite) TestLogOn_InvalidPassword_ClearStore() {
 
 	var logonErr error
 	go func() {
-		logonErr = s.auth.LogOn(context.Background(), details, server)
+		logonErr = s.auth.LogOn(s.T().Context(), details, server)
 
 		close(done)
 	}()
 
-	time.Sleep(20 * time.Millisecond)
+	<-connected
 
 	s.socket.SimulatePacket(enums.EMsg_ClientLogOnResponse, &pb.CMsgClientLogonResponse{
 		Eresult: proto.Int32(int32(enums.EResult_InvalidPassword)),
@@ -480,6 +494,8 @@ func (m *MockStore) Clear(ctx context.Context, a string) error {
 }
 
 func TestLogOnDetails_Wipe(t *testing.T) {
+	t.Parallel()
+
 	details := &LogOnDetails{
 		AccountName:   "testuser",
 		Password:      "secretpassword",
@@ -522,6 +538,8 @@ func TestLogOnDetails_Wipe(t *testing.T) {
 }
 
 func TestLogOnDetails_Wipe_EmptyFields(t *testing.T) {
+	t.Parallel()
+
 	details := &LogOnDetails{
 		AccountName: "testuser",
 	}

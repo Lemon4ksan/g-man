@@ -57,7 +57,7 @@ func main() {
 	}
 
 	// Map to merge duplicate blocks
-	// Key: filePathAndRange (e.g., github.com/lemon4ksan/g-man/pkg/bus/bus.go:21.43,26.2)
+	// Key: filePathAndRange (e.g., github.com/lemon4ksan/miyako/bus/bus.go:21.43,26.2)
 	mergedBlocks := make(map[string]*BlockInfo)
 
 	for scanner.Scan() {
@@ -111,7 +111,8 @@ func main() {
 
 		isExampleCmdTest := strings.Contains(filePathAndRange, "cmd/") ||
 			strings.Contains(filePathAndRange, "examples/") ||
-			strings.Contains(filePathAndRange, "test/")
+			strings.Contains(filePathAndRange, "test/") ||
+			strings.Contains(filePathAndRange, "protobuf/custom")
 
 		// Get package path
 		pkgPath := filePathAndRange

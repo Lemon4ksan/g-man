@@ -8,19 +8,26 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
+	"unsafe"
 
+	"github.com/lemon4ksan/miyako/bus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/lemon4ksan/g-man/pkg/command"
+	"github.com/lemon4ksan/g-man/pkg/log"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
-	smod "github.com/lemon4ksan/g-man/pkg/steam/module"
+	"github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/social/chat"
-	testmodule "github.com/lemon4ksan/g-man/test/mock"
+	"github.com/lemon4ksan/g-man/pkg/steam/social/friends"
+	"github.com/lemon4ksan/g-man/test/mock"
 )
 
 const (
@@ -30,86 +37,144 @@ const (
 )
 
 type dummyModule struct {
-	smod.Base
+	module.Base
 }
 
-func waitForCalls(t *testing.T, ictx *testmodule.InitContext, expectedCount int) {
+type dummyEvent struct {
+	bus.BaseEvent
+}
+
+func populateMockFriends(friendsMgr *friends.Manager, friendID id.ID, name string) {
+	val := reflect.ValueOf(friendsMgr).Elem()
+	for i := 0; i < val.NumField(); i++ {
+		field := val.Field(i)
+		fieldType := field.Type()
+
+		settableField := reflect.NewAt(fieldType, unsafe.Pointer(field.UnsafeAddr())).Elem()
+
+		if fieldType.Kind() == reflect.Map {
+			keyType := fieldType.Key()
+			if keyType == reflect.TypeOf(id.ID(0)) || keyType == reflect.TypeOf(uint64(0)) {
+				if settableField.IsNil() {
+					settableField.Set(reflect.MakeMap(fieldType))
+				}
+
+				var keyVal reflect.Value
+				if keyType == reflect.TypeOf(id.ID(0)) {
+					keyVal = reflect.ValueOf(friendID)
+				} else {
+					keyVal = reflect.ValueOf(friendID.Uint64())
+				}
+
+				elemType := fieldType.Elem()
+				if elemType.Kind() == reflect.Pointer {
+					structType := elemType.Elem()
+					if structType.Kind() == reflect.Struct {
+						if _, ok := structType.FieldByName("PlayerName"); ok {
+							newStruct := reflect.New(structType)
+							newStruct.Elem().FieldByName("PlayerName").SetString(name)
+
+							for k := 0; k < structType.NumField(); k++ {
+								f := structType.Field(k)
+
+								fName := strings.ToLower(f.Name)
+								if fName == "steamid" || fName == "id" {
+									newStruct.Elem().Field(k).Set(reflect.ValueOf(friendID).Convert(f.Type))
+								}
+
+								if strings.Contains(fName, "relation") {
+									newStruct.Elem().Field(k).Set(reflect.ValueOf(3).Convert(f.Type))
+								}
+							}
+
+							settableField.SetMapIndex(keyVal, newStruct)
+						}
+					}
+				} else if elemType.ConvertibleTo(reflect.TypeOf(int(0))) {
+					settableField.SetMapIndex(keyVal, reflect.ValueOf(3).Convert(elemType))
+				}
+			}
+		}
+
+		if fieldType.Kind() == reflect.Slice {
+			elemType := fieldType.Elem()
+			switch {
+			case elemType == reflect.TypeFor[id.ID]():
+				newSlice := reflect.Append(settableField, reflect.ValueOf(friendID))
+				settableField.Set(newSlice)
+			case elemType == reflect.TypeFor[uint64]():
+				newSlice := reflect.Append(settableField, reflect.ValueOf(friendID.Uint64()))
+				settableField.Set(newSlice)
+			case elemType.Kind() == reflect.Pointer:
+				structType := elemType.Elem()
+				if structType.Kind() == reflect.Struct {
+					if _, ok := structType.FieldByName("PlayerName"); ok {
+						newStruct := reflect.New(structType)
+						newStruct.Elem().FieldByName("PlayerName").SetString(name)
+
+						for k := 0; k < structType.NumField(); k++ {
+							f := structType.Field(k)
+
+							fName := strings.ToLower(f.Name)
+							if fName == "steamid" || fName == "id" {
+								newStruct.Elem().Field(k).Set(reflect.ValueOf(friendID).Convert(f.Type))
+							}
+
+							if strings.Contains(fName, "relation") {
+								newStruct.Elem().Field(k).Set(reflect.ValueOf(3).Convert(f.Type))
+							}
+						}
+
+						newSlice := reflect.Append(settableField, newStruct)
+						settableField.Set(newSlice)
+					}
+				}
+			}
+		}
+	}
+}
+
+func setContextOnEvent(ev *chat.MessageEvent, ctx context.Context) {
+	val := reflect.ValueOf(ev).Elem()
+	for i := 0; i < val.NumField(); i++ {
+		field := val.Field(i)
+
+		fieldType := field.Type()
+		if fieldType == reflect.TypeFor[context.Context]() {
+			settableField := reflect.NewAt(fieldType, unsafe.Pointer(field.UnsafeAddr())).Elem()
+			settableField.Set(reflect.ValueOf(ctx))
+			return
+		}
+
+		if field.Kind() == reflect.Struct {
+			for j := 0; j < field.NumField(); j++ {
+				subField := field.Field(j)
+
+				subFieldType := subField.Type()
+				if subFieldType == reflect.TypeFor[context.Context]() {
+					settableField := reflect.NewAt(subFieldType, unsafe.Pointer(subField.UnsafeAddr())).Elem()
+					settableField.Set(reflect.ValueOf(ctx))
+					return
+				}
+			}
+		}
+	}
+}
+
+func waitForCalls(t *testing.T, ictx *mock.InitContext, expectedCount int) {
 	t.Helper()
 	require.Eventually(t, func() bool {
 		return ictx.MockService().CallsCount() >= expectedCount
 	}, 2*time.Second, 5*time.Millisecond)
 }
 
-func TestCommandManager_Init(t *testing.T) {
-	t.Run("Missing Chat Dependency", func(t *testing.T) {
-		m := NewManager()
-		ictx := testmodule.NewInitContext() // empty, no modules
-		err := m.Init(ictx)
-		assert.ErrorContains(t, err, "low-level chat module dependency is missing")
-	})
-
-	t.Run("Incorrect Chat Type", func(t *testing.T) {
-		m := NewManager()
-		ictx := testmodule.NewInitContext()
-		// Register a fake module under "chat" with wrong type
-		fakeMod := &dummyModule{Base: smod.New("chat")}
-		ictx.SetModule("chat", fakeMod)
-
-		err := m.Init(ictx)
-		assert.ErrorContains(t, err, "does not implement ChatSender")
-	})
-
-	t.Run("Success", func(t *testing.T) {
-		m := NewManager()
-		ictx := testmodule.NewInitContext()
-		chatMod := chat.New()
-		ictx.SetModule("chat", chatMod)
-
-		err := m.Init(ictx)
-		assert.NoError(t, err)
-	})
-}
-
-func TestCommandManager_Registration(t *testing.T) {
-	m := NewManager()
-
-	handler := func(ctx context.Context, senderID uint64, args []string) (string, error) {
-		return "ok", nil
-	}
-
-	m.Register("ping", handler)
-	m.Register("shutdown", handler, WithAdmin())
-
-	cmd, exists := m.GetCommand("ping")
-	assert.True(t, exists)
-	assert.False(t, cmd.IsAdmin)
-
-	cmd, exists = m.GetCommand("shutdown")
-	assert.True(t, exists)
-	assert.True(t, cmd.IsAdmin)
-
-	_, exists = m.GetCommand("invalid")
-	assert.False(t, exists)
-}
-
-func TestCommandManager_TrustedSteamIDs(t *testing.T) {
-	m := NewManager()
-
-	m.SetTrustedSteamIDs([]string{"76561198000000002", "76561198000000004", "invalid_id"})
-
-	assert.True(t, m.IsTrusted(76561198000000002))
-	assert.True(t, m.IsTrusted(76561198000000004))
-	assert.False(t, m.IsTrusted(76561198000000003)) // not trusted
-	assert.False(t, m.IsTrusted(0))
-}
-
-func setupTest(t *testing.T, ctx context.Context) (*chat.Chat, *Manager, *testmodule.InitContext) {
+func setupTest(t *testing.T, ctx context.Context) (*chat.Chat, *Manager, *mock.InitContext) {
 	t.Helper()
 
 	chatMod := chat.New()
 	cmdMgr := NewManager()
 
-	ictx := testmodule.NewInitContext()
+	ictx := mock.NewInitContext()
 	ictx.SetModule("chat", chatMod)
 	ictx.SetModule("chat_commands", cmdMgr)
 
@@ -119,14 +184,110 @@ func setupTest(t *testing.T, ctx context.Context) (*chat.Chat, *Manager, *testmo
 	require.NoError(t, chatMod.Start(ctx))
 	require.NoError(t, cmdMgr.Start(ctx))
 
-	// Allow goroutine scheduler to start the eventLoop and register the subscription
 	time.Sleep(50 * time.Millisecond)
 
 	return chatMod, cmdMgr, ictx
 }
 
+func TestCommandManager_Init(t *testing.T) {
+	t.Parallel()
+
+	t.Run("missing_chat_dependency", func(t *testing.T) {
+		t.Parallel()
+
+		m := NewManager()
+		ictx := mock.NewInitContext()
+		err := m.Init(ictx)
+		assert.ErrorContains(t, err, "low-level chat module dependency is missing")
+	})
+
+	t.Run("incorrect_chat_type", func(t *testing.T) {
+		t.Parallel()
+
+		m := NewManager()
+		ictx := mock.NewInitContext()
+		fakeMod := &dummyModule{Base: module.New("chat")}
+		ictx.SetModule("chat", fakeMod)
+
+		err := m.Init(ictx)
+		assert.ErrorContains(t, err, "does not implement ChatSender")
+	})
+
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+
+		m := NewManager()
+		ictx := mock.NewInitContext()
+		chatMod := chat.New()
+		ictx.SetModule("chat", chatMod)
+
+		err := m.Init(ictx)
+		assert.NoError(t, err)
+	})
+}
+
+func TestCommandManager_Registration(t *testing.T) {
+	t.Parallel()
+
+	t.Run("register_command", func(t *testing.T) {
+		t.Parallel()
+
+		m := NewManager()
+
+		called := false
+		m.Register("test", func(ctx context.Context, senderID uint64, args []string) (string, error) {
+			called = true
+			return "response", nil
+		})
+
+		cmd, exists := m.GetCommand("test")
+		assert.True(t, exists)
+		assert.NotNil(t, cmd)
+
+		caller := SteamCaller{steamID: 123}
+		ctx := command.WithCaller(t.Context(), caller)
+		res, err := m.engine.Execute(ctx, "!test")
+		assert.NoError(t, err)
+		assert.Equal(t, "response", res)
+		assert.True(t, called)
+	})
+
+	t.Run("command_validation_field", func(t *testing.T) {
+		t.Parallel()
+
+		m := NewManager()
+
+		valErr := errors.New("invalid validation")
+		m.Register("test_val", func(ctx context.Context, senderID uint64, args []string) (string, error) {
+			return "ok", nil
+		}, WithValidation(func(args []string) error {
+			return valErr
+		}))
+
+		cmd, exists := m.GetCommand("test_val")
+		require.True(t, exists)
+		assert.ErrorIs(t, cmd.Validate(nil), valErr)
+	})
+}
+
+func TestCommandManager_TrustedSteamIDs(t *testing.T) {
+	t.Parallel()
+
+	m := NewManager()
+
+	m.SetTrustedSteamIDs([]string{"76561198000000002", "76561198000000004", "invalid_id"})
+
+	assert.True(t, m.IsTrusted(76561198000000002))
+	assert.True(t, m.IsTrusted(76561198000000004))
+	assert.False(t, m.IsTrusted(76561198000000003))
+	assert.False(t, m.IsTrusted(0))
+}
+
 func TestCommandManager_EventRouting(t *testing.T) {
-	t.Run("Execute Public Command Success", func(t *testing.T) {
+	t.Parallel()
+
+	t.Run("execute_public_command_success", func(t *testing.T) {
+		t.Parallel()
 		_, cmdMgr, ictx := setupTest(t, t.Context())
 		eb := ictx.Bus()
 
@@ -147,7 +308,8 @@ func TestCommandManager_EventRouting(t *testing.T) {
 		assert.Equal(t, "pong", req.GetMessage())
 	})
 
-	t.Run("Execute Admin Command Success", func(t *testing.T) {
+	t.Run("execute_admin_command_success", func(t *testing.T) {
+		t.Parallel()
 		_, cmdMgr, ictx := setupTest(t, t.Context())
 		eb := ictx.Bus()
 
@@ -173,7 +335,8 @@ func TestCommandManager_EventRouting(t *testing.T) {
 		assert.Equal(t, "restarting...", req.GetMessage())
 	})
 
-	t.Run("Execute Admin Command Unauthorized", func(t *testing.T) {
+	t.Run("execute_admin_command_unauthorized", func(t *testing.T) {
+		t.Parallel()
 		_, cmdMgr, ictx := setupTest(t, t.Context())
 		eb := ictx.Bus()
 
@@ -199,7 +362,8 @@ func TestCommandManager_EventRouting(t *testing.T) {
 		assert.Contains(t, req.GetMessage(), "You are not authorized")
 	})
 
-	t.Run("Execute Command Failure Output", func(t *testing.T) {
+	t.Run("execute_command_failure_output", func(t *testing.T) {
+		t.Parallel()
 		_, cmdMgr, ictx := setupTest(t, t.Context())
 		eb := ictx.Bus()
 
@@ -220,7 +384,8 @@ func TestCommandManager_EventRouting(t *testing.T) {
 		assert.Contains(t, req.GetMessage(), "Error: something went wrong")
 	})
 
-	t.Run("Ignore Unregistered Command", func(t *testing.T) {
+	t.Run("ignore_unregistered_command", func(t *testing.T) {
+		t.Parallel()
 		_, _, ictx := setupTest(t, t.Context())
 		eb := ictx.Bus()
 
@@ -236,9 +401,86 @@ func TestCommandManager_EventRouting(t *testing.T) {
 			"should be no unified service calls since the command is unregistered",
 		)
 	})
+
+	t.Run("message_routing_filter_edge_cases", func(t *testing.T) {
+		t.Parallel()
+		_, cmdMgr, ictx := setupTest(t, t.Context())
+		eb := ictx.Bus()
+
+		cmdMgr.Register("ping", func(ctx context.Context, senderID uint64, args []string) (string, error) {
+			return "pong", nil
+		})
+
+		eb.Publish(&dummyEvent{})
+		eb.Publish(&chat.MessageEvent{SenderID: UserSteamID, Message: ""})
+		eb.Publish(&chat.MessageEvent{SenderID: UserSteamID, Message: "ping"})
+		eb.Publish(&chat.MessageEvent{SenderID: UserSteamID, Message: "!"})
+
+		time.Sleep(100 * time.Millisecond)
+		assert.Equal(t, 0, ictx.MockService().CallsCount())
+	})
+
+	t.Run("execute_command_empty_response", func(t *testing.T) {
+		t.Parallel()
+		_, cmdMgr, ictx := setupTest(t, t.Context())
+		eb := ictx.Bus()
+
+		cmdMgr.Register("empty", func(ctx context.Context, senderID uint64, args []string) (string, error) {
+			return "", nil
+		})
+
+		eb.Publish(&chat.MessageEvent{
+			SenderID: UserSteamID,
+			Message:  "!empty",
+		})
+
+		time.Sleep(100 * time.Millisecond)
+		assert.Equal(t, 0, ictx.MockService().CallsCount())
+	})
+
+	t.Run("correlation_id_propagation", func(t *testing.T) {
+		t.Parallel()
+		_, cmdMgr, ictx := setupTest(t, t.Context())
+		eb := ictx.Bus()
+
+		var (
+			mu             sync.Mutex
+			capturedCorrID string
+		)
+
+		cmdMgr.Register("corr", func(ctx context.Context, senderID uint64, args []string) (string, error) {
+			mu.Lock()
+			if id, ok := log.CorrelationID(ctx); ok {
+				capturedCorrID = id
+			}
+
+			mu.Unlock()
+
+			return "ok", nil
+		})
+
+		ev := &chat.MessageEvent{
+			SenderID: UserSteamID,
+			Message:  "!corr",
+		}
+
+		ctxWithCorr := log.WithCorrelationID(t.Context(), "my-correlation-id")
+		setContextOnEvent(ev, ctxWithCorr)
+
+		eb.Publish(ev)
+
+		waitForCalls(t, ictx, 1)
+
+		mu.Lock()
+		corr := capturedCorrID
+		mu.Unlock()
+		assert.Equal(t, "my-correlation-id", corr)
+	})
 }
 
 func TestCommandManager_HelpCommand(t *testing.T) {
+	t.Parallel()
+
 	_, cmdMgr, ictx := setupTest(t, t.Context())
 	eb := ictx.Bus()
 
@@ -250,7 +492,7 @@ func TestCommandManager_HelpCommand(t *testing.T) {
 		return "added", nil
 	}, WithDescription("Adds two numbers"), WithArgsSchema(
 		Required[int]("a"),
-		Required[int]("b"),
+		Optional[int]("b"),
 	))
 
 	eb.Publish(&chat.MessageEvent{
@@ -267,11 +509,14 @@ func TestCommandManager_HelpCommand(t *testing.T) {
 	assert.Contains(t, helpText, "Available Commands:")
 	assert.Contains(t, helpText, "- !help (aliases: !h): Lists all registered commands and their usage")
 	assert.Contains(t, helpText, "- !ping: Simple alive check")
-	assert.Contains(t, helpText, "- !add <a:int> <b:int>: Adds two numbers")
+	assert.Contains(t, helpText, "- !add <a:int> [<b:int>]: Adds two numbers")
 }
 
 func TestCommandManager_TypedArguments(t *testing.T) {
-	t.Run("Valid Types Parsing", func(t *testing.T) {
+	t.Parallel()
+
+	t.Run("valid_types_parsing", func(t *testing.T) {
+		t.Parallel()
 		_, cmdMgr, ictx := setupTest(t, t.Context())
 		eb := ictx.Bus()
 
@@ -300,7 +545,8 @@ func TestCommandManager_TypedArguments(t *testing.T) {
 		assert.Equal(t, "result: 10 + 5.5, ok: true", req.GetMessage())
 	})
 
-	t.Run("Invalid Types Parsing Error", func(t *testing.T) {
+	t.Run("invalid_types_parsing_error", func(t *testing.T) {
+		t.Parallel()
 		_, cmdMgr, ictx := setupTest(t, t.Context())
 		eb := ictx.Bus()
 
@@ -323,7 +569,8 @@ func TestCommandManager_TypedArguments(t *testing.T) {
 		assert.Contains(t, req.GetMessage(), "must be of type int")
 	})
 
-	t.Run("Missing Required Argument Error", func(t *testing.T) {
+	t.Run("missing_required_argument_error", func(t *testing.T) {
+		t.Parallel()
 		_, cmdMgr, ictx := setupTest(t, t.Context())
 		eb := ictx.Bus()
 
@@ -348,7 +595,10 @@ func TestCommandManager_TypedArguments(t *testing.T) {
 }
 
 func TestCommandManager_SteamIDParsing(t *testing.T) {
-	t.Run("Parse Valid 64-bit SteamID", func(t *testing.T) {
+	t.Parallel()
+
+	t.Run("parse_valid_64_bit_steamid", func(t *testing.T) {
+		t.Parallel()
 		_, cmdMgr, ictx := setupTest(t, t.Context())
 		eb := ictx.Bus()
 
@@ -371,7 +621,8 @@ func TestCommandManager_SteamIDParsing(t *testing.T) {
 		assert.Equal(t, "parsed: 76561198000000002", req.GetMessage())
 	})
 
-	t.Run("Parse Valid Steam3 Format", func(t *testing.T) {
+	t.Run("parse_valid_steam3_format", func(t *testing.T) {
+		t.Parallel()
 		_, cmdMgr, ictx := setupTest(t, t.Context())
 		eb := ictx.Bus()
 
@@ -393,7 +644,8 @@ func TestCommandManager_SteamIDParsing(t *testing.T) {
 		assert.Equal(t, "parsed: 76561197960278073", req.GetMessage())
 	})
 
-	t.Run("Parse Valid Steam2 Format", func(t *testing.T) {
+	t.Run("parse_valid_steam2_format", func(t *testing.T) {
+		t.Parallel()
 		_, cmdMgr, ictx := setupTest(t, t.Context())
 		eb := ictx.Bus()
 
@@ -415,7 +667,8 @@ func TestCommandManager_SteamIDParsing(t *testing.T) {
 		assert.Equal(t, "parsed: 76561197960290418", req.GetMessage())
 	})
 
-	t.Run("Parse Invalid SteamID Error", func(t *testing.T) {
+	t.Run("parse_invalid_steamid_error", func(t *testing.T) {
+		t.Parallel()
 		_, cmdMgr, ictx := setupTest(t, t.Context())
 		eb := ictx.Bus()
 
@@ -440,63 +693,105 @@ func TestCommandManager_SteamIDParsing(t *testing.T) {
 }
 
 func TestCommandManager_ArgumentsWithSpaces(t *testing.T) {
-	_, cmdMgr, ictx := setupTest(t, t.Context())
-	eb := ictx.Bus()
+	t.Parallel()
 
-	var (
-		mu                           sync.Mutex
-		receivedUser, receivedReason string
-	)
+	t.Run("double_quotes_and_escapes", func(t *testing.T) {
+		t.Parallel()
+		_, cmdMgr, ictx := setupTest(t, t.Context())
+		eb := ictx.Bus()
 
-	cmdMgr.Register("warn", func(ctx context.Context, senderID uint64, user, reason string) (string, error) {
+		var (
+			mu                           sync.Mutex
+			receivedUser, receivedReason string
+		)
+
+		cmdMgr.Register("warn", func(ctx context.Context, senderID uint64, user, reason string) (string, error) {
+			mu.Lock()
+			receivedUser = user
+			receivedReason = reason
+			mu.Unlock()
+
+			return fmt.Sprintf("warned: %s for %s", user, reason), nil
+		}, WithArgsSchema(
+			Required[string]("user"),
+			Required[string]("reason"),
+		))
+
+		eb.Publish(&chat.MessageEvent{
+			SenderID: UserSteamID,
+			Message:  `!warn "User Name" "Spamming in chat"`,
+		})
+
+		waitForCalls(t, ictx, 1)
+
 		mu.Lock()
-		receivedUser = user
-		receivedReason = reason
+		user := receivedUser
+		reason := receivedReason
 		mu.Unlock()
+		assert.Equal(t, "User Name", user)
+		assert.Equal(t, "Spamming in chat", reason)
 
-		return fmt.Sprintf("warned: %s for %s", user, reason), nil
-	}, WithArgsSchema(
-		Required[string]("user"),
-		Required[string]("reason"),
-	))
+		ictx.MockService().ClearCalls()
 
-	eb.Publish(&chat.MessageEvent{
-		SenderID: UserSteamID,
-		Message:  `!warn "User Name" "Spamming in chat"`,
+		eb.Publish(&chat.MessageEvent{
+			SenderID: UserSteamID,
+			Message:  `!warn "User \"Cool\" Name" "Spamming"`,
+		})
+
+		waitForCalls(t, ictx, 1)
+
+		mu.Lock()
+		user = receivedUser
+		reason = receivedReason
+		mu.Unlock()
+		assert.Equal(t, `User "Cool" Name`, user)
+		assert.Equal(t, "Spamming", reason)
 	})
 
-	waitForCalls(t, ictx, 1)
+	t.Run("single_quotes_and_whitespace", func(t *testing.T) {
+		t.Parallel()
+		_, cmdMgr, ictx := setupTest(t, t.Context())
+		eb := ictx.Bus()
 
-	mu.Lock()
-	user := receivedUser
-	reason := receivedReason
-	mu.Unlock()
-	assert.Equal(t, "User Name", user)
-	assert.Equal(t, "Spamming in chat", reason)
+		var (
+			mu                           sync.Mutex
+			receivedUser, receivedReason string
+		)
 
-	ictx.MockService().ClearCalls()
+		cmdMgr.Register("warn", func(ctx context.Context, senderID uint64, user, reason string) (string, error) {
+			mu.Lock()
+			receivedUser = user
+			receivedReason = reason
+			mu.Unlock()
 
-	// Verify escaping works inside quotes
-	eb.Publish(&chat.MessageEvent{
-		SenderID: UserSteamID,
-		Message:  `!warn "User \"Cool\" Name" "Spamming"`,
+			return "ok", nil
+		}, WithArgsSchema(
+			Required[string]("user"),
+			Required[string]("reason"),
+		))
+
+		eb.Publish(&chat.MessageEvent{
+			SenderID: UserSteamID,
+			Message:  "!warn\t'User\rName'\n'Reason\twith\nnewlines'",
+		})
+
+		waitForCalls(t, ictx, 1)
+
+		mu.Lock()
+		user := receivedUser
+		reason := receivedReason
+		mu.Unlock()
+		assert.Equal(t, "User\rName", user)
+		assert.Equal(t, "Reason\twith\nnewlines", reason)
 	})
-
-	waitForCalls(t, ictx, 1)
-
-	mu.Lock()
-	user = receivedUser
-	reason = receivedReason
-	mu.Unlock()
-	assert.Equal(t, `User "Cool" Name`, user)
-	assert.Equal(t, "Spamming", reason)
 }
 
 func TestCommandManager_RateLimiter(t *testing.T) {
-	ctx := t.Context()
+	t.Parallel()
 
-	t.Run("Non-admin rate limited", func(t *testing.T) {
-		_, cmdMgr, ictx := setupTest(t, ctx)
+	t.Run("non_admin_rate_limited", func(t *testing.T) {
+		t.Parallel()
+		_, cmdMgr, ictx := setupTest(t, t.Context())
 		eb := ictx.Bus()
 
 		cmdMgr.Register("ping", func(ctx context.Context, senderID uint64) (string, error) {
@@ -515,7 +810,7 @@ func TestCommandManager_RateLimiter(t *testing.T) {
 
 		req := &pb.CFriendMessages_SendMessage_Request{}
 
-		assert.NotEmpty(t, ictx.MockService().CallsCount(), "Should have received rate limit responses")
+		assert.NotEmpty(t, ictx.MockService().CallsCount())
 
 		if ictx.MockService().GetLastCall(req) != nil {
 			assert.Contains(t, req.GetMessage(), "too fast")
@@ -524,8 +819,9 @@ func TestCommandManager_RateLimiter(t *testing.T) {
 		}
 	})
 
-	t.Run("Admin bypasses rate limiting", func(t *testing.T) {
-		_, cmdMgr, ictx := setupTest(t, ctx)
+	t.Run("admin_bypasses_rate_limiting", func(t *testing.T) {
+		t.Parallel()
+		_, cmdMgr, ictx := setupTest(t, t.Context())
 		eb := ictx.Bus()
 
 		cmdMgr.SetTrustedSteamIDs([]string{strconv.FormatUint(AdminSteamID, 10)})
@@ -552,6 +848,8 @@ func TestCommandManager_RateLimiter(t *testing.T) {
 }
 
 func TestCommandManager_Aliases(t *testing.T) {
+	t.Parallel()
+
 	_, cmdMgr, ictx := setupTest(t, t.Context())
 	eb := ictx.Bus()
 
@@ -625,6 +923,8 @@ func TestCommandManager_Aliases(t *testing.T) {
 }
 
 func TestCommandManager_UniversalSignature(t *testing.T) {
+	t.Parallel()
+
 	_, cmdMgr, ictx := setupTest(t, t.Context())
 	eb := ictx.Bus()
 
@@ -642,4 +942,147 @@ func TestCommandManager_UniversalSignature(t *testing.T) {
 	req := &pb.CFriendMessages_SendMessage_Request{}
 	require.True(t, ictx.MockService().GetLastCall(req) != nil)
 	assert.Equal(t, "Created 42 instances of widget", req.GetMessage())
+}
+
+func TestCommandManager_ExtraEdgeCases(t *testing.T) {
+	t.Parallel()
+
+	caller := SteamCaller{steamID: 76561198000000001, isAdmin: true}
+	assert.Equal(t, "76561198000000001", caller.ID())
+	assert.Equal(t, "", caller.DisplayName())
+	assert.True(t, caller.IsAdmin())
+
+	optSchema := Optional[int]("testOpt")
+	assert.True(t, optSchema.Optional)
+	assert.Equal(t, "testOpt", optSchema.Name)
+
+	m := NewManager()
+	assert.False(t, m.IsAdminCommand("non_existent"))
+
+	m.Register("admin_cmd", func(ctx context.Context) (string, error) {
+		return "admin", nil
+	}, WithAdmin())
+	assert.True(t, m.IsAdminCommand("admin_cmd"))
+
+	m.UpdateCommandDescription("admin_cmd", "updated admin cmd")
+	cmd, exists := m.GetCommand("admin_cmd")
+	assert.True(t, exists)
+	assert.Equal(t, "updated admin cmd", cmd.Description)
+
+	m.UnregisterCommand("admin_cmd")
+	_, exists = m.GetCommand("admin_cmd")
+	assert.False(t, exists)
+
+	assert.NoError(t, m.Close())
+}
+
+func TestRegisterBuiltinCommands(t *testing.T) {
+	t.Parallel()
+
+	t.Run("status_builtin_command", func(t *testing.T) {
+		t.Parallel()
+
+		cmdMgr := NewManager()
+		RegisterBuiltinCommands(cmdMgr, nil, time.Now().Add(-10*time.Second))
+
+		res, err := cmdMgr.engine.Execute(t.Context(), "!status")
+		require.NoError(t, err)
+		assert.Contains(t, res, "Bot is online. Uptime:")
+	})
+
+	t.Run("steamid_builtin_command_nil_manager", func(t *testing.T) {
+		t.Parallel()
+
+		cmdMgr := NewManager()
+		RegisterBuiltinCommands(cmdMgr, nil, time.Now())
+
+		_, err := cmdMgr.engine.Execute(t.Context(), "!steamid test")
+		assert.ErrorContains(t, err, "friends module not available")
+	})
+
+	t.Run("steamid_builtin_command_no_matches", func(t *testing.T) {
+		t.Parallel()
+
+		cmdMgr := NewManager()
+		friendsMgr := &friends.Manager{}
+		RegisterBuiltinCommands(cmdMgr, friendsMgr, time.Now())
+
+		res, err := cmdMgr.engine.Execute(t.Context(), "!steamid test")
+		require.NoError(t, err)
+		assert.Equal(t, "No matching users found.", res)
+	})
+
+	t.Run("steamid_builtin_command_matching_users_lte_10", func(t *testing.T) {
+		t.Parallel()
+
+		cmdMgr := NewManager()
+		friendsMgr := &friends.Manager{}
+
+		friendID := id.ID(76561198000000001)
+		populateMockFriends(friendsMgr, friendID, "Alice_test")
+
+		RegisterBuiltinCommands(cmdMgr, friendsMgr, time.Now())
+
+		res, err := cmdMgr.engine.Execute(t.Context(), "!steamid Alice")
+		require.NoError(t, err)
+		assert.Contains(t, res, "Found 1 match(es):")
+		assert.Contains(t, res, "Alice_test")
+	})
+
+	t.Run("steamid_builtin_command_matching_users_gt_10", func(t *testing.T) {
+		t.Parallel()
+
+		cmdMgr := NewManager()
+		friendsMgr := &friends.Manager{}
+
+		for i := range 11 {
+			friendID := id.ID(76561198000000000 + uint64(i))
+			populateMockFriends(friendsMgr, friendID, fmt.Sprintf("Alice_test_%d", i))
+		}
+
+		RegisterBuiltinCommands(cmdMgr, friendsMgr, time.Now())
+
+		res, err := cmdMgr.engine.Execute(t.Context(), "!steamid Alice")
+		require.NoError(t, err)
+		assert.Contains(t, res, "Found 11 matches (showing first 10):")
+	})
+
+	t.Run("profile_builtin_command_nil_manager", func(t *testing.T) {
+		t.Parallel()
+
+		cmdMgr := NewManager()
+		RegisterBuiltinCommands(cmdMgr, nil, time.Now())
+
+		_, err := cmdMgr.engine.Execute(t.Context(), "!profile 76561198000000001")
+		assert.ErrorContains(t, err, "friends module not available")
+	})
+
+	t.Run("profile_builtin_command_no_cached_data", func(t *testing.T) {
+		t.Parallel()
+
+		cmdMgr := NewManager()
+		friendsMgr := &friends.Manager{}
+		RegisterBuiltinCommands(cmdMgr, friendsMgr, time.Now())
+
+		res, err := cmdMgr.engine.Execute(t.Context(), "!profile 76561198000000001")
+		require.NoError(t, err)
+		assert.Contains(t, res, "No cached data for 76561198000000001")
+	})
+
+	t.Run("profile_builtin_command_cached_data_exists", func(t *testing.T) {
+		t.Parallel()
+
+		cmdMgr := NewManager()
+		friendsMgr := &friends.Manager{}
+
+		friendID := id.ID(76561198000000001)
+		populateMockFriends(friendsMgr, friendID, "Alice")
+
+		RegisterBuiltinCommands(cmdMgr, friendsMgr, time.Now())
+
+		res, err := cmdMgr.engine.Execute(t.Context(), "!profile 76561198000000001")
+		require.NoError(t, err)
+		assert.Contains(t, res, "Profile: Alice")
+		assert.Contains(t, res, "SteamID: 76561198000000001")
+	})
 }

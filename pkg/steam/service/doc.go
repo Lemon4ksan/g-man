@@ -2,21 +2,13 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package service provides a high-level RPC-like commander for interacting with Steam's official interfaces.
+// Package service provides transport-agnostic execution engines for Steam WebAPI, Unified Services, and Legacy protocols.
+// It decouples API call logic from underlying socket or HTTP transport systems. It automatically
+// injects auth parameters like API keys or access tokens, and validates standard Steam [enums.EResult] errors.
 //
-// It abstracts the three primary ways to communicate with Steam: WebAPI, Unified Services,
-// and legacy EMsg-based socket requests.
-//
-// # Key Components
-//
-//   - [Client]: The primary entry point that decorates a [tr.Transport] with session credentials and validations.
-//   - [Doer]: An interface representing objects capable of executing transport-agnostic requests.
-//   - [UnifiedTarget]: Represents a modern Protobuf-based Steam Service method call.
-//   - [WebAPITarget]: Represents a classic JSON/VDF WebAPI call.
-//   - [LegacyTarget]: Represents a raw EMsg-based message used in socket connections.
-//   - [HTTPTarget]: A basic implementation of the transport Target interface for HTTP-based calls.
-//   - [SteamAPIError]: A structured error container that captures raw API response failures.
-//   - [EResultError]: An error wrapper around Steam's internal EResult enum codes.
+// The core contract is the [Doer] interface. The primary implementation is the [Client] decorator,
+// which wraps a [tr.Transport] instance. It provides high-level generic helpers like [Unified],
+// [WebAPI], and [Legacy] to execute pre-configured requests.
 //
 // # Basic Usage Example
 //

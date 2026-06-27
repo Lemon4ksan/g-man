@@ -54,7 +54,7 @@ func TestMarket_CreateSellOrder(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 
 		mockComm.SetJSONResponse(
 			"https://steamcommunity.com/market/sellitem",
@@ -86,7 +86,7 @@ func TestMarket_CreateSellOrder(t *testing.T) {
 	t.Run("failure", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 		mockComm.ResponseErrs["market/sellitem"] = errors.New("post fail")
 
 		_, err := m.CreateSellOrder(t.Context(), market.CreateSellOrderOptions{})
@@ -122,7 +122,7 @@ func TestMarket_CreateBuyOrder(t *testing.T) {
 				auth := module.NewAuthContext(id.ID(1))
 				_ = m.StartAuthed(t.Context(), auth)
 
-				mockComm := auth.MockCommunity()
+				mockComm := auth.MockCommunity
 				mockComm.SetJSONResponse(
 					"https://steamcommunity.com/market/createbuyorder",
 					http.StatusOK,
@@ -150,7 +150,7 @@ func TestMarket_CreateBuyOrder(t *testing.T) {
 	t.Run("failure", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 		mockComm.ResponseErrs["market/createbuyorder"] = errors.New("buy order fail")
 
 		_, err := m.CreateBuyOrder(t.Context(), market.CreateBuyOrderOptions{})
@@ -162,7 +162,7 @@ func TestMarket_CreateBuyOrder(t *testing.T) {
 func TestMarket_GetPriceOverview(t *testing.T) {
 	t.Parallel()
 	m, _, auth := setupMarket(t)
-	mockComm := auth.MockCommunity()
+	mockComm := auth.MockCommunity
 
 	expectedURL := "https://steamcommunity.com/market/priceoverview?appid=440&currency=1&market_hash_name=Mann+Co.+Supply+Crate+Key"
 	mockComm.SetJSONResponse(expectedURL, http.StatusOK, market.PriceOverviewResponse{
@@ -183,7 +183,7 @@ func TestMarket_CancelSellOrder(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 
 		listingID := uint64(888888)
 		expectedPath := "https://steamcommunity.com/market/removelisting/888888"
@@ -201,7 +201,7 @@ func TestMarket_CancelSellOrder(t *testing.T) {
 	t.Run("failure", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 		mockComm.ResponseErrs["market/removelisting/123"] = errors.New("remove fail")
 
 		err := m.CancelSellOrder(t.Context(), 123)
@@ -212,7 +212,7 @@ func TestMarket_CancelSellOrder(t *testing.T) {
 	t.Run("unsuccessful_state", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 		mockComm.SetJSONResponse("https://steamcommunity.com/market/removelisting/123", http.StatusOK, struct {
 			Success bool `json:"success"`
 		}{Success: false})
@@ -229,7 +229,7 @@ func TestMarket_CancelBuyOrder(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 
 		buyOrderID := uint64(123456789)
 
@@ -251,7 +251,7 @@ func TestMarket_CancelBuyOrder(t *testing.T) {
 	t.Run("failure", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 		mockComm.ResponseErrs["market/cancelbuyorder"] = errors.New("cancel buy fail")
 
 		err := m.CancelBuyOrder(t.Context(), 123)
@@ -262,7 +262,7 @@ func TestMarket_CancelBuyOrder(t *testing.T) {
 	t.Run("unsuccessful_state", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 		mockComm.SetJSONResponse("https://steamcommunity.com/market/cancelbuyorder", http.StatusOK, struct {
 			Success bool `json:"success"`
 		}{Success: false})
@@ -279,7 +279,7 @@ func TestMarket_GetItemOrdersHistogram(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 
 		rawJSON := `{
 			"success": 1,
@@ -312,7 +312,7 @@ func TestMarket_GetItemOrdersHistogram(t *testing.T) {
 	t.Run("failure", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 		mockComm.ResponseErrs["market/itemordershistogram"] = errors.New("histogram query fail")
 
 		_, err := m.GetItemOrdersHistogram(t.Context(), 440, "item", 111)
@@ -322,7 +322,7 @@ func TestMarket_GetItemOrdersHistogram(t *testing.T) {
 	t.Run("empty_orders_fallback", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 		rawJSON := `{
 			"success": 1,
 			"highest_buy_order": "",
@@ -342,7 +342,7 @@ func TestMarket_GetItemOrdersHistogram(t *testing.T) {
 func TestMarket_Search(t *testing.T) {
 	t.Parallel()
 	m, _, auth := setupMarket(t)
-	mockComm := auth.MockCommunity()
+	mockComm := auth.MockCommunity
 
 	mockComm.SetJSONResponse("market/search/render", http.StatusOK, market.SearchResponse{
 		Success:    true,
@@ -373,7 +373,7 @@ func TestMarket_Search(t *testing.T) {
 func TestMarket_GetMyListings(t *testing.T) {
 	t.Parallel()
 	m, _, auth := setupMarket(t)
-	mockComm := auth.MockCommunity()
+	mockComm := auth.MockCommunity
 
 	mockComm.SetJSONResponse("market/mylistings", http.StatusOK, market.MyListingsResponse{
 		Success:           true,
@@ -402,7 +402,7 @@ func TestMarket_GetMarketApps(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 
 		html := `
 			<div class="market_search_game_button_group">
@@ -421,7 +421,7 @@ func TestMarket_GetMarketApps(t *testing.T) {
 	t.Run("edge_cases", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 
 		html := `
 			<div class="market_search_game_button_group">
@@ -450,7 +450,7 @@ func TestMarket_GetMarketApps(t *testing.T) {
 	t.Run("empty_apps_parse_error", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 		mockComm.SetHTMLResponse("market", http.StatusOK, `<div>No games container</div>`)
 
 		_, err := m.GetMarketApps(t.Context())
@@ -461,7 +461,7 @@ func TestMarket_GetMarketApps(t *testing.T) {
 	t.Run("html_retrieval_failure", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 		mockComm.ResponseErrs["market"] = errors.New("retrieval failed")
 
 		_, err := m.GetMarketApps(t.Context())
@@ -476,7 +476,7 @@ func TestMarket_GetGemValue(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 
 		mockComm.SetJSONResponse("ajaxgetgoovalue", http.StatusOK, struct {
 			Success  int    `json:"success"`
@@ -493,7 +493,7 @@ func TestMarket_GetGemValue(t *testing.T) {
 	t.Run("steam_error", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 		mockComm.SetJSONResponse("ajaxgetgoovalue", http.StatusOK, struct {
 			Success int    `json:"success"`
 			Message string `json:"message"`
@@ -507,7 +507,7 @@ func TestMarket_GetGemValue(t *testing.T) {
 	t.Run("request_fail", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 		mockComm.ResponseErrs["ajaxgetgoovalue"] = errors.New("req fail")
 
 		_, err := m.GetGemValue(t.Context(), 730, 1111)
@@ -521,7 +521,7 @@ func TestMarket_TurnItemIntoGems(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 
 		mockComm.SetJSONResponse("ajaxgrindintogoo", http.StatusOK, struct {
 			Success          int    `json:"success"`
@@ -538,7 +538,7 @@ func TestMarket_TurnItemIntoGems(t *testing.T) {
 	t.Run("steam_error", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 		mockComm.SetJSONResponse("ajaxgrindintogoo", http.StatusOK, struct {
 			Success int    `json:"success"`
 			Message string `json:"message"`
@@ -552,7 +552,7 @@ func TestMarket_TurnItemIntoGems(t *testing.T) {
 	t.Run("request_fail", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 		mockComm.ResponseErrs["ajaxgrindintogoo"] = errors.New("req fail")
 
 		_, err := m.TurnItemIntoGems(t.Context(), 730, 1111, 100)
@@ -566,7 +566,7 @@ func TestMarket_OpenBoosterPack(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 
 		mockComm.SetJSONResponse("ajaxunpackbooster", http.StatusOK, struct {
 			Success int   `json:"success"`
@@ -581,7 +581,7 @@ func TestMarket_OpenBoosterPack(t *testing.T) {
 	t.Run("steam_error", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 		mockComm.SetJSONResponse("ajaxunpackbooster", http.StatusOK, struct {
 			Success int    `json:"success"`
 			Message string `json:"message"`
@@ -595,7 +595,7 @@ func TestMarket_OpenBoosterPack(t *testing.T) {
 	t.Run("request_fail", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 		mockComm.ResponseErrs["ajaxunpackbooster"] = errors.New("req fail")
 
 		_, err := m.OpenBoosterPack(t.Context(), 730, 1111)
@@ -609,7 +609,7 @@ func TestMarket_GetBoosterPackCatalog(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 
 		catalogHTML := `
 			CBoosterCreatorPage.Init(
@@ -630,7 +630,7 @@ func TestMarket_GetBoosterPackCatalog(t *testing.T) {
 	t.Run("fetch_html_error", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 		mockComm.ResponseErrs["tradingcards/boostercreator"] = errors.New("fetch fail")
 
 		_, err := m.GetBoosterPackCatalog(t.Context())
@@ -641,7 +641,7 @@ func TestMarket_GetBoosterPackCatalog(t *testing.T) {
 	t.Run("regex_mismatch", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 		mockComm.SetHTMLResponse("tradingcards/boostercreator", http.StatusOK, "CBoosterCreatorPage.Init(broken_array)")
 
 		_, err := m.GetBoosterPackCatalog(t.Context())
@@ -652,7 +652,7 @@ func TestMarket_GetBoosterPackCatalog(t *testing.T) {
 	t.Run("json_parse_fail", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 		catalogHTML := `
 			CBoosterCreatorPage.Init(
 				{invalid_json},
@@ -675,7 +675,7 @@ func TestMarket_CreateBoosterPack(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 
 		mockComm.SetJSONResponse("tradingcards/ajaxcreatebooster", http.StatusOK, struct {
 			PurchaseEResult     int    `json:"purchase_eresult"`
@@ -694,7 +694,7 @@ func TestMarket_CreateBoosterPack(t *testing.T) {
 	t.Run("use_tradable_gems_preference", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 		mockComm.SetJSONResponse("tradingcards/ajaxcreatebooster", http.StatusOK, struct {
 			PurchaseEResult     int    `json:"purchase_eresult"`
 			GooAmount           string `json:"goo_amount"`
@@ -715,7 +715,7 @@ func TestMarket_CreateBoosterPack(t *testing.T) {
 	t.Run("purchase_eresult_error", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 		mockComm.SetJSONResponse("tradingcards/ajaxcreatebooster", http.StatusOK, struct {
 			PurchaseEResult int `json:"purchase_eresult"`
 		}{PurchaseEResult: 2})
@@ -731,7 +731,7 @@ func TestMarket_CreateBoosterPack(t *testing.T) {
 		t.Run("invalid_goo_amount", func(t *testing.T) {
 			t.Parallel()
 			m, _, auth := setupMarket(t)
-			mockComm := auth.MockCommunity()
+			mockComm := auth.MockCommunity
 			mockComm.SetJSONResponse("tradingcards/ajaxcreatebooster", http.StatusOK, struct {
 				PurchaseEResult     int    `json:"purchase_eresult"`
 				GooAmount           string `json:"goo_amount"`
@@ -746,7 +746,7 @@ func TestMarket_CreateBoosterPack(t *testing.T) {
 		t.Run("invalid_tradable_goo_amount", func(t *testing.T) {
 			t.Parallel()
 			m, _, auth := setupMarket(t)
-			mockComm := auth.MockCommunity()
+			mockComm := auth.MockCommunity
 			mockComm.SetJSONResponse("tradingcards/ajaxcreatebooster", http.StatusOK, struct {
 				PurchaseEResult     int    `json:"purchase_eresult"`
 				GooAmount           string `json:"goo_amount"`
@@ -761,7 +761,7 @@ func TestMarket_CreateBoosterPack(t *testing.T) {
 		t.Run("invalid_untradable_goo_amount", func(t *testing.T) {
 			t.Parallel()
 			m, _, auth := setupMarket(t)
-			mockComm := auth.MockCommunity()
+			mockComm := auth.MockCommunity
 			mockComm.SetJSONResponse("tradingcards/ajaxcreatebooster", http.StatusOK, struct {
 				PurchaseEResult     int    `json:"purchase_eresult"`
 				GooAmount           string `json:"goo_amount"`
@@ -777,7 +777,7 @@ func TestMarket_CreateBoosterPack(t *testing.T) {
 	t.Run("request_failure", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 		mockComm.ResponseErrs["tradingcards/ajaxcreatebooster"] = errors.New("post fail")
 
 		_, err := m.CreateBoosterPack(t.Context(), 730, false)
@@ -791,7 +791,7 @@ func TestMarket_GetGiftDetails(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 
 		mockComm.SetJSONResponse("gifts/3333/validateunpack", http.StatusOK, struct {
 			Success   int    `json:"success"`
@@ -810,7 +810,7 @@ func TestMarket_GetGiftDetails(t *testing.T) {
 	t.Run("steam_failure", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 		mockComm.SetJSONResponse("gifts/3333/validateunpack", http.StatusOK, struct {
 			Success int    `json:"success"`
 			Message string `json:"message"`
@@ -824,7 +824,7 @@ func TestMarket_GetGiftDetails(t *testing.T) {
 	t.Run("request_failure", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 		mockComm.ResponseErrs["gifts/3333/validateunpack"] = errors.New("req fail")
 
 		_, err := m.GetGiftDetails(t.Context(), 3333)
@@ -838,7 +838,7 @@ func TestMarket_RedeemGift(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 
 		mockComm.SetJSONResponse("gifts/3333/unpack", http.StatusOK, struct {
 			Success int `json:"success"`
@@ -851,7 +851,7 @@ func TestMarket_RedeemGift(t *testing.T) {
 	t.Run("steam_failure", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 		mockComm.SetJSONResponse("gifts/3333/unpack", http.StatusOK, struct {
 			Success int    `json:"success"`
 			Message string `json:"message"`
@@ -865,7 +865,7 @@ func TestMarket_RedeemGift(t *testing.T) {
 	t.Run("request_failure", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 		mockComm.ResponseErrs["gifts/3333/unpack"] = errors.New("req fail")
 
 		err := m.RedeemGift(t.Context(), 3333)
@@ -879,7 +879,7 @@ func TestMarket_PackGemSacks(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 
 		mockComm.SetJSONResponse("ajaxexchangegoo", http.StatusOK, struct {
 			Success int `json:"success"`
@@ -892,7 +892,7 @@ func TestMarket_PackGemSacks(t *testing.T) {
 	t.Run("steam_failure", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 		mockComm.SetJSONResponse("ajaxexchangegoo", http.StatusOK, struct {
 			Success int    `json:"success"`
 			Message string `json:"message"`
@@ -906,7 +906,7 @@ func TestMarket_PackGemSacks(t *testing.T) {
 	t.Run("request_failure", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 		mockComm.ResponseErrs["ajaxexchangegoo"] = errors.New("req fail")
 
 		err := m.PackGemSacks(t.Context(), 5555, 3)
@@ -920,7 +920,7 @@ func TestMarket_UnpackGemSacks(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		m, _, auth := setupMarket(t)
-		mockComm := auth.MockCommunity()
+		mockComm := auth.MockCommunity
 
 		mockComm.SetJSONResponse("ajaxexchangegoo", http.StatusOK, struct {
 			Success int `json:"success"`

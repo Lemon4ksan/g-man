@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
@@ -30,6 +31,7 @@ type mockExecutor struct {
 	declinedIDs []uint64
 	acceptErr   error
 	declineErr  error
+	callsChan   chan uint64
 }
 
 func (m *mockExecutor) AcceptOffer(ctx context.Context, id uint64) error {
@@ -41,6 +43,9 @@ func (m *mockExecutor) AcceptOffer(ctx context.Context, id uint64) error {
 	}
 
 	m.acceptedIDs = append(m.acceptedIDs, id)
+	if m.callsChan != nil {
+		m.callsChan <- id
+	}
 
 	return nil
 }
@@ -54,6 +59,9 @@ func (m *mockExecutor) DeclineOffer(ctx context.Context, id uint64) error {
 	}
 
 	m.declinedIDs = append(m.declinedIDs, id)
+	if m.callsChan != nil {
+		m.callsChan <- id
+	}
 
 	return nil
 }
@@ -115,22 +123,40 @@ func (m *mockConfigProvider) GetCommandPrefix() string {
 	return "!"
 }
 
-func TestProcessor_SequentialExecution(t *testing.T) {
-	logger := log.New(log.DefaultConfig(log.LevelError))
-	executor := &mockExecutor{}
+type testFixture struct {
+	proc       *Processor
+	executor   *mockExecutor
+	reviewChat *mockReviewChat
+}
 
-	// Setup Chat Providers
+func newTestFixture(t *testing.T, eng *engine.Engine) *testFixture {
+	t.Helper()
+
+	logger := log.New(log.DefaultConfig(log.LevelError))
+	ex := &mockExecutor{
+		callsChan: make(chan uint64, 150),
+	}
+
 	reviewChat := &mockReviewChat{}
 	notifChat := &mockNotifChat{reviewChat: reviewChat}
-
 	cfg := &mockConfigProvider{}
 	notifMgr := notifications.NewManager(notifChat, cfg, logger)
 
-	// Setup Reviewer
 	schema := &mockSchemaProvider{}
 	reviewer := review.New(schema, reviewChat, logger)
 
-	// Setup Engine that accepts
+	proc := New(ex, eng, notifMgr, reviewer, logger)
+
+	return &testFixture{
+		proc:       proc,
+		executor:   ex,
+		reviewChat: reviewChat,
+	}
+}
+
+func TestStart_QueueWithOffers_ProcessesOffersSequentially(t *testing.T) {
+	t.Parallel()
+
 	eng := engine.New()
 	eng.Use(func(next engine.Handler) engine.Handler {
 		return func(ctx *engine.TradeContext) error {
@@ -139,9 +165,8 @@ func TestProcessor_SequentialExecution(t *testing.T) {
 		}
 	})
 
-	proc := New(executor, eng, notifMgr, reviewer, logger)
-
-	proc.Start(t.Context())
+	f := newTestFixture(t, eng)
+	f.proc.Start(t.Context())
 
 	offer1 := &trading.TradeOffer{
 		ID:           1,
@@ -158,31 +183,31 @@ func TestProcessor_SequentialExecution(t *testing.T) {
 		},
 	}
 
-	proc.Enqueue(offer1)
-	proc.Enqueue(offer2)
+	f.proc.Enqueue(offer1)
+	f.proc.Enqueue(offer2)
 
-	// Wait for processing
-	time.Sleep(100 * time.Millisecond)
+	ctx, cancel := context.WithTimeout(t.Context(), 500*time.Millisecond)
+	t.Cleanup(cancel)
 
-	executor.mu.Lock()
-	assert.ElementsMatch(t, []uint64{1, 2}, executor.acceptedIDs)
-	executor.mu.Unlock()
+	for range 2 {
+		select {
+		case <-f.executor.callsChan:
+		case <-ctx.Done():
+			t.Fatal("timeout waiting for executor calls")
+		}
+	}
 
-	reviewChat.mu.Lock()
-	assert.Len(t, reviewChat.messages, 2) // Notifications sent
-	reviewChat.mu.Unlock()
+	f.executor.mu.Lock()
+	assert.ElementsMatch(t, []uint64{1, 2}, f.executor.acceptedIDs)
+	f.executor.mu.Unlock()
+
+	f.reviewChat.mu.Lock()
+	assert.Len(t, f.reviewChat.messages, 2)
+	f.reviewChat.mu.Unlock()
 }
 
-func TestProcessor_ItemLockingAndBusySkip(t *testing.T) {
-	logger := log.New(log.DefaultConfig(log.LevelError))
-	executor := &mockExecutor{}
-
-	reviewChat := &mockReviewChat{}
-	notifChat := &mockNotifChat{reviewChat: reviewChat}
-	cfg := &mockConfigProvider{}
-	notifMgr := notifications.NewManager(notifChat, cfg, logger)
-	schema := &mockSchemaProvider{}
-	reviewer := review.New(schema, reviewChat, logger)
+func TestHandleOffer_ItemsAlreadyLocked_SkipsProcessing(t *testing.T) {
+	t.Parallel()
 
 	eng := engine.New()
 	eng.Use(func(next engine.Handler) engine.Handler {
@@ -192,7 +217,7 @@ func TestProcessor_ItemLockingAndBusySkip(t *testing.T) {
 		}
 	})
 
-	proc := New(executor, eng, notifMgr, reviewer, logger)
+	f := newTestFixture(t, eng)
 
 	offer := &trading.TradeOffer{
 		ID:           11,
@@ -202,22 +227,22 @@ func TestProcessor_ItemLockingAndBusySkip(t *testing.T) {
 		},
 	}
 
-	// Manually set item 500 as busy!
-	proc.itemLocks.Lock(500)
-	proc.busyItems[500] = 10
+	f.proc.itemLocks.Lock(500)
+	f.proc.busyItems[500] = 10
 
-	// Call handleOffer directly. It should return early because item 500 is busy!
-	proc.handleOffer(context.Background(), offer)
+	f.proc.handleOffer(t.Context(), offer)
 
-	proc.itemLocks.Unlock(500)
+	f.proc.itemLocks.Unlock(500)
 
-	executor.mu.Lock()
-	assert.Empty(t, executor.acceptedIDs)
-	assert.Empty(t, executor.declinedIDs)
-	executor.mu.Unlock()
+	f.executor.mu.Lock()
+	assert.Empty(t, f.executor.acceptedIDs)
+	assert.Empty(t, f.executor.declinedIDs)
+	f.executor.mu.Unlock()
 }
 
-func TestProcessor_ExecuteVerdicts(t *testing.T) {
+func TestHandleOffer_VariousVerdicts_ExecutesExpectedActions(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name          string
 		action        trading.ActionType
@@ -228,14 +253,14 @@ func TestProcessor_ExecuteVerdicts(t *testing.T) {
 		expectNotif   bool
 	}{
 		{
-			name:         "Accept Verdict",
+			name:         "accept_verdict",
 			action:       trading.ActionAccept,
 			reason:       reason.AcceptDonation,
 			expectAccept: true,
 			expectNotif:  true,
 		},
 		{
-			name:          "Decline Verdict",
+			name:          "decline_verdict",
 			action:        trading.ActionDecline,
 			reason:        reason.DeclineBlacklisted,
 			expectDecline: true,
@@ -243,14 +268,14 @@ func TestProcessor_ExecuteVerdicts(t *testing.T) {
 			expectReview:  true,
 		},
 		{
-			name:         "Review Verdict",
+			name:         "review_verdict",
 			action:       trading.ActionReview,
 			reason:       reason.ReviewOverstocked,
 			expectReview: true,
 			expectNotif:  false,
 		},
 		{
-			name:   "Ignore Verdict",
+			name:   "ignore_verdict",
 			action: trading.ActionIgnore,
 			reason: reason.ReviewInvalidItems,
 		},
@@ -258,15 +283,7 @@ func TestProcessor_ExecuteVerdicts(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			logger := log.New(log.DefaultConfig(log.LevelError))
-			executor := &mockExecutor{}
-
-			reviewChat := &mockReviewChat{}
-			notifChat := &mockNotifChat{reviewChat: reviewChat}
-			cfg := &mockConfigProvider{}
-			notifMgr := notifications.NewManager(notifChat, cfg, logger)
-			schema := &mockSchemaProvider{}
-			reviewer := review.New(schema, reviewChat, logger)
+			t.Parallel()
 
 			eng := engine.New()
 			eng.Use(func(next engine.Handler) engine.Handler {
@@ -277,7 +294,7 @@ func TestProcessor_ExecuteVerdicts(t *testing.T) {
 				}
 			})
 
-			proc := New(executor, eng, notifMgr, reviewer, logger)
+			f := newTestFixture(t, eng)
 
 			offer := &trading.TradeOffer{
 				ID:           999,
@@ -287,53 +304,43 @@ func TestProcessor_ExecuteVerdicts(t *testing.T) {
 				},
 			}
 
-			proc.handleOffer(context.Background(), offer)
+			f.proc.handleOffer(t.Context(), offer)
 
-			executor.mu.Lock()
+			f.executor.mu.Lock()
 			if tt.expectAccept {
-				assert.Equal(t, []uint64{999}, executor.acceptedIDs)
+				assert.Equal(t, []uint64{999}, f.executor.acceptedIDs)
 			} else {
-				assert.Empty(t, executor.acceptedIDs)
+				assert.Empty(t, f.executor.acceptedIDs)
 			}
 
 			if tt.expectDecline {
-				assert.Equal(t, []uint64{999}, executor.declinedIDs)
+				assert.Equal(t, []uint64{999}, f.executor.declinedIDs)
 			} else {
-				assert.Empty(t, executor.declinedIDs)
+				assert.Empty(t, f.executor.declinedIDs)
 			}
 
-			executor.mu.Unlock()
+			f.executor.mu.Unlock()
 
-			reviewChat.mu.Lock()
+			f.reviewChat.mu.Lock()
 			if tt.expectNotif {
-				assert.NotEmpty(t, reviewChat.messages)
+				assert.NotEmpty(t, f.reviewChat.messages)
 			} else {
-				assert.Empty(t, reviewChat.messages)
+				assert.Empty(t, f.reviewChat.messages)
 			}
 
 			if tt.expectReview {
-				assert.NotEmpty(t, reviewChat.adminMessages)
+				assert.NotEmpty(t, f.reviewChat.adminMessages)
 			} else {
-				assert.Empty(t, reviewChat.adminMessages)
+				assert.Empty(t, f.reviewChat.adminMessages)
 			}
 
-			reviewChat.mu.Unlock()
+			f.reviewChat.mu.Unlock()
 		})
 	}
 }
 
-func TestProcessor_ExecutorErrorHandling(t *testing.T) {
-	logger := log.New(log.DefaultConfig(log.LevelError))
-	executor := &mockExecutor{
-		acceptErr: errors.New("steam accepted failed connection"),
-	}
-
-	reviewChat := &mockReviewChat{}
-	notifChat := &mockNotifChat{reviewChat: reviewChat}
-	cfg := &mockConfigProvider{}
-	notifMgr := notifications.NewManager(notifChat, cfg, logger)
-	schema := &mockSchemaProvider{}
-	reviewer := review.New(schema, reviewChat, logger)
+func TestHandleOffer_AcceptExecutorError_HandlesGracefully(t *testing.T) {
+	t.Parallel()
 
 	eng := engine.New()
 	eng.Use(func(next engine.Handler) engine.Handler {
@@ -343,31 +350,21 @@ func TestProcessor_ExecutorErrorHandling(t *testing.T) {
 		}
 	})
 
-	proc := New(executor, eng, notifMgr, reviewer, logger)
+	f := newTestFixture(t, eng)
+	f.executor.acceptErr = errors.New("steam accepted failed connection")
 
 	offer := &trading.TradeOffer{
 		ID:           888,
 		OtherSteamID: id.ID(76561198000000888),
 	}
 
-	// Should handle the executor error gracefully and not panic
 	assert.NotPanics(t, func() {
-		proc.handleOffer(context.Background(), offer)
+		f.proc.handleOffer(t.Context(), offer)
 	})
 }
 
-func TestProcessor_DeclineExecutorErrorHandling(t *testing.T) {
-	logger := log.New(log.DefaultConfig(log.LevelError))
-	executor := &mockExecutor{
-		declineErr: errors.New("steam decline failed connection"),
-	}
-
-	reviewChat := &mockReviewChat{}
-	notifChat := &mockNotifChat{reviewChat: reviewChat}
-	cfg := &mockConfigProvider{}
-	notifMgr := notifications.NewManager(notifChat, cfg, logger)
-	schema := &mockSchemaProvider{}
-	reviewer := review.New(schema, reviewChat, logger)
+func TestHandleOffer_DeclineExecutorError_HandlesGracefully(t *testing.T) {
+	t.Parallel()
 
 	eng := engine.New()
 	eng.Use(func(next engine.Handler) engine.Handler {
@@ -377,34 +374,26 @@ func TestProcessor_DeclineExecutorErrorHandling(t *testing.T) {
 		}
 	})
 
-	proc := New(executor, eng, notifMgr, reviewer, logger)
+	f := newTestFixture(t, eng)
+	f.executor.declineErr = errors.New("steam decline failed connection")
 
 	offer := &trading.TradeOffer{
 		ID:           777,
 		OtherSteamID: id.ID(76561198000000777),
 	}
 
-	// Should handle the executor error gracefully and not panic, and not send notifications
 	assert.NotPanics(t, func() {
-		proc.handleOffer(context.Background(), offer)
+		f.proc.handleOffer(t.Context(), offer)
 	})
 
-	reviewChat.mu.Lock()
-	assert.Empty(t, reviewChat.messages)
-	assert.Empty(t, reviewChat.adminMessages)
-	reviewChat.mu.Unlock()
+	f.reviewChat.mu.Lock()
+	assert.Empty(t, f.reviewChat.messages)
+	assert.Empty(t, f.reviewChat.adminMessages)
+	f.reviewChat.mu.Unlock()
 }
 
-func TestProcessor_EngineErrorHandling(t *testing.T) {
-	logger := log.New(log.DefaultConfig(log.LevelError))
-	executor := &mockExecutor{}
-
-	reviewChat := &mockReviewChat{}
-	notifChat := &mockNotifChat{reviewChat: reviewChat}
-	cfg := &mockConfigProvider{}
-	notifMgr := notifications.NewManager(notifChat, cfg, logger)
-	schema := &mockSchemaProvider{}
-	reviewer := review.New(schema, reviewChat, logger)
+func TestHandleOffer_EngineError_HandlesGracefully(t *testing.T) {
+	t.Parallel()
 
 	eng := engine.New()
 	eng.Use(func(next engine.Handler) engine.Handler {
@@ -413,34 +402,25 @@ func TestProcessor_EngineErrorHandling(t *testing.T) {
 		}
 	})
 
-	proc := New(executor, eng, notifMgr, reviewer, logger)
+	f := newTestFixture(t, eng)
 
 	offer := &trading.TradeOffer{
 		ID:           666,
 		OtherSteamID: id.ID(76561198000000666),
 	}
 
-	// Should handle the engine error gracefully and not panic
 	assert.NotPanics(t, func() {
-		proc.handleOffer(context.Background(), offer)
+		f.proc.handleOffer(t.Context(), offer)
 	})
 
-	executor.mu.Lock()
-	assert.Empty(t, executor.acceptedIDs)
-	assert.Empty(t, executor.declinedIDs)
-	executor.mu.Unlock()
+	f.executor.mu.Lock()
+	assert.Empty(t, f.executor.acceptedIDs)
+	assert.Empty(t, f.executor.declinedIDs)
+	f.executor.mu.Unlock()
 }
 
-func TestProcessor_TransportTypePropagation(t *testing.T) {
-	logger := log.New(log.DefaultConfig(log.LevelError))
-	executor := &mockExecutor{}
-
-	reviewChat := &mockReviewChat{}
-	notifChat := &mockNotifChat{reviewChat: reviewChat}
-	cfg := &mockConfigProvider{}
-	notifMgr := notifications.NewManager(notifChat, cfg, logger)
-	schema := &mockSchemaProvider{}
-	reviewer := review.New(schema, reviewChat, logger)
+func TestHandleOffer_ValidOffer_PropagatesTransportType(t *testing.T) {
+	t.Parallel()
 
 	var capturedCtx context.Context
 
@@ -453,34 +433,24 @@ func TestProcessor_TransportTypePropagation(t *testing.T) {
 		}
 	})
 
-	proc := New(executor, eng, notifMgr, reviewer, logger)
+	f := newTestFixture(t, eng)
 
 	offer := &trading.TradeOffer{
 		ID:           777,
 		OtherSteamID: id.ID(76561198000000777),
 	}
 
-	proc.handleOffer(context.Background(), offer)
+	f.proc.handleOffer(t.Context(), offer)
 
-	if capturedCtx == nil {
-		t.Fatal("expected non-nil context in middleware")
-	}
+	require.NotNil(t, capturedCtx, "expected non-nil context in middleware")
 
 	transport, ok := protocol.GetTransportType(capturedCtx)
 	assert.True(t, ok)
 	assert.Equal(t, protocol.TransportWebAPI, transport)
 }
 
-func TestProcessor_Deduplication(t *testing.T) {
-	logger := log.New(log.DefaultConfig(log.LevelError))
-	executor := &mockExecutor{}
-
-	reviewChat := &mockReviewChat{}
-	notifChat := &mockNotifChat{reviewChat: reviewChat}
-	cfg := &mockConfigProvider{}
-	notifMgr := notifications.NewManager(notifChat, cfg, logger)
-	schema := &mockSchemaProvider{}
-	reviewer := review.New(schema, reviewChat, logger)
+func TestEnqueue_DuplicateOffers_ProcessesOnlyOnce(t *testing.T) {
+	t.Parallel()
 
 	eng := engine.New()
 	eng.Use(func(next engine.Handler) engine.Handler {
@@ -490,9 +460,8 @@ func TestProcessor_Deduplication(t *testing.T) {
 		}
 	})
 
-	proc := New(executor, eng, notifMgr, reviewer, logger)
-
-	proc.Start(t.Context())
+	f := newTestFixture(t, eng)
+	f.proc.Start(t.Context())
 
 	offer := &trading.TradeOffer{
 		ID:           12345,
@@ -502,51 +471,37 @@ func TestProcessor_Deduplication(t *testing.T) {
 		},
 	}
 
-	proc.Enqueue(offer)
-	proc.Enqueue(offer)
-	proc.Enqueue(offer)
+	f.proc.Enqueue(offer)
+	f.proc.Enqueue(offer)
+	f.proc.Enqueue(offer)
 
-	time.Sleep(200 * time.Millisecond)
+	ctx, cancel := context.WithTimeout(t.Context(), 500*time.Millisecond)
+	t.Cleanup(cancel)
 
-	executor.mu.Lock()
-	assert.Equal(t, 1, len(executor.acceptedIDs), "offer should be processed only once")
-	executor.mu.Unlock()
+	select {
+	case <-f.executor.callsChan:
+	case <-ctx.Done():
+		t.Fatal("timeout waiting for executor call")
+	}
+
+	f.executor.mu.Lock()
+	assert.Len(t, f.executor.acceptedIDs, 1, "offer should be processed only once")
+	f.executor.mu.Unlock()
 }
 
-func TestProcessor_QueueOverflow(t *testing.T) {
-	logger := log.New(log.DefaultConfig(log.LevelError))
-	executor := &mockExecutor{}
-
-	reviewChat := &mockReviewChat{}
-	notifChat := &mockNotifChat{reviewChat: reviewChat}
-	cfg := &mockConfigProvider{}
-	notifMgr := notifications.NewManager(notifChat, cfg, logger)
-	schema := &mockSchemaProvider{}
-	reviewer := review.New(schema, reviewChat, logger)
+func TestEnqueue_QueueIsFull_DropsExcessOffers(t *testing.T) {
+	t.Parallel()
 
 	eng := engine.New()
-	eng.Use(func(next engine.Handler) engine.Handler {
-		return func(ctx *engine.TradeContext) error {
-			time.Sleep(100 * time.Millisecond)
-			ctx.Accept(reason.AcceptDonation)
-			return nil
-		}
-	})
+	f := newTestFixture(t, eng)
 
-	proc := New(executor, eng, notifMgr, reviewer, logger)
-
-	proc.Start(t.Context())
-
-	for i := uint64(1); i <= 150; i++ {
-		proc.Enqueue(&trading.TradeOffer{
-			ID:           i,
-			OtherSteamID: id.ID(76561198000000000 + i),
+	for i := range 150 {
+		offerID := uint64(i + 1)
+		f.proc.Enqueue(&trading.TradeOffer{
+			ID:           offerID,
+			OtherSteamID: id.ID(76561198000000000 + offerID),
 		})
 	}
 
-	time.Sleep(500 * time.Millisecond)
-
-	executor.mu.Lock()
-	assert.LessOrEqual(t, len(executor.acceptedIDs), 100, "should not process more than queue capacity")
-	executor.mu.Unlock()
+	assert.Equal(t, 100, len(f.proc.queue), "queue should be filled to its capacity of 100")
 }

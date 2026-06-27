@@ -56,11 +56,9 @@ func From(c *steam.Client) *Manager {
 type Manager struct {
 	module.Base
 
-	// Dependencies
 	client    service.Doer
 	community community.Requester
 
-	// State
 	mu            sync.RWMutex
 	relationships map[id.ID]enums.EFriendRelationship
 	users         map[id.ID]*PersonaState
@@ -255,67 +253,6 @@ func (m *Manager) InviteToGroups(ctx context.Context, steamID id.ID, groupIDs []
 	})
 }
 
-func (m *Manager) handleFriendsList(packet *protocol.Packet) {
-	list := &pb.CMsgClientFriendsList{}
-	if err := proto.Unmarshal(packet.Payload, list); err != nil {
-		m.Logger.Error("Failed to unmarshal friends list", log.Err(err))
-		return
-	}
-
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	for _, friend := range list.GetFriends() {
-		steamID := id.ID(friend.GetUlfriendid())
-		newRel := enums.EFriendRelationship(friend.GetEfriendrelationship())
-		oldRel := m.relationships[steamID]
-
-		m.relationships[steamID] = newRel
-
-		if oldRel != newRel {
-			m.Bus.Publish(&RelationshipChangedEvent{
-				SteamID: steamID,
-				Old:     oldRel,
-				New:     newRel,
-			})
-		}
-	}
-}
-
-func (m *Manager) handlePersonaState(packet *protocol.Packet) {
-	state := &pb.CMsgClientPersonaState{}
-	if err := proto.Unmarshal(packet.Payload, state); err != nil {
-		m.Logger.Error("Failed to unmarshal persona state", log.Err(err))
-		return
-	}
-
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	for _, friend := range state.GetFriends() {
-		steamID := id.ID(friend.GetFriendid())
-
-		user, exists := m.users[steamID]
-		if !exists {
-			user = &PersonaState{RichPresence: make(map[string]string)}
-			m.users[steamID] = user
-		}
-
-		if friend.PlayerName != nil {
-			user.PlayerName = friend.GetPlayerName()
-		}
-
-		if friend.AvatarHash != nil {
-			user.AvatarHash = friend.GetAvatarHash()
-		}
-
-		m.Bus.Publish(&PersonaStateUpdatedEvent{
-			SteamID: steamID,
-			State:   user,
-		})
-	}
-}
-
 // GetFriendGroups returns the list of all friend groups.
 func (m *Manager) GetFriendGroups() map[int32]FriendGroup {
 	m.mu.RLock()
@@ -343,110 +280,6 @@ func (m *Manager) GetNickname(steamID id.ID) string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.nicknames[steamID]
-}
-
-func (m *Manager) handleFriendsGroupsList(packet *protocol.Packet) {
-	list := &pb.CMsgClientFriendsGroupsList{}
-	if err := proto.Unmarshal(packet.Payload, list); err != nil {
-		m.Logger.Error("Failed to unmarshal friends groups list", log.Err(err))
-		return
-	}
-
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if !list.GetBincremental() {
-		m.friendGroups = make(map[int32]FriendGroup)
-	}
-
-	for _, group := range list.GetFriendGroups() {
-		groupID := group.GetNGroupID()
-
-		g, ok := m.friendGroups[groupID]
-		if !ok {
-			g = FriendGroup{
-				GroupID: groupID,
-				Members: make([]id.ID, 0),
-			}
-		}
-
-		g.Name = group.GetStrGroupName()
-		m.friendGroups[groupID] = g
-	}
-
-	for _, membership := range list.GetMemberships() {
-		groupID := membership.GetNGroupID()
-		memberID := id.ID(membership.GetUlSteamID())
-
-		g, ok := m.friendGroups[groupID]
-		if ok {
-			g.Members = append(g.Members, memberID)
-			g.Members = generic.Unique(g.Members)
-			m.friendGroups[groupID] = g
-		}
-	}
-
-	if !list.GetBincremental() {
-		m.Bus.Publish(&GroupListEvent{
-			Groups: m.friendGroups,
-		})
-	}
-}
-
-func (m *Manager) handlePlayerNicknameList(packet *protocol.Packet) {
-	list := &pb.CMsgClientPlayerNicknameList{}
-	if err := proto.Unmarshal(packet.Payload, list); err != nil {
-		m.Logger.Error("Failed to unmarshal player nickname list", log.Err(err))
-		return
-	}
-
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	for _, user := range list.GetNicknames() {
-		steamID := id.ID(user.GetSteamid())
-		if list.GetRemoval() {
-			delete(m.nicknames, steamID)
-		} else {
-			m.nicknames[steamID] = user.GetNickname()
-		}
-	}
-
-	if !list.GetIncremental() {
-		m.Bus.Publish(&NicknameListEvent{
-			Nicknames: m.nicknames,
-		})
-	}
-}
-
-func (m *Manager) handleNotifyFriendNicknameChanged(packet *protocol.Packet) {
-	msg := &pb.CPlayer_FriendNicknameChanged_Notification{}
-	if err := proto.Unmarshal(packet.Payload, msg); err != nil {
-		m.Logger.Error("Failed to unmarshal friend nickname changed notification", log.Err(err))
-		return
-	}
-
-	sid := id.FromAccountID(msg.GetAccountid())
-	nickname := msg.GetNickname()
-
-	m.mu.Lock()
-	// Fallback for tests using short raw account IDs as SteamIDs
-	if _, ok := m.relationships[id.ID(msg.GetAccountid())]; ok {
-		sid = id.ID(msg.GetAccountid())
-	}
-
-	if nickname == "" {
-		delete(m.nicknames, sid)
-	} else {
-		m.nicknames[sid] = nickname
-	}
-
-	m.mu.Unlock()
-
-	m.Bus.Publish(&NicknameChangedEvent{
-		SteamID:  sid,
-		Nickname: nickname,
-	})
 }
 
 // AcceptFriendRequestWeb accepts an incoming friend invitation using the web-based Steam Community API.
@@ -927,4 +760,169 @@ func (m *Manager) SetFriendNickname(ctx context.Context, steamID uint64, nicknam
 	}
 
 	return nil
+}
+
+func (m *Manager) handleFriendsGroupsList(packet *protocol.Packet) {
+	list := &pb.CMsgClientFriendsGroupsList{}
+	if err := proto.Unmarshal(packet.Payload, list); err != nil {
+		m.Logger.Error("Failed to unmarshal friends groups list", log.Err(err))
+		return
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if !list.GetBincremental() {
+		m.friendGroups = make(map[int32]FriendGroup)
+	}
+
+	for _, group := range list.GetFriendGroups() {
+		groupID := group.GetNGroupID()
+
+		g, ok := m.friendGroups[groupID]
+		if !ok {
+			g = FriendGroup{
+				GroupID: groupID,
+				Members: make([]id.ID, 0),
+			}
+		}
+
+		g.Name = group.GetStrGroupName()
+		m.friendGroups[groupID] = g
+	}
+
+	for _, membership := range list.GetMemberships() {
+		groupID := membership.GetNGroupID()
+		memberID := id.ID(membership.GetUlSteamID())
+
+		g, ok := m.friendGroups[groupID]
+		if ok {
+			g.Members = append(g.Members, memberID)
+			g.Members = generic.Unique(g.Members)
+			m.friendGroups[groupID] = g
+		}
+	}
+
+	if !list.GetBincremental() {
+		m.Bus.Publish(&GroupListEvent{
+			Groups: m.friendGroups,
+		})
+	}
+}
+
+func (m *Manager) handlePlayerNicknameList(packet *protocol.Packet) {
+	list := &pb.CMsgClientPlayerNicknameList{}
+	if err := proto.Unmarshal(packet.Payload, list); err != nil {
+		m.Logger.Error("Failed to unmarshal player nickname list", log.Err(err))
+		return
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for _, user := range list.GetNicknames() {
+		steamID := id.ID(user.GetSteamid())
+		if list.GetRemoval() {
+			delete(m.nicknames, steamID)
+		} else {
+			m.nicknames[steamID] = user.GetNickname()
+		}
+	}
+
+	if !list.GetIncremental() {
+		m.Bus.Publish(&NicknameListEvent{
+			Nicknames: m.nicknames,
+		})
+	}
+}
+
+func (m *Manager) handleNotifyFriendNicknameChanged(packet *protocol.Packet) {
+	msg := &pb.CPlayer_FriendNicknameChanged_Notification{}
+	if err := proto.Unmarshal(packet.Payload, msg); err != nil {
+		m.Logger.Error("Failed to unmarshal friend nickname changed notification", log.Err(err))
+		return
+	}
+
+	sid := id.FromAccountID(msg.GetAccountid())
+	nickname := msg.GetNickname()
+
+	m.mu.Lock()
+	// Fallback for tests using short raw account IDs as SteamIDs
+	if _, ok := m.relationships[id.ID(msg.GetAccountid())]; ok {
+		sid = id.ID(msg.GetAccountid())
+	}
+
+	if nickname == "" {
+		delete(m.nicknames, sid)
+	} else {
+		m.nicknames[sid] = nickname
+	}
+
+	m.mu.Unlock()
+
+	m.Bus.Publish(&NicknameChangedEvent{
+		SteamID:  sid,
+		Nickname: nickname,
+	})
+}
+
+func (m *Manager) handleFriendsList(packet *protocol.Packet) {
+	list := &pb.CMsgClientFriendsList{}
+	if err := proto.Unmarshal(packet.Payload, list); err != nil {
+		m.Logger.Error("Failed to unmarshal friends list", log.Err(err))
+		return
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for _, friend := range list.GetFriends() {
+		steamID := id.ID(friend.GetUlfriendid())
+		newRel := enums.EFriendRelationship(friend.GetEfriendrelationship())
+		oldRel := m.relationships[steamID]
+
+		m.relationships[steamID] = newRel
+
+		if oldRel != newRel {
+			m.Bus.Publish(&RelationshipChangedEvent{
+				SteamID: steamID,
+				Old:     oldRel,
+				New:     newRel,
+			})
+		}
+	}
+}
+
+func (m *Manager) handlePersonaState(packet *protocol.Packet) {
+	state := &pb.CMsgClientPersonaState{}
+	if err := proto.Unmarshal(packet.Payload, state); err != nil {
+		m.Logger.Error("Failed to unmarshal persona state", log.Err(err))
+		return
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for _, friend := range state.GetFriends() {
+		steamID := id.ID(friend.GetFriendid())
+
+		user, exists := m.users[steamID]
+		if !exists {
+			user = &PersonaState{RichPresence: make(map[string]string)}
+			m.users[steamID] = user
+		}
+
+		if friend.PlayerName != nil {
+			user.PlayerName = friend.GetPlayerName()
+		}
+
+		if friend.AvatarHash != nil {
+			user.AvatarHash = friend.GetAvatarHash()
+		}
+
+		m.Bus.Publish(&PersonaStateUpdatedEvent{
+			SteamID: steamID,
+			State:   user,
+		})
+	}
 }

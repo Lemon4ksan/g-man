@@ -23,6 +23,15 @@ const ConnTypeWS = "WS"
 
 var _ Connection = (*WS)(nil)
 
+// wsConn defines the minimum interface required for a base WebSocket connection.
+// This allows for isolation and testing of method behavior under various error conditions.
+type wsConn interface {
+	SetWriteDeadline(t time.Time) error
+	WriteMessage(messageType int, data []byte) error
+	Close() error
+	ReadMessage() (messageType int, p []byte, err error)
+}
+
 // WS implements the [Connection] interface using the WebSocket protocol.
 //
 // It wraps gorilla/websocket to handle connection establishment, message framing,
@@ -33,10 +42,10 @@ var _ Connection = (*WS)(nil)
 type WS struct {
 	BaseConnection
 
-	conn   *websocket.Conn
+	conn   wsConn
 	logger log.Logger
 
-	msgChan    chan NetMessage
+	msgChan    chan Message
 	errChan    chan error
 	closedChan chan struct{}
 
@@ -105,7 +114,7 @@ func NewWS(
 		BaseConnection: NewBaseConnection(ConnTypeWS),
 		conn:           conn,
 		logger:         logger.With(log.String("transport", ConnTypeWS), log.String("endpoint", endpoint)),
-		msgChan:        make(chan NetMessage, 100),
+		msgChan:        make(chan Message, 100),
 		errChan:        make(chan error, 10),
 		closedChan:     make(chan struct{}),
 	}
@@ -120,7 +129,7 @@ func (w *WS) Name() string { return ConnTypeWS }
 
 // Messages returns a channel that receives incoming binary messages from the WebSocket.
 // The channel is closed when the connection is terminated.
-func (w *WS) Messages() <-chan NetMessage { return w.msgChan }
+func (w *WS) Messages() <-chan Message { return w.msgChan }
 
 // Errors returns a channel that receives non-fatal errors from the WebSocket read loop.
 // The channel is closed when the connection is terminated.

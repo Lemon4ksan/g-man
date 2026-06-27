@@ -237,7 +237,6 @@ func main() {
 	// We handle auth changes and route active WebAPI trade offers into our unified processor.
 	sub := client.Bus().Subscribe(
 		&auth.LoggedOnEvent{},
-		&auth.LoggedOffEvent{},
 		&webtrading.NewOfferEvent{},
 	)
 	go handleEvents(sub, tradeProcessor, logger)
@@ -292,9 +291,6 @@ func handleEvents(sub *bus.Subscription, proc *processor.Processor, logger log.L
 		switch ev := event.(type) {
 		case *auth.LoggedOnEvent:
 			logger.Info("Login successful!", log.Uint64("steam_id", ev.SteamID))
-
-		case *auth.LoggedOffEvent:
-			logger.Info("Logged off from Steam")
 
 		case *webtrading.NewOfferEvent:
 			logger.Info("New active trade offer received from event bus",

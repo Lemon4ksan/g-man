@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
+	"github.com/lemon4ksan/g-man/pkg/behavior"
 	"github.com/lemon4ksan/g-man/pkg/log"
 )
 
@@ -36,90 +37,207 @@ func (m *mockSessionProvider) Refresh(ctx context.Context) error {
 	return args.Error(0)
 }
 
+func TestKeepAlive(t *testing.T) {
+	t.Parallel()
+
+	t.Run("keepalive_and_name", func(t *testing.T) {
+		t.Parallel()
+
+		bBus := bus.New()
+		logger := log.Discard
+		orch := behavior.NewOrchestrator(bBus, logger)
+		provider := new(mockSessionProvider)
+
+		KeepAlive(orch, provider, Config{})
+		assert.Equal(t, 1, orch.Count())
+
+		m := New(provider, logger, bBus, Config{})
+		assert.Equal(t, BehaviorName, m.Name())
+	})
+
+	t.Run("default_interval", func(t *testing.T) {
+		t.Parallel()
+
+		m := New(&mockSessionProvider{}, log.Discard, bus.New(), Config{})
+		assert.Equal(t, 5*time.Minute, m.config.Interval)
+	})
+}
+
 func TestManager_Run(t *testing.T) {
-	t.Run("Session Not Authenticated - Skips", func(t *testing.T) {
+	t.Parallel()
+
+	t.Run("session_not_authenticated_skips", func(t *testing.T) {
+		t.Parallel()
+
 		provider := new(mockSessionProvider)
 		eventBus := bus.New()
 		cfg := Config{
-			Interval: 10 * time.Millisecond,
+			Interval: 1 * time.Millisecond,
 		}
 
 		provider.On("IsAuthenticated").Return(false)
 
 		m := New(provider, log.Discard, eventBus, cfg)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 25*time.Millisecond)
+		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
 
-		err := m.Run(ctx)
-		assert.ErrorIs(t, err, context.DeadlineExceeded)
+		// Start checking loop asynchronously
+		go func() {
+			_ = m.Run(ctx)
+		}()
+
+		// Give it a brief moment to tick and skip
+		time.Sleep(15 * time.Millisecond)
+		cancel()
 
 		provider.AssertExpectations(t)
 	})
 
-	t.Run("Session Alive - Does Not Refresh", func(t *testing.T) {
+	t.Run("session_alive_does_not_refresh", func(t *testing.T) {
+		t.Parallel()
+
 		provider := new(mockSessionProvider)
 		eventBus := bus.New()
 		cfg := Config{
-			Interval: 10 * time.Millisecond,
+			Interval: 1 * time.Millisecond,
 		}
 
+		verified := make(chan struct{})
+
 		provider.On("IsAuthenticated").Return(true)
-		provider.On("Verify", mock.Anything).Return(true, nil)
+		provider.On("Verify", mock.Anything).Return(true, nil).Run(func(args mock.Arguments) {
+			select {
+			case verified <- struct{}{}:
+			default:
+			}
+		}).Once()
 
 		m := New(provider, log.Discard, eventBus, cfg)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 25*time.Millisecond)
+		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
 
-		err := m.Run(ctx)
-		assert.ErrorIs(t, err, context.DeadlineExceeded)
+		go func() {
+			_ = m.Run(ctx)
+		}()
+
+		select {
+		case <-verified:
+			// Success!
+		case <-time.After(1 * time.Second):
+			t.Fatal("timeout waiting for verification")
+		}
+
+		cancel()
 
 		provider.AssertExpectations(t)
 	})
 
-	t.Run("Session Expired - Triggers Refresh", func(t *testing.T) {
+	t.Run("session_expired_triggers_refresh", func(t *testing.T) {
+		t.Parallel()
+
 		provider := new(mockSessionProvider)
 		eventBus := bus.New()
 		cfg := Config{
-			Interval: 10 * time.Millisecond,
+			Interval: 1 * time.Millisecond,
 		}
 
 		provider.On("IsAuthenticated").Return(true)
 		provider.On("Verify", mock.Anything).Return(false, nil).Once()
-		provider.On("Verify", mock.Anything).Return(true, nil)
-		provider.On("Refresh", mock.Anything).Return(nil).Once()
+
+		refreshed := make(chan struct{})
+		provider.On("Refresh", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+			close(refreshed)
+		}).Once()
 
 		m := New(provider, log.Discard, eventBus, cfg)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 25*time.Millisecond)
+		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
 
-		err := m.Run(ctx)
-		assert.ErrorIs(t, err, context.DeadlineExceeded)
+		go func() {
+			_ = m.Run(ctx)
+		}()
+
+		select {
+		case <-refreshed:
+			cancel()
+		case <-time.After(1 * time.Second):
+			t.Fatal("timeout waiting for session refresh")
+		}
 
 		provider.AssertExpectations(t)
 	})
 
-	t.Run("Session Verify Fails - Triggers Refresh", func(t *testing.T) {
+	t.Run("session_verify_fails_triggers_refresh", func(t *testing.T) {
+		t.Parallel()
+
 		provider := new(mockSessionProvider)
 		eventBus := bus.New()
 		cfg := Config{
-			Interval: 10 * time.Millisecond,
+			Interval: 1 * time.Millisecond,
 		}
 
 		provider.On("IsAuthenticated").Return(true)
 		provider.On("Verify", mock.Anything).Return(false, errors.New("network error")).Once()
-		provider.On("Verify", mock.Anything).Return(true, nil)
-		provider.On("Refresh", mock.Anything).Return(nil).Once()
+
+		refreshed := make(chan struct{})
+		provider.On("Refresh", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+			close(refreshed)
+		}).Once()
 
 		m := New(provider, log.Discard, eventBus, cfg)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 25*time.Millisecond)
+		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
 
-		err := m.Run(ctx)
-		assert.ErrorIs(t, err, context.DeadlineExceeded)
+		go func() {
+			_ = m.Run(ctx)
+		}()
+
+		select {
+		case <-refreshed:
+			cancel()
+		case <-time.After(1 * time.Second):
+			t.Fatal("timeout waiting for session refresh")
+		}
+
+		provider.AssertExpectations(t)
+	})
+
+	t.Run("session_expired_refresh_fails", func(t *testing.T) {
+		t.Parallel()
+
+		provider := new(mockSessionProvider)
+		eventBus := bus.New()
+		cfg := Config{
+			Interval: 1 * time.Millisecond,
+		}
+
+		provider.On("IsAuthenticated").Return(true)
+		provider.On("Verify", mock.Anything).Return(false, nil).Once()
+
+		refreshed := make(chan struct{})
+		provider.On("Refresh", mock.Anything).Return(errors.New("refresh fail")).Run(func(args mock.Arguments) {
+			close(refreshed)
+		}).Once()
+
+		m := New(provider, log.Discard, eventBus, cfg)
+
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+
+		go func() {
+			_ = m.Run(ctx)
+		}()
+
+		select {
+		case <-refreshed:
+			cancel()
+		case <-time.After(1 * time.Second):
+			t.Fatal("timeout waiting for session refresh")
+		}
 
 		provider.AssertExpectations(t)
 	})

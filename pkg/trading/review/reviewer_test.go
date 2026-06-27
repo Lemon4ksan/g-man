@@ -68,18 +68,29 @@ func (m *mockBotStatsProvider) GetVersion() string {
 	return "1.0.0"
 }
 
-func TestReviewer_BuildSummary(t *testing.T) {
+func setupReviewer(t *testing.T) (*Reviewer, *mockSchemaProvider, *mockChatProvider) {
+	t.Helper()
+
 	schema := &mockSchemaProvider{
 		names: map[string]string{
 			"5021;6": "Mann Co. Supply Crate Key",
 			"5002;6": "Refined Metal",
 		},
 	}
-
+	chat := &mockChatProvider{}
 	logger := log.New(log.DefaultConfig(log.LevelError))
-	reviewer := New(schema, nil, logger)
+	reviewer := New(schema, chat, logger)
 
-	t.Run("Standard primary reason", func(t *testing.T) {
+	return reviewer, schema, chat
+}
+
+func TestBuildSummary_VariousMetadata_GeneratesExpectedReport(t *testing.T) {
+	t.Parallel()
+
+	t.Run("standard_primary_reason", func(t *testing.T) {
+		t.Parallel()
+
+		reviewer, _, _ := setupReviewer(t)
 		meta := &TradeMetadata{
 			PrimaryReason: reason.DeclineEscrow,
 		}
@@ -87,10 +98,13 @@ func TestReviewer_BuildSummary(t *testing.T) {
 		f := SteamFormatter{}
 		report := reviewer.BuildSummary(meta, f)
 		assert.Equal(t, "Partner has trade hold.", report.MainReason)
-		assert.Len(t, report.Details, 0)
+		assert.Empty(t, report.Details)
 	})
 
-	t.Run("Detailed reasons with processor", func(t *testing.T) {
+	t.Run("detailed_reasons_with_processor", func(t *testing.T) {
+		t.Parallel()
+
+		reviewer, _, _ := setupReviewer(t)
 		meta := &TradeMetadata{
 			PrimaryReason: reason.ReviewOverstocked,
 			Reasons: []interface{ ReasonType() reason.TradeReason }{
@@ -116,15 +130,10 @@ func TestReviewer_BuildSummary(t *testing.T) {
 	})
 }
 
-func TestReviewer_SendDeclinedAlert(t *testing.T) {
-	schema := &mockSchemaProvider{
-		names: map[string]string{
-			"5021;6": "Mann Co. Supply Crate Key",
-		},
-	}
-	chat := &mockChatProvider{}
-	logger := log.New(log.DefaultConfig(log.LevelError))
-	reviewer := New(schema, chat, logger)
+func TestSendDeclinedAlert_ValidMetadata_SendsAdminsReport(t *testing.T) {
+	t.Parallel()
+
+	reviewer, _, chat := setupReviewer(t)
 
 	meta := &TradeMetadata{
 		PrimaryReason: reason.DeclineBanned,
@@ -146,7 +155,7 @@ func TestReviewer_SendDeclinedAlert(t *testing.T) {
 	}
 
 	partnerID := id.New(76561198033830321)
-	err := reviewer.SendDeclinedAlert(context.Background(), 9999, partnerID, meta, stats)
+	err := reviewer.SendDeclinedAlert(t.Context(), 9999, partnerID, meta, stats)
 	require.NoError(t, err)
 
 	msg := chat.sentMessageAdmins
@@ -158,15 +167,10 @@ func TestReviewer_SendDeclinedAlert(t *testing.T) {
 	assert.Contains(t, msg, "Processed in: 150ms")
 }
 
-func TestReviewer_SendReviewAlert(t *testing.T) {
-	schema := &mockSchemaProvider{
-		names: map[string]string{
-			"5021;6": "Mann Co. Supply Crate Key",
-		},
-	}
-	chat := &mockChatProvider{}
-	logger := log.New(log.DefaultConfig(log.LevelError))
-	reviewer := New(schema, chat, logger)
+func TestSendReviewAlert_ValidMetadata_SendsAdminsReport(t *testing.T) {
+	t.Parallel()
+
+	reviewer, _, chat := setupReviewer(t)
 
 	meta := &TradeMetadata{
 		PrimaryReason: reason.ReviewOverstocked,
@@ -181,7 +185,7 @@ func TestReviewer_SendReviewAlert(t *testing.T) {
 	}
 
 	partnerID := id.New(76561198033830321)
-	err := reviewer.SendReviewAlert(context.Background(), 1234, partnerID, meta)
+	err := reviewer.SendReviewAlert(t.Context(), 1234, partnerID, meta)
 	require.NoError(t, err)
 
 	msg := chat.sentMessageAdmins
@@ -195,8 +199,12 @@ func TestReviewer_SendReviewAlert(t *testing.T) {
 	assert.Contains(t, msg, "Engine processing time: 50ms")
 }
 
-func TestFormatters(t *testing.T) {
-	t.Run("SteamFormatter", func(t *testing.T) {
+func TestFormatters_DifferentPlatforms_FormatsCorrectly(t *testing.T) {
+	t.Parallel()
+
+	t.Run("steam_formatter", func(t *testing.T) {
+		t.Parallel()
+
 		f := SteamFormatter{}
 		assert.Equal(t, "item", f.Item("item"))
 		assert.Equal(t, "bold", f.Bold("bold"))
@@ -204,7 +212,9 @@ func TestFormatters(t *testing.T) {
 		assert.Equal(t, "link (url)", f.Link("link", "url"))
 	})
 
-	t.Run("WebhookFormatter", func(t *testing.T) {
+	t.Run("webhook_formatter", func(t *testing.T) {
+		t.Parallel()
+
 		f := WebhookFormatter{}
 		assert.Equal(t, "_item_", f.Item("item"))
 		assert.Equal(t, "**bold**", f.Bold("bold"))
@@ -213,21 +223,31 @@ func TestFormatters(t *testing.T) {
 	})
 }
 
-func TestRegisterReason(t *testing.T) {
+func TestRegisterReason_CustomReasonAndProcessor_RegistersSuccessfully(t *testing.T) {
+	// Note: We deliberately do NOT call t.Parallel() here.
+	// This test modifies a global map (reasonRegistry) and could cause races
+	// if executed concurrently with other tests reading from it.
+	customReason := reason.TradeReason("CUSTOM_REASON")
 	desc := "Custom test reason"
 	proc := func(raw any, s SchemaProvider, f Formatter) string {
 		return "Custom string"
 	}
 
-	RegisterReason(reason.TradeReason("CUSTOM_REASON"), desc, proc)
+	RegisterReason(customReason, desc, proc)
 
-	reg, ok := reasonRegistry[reason.TradeReason("CUSTOM_REASON")]
+	t.Cleanup(func() {
+		delete(reasonRegistry, customReason)
+	})
+
+	reg, ok := reasonRegistry[customReason]
 	assert.True(t, ok)
 	assert.Equal(t, desc, reg.Description)
 	assert.Equal(t, "Custom string", reg.Processor(nil, nil, nil))
 }
 
-func TestMeta_HasReason(t *testing.T) {
+func TestMeta_HasReason_VariousScenarios_ReturnsExpectedResult(t *testing.T) {
+	t.Parallel()
+
 	m := &Meta{
 		UniqueReasons: []reason.TradeReason{reason.DeclineBanned, reason.DeclineEscrow},
 	}

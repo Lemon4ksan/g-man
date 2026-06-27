@@ -2,10 +2,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package commands provides a decoupled chat command manager for the Steam chat module.
-//
-// It automatically hooks into chat events, enforces administrator scopes using [SteamCaller],
-// applies per-user rate limiting, and dispatches executed results back to the user via Steam chat.
 package commands
 
 import (
@@ -30,102 +26,130 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/social/chat"
 )
 
-// ModuleName is the unique identifier for the command manager module.
+// ModuleName is the unique string identifier of the chat command manager.
 const ModuleName = "chat_commands"
 
+// WithModule returns a [steam.Option] that registers a [Manager] in the client module registry.
+func WithModule() steam.Option {
+	return func(c *steam.Client) {
+		c.RegisterModule(NewManager())
+	}
+}
+
+// From retrieves the registered [Manager] instance from the specified [steam.Client].
+// It returns nil if the manager is not registered, or if the client is nil.
+func From(c *steam.Client) *Manager {
+	return steam.GetModule[*Manager](c)
+}
+
 type (
-	// CommandHandler is the function signature for legacy command handlers.
+	// CommandHandler processes legacy string commands from a sender.
 	CommandHandler func(ctx context.Context, senderID uint64, args []string) (string, error)
 
-	// TypedHandler is the function signature for typed command handlers.
+	// TypedHandler processes parsed command arguments from a sender.
 	TypedHandler func(ctx context.Context, senderID uint64, args []any) (string, error)
 )
 
 type (
-	// ArgType is an alias for command.ArgType to preserve backward compatibility.
+	// ArgType represents Go's standard reflect type for command argument mapping.
 	ArgType = command.ArgType
-	// ArgSchema is an alias for command.ArgSchema to preserve backward compatibility.
+	// ArgSchema represents an individual command argument definition.
 	ArgSchema = command.ArgSchema
 )
 
-// Required defines a required argument schema for a command using generics.
+// Required defines a required argument schema using generics.
+// If the name argument is empty, a default placeholder name is assigned.
 func Required[T any](name string) ArgSchema {
 	return command.Required[T](name)
 }
 
-// Optional defines an optional argument schema for a command using generics.
+// Optional defines an optional argument schema using generics.
+// If the name argument is empty, a default placeholder name is assigned.
 func Optional[T any](name string) ArgSchema {
 	return command.Optional[T](name)
 }
 
-// Command wraps metadata for backward compatibility (GetCommand returns this type)
+// Command holds metadata and execution functions for a registered chat command.
+// It provides backwards compatibility with legacy client structures.
 type Command struct {
-	Handler      CommandHandler
+	// Handler is the default raw string arguments execution function.
+	Handler CommandHandler
+	// TypedHandler is the dynamic, slice-of-interface arguments execution function.
 	TypedHandler TypedHandler
-	IsAdmin      bool
-	Description  string
-	ArgsSchema   []ArgSchema
-	Validate     func(args []string) error
-	Aliases      []string
-	IsAlias      bool
+	// IsAdmin is true if execution of this command is restricted to trusted administrators.
+	IsAdmin bool
+	// Description is a short help text describing what the command does.
+	Description string
+	// ArgsSchema is the list of expected arguments mapped to their types.
+	ArgsSchema []ArgSchema
+	// Validate is an optional custom validation hook executed on raw string inputs.
+	Validate func(args []string) error
+	// Aliases is the list of alternative command names registered.
+	Aliases []string
+	// IsAlias is true if this entry is registered as an alias of another command.
+	IsAlias bool
 }
 
 // CommandOption defines a functional option for configuring a command.
 type CommandOption = command.Option
 
-// WithDescription sets the description of the command.
+// WithDescription configures a descriptive help text for a command.
 func WithDescription(desc string) CommandOption {
 	return command.WithDescription(desc)
 }
 
-// WithAdmin sets the command as an admin command.
+// WithAdmin configures a command to be executable only by trusted administrators.
 func WithAdmin() CommandOption {
 	return command.WithAdmin()
 }
 
-// WithArgsSchema sets the argument schema for the command.
+// WithArgsSchema configures an automated type validation and conversion schema for a command.
 func WithArgsSchema(schema ...ArgSchema) CommandOption {
 	return command.WithArgsSchema(schema...)
 }
 
-// WithValidation sets the validation function for the command.
+// WithValidation configures a custom validation function on raw string inputs.
 func WithValidation(valFn func(args []string) error) CommandOption {
 	return command.WithValidation(valFn)
 }
 
-// WithAlias sets the aliases for the command.
+// WithAlias configures one or more alternative aliases for a command.
 func WithAlias(aliases ...string) CommandOption {
 	return command.WithAlias(aliases...)
 }
 
-// ChatSender defines the interface required to send chat messages.
+// ChatSender defines the contract for sending outgoing chat messages.
 type ChatSender interface {
+	// SendMessage transmits a text chat message to the specified Steam user.
 	SendMessage(ctx context.Context, steamID uint64, text string) error
 }
 
-// Registry defines a decoupled, minimal interface for registering and managing chat commands.
+// Registry defines the registration and management contract for chat commands.
 type Registry interface {
+	// Register registers a command name and its execution handler with options.
 	Register(cmd string, handler any, opts ...CommandOption)
+	// UpdateCommandDescription modifies the help description of a registered command.
 	UpdateCommandDescription(cmd, desc string)
 }
 
-// SteamCaller implements [command.Caller] for the Steam chat transport.
+// SteamCaller represents the identity of a Steam user executing a chat command.
+// It implements the [command.Caller] interface for command authorization checks.
 type SteamCaller struct {
 	steamID uint64
 	isAdmin bool
 }
 
-// ID returns the Steam ID of the caller as a string.
+// ID returns the Steam ID of the caller formatted as a string.
 func (c SteamCaller) ID() string { return strconv.FormatUint(c.steamID, 10) }
 
-// DisplayName returns the display name of the caller.
+// DisplayName returns an empty string as Steam callers do not have static display names.
 func (c SteamCaller) DisplayName() string { return "" }
 
-// IsAdmin returns whether the caller is an admin.
+// IsAdmin reports whether the caller has administrator execution privileges.
 func (c SteamCaller) IsAdmin() bool { return c.isAdmin }
 
-// Manager coordinates registration, authorization, and async dispatch of chat commands.
-// It wraps the universal command engine for backwards compatibility.
+// Manager coordinates registration, authorization, and asynchronous dispatch of chat commands.
+// It wraps a universal [command.Engine] instance for backward compatibility.
 type Manager struct {
 	module.Base
 
@@ -143,7 +167,8 @@ type Manager struct {
 	limiter *limiter.KeyedLimiter[uint64]
 }
 
-// NewManager creates a new instance of the command manager.
+// NewManager creates a new [Manager] instance.
+// It registers custom type parsers to handle Steam [id.ID] arguments.
 func NewManager() *Manager {
 	engine := command.NewEngine()
 
@@ -165,19 +190,8 @@ func NewManager() *Manager {
 	}
 }
 
-// WithModule returns a steam.Option that registers the command manager in the client.
-func WithModule() steam.Option {
-	return func(c *steam.Client) {
-		c.RegisterModule(NewManager())
-	}
-}
-
-// From returns the command manager from the client.
-func From(c *steam.Client) *Manager {
-	return steam.GetModule[*Manager](c)
-}
-
-// Init resolves dependencies and registers command metadata.
+// Init resolves external dependencies and registers built-in command metadata.
+// It will panic if the provided [module.InitContext] is nil.
 func (m *Manager) Init(init module.InitContext) error {
 	if err := m.Base.Init(init); err != nil {
 		return err
@@ -207,7 +221,8 @@ func (m *Manager) Init(init module.InitContext) error {
 	return nil
 }
 
-// Start launches the background event subscription worker.
+// Start activates background routines and triggers event subscriptions.
+// It will panic if the provided [context.Context] is nil.
 func (m *Manager) Start(ctx context.Context) error {
 	if err := m.Base.Start(ctx); err != nil {
 		return err
@@ -220,9 +235,9 @@ func (m *Manager) Start(ctx context.Context) error {
 	return nil
 }
 
-// Register registers a command with functional options.
-// It automatically detects legacy signatures taking senderID uint64 as the second argument
-// and wraps them dynamically to fit the new universal command engine.
+// Register registers a command name and its execution handler.
+// It automatically detects legacy signatures using sender ID and wraps them to match the universal engine.
+// It will panic if the command name is empty or if the handler signature is unsupported.
 func (m *Manager) Register(cmd string, handler any, opts ...CommandOption) {
 	val := reflect.ValueOf(handler)
 	typ := val.Type()
@@ -280,7 +295,7 @@ func (m *Manager) Register(cmd string, handler any, opts ...CommandOption) {
 			m.engine.Register(cmd, wrapped, opts...)
 
 		default:
-			// Case C: func(ctx context.Context, senderID uint64, a1 T1, a2 T2, ...) (string, error)
+			// Case C: func(ctx context.Context, senderID uint64, arg1, arg2, argN) (string, error)
 			inTypes := []reflect.Type{reflect.TypeFor[context.Context]()}
 			for i := 2; i < typ.NumIn(); i++ {
 				inTypes = append(inTypes, typ.In(i))
@@ -315,23 +330,24 @@ func (m *Manager) Register(cmd string, handler any, opts ...CommandOption) {
 	}
 }
 
-// IsAdminCommand returns whether the given command is an admin command.
+// IsAdminCommand reports whether the specified command is restricted to administrators.
 func (m *Manager) IsAdminCommand(name string) bool {
 	cmd, ok := m.engine.GetCommand(name)
 	return ok && cmd.IsAdmin
 }
 
-// UnregisterCommand removes a command from the registry along with all its registered aliases.
+// UnregisterCommand removes a registered command and its aliases from the registry.
 func (m *Manager) UnregisterCommand(name string) {
 	m.engine.UnregisterCommand(name)
 }
 
-// UpdateCommandDescription dynamically modifies the description metadata of a registered command.
+// UpdateCommandDescription modifies the help description of a registered command.
 func (m *Manager) UpdateCommandDescription(cmd, desc string) {
 	m.engine.UpdateCommandDescription(cmd, desc)
 }
 
-// SetTrustedSteamIDs updates the set of trusted SteamIDs that can execute admin commands.
+// SetTrustedSteamIDs updates the set of trusted SteamIDs allowed to execute administrator commands.
+// It ignores strings that cannot be parsed as valid 64-bit unsigned integers.
 func (m *Manager) SetTrustedSteamIDs(ids []string) {
 	m.trustedMu.Lock()
 	defer m.trustedMu.Unlock()
@@ -344,14 +360,15 @@ func (m *Manager) SetTrustedSteamIDs(ids []string) {
 	}
 }
 
-// IsTrusted checks if a SteamID is currently in the trusted administrators set.
+// IsTrusted reports whether the specified SteamID belongs to a trusted administrator.
 func (m *Manager) IsTrusted(steamID uint64) bool {
 	m.trustedMu.RLock()
 	defer m.trustedMu.RUnlock()
 	return m.trusted[steamID]
 }
 
-// GetCommand retrieves a copy of a registered command and its metadata.
+// GetCommand retrieves a copy of a registered [Command] configuration.
+// It returns false if the specified command name does not exist.
 func (m *Manager) GetCommand(cmd string) (Command, bool) {
 	c, exists := m.engine.GetCommand(cmd)
 	if !exists {
@@ -359,16 +376,18 @@ func (m *Manager) GetCommand(cmd string) (Command, bool) {
 	}
 
 	return Command{
-		IsAdmin:     c.IsAdmin,
-		Description: c.Description,
-		ArgsSchema:  c.ArgsSchema,
-		Validate:    c.Validate,
-		Aliases:     c.Aliases,
-		IsAlias:     c.IsAlias,
+		Handler:      nil,
+		TypedHandler: nil,
+		IsAdmin:      c.IsAdmin,
+		Description:  c.Description,
+		ArgsSchema:   c.ArgsSchema,
+		Validate:     c.Validate,
+		Aliases:      c.Aliases,
+		IsAlias:      c.IsAlias,
 	}, true
 }
 
-// Close closes the rate limiter and performs any necessary cleanup.
+// Close closes the underlying rate limiter and releases allocated system resources.
 func (m *Manager) Close() error {
 	return m.limiter.Close()
 }
