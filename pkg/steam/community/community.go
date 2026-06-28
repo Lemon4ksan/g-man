@@ -131,7 +131,7 @@ func PostForm[Resp any](
 	allMods = append(allMods, aoni.WithDecoder(encoding.SteamJSONDecoder))
 	allMods = append(allMods, mods...)
 
-	return aoni.PostForm[Resp](ctx, r, path, strings.NewReader(params.Encode()), allMods...)
+	return aoni.PostFormJSON[Resp](ctx, r, path, strings.NewReader(params.Encode()), allMods...)
 }
 
 // PostJSON executes a POST request containing a JSON-encoded body.

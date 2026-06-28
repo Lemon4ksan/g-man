@@ -117,7 +117,7 @@ func (s *MobileConf) GetConfirmationOfferID(
 
 	path := "mobileconf/detailspage/" + strconv.FormatUint(confID, 10)
 
-	respBytes, err := community.Get[[]byte](ctx, s.client, path, params, aoni.AsRaw())
+	respBytes, err := community.Get[[]byte](ctx, s.client, path, params, aoni.WithRawDecoder())
 	if err != nil {
 		return 0, err
 	}
