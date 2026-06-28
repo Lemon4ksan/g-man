@@ -6,27 +6,28 @@
 //
 // The G-man SDK is a modular, high-performance ecosystem for building automated
 // Steam entities, ranging from simple WebAPI-based tools to complex, stateful
-// trading bots.
+// trading bots and autonomous behaviors.
 //
 // # Architecture Layers
 //
-// The framework is organized into five logical layers to ensure separation of
+// The framework is organized into logical layers to ensure separation of
 // concerns and scalability:
 //
-//  1. Core Layer (pkg/steam): The foundation. Handles low-level network communication,
-//     protocol serialization (Protobuf/VDF/JSON), and authentication. Key packages
-//     include 'socket' for CM connections and 'transport' for protocol agnosticism.
+//  1. Core Layer (pkg/steam & pkg/protobuf): The foundation. Handles connection management,
+//     protocol serialization (Protobuf/VDF/BVDF/JSON), and authentication. Key packages
+//     include 'socket' for CM connections, 'transport' for protocol agnosticism, and 'encoding'.
 //
 //  2. System Layer (pkg/steam/sys): Manages internal Steam subsystems, such as
-//     the Game Coordinator (GC) gateway and the Steam Directory client for
-//     dynamic server discovery.
+//     the Game Coordinator (GC) gateway, Account safety, Apps status, Notifications,
+//     and the Steam Directory client for dynamic server discovery.
 //
-//  3. Trading Logic (pkg/trading): A high-level engine for automated trading.
-//     It features a middleware-based "Onion" architecture for request validation
-//     and a stateful processor for trade lifecycles.
+//  3. Trading & Domain Logic (pkg/trading & pkg/behavior): High-level engines for automated trading
+//     and account behavior simulation. Trading features a middleware-based "Onion" architecture
+//     for request validation, while behavior orchestrates routines like achievements and Guard confirmations.
 //
-//  4. Infrastructure: Common utilities like 'storage' (SQLite/JSON/Memory),
-//     'bus' (event-driven communication), and 'crypto' (Steam-specific TOTP).
+//  4. Infrastructure: Common utilities like 'storage' (JSON/Memory adapters), 'network' (base TCP/WS sockets),
+//     'command' (reflection-based CLI parser), 'log' (contextual structured logger), and 'crypto' (Steam TOTP).
+//     Event-driven pub/sub communication is powered by 'miyako/bus'.
 //
 // # Core Philosophy
 //
@@ -51,9 +52,8 @@
 //   - Context Support: Every blocking or network-bound operation accepts a
 //     context.Context for proper cancellation and timeout management.
 //   - No Global State: Subsystems must be initialized via constructors (e.g., NewClient)
-//     with explicit dependency injection.
-//   - Module System: Use the 'steam.RegisterModule' interface to extend the
-//     orchestrator with custom logic.
+//     with explicit dependency injection and functional options.
+//   - Module System: Register custom modules with the orchestrator using options like WithModule.
 //
 // For examples and getting started guides, see the /examples directory in the
 // repository root.

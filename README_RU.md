@@ -114,12 +114,10 @@ func main() {
 	store, _ := jsonfile.New("storage.json")
 	logger := log.New(log.DefaultConfig(log.LevelInfo))
 
-	config := steam.DefaultConfig()
-	config.Store = store
-
 	// 2. Инициализируем оркестратор с необходимыми модулями
-	client, _ := steam.NewClient(config,
+	client, _ := steam.NewClient(steam.DefaultConfig(),
 		steam.WithLogger(logger),
+		steam.WithStorage(store),
 		webtrading.WithModule(webtrading.DefaultConfig()),
 	)
 	defer client.Close()
@@ -129,7 +127,7 @@ func main() {
 	}
 
 	// 3. Запрашиваем оптимальный сервер CM и выполняем вход
-	dir := directory.New(client.Service())
+	dir := directory.New(client)
 	server, _ := dir.GetOptimalCMServer(context.Background())
 	login := auth.NewLogOnDetails(os.Getenv("STEAM_USER"), os.Getenv("STEAM_PASS"))
 

@@ -24,11 +24,12 @@ flowchart TD
     subgraph L4 ["🚀 Layer 4: Domain & Execution (Business Logic)"]
         direction LR
         Trading["<b>🤝 trading</b><br/>Onion Middleware Engine<br/>Offers Handling"]
+        Behavior["<b>🤖 behavior</b><br/>Autonomous Routines<br/>Achievements, Session & Guard"]
         Client["<b>🤖 steam.Client</b><br/>Central Orchestrator<br/>Lifecycle Management"]
         
-        Trading ~~~ Client
+        Trading ~~~ Behavior ~~~ Client
     end
-    class L4,Trading,Client l4_node;
+    class L4,Trading,Behavior,Client l4_node;
 
     subgraph L3 ["🌐 Layer 3: Steam Networking & Social (Active Services)"]
         direction LR
@@ -45,29 +46,29 @@ flowchart TD
 
     subgraph L2 ["📜 Layer 2: Steam Base & Serialization (Data Formats)"]
         direction LR
-        Protocol["<b>📦 steam/protocol</b><br/>Compiled Protobufs<br/>VDF Parser & EMsgs"]
-        API["<b>⚙️ steam/api</b><br/>WebAPI Endpoints<br/>Typed REST Wrappers"]
+        Protocol["<b>📦 steam/protocol & protobuf</b><br/>Compiled Protobufs<br/>VDF & EMsgs"]
+        Encoding["<b>⚙️ steam/encoding</b><br/>VDF & BVDF Parsers<br/>Binary Data"]
         SID["<b>🆔 steam/id</b><br/>SteamID Math & Formats<br/>Account Types"]
         
-        Protocol ~~~ API
-        API ~~~ SID
+        Protocol ~~~ Encoding
+        Encoding ~~~ SID
     end
-    class L2,Protocol,API,SID l2_node;
+    class L2,Protocol,Encoding,SID l2_node;
 
     subgraph L1 ["🛠️ Layer 1: Infrastructure Utilities (Foundational Layer)"]
         direction LR
         Log["<b>📊 log</b><br/>Structured Logger"]
-        Bus["<b>🚌 bus</b><br/>Thread-Safe Pub/Sub"]
-        Rest["<b>🌍 rest</b><br/>HTTP Retries & Client"]
-        Storage["<b>💾 storage</b><br/>State Persistence (JSON/DB)"]
-        Crypto["<b>🔑 crypto</b><br/>RSA/AES & Hashing"]
+        Net["<b>🌐 network</b><br/>TCP/WS Transports"]
+        Storage["<b>💾 storage</b><br/>State Persistence (JSON/Memory)"]
+        Crypto["<b>🔑 crypto</b><br/>RSA/AES & Steam TOTP"]
+        Bus["<b>🚌 miyako/bus</b><br/>Thread-Safe Pub/Sub"]
         
-        Log ~~~ Bus
-        Bus ~~~ Rest
-        Rest ~~~ Storage
+        Log ~~~ Net
+        Net ~~~ Storage
         Storage ~~~ Crypto
+        Crypto ~~~ Bus
     end
-    class L1,Log,Bus,Rest,Storage,Crypto l1_node;
+    class L1,Log,Net,Storage,Crypto,Bus l1_node;
 
     L4 ==>|Uses Services| L3
     L3 ==>|Serializes via| L2
@@ -81,15 +82,15 @@ flowchart TD
 
 ## 📦 Package Catalog
 
-### 1. Core Layer (`pkg/steam`)
+### 1. Core Layer & Protobufs (`pkg/steam` & `pkg/protobuf`)
 The fundamental protocols and lifecycle systems of the client.
 
 | Package | Description |
 | :--- | :--- |
 | **[steam](steam/)** | Main Orchestrator. Coordinates Socket, Auth, and registered modules within a thread-safe client lifecycle. |
-| **[steam/api](steam/api/)** | Unified error definitions (`EResult`) and multi-format unmarshalers (VDF, JSON, Protobuf). |
 | **[steam/auth](steam/auth/)** | OAuth2 state machine tracking JWT lifetimes and background cookie refreshes. |
 | **[steam/community](steam/community/)** | Defensive HTTP client for handling inventory loads, market operations, and OpenID. |
+| **[steam/encoding](steam/encoding/)** | KeyValues (VDF) serialization and Binary VDF (BVDF) parser and decoder utilities. |
 | **[steam/guard](steam/guard/)** | Steam Guard operations, mobile confirmation retrievals, and TOTP generation. |
 | **[steam/id](steam/id/)** | SteamID parser, formatter, and math utilities supporting SID2, SID3, and 64-bit formats. |
 | **[steam/socket](steam/socket/)** | Connection Manager (CM) state machine handling TCP/WebSocket heartbeats and packet dispatch. |
@@ -97,15 +98,18 @@ The fundamental protocols and lifecycle systems of the client.
 | **[steam/social](steam/social/)** | Chat commands, friend-state sync, and persona state operations. |
 | **[steam/transport](steam/transport/)** | Low-level execution layer uniting CM Sockets and HTTP under a single interface. |
 | **[steam/webapi](steam/webapi/)** | Auto-generated standard Steam WebAPI endpoint wrappers. |
+| **[protobuf](protobuf/)** | Compiled Steam protobuf specifications (`steam`) and custom protocol structures (`custom`). |
 
 ### 2. Game Coordinators & Subsystems (`pkg/steam/sys`)
 Gateways to in-game coordination networks and app data.
 
 | Package | Description |
 | :--- | :--- |
-| **[sys/gc](steam/sys/gc/)** | Base Game Coordinator client managing GC handshakes and packet demuxing. |
+| **[sys/account](steam/sys/account/)** | Account security status management and account-level operational details. |
+| **[sys/apps](steam/sys/apps/)** | Tracking active app states, playing statuses, and socket-level notifications. |
 | **[sys/directory](steam/sys/directory/)** | DNS and API resolution of active Connection Manager (CM) server address pools. |
-| **[sys/apps](steam/sys/apps/)** | Tracking of active app states and socket-level notifications. |
+| **[sys/gc](steam/sys/gc/)** | Base Game Coordinator client managing GC handshakes and packet demuxing. |
+| **[sys/notifications](steam/sys/notifications/)** | Steam platform notification receiver and event handler subsystem. |
 
 ### 3. Trading Engine (`pkg/trading`)
 Transaction lifecycles and business flow engines.
@@ -114,27 +118,28 @@ Transaction lifecycles and business flow engines.
 | :--- | :--- |
 | **[trading/engine](trading/engine/)** | The **Onion Middleware Engine** facilitating step-by-step trade checks. |
 | **[trading/processor](trading/processor/)** | Core transaction flow controller (*Evaluate $\rightarrow$ Decide $\rightarrow$ Act $\rightarrow$ Dispatch*). |
+| **[trading/reason](trading/reason/)** | Structured review reason definitions, error codes, and trade evaluation verdicts. |
+| **[trading/notifications](trading/notifications/)** | Asynchronous trade event notifications and status update broadcasting. |
 | **[trading/review](trading/review/)** | High-value trade validation, escrow holding checks, and administrator review logs. |
 | **[trading/live](trading/live/)** | Support for GC-based real-time "Live Trading" session states. |
-| **[trading/web](trading/web/)** | Legacy web-based Steam Trade Offers processing. |
+| **[trading/web](trading/web/)** | Web-based Steam Trade Offers processing and management. |
 
 ### 4. Utilities & Support Services
 Infrastructure packages utilized throughout the project.
 
 | Package | Description |
 | :--- | :--- |
-| **[behavior](behavior/)** | Standardized, non-intrusive routines (e.g. human-mimicking achievements simulation). |
-| **[bus](bus/)** | Core memory-safe event bus supporting parallel, decoupled subscription delivery. |
-| **[crypto](crypto/)** | Encryption and decryption helpers (Symmetric/Asymmetric, Steam mobile signatures). |
-| **[jobs](jobs/)** | Thread-safe asynchronous job scheduler and worker pool manager. |
-| **[log](log/)** | Contextual, level-structured logging engine. |
-| **[storage](storage/)** | Persistent storage interfaces featuring standard JSON and memory adapters. |
-| **[command](command/)** | Thread-safe command line registration and routing system. |
+| **[behavior](behavior/)** | Standardized autonomous bot behaviors (achievements simulation, session verification, guard auto-acceptance). |
+| **[command](command/)** | Thread-safe CLI command registration, type validation, and reflection-based execution system. |
+| **[crypto](crypto/)** | Encryption and decryption helpers (RSA/AES, Steam mobile signatures, and TOTP algorithms). |
+| **[log](log/)** | Contextual, asynchronous level-structured logging engine with correlation ID tracking. |
+| **[network](network/)** | Base TCP and WebSocket connection layers, message framers, and unified network errors. |
+| **[storage](storage/)** | Persistent storage interfaces featuring standard JSON (`jsonfile`) and in-memory (`memory`) adapters. |
 
 ## 📐 Architecture Design Constraints
 
 To maintain modularity and code quality, the library adheres to these core architectural constraints:
 
-1. **Strict Mockability:** Structures depend on highly constrained interfaces (like `transport.Doer` or `storage.Store`) rather than concrete implementations, allowing developers to isolate and mock layers during testing.
-2. **Channel-Based Concurrency:** Core event dispatching routes through the `bus` package to prevent locking bottlenecks. Shared state across routines relies heavily on `sync/atomic` and read-write locks (`sync.RWMutex`).
+1. **Strict Mockability:** Structures depend on highly constrained interfaces (like `transport.Doer` or `storage.Provider`) rather than concrete implementations, allowing developers to isolate and mock layers during testing.
+2. **Channel-Based Concurrency:** Core event dispatching routes through the `miyako/bus` event bus package to prevent locking bottlenecks. Shared state across routines relies heavily on `sync/atomic` and read-write locks (`sync.RWMutex`).
 3. **Decoupled Extensions:** To prevent bloat, specialized game economies (like item schema processing or weapon smelting) are pushed to external packages like `g-man-tf2`, keeping the core framework code lean.
