@@ -31,9 +31,7 @@ const ModuleName = "chat_commands"
 
 // WithModule returns a [steam.Option] that registers a [Manager] in the client module registry.
 func WithModule() steam.Option {
-	return func(c *steam.Client) {
-		c.RegisterModule(NewManager())
-	}
+	return steam.WithModule(NewManager())
 }
 
 // From retrieves the registered [Manager] instance from the specified [steam.Client].

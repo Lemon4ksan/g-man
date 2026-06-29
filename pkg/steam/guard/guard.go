@@ -31,14 +31,14 @@ const ModuleName string = "guard"
 
 // WithModule returns a steam.Option that registers the guardian module in the client.
 func WithModule(config Config) steam.Option {
-	return func(client *steam.Client) {
-		m, err := New(config)
-		if err != nil {
+	m, err := New(config)
+	if err != nil {
+		return func(client *steam.Client) {
 			client.Logger().Error("Failed to register guardian", log.Err(err))
-		} else {
-			client.RegisterModule(m)
 		}
 	}
+
+	return steam.WithModule(m)
 }
 
 // From returns the guardian module from the client.

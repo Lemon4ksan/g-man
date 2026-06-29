@@ -24,9 +24,7 @@ const ModuleName string = "account"
 
 // WithModule returns a [steam.Option] that registers the [Account] module into the client.
 func WithModule() steam.Option {
-	return func(c *steam.Client) {
-		c.RegisterModule(New())
-	}
+	return steam.WithModule(New())
 }
 
 // From retrieves the registered [Account] module instance from the specified [steam.Client].

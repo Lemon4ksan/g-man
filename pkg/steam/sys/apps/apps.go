@@ -30,9 +30,7 @@ const NonSteamGameID uint64 = 15190414816125648896
 
 // WithModule returns a steam Option that registers the Apps module.
 func WithModule() steam.Option {
-	return func(c *steam.Client) {
-		c.RegisterModule(New())
-	}
+	return steam.WithModule(New())
 }
 
 // From returns the apps module from the client.

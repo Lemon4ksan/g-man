@@ -33,9 +33,7 @@ var ErrNotInGroupChat = errors.New("chat: not currently in this group chat")
 
 // WithModule returns a steam.Option that registers the chat module in the client.
 func WithModule() steam.Option {
-	return func(c *steam.Client) {
-		c.RegisterModule(New())
-	}
+	return steam.WithModule(New())
 }
 
 // From returns the chat module from the client.

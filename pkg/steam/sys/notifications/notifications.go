@@ -29,9 +29,7 @@ const ModuleName string = "notifications"
 
 // WithModule returns a [steam.Option] that registers the [Notifications] module in the client.
 func WithModule() steam.Option {
-	return func(c *steam.Client) {
-		c.RegisterModule(New())
-	}
+	return steam.WithModule(New())
 }
 
 // From retrieves the registered [Notifications] module instance from the specified [steam.Client].

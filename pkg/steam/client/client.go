@@ -175,7 +175,7 @@ func WithBus(bus *bus.Bus) Option {
 
 // WithStorage sets a custom [storage.Provider] for [Client].
 func WithStorage(storage storage.Provider) Option {
-	return func(c *Client) { c.storage = storage; c.storageSet = true }
+	return func(c *Client) { c.storage = storage }
 }
 
 // WithAuthenticator sets a custom [session.AuthenticatorProvider] for [Client].
@@ -227,7 +227,6 @@ type Client struct {
 	webFactory       session.WebSessionFactory
 	communityFactory session.CommunityClientFactory
 	pendingModules   []module.Module
-	storageSet       bool
 }
 
 // ResolveDefaults applies default fallbacks to the [Config] fields.
@@ -272,7 +271,7 @@ func New(cfg Config, opts ...Option) (*Client, error) {
 		c.rest = aoni.NewClient(nil)
 	}
 
-	if !c.storageSet {
+	if c.storage == nil {
 		c.storage = memory.New()
 	}
 

@@ -25,9 +25,7 @@ const ModuleName string = "offers"
 
 // WithModule returns a steam.Option that registers the trading module in the client.
 func WithModule() steam.Option {
-	return func(c *steam.Client) {
-		c.RegisterModule(New())
-	}
+	return steam.WithModule(New())
 }
 
 // From returns the live trading module from the client.

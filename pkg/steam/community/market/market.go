@@ -37,9 +37,7 @@ const ModuleName string = "market"
 
 // WithModule returns a steam.Option that registers the market module in the client.
 func WithModule(cfg Config) steam.Option {
-	return func(c *steam.Client) {
-		c.RegisterModule(New(cfg))
-	}
+	return steam.WithModule(New(cfg))
 }
 
 // From returns the market module from the client.

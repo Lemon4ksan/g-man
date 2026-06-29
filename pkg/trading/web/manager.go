@@ -43,9 +43,7 @@ const ModuleName = "trading"
 
 // WithModule returns a steam.Option that registers the trade manager with the given configuration.
 func WithModule(cfg Config) steam.Option {
-	return func(c *steam.Client) {
-		c.RegisterModule(New(cfg))
-	}
+	return steam.WithModule(New(cfg))
 }
 
 // From returns the trade manager module from the client.

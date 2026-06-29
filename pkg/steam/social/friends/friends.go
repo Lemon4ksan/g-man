@@ -38,9 +38,7 @@ const ModuleName string = "friends"
 
 // WithModule returns an option that registers the friends module with the steam client.
 func WithModule() steam.Option {
-	return func(c *steam.Client) {
-		c.RegisterModule(New())
-	}
+	return steam.WithModule(New())
 }
 
 // From returns the friends manager module from the client.

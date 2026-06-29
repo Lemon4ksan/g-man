@@ -35,9 +35,7 @@ const ModuleName string = "gc"
 
 // WithModule returns a [steam.Option] that registers the [Coordinator] module in the client.
 func WithModule() steam.Option {
-	return func(c *steam.Client) {
-		c.RegisterModule(New())
-	}
+	return steam.WithModule(New())
 }
 
 // From retrieves the registered [Coordinator] module instance from the specified [steam.Client].
