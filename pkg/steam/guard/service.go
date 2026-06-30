@@ -94,7 +94,10 @@ func (s *MobileConf) GetConfirmations(
 		ActionTag: "conf",
 	}
 
-	return community.Get[ConfirmationsList](ctx, s.client, "mobileconf/getlist", params)
+	return community.GetJSON[ConfirmationsList](
+		ctx, s.client, "mobileconf/getlist",
+		aoni.WithQuery(params),
+	)
 }
 
 // GetConfirmationOfferID retrieves the trade offer ID associated with a market listing confirmation.
@@ -117,7 +120,11 @@ func (s *MobileConf) GetConfirmationOfferID(
 
 	path := "mobileconf/detailspage/" + strconv.FormatUint(confID, 10)
 
-	respBytes, err := community.Get[[]byte](ctx, s.client, path, params, aoni.WithRawDecoder())
+	respBytes, err := community.GetJSON[[]byte](
+		ctx, s.client, path,
+		aoni.WithQuery(params),
+		aoni.WithRawDecoder(),
+	)
 	if err != nil {
 		return 0, err
 	}
@@ -161,7 +168,10 @@ func (s *MobileConf) RespondToConfirmation(
 		Success bool `json:"success"`
 	}
 
-	resp, err := community.Get[resStruct](ctx, s.client, "mobileconf/ajaxop", params)
+	resp, err := community.GetJSON[resStruct](
+		ctx, s.client, "mobileconf/ajaxop",
+		aoni.WithQuery(params),
+	)
 	if err != nil {
 		return err
 	}

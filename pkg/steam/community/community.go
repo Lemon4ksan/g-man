@@ -49,31 +49,24 @@ func Decorate(r Requester, mods ...aoni.RequestModifier) Requester {
 	}
 }
 
-// Get executes a GET request and decodes the resulting JSON response into a new [Resp] instance.
+// GetJSON executes a GET request and decodes the resulting JSON response into a new [Resp] instance.
 // It automatically configures the request headers and uses the [encoding.SteamJSONDecoder] for decoding.
 // It passes reqMsg as URL query parameters if it is not nil.
 // It returns network, decoding, or Steam-specific response validation errors.
 // It will panic if the provided [Requester] is nil.
-func Get[Resp any](
+func GetJSON[Resp any](
 	ctx context.Context,
 	r Requester,
 	path string,
-	reqMsg any,
 	mods ...aoni.RequestModifier,
 ) (*Resp, error) {
-	var allMods []aoni.RequestModifier
+	mods = append([]aoni.RequestModifier{
+		aoni.WithDecoder(encoding.SteamJSONDecoder),
+		aoni.WithAccept("application/json, text/javascript; q=0.01"),
+		aoni.WithHeader("X-Requested-With", "XMLHttpRequest"),
+	}, mods...)
 
-	allMods = append(allMods, aoni.WithDecoder(encoding.SteamJSONDecoder))
-	allMods = append(allMods, aoni.WithAccept("application/json, text/javascript; q=0.01"))
-	allMods = append(allMods, aoni.WithHeader("X-Requested-With", "XMLHttpRequest"))
-
-	if reqMsg != nil {
-		allMods = append(allMods, aoni.WithQuery(reqMsg))
-	}
-
-	allMods = append(allMods, mods...)
-
-	return aoni.GetJSON[Resp](ctx, r, path, allMods...)
+	return aoni.GetJSON[Resp](ctx, r, path, mods...)
 }
 
 // GetHTML executes a GET request optimized for raw HTML content.
@@ -81,14 +74,11 @@ func Get[Resp any](
 // It returns network errors or Steam-specific response errors encountered during the request.
 // It will panic if the provided [Requester] is nil.
 func GetHTML(ctx context.Context, r Requester, path string, mods ...aoni.RequestModifier) (io.ReadCloser, error) {
-	allMods := make([]aoni.RequestModifier, 0, 1+len(mods))
-	allMods = append(
-		allMods,
+	mods = append([]aoni.RequestModifier{
 		aoni.WithAccept("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"),
-	)
-	allMods = append(allMods, mods...)
+	}, mods...)
 
-	resp, err := r.Request(ctx, http.MethodGet, path, allMods...)
+	resp, err := r.Request(ctx, http.MethodGet, path, mods...)
 	if err != nil {
 		return nil, err
 	}
@@ -125,13 +115,13 @@ func PostForm[Resp any](
 		params.Set("sessionid", r.SessionID(BaseURL))
 	}
 
-	allMods := make([]aoni.RequestModifier, 0, 3+len(mods))
-	allMods = append(allMods, aoni.WithContentType("application/x-www-form-urlencoded; charset=UTF-8"))
-	allMods = append(allMods, aoni.WithAccept("application/json, text/javascript; q=0.01"))
-	allMods = append(allMods, aoni.WithDecoder(encoding.SteamJSONDecoder))
-	allMods = append(allMods, mods...)
+	mods = append([]aoni.RequestModifier{
+		aoni.WithDecoder(encoding.SteamJSONDecoder),
+		aoni.WithAccept("application/json, text/javascript; q=0.01"),
+		aoni.WithContentType("application/x-www-form-urlencoded; charset=UTF-8"),
+	}, mods...)
 
-	return aoni.PostFormJSON[Resp](ctx, r, path, strings.NewReader(params.Encode()), allMods...)
+	return aoni.PostFormJSON[Resp](ctx, r, path, strings.NewReader(params.Encode()), mods...)
 }
 
 // PostJSON executes a POST request containing a JSON-encoded body.
@@ -161,14 +151,14 @@ func PostJSON[Resp any](
 		}
 	}
 
-	allMods := make([]aoni.RequestModifier, 0, 4+len(mods))
-	allMods = append(allMods, aoni.WithQuery(query))
-	allMods = append(allMods, aoni.WithContentType("application/json; charset=UTF-8"))
-	allMods = append(allMods, aoni.WithAccept("application/json"))
-	allMods = append(allMods, aoni.WithDecoder(encoding.SteamJSONDecoder))
-	allMods = append(allMods, mods...)
+	mods = append([]aoni.RequestModifier{
+		aoni.WithQuery(query),
+		aoni.WithContentType("application/json; charset=UTF-8"),
+		aoni.WithAccept("application/json"),
+		aoni.WithDecoder(encoding.SteamJSONDecoder),
+	}, mods...)
 
-	return aoni.PostJSON[Resp](ctx, r, path, bytes.NewReader(bodyBytes), allMods...)
+	return aoni.PostJSON[Resp](ctx, r, path, bytes.NewReader(bodyBytes), mods...)
 }
 
 type decoratedRequester struct {
@@ -181,9 +171,5 @@ func (d *decoratedRequester) Request(
 	method, path string,
 	mods ...aoni.RequestModifier,
 ) (*http.Response, error) {
-	allMods := make([]aoni.RequestModifier, 0, len(d.defaultMods)+len(mods))
-	allMods = append(allMods, d.defaultMods...)
-	allMods = append(allMods, mods...)
-
-	return d.Requester.Request(ctx, method, path, allMods...)
+	return d.Requester.Request(ctx, method, path, append(d.defaultMods, mods...)...)
 }

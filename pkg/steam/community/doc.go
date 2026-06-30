@@ -8,7 +8,7 @@
 //
 // The package defines the [Requester] and [SessionProvider] interface aliases which map directly
 // to their counterparts in [client]. It provides the [Decorate] function to wrap a requester
-// with default modifiers, and helper functions like [Get], [GetHTML], [PostForm], and [PostJSON]
+// with default modifiers, and helper functions like [GetJSON], [GetHTML], [PostForm], and [PostJSON]
 // to streamline communications.
 //
 // Basic usage example:

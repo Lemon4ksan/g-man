@@ -420,8 +420,9 @@ func fetchInventoryPage(
 		StartAssetID: startAssetID,
 	}
 
-	resp, err := community.Get[inventoryResponse](
-		ctx, client, "inventory/{steamID}/{appID}/{contextID}", req,
+	resp, err := community.GetJSON[inventoryResponse](
+		ctx, client, "inventory/{steamID}/{appID}/{contextID}",
+		aoni.WithQuery(req),
 		aoni.WithVars("steamID", steamID, "appID", appID, "contextID", contextID),
 		aoni.WithHeader("Referer", fmt.Sprintf("https://steamcommunity.com/profiles/%d/inventory", steamID)),
 	)

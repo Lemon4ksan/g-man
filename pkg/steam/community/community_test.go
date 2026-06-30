@@ -113,11 +113,9 @@ func TestGet(t *testing.T) {
 		mockSvc.OnRest = func(method, path string, body any) (*http.Response, error) {
 			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewReader(respBody))}, nil
 		}
-		resp, err := community.Get[genericResponse](
-			t.Context(),
-			client,
-			"/test/get",
-			genericRequest{Param1: "hi", Param2: 1},
+		resp, err := community.GetJSON[genericResponse](
+			t.Context(), client, "/test/get",
+			aoni.WithQuery(genericRequest{Param1: "hi", Param2: 1}),
 		)
 		require.NoError(t, err)
 		assert.Equal(t, true, resp.Success)
@@ -129,7 +127,12 @@ func TestGet(t *testing.T) {
 		mockSvc := mock.NewServiceMock()
 		client := community.NewClient(nil, nil).WithREST(mockSvc)
 
-		resp, err := community.Get[genericResponse](t.Context(), client, "/test/get", make(chan int))
+		resp, err := community.GetJSON[genericResponse](
+			t.Context(),
+			client,
+			"/test/get",
+			aoni.WithQuery(make(chan int)),
+		)
 		require.NoError(t, err)
 		assert.NotNil(t, resp)
 	})
@@ -143,7 +146,7 @@ func TestGet(t *testing.T) {
 		mockSvc.OnRest = func(method, path string, body any) (*http.Response, error) {
 			return nil, errors.New("get request failed")
 		}
-		_, err := community.Get[genericResponse](t.Context(), client, "/test/get", nil)
+		_, err := community.GetJSON[genericResponse](t.Context(), client, "/test/get")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "get request failed")
 	})
@@ -160,7 +163,7 @@ func TestGet(t *testing.T) {
 				Body:       io.NopCloser(strings.NewReader(`{"success": "not-a-bool"}`)),
 			}, nil
 		}
-		_, err := community.Get[genericResponse](t.Context(), client, "/test/get", nil)
+		_, err := community.GetJSON[genericResponse](t.Context(), client, "/test/get")
 		require.Error(t, err)
 		assert.IsType(t, &json.UnmarshalTypeError{}, err)
 	})
@@ -427,7 +430,7 @@ func TestPerformRequest(t *testing.T) {
 			},
 		}
 		client := community.NewClient(httpClient, nil)
-		_, err := community.Get[genericResponse](
+		_, err := community.GetJSON[genericResponse](
 			t.Context(),
 			client,
 			"/test",
@@ -448,7 +451,7 @@ func TestPerformRequest(t *testing.T) {
 		req := customRequester{Requester: mockSvc}
 
 		require.NotPanics(t, func() {
-			_, err := community.Get[genericResponse](t.Context(), req, "/test", nil)
+			_, err := community.GetJSON[genericResponse](t.Context(), req, "/test")
 			require.NoError(t, err)
 		})
 	})

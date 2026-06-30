@@ -154,15 +154,7 @@ func (m *Market) CreateBuyOrder(ctx context.Context, opts CreateBuyOrderOptions)
 		Quantity       int          `url:"quantity"`
 		BillingState   string       `url:"billing_state"`
 		SaveMyAddress  string       `url:"save_my_address"`
-	}{
-		AppID:          opts.AppID,
-		Currency:       m.config.Currency,
-		MarketHashName: opts.MarketHashName,
-		PriceTotal:     priceTotal,
-		Quantity:       opts.Amount,
-		BillingState:   "",
-		SaveMyAddress:  "0",
-	}
+	}{opts.AppID, m.config.Currency, opts.MarketHashName, priceTotal, opts.Amount, "", "0"}
 
 	resp, err := community.PostForm[CreateBuyOrderResponse](
 		ctx, client, "market/createbuyorder", req,
@@ -233,8 +225,9 @@ func (m *Market) CancelSellOrder(ctx context.Context, listingID uint64) error {
 
 // Search searches for items on the marketplace.
 func (m *Market) Search(ctx context.Context, appID uint32, opts SearchOptions) (*SearchResponse, error) {
-	return community.Get[SearchResponse](
-		ctx, m.marketClient, "market/search/render", opts,
+	return community.GetJSON[SearchResponse](
+		ctx, m.marketClient, "market/search/render",
+		aoni.WithQuery(opts),
 		aoni.WithHeader("Referer", fmt.Sprintf(community.BaseURL+"market/search?appid=%d", appID)),
 	)
 }
@@ -251,7 +244,10 @@ func (m *Market) GetPriceOverview(
 		MarketHashName string       `url:"market_hash_name"`
 	}{appID, m.config.Currency, marketHashName}
 
-	return community.Get[PriceOverviewResponse](ctx, m.marketClient, "market/priceoverview", req)
+	return community.GetJSON[PriceOverviewResponse](
+		ctx, m.marketClient, "market/priceoverview",
+		aoni.WithQuery(req),
+	)
 }
 
 // GetItemOrdersHistogram gets a histogram of active buy and sell orders.
@@ -269,8 +265,9 @@ func (m *Market) GetItemOrdersHistogram(
 		TwoFactor  int          `url:"two_factor"`
 	}{m.config.Country, m.config.Language, m.config.Currency, itemNameID, 0}
 
-	resp, err := community.Get[ItemOrdersHistogramResponse](
-		ctx, m.marketClient, "market/itemordershistogram", req,
+	resp, err := community.GetJSON[ItemOrdersHistogramResponse](
+		ctx, m.marketClient, "market/itemordershistogram",
+		aoni.WithQuery(req),
 		aoni.WithHeader(
 			"Referer",
 			fmt.Sprintf(community.BaseURL+"market/listings/%d/%s", appID, url.PathEscape(marketHashName)),
@@ -291,7 +288,10 @@ func (m *Market) GetMyListings(ctx context.Context, start, count int) (*MyListin
 		NoRender int `url:"norender"`
 	}{start, count, 1}
 
-	return community.Get[MyListingsResponse](ctx, m.marketClient, "market/mylistings", req)
+	return community.GetJSON[MyListingsResponse](
+		ctx, m.marketClient, "market/mylistings",
+		aoni.WithQuery(req),
+	)
 }
 
 // GetMarketApps retrieves all apps listed on the Steam Community Market.
@@ -348,7 +348,10 @@ func (m *Market) GetGemValue(ctx context.Context, appID uint32, assetID uint64) 
 		AssetID   uint64 `url:"assetid"`
 	}{appID, 6, assetID}
 
-	resp, err := community.Get[gemValueResponse](ctx, client, "ajaxgetgoovalue", req)
+	resp, err := community.GetJSON[gemValueResponse](
+		ctx, client, "ajaxgetgoovalue",
+		aoni.WithQuery(req),
+	)
 	if err != nil {
 		return nil, err
 	}
