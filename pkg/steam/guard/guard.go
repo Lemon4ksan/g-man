@@ -417,9 +417,9 @@ func (g *Guardian) respond(ctx context.Context, confirmations []*Confirmation, a
 	}
 
 	timestamp := g.clock.Now().Unix()
-	op := generic.Ternary(accept, "allow", "cancel")
+	tag := generic.Ternary(accept, "accept", "reject")
 
-	key, err := crypto.GenerateConfirmationKey(g.config.IdentitySecret, timestamp, op)
+	key, err := crypto.GenerateConfirmationKey(g.config.IdentitySecret, timestamp, tag)
 	if err != nil {
 		return err
 	}
