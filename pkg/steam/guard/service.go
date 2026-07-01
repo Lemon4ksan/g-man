@@ -13,11 +13,12 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/miyako/generic"
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/lemon4ksan/g-man/pkg/crypto"
-	pbSteam "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
+	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
@@ -147,19 +148,14 @@ func (s *MobileConf) RespondToConfirmation(
 	confKey string,
 	timestamp int64,
 ) error {
-	op := "cancel"
-	if accept {
-		op = "allow"
-	}
-
 	params := baseParams{
 		DeviceID:  deviceID,
 		SteamID:   steamID,
 		ConfKey:   confKey,
 		Timestamp: timestamp,
 		Mode:      "react",
-		ActionTag: "conf",
-		Op:        op,
+		ActionTag: generic.Ternary(accept, "accept", "reject"),
+		Op:        generic.Ternary(accept, "allow", "cancel"),
 		ConfID:    conf.ID,
 		Nonce:     conf.Nonce,
 	}
@@ -197,11 +193,6 @@ func (s *MobileConf) RespondToMultiple(
 		return nil
 	}
 
-	op := "cancel"
-	if accept {
-		op = "allow"
-	}
-
 	type multiRequest struct {
 		baseParams
 		ConfIDs []uint64 `url:"cid[]"`
@@ -215,8 +206,8 @@ func (s *MobileConf) RespondToMultiple(
 			ConfKey:   confKey,
 			Timestamp: timestamp,
 			Mode:      "react",
-			ActionTag: "multiajaxop",
-			Op:        op,
+			ActionTag: generic.Ternary(accept, "accept", "reject"),
+			Op:        generic.Ternary(accept, "allow", "cancel"),
 		},
 		ConfIDs: make([]uint64, len(confs)),
 		Nonces:  make([]uint64, len(confs)),
@@ -261,15 +252,15 @@ func (s *TwoFactorService) AddAuthenticator(
 	ctx context.Context,
 	steamID id.ID,
 	deviceID string,
-) (*pbSteam.CTwoFactor_AddAuthenticator_Response, error) {
-	req := &pbSteam.CTwoFactor_AddAuthenticator_Request{
+) (*pb.CTwoFactor_AddAuthenticator_Response, error) {
+	req := &pb.CTwoFactor_AddAuthenticator_Request{
 		AuthenticatorType: proto.Uint32(1),
 		Steamid:           proto.Uint64(steamID.Uint64()),
 		DeviceIdentifier:  proto.String(deviceID),
 		Version:           proto.Uint32(2),
 	}
 
-	return service.Unified[pbSteam.CTwoFactor_AddAuthenticator_Response](ctx, s.client, req)
+	return service.Unified[pb.CTwoFactor_AddAuthenticator_Response](ctx, s.client, req)
 }
 
 // FinalizeAuthenticator finalizes linking the authenticator using the verification SMS/email code and generated TOTP.
@@ -279,13 +270,13 @@ func (s *TwoFactorService) FinalizeAuthenticator(
 	sharedSecret string,
 	serverTime uint64,
 	smsCode string,
-) (*pbSteam.CTwoFactor_FinalizeAddAuthenticator_Response, error) {
+) (*pb.CTwoFactor_FinalizeAddAuthenticator_Response, error) {
 	totpCode, err := crypto.GenerateAuthCode(sharedSecret, int64(serverTime))
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate verification totp code: %w", err)
 	}
 
-	req := &pbSteam.CTwoFactor_FinalizeAddAuthenticator_Request{
+	req := &pb.CTwoFactor_FinalizeAddAuthenticator_Request{
 		Steamid:           proto.Uint64(steamID.Uint64()),
 		AuthenticatorCode: proto.String(totpCode),
 		AuthenticatorTime: proto.Uint64(serverTime),
@@ -293,40 +284,40 @@ func (s *TwoFactorService) FinalizeAuthenticator(
 		ValidateSmsCode:   proto.Bool(true),
 	}
 
-	return service.Unified[pbSteam.CTwoFactor_FinalizeAddAuthenticator_Response](ctx, s.client, req)
+	return service.Unified[pb.CTwoFactor_FinalizeAddAuthenticator_Response](ctx, s.client, req)
 }
 
 // QueryStatus queries the current two-factor status for the account.
 func (s *TwoFactorService) QueryStatus(
 	ctx context.Context,
 	steamID id.ID,
-) (*pbSteam.CTwoFactor_Status_Response, error) {
-	req := &pbSteam.CTwoFactor_Status_Request{
+) (*pb.CTwoFactor_Status_Response, error) {
+	req := &pb.CTwoFactor_Status_Request{
 		Steamid: proto.Uint64(steamID.Uint64()),
 	}
 
-	return service.Unified[pbSteam.CTwoFactor_Status_Response](ctx, s.client, req)
+	return service.Unified[pb.CTwoFactor_Status_Response](ctx, s.client, req)
 }
 
 // RemoveAuthenticator removes/revokes the authenticator using a revocation code.
 func (s *TwoFactorService) RemoveAuthenticator(
 	ctx context.Context,
 	revocationCode string,
-) (*pbSteam.CTwoFactor_RemoveAuthenticator_Response, error) {
-	req := &pbSteam.CTwoFactor_RemoveAuthenticator_Request{
+) (*pb.CTwoFactor_RemoveAuthenticator_Response, error) {
+	req := &pb.CTwoFactor_RemoveAuthenticator_Request{
 		RevocationCode: proto.String(revocationCode),
 	}
 
-	return service.Unified[pbSteam.CTwoFactor_RemoveAuthenticator_Response](ctx, s.client, req)
+	return service.Unified[pb.CTwoFactor_RemoveAuthenticator_Response](ctx, s.client, req)
 }
 
 // RemoveAuthenticatorViaChallengeStart begins the authenticator transfer.
 func (s *TwoFactorService) RemoveAuthenticatorViaChallengeStart(
 	ctx context.Context,
-) (*pbSteam.CTwoFactor_RemoveAuthenticatorViaChallengeStart_Response, error) {
-	req := &pbSteam.CTwoFactor_RemoveAuthenticatorViaChallengeStart_Request{}
+) (*pb.CTwoFactor_RemoveAuthenticatorViaChallengeStart_Response, error) {
+	req := &pb.CTwoFactor_RemoveAuthenticatorViaChallengeStart_Request{}
 
-	return service.Unified[pbSteam.CTwoFactor_RemoveAuthenticatorViaChallengeStart_Response](ctx, s.client, req)
+	return service.Unified[pb.CTwoFactor_RemoveAuthenticatorViaChallengeStart_Response](ctx, s.client, req)
 }
 
 // RemoveAuthenticatorViaChallengeContinue finishes the authenticator transfer using the SMS code.
@@ -334,19 +325,19 @@ func (s *TwoFactorService) RemoveAuthenticatorViaChallengeContinue(
 	ctx context.Context,
 	steamID id.ID,
 	smsCode string,
-) (*pbSteam.CTwoFactor_RemoveAuthenticatorViaChallengeContinue_Response, error) {
-	req := &pbSteam.CTwoFactor_RemoveAuthenticatorViaChallengeContinue_Request{
+) (*pb.CTwoFactor_RemoveAuthenticatorViaChallengeContinue_Response, error) {
+	req := &pb.CTwoFactor_RemoveAuthenticatorViaChallengeContinue_Request{
 		SmsCode:          proto.String(smsCode),
 		GenerateNewToken: proto.Bool(true),
 		Version:          proto.Uint32(2),
 	}
 
-	return service.Unified[pbSteam.CTwoFactor_RemoveAuthenticatorViaChallengeContinue_Response](ctx, s.client, req)
+	return service.Unified[pb.CTwoFactor_RemoveAuthenticatorViaChallengeContinue_Response](ctx, s.client, req)
 }
 
 // IsFinalizeWantMore parses the unknown fields of CTwoFactor_FinalizeAddAuthenticator_Response
 // to determine if Steam expects more authentication codes.
-func IsFinalizeWantMore(resp *pbSteam.CTwoFactor_FinalizeAddAuthenticator_Response) bool {
+func IsFinalizeWantMore(resp *pb.CTwoFactor_FinalizeAddAuthenticator_Response) bool {
 	if resp == nil {
 		return false
 	}
