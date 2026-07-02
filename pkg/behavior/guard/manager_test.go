@@ -111,11 +111,12 @@ func TestManager_Run(t *testing.T) {
 			{ID: 3, Type: guard.ConfTypeLogin},
 		}
 
-		fetched := make(chan struct{})
-		provider.On("FetchConfirmations", mock.Anything).Return(confs, nil).Run(func(args mock.Arguments) {
-			close(fetched)
+		accepted := make(chan struct{})
+
+		provider.On("FetchConfirmations", mock.Anything).Return(confs, nil).Once()
+		provider.On("AcceptMultiple", mock.Anything, confs).Return(nil).Run(func(args mock.Arguments) {
+			close(accepted)
 		}).Once()
-		provider.On("AcceptMultiple", mock.Anything, confs).Return(nil).Once()
 
 		m := New(provider, log.Discard, eventBus, cfg)
 
@@ -127,7 +128,7 @@ func TestManager_Run(t *testing.T) {
 			eventBus.Publish(&auth.SteamGuardRequiredEvent{IsAppConfirm: true})
 
 			select {
-			case <-fetched:
+			case <-accepted:
 			case <-time.After(1 * time.Second):
 			}
 
@@ -152,11 +153,12 @@ func TestManager_Run(t *testing.T) {
 			{ID: 4, Type: guard.ConfTypeTrade},
 		}
 
-		fetched := make(chan struct{})
-		provider.On("FetchConfirmations", mock.Anything).Return(confs, nil).Run(func(args mock.Arguments) {
-			close(fetched)
+		accepted := make(chan struct{})
+
+		provider.On("FetchConfirmations", mock.Anything).Return(confs, nil).Once()
+		provider.On("AcceptMultiple", mock.Anything, confs).Return(nil).Run(func(args mock.Arguments) {
+			close(accepted)
 		}).Once()
-		provider.On("AcceptMultiple", mock.Anything, confs).Return(nil).Once()
 
 		m := New(provider, log.Discard, eventBus, cfg)
 
@@ -168,7 +170,7 @@ func TestManager_Run(t *testing.T) {
 			eventBus.Publish(&guard.ConfirmationRequiredEvent{IsAppConfirm: true, TradeOfferID: "123"})
 
 			select {
-			case <-fetched:
+			case <-accepted:
 			case <-time.After(1 * time.Second):
 			}
 
@@ -194,11 +196,15 @@ func TestManager_Run(t *testing.T) {
 			{ID: 6, Type: guard.ConfTypeMarket},
 		}
 
-		fetched := make(chan struct{})
-		provider.On("FetchConfirmations", mock.Anything).Return(confs, nil).Run(func(args mock.Arguments) {
-			close(fetched)
-		}).Once()
-		provider.On("AcceptMultiple", mock.Anything, []*guard.Confirmation{confs[1]}).Return(nil).Once()
+		accepted := make(chan struct{})
+
+		provider.On("FetchConfirmations", mock.Anything).Return(confs, nil).Once()
+		provider.On("AcceptMultiple", mock.Anything, []*guard.Confirmation{confs[1]}).
+			Return(nil).
+			Run(func(args mock.Arguments) {
+				close(accepted)
+			}).
+			Once()
 
 		m := New(provider, log.Discard, eventBus, cfg)
 
@@ -210,7 +216,7 @@ func TestManager_Run(t *testing.T) {
 			eventBus.Publish(&auth.SteamGuardRequiredEvent{IsAppConfirm: true})
 
 			select {
-			case <-fetched:
+			case <-accepted:
 			case <-time.After(1 * time.Second):
 			}
 
