@@ -383,6 +383,28 @@ func (c *Client) Run() error {
 		_ = c.session.StartRefreshLoop(c.ctx)
 	})
 
+	c.wg.Go(func() {
+		sub := c.bus.Subscribe(&auth.LoggedOnEvent{})
+		defer sub.Unsubscribe()
+
+		for {
+			select {
+			case <-c.ctx.Done():
+				return
+			case ev, ok := <-sub.C():
+				if !ok {
+					return
+				}
+
+				if _, ok := ev.(*auth.LoggedOnEvent); ok {
+					if err := c.SetPersonaState(c.ctx, c.PersonaState()); err != nil {
+						c.Logger().Warn("Failed to set persona state after logon event", log.Err(err))
+					}
+				}
+			}
+		}
+	})
+
 	_ = c.fsm.Transition(c.ctx, EventRun)
 
 	return nil
@@ -437,10 +459,6 @@ func (c *Client) ConnectAndLogin(ctx context.Context, server socket.CMServer, de
 
 	c.EnrichLogger(details.AccountName, details.SteamID)
 
-	if err := c.SetPersonaState(ctx, c.GetPersonaState()); err != nil {
-		c.Logger().Warn("Failed to send initial persona status update", log.Err(err))
-	}
-
 	_ = c.fsm.Transition(context.Background(), EventAuthorize)
 
 	if err := c.modules.StartAuthedAll(c.ctx); err != nil {
@@ -474,10 +492,6 @@ func (c *Client) Reconnect(ctx context.Context) error {
 
 	if err := c.session.Reconnect(ctx); err != nil {
 		return fmt.Errorf("steam: reconnect failed: %w", err)
-	}
-
-	if err := c.SetPersonaState(ctx, c.GetPersonaState()); err != nil {
-		c.Logger().Warn("Failed to set persona state after reconnect", log.Err(err))
 	}
 
 	_ = c.fsm.Transition(context.Background(), EventAuthorize)
@@ -554,8 +568,8 @@ func (c *Client) EnrichLogger(account string, steamID id.ID) {
 	}
 }
 
-// GetPersonaState returns the current persona state of the client.
-func (c *Client) GetPersonaState() enums.EPersonaState {
+// PersonaState returns the current persona state of the client.
+func (c *Client) PersonaState() enums.EPersonaState {
 	c.personaStateMu.RLock()
 	defer c.personaStateMu.RUnlock()
 	return c.personaState

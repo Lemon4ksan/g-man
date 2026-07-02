@@ -300,7 +300,7 @@ func TestClient_SetPersonaState_ValidState_SetsStateSuccessfully(t *testing.T) {
 
 	err := c.SetPersonaState(ctx, enums.EPersonaState_Online)
 	assert.NoError(t, err)
-	assert.Equal(t, enums.EPersonaState_Online, c.GetPersonaState())
+	assert.Equal(t, enums.EPersonaState_Online, c.PersonaState())
 }
 
 func TestClient_ConnectAndLogin_VariousFailures_ReturnsExpectedError(t *testing.T) {
