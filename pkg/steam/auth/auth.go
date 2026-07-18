@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package auth implements the complex, multi-stage authentication logic
+// required to establish a secure session with Steam.
 package auth
 
 import (
@@ -20,10 +22,10 @@ import (
 	"github.com/lemon4ksan/miyako/bus"
 	"github.com/lemon4ksan/miyako/generic"
 	"github.com/lemon4ksan/miyako/kata"
+	"github.com/lemon4ksan/miyako/log"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/lemon4ksan/g-man/pkg/crypto"
-	"github.com/lemon4ksan/g-man/pkg/log"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
@@ -33,6 +35,9 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/socket/dispatcher"
 	"github.com/lemon4ksan/g-man/pkg/storage"
 )
+
+// ErrInvalidJWT is returned by [ExtractSteamIDFromJWT] when jwt is not make up of 3 parts.
+var ErrInvalidJWT = errors.New("auth: invalid jwt segment count")
 
 // ProtocolVersion is the current version of the Steam client protocol used for logon.
 const ProtocolVersion = 65580
@@ -206,17 +211,7 @@ func ExtractSteamIDFromJWT(token string) id.ID {
 func decodeJWTPayload(token string) ([]byte, error) {
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
-		return nil, errors.New("auth: invalid jwt segment count")
-	}
-
-	payloadStr := parts[1]
-	if pad := len(payloadStr) % 4; pad != 0 {
-		payloadStr += strings.Repeat("=", 4-pad)
-	}
-
-	payload, err := base64.URLEncoding.DecodeString(payloadStr)
-	if err == nil {
-		return payload, nil
+		return nil, ErrInvalidJWT
 	}
 
 	return base64.RawURLEncoding.DecodeString(parts[1])
@@ -293,12 +288,12 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 
 	defer a.ensureTerminalState()
 
-	loginCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	loginCtx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
 
 	a.enrichLogger(details)
 
-	if err := a.prepareCredentials(loginCtx, details); err != nil {
+	if err := a.prepareCredentials(loginCtx, cancel, details); err != nil {
 		return err
 	}
 
@@ -368,13 +363,13 @@ func (a *Authenticator) enrichLogger(details *LogOnDetails) {
 		return
 	}
 
-	var logFields []log.Field
+	var logFields []any
 	if details.AccountName != "" {
 		logFields = append(logFields, log.String("account", details.AccountName))
 	}
 
 	if details.SteamID != 0 {
-		logFields = append(logFields, log.SteamID(details.SteamID.Uint64()))
+		logFields = append(logFields, log.Uint64("steam_id", details.SteamID.Uint64()))
 	}
 
 	if len(logFields) > 0 {
@@ -382,7 +377,11 @@ func (a *Authenticator) enrichLogger(details *LogOnDetails) {
 	}
 }
 
-func (a *Authenticator) prepareCredentials(ctx context.Context, details *LogOnDetails) error {
+func (a *Authenticator) prepareCredentials(
+	ctx context.Context,
+	cancel context.CancelCauseFunc,
+	details *LogOnDetails,
+) error {
 	if err := a.validate(details); err != nil {
 		return err
 	}
@@ -391,7 +390,7 @@ func (a *Authenticator) prepareCredentials(ctx context.Context, details *LogOnDe
 		a.acquireMachineID(ctx, details)
 	}
 
-	return a.acquireAuthToken(ctx, details)
+	return a.acquireAuthToken(ctx, cancel, details)
 }
 
 func (a *Authenticator) configureSession(details *LogOnDetails) {
@@ -439,7 +438,7 @@ func (a *Authenticator) validate(details *LogOnDetails) error {
 }
 
 func (a *Authenticator) performPasswordAuth(
-	ctx context.Context,
+	ctx context.Context, cancel context.CancelCauseFunc,
 	details *LogOnDetails,
 ) (string, string, uint64, error) {
 	resp, err := a.service.BeginAuthSessionViaCredentials(ctx, details.AccountName, details.Password, details.AuthCode)
@@ -450,7 +449,7 @@ func (a *Authenticator) performPasswordAuth(
 	confirmations := resp.GetAllowedConfirmations()
 	if len(confirmations) > 0 {
 		for _, conf := range confirmations {
-			a.resolveConfirmation(ctx, conf, resp)
+			a.resolveConfirmation(ctx, cancel, conf, resp)
 		}
 	}
 
@@ -463,7 +462,7 @@ func (a *Authenticator) performPasswordAuth(
 }
 
 func (a *Authenticator) resolveConfirmation(
-	ctx context.Context,
+	ctx context.Context, cancel context.CancelCauseFunc,
 	conf *pb.CAuthentication_AllowedConfirmation,
 	resp *pb.CAuthentication_BeginAuthSessionViaCredentials_Response,
 ) {
@@ -472,7 +471,7 @@ func (a *Authenticator) resolveConfirmation(
 	switch confType {
 	case pb.EAuthSessionGuardType_k_EAuthSessionGuardType_EmailCode,
 		pb.EAuthSessionGuardType_k_EAuthSessionGuardType_DeviceCode:
-		a.handleGuardCodeConfirmation(ctx, conf, resp, confType)
+		a.handleGuardCodeConfirmation(ctx, cancel, conf, resp, confType)
 	case pb.EAuthSessionGuardType_k_EAuthSessionGuardType_DeviceConfirmation:
 		a.getLogger().Info("Mobile app confirmation required (Accept prompt on phone)")
 		a.bus.Publish(&SteamGuardRequiredEvent{IsAppConfirm: true})
@@ -480,7 +479,7 @@ func (a *Authenticator) resolveConfirmation(
 }
 
 func (a *Authenticator) handleGuardCodeConfirmation(
-	ctx context.Context,
+	ctx context.Context, cancel context.CancelCauseFunc,
 	conf *pb.CAuthentication_AllowedConfirmation,
 	resp *pb.CAuthentication_BeginAuthSessionViaCredentials_Response,
 	confType pb.EAuthSessionGuardType,
@@ -500,13 +499,14 @@ func (a *Authenticator) handleGuardCodeConfirmation(
 				return
 			}
 
-			go a.submitGuardCode(ctx, resp.GetClientId(), resp.GetSteamid(), code, confType)
+			go a.submitGuardCode(ctx, cancel, resp.GetClientId(), resp.GetSteamid(), code, confType)
 		},
 	})
 }
 
 func (a *Authenticator) submitGuardCode(
 	ctx context.Context,
+	cancel context.CancelCauseFunc,
 	clientID, steamID uint64,
 	code string,
 	confType pb.EAuthSessionGuardType,
@@ -514,7 +514,7 @@ func (a *Authenticator) submitGuardCode(
 	err := a.service.UpdateAuthSessionWithSteamGuardCode(ctx, clientID, steamID, code, confType)
 	if err != nil {
 		a.getLogger().Error("Failed to submit guard code", log.Err(err))
-		a.failLogin(fmt.Errorf("steam guard rejected: %w", err))
+		cancel(fmt.Errorf("steam guard rejected: %w", err))
 	}
 }
 
@@ -610,7 +610,11 @@ func (a *Authenticator) acquireMachineID(ctx context.Context, details *LogOnDeta
 	}
 }
 
-func (a *Authenticator) acquireAuthToken(ctx context.Context, details *LogOnDetails) error {
+func (a *Authenticator) acquireAuthToken(
+	ctx context.Context,
+	cancel context.CancelCauseFunc,
+	details *LogOnDetails,
+) error {
 	if details.RefreshToken == "" {
 		token, err := a.store.GetRefreshToken(ctx, details.AccountName)
 		if err == nil && token != "" {
@@ -623,14 +627,14 @@ func (a *Authenticator) acquireAuthToken(ctx context.Context, details *LogOnDeta
 	if details.SteamID == 0 {
 		details.SteamID = ExtractSteamIDFromJWT(details.RefreshToken)
 		if details.SteamID != 0 {
-			a.getLogger().Debug("Extracted SteamID from saved token", log.SteamID(details.SteamID.Uint64()))
+			a.getLogger().Debug("Extracted SteamID from saved token", log.Uint64("steam_id", details.SteamID.Uint64()))
 		}
 	}
 
 	if details.RefreshToken == "" {
 		a.getLogger().Info("No saved token, performing password authentication via WebAPI")
 
-		refresh, access, steamID, err := a.performPasswordAuth(ctx, details)
+		refresh, access, steamID, err := a.performPasswordAuth(ctx, cancel, details)
 		if err != nil {
 			return err
 		}

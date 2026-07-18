@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package chat manages one-on-one friend messages and Steam group chats.
 package chat
 
 import (
@@ -12,9 +13,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/lemon4ksan/miyako/log"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/lemon4ksan/g-man/pkg/log"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
@@ -755,11 +756,16 @@ func (c *Chat) synchronizeOfflineMessages(ctx context.Context) {
 	for _, session := range sessionsResp.GetMessageSessions() {
 		if session.GetLastMessage() > session.GetLastView() {
 			friendID := id.FromAccountID(session.GetAccountidFriend())
-			c.Logger.Debug("Found unread messages", log.SteamID(friendID.Uint64()))
+			c.Logger.Debug("Found unread messages", log.Uint64("steam_id", friendID.Uint64()))
 
 			history, err := c.GetRecentMessages(ctx, friendID.Uint64(), 50)
 			if err != nil {
-				c.Logger.Error("Failed to fetch history for sync", log.SteamID(friendID.Uint64()), log.Err(err))
+				c.Logger.Error(
+					"Failed to fetch history for sync",
+					log.Uint64("steam_id", friendID.Uint64()),
+					log.Err(err),
+				)
+
 				continue
 			}
 

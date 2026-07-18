@@ -2,98 +2,35 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package module implements a robust, lifecycle-managed plugin system for the Steam client.
+// Package module implements a lifecycle-managed plugin system to extend client behavior.
 //
-// It provides a standardized way to extend the client with specialized logic such as
-// trading, chat management, game coordinators (GC), or inventory tracking.
+// Use modules to add specialized features—like trading, chat handling, or inventory
+// tracking—to a Steam client.
 //
-// # Architecture
+// # Implementing a Module
 //
-// The system is built around the "Base" pattern. Instead of implementing every method
-// of the [Module] interface manually, developers should embed [Base] into their structs.
-// This provides default implementations for lifecycle management, logging, and concurrency.
+// To create a custom module, embed [Base] into your struct. This inherits default
+// lifecycle handlers, concurrent task tracking, and logging helpers:
 //
-// # Dependencies
-//
-// Modules can declare explicit, declarative dependencies on other modules using the
-// [Base.WithDeps] builder method. The client orchestrator uses these dependency lists
-// to perform topological sorting during the initialization and startup phases,
-// preventing race conditions and ensuring that dependent services are active.
-//
-// # Lifecycle
-//
-// A module goes through several strictly defined phases:
-//
-//  1. Initialization: The [Module.Init] method is called. This is where you register
-//     packet handlers via [InitContext] and subscribe to internal events.
-//  2. Startup: The [Module.Start] method is called when the client begins its main loop.
-//     Background tasks (tickers, pollers) should be launched here using [Base.Go].
-//  3. Authentication (Optional): If a module implements the [Auth] interface,
-//     [Auth.StartAuthed] is called whenever the client establishes a valid web session.
-//  4. Shutdown: When the client stops, the module's context is canceled, and
-//     [Base.Close] waits for all background goroutines to finish.
-//
-// # Concurrency and Safety
-//
-// All modules share the same event bus and network socket. The [Base.Go] method
-// ensures that goroutines are tracked and properly waited upon during shutdown,
-// preventing leaked goroutines and race conditions during client restarts.
-//
-// # Example: Creating a Simple Module
-//
-//	package main
-//
-//	import (
-//		"context"
-//		"time"
-//
-//		"github.com/lemon4ksan/g-man/pkg/log"
-//		"github.com/lemon4ksan/g-man/pkg/steam/module"
-//		"github.com/lemon4ksan/g-man/pkg/steam/protocol"
-//		"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
-//	)
-//
-//	type MyModule struct {
+//	type ChatEchoModule struct {
 //		module.Base
 //	}
 //
-//	func NewMyModule() *MyModule {
-//		return &MyModule{
-//			Base: module.New("my_module").WithDeps("chat"),
+//	func NewEcho() *ChatEchoModule {
+//		return &ChatEchoModule{
+//			Base: module.New("chat_echo").WithDeps("chat"),
 //		}
 //	}
 //
-//	func (m *MyModule) Init(ctx module.InitContext) error {
-//		if err := m.Base.Init(ctx); err != nil {
-//			return err
-//		}
-//		ctx.RegisterPacketHandler(enums.EMsg_ClientPersonaState, m.onPersonaState)
+//	func (m *ChatEchoModule) Init(ctx module.InitContext) error {
+//		_ = m.Base.Init(ctx)
+//		ctx.RegisterPacketHandler(enums.EMsg_ClientPersonaState, m.onPersona)
 //		return nil
 //	}
 //
-//	func (m *MyModule) Start(ctx context.Context) error {
-//		if err := m.Base.Start(ctx); err != nil {
-//			return err
-//		}
-//		m.Go(m.myBackgroundLoop)
-//		return nil
-//	}
+// # Concurrency and Shutdown
 //
-//	func (m *MyModule) onPersonaState(p *protocol.Packet) {
-//		m.Logger.Info("Received persona state")
-//	}
-//
-//	func (m *MyModule) myBackgroundLoop(ctx context.Context) {
-//		ticker := time.NewTicker(time.Minute)
-//		defer ticker.Stop()
-//
-//		for {
-//			select {
-//			case <-ticker.C:
-//				m.Logger.Debug("Tick!")
-//			case <-ctx.Done():
-//				return
-//			}
-//		}
-//	}
+// Run long-running background tasks inside a module using [Base.Go]. Goroutines spawned
+// this way are automatically registered, tracked, and gracefully canceled when the
+// client shuts down or restarts.
 package module

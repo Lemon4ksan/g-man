@@ -8,10 +8,10 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/lemon4ksan/miyako/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/trading"
 	"github.com/lemon4ksan/g-man/pkg/trading/reason"
@@ -118,18 +118,18 @@ func TestTradeContext_VerdictMutations(t *testing.T) {
 	t.Run("metadata_operations", func(t *testing.T) {
 		t.Parallel()
 		ctx.Set("test-key", "test-val")
-		val, ok := ctx.Get("test-key")
+		val, ok := ctx.Get("test-key").Value()
 		assert.True(t, ok)
 		assert.Equal(t, "test-val", val)
 
-		_, ok = ctx.Get("non-existent")
+		_, ok = ctx.Get("non-existent").Value()
 		assert.False(t, ok)
 	})
 
 	t.Run("empty_metadata_key", func(t *testing.T) {
 		t.Parallel()
 		ctx.Set("", "value")
-		_, ok := ctx.Get("")
+		_, ok := ctx.Get("").Value()
 		assert.False(t, ok)
 	})
 }

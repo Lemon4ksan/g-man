@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package socket manages persistent connections to Steam's Connection Manager (CM) servers.
 package socket
 
 import (
@@ -13,9 +14,9 @@ import (
 
 	"github.com/lemon4ksan/miyako/generic"
 	"github.com/lemon4ksan/miyako/jobs"
+	"github.com/lemon4ksan/miyako/log"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/lemon4ksan/g-man/pkg/log"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
@@ -65,29 +66,21 @@ var (
 type Session interface {
 	// SteamID returns the 64-bit Steam ID assigned to the session.
 	SteamID() uint64
-
 	// SessionID returns the 32-bit session ID assigned by the CM.
 	SessionID() int32
-
 	// RefreshToken returns the current OAuth2 refresh token.
 	RefreshToken() string
-
 	// AccessToken returns the current OAuth2 access token.
 	AccessToken() string
-
 	// IsAuthenticated returns true if the session has been assigned both
 	// a SessionID by the CM and a valid SteamID.
 	IsAuthenticated() bool
-
 	// SetSteamID updates the session's Steam ID.
 	SetSteamID(sid uint64)
-
 	// SetSessionID updates the session's ID assigned by the CM.
 	SetSessionID(sid int32)
-
 	// SetRefreshToken updates the OAuth2 refresh token.
 	SetRefreshToken(token string)
-
 	// SetAccessToken updates the OAuth2 access token.
 	SetAccessToken(token string)
 }
@@ -134,10 +127,10 @@ type Socket struct {
 }
 
 // New initializes a new Steam Socket facade.
-func New(cfg Config, logger log.Logger) *Socket {
+func New(cfg Config) *Socket {
 	s := &Socket{
 		cfg:     cfg,
-		logger:  logger.With(log.Module("sock")),
+		logger:  log.Discard,
 		session: &session.Session{},
 	}
 
@@ -266,7 +259,7 @@ func (s *Socket) SendAsync(
 	build PayloadBuilder,
 	opts ...SendOption,
 ) *generic.Future[*protocol.Packet] {
-	return generic.NewFuture(func() (*protocol.Packet, error) {
+	return generic.NewFutureFunc(func() (*protocol.Packet, error) {
 		return s.SendSync(ctx, build, opts...)
 	})
 }

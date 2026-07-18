@@ -15,13 +15,13 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/miyako/bus"
+	"github.com/lemon4ksan/miyako/log"
 	"github.com/lemon4ksan/miyako/sync/lazy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/lemon4ksan/g-man/pkg/log"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
@@ -621,13 +621,19 @@ func TestGenerateAuthCode_WithOrWithoutSecret_GeneratesExpectedCode(t *testing.T
 	t.Parallel()
 
 	g := &Guardian{clock: &OffsetClock{}}
-	code, err := g.GenerateAuthCode()
+	res := g.GenerateAuthCode()
+	assert.True(t, res.IsSuccess())
+	optCode, err := res.Unwrap()
 	assert.NoError(t, err)
-	assert.Empty(t, code)
+	assert.False(t, optCode.IsPresent())
 
 	g.config.SharedSecret = validSecret
-	code, err = g.GenerateAuthCode()
+	res = g.GenerateAuthCode()
+	assert.True(t, res.IsSuccess())
+	optCode, err = res.Unwrap()
 	assert.NoError(t, err)
+	assert.True(t, optCode.IsPresent())
+	code, _ := optCode.Value()
 	assert.NotEmpty(t, code)
 }
 

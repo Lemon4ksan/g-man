@@ -62,19 +62,19 @@ func main() {
 			recvValue := 0
 
 			for _, it := range ctx.Offer.ItemsToGive {
-				if val, ok := ctx.Get("price_" + it.SKU); ok {
+				if val, ok := ctx.Get("price_" + it.SKU).Value(); ok {
 					giveValue += val.(int)
 				}
 			}
 
 			for _, it := range ctx.Offer.ItemsToReceive {
-				if val, ok := ctx.Get("price_" + it.SKU); ok {
+				if val, ok := ctx.Get("price_" + it.SKU).Value(); ok {
 					recvValue += val.(int)
 				}
 			}
 
 			// Apply bulk bonus if exists
-			if bonus, ok := ctx.Get("bulk_bonus"); ok {
+			if bonus, ok := ctx.Get("bulk_bonus").Value(); ok {
 				recvValue += bonus.(int)
 			}
 
@@ -167,7 +167,7 @@ func main() {
 	// 2. Final Validator
 	tester.AddMiddleware(func(next engine.Handler) engine.Handler {
 		return func(ctx *engine.TradeContext) error {
-			if jackpot, _ := ctx.Get("is_jackpot"); jackpot == true {
+			if jackpot, _ := ctx.Get("is_jackpot").Value(); jackpot == true {
 				ctx.Accept(reason.TradeReason("COLLECTOR_ITEM_JACKPOT"))
 				return nil
 			}

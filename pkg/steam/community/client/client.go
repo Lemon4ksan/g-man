@@ -3,33 +3,6 @@
 // license that can be found in the LICENSE file.
 
 // Package client provides a client for making HTTP requests to the Steam Community website.
-// It automatically handles typical Steam-specific edge cases such as Family View restrictions,
-// rate limits, session expiration redirects, and temporary maintenance outages.
-//
-// The primary entry point is the [Client] struct, which is initialized via [New] and configured using [Option] functions.
-// It implements the [Requester] interface to perform authenticated requests and register WebAPI keys.
-//
-// Basic usage example:
-//
-//	package main
-//
-//	import (
-//		"context"
-//		"fmt"
-//		"net/http"
-//
-//		"github.com/lemon4ksan/g-man/pkg/steam/client"
-//	)
-//
-//	func main() {
-//		c := client.New(http.DefaultClient, nil)
-//		resp, err := c.Request(context.Background(), http.MethodGet, "market")
-//		if err != nil {
-//			panic(err)
-//		}
-//		defer resp.Body.Close()
-//		fmt.Println("Response status:", resp.StatusCode)
-//	}
 package client
 
 import (
@@ -46,8 +19,8 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/miyako/generic"
+	"github.com/lemon4ksan/miyako/log"
 
-	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 )
 
@@ -55,9 +28,6 @@ import (
 const BaseURL = "https://steamcommunity.com/"
 
 var (
-	rxFamilyView = regexp.MustCompile(
-		`<div id="parental_notice_instructions">Enter your PIN below to exit Family View\.</div>`,
-	)
 	rxSorry      = regexp.MustCompile(`<h1>Sorry!</h1>[\s\S]*?<h3>(.+?)</h3>`)
 	rxTradeError = regexp.MustCompile(`<div id="error_msg">\s*([^<]+)\s*</div>`)
 	rxAPIKey     = regexp.MustCompile(`Key: (?i)[0-9A-F]{32}`)
@@ -82,6 +52,15 @@ var (
 
 // SteamErrorsValidator is a steam response validation function that can be passed to [aoni.WithResponseValidator].
 func SteamErrorsValidator(resp *http.Response) error {
+	contentType := resp.Header.Get("Content-Type")
+
+	if contentType != "" &&
+		!strings.Contains(contentType, "html") &&
+		!strings.Contains(contentType, "json") &&
+		!strings.Contains(contentType, "javascript") {
+		return CheckSteamErrors(resp.StatusCode, resp.Header, nil)
+	}
+
 	replayable := aoni.AsReplayable(resp.Body)
 	resp.Body = replayable
 
@@ -127,11 +106,12 @@ type Client struct {
 // New creates an initialized [Client] with browser-like headers.
 // If the session provider is nil, the client executes requests as an unauthenticated guest.
 // If the httpClient is nil, the constructor uses the default HTTP client configuration.
-func New(httpClient aoni.HTTPDoer, session SessionProvider) *Client {
-	rc := aoni.NewClient(httpClient).
-		WithBaseURL(BaseURL).
-		WithOrigin(BaseURL).
-		WithMultiReadBody(10 * 1024 * 1024)
+func New(doer aoni.HTTPDoer, session SessionProvider) *Client {
+	rc := aoni.NewClient(doer,
+		aoni.WithClientBaseURL(BaseURL),
+		aoni.WithClientOrigin(BaseURL),
+		aoni.WithClientMultiReadBody(10*1024*1024),
+	)
 
 	c := &Client{
 		rest:    rc,
@@ -310,7 +290,7 @@ func CheckSteamErrors(statusCode int, header http.Header, body []byte) error {
 	}
 
 	// Parental Control (Family View)
-	if statusCode == http.StatusForbidden && rxFamilyView.Match(body) {
+	if statusCode == http.StatusForbidden && bytes.Contains(body, []byte("parental_notice_instructions")) {
 		return service.NewSteamAPIError("Family View enabled", statusCode, ErrFamilyViewRestricted)
 	}
 

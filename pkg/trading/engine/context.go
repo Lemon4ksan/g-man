@@ -8,6 +8,8 @@ import (
 	"context"
 	"sync"
 
+	"github.com/lemon4ksan/miyako/generic"
+
 	"github.com/lemon4ksan/g-man/pkg/trading"
 	"github.com/lemon4ksan/g-man/pkg/trading/reason"
 )
@@ -86,13 +88,16 @@ func (c *TradeContext) Set(key string, val any) {
 }
 
 // Get retrieves a value from the context's metadata by key.
-func (c *TradeContext) Get(key string) (any, bool) {
+func (c *TradeContext) Get(key string) generic.Optional[any] {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
 	val, ok := c.data[key]
+	if !ok {
+		return generic.None[any]()
+	}
 
-	return val, ok
+	return generic.Some(val)
 }
 
 // Accept sets the verdict action to accept and assigns the justification reason.

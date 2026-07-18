@@ -3,7 +3,6 @@
 // license that can be found in the LICENSE file.
 
 // Package guard handles the decision-making policy for Steam Guard confirmations.
-// It listens for events from various modules and uses the guard module to resolve them.
 package guard
 
 import (
@@ -11,9 +10,10 @@ import (
 
 	"github.com/lemon4ksan/miyako/bus"
 	"github.com/lemon4ksan/miyako/generic"
+	"github.com/lemon4ksan/miyako/log"
 
 	"github.com/lemon4ksan/g-man/pkg/behavior"
-	"github.com/lemon4ksan/g-man/pkg/log"
+	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/steam/guard"
 )
@@ -51,8 +51,8 @@ const (
 	ConfTypeAccountChange = guard.ConfTypeAccountChange
 )
 
-// DefaultGuardConfig returns a default guard configuration with the given shared secret, identity secret, and device ID.
-func DefaultGuardConfig(sharedSecret, identitySecret, deviceID string) guard.Config {
+// DefaultConfig returns a default guard configuration with the given shared secret, identity secret, and device ID.
+func DefaultConfig(sharedSecret, identitySecret, deviceID string) guard.Config {
 	guardCfg := guard.DefaultConfig()
 	guardCfg.SharedSecret = sharedSecret
 	guardCfg.IdentitySecret = identitySecret
@@ -65,8 +65,8 @@ func DefaultGuardConfig(sharedSecret, identitySecret, deviceID string) guard.Con
 const BehaviorName = "guard_manager"
 
 // AutoAccept registers the guard manager behavior with the orchestrator.
-func AutoAccept(orch *behavior.Orchestrator, provider Provider, cfg Config) {
-	orch.Register(New(provider, orch.Logger(), orch.Bus(), cfg))
+func AutoAccept(client *steam.Client, cfg Config) {
+	behavior.From(client).Register(New(guard.From(client), client.Logger(), client.Bus(), cfg))
 }
 
 // Provider defines the interface for fetching and accepting Steam Guard confirmations.

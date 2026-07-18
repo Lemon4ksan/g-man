@@ -17,9 +17,9 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/miyako/jobs"
+	"github.com/lemon4ksan/miyako/log"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/lemon4ksan/g-man/pkg/log"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
@@ -29,7 +29,6 @@ var (
 	// ErrDecompressionLimit is returned when a Multi-message payload
 	// exceeds the safety threshold (default 100MB) to prevent OOM attacks.
 	ErrDecompressionLimit = errors.New("dispatcher: decompression limit exceeded")
-
 	// ErrDestJobFailed is returned when the Steam CM indicates a job failure.
 	ErrDestJobFailed = errors.New("dispatcher: destination job failed on Steam side")
 )
@@ -265,8 +264,8 @@ func (d *Dispatcher) Dispatch(packet *protocol.Packet) {
 	}
 
 	l := d.getLogger().With(
-		log.EMsg(packet.EMsg),
-		log.JobID(packet.GetTargetJobID()),
+		log.Int32("emsg", int32(packet.EMsg)),
+		log.Uint64("job_id", packet.GetTargetJobID()),
 	)
 
 	if !packet.ReceivedAt.IsZero() {
@@ -301,7 +300,7 @@ func (d *Dispatcher) invokeHandler(handler Handler, packet *protocol.Packet) {
 	defer func() {
 		if r := recover(); r != nil {
 			d.getLogger().ErrorContext(packet.Context(), "Recovered from handler panic",
-				log.EMsg(packet.EMsg),
+				log.Int32("emsg", int32(packet.EMsg)),
 				log.Any("panic", r),
 			)
 		}
@@ -324,8 +323,8 @@ func (d *Dispatcher) handleService(packet *protocol.Packet) {
 	d.mu.RUnlock()
 
 	l := d.getLogger().With(
-		log.EMsg(packet.EMsg),
-		log.JobID(packet.GetTargetJobID()),
+		log.Int32("emsg", int32(packet.EMsg)),
+		log.Uint64("job_id", packet.GetTargetJobID()),
 		log.String("method", methodName),
 	)
 

@@ -14,12 +14,12 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/miyako/jobs"
+	"github.com/lemon4ksan/miyako/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/network"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
@@ -76,7 +76,7 @@ func setupMockSocket(t *testing.T) (*socket.Socket, *mockConnection) {
 		},
 	}
 
-	s := socket.New(cfg, log.Discard)
+	s := socket.New(cfg)
 	t.Cleanup(func() { s.Close() })
 
 	return s, mConn

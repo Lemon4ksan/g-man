@@ -11,14 +11,13 @@ import (
 	"os"
 	"os/signal"
 	"sync"
-	"syscall"
 
 	"github.com/lemon4ksan/miyako/bus"
 	"github.com/lemon4ksan/miyako/generic"
+	"github.com/lemon4ksan/miyako/log"
 
 	"github.com/lemon4ksan/g-man/pkg/behavior"
 	"github.com/lemon4ksan/g-man/pkg/behavior/guard"
-	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/steam/sys/directory"
@@ -44,13 +43,12 @@ type Config struct {
 
 // Bot encapsulates all core systems, storage, loggers, and coordinates the session lifecycle.
 type Bot struct {
-	cfg          Config
-	store        storage.Provider
-	logger       log.Logger
-	client       *steam.Client
-	sub          *bus.Subscription
-	orchestrator *behavior.Orchestrator
-	wg           sync.WaitGroup
+	cfg    Config
+	store  storage.Provider
+	logger log.Logger
+	client *steam.Client
+	sub    *bus.Subscription
+	wg     sync.WaitGroup
 }
 
 // NewBot creates and initializes a new bot instance using the provided configuration
@@ -61,7 +59,8 @@ func NewBot(cfg Config, store storage.Provider, logger log.Logger) (*Bot, error)
 	opts := []steam.Option{
 		steam.WithLogger(logger),
 		steam.WithStorage(store),
-		guard.WithModule(guard.DefaultGuardConfig(cfg.SharedSecret, cfg.IdentitySecret, cfg.DeviceID)),
+		guard.WithModule(guard.DefaultConfig(cfg.SharedSecret, cfg.IdentitySecret, cfg.DeviceID)),
+		behavior.WithModule(),
 	}
 
 	client, err := steam.NewClient(steam.DefaultConfig(), opts...)
@@ -100,10 +99,6 @@ func (b *Bot) Run(ctx context.Context) error {
 
 	b.setupOrchestrator()
 
-	if err := b.orchestrator.Start(ctx); err != nil {
-		return fmt.Errorf("orchestrator start failed: %w", err)
-	}
-
 	b.sub = b.client.Bus().Subscribe(&auth.LoggedOnEvent{})
 
 	// Explicitly track background task execution using a WaitGroup
@@ -115,28 +110,18 @@ func (b *Bot) Run(ctx context.Context) error {
 		log.String("username", b.cfg.Username),
 	)
 
-	details := &auth.LogOnDetails{
-		AccountName: b.cfg.Username,
-		Password:    b.cfg.Password,
-	}
+	details := auth.NewLogOnDetails(b.cfg.Username, b.cfg.Password)
 	if err := b.client.ConnectAndLogin(ctx, server, details); err != nil {
 		return fmt.Errorf("connect and login failed: %w", err)
 	}
 
 	b.logger.Info("Bot logged in and fully operational")
 
-	b.waitForShutdown(ctx)
-
 	return nil
 }
 
 // Close gracefully shuts down the bot, stopping the orchestrator and closing the client connection.
 func (b *Bot) Close() {
-	if b.orchestrator != nil {
-		b.orchestrator.Stop()
-		b.logger.Info("Behavior orchestrator stopped")
-	}
-
 	if b.sub != nil {
 		b.sub.Unsubscribe()
 	}
@@ -154,9 +139,6 @@ func (b *Bot) Close() {
 }
 
 func (b *Bot) setupOrchestrator() {
-	b.orchestrator = behavior.NewOrchestrator(b.client.Bus(), b.logger)
-	guardModule := guard.From(b.client)
-
 	guardBehaviorCfg := guard.Config{
 		AutoAcceptTypes: generic.NewSet(
 			guard.ConfTypeTrade,
@@ -166,7 +148,7 @@ func (b *Bot) setupOrchestrator() {
 		PollOnStart: true,
 	}
 
-	guard.AutoAccept(b.orchestrator, guardModule, guardBehaviorCfg)
+	guard.AutoAccept(b.client, guardBehaviorCfg)
 }
 
 func (b *Bot) handleEvents(ctx context.Context) {
@@ -188,27 +170,11 @@ func (b *Bot) handleEvents(ctx context.Context) {
 	}
 }
 
-func (b *Bot) waitForShutdown(ctx context.Context) {
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-
-	select {
-	case <-ctx.Done():
-		b.logger.Info("Shutdown triggered by context cancellation")
-	case sig := <-sigChan:
-		b.logger.Info("System signal received, shutting down gracefully", log.String("signal", sig.String()))
-	}
-}
-
 func loadEnvConfig() (Config, error) {
-	username := os.Getenv("STEAM_USER")
-	password := os.Getenv("STEAM_PASS")
-
+	username, password := os.Getenv("STEAM_USER"), os.Getenv("STEAM_PASS")
 	if username == "" || password == "" {
 		return Config{}, errors.New("STEAM_USER and STEAM_PASS environment variables are required")
 	}
-
-	storagePath := generic.Coalesce(os.Getenv("STEAM_STORAGE_PATH"), "storage.json")
 
 	return Config{
 		Username:       username,
@@ -216,7 +182,7 @@ func loadEnvConfig() (Config, error) {
 		SharedSecret:   os.Getenv("STEAM_SHARED_SECRET"),
 		IdentitySecret: os.Getenv("STEAM_IDENTITY_SECRET"),
 		DeviceID:       os.Getenv("STEAM_DEVICE_ID"),
-		StoragePath:    storagePath,
+		StoragePath:    generic.Coalesce(os.Getenv("STEAM_STORAGE_PATH"), "storage.json"),
 	}, nil
 }
 
@@ -256,11 +222,13 @@ func main() {
 	}
 	defer bot.Close()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 
 	if err := bot.Run(ctx); err != nil {
 		logger.Error("Bot runtime error", log.Err(err))
 		return
 	}
+
+	<-ctx.Done()
 }

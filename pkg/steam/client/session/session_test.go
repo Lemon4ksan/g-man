@@ -13,11 +13,11 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/miyako/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/lemon4ksan/g-man/pkg/log"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
@@ -591,8 +591,7 @@ func TestSessionManager_Close_WhenCalled_ClosesAndDisconnects(t *testing.T) {
 
 	m.sock.On("Disconnect").Return(nil).Once()
 
-	err = c.session.StartRefreshLoop(ctx)
-	assert.NoError(t, err)
+	c.session.StartRefreshLoop(ctx)
 }
 
 func TestSession_StartRefreshLoop_TriggerRefresh_Succeeds(t *testing.T) {
@@ -635,8 +634,7 @@ func TestSession_StartRefreshLoop_TriggerRefresh_Succeeds(t *testing.T) {
 
 	m.sock.On("Disconnect").Return(nil).Once()
 
-	err := c.session.StartRefreshLoop(ctx)
-	assert.NoError(t, err)
+	c.session.StartRefreshLoop(ctx)
 }
 
 func TestSession_StartRefreshLoop_TriggerRefreshFailure_HandlesError(t *testing.T) {
@@ -656,8 +654,7 @@ func TestSession_StartRefreshLoop_TriggerRefreshFailure_HandlesError(t *testing.
 
 	m.sock.On("Disconnect").Return(nil).Once()
 
-	err := c.session.StartRefreshLoop(ctx)
-	assert.NoError(t, err)
+	c.session.StartRefreshLoop(ctx)
 }
 
 func TestSessionManager_CustomFactories_ValidFactories_InvokesCustomFactories(t *testing.T) {

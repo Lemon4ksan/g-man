@@ -50,9 +50,10 @@ type HTTPTarget interface {
 // It uses the provided aoni.HTTPDoer for executing requests.
 func NewHTTPTransport(doer aoni.HTTPDoer, baseURL string) *HTTPTransport {
 	return &HTTPTransport{
-		client: aoni.NewClient(doer).
-			WithBaseURL(baseURL).
-			WithUserAgent(HTTPUserAgent),
+		client: aoni.NewClient(doer,
+			aoni.WithClientBaseURL(baseURL),
+			aoni.WithClientUserAgent(HTTPUserAgent),
+		),
 	}
 }
 

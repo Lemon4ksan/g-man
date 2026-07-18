@@ -600,7 +600,7 @@ func TestParseCommandLine(t *testing.T) {
 		t.Run(tc.input, func(t *testing.T) {
 			t.Parallel()
 
-			res := parseCommandLine(tc.input)
+			res := ParseCommandLine(tc.input)
 			assert.Equal(t, tc.expected, res)
 		})
 	}

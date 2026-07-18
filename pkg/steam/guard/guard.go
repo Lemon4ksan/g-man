@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package guard manages Steam Guard Mobile Authenticator confirmations.
 package guard
 
 import (
@@ -15,11 +16,11 @@ import (
 
 	"github.com/lemon4ksan/miyako/batto"
 	"github.com/lemon4ksan/miyako/generic"
+	"github.com/lemon4ksan/miyako/log"
 	"github.com/lemon4ksan/miyako/sync/lazy"
 	"golang.org/x/time/rate"
 
 	"github.com/lemon4ksan/g-man/pkg/crypto"
-	"github.com/lemon4ksan/g-man/pkg/log"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
@@ -275,13 +276,17 @@ func (g *Guardian) PollingState() PollingState {
 }
 
 // GenerateAuthCode generates a 5-digit Steam Guard code for the current time.
-// It returns an empty string if the shared secret is not configured.
-func (g *Guardian) GenerateAuthCode() (string, error) {
+func (g *Guardian) GenerateAuthCode() generic.Result[generic.Optional[string]] {
 	if g == nil || g.config.SharedSecret == "" {
-		return "", nil
+		return generic.Success(generic.None[string]())
 	}
 
-	return crypto.GenerateAuthCode(g.config.SharedSecret, g.clock.Now().Unix())
+	code, err := crypto.GenerateAuthCode(g.config.SharedSecret, g.clock.Now().Unix())
+	if err != nil {
+		return generic.Failure[generic.Optional[string]](err)
+	}
+
+	return generic.Success(generic.Some(code))
 }
 
 // FetchConfirmations requests the list of active confirmations from Steam.
@@ -338,7 +343,7 @@ func (g *Guardian) synchronizeTimeOffset(ctx context.Context) {
 		return
 	}
 
-	offsetFuture := generic.NewFuture(func() (time.Duration, error) {
+	offsetFuture := generic.NewFutureFunc(func() (time.Duration, error) {
 		svc, err := g.twoFactorSvc.Get()
 		if err != nil || svc == nil {
 			return 0, err
@@ -358,7 +363,7 @@ func (g *Guardian) logGuardStatus(ctx context.Context, auth module.AuthContext) 
 		return
 	}
 
-	statusFuture := generic.NewFuture(func() (*pb.CTwoFactor_Status_Response, error) {
+	statusFuture := generic.NewFutureFunc(func() (*pb.CTwoFactor_Status_Response, error) {
 		svc, err := g.twoFactorSvc.Get()
 		if err != nil || svc == nil {
 			return nil, err

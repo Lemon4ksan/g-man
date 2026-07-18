@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package review generates trade reports and alerts for bot administrators.
 package review
 
 import (
@@ -10,7 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lemon4ksan/g-man/pkg/log"
+	"github.com/lemon4ksan/miyako/log"
+
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 )
 

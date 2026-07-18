@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package community provides a high-level client and helpers for interacting with the Steam Community website.
 package community
 
 import (

@@ -3,23 +3,6 @@
 // license that can be found in the LICENSE file.
 
 // Package client provides the central coordination hub for the Steam client subsystem.
-// It manages connection lifecycle, authentication transitions, API request routing,
-// event dispatching, and dynamic module execution.
-//
-// The core component is [Client], which integrates network socket transport,
-// authentication sessions via [session.Session], and custom client modules.
-//
-// Basic usage:
-//
-//	cfg := client.DefaultConfig()
-//	c, err := client.New(cfg)
-//	if err != nil {
-//		log.Fatal(err)
-//	}
-//	if err := c.Run(); err != nil {
-//		log.Fatal(err)
-//	}
-//	defer c.Close()
 package client
 
 import (
@@ -33,9 +16,9 @@ import (
 	"github.com/lemon4ksan/miyako/bus"
 	"github.com/lemon4ksan/miyako/generic"
 	"github.com/lemon4ksan/miyako/kata"
+	"github.com/lemon4ksan/miyako/log"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/lemon4ksan/g-man/pkg/log"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/steam/client/modules"
@@ -56,12 +39,12 @@ import (
 var (
 	// ErrNotRunning is returned when executing operations on a [Client] that is not running.
 	ErrNotRunning = errors.New("steam: client must be running (call Run() first)")
-
 	// ErrSocketDisabled is returned when attempting socket operations while socket transport is disabled.
 	ErrSocketDisabled = errors.New("steam: socket transport is disabled")
-
 	// ErrNilLogOnDetails is returned when [Client.ConnectAndLogin] receives nil credentials.
 	ErrNilLogOnDetails = errors.New("steam: logon details cannot be nil")
+	// ErrAlreadyRunning is returned on subsequent [Client.Run] calls.
+	ErrAlreadyRunning = errors.New("steam: client is already running")
 )
 
 // Config aggregates configuration parameters for all core subsystems of [Client].
@@ -85,6 +68,11 @@ func DefaultConfig() Config {
 		PersonaState: enums.EPersonaState_Online,
 		Socket:       socket.DefaultConfig(),
 	}
+}
+
+// ResolveDefaults applies default fallbacks to the [Config] fields.
+func (cfg *Config) ResolveDefaults() {
+	cfg.Socket.Connector.ProxyURL = generic.Coalesce(cfg.Socket.Connector.ProxyURL, cfg.ProxyURL)
 }
 
 // State represents the lifecycle state of the [Client].
@@ -227,11 +215,7 @@ type Client struct {
 	webFactory       session.WebSessionFactory
 	communityFactory session.CommunityClientFactory
 	pendingModules   []module.Module
-}
-
-// ResolveDefaults applies default fallbacks to the [Config] fields.
-func (cfg *Config) ResolveDefaults() {
-	cfg.Socket.Connector.ProxyURL = generic.Coalesce(cfg.Socket.Connector.ProxyURL, cfg.ProxyURL)
+	closeErr         error
 }
 
 // New initializes and returns a new [Client] with the given [Config] and [Option] list.
@@ -246,6 +230,7 @@ func New(cfg Config, opts ...Option) (*Client, error) {
 	fsm.AddRules(
 		kata.TransitionRule[State, Event]{From: StateNew, Event: EventRun, To: StateRunning},
 		kata.TransitionRule[State, Event]{From: StateRunning, Event: EventAuthorize, To: StateAuthorized},
+		kata.TransitionRule[State, Event]{From: StateAuthorized, Event: EventAuthorize, To: StateAuthorized},
 		kata.TransitionRule[State, Event]{From: StateAuthorized, Event: EventClose, To: StateClosed},
 		kata.TransitionRule[State, Event]{From: StateRunning, Event: EventClose, To: StateClosed},
 		kata.TransitionRule[State, Event]{From: StateNew, Event: EventClose, To: StateClosed},
@@ -279,7 +264,8 @@ func New(cfg Config, opts ...Option) (*Client, error) {
 		if cfg.DisableSocket {
 			c.socket = noopSocketProvider{}
 		} else {
-			c.socket = socket.New(cfg.Socket, c.logger)
+			c.socket = socket.New(cfg.Socket)
+			c.socket.UpdateLogger(c.logger)
 		}
 	}
 
@@ -299,11 +285,18 @@ func New(cfg Config, opts ...Option) (*Client, error) {
 
 	c.modules = modules.New(c, &initContext{Client: c}, c.session)
 
+	var errs []error
 	for _, m := range c.pendingModules {
-		_ = c.modules.Add(m)
+		if err := c.modules.Add(m); err != nil {
+			errs = append(errs, err)
+		}
 	}
 
 	c.pendingModules = nil
+
+	if len(errs) > 0 {
+		return nil, errors.Join(errs...)
+	}
 
 	if c.router == nil {
 		c.router = router.New(c.session, c.socket)
@@ -318,11 +311,17 @@ func (c *Client) Storage() storage.Provider { return c.storage }
 // State returns the current lifecycle [State] of the [Client].
 func (c *Client) State() State { return c.fsm.CurrentState() }
 
+// IsNew returns trur if [Client.Run] was not called yet.
+func (c *Client) IsNew() bool { return c.State() == StateNew }
+
+// IsRunning returns true if the [Client] has reached at least [StateRunning].
+func (c *Client) IsRunning() bool { return !c.IsNew() && !c.IsClosed() }
+
 // IsAuthorized returns true if the [Client] has reached [StateAuthorized].
 func (c *Client) IsAuthorized() bool { return c.State() == StateAuthorized }
 
-// IsRunning returns true if the [Client] has reached at least [StateRunning].
-func (c *Client) IsRunning() bool { return c.State() >= StateRunning }
+// IsClosed returns true if the [Client] is closed.
+func (c *Client) IsClosed() bool { return c.State() == StateClosed }
 
 // Session returns the active [session.Session] instance of the [Client].
 func (c *Client) Session() *session.Session { return c.session }
@@ -371,6 +370,10 @@ func (c *Client) Rest() aoni.Requester { return c.rest }
 // Returns an error if any module fails to initialize or start.
 // Aborts execution if the context ctx is canceled.
 func (c *Client) Run() error {
+	if c.IsRunning() {
+		return ErrAlreadyRunning
+	}
+
 	if err := c.modules.InitAll(c.ctx); err != nil {
 		return fmt.Errorf("steam: init modules: %w", err)
 	}
@@ -380,7 +383,7 @@ func (c *Client) Run() error {
 	}
 
 	c.wg.Go(func() {
-		_ = c.session.StartRefreshLoop(c.ctx)
+		c.session.StartRefreshLoop(c.ctx)
 	})
 
 	c.wg.Go(func() {
@@ -405,9 +408,7 @@ func (c *Client) Run() error {
 		}
 	})
 
-	_ = c.fsm.Transition(c.ctx, EventRun)
-
-	return nil
+	return c.fsm.Transition(c.ctx, EventRun)
 }
 
 // Do executes a network request using the [Client].
@@ -415,7 +416,7 @@ func (c *Client) Run() error {
 // Returns [ErrNotRunning] if the client is not running.
 // Aborts request processing if the context ctx is canceled.
 func (c *Client) Do(ctx context.Context, req *tr.Request) (*tr.Response, error) {
-	if c.State() != StateRunning && c.State() != StateAuthorized {
+	if !c.IsRunning() {
 		return nil, ErrNotRunning
 	}
 
@@ -439,7 +440,7 @@ func (c *Client) SetPersonaState(ctx context.Context, state enums.EPersonaState)
 // Returns an error if connection, handshake, or login credentials fail.
 // Returns an error if context ctx is canceled or details is nil.
 func (c *Client) ConnectAndLogin(ctx context.Context, server socket.CMServer, details *auth.LogOnDetails) error {
-	if c.State() == StateClosed {
+	if c.IsClosed() {
 		return module.ErrClosed
 	}
 
@@ -451,6 +452,10 @@ func (c *Client) ConnectAndLogin(ctx context.Context, server socket.CMServer, de
 		return ErrNilLogOnDetails
 	}
 
+	if !c.IsRunning() {
+		return ErrNotRunning
+	}
+
 	c.EnrichLogger(details.AccountName, details.SteamID)
 
 	if err := c.session.LogOn(ctx, server, details); err != nil {
@@ -459,7 +464,9 @@ func (c *Client) ConnectAndLogin(ctx context.Context, server socket.CMServer, de
 
 	c.EnrichLogger(details.AccountName, details.SteamID)
 
-	_ = c.fsm.Transition(context.Background(), EventAuthorize)
+	if err := c.fsm.Transition(context.Background(), EventAuthorize); err != nil {
+		return err
+	}
 
 	if err := c.modules.StartAuthedAll(c.ctx); err != nil {
 		c.Logger().Error("Some modules failed to start authorized", log.Err(err))
@@ -473,7 +480,7 @@ func (c *Client) ConnectAndLogin(ctx context.Context, server socket.CMServer, de
 // Returns an error if reconnect or subsequent persona state update fails.
 // Aborts reconnect sequence if context ctx is canceled.
 func (c *Client) Reconnect(ctx context.Context) error {
-	if c.State() == StateClosed {
+	if c.IsClosed() {
 		return module.ErrClosed
 	}
 
@@ -494,7 +501,9 @@ func (c *Client) Reconnect(ctx context.Context) error {
 		return fmt.Errorf("steam: reconnect failed: %w", err)
 	}
 
-	_ = c.fsm.Transition(context.Background(), EventAuthorize)
+	if err := c.fsm.Transition(context.Background(), EventAuthorize); err != nil {
+		return err
+	}
 
 	c.Logger().Info("Reconnection successful")
 
@@ -510,14 +519,19 @@ func (c *Client) Disconnect() error {
 // Close shuts down the [Client], stops all modules, and releases allocated network resources.
 // Can be called safely multiple times; subsequent calls return no new errors.
 func (c *Client) Close() error {
-	var errs []error
-
 	c.closeOnce.Do(func() {
-		if err := c.fsm.Transition(context.Background(), EventClose); err != nil {
+		var errs []error
+
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		_ = c.modules.StopAll(shutdownCtx)
+
+		if err := c.fsm.Transition(shutdownCtx, EventClose); err != nil {
 			errs = append(errs, err)
 		}
 
-		if err := c.modules.StopAll(context.Background()); err != nil {
+		if err := c.modules.StopAll(shutdownCtx); err != nil {
 			errs = append(errs, err)
 		}
 
@@ -529,9 +543,10 @@ func (c *Client) Close() error {
 		}
 
 		close(c.closed)
+		c.closeErr = errors.Join(errs...)
 	})
 
-	return errors.Join(errs...)
+	return c.closeErr
 }
 
 // Wait blocks the calling goroutine until the [Client] has finished its shutdown sequence.
@@ -544,14 +559,14 @@ func (c *Client) EnrichLogger(account string, steamID id.ID) {
 	c.loggerMu.Lock()
 	defer c.loggerMu.Unlock()
 
-	var logFields []log.Field
+	var logFields []any
 	if account != "" && c.enrichedAccount == "" {
 		logFields = append(logFields, log.String("account", account))
 		c.enrichedAccount = account
 	}
 
 	if steamID != 0 && c.enrichedSteamID == 0 {
-		logFields = append(logFields, log.SteamID(steamID.Uint64()))
+		logFields = append(logFields, log.Uint64("steam_id", steamID.Uint64()))
 		c.enrichedSteamID = steamID
 	}
 

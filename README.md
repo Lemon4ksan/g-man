@@ -3,7 +3,6 @@
 <img src="assets/logo.png" alt="G-MAN Logo"/>
 
 [![Go Reference](https://img.shields.io/badge/go-reference-007d9c?logo=go&logoColor=white&style=flat-square)](https://pkg.go.dev/github.com/lemon4ksan/g-man)
-[![Go Report Card](https://goreportcard.com/badge/github.com/lemon4ksan/g-man?style=flat-square)](https://goreportcard.com/report/github.com/lemon4ksan/g-man)
 [![Coverage](https://img.shields.io/badge/coverage-94.5%25-brightgreen?style=flat-square&logo=go&logoColor=white)](https://github.com/lemon4ksan/g-man)
 [![License](https://img.shields.io/github/license/lemon4ksan/g-man?style=flat-square)](LICENSE)
 [![Linter](https://img.shields.io/badge/linter-golangci--lint-brightgreen?style=flat-square&logo=go)](https://github.com/golangci/golangci-lint)
@@ -18,67 +17,6 @@
 
 ```shell
 go get github.com/lemon4ksan/g-man
-```
-
-## 🛠 Architecture Overview
-
-The system is designed around a decoupled, event-driven architecture using Go's CSP model. The `Client` serves as the central orchestrator, passing messages across thread-safe modules and automatically balancing workloads:
-
-```mermaid
-flowchart LR
-    classDef steam fill:#1b2838,stroke:#66c0f4,stroke-width:2px,color:#fff;
-    classDef transport fill:#2a475e,stroke:#66c0f4,stroke-width:1px,color:#c7d5e0;
-    classDef core fill:#171a21,stroke:#cba6f7,stroke-width:2px,color:#cdd6f4;
-    classDef module fill:#313244,stroke:#a6e3a1,stroke-width:1px,color:#cdd6f4;
-    classDef pipeline fill:#45475a,stroke:#f9e2af,stroke-width:1px,color:#f9e2af,stroke-dasharray: 5 5;
-    classDef action fill:#a6e3a1,stroke:#a6e3a1,stroke-width:2px,color:#11111b;
-
-    subgraph External [Steam Network]
-        Steam((Steam Cloud))
-    end
-    class External steam;
-
-    subgraph Transport [Dual-Stack Bridge]
-        direction TB
-        Socket[Socket CM Client]
-        WebAPI[REST / WebAPI]
-    end
-    class Transport,Socket,WebAPI transport;
-
-    subgraph Core [G-MAN Orchestrator]
-        Router{Service Router}
-        Bus([Event Bus / Pub-Sub])
-    end
-    class Core,Router,Bus core;
-
-    subgraph Modules [Domain Modules]
-        direction TB
-        GameGC[Game GC Dispatcher]
-        Social[Chat & Friends]
-        Ach[Achievements]
-    end
-    class Modules,GameGC,Social,Ach module;
-
-    subgraph TradeEngine [Onion Trade Pipeline]
-        direction LR
-        P1[Deduplication] --> P2[Blacklist] --> P3[Price Check] --> P4[Verdicts]
-    end
-    class TradeEngine,P1,P2,P3,P4 pipeline;
-
-    Verdict{Verdict}
-    class Verdict action;
-
-    Steam <--> Socket & WebAPI
-    Socket & WebAPI <--> Router
-    Router <--> Bus
-
-    Bus <--> GameGC & Social & Ach
-
-    GameGC -- "New Offer" --> P1
-    P4 --> Verdict
-
-    Verdict -- "Accept/Decline" --> Router
-    Router -- "Execute" --> Steam
 ```
 
 ## ⚡ Key Features
@@ -121,7 +59,7 @@ import (
 	"context"
 	"os"
 
-	"github.com/lemon4ksan/g-man/pkg/log"
+	"github.com/lemon4ksan/miyako/log"
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/steam/sys/directory"
@@ -218,7 +156,7 @@ G-man is designed to be highly modular. Game-specific modules and tooling are de
 
 ## 🤝 Contributing
 
-We welcome contributions to G-man! If you want to add support for new storage adapters, expand GC structures, or improve defensive scraping algorithms:
+We welcome contributions to G-man! Before you make a commit make sure to:
 
 1. Review our design philosophy in [CONTRIBUTING.md](CONTRIBUTING.md).
 2. Ensure network interactions route through the core `transport.Doer` interface to support mocking.

@@ -12,11 +12,11 @@ import (
 
 	"github.com/lemon4ksan/miyako/bus"
 	"github.com/lemon4ksan/miyako/generic"
+	"github.com/lemon4ksan/miyako/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
 	"github.com/lemon4ksan/g-man/pkg/behavior"
-	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/steam/guard"
 )
@@ -45,7 +45,7 @@ func TestConfig_Defaults(t *testing.T) {
 	t.Run("default_guard_config", func(t *testing.T) {
 		t.Parallel()
 
-		cfg := DefaultGuardConfig("shared", "identity", "android:123")
+		cfg := DefaultConfig("shared", "identity", "android:123")
 		assert.Equal(t, "shared", cfg.SharedSecret)
 		assert.Equal(t, "identity", cfg.IdentitySecret)
 		assert.Equal(t, "android:123", cfg.DeviceID)
@@ -63,7 +63,7 @@ func TestManager_Run(t *testing.T) {
 		orch := behavior.NewOrchestrator(bBus, logger)
 		provider := new(mockGuardianProvider)
 
-		AutoAccept(orch, provider, Config{})
+		orch.Register(New(provider, logger, bBus, Config{}))
 		assert.Equal(t, 1, orch.Count())
 
 		m := New(provider, logger, bBus, Config{})

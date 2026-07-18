@@ -11,10 +11,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lemon4ksan/miyako/bus"
+	"github.com/lemon4ksan/miyako/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/trading"
@@ -145,7 +146,7 @@ func newTestFixture(t *testing.T, eng *engine.Engine) *testFixture {
 	schema := &mockSchemaProvider{}
 	reviewer := review.New(schema, reviewChat, logger)
 
-	proc := New(ex, eng, notifMgr, reviewer, logger)
+	proc := New(ex, eng, notifMgr, reviewer, bus.New(), logger)
 
 	return &testFixture{
 		proc:       proc,
@@ -166,7 +167,7 @@ func TestStart_QueueWithOffers_ProcessesOffersSequentially(t *testing.T) {
 	})
 
 	f := newTestFixture(t, eng)
-	f.proc.Start(t.Context())
+	go f.proc.Run(t.Context())
 
 	offer1 := &trading.TradeOffer{
 		ID:           1,
@@ -461,7 +462,7 @@ func TestEnqueue_DuplicateOffers_ProcessesOnlyOnce(t *testing.T) {
 	})
 
 	f := newTestFixture(t, eng)
-	f.proc.Start(t.Context())
+	go f.proc.Run(t.Context())
 
 	offer := &trading.TradeOffer{
 		ID:           12345,

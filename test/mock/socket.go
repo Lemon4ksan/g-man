@@ -7,7 +7,7 @@ package mock
 import (
 	"context"
 
-	"github.com/lemon4ksan/g-man/pkg/log"
+	"github.com/lemon4ksan/miyako/log"
 	"github.com/lemon4ksan/g-man/pkg/steam/client/session"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"

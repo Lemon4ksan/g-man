@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package gc implements a multiplexing gateway to communicate with Steam's Game Coordinators (GC).
 package gc
 
 import (
@@ -12,9 +13,9 @@ import (
 
 	"github.com/lemon4ksan/miyako/bus"
 	"github.com/lemon4ksan/miyako/jobs"
+	"github.com/lemon4ksan/miyako/log"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/lemon4ksan/g-man/pkg/log"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"

@@ -15,9 +15,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/lemon4ksan/miyako/log"
 	"golang.org/x/net/proxy"
-
-	"github.com/lemon4ksan/g-man/pkg/log"
 )
 
 const (

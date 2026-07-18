@@ -2,56 +2,31 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package steam provides the high-level, unified orchestrator (Client) for interacting
-// with all aspects of the Steam ecosystem.
+// Package steam implements a unified orchestrator for connecting, authenticating,
+// and communicating with the Steam network.
 //
-// # Key Components
+// The central type is [Client], which manages the socket connection, web session
+// lifecycles, and user authentication.
 //
-//   - [Client]: The central coordinator that manages socket connections, session lifecycles, and module registration.
-//   - [SocketProvider]: Defines the minimal socket operations required to maintain a connection to Steam CMs.
-//   - [Config]: Aggregates configurations for all underlying systems (Socket, Storage, HTTP).
-//   - [State]: Represents the current lifecycle stage of the high-level client.
+// # Request Routing
 //
-// # Architecture
+// The client implements [service.Doer], transparently selecting the best transport route:
+//   - Socket: Fast, bi-directional messages over TCP/WebSocket (preferred when connected).
+//   - WebAPI: Standard HTTP requests when disconnected or performing web-only actions.
 //
-// The [Client] acts as an orchestrator, connecting the low-level socket, auth manager,
-// web session, and individual domain modules. It implements [service.Doer],
-// dynamically routing requests over TCP/WebSockets or HTTP depending on connection state.
+// # Quick Start
 //
-// # Basic Usage Example
+// Initialize a client and start its background routines:
 //
-//	package main
-//
-//	import (
-//		"context"
-//		"fmt"
-//		"github.com/lemon4ksan/g-man/pkg/log"
-//		"github.com/lemon4ksan/g-man/pkg/steam"
-//		"github.com/lemon4ksan/g-man/pkg/storage/memory"
-//	)
-//
-//	func main() {
-//		// Set up signal handling to gracefully shut down on interrupt
-//		ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
-//		defer cancel()
-//
-//		logger := log.New(log.DefaultConfig(log.LevelInfo))
-//
-//		// Create a new Steam client
-//		client, err := steam.NewClient(steam.DefaultConfig(), steam.WithLogger(logger))
-//		if err != nil {
-//			fmt.Println("Failed to create client:", err)
-//			return
-//		}
-//		defer client.Close()
-//
-//		// Run the client's internal background systems
-//		if err := client.Run(); err != nil {
-//			fmt.Println("Failed to run client:", err)
-//			return
-//		}
-//
-//		// Wait until the client is fully closed
-//		client.Wait()
+//	client, err := steam.NewClient(steam.DefaultConfig())
+//	if err != nil {
+//		return err
 //	}
+//	defer client.Close()
+//
+//	if err := client.Run(); err != nil {
+//		return err
+//	}
+//
+//	client.Wait()
 package steam

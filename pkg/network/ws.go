@@ -14,8 +14,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-
-	"github.com/lemon4ksan/g-man/pkg/log"
+	"github.com/lemon4ksan/miyako/log"
 )
 
 // ConnTypeWS is the connection type for WebSocket connections.

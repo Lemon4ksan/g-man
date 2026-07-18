@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package openid provides automated OpenID authentication for third-party websites
+// that use "Sign in through Steam".
 package openid
 
 import (
@@ -20,11 +22,9 @@ var (
 	// ErrNotSignedIn indicates that the provided Steam cookies are missing,
 	// invalid, or expired, resulting in a redirect to the Steam login page.
 	ErrNotSignedIn = errors.New("openid: not signed in to Steam (cookies expired or invalid)")
-
 	// ErrNoForm indicates that the hidden OpenID submission form could not be found
 	// on the Steam Community authorization page.
 	ErrNoForm = errors.New("openid: could not find OpenID login form")
-
 	// ErrWrongHost indicates that the initial request did not redirect to the
 	// Steam Community OpenID provider as expected.
 	ErrWrongHost = errors.New("openid: was not redirected to steamcommunity.com")
@@ -99,7 +99,7 @@ func createClientWithCookies(steamCookies []*http.Cookie) (*aoni.Client, error) 
 	jar.SetCookies(steamCommURL, steamCookies)
 	jar.SetCookies(steamStoreURL, steamCookies)
 
-	return aoni.DefaultClient.WithCookieJar(jar), nil
+	return aoni.DefaultClient.With(aoni.WithClientCookieJar(jar)), nil
 }
 
 func verifyRedirect(originalTargetHost string, responseURL *url.URL) (bool, error) {

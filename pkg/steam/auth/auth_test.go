@@ -15,12 +15,12 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/miyako/bus"
+	"github.com/lemon4ksan/miyako/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/lemon4ksan/g-man/pkg/log"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
@@ -131,7 +131,10 @@ func (s *AuthenticatorSuite) TestResolveConfirmation_Coverage() {
 	sub := s.bus.Subscribe(&SteamGuardRequiredEvent{})
 	defer sub.Unsubscribe()
 
-	s.auth.resolveConfirmation(s.T().Context(), &pb.CAuthentication_AllowedConfirmation{
+	ctx, cancel := context.WithCancelCause(s.T().Context())
+	defer cancel(nil)
+
+	s.auth.resolveConfirmation(ctx, cancel, &pb.CAuthentication_AllowedConfirmation{
 		ConfirmationType:  pb.EAuthSessionGuardType_k_EAuthSessionGuardType_EmailCode.Enum(),
 		AssociatedMessage: proto.String("email.com"),
 	}, resp)
@@ -142,15 +145,17 @@ func (s *AuthenticatorSuite) TestResolveConfirmation_Coverage() {
 	s.webAPI.On("UpdateAuthSessionWithSteamGuardCode", mock.Anything, mock.Anything, mock.Anything, "code", mock.Anything).
 		Return(errors.New("fail"))
 
-	errChan := make(chan error, 1)
-	s.auth.setLoginResult(errChan)
+	ev.Callback("code")
 
-	ev.Callback("code") // Triggers goroutine
+	<-ctx.Done()
 
-	err := <-errChan
+	err := context.Cause(ctx)
 	s.ErrorContains(err, "fail")
 
-	s.auth.resolveConfirmation(s.T().Context(), &pb.CAuthentication_AllowedConfirmation{
+	ctx, cancel = context.WithCancelCause(s.T().Context())
+	defer cancel(nil)
+
+	s.auth.resolveConfirmation(ctx, cancel, &pb.CAuthentication_AllowedConfirmation{
 		ConfirmationType: pb.EAuthSessionGuardType_k_EAuthSessionGuardType_DeviceConfirmation.Enum(),
 	}, resp)
 
@@ -206,7 +211,9 @@ func (s *AuthenticatorSuite) TestHandlers_Coverage() {
 
 func (s *AuthenticatorSuite) TestAcquireAuthToken_Coverage() {
 	details := &LogOnDetails{AccountName: "u", RefreshToken: "a.eyJzdWIiOiIxMjMifQ.c"}
-	s.auth.acquireAuthToken(s.T().Context(), details)
+	ctx, cancel := context.WithCancelCause(s.T().Context())
+
+	s.auth.acquireAuthToken(ctx, cancel, details)
 	s.Equal(id.ID(123), details.SteamID) // Test SteamID logging branch
 
 	details2 := &LogOnDetails{AccountName: "u2"}
@@ -217,7 +224,11 @@ func (s *AuthenticatorSuite) TestAcquireAuthToken_Coverage() {
 	s.webAPI.On("PollAuthSessionStatus", mock.Anything, mock.Anything, mock.Anything).
 		Return(&pb.CAuthentication_PollAuthSessionStatus_Response{RefreshToken: proto.String("rt")}, nil)
 	s.store.On("SaveRefreshToken", mock.Anything, "u2", "rt").Return(errors.New("fail"))
-	s.auth.acquireAuthToken(s.T().Context(), details2)
+
+	ctx, cancel = context.WithCancelCause(s.T().Context())
+	defer cancel(nil)
+
+	s.auth.acquireAuthToken(ctx, cancel, details2)
 }
 
 func (s *AuthenticatorSuite) TestNopStore() {

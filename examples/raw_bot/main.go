@@ -12,12 +12,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/lemon4ksan/miyako/bus"
 	"github.com/lemon4ksan/miyako/generic"
+	"github.com/lemon4ksan/miyako/log"
 
 	"github.com/lemon4ksan/g-man/pkg/behavior"
 	"github.com/lemon4ksan/g-man/pkg/behavior/guard"
-	"github.com/lemon4ksan/g-man/pkg/log"
+	"github.com/lemon4ksan/g-man/pkg/behavior/processor"
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
@@ -27,10 +27,9 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/storage/jsonfile"
 	"github.com/lemon4ksan/g-man/pkg/trading/engine"
 	"github.com/lemon4ksan/g-man/pkg/trading/notifications"
-	"github.com/lemon4ksan/g-man/pkg/trading/processor"
 	"github.com/lemon4ksan/g-man/pkg/trading/reason"
 	"github.com/lemon4ksan/g-man/pkg/trading/review"
-	webtrading "github.com/lemon4ksan/g-man/pkg/trading/web"
+	trading "github.com/lemon4ksan/g-man/pkg/trading/web"
 )
 
 // ---------------------------------------------------------
@@ -113,10 +112,6 @@ func main() {
 
 	logger.Info("Starting G-man Generic Raw Trading Bot Example...")
 
-	// Initialize the behavior orchestrator to manage background tasks
-	orchBus := bus.New()
-	orchestrator := behavior.NewOrchestrator(orchBus, logger)
-
 	// Setup Steam Guard configuration for automatic mobile confirmations
 	sharedSecret := os.Getenv("STEAM_SHARED_SECRET")
 	identitySecret := os.Getenv("STEAM_IDENTITY_SECRET")
@@ -126,11 +121,11 @@ func main() {
 		steam.DefaultConfig(),
 		steam.WithLogger(logger),
 		steam.WithStorage(jsonStorage),
-		steam.WithBus(orchBus),
 		apps.WithModule(),
 		gc.WithModule(),
-		guard.WithModule(guard.DefaultGuardConfig(sharedSecret, identitySecret, deviceID)),
-		webtrading.WithModule(webtrading.DefaultConfig()),
+		guard.WithModule(guard.DefaultConfig(sharedSecret, identitySecret, deviceID)),
+		trading.WithModule(trading.DefaultConfig()),
+		behavior.WithModule(),
 	)
 	if err != nil {
 		panic(fmt.Errorf("failed to create client: %w", err))
@@ -142,16 +137,12 @@ func main() {
 		logger.Info("Generic bot stopped safely.")
 	}()
 
-	// 3. Set up Core Steam & Trading Services
-	webTradeManager := webtrading.From(client)
-	guardian := guard.From(client)
-
-	guard.AutoAccept(orchestrator, guardian, guard.Config{
+	guard.AutoAccept(client, guard.Config{
 		AutoAcceptTypes: generic.NewSet(guard.ConfTypeTrade, guard.ConfTypeLogin),
 		PollOnStart:     true,
 	})
 
-	// 4. Setup the Generic Trading Engine
+	// Setup the Generic Trading Engine
 	tradeEngine := engine.New()
 
 	// Middleware 1: Simple Escrow Hold Protection Check
@@ -212,7 +203,7 @@ func main() {
 		}
 	})
 
-	// 5. Initialize the Unified Cohesive Trade Processor
+	// Initialize the Unified Cohesive Trade Processor
 	// We instantiate mock chat/config providers to route notifications and reviews.
 	notifChat := &NotificationChat{logger: logger}
 	notifConfig := &NotificationConfig{}
@@ -222,31 +213,12 @@ func main() {
 	schemaProvider := &SimpleSchema{}
 	reviewer := review.New(schemaProvider, reviewChat, logger)
 
-	tradeProcessor := processor.New(
-		webTradeManager, // web.Manager implements TradeExecutor (AcceptOffer / DeclineOffer)
-		tradeEngine,     // Core decision-making engine
-		notifManager,    // Notification manager
-		reviewer,        // Manual reviewer
-		logger,          // Custom slog logger
-	)
+	processor.ProcessTrades(client, tradeEngine, notifManager, reviewer)
 
-	// Start the sequential queue worker in the background
-	tradeProcessor.Start(context.Background())
-
-	// 6. Subscribe to Core & Trade Events
-	// We handle auth changes and route active WebAPI trade offers into our unified processor.
-	sub := client.Bus().Subscribe(
-		&auth.LoggedOnEvent{},
-		&webtrading.NewOfferEvent{},
-	)
-	go handleEvents(sub, tradeProcessor, logger)
-
-	// 7. Run the Steam client
 	if err := client.Run(); err != nil {
 		panic(err)
 	}
 
-	// 8. Connect and Login
 	loginCtx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
 
@@ -257,7 +229,6 @@ func main() {
 	}
 
 	user, pass := os.Getenv("STEAM_USER"), os.Getenv("STEAM_PASS")
-
 	if user == "" || pass == "" {
 		logger.Error("Credentials not set! Specify STEAM_USER and STEAM_PASS env variables.")
 		return
@@ -266,39 +237,15 @@ func main() {
 	loginDetails := auth.NewLogOnDetails(user, pass)
 	logger.Info("Attempting login...", log.String("user", loginDetails.AccountName))
 
-	if err := client.ConnectAndLogin(context.Background(), server, loginDetails); err != nil {
+	if err := client.ConnectAndLogin(loginCtx, server, loginDetails); err != nil {
 		logger.Error("Login process failed", log.Err(err))
 		return
 	}
 
-	// 9. Start background behavior orchestrator
-	if err := orchestrator.Start(context.Background()); err != nil {
-		logger.Error("Failed to start behavior orchestrator", log.Err(err))
-	}
-
-	defer orchestrator.Stop()
-
-	// 10. Wait for OS exit signal
+	// Wait for OS exit signal
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 	<-stop
 
 	logger.Info("Shutting down G-man generic bot...")
-}
-
-func handleEvents(sub *bus.Subscription, proc *processor.Processor, logger log.Logger) {
-	for event := range sub.C() {
-		switch ev := event.(type) {
-		case *auth.LoggedOnEvent:
-			logger.Info("Login successful!", log.Uint64("steam_id", ev.SteamID))
-
-		case *webtrading.NewOfferEvent:
-			logger.Info("New active trade offer received from event bus",
-				log.Uint64("offer_id", ev.Offer.ID),
-				log.Uint64("partner_steam_id", uint64(ev.Offer.OtherSteamID)),
-			)
-			// Enqueue the incoming offer into the unified sequential processor
-			proc.Enqueue(ev.Offer)
-		}
-	}
 }

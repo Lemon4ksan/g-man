@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package transport unifies communication over different network protocols behind a single interface.
 package transport
 
 import (

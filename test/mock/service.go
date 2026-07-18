@@ -151,7 +151,8 @@ func (m *ServiceMock) Request(
 		respData = restResponse{Status: http.StatusOK, Body: []byte("{}")}
 	}
 
-	dummyReq2, _ := http.NewRequest(method, path, bytes.NewReader(bodyBytes))
+	// Оставляем создание через WithContext — это полезное исправление для сохранения метаданных контекста
+	dummyReq2, _ := http.NewRequestWithContext(ctx, method, path, bytes.NewReader(bodyBytes))
 	for _, mod := range mods {
 		mod(dummyReq2)
 	}

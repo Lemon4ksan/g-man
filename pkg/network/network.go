@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package network implements low-level network connections and raw data framing for TCP and WebSockets.
 package network
 
 import (

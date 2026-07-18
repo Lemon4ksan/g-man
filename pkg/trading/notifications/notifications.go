@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package notifications generates chat messages based on trade outcomes.
 package notifications
 
 import (
@@ -10,7 +11,7 @@ import (
 	"fmt"
 	"text/template"
 
-	"github.com/lemon4ksan/g-man/pkg/log"
+	"github.com/lemon4ksan/miyako/log"
 )
 
 // Manager is responsible for generating and sending trade-related chat notifications.

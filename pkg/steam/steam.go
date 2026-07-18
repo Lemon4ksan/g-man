@@ -8,8 +8,8 @@ import (
 	"context"
 
 	"github.com/lemon4ksan/miyako/generic"
+	"github.com/lemon4ksan/miyako/log"
 
-	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/steam/client"
 	"github.com/lemon4ksan/g-man/pkg/steam/sys/directory"
@@ -18,7 +18,6 @@ import (
 var (
 	// ErrNotRunning is returned when the client is not running.
 	ErrNotRunning = client.ErrNotRunning
-
 	// ErrSocketDisabled is returned when attempting socket operations while the transport layer is disabled.
 	ErrSocketDisabled = client.ErrSocketDisabled
 )

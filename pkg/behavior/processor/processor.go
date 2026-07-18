@@ -2,24 +2,35 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package processor acts as the central orchestrator for the trade management subsystem.
 package processor
 
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 
+	"github.com/lemon4ksan/miyako/bus"
 	"github.com/lemon4ksan/miyako/generic"
+	"github.com/lemon4ksan/miyako/log"
 	"github.com/lemon4ksan/miyako/sync/keylock"
 
-	"github.com/lemon4ksan/g-man/pkg/log"
+	"github.com/lemon4ksan/g-man/pkg/behavior"
+	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/trading"
 	"github.com/lemon4ksan/g-man/pkg/trading/engine"
 	"github.com/lemon4ksan/g-man/pkg/trading/notifications"
 	"github.com/lemon4ksan/g-man/pkg/trading/review"
+	"github.com/lemon4ksan/g-man/pkg/trading/web"
 )
+
+// ProcessTrades registers the trade processing behavior with the orchestrator.
+func ProcessTrades(client *steam.Client, eng *engine.Engine, n *notifications.Manager, r *review.Reviewer) {
+	behavior.From(client).Register(New(web.From(client), eng, n, r, client.Bus(), client.Logger()))
+}
 
 // TradeExecutor defines the interface for executing final trade actions on Steam.
 //
@@ -44,6 +55,7 @@ type Processor struct {
 	notif    *notifications.Manager
 	reviewer *review.Reviewer
 	logger   log.Logger
+	bus      *bus.Bus
 
 	// Queue for sequential processing (to avoid race conditions in inventory)
 	queue chan *trading.TradeOffer
@@ -58,12 +70,28 @@ type Processor struct {
 
 // New creates a new Processor instance with the provided execution, decision,
 // notification, and reporting dependencies.
-func New(ex TradeExecutor, eng *engine.Engine, n *notifications.Manager, r *review.Reviewer, l log.Logger) *Processor {
+func New(
+	ex TradeExecutor,
+	eng *engine.Engine,
+	n *notifications.Manager,
+	r *review.Reviewer,
+	b *bus.Bus,
+	l log.Logger,
+) *Processor {
+	if b == nil {
+		b = bus.New()
+	}
+
+	if l == nil {
+		l = log.Discard
+	}
+
 	return &Processor{
 		executor:  ex,
 		engine:    eng,
 		notif:     n,
 		reviewer:  r,
+		bus:       b,
 		logger:    l.With(log.Module("processor")),
 		queue:     make(chan *trading.TradeOffer, 100),
 		itemLocks: keylock.New[uint64](),
@@ -71,21 +99,54 @@ func New(ex TradeExecutor, eng *engine.Engine, n *notifications.Manager, r *revi
 	}
 }
 
-// Start launches the sequential background worker goroutine.
+// Name returns the name of this behavior.
+func (p *Processor) Name() string {
+	return "trade_processor"
+}
+
+// Run launches the sequential background worker goroutine.
 //
 // This worker reads from the internal queue and processes queued trade offers
 // sequentially to ensure inventory synchronization.
-func (p *Processor) Start(ctx context.Context) {
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case offer := <-p.queue:
-				p.handleOffer(ctx, offer)
+func (p *Processor) Run(ctx context.Context) error {
+	sub := p.bus.Subscribe(&web.NewOfferEvent{})
+	defer sub.Unsubscribe()
+
+	// Run queue worker in a separate goroutine to ensure sequential processing
+	go p.worker(ctx)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case ev, ok := <-sub.C():
+			if !ok {
+				return nil
+			}
+
+			switch ev := ev.(type) {
+			case *web.NewOfferEvent:
+				p.logger.Info("New active trade offer received from event bus",
+					log.Uint64("offer_id", ev.Offer.ID),
+					log.Uint64("partner_steam_id", uint64(ev.Offer.OtherSteamID)),
+				)
+				p.Enqueue(ev.Offer)
+
+			default:
 			}
 		}
-	}()
+	}
+}
+
+func (p *Processor) worker(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case offer := <-p.queue:
+			p.handleOffer(ctx, offer)
+		}
+	}
 }
 
 // Enqueue adds the trade offer to the internal queue for sequential processing.
@@ -191,20 +252,43 @@ func (p *Processor) isAnyItemBusy(offer *trading.TradeOffer) bool {
 }
 
 func (p *Processor) lockItems(offer *trading.TradeOffer) {
-	allItems := append(offer.ItemsToGive, offer.ItemsToReceive...) //nolint:gocritic
+	allItems := make([]*trading.Item, len(offer.ItemsToGive)+len(offer.ItemsToReceive))
+	copy(allItems, offer.ItemsToGive)
+	copy(allItems[len(offer.ItemsToGive):], offer.ItemsToReceive)
 
-	for _, item := range allItems {
-		p.itemLocks.Lock(item.AssetID)
+	ids := make([]uint64, len(allItems))
+	for i, item := range allItems {
+		ids[i] = item.AssetID
 	}
 
-	for _, item := range allItems {
-		p.busyItems[item.AssetID] = offer.ID
+	slices.Sort(ids)
+
+	for _, id := range ids {
+		p.itemLocks.Lock(id)
+	}
+
+	for _, id := range ids {
+		p.busyItems[id] = offer.ID
 	}
 }
 
 func (p *Processor) unlockItems(offer *trading.TradeOffer) {
-	for _, item := range append(offer.ItemsToGive, offer.ItemsToReceive...) {
-		delete(p.busyItems, item.AssetID)
-		p.itemLocks.Unlock(item.AssetID)
+	allItems := make([]*trading.Item, len(offer.ItemsToGive)+len(offer.ItemsToReceive))
+	copy(allItems, offer.ItemsToGive)
+	copy(allItems[len(offer.ItemsToGive):], offer.ItemsToReceive)
+
+	ids := make([]uint64, len(allItems))
+	for i, item := range allItems {
+		ids[i] = item.AssetID
+	}
+
+	slices.Sort(ids)
+
+	for _, id := range ids {
+		delete(p.busyItems, id)
+	}
+
+	for _, id := range ids {
+		p.itemLocks.Unlock(id)
 	}
 }

@@ -2,7 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package connector handles the connection to the Steam network, including authentication and session management.
+// Package connector handles the connection to the Steam network,
+// including authentication and session management.
 package connector
 
 import (
@@ -15,7 +16,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/lemon4ksan/g-man/pkg/log"
+	"github.com/lemon4ksan/miyako/log"
+
 	"github.com/lemon4ksan/g-man/pkg/network"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 )
@@ -36,16 +38,12 @@ func (e *connectorError) IsRetriable() bool { return e.retriable }
 var (
 	// ErrClosed is returned when sending a message with a closed connector.
 	ErrClosed = &connectorError{msg: "connector: instance is permanently closed", retriable: false}
-
 	// ErrDisconnected is returned when sending a message but the transport is not active.
 	ErrDisconnected = &connectorError{msg: "connector: not connected to any CM server", retriable: true}
-
 	// ErrAlreadyConnecting is returned if a connection attempt is already in progress.
 	ErrAlreadyConnecting = &connectorError{msg: "connector: connection attempt already in progress", retriable: true}
-
 	// ErrUnsupportedType is returned when the transport protocol (e.g. "udp") is not registered.
 	ErrUnsupportedType = &connectorError{msg: "connector: unsupported transport protocol", retriable: false}
-
 	// ErrReconnectionFailed is emitted when the reconnect loop exhausts all attempts.
 	ErrReconnectionFailed = &connectorError{
 		msg:       "connector: reconnection failed after maximum attempts",

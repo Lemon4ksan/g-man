@@ -2,38 +2,18 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package storage provides interfaces and implementations for persisting bot state.
+// Package storage persists bot state using namespace-isolated key-value stores.
 //
-// # Key Components
+// Use the [Provider] interface to manage database lifecycles and spawn independent [KV] stores.
+// Each [KV] store is bound to a specific namespace, preventing key collisions between unrelated modules.
 //
-// - [Provider]: The master interface implemented by all storage backends.
-// - [KV]: A generic key-value store isolated by distinct namespaces.
-// - [jsonfile.Provider]: An implementation that persists data to a single JSON file.
-// - [memory.Provider]: A transient, fast in-memory storage implementation.
+// # Quick Start
 //
-// # Basic Usage Example
+// Create a JSON-backed store and update a session key:
 //
-//	package main
+//	db, _ := jsonfile.New("storage.json")
+//	defer db.Close()
 //
-//	import (
-//		"context"
-//		"fmt"
-//		"github.com/lemon4ksan/g-man/pkg/storage/jsonfile"
-//	)
-//
-//	func main() {
-//		ctx := context.Background()
-//
-//		// Initialize a JSON file storage provider
-//		provider, err := jsonfile.New("storage.json")
-//		if err != nil {
-//			fmt.Println("Initialization failed:", err)
-//			return
-//		}
-//		defer provider.Close()
-//
-//		// Retrieve a namespace-isolated KV store
-//		kv := provider.KV("app_config")
-//		_ = kv.Set(ctx, "theme", []byte("dark"))
-//	}
+//	kv := db.KV("auth")
+//	_ = kv.Set(ctx, "session_id", data)
 package storage

@@ -12,10 +12,10 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/lemon4ksan/miyako/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/steam/client"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
@@ -417,6 +417,7 @@ func TestClient_Reconnect_SuccessfulDiscovery_ReconnectsSuccessfully(t *testing.
 	m.Auth.On("LogOn", ctx, details, mock.Anything).Return(nil)
 	m.Sock.On("SendProto", ctx, enums.EMsg_ClientChangeStatus, mock.Anything, mock.Anything).Return(nil)
 
+	c.ForceState(client.StateRunning)
 	err := c.ConnectAndLogin(ctx, socket.CMServer{Endpoint: "stored.cm"}, details)
 	assert.NoError(t, err)
 
@@ -438,6 +439,7 @@ func TestClient_Reconnect_DiscoveryFails_CompletesQuietly(t *testing.T) {
 	m.Auth.On("LogOn", ctx, details, mock.Anything).Return(nil)
 	m.Sock.On("SendProto", ctx, enums.EMsg_ClientChangeStatus, mock.Anything, mock.Anything).Return(nil)
 
+	c.ForceState(client.StateRunning)
 	err := c.ConnectAndLogin(ctx, socket.CMServer{Endpoint: "stored.cm"}, details)
 	assert.NoError(t, err)
 
@@ -460,6 +462,7 @@ func TestClient_Reconnect_LogOnFails_ReturnsReconnectError(t *testing.T) {
 	m.Auth.On("LogOn", ctx, details, mock.Anything).Return(nil).Once()
 	m.Sock.On("SendProto", ctx, enums.EMsg_ClientChangeStatus, mock.Anything, mock.Anything).Return(nil)
 
+	c.ForceState(client.StateRunning)
 	err := c.ConnectAndLogin(ctx, socket.CMServer{Endpoint: "stored.cm"}, details)
 	assert.NoError(t, err)
 

@@ -3,20 +3,6 @@
 // license that can be found in the LICENSE file.
 
 // Package modules provides a lifecycle manager for Steam client extensions.
-// It coordinates initialization, startup, and shutdown sequences for registered
-// components, and supports dynamic activation based on client status.
-//
-// Use [Manager] as the main lifecycle orchestrator.
-//
-// Basic usage:
-//
-//	mgr := modules.New(stateProvider, initCtx, authCtx)
-//	if err := mgr.Add(myModule); err != nil {
-//		log.Fatal(err)
-//	}
-//	if err := mgr.InitAll(ctx); err != nil {
-//		log.Fatal(err)
-//	}
 package modules
 
 import (

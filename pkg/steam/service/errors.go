@@ -16,7 +16,6 @@ var (
 	// ErrSessionExpired signals that the current AccessToken or CM
 	// session is no longer valid. This is the trigger for an update.
 	ErrSessionExpired = errors.New("api: session expired or invalid")
-
 	// ErrRateLimited indicates Steam is blocking requests due to high frequency.
 	ErrRateLimited = errors.New("api: rate limit exceeded")
 )

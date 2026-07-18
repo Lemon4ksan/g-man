@@ -11,10 +11,13 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/miyako/bus"
+	"github.com/lemon4ksan/miyako/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/lemon4ksan/g-man/pkg/log"
+	"github.com/lemon4ksan/g-man/pkg/steam/module"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
+	"github.com/lemon4ksan/g-man/pkg/steam/socket"
 )
 
 type mockBehavior struct {
@@ -42,31 +45,6 @@ func (m *mockBehavior) Run(ctx context.Context) error {
 	<-ctx.Done()
 
 	return nil
-}
-
-type spyLogger struct {
-	log.Logger
-	infoMsg     string
-	infoFields  []log.Field
-	warnMsg     string
-	warnFields  []log.Field
-	errorMsg    string
-	errorFields []log.Field
-}
-
-func (s *spyLogger) Info(msg string, fields ...log.Field) {
-	s.infoMsg = msg
-	s.infoFields = fields
-}
-
-func (s *spyLogger) Warn(msg string, fields ...log.Field) {
-	s.warnMsg = msg
-	s.warnFields = fields
-}
-
-func (s *spyLogger) Error(msg string, fields ...log.Field) {
-	s.errorMsg = msg
-	s.errorFields = fields
 }
 
 func TestNewOrchestrator(t *testing.T) {
@@ -197,28 +175,35 @@ func TestOrchestrator_BehaviorStop(t *testing.T) {
 	}
 }
 
-func TestLogAdapter(t *testing.T) {
+type mockInitContext struct {
+	module.InitContext
+	bBus   *bus.Bus
+	logger log.Logger
+}
+
+func (m *mockInitContext) Bus() *bus.Bus                                                 { return m.bBus }
+func (m *mockInitContext) Logger() log.Logger                                            { return m.logger }
+func (m *mockInitContext) RegisterPacketHandler(eMsg enums.EMsg, handler socket.Handler) {}
+func (m *mockInitContext) RegisterServiceHandler(method string, handler socket.Handler)  {}
+
+func TestOrchestrator_ModuleInterface(t *testing.T) {
 	t.Parallel()
 
-	t.Run("log_adapter_formatting", func(t *testing.T) {
-		t.Parallel()
+	o := NewModule()
+	assert.Equal(t, "behavior", o.Name())
 
-		spy := &spyLogger{}
-		adapter := &logAdapter{l: spy}
+	mCtx := &mockInitContext{
+		bBus:   bus.New(),
+		logger: log.Discard,
+	}
 
-		adapter.Info("test_info", "key1", "val1", "key2", 42)
-		assert.Equal(t, "test_info", spy.infoMsg)
-		require.Len(t, spy.infoFields, 2)
-		assert.Equal(t, log.Any("key1", "val1"), spy.infoFields[0])
-		assert.Equal(t, log.Any("key2", 42), spy.infoFields[1])
+	err := o.Init(mCtx)
+	require.NoError(t, err)
+	assert.Equal(t, mCtx.bBus, o.Bus())
 
-		adapter.Warn("test_warn", 123, "not_ok_key", "key3", "val3")
-		assert.Equal(t, "test_warn", spy.warnMsg)
-		require.Len(t, spy.warnFields, 1)
-		assert.Equal(t, log.Any("key3", "val3"), spy.warnFields[0])
+	err = o.Start(t.Context())
+	require.NoError(t, err)
 
-		adapter.Error("test_error", "key_without_value")
-		assert.Equal(t, "test_error", spy.errorMsg)
-		assert.Empty(t, spy.errorFields)
-	})
+	err = o.Close()
+	require.NoError(t, err)
 }

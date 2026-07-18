@@ -3,20 +3,6 @@
 // license that can be found in the LICENSE file.
 
 // Package session provides a session orchestrator for Steam connections.
-// It manages the lifetime of socket and HTTP web sessions, token refresh loops,
-// cookie synchronization, and automatic reconnection workflows.
-//
-// The primary component is [Session], which acts as a standalone session manager,
-// utilizing [Config] for custom dependency injection.
-//
-// Basic usage:
-//
-//	socket := getSocketProvider()
-//	cfg := session.Config{}
-//	sess := session.New(socket, cfg)
-//
-//	ctx := context.Background()
-//	err := sess.LogOn(ctx, server, details)
 package session
 
 import (
@@ -31,8 +17,8 @@ import (
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/miyako/bus"
 	"github.com/lemon4ksan/miyako/generic"
+	"github.com/lemon4ksan/miyako/log"
 
-	"github.com/lemon4ksan/g-man/pkg/log"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth/websession"
@@ -540,9 +526,7 @@ func (c *Session) doRefresh(ctx context.Context) error {
 // StartRefreshLoop runs a periodic checker that validates and refreshes the web session.
 // Blocks until the context ctx is canceled, then triggers a socket [Session.Disconnect].
 // Subsequent calls are safe and will only start a single refresh loop.
-func (c *Session) StartRefreshLoop(ctx context.Context) error {
-	var err error
-
+func (c *Session) StartRefreshLoop(ctx context.Context) {
 	c.refreshLoopOnce.Do(func() {
 		ticker := time.NewTicker(c.refreshJobInterval)
 		defer ticker.Stop()
@@ -564,11 +548,7 @@ func (c *Session) StartRefreshLoop(ctx context.Context) error {
 
 	shutdown:
 		c.Logger().Debug("Session refresh loop stopped")
-
-		err = c.Disconnect()
 	})
-
-	return err
 }
 
 // Disconnect gracefully terminates the active socket connection.
@@ -596,14 +576,14 @@ func (c *Session) EnrichLogger(account string, steamID id.ID) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	var logFields []log.Field
+	var logFields []any
 	if account != "" && c.enrichedAccount == "" {
 		logFields = append(logFields, log.String("account", account))
 		c.enrichedAccount = account
 	}
 
 	if steamID != 0 && c.enrichedSteamID == 0 {
-		logFields = append(logFields, log.SteamID(steamID.Uint64()))
+		logFields = append(logFields, log.Uint64("steam_id", steamID.Uint64()))
 		c.enrichedSteamID = steamID
 	}
 

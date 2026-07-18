@@ -14,10 +14,10 @@ import (
 	"testing"
 
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/miyako/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam/community/client"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"github.com/lemon4ksan/g-man/test/mock"
@@ -561,6 +561,7 @@ func TestClient_Request_ReplayableBody_Success(t *testing.T) {
 			return &http.Response{
 				StatusCode: http.StatusOK,
 				Body:       aoni.AsReplayable(io.NopCloser(strings.NewReader(htmlContent))),
+				Request:    req,
 			}, nil
 		},
 	}
@@ -571,6 +572,7 @@ func TestClient_Request_ReplayableBody_Success(t *testing.T) {
 		return &http.Response{
 			StatusCode: http.StatusOK,
 			Body:       aoni.AsReplayable(io.NopCloser(strings.NewReader("var g_steamID = false;"))),
+			Request:    req,
 		}, nil
 	}
 

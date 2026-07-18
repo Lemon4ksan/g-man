@@ -10,30 +10,27 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/lemon4ksan/g-man/pkg/log"
+	"github.com/lemon4ksan/miyako/log"
+
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/social/chat"
 	"github.com/lemon4ksan/g-man/pkg/steam/social/chat/commands"
 	"github.com/lemon4ksan/g-man/pkg/steam/social/friends"
-	webtrading "github.com/lemon4ksan/g-man/pkg/trading/web"
+	trading "github.com/lemon4ksan/g-man/pkg/trading/web"
 )
 
 // ChatBot links Steam chat events with the command engine
 type ChatBot struct {
-	client     *steam.Client
-	cmdManager *commands.Manager
-	logger     log.Logger
+	client *steam.Client
+	logger log.Logger
 }
 
 func NewChatBot(client *steam.Client, logger log.Logger) *ChatBot {
-	cmdManager := commands.From(client)
-
 	return &ChatBot{
-		client:     client,
-		cmdManager: cmdManager,
-		logger:     logger.With(log.Module("admin_bot")),
+		client: client,
+		logger: logger.With(log.Module("admin_bot")),
 	}
 }
 
@@ -41,10 +38,11 @@ func NewChatBot(client *steam.Client, logger log.Logger) *ChatBot {
 func (bot *ChatBot) RegisterCommands() {
 	// Register built-in commands (!status, !steamid, !profile)
 	friendsMgr := friends.From(bot.client)
-	commands.RegisterBuiltinCommands(bot.cmdManager, friendsMgr, time.Now())
+	cmdManager := commands.From(bot.client)
+	commands.RegisterBuiltinCommands(cmdManager, friendsMgr, time.Now())
 
 	// Command with typed arguments and validation (Withdrawal)
-	bot.cmdManager.Register("withdraw", bot.handleWithdraw,
+	cmdManager.Register("withdraw", bot.handleWithdraw,
 		commands.WithDescription("Requests a transfer of a specific amount of funds to the specified SteamID"),
 		commands.WithArgsSchema(
 			commands.Required[id.ID]("target_id"),
@@ -54,7 +52,7 @@ func (bot *ChatBot) RegisterCommands() {
 	)
 
 	// Command for manual trade confirmation
-	bot.cmdManager.Register("approve", bot.handleApprove,
+	cmdManager.Register("approve", bot.handleApprove,
 		commands.WithDescription("Forcibly confirms an incoming trade by its ID"),
 		commands.WithArgsSchema(
 			commands.Required[uint64]("offer_id"),
@@ -104,10 +102,8 @@ func (bot *ChatBot) handleFriendRequest(ctx context.Context, e *friends.Relation
 		}
 
 		// Send a welcome message
-		chatMgr := chat.From(bot.client)
-		_ = chatMgr.SendMessage(
-			ctx,
-			e.SteamID.Uint64(),
+		_ = chat.From(bot.client).SendMessage(
+			ctx, e.SteamID.Uint64(),
 			"Hello! I am a trading bot. Type !help for a list of commands.",
 		)
 	}
@@ -130,8 +126,7 @@ func (bot *ChatBot) handleWithdraw(ctx context.Context, senderID uint64, args []
 
 	return fmt.Sprintf(
 		"✅ Withdrawal transaction of %0.2f has been successfully queued for %s",
-		amount,
-		targetID.String(),
+		amount, targetID.String(),
 	), nil
 }
 
@@ -139,10 +134,8 @@ func (bot *ChatBot) handleWithdraw(ctx context.Context, senderID uint64, args []
 func (bot *ChatBot) handleApprove(ctx context.Context, senderID uint64, args []any) (string, error) {
 	offerID := args[0].(uint64)
 
-	webTradeMgr := webtrading.From(bot.client)
-
 	// Accept the offer directly via the web manager
-	err := webTradeMgr.AcceptOffer(ctx, offerID)
+	err := trading.From(bot.client).AcceptOffer(ctx, offerID)
 	if err != nil {
 		return "", fmt.Errorf("failed to approve trade #%d: %w", offerID, err)
 	}

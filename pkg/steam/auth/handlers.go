@@ -14,10 +14,10 @@ import (
 	"io"
 	"time"
 
+	"github.com/lemon4ksan/miyako/log"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/lemon4ksan/g-man/pkg/crypto"
-	"github.com/lemon4ksan/g-man/pkg/log"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
@@ -121,7 +121,7 @@ func (a *Authenticator) handleLogOnResponse(packet *protocol.Packet) {
 	}
 
 	if res := enums.EResult(msg.GetEresult()); res != enums.EResult_OK {
-		a.getLogger().Error("Logon denied by CM", log.EResult(res))
+		a.getLogger().Error("Logon denied by CM", log.Int32("eresult", int32(res)))
 
 		a.failLogin(service.NewEResultError(res, nil))
 
@@ -173,7 +173,7 @@ func (a *Authenticator) handleLoggedOff(packet *protocol.Packet) {
 	}
 
 	res := enums.EResult(resp.GetEresult())
-	a.getLogger().Warn("Logged off by server", log.EResult(res))
+	a.getLogger().Warn("Logged off by server", log.Int32("eresult", int32(res)))
 
 	if service.IsAuthError(res) {
 		a.failLogin(service.ErrSessionExpired)

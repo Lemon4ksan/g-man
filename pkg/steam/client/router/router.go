@@ -3,16 +3,6 @@
 // license that can be found in the LICENSE file.
 
 // Package router implements a network transport router for the Steam client.
-// It orchestrates communication by dynamically selecting between socket transport
-// and HTTP WebAPI requests based on connection status and request targets.
-//
-// The core component is [ServiceRouter], which handles transport routing and automatic
-// session refresh on token expiration.
-//
-// Basic usage:
-//
-//	r := router.New(refresher, stateProvider)
-//	resp, err := r.Do(ctx, req)
 package router
 
 import (

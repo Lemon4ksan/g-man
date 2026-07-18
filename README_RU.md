@@ -3,7 +3,6 @@
 <img src="assets/logo.png" alt="G-MAN Logo"/>
 
 [![Go Reference](https://img.shields.io/badge/go-reference-007d9c?logo=go&logoColor=white&style=flat-square)](https://pkg.go.dev/github.com/lemon4ksan/g-man)
-[![Go Report Card](https://goreportcard.com/badge/github.com/lemon4ksan/g-man?style=flat-square)](https://goreportcard.com/report/github.com/lemon4ksan/g-man)
 [![Coverage](https://img.shields.io/badge/coverage-94.5%25-brightgreen?style=flat-square&logo=go&logoColor=white)](https://github.com/lemon4ksan/g-man)
 [![License](https://img.shields.io/github/license/lemon4ksan/g-man?style=flat-square)](LICENSE)
 [![Linter](https://img.shields.io/badge/linter-golangci--lint-brightgreen?style=flat-square&logo=go)](https://github.com/golangci/golangci-lint)
@@ -18,67 +17,6 @@
 
 ```shell
 go get github.com/lemon4ksan/g-man
-```
-
-## 🛠 Архитектурный обзор
-
-Система спроектирована на основе слабосвязанной событийно-ориентированной архитектуры с использованием модели CSP в Go. Объект `Client` выступает центральным оркестратором, распределяя события между изолированными потокобезопасными модулями и автоматически балансируя нагрузку:
-
-```mermaid
-flowchart LR
-    classDef steam fill:#1b2838,stroke:#66c0f4,stroke-width:2px,color:#fff;
-    classDef transport fill:#2a475e,stroke:#66c0f4,stroke-width:1px,color:#c7d5e0;
-    classDef core fill:#171a21,stroke:#cba6f7,stroke-width:2px,color:#cdd6f4;
-    classDef module fill:#313244,stroke:#a6e3a1,stroke-width:1px,color:#cdd6f4;
-    classDef pipeline fill:#45475a,stroke:#f9e2af,stroke-width:1px,color:#f9e2af,stroke-dasharray: 5 5;
-    classDef action fill:#a6e3a1,stroke:#a6e3a1,stroke-width:2px,color:#11111b;
-
-    subgraph External [Steam Сеть]
-        Steam((Steam Cloud))
-    end
-    class External steam;
-
-    subgraph Transport [Транспортный движок]
-        direction TB
-        Socket[CM-клиент Socket]
-        WebAPI[REST / WebAPI]
-    end
-    class Transport,Socket,WebAPI transport;
-
-    subgraph Core [G-MAN Оркестратор]
-        Router{Сервисный роутер}
-        Bus([Шина событий Bus])
-    end
-    class Core,Router,Bus core;
-
-    subgraph Modules [Доменные модули]
-        direction TB
-        GameGC[Игровой GC Диспетчер]
-        Social[Чат & Друзья]
-        Ach[Достижения]
-    end
-    class Modules,GameGC,Social,Ach module;
-
-    subgraph TradeEngine [Торговый движок Onion]
-        direction LR
-        P1[Дедупликация] --> P2[Черный список] --> P3[Проверка цены] --> P4[Вердикты]
-    end
-    class TradeEngine,P1,P2,P3,P4 pipeline;
-
-    Verdict{Verdict}
-    class Verdict action;
-
-    Steam <--> Socket & WebAPI
-    Socket & WebAPI <--> Router
-    Router <--> Bus
-
-    Bus <--> GameGC & Social & Ach
-
-    GameGC -- "Новое предложение" --> P1
-    P4 --> Verdict
-
-    Verdict -- "Принять/Отклонить" --> Router
-    Router -- "Выполнить" --> Steam
 ```
 
 ## ⚡ Ключевые возможности
@@ -121,7 +59,7 @@ import (
 	"context"
 	"os"
 
-	"github.com/lemon4ksan/g-man/pkg/log"
+	"github.com/lemon4ksan/miyako/log"
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/steam/sys/directory"
@@ -218,7 +156,7 @@ func PriceValidationMiddleware(priceLimit int) engine.Middleware {
 
 ## 🤝 Участие в разработке
 
-Мы рады новым участникам! Если вы хотите расширить поддержку баз данных, добавить новые структуры GC для Dota 2 / CS2 или оптимизировать скрейпинг:
+Мы рады новым участникам! Перед тем как внести свой вклад в проект обязательно:
 
 1. Ознакомьтесь с философией проектирования в [CONTRIBUTING.md](CONTRIBUTING.md).
 2. Минимизируйте сетевые зависимости, пропуская трафик через интерфейс `transport.Doer` для удобства тестирования.

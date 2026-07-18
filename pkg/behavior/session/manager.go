@@ -11,17 +11,18 @@ import (
 
 	"github.com/lemon4ksan/miyako/bus"
 	"github.com/lemon4ksan/miyako/generic"
+	"github.com/lemon4ksan/miyako/log"
 
 	"github.com/lemon4ksan/g-man/pkg/behavior"
-	"github.com/lemon4ksan/g-man/pkg/log"
+	"github.com/lemon4ksan/g-man/pkg/steam"
 )
 
 // BehaviorName is the unique identifier for the session keep-alive behavior.
 const BehaviorName = "session_keepalive"
 
 // KeepAlive registers the session keep-alive behavior with the orchestrator.
-func KeepAlive(orch *behavior.Orchestrator, provider Provider, cfg Config) {
-	orch.Register(New(provider, orch.Logger(), orch.Bus(), cfg))
+func KeepAlive(client *steam.Client, cfg Config) {
+	behavior.From(client).Register(New(client.Session(), client.Logger(), client.Bus(), cfg))
 }
 
 // Provider defines the contract needed to verify and refresh a Steam session.

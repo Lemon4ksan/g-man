@@ -2,57 +2,27 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package engine implements a high-performance, middleware-based reasoning system for Steam trade offers.
+// Package engine evaluates and processes incoming trade offers using a middleware pipeline.
 //
-// It follows the "Chain of Responsibility" (Onion) pattern, similar to modern web frameworks.
+// Register middleware handlers using [Engine.Use] to form a processing chain. Middlewares
+// can short-circuit the pipeline by making a final decision (e.g., accepting or declining)
+// and returning early without invoking the next handler.
 //
-// # Key Components
+// # Quick Start
 //
-//   - [Engine]: The central orchestrator that registers middleware and executes the reasoning pipeline.
-//   - [TradeContext]: Carries the state, metadata, and decision verdict of a single trade offer as it passes through the pipeline.
-//   - [Middleware]: A function type representing an isolated check or step in the reasoning pipeline.
-//   - [Verdict]: Holds the final action and justification returned by the reasoning engine.
+// Set up an engine with a middleware that automatically declines begging offers:
 //
-// # Basic Usage Example
+//	eng := engine.New()
 //
-//	package main
-//
-//	import (
-//		"context"
-//		"fmt"
-//		"github.com/lemon4ksan/g-man/pkg/trading"
-//		"github.com/lemon4ksan/g-man/pkg/trading/engine"
-//	)
-//
-//	func main() {
-//		ctx := context.Background()
-//		eng := engine.New()
-//
-//		// Register a basic middleware that declines empty offers
-//		eng.Use(func(next engine.Handler) engine.Handler {
-//			return func(c *engine.TradeContext) error {
-//				if len(c.Offer.ItemsToGive) > 0 && len(c.Offer.ItemsToReceive) == 0 {
-//					c.Decline("begging")
-//					return nil // Short-circuit: do not call next(c)
-//				}
-//				return next(c)
+//	eng.Use(func(next engine.Handler) engine.Handler {
+//		return func(c *engine.TradeContext) error {
+//			if len(c.Offer.ItemsToGive) > 0 && len(c.Offer.ItemsToReceive) == 0 {
+//				c.Decline("begging")
+//				return nil // Short-circuit the pipeline
 //			}
-//		})
-//
-//		// Prepare a fake offer
-//		offer := &trading.TradeOffer{
-//			ID:             12345,
-//			ItemsToGive:    []*trading.Item{{AssetID: 111}},
-//			ItemsToReceive: []*trading.Item{},
+//			return next(c)
 //		}
+//	})
 //
-//		// Process the offer
-//		verdict, err := eng.Process(ctx, offer)
-//		if err != nil {
-//			fmt.Println("Processing failed:", err)
-//			return
-//		}
-//
-//		fmt.Printf("Decision: Action=%s, Reason=%s\n", verdict.Action, verdict.Reason)
-//	}
+//	verdict, err := eng.Process(ctx, offer)
 package engine

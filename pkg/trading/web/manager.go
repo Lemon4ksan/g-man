@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package web manages asynchronous trade offers via the Steam WebAPI.
 package web
 
 import (
@@ -21,10 +22,10 @@ import (
 	"github.com/lemon4ksan/miyako/bus"
 	"github.com/lemon4ksan/miyako/generic"
 	"github.com/lemon4ksan/miyako/kata"
+	"github.com/lemon4ksan/miyako/log"
 	"github.com/lemon4ksan/miyako/yumi"
 	"golang.org/x/time/rate"
 
-	"github.com/lemon4ksan/g-man/pkg/log"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
@@ -693,6 +694,7 @@ func (m *Manager) GetEscrowDuration(ctx context.Context, offerID uint64) (proces
 	if err != nil {
 		return processor.Details{}, fmt.Errorf("failed to fetch offer page: %w", err)
 	}
+	defer body.Close()
 
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, body); err != nil {

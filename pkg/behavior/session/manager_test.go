@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/miyako/bus"
+	"github.com/lemon4ksan/miyako/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
 	"github.com/lemon4ksan/g-man/pkg/behavior"
-	"github.com/lemon4ksan/g-man/pkg/log"
 )
 
 type mockSessionProvider struct {
@@ -48,7 +48,7 @@ func TestKeepAlive(t *testing.T) {
 		orch := behavior.NewOrchestrator(bBus, logger)
 		provider := new(mockSessionProvider)
 
-		KeepAlive(orch, provider, Config{})
+		orch.Register(New(provider, logger, bBus, Config{}))
 		assert.Equal(t, 1, orch.Count())
 
 		m := New(provider, logger, bBus, Config{})

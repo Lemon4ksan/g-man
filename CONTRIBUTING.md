@@ -57,7 +57,7 @@ G-man is built with a focus on high performance and maintainability. We follow s
 ### 5. Logging
 
 * **Structured Only:** Do not use `fmt.Println` or the standard `log` package. Use the `pkg/log` package provided in the SDK.
-* **Contextual Fields:** Always include relevant metadata using fields (e.g., `log.SteamID(id)`).
+* **Contextual Fields:** Always include relevant metadata using fields (e.g., `log.Uint64("steam_id", id)`).
 
 ### 6. Modules & Topological Bootstrapping
 

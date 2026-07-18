@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package commands provides a decoupled chat command manager for the Steam chat module.
+// It automatically hooks into chat events, enforces administrator scopes using [SteamCaller],
+// applies per-user rate limiting, and dispatches executed results back to the user via Steam chat.
 package commands
 
 import (
@@ -15,11 +18,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/lemon4ksan/miyako/log"
 	"github.com/lemon4ksan/miyako/sync/limiter"
 	"golang.org/x/time/rate"
 
 	"github.com/lemon4ksan/g-man/pkg/command"
-	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
@@ -418,7 +421,7 @@ func (m *Manager) eventLoop(ctx context.Context) {
 			}
 
 			// Parse command line into parts to find command name
-			parts := parseCommandLine(msgText[startIdx:])
+			parts := command.ParseCommandLine(msgText[startIdx:])
 			if len(parts) == 0 {
 				continue
 			}
@@ -578,57 +581,4 @@ type helpInfo struct {
 	ArgsSchema  []ArgSchema
 	Description string
 	Aliases     []string
-}
-
-func parseCommandLine(line string) []string {
-	var (
-		args    []string
-		current strings.Builder
-	)
-
-	inQuotes := false
-	inSingleQuotes := false
-	escaped := false
-
-	for _, r := range line {
-		if escaped {
-			current.WriteRune(r)
-
-			escaped = false
-
-			continue
-		}
-
-		if r == '\\' {
-			escaped = true
-			continue
-		}
-
-		if r == '"' && !inSingleQuotes {
-			inQuotes = !inQuotes
-			continue
-		}
-
-		if r == '\'' && !inQuotes {
-			inSingleQuotes = !inSingleQuotes
-			continue
-		}
-
-		if (r == ' ' || r == '\t' || r == '\r' || r == '\n') && !inQuotes && !inSingleQuotes {
-			if current.Len() > 0 {
-				args = append(args, current.String())
-				current.Reset()
-			}
-
-			continue
-		}
-
-		current.WriteRune(r)
-	}
-
-	if current.Len() > 0 {
-		args = append(args, current.String())
-	}
-
-	return args
 }

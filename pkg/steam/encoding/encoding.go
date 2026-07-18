@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package encoding implements decoders and request modifiers tailored for Steam Web API and serialization formats (JSON, Protobuf, and VDF).
 package encoding
 
 import (

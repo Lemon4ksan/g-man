@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package command coordinates registration, validation, parsing, and execution of text commands.
 package command
 
 import (
@@ -366,7 +367,7 @@ func (e *Engine) Execute(ctx context.Context, cmdLine string) (string, error) {
 		startIdx = 1
 	}
 
-	parts := parseCommandLine(cmdLine[startIdx:])
+	parts := ParseCommandLine(cmdLine[startIdx:])
 	if len(parts) == 0 {
 		return "", errors.New("empty command name")
 	}
@@ -402,7 +403,7 @@ func (e *Engine) Execute(ctx context.Context, cmdLine string) (string, error) {
 	if len(cmd.ArgsSchema) > 0 {
 		var err error
 
-		parsedArgs, err = e.parseSchemaArgs(args, cmd.ArgsSchema)
+		parsedArgs, err = e.ParseSchemaArgs(args, cmd.ArgsSchema)
 		if err != nil {
 			return "", err
 		}
@@ -419,7 +420,8 @@ func (e *Engine) Execute(ctx context.Context, cmdLine string) (string, error) {
 	return "", errors.New("command missing executable handler")
 }
 
-func (e *Engine) parseSchemaArgs(rawArgs []string, schema []ArgSchema) ([]any, error) {
+// ParseSchemaArgs parses the raw arguments according to the given schema.
+func (e *Engine) ParseSchemaArgs(rawArgs []string, schema []ArgSchema) ([]any, error) {
 	parsed := make([]any, len(schema))
 
 	for i, argSchema := range schema {
@@ -620,7 +622,8 @@ func (e *Engine) registerFuncDynamic(val reflect.Value, c *Command) {
 	}
 }
 
-func parseCommandLine(line string) []string {
+// ParseCommandLine parses the command line string into a slice of arguments.
+func ParseCommandLine(line string) []string {
 	var (
 		args    []string
 		current strings.Builder

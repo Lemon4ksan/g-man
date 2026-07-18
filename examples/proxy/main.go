@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/miyako/log"
 
-	"github.com/lemon4ksan/g-man/pkg/log"
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket/connector"
@@ -87,7 +87,7 @@ func SetupProxyClient(logger log.Logger, cmProxy string, webProxies []string) (*
 	}, aoni.ProxyRetryCondition(proxyRotator))
 
 	// Build the call chain: Base client -> Logging -> Retry layer -> Rotator
-	chainedDoer := aoni.Chain(stickyRotator, log.LoggingMiddleware(logger), retryMiddleware)
+	chainedDoer := aoni.Chain(stickyRotator, aoni.LoggingMiddleware(logger), retryMiddleware)
 
 	// Initialize the final REST client that will make the calls
 	restClient := aoni.NewClient(chainedDoer)

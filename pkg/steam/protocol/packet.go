@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package protocol implements Steam Connection Manager (CM) wire formats and packet serialization.
 package protocol
 
 import (
@@ -24,10 +25,8 @@ import (
 var (
 	// ErrHeaderTooLarge is returned when the target header exceeds the limit.
 	ErrHeaderTooLarge = errors.New("proto header too large")
-
 	// ErrPayloadTooLarge is returned when the target payload exceeds the imit.
 	ErrPayloadTooLarge = errors.New("payload exceeds maximum size")
-
 	// ErrInvalidHeader is returned when the invalid header is passed.
 	ErrInvalidHeader = errors.New("invalid header format")
 )

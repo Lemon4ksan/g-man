@@ -3,36 +3,6 @@
 // license that can be found in the LICENSE file.
 
 // Package bvdf provides tools to parse and unmarshal Valve Binary KeyValues (VDF) format files.
-// It handles specific Steam data formats such as appinfo.vdf, packageinfo.vdf, and shortcuts.vdf,
-// converting raw binary payloads into structured Go objects.
-//
-// The primary interface is provided via high-level unmarshalling functions like [Unmarshal],
-// [UnmarshalOffset], and [Parse] which internally utilize the [Parser] state machine to decode binary nodes.
-//
-// Basic usage example:
-//
-//	package main
-//
-//	import (
-//		"bytes"
-//		"fmt"
-//
-//		"github.com/lemon4ksan/g-man/pkg/steam/bvdf"
-//	)
-//
-//	type Shortcut struct {
-//		AppName string `mapstructure:"AppName"`
-//	}
-//
-//	func main() {
-//		var data []byte // raw shortcuts.vdf bytes
-//		var target map[string]Shortcut
-//		err := bvdf.Unmarshal(bytes.NewReader(data), &target)
-//		if err != nil {
-//			panic(err)
-//		}
-//		fmt.Println("Loaded shortcuts:", len(target))
-//	}
 package bvdf
 
 import (

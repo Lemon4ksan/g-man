@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package id parses, validates, and resolves unique 64-bit Steam identifiers.
 package id
 
 import (
@@ -28,8 +29,8 @@ const (
 	// InvalidID is the default null value for a Steam [ID].
 	InvalidID ID = 0
 
-	// Base 64-bit ID for individual accounts in the public universe.
-	individualBase ID = ID(
+	// IndividualBase is the base 64-bit ID for individual accounts in the public universe.
+	IndividualBase ID = ID(
 		(uint64(UniversePublic) << 56) | (uint64(AccountTypeIndividual) << 52) | (1 << 32),
 	) // 76561197960265728
 )
@@ -129,9 +130,9 @@ func (a AccountType) String() string {
 }
 
 var (
-	reSteam2 = regexp.MustCompile(`^STEAM_([0-5]):([0-1]):([0-9]+)$`)
-	reSteam3 = regexp.MustCompile(`^\[([A-Z]):([0-5]):([0-9]+)(:[0-9]+)?\]$`)
-	reURL    = regexp.MustCompile(`(?:https?://)?steamcommunity\.com/(?:profiles|id)/([a-zA-Z0-9_-]+)`)
+	rxSteam2 = regexp.MustCompile(`^STEAM_([0-5]):([0-1]):([0-9]+)$`)
+	rxSteam3 = regexp.MustCompile(`^\[([A-Z]):([0-5]):([0-9]+)(:[0-9]+)?\]$`)
+	rxURL    = regexp.MustCompile(`(?:https?://)?steamcommunity\.com/(?:profiles|id)/([a-zA-Z0-9_-]+)`)
 )
 
 // New constructs an [ID] from a raw 64-bit unsigned integer.
@@ -141,7 +142,7 @@ func New(id uint64) ID { return ID(id) }
 // FromAccountID creates a standard individual [ID] in the public universe from a 32-bit AccountID.
 // If the accountID argument is 0, it still constructs an individual ID with Account ID set to 0.
 func FromAccountID(accountID uint32) ID {
-	return ID(accountID) + individualBase
+	return ID(accountID) + IndividualBase
 }
 
 // Parse parses a string representation of a Steam ID into an [ID].
@@ -152,21 +153,18 @@ func Parse(s string) ID {
 		return InvalidID
 	}
 
-	// Try 64-bit uint64 string
 	if id, err := strconv.ParseUint(s, 10, 64); err == nil {
 		return ID(id)
 	}
 
-	// Try Steam2 (STEAM_0:0:12345)
-	if m := reSteam2.FindStringSubmatch(s); m != nil {
+	if m := rxSteam2.FindStringSubmatch(s); m != nil {
 		authServer, _ := strconv.ParseUint(m[2], 10, 64)
 		accountID, _ := strconv.ParseUint(m[3], 10, 64)
 
-		return ID(individualBase.Uint64() + (accountID * 2) + authServer)
+		return ID(IndividualBase.Uint64() + (accountID * 2) + authServer)
 	}
 
-	// Try Steam3 ([U:1:12345])
-	if m := reSteam3.FindStringSubmatch(s); m != nil {
+	if m := rxSteam3.FindStringSubmatch(s); m != nil {
 		accountID, _ := strconv.ParseUint(m[3], 10, 64)
 		return FromAccountID(uint32(accountID))
 	}
@@ -271,19 +269,16 @@ func Resolve(ctx context.Context, d service.Doer, input string) (ID, error) {
 		return id, nil
 	}
 
-	// Check if it's a URL
-	matches := reURL.FindStringSubmatch(input)
+	matches := rxURL.FindStringSubmatch(input)
 	if len(matches) < 2 {
 		return InvalidID, errors.New("steamid: invalid input format")
 	}
 
 	slug := matches[1]
-	// If the slug is already a 64-bit ID, return it
 	if id := Parse(slug); id.IsValid() {
 		return id, nil
 	}
 
-	// Otherwise, it's a Vanity URL, resolve via ISteamUser
 	return ResolveVanityURL(ctx, d, slug)
 }
 
@@ -330,9 +325,9 @@ func ParseTradeURL(tradeURL string) (ID, string, error) {
 		return 0, "", err
 	}
 
-	queryParams := u.Query()
-	partnerStr := queryParams.Get("partner")
-	token := queryParams.Get("token")
+	params := u.Query()
+	partnerStr := params.Get("partner")
+	token := params.Get("token")
 
 	if partnerStr == "" {
 		return 0, "", errors.New("missing partner parameter in trade URL")
