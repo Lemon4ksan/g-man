@@ -55,10 +55,6 @@ format: ## Run go code formatting
 	addlicense -c "Lemon4ksan" -l bsd -ignore "cmd/generator/protobufs/**" -ignore "**/*.yml" .
 	golangci-lint run --fix
 
-extract: ## Extract Go functions from source files
-	@printf "$(CYAN)Extracting Go functions...$(RESET)\n"
-	go run ".\cmd\extract\main.go" -exclude="cmd,examples,pkg/protobuf,pkg/steam/webapi,pkg/steam/protocol/enums" -exclude-private=false -ext="go"
-
 help: ## Show this message
 	@printf "Usage: make [target]\n"
 	@printf "\n"
