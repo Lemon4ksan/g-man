@@ -263,6 +263,8 @@ func TestSocket_SendSync(t *testing.T) {
 		}()
 
 		resp, err := s.SendSync(t.Context(), socket.Proto(enums.EMsg_ClientLogon, nil))
+		defer protocol.ReleasePacket(resp)
+
 		assert.NoError(t, err)
 		assert.Equal(t, []byte("payload"), resp.Payload)
 	})

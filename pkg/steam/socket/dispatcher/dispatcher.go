@@ -243,9 +243,9 @@ func (d *Dispatcher) Send(ctx context.Context, build PayloadBuilder, opts ...Sen
 
 // Dispatch routes a single packet. If the packet is an EMsg_Multi, it will be
 // unpacked and each sub-packet will be dispatched recursively.
-func (d *Dispatcher) Dispatch(packet *protocol.Packet) {
+func (d *Dispatcher) Dispatch(packet *protocol.Packet) bool {
 	if packet == nil {
-		return
+		return false
 	}
 
 	if packet.Ctx == nil {
@@ -257,10 +257,10 @@ func (d *Dispatcher) Dispatch(packet *protocol.Packet) {
 	switch packet.EMsg {
 	case enums.EMsg_Multi:
 		d.handleMulti(packet)
-		return
+		return true
 	case enums.EMsg_ServiceMethod:
 		d.handleService(packet)
-		return
+		return true
 	}
 
 	l := d.getLogger().With(
@@ -275,7 +275,7 @@ func (d *Dispatcher) Dispatch(packet *protocol.Packet) {
 	// Check if this packet is a response to a previously registered Job
 	if d.handleJobResponse(packet) {
 		l.DebugContext(packet.Context(), "Packet routed to job callback")
-		return
+		return true
 	}
 
 	// Route to standard EMsg handlers
@@ -289,6 +289,8 @@ func (d *Dispatcher) Dispatch(packet *protocol.Packet) {
 	} else {
 		l.DebugContext(packet.Context(), "Unhandled message")
 	}
+
+	return false
 }
 
 // Close closes the dispatcher and its job manager.
@@ -376,21 +378,25 @@ func (d *Dispatcher) handleMulti(packet *protocol.Packet) {
 	for reader.Len() > 0 {
 		var subSize uint32
 		if err := binary.Read(reader, binary.LittleEndian, &subSize); err != nil {
-			d.getLogger().WarnContext(packet.Context(), "Failed to read multi-packet sub-size", log.Err(err))
 			break
 		}
 
 		subPacket, err := protocol.ParsePacket(io.LimitReader(reader, int64(subSize)))
 		if err != nil {
-			d.getLogger().WarnContext(packet.Context(), "Failed to parse nested multi-packet", log.Err(err))
 			continue
 		}
 
 		subPacket.Ctx = packet.Context()
 		subPacket.ReceivedAt = packet.ReceivedAt
 
-		d.Dispatch(subPacket)
+		if !d.Dispatch(subPacket) {
+			protocol.ReleasePacket(subPacket)
+		}
 	}
+}
+
+var gzipReaderPool = sync.Pool{
+	New: func() any { return new(gzip.Reader) },
 }
 
 func (d *Dispatcher) decompressPayload(data []byte, unzippedSize int64) ([]byte, error) {
@@ -398,16 +404,21 @@ func (d *Dispatcher) decompressPayload(data []byte, unzippedSize int64) ([]byte,
 		return nil, fmt.Errorf("%w: %d bytes", ErrDecompressionLimit, unzippedSize)
 	}
 
-	gr, err := gzip.NewReader(bytes.NewReader(data))
-	if err != nil {
-		return nil, fmt.Errorf("gzip reader creation failed: %w", err)
+	gr := gzipReaderPool.Get().(*gzip.Reader)
+	if err := gr.Reset(bytes.NewReader(data)); err != nil {
+		gzipReaderPool.Put(gr)
+		return nil, fmt.Errorf("gzip reader reset failed: %w", err)
 	}
-	defer gr.Close()
+
+	defer gzipReaderPool.Put(gr)
 
 	out := make([]byte, unzippedSize)
 	if _, err := io.ReadFull(gr, out); err != nil {
+		_ = gr.Close()
 		return nil, fmt.Errorf("failed to read full decompressed payload: %w", err)
 	}
+
+	_ = gr.Close()
 
 	return out, nil
 }

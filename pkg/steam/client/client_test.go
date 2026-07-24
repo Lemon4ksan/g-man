@@ -23,7 +23,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
-	steammock "github.com/lemon4ksan/g-man/test/mock"
+	steammock "github.com/lemon4ksan/g-man/pkg/test/mock"
 )
 
 type Authenticator struct {
@@ -509,8 +509,10 @@ func TestNoopSocketProvider_VariousMethods_ReturnsDisabledError(t *testing.T) {
 	assert.False(t, p.SetEncryptionKey(nil))
 	assert.ErrorIs(t, p.Send(ctx, nil), client.ErrSocketDisabled)
 
-	pkt, err := p.SendSync(ctx, nil)
-	assert.Nil(t, pkt)
+	resp, err := p.SendSync(ctx, nil)
+	defer protocol.ReleasePacket(resp)
+
+	assert.Nil(t, resp)
 	assert.ErrorIs(t, err, client.ErrSocketDisabled)
 
 	assert.ErrorIs(t, p.SendProto(ctx, enums.EMsg_Invalid, nil), client.ErrSocketDisabled)

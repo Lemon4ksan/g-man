@@ -252,13 +252,28 @@ func (p *Processor) isAnyItemBusy(offer *trading.TradeOffer) bool {
 }
 
 func (p *Processor) lockItems(offer *trading.TradeOffer) {
-	allItems := make([]*trading.Item, len(offer.ItemsToGive)+len(offer.ItemsToReceive))
-	copy(allItems, offer.ItemsToGive)
-	copy(allItems[len(offer.ItemsToGive):], offer.ItemsToReceive)
+	totalLen := len(offer.ItemsToGive) + len(offer.ItemsToReceive)
+	if totalLen == 0 {
+		return
+	}
 
-	ids := make([]uint64, len(allItems))
-	for i, item := range allItems {
-		ids[i] = item.AssetID
+	var (
+		stackIDs [32]uint64
+		ids      []uint64
+	)
+
+	if totalLen <= len(stackIDs) {
+		ids = stackIDs[:0]
+	} else {
+		ids = make([]uint64, 0, totalLen)
+	}
+
+	for _, item := range offer.ItemsToGive {
+		ids = append(ids, item.AssetID)
+	}
+
+	for _, item := range offer.ItemsToReceive {
+		ids = append(ids, item.AssetID)
 	}
 
 	slices.Sort(ids)

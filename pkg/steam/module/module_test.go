@@ -22,7 +22,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
 	"github.com/lemon4ksan/g-man/pkg/storage"
-	"github.com/lemon4ksan/g-man/test/mock"
+	"github.com/lemon4ksan/g-man/pkg/test/mock"
 )
 
 type mockInitContext struct {

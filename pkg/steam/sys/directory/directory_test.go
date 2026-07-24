@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/sys/directory"
-	"github.com/lemon4ksan/g-man/test/mock"
+	"github.com/lemon4ksan/g-man/pkg/test/mock"
 )
 
 func setup(t *testing.T) (*directory.Service, *mock.ServiceMock) {

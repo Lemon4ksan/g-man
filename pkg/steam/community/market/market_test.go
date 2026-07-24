@@ -14,7 +14,7 @@ import (
 
 	"github.com/lemon4ksan/g-man/pkg/steam/community/market"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
-	module "github.com/lemon4ksan/g-man/test/mock"
+	module "github.com/lemon4ksan/g-man/pkg/test/mock"
 )
 
 const testProfileID = 76561198000000001

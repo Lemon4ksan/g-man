@@ -5,20 +5,43 @@
 package crypto
 
 import (
-	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"regexp"
+
+	"github.com/lemon4ksan/g-man/internal/bytesconv"
 )
 
-const (
-	steamChars = "23456789BCDFGHJKMNPQRTVWXY"
-)
+const steamChars = "23456789BCDFGHJKMNPQRTVWXY"
 
-var secretRegex = regexp.MustCompile(`^[0-9a-fA-F]{40}$`)
+func hmacSha1Stack(key, msg []byte) [20]byte {
+	var kPad [64]byte
+	if len(key) <= 64 {
+		copy(kPad[:], key)
+	} else {
+		h := sha1.Sum(key)
+		copy(kPad[:], h[:])
+	}
+
+	var ipad, opad [64]byte
+	for i := 0; i < 64; i++ {
+		ipad[i] = kPad[i] ^ 0x36
+		opad[i] = kPad[i] ^ 0x5c
+	}
+
+	var innerBuf [128]byte
+	copy(innerBuf[:64], ipad[:])
+	copy(innerBuf[64:], msg)
+	innerHash := sha1.Sum(innerBuf[:64+len(msg)])
+
+	var outerBuf [84]byte
+	copy(outerBuf[:64], opad[:])
+	copy(outerBuf[64:], innerHash[:])
+
+	return sha1.Sum(outerBuf[:])
+}
 
 // GenerateAuthCode generates a 5-digit Steam Guard two-factor authentication code for the given timestamp.
 //
@@ -26,31 +49,44 @@ var secretRegex = regexp.MustCompile(`^[0-9a-fA-F]{40}$`)
 //
 // It returns an error if the shared secret cannot be decoded from base64 or hexadecimal.
 func GenerateAuthCode(sharedSecret string, timestamp int64) (string, error) {
-	secret, err := decodeSecret(sharedSecret)
-	if err != nil {
-		return "", err
+	var (
+		secretBuf [20]byte
+		secret    []byte
+	)
+
+	if len(sharedSecret) == 40 {
+		n, err := hex.Decode(secretBuf[:], bytesconv.S2B(sharedSecret))
+		if err != nil {
+			return "", err
+		}
+
+		secret = secretBuf[:n]
+	} else {
+		s, err := base64.StdEncoding.DecodeString(sharedSecret)
+		if err != nil {
+			return "", err
+		}
+
+		secret = s
 	}
 
-	// Steam Guard uses 30-second windows
 	t := uint64(timestamp / 30)
 
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, t)
+	var msgBuf [8]byte
+	binary.BigEndian.PutUint64(msgBuf[:], t)
 
-	mac := hmac.New(sha1.New, secret)
-	mac.Write(buf)
-	sum := mac.Sum(nil)
+	sum := hmacSha1Stack(secret, msgBuf[:])
 
 	start := sum[19] & 0x0F
 	fullCode := binary.BigEndian.Uint32(sum[start:start+4]) & 0x7FFFFFFF
 
-	code := make([]byte, 5)
+	var code [5]byte
 	for i := range 5 {
 		code[i] = steamChars[fullCode%uint32(len(steamChars))]
 		fullCode /= uint32(len(steamChars))
 	}
 
-	return string(code), nil
+	return string(code[:]), nil
 }
 
 // GenerateConfirmationKey generates a base64-encoded key required to confirm mobile actions.
@@ -61,9 +97,25 @@ func GenerateAuthCode(sharedSecret string, timestamp int64) (string, error) {
 //
 // It returns an error if the identity secret cannot be decoded from base64 or hexadecimal.
 func GenerateConfirmationKey(identitySecret string, timestamp int64, tag string) (string, error) {
-	secret, err := decodeSecret(identitySecret)
-	if err != nil {
-		return "", err
+	var (
+		secretBuf [20]byte
+		secret    []byte
+	)
+
+	if len(identitySecret) == 40 {
+		n, err := hex.Decode(secretBuf[:], bytesconv.S2B(identitySecret))
+		if err != nil {
+			return "", err
+		}
+
+		secret = secretBuf[:n]
+	} else {
+		s, err := base64.StdEncoding.DecodeString(identitySecret)
+		if err != nil {
+			return "", err
+		}
+
+		secret = s
 	}
 
 	dataLen := 8
@@ -73,14 +125,13 @@ func GenerateConfirmationKey(identitySecret string, timestamp int64, tag string)
 		dataLen += len(tag)
 	}
 
-	buf := make([]byte, dataLen)
-	binary.BigEndian.PutUint64(buf, uint64(timestamp))
-	copy(buf[8:], []byte(tag))
+	var buf [40]byte
+	binary.BigEndian.PutUint64(buf[:8], uint64(timestamp))
+	copy(buf[8:], bytesconv.S2B(tag))
 
-	mac := hmac.New(sha1.New, secret)
-	mac.Write(buf)
+	sum := hmacSha1Stack(secret, buf[:dataLen])
 
-	return base64.StdEncoding.EncodeToString(mac.Sum(nil)), nil
+	return base64.StdEncoding.EncodeToString(sum[:]), nil
 }
 
 // GetDeviceID generates a unique, deterministic device identifier based on the SteamID.
@@ -101,7 +152,7 @@ func GetDeviceID(steamID uint64) string {
 }
 
 func decodeSecret(secret string) ([]byte, error) {
-	if secretRegex.MatchString(secret) {
+	if len(secret) == 40 {
 		return hex.DecodeString(secret)
 	}
 

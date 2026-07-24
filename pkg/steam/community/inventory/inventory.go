@@ -71,8 +71,8 @@ func GetUserInventoryContents(
 			return inventory, currency, page.TotalCount, nil
 		}
 
-		descMap := generic.IndexBy(page.Descriptions, func(d Description) string {
-			return fmt.Sprintf("%s_%s", d.ClassID, d.InstanceID)
+		descMap := generic.IndexBy(page.Descriptions, func(d Description) descKey {
+			return descKey{ClassID: d.ClassID, InstanceID: d.InstanceID}
 		})
 
 		pageInventory, pageCurrency, newPos := processAssets(page.Assets, descMap, tradableOnly, pos)
@@ -210,9 +210,14 @@ func fetchInventoryPage(
 	return resp, nil
 }
 
+type descKey struct {
+	ClassID    string
+	InstanceID string
+}
+
 func processAssets(
 	assets []Asset,
-	descMap map[string]Description,
+	descMap map[descKey]Description,
 	tradableOnly bool,
 	startPos int,
 ) ([]CEconItem, []CEconItem, int) {
@@ -224,7 +229,7 @@ func processAssets(
 	pos := startPos
 
 	for _, asset := range assets {
-		key := fmt.Sprintf("%s_%s", asset.ClassID, asset.InstanceID)
+		key := descKey{ClassID: asset.ClassID, InstanceID: asset.InstanceID}
 
 		description, exists := descMap[key]
 		if !exists {

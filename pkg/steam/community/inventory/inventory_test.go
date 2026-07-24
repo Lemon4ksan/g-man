@@ -18,7 +18,7 @@ import (
 
 	"github.com/lemon4ksan/g-man/pkg/steam/community/inventory"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
-	"github.com/lemon4ksan/g-man/test/mock"
+	"github.com/lemon4ksan/g-man/pkg/test/mock"
 )
 
 const testUserID = uint64(76561198000000000)

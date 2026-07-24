@@ -74,6 +74,7 @@ type SocketProvider interface {
 	// Send transmits a message asynchronously over the socket.
 	Send(ctx context.Context, build socket.PayloadBuilder, opts ...socket.SendOption) error
 	// SendSync transmits a message and blocks until a matching response is received.
+	// The caller is responsible for releasing the returned packet using [protocol.ReleasePacket].
 	SendSync(ctx context.Context, build socket.PayloadBuilder, opts ...socket.SendOption) (*protocol.Packet, error)
 	// RegisterServiceHandler registers a handler function for incoming unified service messages.
 	RegisterServiceHandler(method string, handler socket.Handler)

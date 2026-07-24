@@ -15,7 +15,7 @@ import (
 
 	pbSteam "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
-	"github.com/lemon4ksan/g-man/test/mock"
+	"github.com/lemon4ksan/g-man/pkg/test/mock"
 )
 
 const testSteamID = id.ID(76561198000000001)

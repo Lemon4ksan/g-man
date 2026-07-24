@@ -121,6 +121,27 @@ type InboundMessage struct {
 	Transport  TransportType
 }
 
+var packetPool = sync.Pool{
+	New: func() any { return &Packet{} },
+}
+
+// AcquirePacket acquires a packet from the pool and resets it for use.
+func AcquirePacket() *Packet {
+	p := packetPool.Get().(*Packet)
+	p.Reset()
+	return p
+}
+
+// ReleasePacket releases a packet back to the pool.
+func ReleasePacket(p *Packet) {
+	if p == nil {
+		return
+	}
+
+	p.Reset()
+	packetPool.Put(p)
+}
+
 // Packet represents a parsed message received from or sent to a Steam Connection Manager.
 // It serves as a unified interface regardless of the underlying header format.
 //
@@ -139,12 +160,20 @@ type Packet struct {
 	Ctx context.Context
 	// ReceivedAt represents the exact time the packet was received by the transport layer.
 	ReceivedAt time.Time
+	// Transport represents the transport type used to receive this packet.
+	Transport TransportType
 }
 
 // Context returns the packet's execution context, defaulting to context.Background() if nil.
 func (p *Packet) Context() context.Context {
 	if p.Ctx == nil {
 		p.Ctx = context.Background()
+	}
+
+	if p.Transport != "" {
+		if _, ok := GetTransportType(p.Ctx); !ok {
+			p.Ctx = WithTransportType(p.Ctx, p.Transport)
+		}
 	}
 
 	return p.Ctx
@@ -192,12 +221,14 @@ func ParsePacket(r io.Reader) (*Packet, error) {
 		return nil, ErrPayloadTooLarge
 	}
 
-	return &Packet{
-		EMsg:    eMsg,
-		IsProto: isProto,
-		Header:  header,
-		Payload: payload,
-	}, nil
+	p := AcquirePacket()
+	p.EMsg = eMsg
+	p.IsProto = isProto
+	p.Header = header
+	p.Payload = payload
+	p.Transport = ""
+
+	return p, nil
 }
 
 // GetTargetJobID returns the JobID of the intended recipient.
@@ -267,6 +298,54 @@ func (p *Packet) SerializeTo(w io.Writer) error {
 	_, err := w.Write(p.Payload)
 
 	return err
+}
+
+// Reset resets the packet fields to their zero values.
+func (p *Packet) Reset() {
+	p.EMsg = 0
+	p.IsProto = false
+	p.Header = nil
+	p.Payload = nil
+	p.Ctx = nil
+	p.ReceivedAt = time.Time{}
+	p.Transport = ""
+}
+
+var gcPacketPool = sync.Pool{
+	New: func() any { return &GCPacket{} },
+}
+
+// AcquireGCPacket acquires a GCPacket from the pool and resets it for use.
+func AcquireGCPacket() *GCPacket {
+	p := gcPacketPool.Get().(*GCPacket)
+	p.Reset()
+	return p
+}
+
+// ReleaseGCPacket releases a GCPacket back to the pool.
+func ReleaseGCPacket(p *GCPacket) {
+	if p == nil {
+		return
+	}
+
+	p.Reset()
+	gcPacketPool.Put(p)
+}
+
+var protoHeaderPool = sync.Pool{
+	New: func() any { return &pb.CMsgProtoBufHeader{} },
+}
+
+func acquireProtoHeader() *pb.CMsgProtoBufHeader {
+	h := protoHeaderPool.Get().(*pb.CMsgProtoBufHeader)
+	h.Reset()
+	return h
+}
+
+func releaseProtoHeader(h *pb.CMsgProtoBufHeader) {
+	if h != nil {
+		protoHeaderPool.Put(h)
+	}
 }
 
 // GCPacket represents a Game Coordinator message.
@@ -339,65 +418,69 @@ func (p *GCPacket) Serialize() ([]byte, error) {
 
 // ParseGCPacket decodes a raw byte slice from ClientFromGC into a Packet.
 func ParseGCPacket(appID, msgType uint32, data []byte) (*GCPacket, error) {
-	p := &GCPacket{
-		AppID:   appID,
-		MsgType: msgType & ^uint32(ProtoMask), // Strip mask
-		IsProto: (msgType & ProtoMask) > 0,
-	}
+	p := AcquireGCPacket()
+	p.AppID = appID
+	p.MsgType = msgType & ^uint32(ProtoMask)
+	p.IsProto = (msgType & ProtoMask) > 0
 
-	r := bytes.NewReader(data)
+	offset := 0
 
 	if p.IsProto {
-		// The CMsgGCClient.Payload for proto GC messages has the format:
-		//   [4 bytes: msgType | ProtoMask]  <-- redundant with wrapper.Msgtype, must be skipped
-		//   [4 bytes: hdrLen]
-		//   [hdrLen bytes: CMsgProtoBufHeader]
-		//   [remaining: message body]
-		// node-steam-user reads hdrLen at offset 4 (payload.readInt32LE(4)), confirming
-		// the first 4 bytes are the msgType prefix and must be discarded here.
-		var skippedMsgType uint32
-		if err := binary.Read(r, binary.LittleEndian, &skippedMsgType); err != nil {
-			return nil, fmt.Errorf("gc: read inner msgtype: %w", err)
+		if len(data) < 4 {
+			ReleaseGCPacket(p)
+			return nil, fmt.Errorf("gc: read inner msgtype: %w", io.ErrUnexpectedEOF)
 		}
 
-		// Read Header Length
-		var hdrLen uint32
-		if err := binary.Read(r, binary.LittleEndian, &hdrLen); err != nil {
-			return nil, fmt.Errorf("gc: read proto header len: %w", err)
+		if len(data) < 8 {
+			ReleaseGCPacket(p)
+			return nil, fmt.Errorf("gc: read proto header len: %w", io.ErrUnexpectedEOF)
 		}
 
-		// Read Proto Header
-		hdrBytes := make([]byte, hdrLen)
-		if _, err := io.ReadFull(r, hdrBytes); err != nil {
-			return nil, fmt.Errorf("gc: read proto header: %w", err)
+		hdrLen := binary.LittleEndian.Uint32(data[4:8])
+		offset = 8
+
+		if len(data) < offset+int(hdrLen) {
+			ReleaseGCPacket(p)
+			return nil, fmt.Errorf("gc: read proto header: %w", io.ErrUnexpectedEOF)
 		}
 
-		hdr := &pb.CMsgProtoBufHeader{}
-		if err := proto.Unmarshal(hdrBytes, hdr); err != nil {
+		hdrBytes := data[offset : offset+int(hdrLen)]
+		offset += int(hdrLen)
+
+		hdr := acquireProtoHeader()
+
+		err := proto.Unmarshal(hdrBytes, hdr)
+		if err != nil {
+			releaseProtoHeader(hdr)
+			ReleaseGCPacket(p)
 			return nil, fmt.Errorf("gc: unmarshal proto header: %w", err)
 		}
 
 		p.TargetJobID = hdr.GetJobidTarget()
 		p.SourceJobID = hdr.GetJobidSource()
+		releaseProtoHeader(hdr) // Возвращаем в пул
 	} else {
-		// Legacy Header (18 bytes)
-		header := make([]byte, 18)
-		if _, err := io.ReadFull(r, header); err != nil {
-			return nil, fmt.Errorf("gc: read legacy header: %w", err)
+		if len(data) < 18 {
+			ReleaseGCPacket(p)
+			return nil, fmt.Errorf("gc: read legacy header: %w", io.ErrUnexpectedEOF)
 		}
 
-		// Skip version (2 bytes)
-		p.TargetJobID = binary.LittleEndian.Uint64(header[2:])
-		p.SourceJobID = binary.LittleEndian.Uint64(header[10:])
+		p.TargetJobID = binary.LittleEndian.Uint64(data[2:10])
+		p.SourceJobID = binary.LittleEndian.Uint64(data[10:18])
+		offset = 18
 	}
 
-	// The rest is payload
-	var err error
-
-	p.Payload, err = io.ReadAll(r)
-	if err != nil {
-		return nil, fmt.Errorf("gc: read payload: %w", err)
-	}
+	p.Payload = data[offset:]
 
 	return p, nil
+}
+
+// Reset resets the packet fields to their zero values.
+func (p *GCPacket) Reset() {
+	p.AppID = 0
+	p.MsgType = 0
+	p.IsProto = false
+	p.TargetJobID = NoJob
+	p.SourceJobID = NoJob
+	p.Payload = nil
 }

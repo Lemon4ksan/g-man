@@ -65,6 +65,15 @@ func RapidValidateSteamResponse(data []byte) error {
 // It returns decoding errors if the payload is malformed or if the target is invalid.
 // If the reader is nil, the decoder will return a read error.
 var SteamJSONDecoder = decode.DecoderFunc(func(r io.Reader, target any) error {
+	if resp, ok := r.(interface{ UnsafeBodyBytes() []byte }); ok {
+		data := resp.UnsafeBodyBytes()
+		if err := RapidValidateSteamResponse(data); err != nil {
+			return err
+		}
+
+		return json.Unmarshal(data, target)
+	}
+
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return err

@@ -18,7 +18,7 @@ import (
 
 // Dispatcher defines the interface for routing parsed packets.
 type Dispatcher interface {
-	Dispatch(packet *protocol.Packet)
+	Dispatch(packet *protocol.Packet) bool
 }
 
 // Config defines the concurrency and buffering parameters for the processor.
@@ -117,12 +117,11 @@ func (p *Processor) Process(inbound *protocol.InboundMessage) {
 
 	packet.ReceivedAt = inbound.ReceivedAt
 	packet.Ctx = p.ctx
+	packet.Transport = inbound.Transport
 
-	if inbound.Transport != "" {
-		packet.Ctx = protocol.WithTransportType(packet.Ctx, inbound.Transport)
+	if !p.dist.Dispatch(packet) {
+		protocol.ReleasePacket(packet)
 	}
-
-	p.dist.Dispatch(packet)
 }
 
 // worker processes packets from the internal queue and feeds them to the dispatcher.

@@ -856,9 +856,9 @@ func (m *Manager) handlePersonaState(packet *protocol.Packet) {
 		return
 	}
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	var events []PersonaStateUpdatedEvent
 
+	m.mu.Lock()
 	for _, friend := range state.GetFriends() {
 		steamID := id.ID(friend.GetFriendid())
 
@@ -876,10 +876,16 @@ func (m *Manager) handlePersonaState(packet *protocol.Packet) {
 			user.AvatarHash = friend.GetAvatarHash()
 		}
 
-		m.Bus.Publish(&PersonaStateUpdatedEvent{
+		events = append(events, PersonaStateUpdatedEvent{
 			SteamID: steamID,
 			State:   user,
 		})
+	}
+
+	m.mu.Unlock()
+
+	for i := range events {
+		m.Bus.Publish(&events[i])
 	}
 }
 

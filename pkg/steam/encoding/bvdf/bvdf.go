@@ -424,9 +424,9 @@ func (p *Parser) parseValue(kvType uint8) (any, error) {
 	}
 }
 
-func (p *Parser) ensureBytes(needed int, errMsg string) error {
+func (p *Parser) ensureBytes(needed int, _ string) error {
 	if p.offset+needed > len(p.data) {
-		return errors.New("bvdf: " + errMsg)
+		return io.ErrUnexpectedEOF
 	}
 
 	return nil

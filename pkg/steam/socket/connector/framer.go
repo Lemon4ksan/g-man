@@ -14,8 +14,12 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/crypto"
 )
 
-// Magic are the 4 bytes that prefix every Steam TCP packet header.
-const Magic = "VT01"
+const (
+	// magic are the 4 bytes that prefix every Steam TCP packet header.
+	magic = "VT01"
+	// magicUint32 is the 4-byte magic number used to identify Steam TCP packets.
+	magicUint32 uint32 = 0x31305456
+)
 
 // SteamFramer implements network.Framer for Steam's custom TCP protocol.
 // It handles length-prefixed message framing: [4-byte length][4-byte magic][payload].
@@ -24,22 +28,19 @@ type SteamFramer struct{}
 // ReadFrame reads a frame from the given io.Reader using the Steam framer.
 func (s SteamFramer) ReadFrame(r io.Reader) ([]byte, error) {
 	var header [8]byte
-
-	// Read the fixed-size header first.
 	if _, err := io.ReadFull(r, header[:]); err != nil {
 		return nil, err
 	}
 
-	if string(header[4:8]) != Magic {
+	if binary.LittleEndian.Uint32(header[4:8]) != magicUint32 {
 		return nil, errors.New("steam framer: invalid magic bytes")
 	}
 
 	length := binary.LittleEndian.Uint32(header[0:4])
-	if length > 10*1024*1024 { // 10MB sanity limit
+	if length > 10*1024*1024 {
 		return nil, fmt.Errorf("steam framer: packet too large (%d bytes)", length)
 	}
 
-	// Read the variable-length payload.
 	payload := make([]byte, length)
 	if _, err := io.ReadFull(r, payload); err != nil {
 		return nil, err
@@ -56,7 +57,7 @@ func (s SteamFramer) WriteFrame(w io.Writer, data []byte) error {
 
 	var header [8]byte
 	binary.LittleEndian.PutUint32(header[0:4], uint32(len(data)))
-	copy(header[4:8], Magic)
+	copy(header[4:8], magic)
 
 	// If the writer supports gather writes (like net.Conn with net.Buffers), we can optimize.
 	// Unfortunately, io.Writer doesn't support this directly.

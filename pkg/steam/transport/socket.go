@@ -20,8 +20,6 @@ import (
 type SocketMetadata struct {
 	// Result is the Steam EResult code extracted from the packet header.
 	Result enums.EResult
-	// Header contains the full, parsed binary packet header.
-	Header protocol.Header
 	// SourceJobID is the original Job ID that this message is a response to.
 	SourceJobID uint64
 }
@@ -102,26 +100,26 @@ func (t *SocketTransport) Do(ctx context.Context, req *Request) (*Response, erro
 		}), nil
 	}
 
-	p, err := t.caller.SendSync(ctx, builder, socket.WithToken(req.Token()))
+	resp, err := t.caller.SendSync(ctx, builder, socket.WithToken(req.Token()))
 	if err != nil {
 		return nil, fmt.Errorf("socket_transport call failed: %w", err)
 	}
+	defer protocol.ReleasePacket(resp)
 
 	result := enums.EResult_OK
 
 	var sourceJobID uint64
 
-	if p.Header != nil {
-		if eh, ok := p.Header.(protocol.EHeader); ok {
+	if resp.Header != nil {
+		if eh, ok := resp.Header.(protocol.EHeader); ok {
 			result = eh.GetEResult()
 		}
 
-		sourceJobID = p.GetSourceJobID()
+		sourceJobID = resp.GetSourceJobID()
 	}
 
-	return NewResponse(io.NopCloser(bytes.NewReader(p.Payload)), SocketMetadata{
+	return NewResponse(io.NopCloser(bytes.NewReader(resp.Payload)), SocketMetadata{
 		Result:      result,
 		SourceJobID: sourceJobID,
-		Header:      p.Header,
 	}), nil
 }

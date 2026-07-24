@@ -31,17 +31,19 @@ func newMockDispatcher() *mockDispatcher {
 	}
 }
 
-func (m *mockDispatcher) Dispatch(p *protocol.Packet) {
+func (m *mockDispatcher) Dispatch(p *protocol.Packet) bool {
 	m.count.Add(1)
 
 	m.packets <- p
+
+	return true
 }
 
 type panicDispatcher struct {
 	called chan struct{}
 }
 
-func (p *panicDispatcher) Dispatch(packet *protocol.Packet) {
+func (p *panicDispatcher) Dispatch(packet *protocol.Packet) bool {
 	close(p.called)
 	panic("something went wrong inside dispatcher")
 }

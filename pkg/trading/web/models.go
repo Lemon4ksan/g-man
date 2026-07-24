@@ -7,8 +7,10 @@ package web
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/lemon4ksan/aoni/codec/values"
 
@@ -58,6 +60,32 @@ type sendNewReq struct {
 	JSON         string `url:"json_tradeoffer"`
 	CreateParams string `url:"trade_offer_create_params,omitempty"`
 	CounteredID  uint64 `url:"tradeofferid_countered,omitempty"`
+}
+
+func (r sendNewReq) EncodeFormString() (string, error) {
+	var sb strings.Builder
+	sb.Grow(128 + len(r.Message) + len(r.JSON) + len(r.CreateParams))
+
+	sb.WriteString("serverid=")
+	sb.WriteString(strconv.Itoa(r.ServerID))
+	sb.WriteString("&partner=")
+	sb.WriteString(r.PartnerID.String())
+	sb.WriteString("&tradeoffermessage=")
+	sb.WriteString(url.QueryEscape(r.Message))
+	sb.WriteString("&json_tradeoffer=")
+	sb.WriteString(url.QueryEscape(r.JSON))
+
+	if r.CreateParams != "" {
+		sb.WriteString("&trade_offer_create_params=")
+		sb.WriteString(url.QueryEscape(r.CreateParams))
+	}
+
+	if r.CounteredID > 0 {
+		sb.WriteString("&tradeofferid_countered=")
+		sb.WriteString(strconv.FormatUint(r.CounteredID, 10))
+	}
+
+	return sb.String(), nil
 }
 
 type sendNewResponse struct {

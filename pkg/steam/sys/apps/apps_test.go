@@ -17,7 +17,7 @@ import (
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
-	module "github.com/lemon4ksan/g-man/test/mock"
+	module "github.com/lemon4ksan/g-man/pkg/test/mock"
 )
 
 const (

@@ -624,53 +624,91 @@ func (e *Engine) registerFuncDynamic(val reflect.Value, c *Command) {
 
 // ParseCommandLine parses the command line string into a slice of arguments.
 func ParseCommandLine(line string) []string {
-	var (
-		args    []string
-		current strings.Builder
-	)
+	if len(line) == 0 {
+		return nil
+	}
 
+	args := make([]string, 0, 8)
 	inQuotes := false
 	inSingleQuotes := false
 	escaped := false
+	start := -1
 
-	for _, r := range line {
+	var current *strings.Builder
+
+	for i := 0; i < len(line); i++ {
+		c := line[i]
+
 		if escaped {
-			current.WriteRune(r)
+			if current == nil {
+				current = &strings.Builder{}
+				if start != -1 {
+					current.WriteString(line[start : i-1])
+				}
+			}
+
+			current.WriteByte(c)
 
 			escaped = false
 
 			continue
 		}
 
-		if r == '\\' {
+		if c == '\\' {
 			escaped = true
 			continue
 		}
 
-		if r == '"' && !inSingleQuotes {
+		if c == '"' && !inSingleQuotes {
 			inQuotes = !inQuotes
-			continue
-		}
 
-		if r == '\'' && !inQuotes {
-			inSingleQuotes = !inSingleQuotes
-			continue
-		}
-
-		if (r == ' ' || r == '\t' || r == '\r' || r == '\n') && !inQuotes && !inSingleQuotes {
-			if current.Len() > 0 {
-				args = append(args, current.String())
-				current.Reset()
+			if start == -1 {
+				start = i + 1
 			}
 
 			continue
 		}
 
-		current.WriteRune(r)
+		if c == '\'' && !inQuotes {
+			inSingleQuotes = !inSingleQuotes
+
+			if start == -1 {
+				start = i + 1
+			}
+
+			continue
+		}
+
+		if (c == ' ' || c == '\t' || c == '\r' || c == '\n') && !inQuotes && !inSingleQuotes {
+			if current != nil {
+				if current.Len() > 0 {
+					args = append(args, current.String())
+					current = nil
+				}
+			} else if start != -1 && i > start {
+				args = append(args, line[start:i])
+			}
+
+			start = -1
+
+			continue
+		}
+
+		if start == -1 {
+			start = i
+		}
+
+		if current != nil {
+			current.WriteByte(c)
+		}
 	}
 
-	if current.Len() > 0 {
-		args = append(args, current.String())
+	if current != nil {
+		if current.Len() > 0 {
+			args = append(args, current.String())
+		}
+	} else if start != -1 && len(line) > start {
+		args = append(args, line[start:])
 	}
 
 	return args

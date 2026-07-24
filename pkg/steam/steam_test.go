@@ -22,7 +22,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
-	steammock "github.com/lemon4ksan/g-man/test/mock"
+	steammock "github.com/lemon4ksan/g-man/pkg/test/mock"
 )
 
 func TestGetModule_VariousClientsAndModules_ReturnsExpectedResult(t *testing.T) {

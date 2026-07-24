@@ -129,11 +129,7 @@ func (a AccountType) String() string {
 	}
 }
 
-var (
-	rxSteam2 = regexp.MustCompile(`^STEAM_([0-5]):([0-1]):([0-9]+)$`)
-	rxSteam3 = regexp.MustCompile(`^\[([A-Z]):([0-5]):([0-9]+)(:[0-9]+)?\]$`)
-	rxURL    = regexp.MustCompile(`(?:https?://)?steamcommunity\.com/(?:profiles|id)/([a-zA-Z0-9_-]+)`)
-)
+var rxURL = regexp.MustCompile(`(?:https?://)?steamcommunity\.com/(?:profiles|id)/([a-zA-Z0-9_-]+)`)
 
 // New constructs an [ID] from a raw 64-bit unsigned integer.
 // It returns [InvalidID] if the input integer is 0.
@@ -149,24 +145,54 @@ func FromAccountID(accountID uint32) ID {
 // It supports parsing legacy Steam2 formats, modern Steam3 formats, and raw 64-bit string values.
 // It returns [InvalidID] if the input string is empty, malformed, or invalid.
 func Parse(s string) ID {
-	if s == "" {
+	if len(s) == 0 {
 		return InvalidID
 	}
 
-	if id, err := strconv.ParseUint(s, 10, 64); err == nil {
-		return ID(id)
+	if s[0] >= '0' && s[0] <= '9' {
+		if idVal, err := strconv.ParseUint(s, 10, 64); err == nil {
+			return ID(idVal)
+		}
+
+		return InvalidID
 	}
 
-	if m := rxSteam2.FindStringSubmatch(s); m != nil {
-		authServer, _ := strconv.ParseUint(m[2], 10, 64)
-		accountID, _ := strconv.ParseUint(m[3], 10, 64)
+	if strings.HasPrefix(s, "STEAM_") {
+		rest := s[6:] // "0:1:19867136"
 
-		return ID(IndividualBase.Uint64() + (accountID * 2) + authServer)
+		idx1 := strings.IndexByte(rest, ':')
+		if idx1 == -1 {
+			return InvalidID
+		}
+
+		idx2 := strings.IndexByte(rest[idx1+1:], ':')
+		if idx2 == -1 {
+			return InvalidID
+		}
+
+		idx2 += idx1 + 1
+
+		authServer, err1 := strconv.ParseUint(rest[idx1+1:idx2], 10, 64)
+
+		accountID, err2 := strconv.ParseUint(rest[idx2+1:], 10, 64)
+		if err1 == nil && err2 == nil {
+			return ID(IndividualBase.Uint64() + (accountID * 2) + authServer)
+		}
+
+		return InvalidID
 	}
 
-	if m := rxSteam3.FindStringSubmatch(s); m != nil {
-		accountID, _ := strconv.ParseUint(m[3], 10, 64)
-		return FromAccountID(uint32(accountID))
+	if strings.HasPrefix(s, "[U:1:") && strings.HasSuffix(s, "]") {
+		inner := s[5 : len(s)-1]
+		if idx := strings.IndexByte(inner, ':'); idx != -1 {
+			inner = inner[:idx]
+		}
+
+		if accountID, err := strconv.ParseUint(inner, 10, 32); err == nil {
+			return FromAccountID(uint32(accountID))
+		}
+
+		return InvalidID
 	}
 
 	return InvalidID

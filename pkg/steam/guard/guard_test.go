@@ -28,7 +28,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
-	module "github.com/lemon4ksan/g-man/test/mock"
+	module "github.com/lemon4ksan/g-man/pkg/test/mock"
 )
 
 const validSecret = "SGVsbG8gV29ybGQ="

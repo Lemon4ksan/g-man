@@ -8,8 +8,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/lemon4ksan/aoni/codec/decode"
@@ -180,6 +182,36 @@ func (s *MobileConf) RespondToConfirmation(
 	return nil
 }
 
+type multiRequest struct {
+	baseParams
+	ConfIDs []uint64 `url:"cid[]"`
+	Nonces  []uint64 `url:"ck[]"`
+}
+
+func (r multiRequest) EncodeFormString() (string, error) {
+	var sb strings.Builder
+	sb.Grow(256 + len(r.ConfIDs)*24 + len(r.Nonces)*24)
+
+	baseStr, err := r.baseParams.EncodeFormString()
+	if err != nil {
+		return "", err
+	}
+
+	sb.WriteString(baseStr)
+
+	for _, cid := range r.ConfIDs {
+		sb.WriteString("&cid[]=")
+		sb.WriteString(strconv.FormatUint(cid, 10))
+	}
+
+	for _, nonce := range r.Nonces {
+		sb.WriteString("&ck[]=")
+		sb.WriteString(strconv.FormatUint(nonce, 10))
+	}
+
+	return sb.String(), nil
+}
+
 // RespondToMultiple accepts or denies multiple confirmations in a single request.
 func (s *MobileConf) RespondToMultiple(
 	ctx context.Context,
@@ -192,12 +224,6 @@ func (s *MobileConf) RespondToMultiple(
 ) error {
 	if len(confs) == 0 {
 		return nil
-	}
-
-	type multiRequest struct {
-		baseParams
-		ConfIDs []uint64 `url:"cid[]"`
-		Nonces  []uint64 `url:"ck[]"`
 	}
 
 	req := multiRequest{
@@ -246,6 +272,41 @@ type baseParams struct {
 	Op        string `url:"op,omitempty"`
 	ConfID    uint64 `url:"cid,omitempty"`
 	Nonce     uint64 `url:"ck,omitempty"`
+}
+
+func (p baseParams) EncodeFormString() (string, error) {
+	var sb strings.Builder
+	sb.Grow(128)
+
+	sb.WriteString("p=")
+	sb.WriteString(url.QueryEscape(p.DeviceID))
+	sb.WriteString("&a=")
+	sb.WriteString(p.SteamID.String())
+	sb.WriteString("&k=")
+	sb.WriteString(url.QueryEscape(p.ConfKey))
+	sb.WriteString("&t=")
+	sb.WriteString(strconv.FormatInt(p.Timestamp, 10))
+	sb.WriteString("&m=")
+	sb.WriteString(p.Mode)
+	sb.WriteString("&tag=")
+	sb.WriteString(p.ActionTag)
+
+	if p.Op != "" {
+		sb.WriteString("&op=")
+		sb.WriteString(p.Op)
+	}
+
+	if p.ConfID > 0 {
+		sb.WriteString("&cid=")
+		sb.WriteString(strconv.FormatUint(p.ConfID, 10))
+	}
+
+	if p.Nonce > 0 {
+		sb.WriteString("&ck=")
+		sb.WriteString(strconv.FormatUint(p.Nonce, 10))
+	}
+
+	return sb.String(), nil
 }
 
 // AddAuthenticator registers a new authenticator to the account.

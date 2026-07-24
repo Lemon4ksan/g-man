@@ -8,10 +8,10 @@ import (
 	"context"
 	"fmt"
 
+	tradingtest "github.com/lemon4ksan/g-man/pkg/test/trading"
 	"github.com/lemon4ksan/g-man/pkg/trading"
 	"github.com/lemon4ksan/g-man/pkg/trading/engine"
 	"github.com/lemon4ksan/g-man/pkg/trading/reason"
-	tradingtest "github.com/lemon4ksan/g-man/test/trading"
 )
 
 // Item Attribute IDs (generic representation)
