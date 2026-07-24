@@ -18,7 +18,7 @@ import (
 	"sync"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/miyako/generic"
 	"github.com/lemon4ksan/miyako/log"
 
@@ -96,8 +96,8 @@ func NewWithClient(cfg Config, client community.Requester) *Market {
 func (m *Market) StartAuthed(ctx context.Context, auth module.AuthContext) error {
 	m.mu.Lock()
 	m.client = community.Decorate(auth.Community(),
-		aoni.WithHeader("X-Requested-With", "XMLHttpRequest"),
-		aoni.WithHeader("X-Prototype-Version", "1.7"),
+		mod.WithHeader("X-Requested-With", "XMLHttpRequest"),
+		mod.WithHeader("X-Prototype-Version", "1.7"),
 	)
 	m.mu.Unlock()
 
@@ -131,7 +131,7 @@ func (m *Market) CreateSellOrder(
 
 	resp, err := community.PostFormTo[CreateSellOrderResponse](
 		ctx, client, "market/sellitem", req,
-		aoni.WithHeader("Referer", fmt.Sprintf("%sprofiles/%d/inventory?modal=1&market=1", community.BaseURL, steamID)),
+		mod.WithHeader("Referer", fmt.Sprintf("%sprofiles/%d/inventory?modal=1&market=1", community.BaseURL, steamID)),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("market: sell order failed: %w", err)
@@ -168,7 +168,7 @@ func (m *Market) CreateBuyOrder(ctx context.Context, opts CreateBuyOrderOptions)
 
 	resp, err := community.PostFormTo[CreateBuyOrderResponse](
 		ctx, client, "market/createbuyorder", req,
-		aoni.WithHeader("Referer", fmt.Sprintf(
+		mod.WithHeader("Referer", fmt.Sprintf(
 			community.BaseURL+"market/listings/%d/%s",
 			opts.AppID, url.PathEscape(opts.MarketHashName),
 		)),
@@ -220,7 +220,7 @@ func (m *Market) CancelSellOrder(ctx context.Context, listingID uint64) error {
 
 	resp, err := community.PostFormTo[respType](
 		ctx, client, "market/removelisting/{listingID}", nil,
-		aoni.WithVar("listingID", listingID),
+		mod.WithVar("listingID", listingID),
 	)
 	if err != nil {
 		return err
@@ -237,8 +237,8 @@ func (m *Market) CancelSellOrder(ctx context.Context, listingID uint64) error {
 func (m *Market) Search(ctx context.Context, appID uint32, opts SearchOptions) (*SearchResponse, error) {
 	return community.GetTo[SearchResponse](
 		ctx, m.client, "market/search/render",
-		aoni.WithQuery(opts),
-		aoni.WithHeader("Referer", fmt.Sprintf(community.BaseURL+"market/search?appid=%d", appID)),
+		mod.WithQuery(opts),
+		mod.WithHeader("Referer", fmt.Sprintf(community.BaseURL+"market/search?appid=%d", appID)),
 	)
 }
 
@@ -256,7 +256,7 @@ func (m *Market) GetPriceOverview(
 
 	return community.GetTo[PriceOverviewResponse](
 		ctx, m.client, "market/priceoverview",
-		aoni.WithQuery(req),
+		mod.WithQuery(req),
 	)
 }
 
@@ -277,8 +277,8 @@ func (m *Market) GetItemOrdersHistogram(
 
 	resp, err := community.GetTo[ItemOrdersHistogramResponse](
 		ctx, m.client, "market/itemordershistogram",
-		aoni.WithQuery(params),
-		aoni.WithHeader(
+		mod.WithQuery(params),
+		mod.WithHeader(
 			"Referer",
 			fmt.Sprintf(community.BaseURL+"market/listings/%d/%s", appID, url.PathEscape(marketHashName)),
 		),
@@ -314,7 +314,7 @@ func (m *Market) GetMyListings(ctx context.Context, start, count int) (*MyListin
 
 	return community.GetTo[MyListingsResponse](
 		ctx, m.client, "market/mylistings",
-		aoni.WithQuery(params),
+		mod.WithQuery(params),
 	)
 }
 
@@ -372,7 +372,7 @@ func (m *Market) GetGemValue(ctx context.Context, appID uint32, assetID uint64) 
 		AssetID   uint64 `url:"assetid"`
 	}{appID, 6, assetID}
 
-	resp, err := community.GetTo[gemValueResponse](ctx, client, "ajaxgetgoovalue", aoni.WithQuery(req))
+	resp, err := community.GetTo[gemValueResponse](ctx, client, "ajaxgetgoovalue", mod.WithQuery(req))
 	if err != nil {
 		return nil, err
 	}
@@ -505,7 +505,7 @@ func (m *Market) GetGiftDetails(ctx context.Context, giftID uint64) (*GiftDetail
 
 	resp, err := community.PostFormTo[giftDetailsResponse](
 		ctx, client, "gifts/{giftID}/validateunpack", nil,
-		aoni.WithVar("giftID", giftID),
+		mod.WithVar("giftID", giftID),
 	)
 	if err != nil {
 		return nil, err
@@ -531,7 +531,7 @@ func (m *Market) RedeemGift(ctx context.Context, giftID uint64) error {
 
 	resp, err := community.PostFormTo[redeemGiftResponse](
 		ctx, client, "gifts/{giftID}/unpack", nil,
-		aoni.WithVar("giftID", giftID),
+		mod.WithVar("giftID", giftID),
 	)
 	if err != nil {
 		return err

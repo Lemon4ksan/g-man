@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/aoni/codec/decode"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
@@ -32,21 +33,34 @@ func (m mockEHeader) GetSourceJob() uint64          { return m.sourceJob }
 func (m mockEHeader) GetTargetJob() uint64          { return 0 }
 func (m mockEHeader) SerializeTo(w io.Writer) error { return nil }
 
-func TestRequest_FluentConfiguration_SavesExpectedParameters(t *testing.T) {
+func TestNewRequest_Initialization_SetsDefaults(t *testing.T) {
+	t.Parallel()
+
+	body := strings.NewReader("hello")
+	target := mockTarget{name: "dest"}
+
+	req := NewRequest(target, body)
+
+	assert.Equal(t, target, req.Target())
+	assert.Equal(t, body, req.Body)
+	assert.Empty(t, req.Params())
+	assert.Empty(t, req.Header())
+	assert.Nil(t, req.Decoder(nil))
+	assert.Empty(t, req.Modifiers())
+}
+
+func TestRequest_WithMethods_AppliesFieldsCorrectly(t *testing.T) {
 	t.Parallel()
 
 	target := mockTarget{name: "dest"}
-	req := NewRequest(target, strings.NewReader("body"))
-
-	req.WithParam("a", "1").
+	req := NewRequest(target, nil).
+		WithParam("a", "1").
 		WithParams(url.Values{"b": {"2"}, "c": {"3"}}).
 		WithHeader("X-Test", "true").
 		WithParam("access_token", "secret").
 		WithRoutingAppID(440).
 		WithForceProto()
 
-	body, _ := io.ReadAll(req.Body)
-	assert.Equal(t, "body", string(body))
 	assert.Equal(t, target, req.Target())
 	assert.Equal(t, "1", req.Params().Get("a"))
 	assert.Equal(t, "2", req.Params().Get("b"))
@@ -62,7 +76,7 @@ func TestRequest_DecoderAndModifiers_SavesAndRetrieves(t *testing.T) {
 
 	req := NewRequest(mockTarget{name: "dest"}, nil)
 
-	var dummyDecoder aoni.Decoder
+	var dummyDecoder decode.Decoder
 	assert.Nil(t, req.Decoder(dummyDecoder))
 
 	req.SetDecoder(dummyDecoder)

@@ -15,6 +15,9 @@ import (
 	"sync"
 
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/aoni/codec/decode"
+	"github.com/lemon4ksan/aoni/codec/values"
+	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/miyako/generic"
 	"google.golang.org/protobuf/proto"
 
@@ -23,28 +26,30 @@ import (
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
 )
 
+// FastFormEncoder allows DTO structs to serialize directly into URL-encoded strings with zero map allocations.
+type FastFormEncoder interface {
+	EncodeFormString() (string, error)
+}
+
 // WebAPIBase is the default base URL used for standard Steam Web API endpoints.
 const WebAPIBase = "https://api.steampowered.com/"
 
 // ErrInvalidMessage is returned when a provided Protobuf message structure is invalid or nil.
 var ErrInvalidMessage = errors.New("service: invalid protobuf message")
 
-// Doer executes transport-agnostic requests and returns responses or errors.
+// Doer abstracts the core transport execution engine.
 type Doer interface {
 	// Do executes the specified request using the underlying transport layers.
 	Do(ctx context.Context, req *tr.Request) (*tr.Response, error)
 }
 
 // NoResponse indicates that response body marshaling and decoding should be skipped entirely.
-// It is used as a generic parameter in [Execute] or [Unified] calls where response content is ignored.
-// The helper automatically drains and closes the response body to prevent resource leaks.
-type NoResponse = aoni.NoResponse
+type NoResponse struct{}
 
 // CallOption defines a functional configuration option used to modify a [tr.Request] before execution.
 type CallOption func(req *tr.Request)
 
 // WithHTTPMethod overrides the default HTTP verb for the request.
-// If the method argument is empty, the default request method remains unchanged.
 func WithHTTPMethod(method string) CallOption {
 	type httpMethodSetter interface {
 		SetHTTPMethod(string)
@@ -57,8 +62,7 @@ func WithHTTPMethod(method string) CallOption {
 	}
 }
 
-// WithVersion configures the explicit API version for the request.
-// If the version argument is negative, the behavior is transport-dependent.
+// WithVersion overrides the API target version.
 func WithVersion(version int) CallOption {
 	type versionSetter interface {
 		SetVersion(int)
@@ -71,21 +75,18 @@ func WithVersion(version int) CallOption {
 	}
 }
 
-// WithDecoder configures a custom [aoni.Decoder] for decoding the response body.
-// It will panic if the provided decoder argument d is nil.
-func WithDecoder(d aoni.Decoder) CallOption {
+// WithDecoder configures a custom [decode.Decoder] for decoding the response body.
+func WithDecoder(d decode.Decoder) CallOption {
 	return func(req *tr.Request) {
 		req.SetDecoder(d)
-		req.WithModifier(aoni.WithDecoder(d))
+		req.WithModifier(mod.WithDecoder(d))
 	}
 }
 
 // WithFormat configures the expected [encoding.ResponseFormat] for the request.
-// It maps the format to pre-configured Steam decoders and configures the request modifiers.
-// If the format is unknown or invalid, the request configuration remains unchanged.
 func WithFormat(f encoding.ResponseFormat) CallOption {
 	return func(req *tr.Request) {
-		var decoder aoni.Decoder
+		var decoder decode.Decoder
 		switch f {
 		case encoding.FormatJSON:
 			decoder = encoding.SteamJSONDecoder
@@ -96,12 +97,12 @@ func WithFormat(f encoding.ResponseFormat) CallOption {
 		case encoding.FormatBinaryVDF:
 			decoder = encoding.BinaryVDFDecoder
 		case encoding.FormatRaw:
-			decoder = aoni.RawDecoder
+			decoder = decode.RawDecoder
 		}
 
 		if decoder != nil {
 			req.SetDecoder(decoder)
-			req.WithModifier(aoni.WithDecoder(decoder))
+			req.WithModifier(mod.WithDecoder(decoder))
 		}
 	}
 }
@@ -258,12 +259,25 @@ func WebAPI[Resp any](
 	req := NewWebAPIRequest(httpMethod, iface, method, version)
 
 	if reqMsg != nil {
-		params, err := aoni.StructToValues(reqMsg)
-		if err != nil {
-			return nil, err
-		}
+		if encoder, ok := reqMsg.(FastFormEncoder); ok {
+			if encoded, err := encoder.EncodeFormString(); err == nil {
+				req.WithParam("input_protobuf_encoded", encoded)
+			} else {
+				params, err := values.StructToValues(reqMsg)
+				if err != nil {
+					return nil, err
+				}
 
-		req.WithParams(params)
+				req.WithParams(params)
+			}
+		} else {
+			params, err := values.StructToValues(reqMsg)
+			if err != nil {
+				return nil, err
+			}
+
+			req.WithParams(params)
+		}
 	}
 
 	return Execute[Resp](ctx, d, req, encoding.SteamJSONDecoder, opts...)
@@ -311,7 +325,7 @@ func Execute[Resp any](
 	ctx context.Context,
 	d Doer,
 	req *tr.Request,
-	defDecoder aoni.Decoder,
+	defDecoder decode.Decoder,
 	opts ...CallOption,
 ) (*Resp, error) {
 	for _, opt := range opts {

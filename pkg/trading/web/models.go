@@ -10,7 +10,7 @@ import (
 	"slices"
 	"strconv"
 
-	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/aoni/codec/values"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/trading"
@@ -124,8 +124,8 @@ type rawDescription struct {
 	MarketName     string                `json:"market_name"`
 	MarketHashName string                `json:"market_hash_name"`
 	IconURL        string                `json:"icon_url"`
-	Tradable       aoni.BoolInt          `json:"tradable"`
-	Marketable     aoni.BoolInt          `json:"marketable"`
+	Tradable       values.BoolInt        `json:"tradable"`
+	Marketable     values.BoolInt        `json:"marketable"`
 	Descriptions   []trading.Description `json:"descriptions"`
 	Tags           []trading.Tag         `json:"tags"`
 	Actions        []trading.Action      `json:"actions"`
@@ -234,6 +234,6 @@ type rawAssetClassDescription struct {
 	IconURL        string               `json:"icon_url"`
 	Descriptions   flexibleDescriptions `json:"descriptions"`
 	Tags           flexibleTags         `json:"tags"`
-	Tradable       aoni.BoolInt         `json:"tradable"`
-	Marketable     aoni.BoolInt         `json:"marketable"`
+	Tradable       values.BoolInt       `json:"tradable"`
+	Marketable     values.BoolInt       `json:"marketable"`
 }

@@ -19,7 +19,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 )
 
-// HTTPStub implements aoni.HTTPDoer, aoni.Requester, and community.Requester.
+// HTTPStub implements aoni.HTTPDoer, request.Requester, and community.Requester.
 // It unifies all HTTP and Steam Community mocking under a single, thread-safe stub.
 type HTTPStub struct {
 	mu sync.RWMutex
@@ -123,7 +123,7 @@ func (s *HTTPStub) Do(req *http.Request) (*http.Response, error) {
 	}, nil
 }
 
-// Request fulfills the aoni.Requester interface.
+// Request fulfills the request.Requester interface.
 func (s *HTTPStub) Request(
 	ctx context.Context,
 	method, path string,
@@ -131,8 +131,9 @@ func (s *HTTPStub) Request(
 ) (*http.Response, error) {
 	urlStr := community.BaseURL + path
 	req, _ := http.NewRequestWithContext(ctx, method, urlStr, nil)
+	stdReq := aoni.NewStdRequest(req)
 	for _, mod := range mods {
-		mod(req)
+		mod(stdReq)
 	}
 
 	resolvedURL, _ := url.PathUnescape(req.URL.String())

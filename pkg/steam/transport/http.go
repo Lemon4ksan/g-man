@@ -13,6 +13,9 @@ import (
 	"strconv"
 
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/aoni/fast"
+	"github.com/lemon4ksan/aoni/mod"
+	"github.com/lemon4ksan/aoni/option"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 )
@@ -35,7 +38,10 @@ type HTTPMetadata struct {
 //
 // Create new instances of HTTPTransport using [NewHTTPTransport].
 type HTTPTransport struct {
-	client *aoni.Client
+	client     *aoni.Client
+	fastClient *fast.Client
+	doer       aoni.HTTPDoer
+	baseURL    string
 }
 
 // HTTPTarget is an extension of the Target interface for destinations that can be
@@ -49,12 +55,20 @@ type HTTPTarget interface {
 // NewHTTPTransport creates a new HTTP transport layer.
 // It uses the provided aoni.HTTPDoer for executing requests.
 func NewHTTPTransport(doer aoni.HTTPDoer, baseURL string) *HTTPTransport {
-	return &HTTPTransport{
-		client: aoni.NewClient(doer,
-			aoni.WithClientBaseURL(baseURL),
-			aoni.WithClientUserAgent(HTTPUserAgent),
-		),
+	tr := &HTTPTransport{
+		doer:       doer,
+		baseURL:    baseURL,
+		fastClient: fast.NewClient(option.WithBaseURL(baseURL), option.WithUserAgent(HTTPUserAgent)),
 	}
+
+	if doer != nil {
+		tr.client = aoni.NewClient(doer,
+			option.WithBaseURL(baseURL),
+			option.WithUserAgent(HTTPUserAgent),
+		)
+	}
+
+	return tr
 }
 
 // Do executes a [Request] over HTTP.
@@ -83,35 +97,86 @@ func (t *HTTPTransport) Do(ctx context.Context, req *Request) (*Response, error)
 		params.Set("input_protobuf_encoded", base64.StdEncoding.EncodeToString(bodyBytes))
 	}
 
-	mods := append([]aoni.RequestModifier{
-		aoni.WithQuery(params),
-		func(r *http.Request) {
-			for key, values := range req.Header() {
-				for _, val := range values {
-					r.Header.Add(key, val)
+	if t.doer != nil && t.client != nil {
+		mods := append([]aoni.RequestModifier{
+			mod.WithQuery(params),
+			func(r aoni.Request) {
+				for key, values := range req.Header() {
+					for _, val := range values {
+						r.AddHeader(key, val)
+					}
 				}
-			}
 
-			r.Header.Set("Accept", "text/html,*/*;q=0.9")
-		},
-	}, req.Modifiers()...)
+				r.SetHeader("Accept", "text/html,*/*;q=0.9")
+			},
+		}, req.Modifiers()...)
 
-	resp, err := t.client.Request(ctx, target.HTTPMethod(), target.HTTPPath(), mods...) //nolint:bodyclose
+		resp, err := t.client.Request(ctx, target.HTTPMethod(), target.HTTPPath(), mods...) //nolint:bodyclose
+		if err != nil {
+			return nil, err
+		}
+
+		return NewResponse(resp.Body, HTTPMetadata{
+			Result:     t.parseEResult(resp),
+			Header:     resp.Header,
+			StatusCode: resp.StatusCode,
+		}), nil
+	}
+
+	fastReq := fast.NewRequest(nil)
+	defer fastReq.Release()
+
+	fastReq.SetContext(ctx)
+	fastReq.SetMethod(target.HTTPMethod())
+	fastReq.SetURL(t.baseURL + target.HTTPPath())
+
+	if len(params) > 0 {
+		fastReq.SetRawQuery(params.Encode())
+	}
+
+	for key, values := range req.Header() {
+		for _, val := range values {
+			fastReq.AddHeader(key, val)
+		}
+	}
+
+	fastReq.SetHeader("Accept", "text/html,*/*;q=0.9")
+
+	for _, m := range req.Modifiers() {
+		if m != nil {
+			m(fastReq)
+		}
+	}
+
+	resp, err := t.fastClient.Do(fastReq)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewResponse(resp.Body, HTTPMetadata{
+	return NewResponse(resp.BodyStream(), HTTPMetadata{
 		Result:     t.parseEResult(resp),
-		Header:     resp.Header,
-		StatusCode: resp.StatusCode,
+		Header:     http.Header(resp.Headers()),
+		StatusCode: resp.StatusCode(),
 	}), nil
 }
 
 // parseEResult extracts the Steam EResult from the 'x-eresult' response header.
 // Returns EResult_OK if the header is missing or invalid.
-func (t *HTTPTransport) parseEResult(resp *http.Response) enums.EResult {
-	if resHeader := resp.Header.Get("x-eresult"); resHeader != "" {
+func (t *HTTPTransport) parseEResult(v any) enums.EResult {
+	var resHeader string
+
+	switch r := v.(type) {
+	case *http.Response:
+		if r != nil && r.Header != nil {
+			resHeader = r.Header.Get("x-eresult")
+		}
+	case aoni.Response:
+		if r != nil {
+			resHeader = r.Header("x-eresult")
+		}
+	}
+
+	if resHeader != "" {
 		if val, err := strconv.Atoi(resHeader); err == nil {
 			return enums.EResult(val)
 		}

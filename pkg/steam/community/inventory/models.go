@@ -7,7 +7,7 @@ package inventory
 import (
 	"time"
 
-	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/aoni/codec/values"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 )
@@ -76,13 +76,13 @@ type CEconItem struct {
 }
 
 type inventoryResponse struct {
-	Success      aoni.BoolInt  `json:"success"`
-	Error        string        `json:"error"`
-	Assets       []Asset       `json:"assets"`
-	Descriptions []Description `json:"descriptions"`
-	MoreItems    aoni.BoolInt  `json:"more_items"`
-	LastAssetID  string        `json:"last_assetid"`
-	TotalCount   int           `json:"total_inventory_count"`
+	Success      values.BoolInt `json:"success"`
+	Error        string         `json:"error"`
+	Assets       []Asset        `json:"assets"`
+	Descriptions []Description  `json:"descriptions"`
+	MoreItems    values.BoolInt `json:"more_items"`
+	LastAssetID  string         `json:"last_assetid"`
+	TotalCount   int            `json:"total_inventory_count"`
 }
 
 // AppContext represents an application context block in Steam inventory data.

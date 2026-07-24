@@ -42,12 +42,17 @@ func Login(ctx context.Context, targetURL string, steamCookies []*http.Cookie) (
 		return nil, fmt.Errorf("openid: invalid target URL: %w", err)
 	}
 
-	client, err := createClientWithCookies(steamCookies)
+	client, stdClient, err := createClientWithCookies(steamCookies)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := client.Request(ctx, http.MethodGet, targetURL)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, targetURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("openid: failed to create request: %w", err)
+	}
+
+	resp, err := stdClient.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("openid: initial request failed: %w", err)
 	}
@@ -75,31 +80,43 @@ func Login(ctx context.Context, targetURL string, steamCookies []*http.Cookie) (
 	formData := extractFormInputs(form)
 	postURL := resolveActionURL(resp.Request.URL, form)
 
-	_, err = aoni.PostTo[aoni.NoResponse](
-		ctx, client, postURL, nil,
-		aoni.WithFormValues(formData),
-		aoni.WithHeader("Referer", resp.Request.URL.String()),
-	)
+	postReq, err := http.NewRequestWithContext(ctx, http.MethodPost, postURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("openid: failed to create post request: %w", err)
+	}
+
+	postReq.Header.Set("Referer", resp.Request.URL.String())
+	postReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	postReq.URL.RawQuery = formData.Encode()
+
+	postResp, err := stdClient.Do(postReq)
 	if err != nil {
 		return nil, fmt.Errorf("openid: form submission failed: %w", err)
 	}
 
+	_ = postResp.Body.Close()
+
 	return client, nil
 }
 
-func createClientWithCookies(steamCookies []*http.Cookie) (*aoni.Client, error) {
+func createClientWithCookies(steamCookies []*http.Cookie) (*aoni.Client, *http.Client, error) {
 	steamCommURL, _ := url.Parse("https://steamcommunity.com")
 	steamStoreURL, _ := url.Parse("https://store.steampowered.com")
 
 	jar, err := cookiejar.New(nil)
 	if err != nil {
-		return nil, fmt.Errorf("openid: failed to create cookie jar: %w", err)
+		return nil, nil, fmt.Errorf("openid: failed to create cookie jar: %w", err)
 	}
 
 	jar.SetCookies(steamCommURL, steamCookies)
 	jar.SetCookies(steamStoreURL, steamCookies)
 
-	return aoni.DefaultClient.With(aoni.WithClientCookieJar(jar)), nil
+	stdClient := &http.Client{
+		Jar:       jar,
+		Transport: http.DefaultTransport,
+	}
+
+	return aoni.NewClient(stdClient), stdClient, nil
 }
 
 func verifyRedirect(originalTargetHost string, responseURL *url.URL) (bool, error) {

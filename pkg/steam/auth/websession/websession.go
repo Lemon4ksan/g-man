@@ -20,6 +20,8 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/aoni/middleware"
+	"github.com/lemon4ksan/aoni/request"
 	"github.com/lemon4ksan/miyako/log"
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
@@ -117,15 +119,15 @@ func (s *WebSession) REST() *aoni.Client {
 	backoff := s.retryBackoff
 	s.mu.RUnlock()
 
-	retrier := aoni.RetryMiddleware(aoni.RetryOptions{
+	retrier := middleware.Retry(middleware.RetryOptions{
 		MaxRetries: 3,
 		Backoff:    backoff,
-	}, aoni.RetryOnErr())
+	}, middleware.RetryOnErr())
 
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	return aoni.NewClient(aoni.Chain(s, retrier))
+	return aoni.NewClient(middleware.Chain(s, retrier))
 }
 
 // HTTP returns the raw cookie-aware [http.Client].
@@ -186,7 +188,7 @@ func (s *WebSession) Verify(ctx context.Context) (bool, error) {
 		return false, nil
 	}
 
-	_, err := aoni.GetTo[aoni.NoResponse](ctx, s.REST(), urlVerify)
+	_, err := request.GetTo[request.NoResponse](ctx, s.REST(), urlVerify)
 	if err != nil {
 		s.Clear()
 		return false, nil //nolint:nilerr
@@ -277,7 +279,7 @@ func (s *WebSession) authSlowPath(ctx context.Context, refreshToken, sessionID s
 		} `json:"transfer_info"`
 	}
 
-	res, err := aoni.PostTo[finalizeResponse](ctx, s.REST(), urlFinalize, payload)
+	res, err := request.PostTo[finalizeResponse](ctx, s.REST(), urlFinalize, payload)
 	if err != nil {
 		return fmt.Errorf("websession: finalize login failed: %w", err)
 	}
@@ -309,7 +311,7 @@ func (s *WebSession) executeTransfer(ctx context.Context, transferURL string, pa
 		Result enums.EResult `json:"result"`
 	}
 
-	resp, err := aoni.PostTo[transferResp](ctx, s.REST(), transferURL, params)
+	resp, err := request.PostTo[transferResp](ctx, s.REST(), transferURL, params)
 	if err != nil {
 		return err
 	}

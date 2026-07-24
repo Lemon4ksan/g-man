@@ -11,16 +11,17 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"testing"
 
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/aoni/request"
 	"github.com/lemon4ksan/miyako/bus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/lemon4ksan/miyako/log"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
@@ -31,6 +32,7 @@ import (
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
 	"github.com/lemon4ksan/g-man/pkg/storage"
 	"github.com/lemon4ksan/g-man/pkg/storage/memory"
+	"github.com/lemon4ksan/miyako/log"
 )
 
 // Module is a Testify mock for module.Module.
@@ -64,13 +66,15 @@ func (m *AuthModule) StartAuthed(ctx context.Context, authCtx module.AuthContext
 }
 
 type requesterDoer struct {
-	r aoni.Requester
+	r request.Requester
 }
 
 func (d *requesterDoer) Do(req *http.Request) (*http.Response, error) {
-	return d.r.Request(req.Context(), req.Method, req.URL.String(), func(r *http.Request) {
-		r.Header = req.Header
-		r.Body = req.Body
+	return d.r.Request(req.Context(), req.Method, req.URL.String(), func(r aoni.Request) {
+		for k, v := range req.Header {
+			r.SetHeader(k, strings.Join(v, ","))
+		}
+		r.SetBodyStream(req.Body, req.ContentLength)
 	})
 }
 
@@ -85,7 +89,7 @@ type InitContext struct {
 	modules         map[string]module.Module
 	storage         storage.Provider
 	service         *ServiceMock
-	rest            aoni.Requester
+	rest            request.Requester
 }
 
 // NewInitContext creates a new InitContext with safe defaults (e.g. memory storage).
@@ -115,7 +119,7 @@ func (m *InitContext) Storage() storage.Provider {
 	return m.storage
 }
 
-func (m *InitContext) Rest() aoni.Requester {
+func (m *InitContext) Rest() request.Requester {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.rest
@@ -127,7 +131,7 @@ func (m *InitContext) SetService(s *ServiceMock) {
 	m.mu.Unlock()
 }
 
-func (m *InitContext) SetRest(r aoni.Requester) {
+func (m *InitContext) SetRest(r request.Requester) {
 	m.mu.Lock()
 	m.rest = r
 	m.mu.Unlock()
@@ -249,14 +253,14 @@ func (m *InitContext) GetServiceHandler(method string) (socket.Handler, bool) {
 // AuthContext is a lightweight manual mock for module.AuthContext.
 type AuthContext struct {
 	MockCommunity *HTTPStub
-	MockSteamID       id.ID
+	MockSteamID   id.ID
 }
 
 // NewAuthContext creates a new AuthContext with a clean HTTPStub.
 func NewAuthContext(steamID id.ID) *AuthContext {
 	return &AuthContext{
 		MockCommunity: NewHTTPStub(),
-		MockSteamID:       steamID,
+		MockSteamID:   steamID,
 	}
 }
 

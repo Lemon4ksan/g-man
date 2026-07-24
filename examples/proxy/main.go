@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/aoni/middleware"
+	"github.com/lemon4ksan/aoni/netutil/proxy"
 	"github.com/lemon4ksan/miyako/log"
 
 	"github.com/lemon4ksan/g-man/pkg/steam"
@@ -32,7 +34,7 @@ func SetupProxyClient(logger log.Logger, cmProxy string, webProxies []string) (*
 	socketCfg.Connector.Dialers = connector.DefaultDialers()
 
 	// PART 2: Proxy rotation for stateless HTTP WebAPI requests
-	var rotatableClients []aoni.ClientWithProxy
+	var rotatableClients []proxy.WithClient
 
 	for _, proxyURL := range webProxies {
 		// Configure transport settings for each proxy in the pool
@@ -56,7 +58,7 @@ func SetupProxyClient(logger log.Logger, cmProxy string, webProxies []string) (*
 			Timeout:   15 * time.Second,
 		}
 
-		rotatableClients = append(rotatableClients, aoni.ClientWithProxy{Client: httpClient, ProxyURL: proxyURL})
+		rotatableClients = append(rotatableClients, proxy.WithClient{Client: httpClient, ProxyURL: proxyURL})
 	}
 
 	if len(rotatableClients) == 0 {
@@ -64,30 +66,30 @@ func SetupProxyClient(logger log.Logger, cmProxy string, webProxies []string) (*
 	}
 
 	// Initialize the proxy rotator with a strategy to automatically remove unhealthy nodes from the pool
-	rotatorConfig := aoni.ProxyRotatorConfig{
+	rotatorConfig := proxy.RotatorConfig{
 		MaxFails:            3,                // Maximum of 3 consecutive errors before marking the proxy as unhealthy
 		RetryAfter:          45 * time.Second, // Cool-off period to temporarily remove the unhealthy proxy from the pool
 		HealthCheckURL:      "https://api.steampowered.com/ISteamDirectory/GetCMList/v1",
 		HealthCheckInterval: 2 * time.Minute,
 	}
 
-	proxyRotator, err := aoni.NewProxyRotator(rotatorConfig, rotatableClients...)
+	proxyRotator, err := proxy.NewRotator(rotatorConfig, rotatableClients...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize proxy rotator: %w", err)
 	}
 
 	// Enable sticky session support based on Steam session cookies
 	// This ensures that requests within a single session route through the same proxy
-	stickyRotator := proxyRotator.WithStickySessions(aoni.StickyKeyFromCookie("sessionid"))
+	stickyRotator := proxyRotator.WithStickySessions(proxy.StickyKeyFromCookie("sessionid"))
 
 	// Create retry middleware: in case of a proxy network failure, the request automatically retries on another node
-	retryMiddleware := aoni.RetryMiddleware(aoni.RetryOptions{
+	retryMiddleware := middleware.Retry(middleware.RetryOptions{
 		MaxRetries: 3,
 		Backoff:    500 * time.Millisecond,
-	}, aoni.ProxyRetryCondition(proxyRotator))
+	}, proxy.RetryCondition(proxyRotator))
 
 	// Build the call chain: Base client -> Logging -> Retry layer -> Rotator
-	chainedDoer := aoni.Chain(stickyRotator, aoni.LoggingMiddleware(logger), retryMiddleware)
+	chainedDoer := middleware.Chain(stickyRotator, middleware.Log(logger), retryMiddleware)
 
 	// Initialize the final REST client that will make the calls
 	restClient := aoni.NewClient(chainedDoer)

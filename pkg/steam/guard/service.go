@@ -12,7 +12,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/aoni/codec/decode"
+	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/miyako/generic"
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
@@ -97,7 +98,7 @@ func (s *MobileConf) GetConfirmations(
 
 	return community.GetTo[ConfirmationsList](
 		ctx, s.client, "mobileconf/getlist",
-		aoni.WithQuery(params),
+		mod.WithQuery(params),
 	)
 }
 
@@ -123,8 +124,8 @@ func (s *MobileConf) GetConfirmationOfferID(
 
 	respBytes, err := community.GetTo[[]byte](
 		ctx, s.client, path,
-		aoni.WithQuery(params),
-		aoni.WithRawDecoder(),
+		mod.WithQuery(params),
+		decode.WithRaw(),
 	)
 	if err != nil {
 		return 0, err
@@ -166,7 +167,7 @@ func (s *MobileConf) RespondToConfirmation(
 
 	resp, err := community.GetTo[respStruct](
 		ctx, s.client, "mobileconf/ajaxop",
-		aoni.WithQuery(params),
+		mod.WithQuery(params),
 	)
 	if err != nil {
 		return err

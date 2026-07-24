@@ -16,6 +16,8 @@ import (
 	"testing"
 
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/aoni/mod"
+	"github.com/lemon4ksan/aoni/request"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -32,7 +34,7 @@ func (m *mockHTTPDoer) Do(req *http.Request) (*http.Response, error) {
 	return m.doFunc(req)
 }
 
-type customRequester struct{ aoni.Requester }
+type customRequester struct{ request.Requester }
 
 func (cr customRequester) SessionID(baseURL string) string { return "" }
 
@@ -77,7 +79,7 @@ func TestDecorate(t *testing.T) {
 
 		var defaultModCalled bool
 
-		defaultMod := func(req *http.Request) {
+		defaultMod := func(req aoni.Request) {
 			defaultModCalled = true
 		}
 
@@ -85,7 +87,7 @@ func TestDecorate(t *testing.T) {
 
 		var runtimeModCalled bool
 
-		runtimeMod := func(req *http.Request) {
+		runtimeMod := func(req aoni.Request) {
 			runtimeModCalled = true
 		}
 
@@ -115,7 +117,7 @@ func TestGet(t *testing.T) {
 		}
 		resp, err := community.GetTo[genericResponse](
 			t.Context(), client, "/test/get",
-			aoni.WithQuery(genericRequest{Param1: "hi", Param2: 1}),
+			mod.WithQuery(genericRequest{Param1: "hi", Param2: 1}),
 		)
 		require.NoError(t, err)
 		assert.Equal(t, true, resp.Success)
@@ -131,7 +133,7 @@ func TestGet(t *testing.T) {
 			t.Context(),
 			client,
 			"/test/get",
-			aoni.WithQuery(make(chan int)),
+			mod.WithQuery(make(chan int)),
 		)
 		require.NoError(t, err)
 		assert.NotNil(t, resp)
@@ -437,7 +439,7 @@ func TestPerformRequest(t *testing.T) {
 			client,
 			"/test",
 			nil,
-			aoni.WithHeader("X-Test-Header", "Value123"),
+			mod.WithHeader("X-Test-Header", "Value123"),
 		)
 		require.NoError(t, err)
 		assert.Equal(t, "Value123", receivedHeaders.Get("X-Test-Header"))

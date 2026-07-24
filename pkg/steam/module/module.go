@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/aoni/request"
 	"github.com/lemon4ksan/miyako/bus"
 	"github.com/lemon4ksan/miyako/generic"
 	"github.com/lemon4ksan/miyako/kata"
@@ -103,7 +103,7 @@ type InitContext interface {
 	Bus() *bus.Bus
 	Logger() log.Logger
 	Service() service.Doer
-	Rest() aoni.Requester
+	Rest() request.Requester
 	RegisterPacketHandler(eMsg enums.EMsg, handler socket.Handler)
 	RegisterServiceHandler(method string, handler socket.Handler)
 	Module(name string) Module

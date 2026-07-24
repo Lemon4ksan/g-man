@@ -20,6 +20,8 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/aoni/mod"
+	"github.com/lemon4ksan/aoni/request"
 	"github.com/lemon4ksan/miyako/generic"
 	"github.com/lemon4ksan/miyako/log"
 	"google.golang.org/protobuf/proto"
@@ -380,9 +382,9 @@ func (m *Manager) UnblockCommunication(ctx context.Context, steamID id.ID) error
 		"friends[" + steamID.String() + "]": {"1"},
 	}
 
-	_, err = community.PostFormTo[aoni.NoResponse](
+	_, err = community.PostFormTo[request.NoResponse](
 		ctx, client, "profiles/{mySteamID}/friends/blocked", form,
-		aoni.WithVar("mySteamID", mySteamID),
+		mod.WithVar("mySteamID", mySteamID),
 	)
 	if err != nil {
 		return fmt.Errorf("friends: unblock request failed: %w", err)
@@ -414,7 +416,7 @@ func (m *Manager) PostUserComment(ctx context.Context, steamID id.ID, message st
 
 	resp, err := community.PostFormTo[respType](
 		ctx, client, "comment/Profile/post/{steamID}/-1", reqForm,
-		aoni.WithVar("steamID", steamID),
+		mod.WithVar("steamID", steamID),
 	)
 	if err != nil {
 		return "", fmt.Errorf("friends: post comment request failed: %w", err)
@@ -472,7 +474,7 @@ func (m *Manager) DeleteUserComment(ctx context.Context, steamID id.ID, commentI
 
 	resp, err := community.PostFormTo[respType](
 		ctx, client, "comment/Profile/delete/{steamID}/-1", reqForm,
-		aoni.WithVar("steamID", steamID),
+		mod.WithVar("steamID", steamID),
 	)
 	if err != nil {
 		return fmt.Errorf("friends: delete comment request failed: %w", err)
@@ -514,7 +516,7 @@ func (m *Manager) GetUserComments(ctx context.Context, steamID id.ID, start, cou
 
 	resp, err := community.PostFormTo[respType](
 		ctx, client, "comment/Profile/render/{steamID}/-1", reqForm,
-		aoni.WithVar("steamID", steamID),
+		mod.WithVar("steamID", steamID),
 	)
 	if err != nil {
 		return nil, 0, fmt.Errorf("friends: render comments request failed: %w", err)

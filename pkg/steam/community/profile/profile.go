@@ -13,12 +13,13 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
-	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/aoni/mod"
+	"github.com/lemon4ksan/aoni/request"
 	"github.com/lemon4ksan/miyako/generic"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
@@ -28,7 +29,7 @@ import (
 // WithAvatarUpload assembles a Steam-specific multipart avatar upload form.
 // It ensures that the field name is "avatar" and the filename has the correct extension.
 func WithAvatarUpload(fields map[string]string, filename string, image []byte) aoni.RequestModifier {
-	return func(req *http.Request) {
+	return func(req aoni.Request) {
 		body := &bytes.Buffer{}
 		writer := multipart.NewWriter(body)
 
@@ -41,20 +42,22 @@ func WithAvatarUpload(fields map[string]string, filename string, image []byte) a
 
 		part, err := writer.CreateFormFile("avatar", filename)
 		if err != nil {
+			aoni.MarkModifierError(req, err)
 			return
 		}
 
 		if _, err := part.Write(image); err != nil {
+			aoni.MarkModifierError(req, err)
 			return
 		}
 
 		if err := writer.Close(); err != nil {
+			aoni.MarkModifierError(req, err)
 			return
 		}
 
-		req.Body = io.NopCloser(body)
-		req.ContentLength = int64(body.Len())
-		req.Header.Set("Content-Type", writer.FormDataContentType())
+		req.SetBodyBytes(body.Bytes())
+		req.SetHeader("Content-Type", writer.FormDataContentType())
 	}
 }
 
@@ -138,7 +141,7 @@ type PrivacySettings struct {
 func EditProfile(ctx context.Context, client community.Requester, steamID id.ID, settings Settings) error {
 	html, err := community.GetHTML(
 		ctx, client, "profiles/{steamID}/edit/info",
-		aoni.WithVar("steamID", steamID),
+		mod.WithVar("steamID", steamID),
 	)
 	if err != nil {
 		return fmt.Errorf("profile: failed to fetch edit page: %w", err)
@@ -159,7 +162,7 @@ func EditProfile(ctx context.Context, client community.Requester, steamID id.ID,
 
 	resp, err := community.PostFormTo[saveResponse](
 		ctx, client, "profiles/{steamID}/edit", reqPayload,
-		aoni.WithVar("steamID", steamID),
+		mod.WithVar("steamID", steamID),
 	)
 	if err != nil {
 		return fmt.Errorf("profile: failed to post profile save: %w", err)
@@ -181,7 +184,7 @@ func UpdatePrivacySettings(
 ) error {
 	html, err := community.GetHTML(
 		ctx, client, "profiles/{steamID}/edit/settings",
-		aoni.WithVar("steamID", steamID),
+		mod.WithVar("steamID", steamID),
 	)
 	if err != nil {
 		return fmt.Errorf("profile: failed to fetch settings page: %w", err)
@@ -204,7 +207,7 @@ func UpdatePrivacySettings(
 
 	resp, err := community.PostFormTo[privacyResponse](
 		ctx, client, "profiles/{steamID}/ajaxsetprivacy", reqPayload,
-		aoni.WithVar("steamID", steamID),
+		mod.WithVar("steamID", steamID),
 	)
 	if err != nil {
 		return fmt.Errorf("profile: failed to post privacy settings: %w", err)
@@ -249,11 +252,10 @@ func UploadAvatar(
 		Hash    string `json:"hash"`
 	}
 
-	resp, err := aoni.PostTo[upload](
+	resp, err := request.PostTo[upload](
 		ctx, client, "actions/FileUploader", nil,
 		WithAvatarUpload(fields, filename, image),
-		aoni.WithJSONDecoder(), // enforce Content-Type
-		aoni.WithHeader("Accept", "application/json, text/javascript; q=0.01"),
+		mod.WithHeader("Accept", "application/json, text/javascript; q=0.01"),
 	)
 	if err != nil {
 		return "", fmt.Errorf("profile: upload request failed: %w", err)

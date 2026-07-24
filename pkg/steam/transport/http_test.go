@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/lemon4ksan/aoni/fast"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -48,7 +49,7 @@ func TestNewHTTPTransport_ValidDoer_CreatesClient(t *testing.T) {
 	doer := &mockHTTPDoer{}
 	tr := NewHTTPTransport(doer, "https://api.example.com")
 
-	assert.NotNil(t, tr.client)
+	assert.NotNil(t, tr.fastClient)
 }
 
 func TestParseEResult_VariousResponseHeaders_ReturnsExpectedEResults(t *testing.T) {
@@ -71,9 +72,11 @@ func TestParseEResult_VariousResponseHeaders_ReturnsExpectedEResults(t *testing.
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			resp := &http.Response{Header: make(http.Header)}
+			resp := fast.NewResponse(nil)
+			defer resp.Release()
+
 			if tt.header != "" {
-				resp.Header.Set("x-eresult", tt.header)
+				resp.FastHTTPResponse().Header.Set("x-eresult", tt.header)
 			}
 
 			assert.Equal(t, tt.expected, tr.parseEResult(resp))

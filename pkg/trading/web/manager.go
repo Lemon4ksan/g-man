@@ -18,7 +18,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/miyako/bus"
 	"github.com/lemon4ksan/miyako/generic"
 	"github.com/lemon4ksan/miyako/kata"
@@ -380,8 +380,8 @@ func (m *Manager) SendOffer(ctx context.Context, p trading.OfferParams) (uint64,
 
 	resp, err := community.PostFormTo[sendNewResponse](
 		ctx, comm, "tradeoffer/new/send", payload,
-		aoni.WithHeader("Referer", referer),
-		aoni.WithHeader("Origin", "https://steamcommunity.com"),
+		mod.WithHeader("Referer", referer),
+		mod.WithHeader("Origin", "https://steamcommunity.com"),
 	)
 	if err != nil {
 		return 0, err
@@ -427,9 +427,9 @@ func (m *Manager) AcceptOffer(ctx context.Context, offerID uint64) error {
 
 	resp, err := community.PostFormTo[acceptResponse](
 		ctx, comm, "tradeoffer/{offerID}/accept", req,
-		aoni.WithVar("offerID", offerID),
-		aoni.WithOrigin("https://steamcommunity.com"),
-		aoni.WithHeader("Referer", fmt.Sprintf("https://steamcommunity.com/tradeoffer/%d/", offerID)),
+		mod.WithVar("offerID", offerID),
+		mod.WithOrigin("https://steamcommunity.com"),
+		mod.WithHeader("Referer", fmt.Sprintf("https://steamcommunity.com/tradeoffer/%d/", offerID)),
 	)
 	if err != nil {
 		return err
@@ -689,7 +689,7 @@ func (m *Manager) GetEscrowDuration(ctx context.Context, offerID uint64) (proces
 
 	body, err := community.GetHTML(
 		ctx, comm, "tradeoffer/{offerID}/",
-		aoni.WithVar("offerID", offerID),
+		mod.WithVar("offerID", offerID),
 	)
 	if err != nil {
 		return processor.Details{}, fmt.Errorf("failed to fetch offer page: %w", err)

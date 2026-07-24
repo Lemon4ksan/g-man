@@ -117,8 +117,9 @@ func (m *ServiceMock) Request(
 
 	var bodyBytes []byte
 	dummyReq, _ := http.NewRequestWithContext(ctx, method, path, nil)
+	stdReq := aoni.NewStdRequest(dummyReq)
 	for _, mod := range mods {
-		mod(dummyReq)
+		mod(stdReq)
 	}
 	if dummyReq.Body != nil {
 		bodyBytes, _ = io.ReadAll(dummyReq.Body)
@@ -151,10 +152,10 @@ func (m *ServiceMock) Request(
 		respData = restResponse{Status: http.StatusOK, Body: []byte("{}")}
 	}
 
-	// Оставляем создание через WithContext — это полезное исправление для сохранения метаданных контекста
 	dummyReq2, _ := http.NewRequestWithContext(ctx, method, path, bytes.NewReader(bodyBytes))
+	stdReq2 := aoni.NewStdRequest(dummyReq2)
 	for _, mod := range mods {
-		mod(dummyReq2)
+		mod(stdReq2)
 	}
 
 	return &http.Response{

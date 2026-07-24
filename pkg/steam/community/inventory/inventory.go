@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/miyako/generic"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
@@ -157,8 +157,8 @@ func GetInventoryHistory(
 
 	html, err := community.GetHTML(
 		ctx, client, "profiles/{steamID}/inventoryhistory",
-		aoni.WithVar("steamID", steamID),
-		aoni.WithQuery(params),
+		mod.WithVar("steamID", steamID),
+		mod.WithQuery(params),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("history: failed to fetch inventory history page: %w", err)
@@ -195,9 +195,9 @@ func fetchInventoryPage(
 
 	resp, err := community.GetTo[inventoryResponse](
 		ctx, client, "inventory/{steamID}/{appID}/{contextID}",
-		aoni.WithQuery(params),
-		aoni.WithVars("steamID", steamID, "appID", appID, "contextID", contextID),
-		aoni.WithHeader("Referer", fmt.Sprintf(community.BaseURL+"profiles/%d/inventory", steamID)),
+		mod.WithQuery(params),
+		mod.WithVars("steamID", steamID, "appID", appID, "contextID", contextID),
+		mod.WithHeader("Referer", fmt.Sprintf(community.BaseURL+"profiles/%d/inventory", steamID)),
 	)
 	if err != nil {
 		return nil, err
@@ -256,7 +256,7 @@ func processAssets(
 func fetchInventoryPageHTML(ctx context.Context, client community.Requester, userID uint64) ([]byte, error) {
 	html, err := community.GetHTML(
 		ctx, client, "profiles/{userID}/inventory",
-		aoni.WithVar("userID", userID),
+		mod.WithVar("userID", userID),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("inventory: failed to fetch inventory page: %w", err)

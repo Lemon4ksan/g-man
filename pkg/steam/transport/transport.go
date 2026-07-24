@@ -13,6 +13,7 @@ import (
 	"reflect"
 
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/aoni/codec/decode"
 )
 
 // Transport is the core interface that unifies different network implementations.
@@ -35,12 +36,13 @@ type Target interface {
 type Request struct {
 	target       Target
 	Body         io.Reader
+	BodyBytes    []byte
 	params       url.Values
 	headers      http.Header
 	routingAppID uint32
 	forceProto   bool
 	mods         []aoni.RequestModifier
-	decoder      aoni.Decoder
+	decoder      decode.Decoder
 }
 
 // NewRequest creates a new Request with a target and payload.
@@ -54,7 +56,7 @@ func NewRequest(target Target, body io.Reader) *Request {
 }
 
 // SetDecoder sets the decoder for this Request.
-func (r *Request) SetDecoder(d aoni.Decoder) {
+func (r *Request) SetDecoder(d decode.Decoder) {
 	r.decoder = d
 }
 
@@ -93,7 +95,7 @@ func (r *Request) Modifiers() []aoni.RequestModifier {
 }
 
 // Decoder returns the decoder for this Request, or the default if not set.
-func (r *Request) Decoder(def aoni.Decoder) aoni.Decoder {
+func (r *Request) Decoder(def decode.Decoder) decode.Decoder {
 	if r.decoder == nil {
 		return def
 	}

@@ -8,9 +8,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"net/http"
 	"testing"
 
+	"github.com/lemon4ksan/aoni/fast"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -258,8 +258,9 @@ func TestRequestModifiers(t *testing.T) {
 
 	t.Run("as_json", func(t *testing.T) {
 		t.Parallel()
-		req, err := http.NewRequestWithContext(t.Context(), "GET", "https://steamcommunity.com", nil)
-		require.NoError(t, err)
+
+		req := fast.NewRequest(nil)
+		defer req.Release()
 
 		modifier := AsJSON()
 		assert.NotNil(t, modifier)
@@ -268,8 +269,9 @@ func TestRequestModifiers(t *testing.T) {
 
 	t.Run("as_protobuf", func(t *testing.T) {
 		t.Parallel()
-		req, err := http.NewRequestWithContext(t.Context(), "GET", "https://steamcommunity.com", nil)
-		require.NoError(t, err)
+
+		req := fast.NewRequest(nil)
+		defer req.Release()
 
 		modifier := AsProtobuf()
 		assert.NotNil(t, modifier)
@@ -278,8 +280,9 @@ func TestRequestModifiers(t *testing.T) {
 
 	t.Run("as_vdf", func(t *testing.T) {
 		t.Parallel()
-		req, err := http.NewRequestWithContext(t.Context(), "GET", "https://steamcommunity.com", nil)
-		require.NoError(t, err)
+
+		req := fast.NewRequest(nil)
+		defer req.Release()
 
 		modifier := AsVDF()
 		assert.NotNil(t, modifier)
@@ -288,8 +291,9 @@ func TestRequestModifiers(t *testing.T) {
 
 	t.Run("as_binary_vdf", func(t *testing.T) {
 		t.Parallel()
-		req, err := http.NewRequestWithContext(t.Context(), "GET", "https://steamcommunity.com", nil)
-		require.NoError(t, err)
+
+		req := fast.NewRequest(nil)
+		defer req.Release()
 
 		modifier := AsBinaryVDF()
 		assert.NotNil(t, modifier)

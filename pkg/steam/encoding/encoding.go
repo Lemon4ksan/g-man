@@ -14,6 +14,8 @@ import (
 
 	"github.com/andygrunwald/vdf"
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/aoni/codec/decode"
+	"github.com/lemon4ksan/aoni/mod"
 	"github.com/mitchellh/mapstructure"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
@@ -47,20 +49,29 @@ const (
 	FormatBinaryVDF
 )
 
+// RapidValidateSteamResponse checks leading bytes for HTML/Cloudflare tags without string allocations.
+func RapidValidateSteamResponse(data []byte) error {
+	trimmed := bytes.TrimSpace(data)
+	if len(trimmed) > 0 && trimmed[0] == '<' {
+		limit := min(len(trimmed), 128)
+		return fmt.Errorf("expected JSON but got HTML/XML (possible steam API outage): %s", string(trimmed[:limit]))
+	}
+
+	return nil
+}
+
 // SteamJSONDecoder wraps standard JSON decoding and automatically extracts the inner "response" object if present.
 // It returns an error if the input looks like HTML or XML, which typically indicates a Steam API outage.
 // It returns decoding errors if the payload is malformed or if the target is invalid.
 // If the reader is nil, the decoder will return a read error.
-var SteamJSONDecoder = aoni.DecoderFunc(func(r io.Reader, target any) error {
+var SteamJSONDecoder = decode.DecoderFunc(func(r io.Reader, target any) error {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return err
 	}
 
-	trimmed := bytes.TrimSpace(data)
-	if len(trimmed) > 0 && trimmed[0] == '<' {
-		limit := min(len(data), 100)
-		return fmt.Errorf("expected JSON but got HTML/XML (possible steam API outage): %s", string(data[:limit]))
+	if err := RapidValidateSteamResponse(data); err != nil {
+		return err
 	}
 
 	var wrapper map[string]json.RawMessage
@@ -77,7 +88,7 @@ var SteamJSONDecoder = aoni.DecoderFunc(func(r io.Reader, target any) error {
 // It detects whether the payload is JSON-encoded Protobuf or standard binary wire format.
 // It returns an error if the target argument does not implement [proto.Message].
 // If the reader is nil, the decoder will return a read error.
-var ProtobufDecoder = aoni.DecoderFunc(func(r io.Reader, target any) error {
+var ProtobufDecoder = decode.DecoderFunc(func(r io.Reader, target any) error {
 	pm, ok := target.(proto.Message)
 	if !ok {
 		return errors.New("aoni: target is not a proto.Message")
@@ -99,7 +110,7 @@ var ProtobufDecoder = aoni.DecoderFunc(func(r io.Reader, target any) error {
 // It automatically unwraps the "response" parent key if it is present in the document.
 // It returns formatting errors if parsing fails, or mapping errors if the target is incompatible.
 // If the reader is nil, the decoder will return a read error.
-var VDFDecoder = aoni.DecoderFunc(func(r io.Reader, target any) error {
+var VDFDecoder = decode.DecoderFunc(func(r io.Reader, target any) error {
 	p := vdf.NewParser(r)
 
 	m, err := p.Parse()
@@ -128,16 +139,16 @@ var VDFDecoder = aoni.DecoderFunc(func(r io.Reader, target any) error {
 // BinaryVDFDecoder parses Valve Proprietary Binary KeyValues payload using [bvdf.Unmarshal].
 // It returns formatting errors if the binary structure is corrupted.
 // The target argument must be a non-nil pointer to a map or struct.
-var BinaryVDFDecoder = aoni.DecoderFunc(bvdf.Unmarshal)
+var BinaryVDFDecoder = decode.DecoderFunc(bvdf.Unmarshal)
 
 // AsJSON returns an [aoni.RequestModifier] that configures the client to use [SteamJSONDecoder] for decoding.
-func AsJSON() aoni.RequestModifier { return aoni.WithDecoder(SteamJSONDecoder) }
+func AsJSON() aoni.RequestModifier { return mod.WithDecoder(SteamJSONDecoder) }
 
 // AsProtobuf returns an [aoni.RequestModifier] that configures the client to use [ProtobufDecoder] for decoding.
-func AsProtobuf() aoni.RequestModifier { return aoni.WithDecoder(ProtobufDecoder) }
+func AsProtobuf() aoni.RequestModifier { return mod.WithDecoder(ProtobufDecoder) }
 
 // AsVDF returns an [aoni.RequestModifier] that configures the client to use [VDFDecoder] for decoding.
-func AsVDF() aoni.RequestModifier { return aoni.WithDecoder(VDFDecoder) }
+func AsVDF() aoni.RequestModifier { return mod.WithDecoder(VDFDecoder) }
 
 // AsBinaryVDF returns an [aoni.RequestModifier] that configures the client to use [BinaryVDFDecoder] for decoding.
-func AsBinaryVDF() aoni.RequestModifier { return aoni.WithDecoder(BinaryVDFDecoder) }
+func AsBinaryVDF() aoni.RequestModifier { return mod.WithDecoder(BinaryVDFDecoder) }

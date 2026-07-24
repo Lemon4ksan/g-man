@@ -116,10 +116,7 @@ func (p *Processor) Process(inbound *protocol.InboundMessage) {
 	}
 
 	packet.ReceivedAt = inbound.ReceivedAt
-
-	// Initialize the packet context deriving it from connection context with a unique Correlation ID
-	id := "pkt-" + log.GenerateCorrelationID()
-	packet.Ctx = log.WithCorrelationID(p.ctx, id)
+	packet.Ctx = p.ctx
 
 	if inbound.Transport != "" {
 		packet.Ctx = protocol.WithTransportType(packet.Ctx, inbound.Transport)

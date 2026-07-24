@@ -18,6 +18,10 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/aoni/codec/decode"
+	"github.com/lemon4ksan/aoni/mod"
+	"github.com/lemon4ksan/aoni/option"
+	"github.com/lemon4ksan/aoni/request"
 	"github.com/lemon4ksan/miyako/generic"
 	"github.com/lemon4ksan/miyako/log"
 
@@ -61,23 +65,21 @@ func SteamErrorsValidator(resp *http.Response) error {
 		return CheckSteamErrors(resp.StatusCode, resp.Header, nil)
 	}
 
-	replayable := aoni.AsReplayable(resp.Body)
-	resp.Body = replayable
-
-	body, err := io.ReadAll(io.LimitReader(replayable, 100*1024))
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 100*1024))
 	if err != nil {
 		return err
 	}
 
-	replayable.Reset()
+	// Restore body so subsequent reads still work
+	resp.Body = io.NopCloser(bytes.NewReader(body))
 
 	return CheckSteamErrors(resp.StatusCode, resp.Header, body)
 }
 
 // Requester defines the contract for executing Steam Community requests.
-// It extends [aoni.Requester] by integrating session identifier tracking and Steam WebAPI key lifecycle management.
+// It extends [request.Requester] by integrating session identifier tracking and Steam WebAPI key lifecycle management.
 type Requester interface {
-	aoni.Requester
+	request.Requester
 	// SessionID retrieves the active Steam session identifier associated with the given base URL.
 	// It returns an empty string if no active session is found.
 	SessionID(baseURL string) string
@@ -96,9 +98,9 @@ type SessionProvider interface {
 
 // Client executes HTTP requests against the Steam Community website.
 // Use [New] to instantiate and initialize a ready-to-use client.
-// The client relies on an internal [aoni.Requester] and an optional [SessionProvider] to manage authentication and state.
+// The client relies on an internal [request.Requester] and an optional [SessionProvider] to manage authentication and state.
 type Client struct {
-	rest    aoni.Requester
+	rest    request.Requester
 	session SessionProvider
 	logger  log.Logger
 }
@@ -108,9 +110,8 @@ type Client struct {
 // If the httpClient is nil, the constructor uses the default HTTP client configuration.
 func New(doer aoni.HTTPDoer, session SessionProvider) *Client {
 	rc := aoni.NewClient(doer,
-		aoni.WithClientBaseURL(BaseURL),
-		aoni.WithClientOrigin(BaseURL),
-		aoni.WithClientMultiReadBody(10*1024*1024),
+		option.WithBaseURL(BaseURL),
+		option.WithOrigin(BaseURL),
 	)
 
 	c := &Client{
@@ -130,14 +131,14 @@ func (c *Client) WithLogger(l log.Logger) *Client {
 }
 
 // WithREST returns a new [Client] with the REST client set to the given client.
-func (c *Client) WithREST(r aoni.Requester) *Client {
+func (c *Client) WithREST(r request.Requester) *Client {
 	copy := *c
 	copy.rest = r
 	return &copy
 }
 
-// Unwrap returns the underlying [aoni.Requester] wrapped by the [Client].
-func (c *Client) Unwrap() aoni.Requester {
+// Unwrap returns the underlying [request.Requester] wrapped by the [Client].
+func (c *Client) Unwrap() request.Requester {
 	return c.rest
 }
 
@@ -163,7 +164,7 @@ func (c *Client) Request(
 	c.logger.Debug("Community Request", log.String("method", method), log.String("path", path))
 
 	mods = append([]aoni.RequestModifier{
-		aoni.WithResponseValidator(SteamErrorsValidator),
+		mod.WithResponseValidator(SteamErrorsValidator),
 	}, mods...)
 
 	resp, err := c.rest.Request(ctx, method, path, mods...)
@@ -178,7 +179,12 @@ func (c *Client) Request(
 
 	// Fallback validation for mocked Requesters (like ServiceMock)
 	// that do not natively execute response validators.
-	if resp.Request != nil {
+	if resp != nil {
+		if resp.Request == nil {
+			stdReq, _ := http.NewRequestWithContext(ctx, method, path, nil)
+			resp.Request = stdReq
+		}
+
 		if fn := aoni.GetResponseValidator(resp.Request.Context()); fn != nil {
 			if validErr := fn(resp); validErr != nil {
 				_ = resp.Body.Close()
@@ -200,9 +206,9 @@ func (c *Client) Request(
 // It defaults to registering for localhost if the domain argument is empty.
 // It returns [ErrAPITokenNotFound] or underlying connection errors if registration fails.
 func (c *Client) GetOrRegisterAPIKey(ctx context.Context, domain string) (string, error) {
-	dataPtr, err := aoni.GetTo[[]byte](ctx, c.rest, "dev/apikey",
-		aoni.WithRawDecoder(),
-		aoni.WithAccept("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"),
+	dataPtr, err := request.GetTo[[]byte](ctx, c.rest, "dev/apikey",
+		decode.WithRaw(),
+		mod.WithAccept("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"),
 	)
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch apikey page: %w", err)
@@ -237,7 +243,7 @@ func (c *Client) registerAPIKey(ctx context.Context, domain string) (string, err
 		"sessionid":    {c.SessionID(BaseURL)},
 	}
 
-	_, err := aoni.PostTo[aoni.NoResponse](ctx, c.rest, "dev/registerkey", nil, aoni.WithFormValues(req))
+	_, err := request.PostTo[request.NoResponse](ctx, c.rest, "dev/registerkey", nil, mod.WithFormValues(req))
 	if err != nil {
 		return "", fmt.Errorf("registration request failed: %w", err)
 	}

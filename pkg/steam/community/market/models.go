@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/aoni/codec/values"
 )
 
 // CurrencyCode is a steam currency code.
@@ -87,15 +87,15 @@ type Asset struct {
 	// AppID is the Steam AppID of the application.
 	AppID int `json:"appid"`
 	// ContextID is the unique context identifier.
-	ContextID aoni.Int64String `json:"contextid"`
+	ContextID values.Int64String `json:"contextid"`
 	// ID is the unique asset identifier.
-	ID aoni.Uint64String `json:"id"`
+	ID values.Uint64String `json:"id"`
 	// ClassID is the class identifier of the asset.
-	ClassID aoni.Uint64String `json:"classid"`
+	ClassID values.Uint64String `json:"classid"`
 	// InstanceID is the instance identifier of the asset.
-	InstanceID aoni.Uint64String `json:"instanceid"`
+	InstanceID values.Uint64String `json:"instanceid"`
 	// Amount is the quantity of the asset.
-	Amount aoni.Int64String `json:"amount"`
+	Amount values.Int64String `json:"amount"`
 	// BackgroundColor is the background color of the asset icon.
 	BackgroundColor string `json:"background_color"`
 	// IconURL is the direct path suffix to the asset icon image.
@@ -105,7 +105,7 @@ type Asset struct {
 	// Descriptions contains detailed item descriptions.
 	Descriptions []Description `json:"descriptions"`
 	// Tradable is true if the asset can be traded.
-	Tradable aoni.BoolInt `json:"tradable"`
+	Tradable values.BoolInt `json:"tradable"`
 	// Actions contains interactive action links.
 	Actions []Action `json:"actions"`
 	// Name is the display name of the asset.
@@ -119,9 +119,9 @@ type Asset struct {
 	// MarketHashName is the standard market identifier name.
 	MarketHashName string `json:"market_hash_name"`
 	// Commodity is true if the asset is a commodity (standard stackable item).
-	Commodity aoni.BoolInt `json:"commodity"`
+	Commodity values.BoolInt `json:"commodity"`
 	// Marketable is true if the asset can be sold on the Steam Market.
-	Marketable aoni.BoolInt `json:"marketable"`
+	Marketable values.BoolInt `json:"marketable"`
 }
 
 // CreateSellOrderOptions contains parameters for creating a sell order.
@@ -199,9 +199,9 @@ type ItemOrdersHistogramResponse struct {
 	// BuyOrderSummary is the HTML summary block representing buy orders.
 	BuyOrderSummary string `json:"buy_order_summary"`
 	// HighestBuyOrder is the highest active buy order price as a decimal string.
-	HighestBuyOrder aoni.Float64String `json:"highest_buy_order"`
+	HighestBuyOrder values.Float64String `json:"highest_buy_order"`
 	// LowestSellOrder is the lowest active sell order price as a decimal string.
-	LowestSellOrder aoni.Float64String `json:"lowest_sell_order"`
+	LowestSellOrder values.Float64String `json:"lowest_sell_order"`
 	// BuyOrderGraph contains the coordinates for the buy order volume chart.
 	BuyOrderGraph GraphPoints `json:"buy_order_graph"`
 	// SellOrderGraph contains the coordinates for the sell order volume chart.
@@ -550,17 +550,17 @@ type GiftDetails struct {
 }
 
 type gemValueResponse struct {
-	Success  int              `json:"success"`
-	Message  string           `json:"message"`
-	GooValue aoni.Int64String `json:"goo_value"`
-	StrTitle string           `json:"strTitle"`
+	Success  int                `json:"success"`
+	Message  string             `json:"message"`
+	GooValue values.Int64String `json:"goo_value"`
+	StrTitle string             `json:"strTitle"`
 }
 
 type grindGooResponse struct {
-	Success          int              `json:"success"`
-	Message          string           `json:"message"`
-	GooValueReceived aoni.Int64String `json:"goo_value_received "` // lol valve
-	GooValueTotal    aoni.Int64String `json:"goo_value_total"`
+	Success          int                `json:"success"`
+	Message          string             `json:"message"`
+	GooValueReceived values.Int64String `json:"goo_value_received "` // lol valve
+	GooValueTotal    values.Int64String `json:"goo_value_total"`
 }
 
 type unpackBoosterResponse struct {
@@ -570,19 +570,19 @@ type unpackBoosterResponse struct {
 }
 
 type createBoosterResponse struct {
-	PurchaseEResult     int              `json:"purchase_eresult"`
-	GooAmount           aoni.Int64String `json:"goo_amount"`
-	TradableGooAmount   aoni.Int64String `json:"tradable_goo_amount"`
-	UntradableGooAmount aoni.Int64String `json:"untradable_goo_amount"`
-	PurchaseResult      any              `json:"purchase_result"`
+	PurchaseEResult     int                `json:"purchase_eresult"`
+	GooAmount           values.Int64String `json:"goo_amount"`
+	TradableGooAmount   values.Int64String `json:"tradable_goo_amount"`
+	UntradableGooAmount values.Int64String `json:"untradable_goo_amount"`
+	PurchaseResult      any                `json:"purchase_result"`
 }
 
 type giftDetailsResponse struct {
-	Success   int              `json:"success"`
-	Message   string           `json:"message"`
-	PackageID aoni.Int64String `json:"packageid"`
-	GiftName  string           `json:"gift_name"`
-	Owned     bool             `json:"owned"`
+	Success   int                `json:"success"`
+	Message   string             `json:"message"`
+	PackageID values.Int64String `json:"packageid"`
+	GiftName  string             `json:"gift_name"`
+	Owned     bool               `json:"owned"`
 }
 
 type redeemGiftResponse struct {

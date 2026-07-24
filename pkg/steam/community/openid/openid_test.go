@@ -12,7 +12,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/lemon4ksan/aoni"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/community/openid"
@@ -239,15 +238,11 @@ func TestLogin(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mock := tt.setupMock()
+			mockTr := tt.setupMock()
+			oldTransport := http.DefaultTransport
 
-			oldClient := aoni.DefaultClient
-			aoni.DefaultClient = aoni.NewClient(&http.Client{
-				Transport:     mock,
-				CheckRedirect: aoni.DefaultRedirectPolicy(10),
-			})
-
-			defer func() { aoni.DefaultClient = oldClient }()
+			http.DefaultTransport = mockTr
+			defer func() { http.DefaultTransport = oldTransport }()
 
 			_, err := openid.Login(t.Context(), targetSite, nil)
 

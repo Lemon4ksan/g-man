@@ -1,8 +1,9 @@
 # Project variables
 BINARY_NAME=g-man-bot
-PKG=$(shell go list ./... | grep -v /vendor/)
-COVER_OUT?=coverage.out
-COVER_PKG?=$(PKG)
+PKG       := $(shell go list ./... | grep -v /examples | grep -v /scripts | grep -v /vendor/)
+COVER_PKG := $(shell go list ./... | grep -v /examples | grep -v /scripts | grep -v /vendor/ | tr '\n' ',' | sed 's/,$$//')
+COVER_OUT ?= coverage.out
+COVER_PKG ?= $(PKG)
 
 # Path to the Steam API JSON schema (download it manually via ISteamWebAPIUtil/GetSupportedAPIList)
 API_JSON=api.steampowered.com.json

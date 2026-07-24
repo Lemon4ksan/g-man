@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/aoni/request"
 	"github.com/lemon4ksan/miyako/bus"
 	"github.com/lemon4ksan/miyako/generic"
 	"github.com/lemon4ksan/miyako/kata"
@@ -363,8 +364,8 @@ func (c *Client) Logger() log.Logger {
 	return c.logger
 }
 
-// Rest returns the low-level [aoni.Requester] of the [Client].
-func (c *Client) Rest() aoni.Requester { return c.rest }
+// Rest returns the low-level [request.Requester] of the [Client].
+func (c *Client) Rest() request.Requester { return c.rest }
 
 // Run starts all registered modules and runs the background CM session refresh loop.
 // Returns an error if any module fails to initialize or start.
@@ -655,7 +656,7 @@ func (ctx *initContext) Storage() storage.Provider        { return ctx.Client.st
 func (ctx *initContext) Bus() *bus.Bus                    { return ctx.Client.bus }
 func (ctx *initContext) Logger() log.Logger               { return ctx.Client.Logger() }
 func (ctx *initContext) Service() service.Doer            { return ctx.Client }
-func (ctx *initContext) Rest() aoni.Requester             { return ctx.Client.rest }
+func (ctx *initContext) Rest() request.Requester          { return ctx.Client.rest }
 func (ctx *initContext) Module(name string) module.Module { return ctx.Client.Module(name) }
 
 func (ctx *initContext) RegisterPacketHandler(e enums.EMsg, h socket.Handler) {
