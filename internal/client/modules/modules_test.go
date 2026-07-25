@@ -11,7 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lemon4ksan/g-man/pkg/steam/client/modules"
+	"github.com/lemon4ksan/g-man/internal/client/modules"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 	steammock "github.com/lemon4ksan/g-man/pkg/test/mock"

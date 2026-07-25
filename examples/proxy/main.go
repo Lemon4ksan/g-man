@@ -19,7 +19,6 @@ import (
 
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
-	"github.com/lemon4ksan/g-man/pkg/steam/socket/connector"
 )
 
 func SetupProxyClient(logger log.Logger, cmProxy string, webProxies []string) (*steam.Client, error) {
@@ -31,7 +30,7 @@ func SetupProxyClient(logger log.Logger, cmProxy string, webProxies []string) (*
 	socketCfg.Connector.ConnectTimeout = 30 * time.Second
 
 	// Configure standard dialers to operate through a proxy server
-	socketCfg.Connector.Dialers = connector.DefaultDialers()
+	socketCfg.Connector.Dialers = socket.DefaultDialers()
 
 	// PART 2: Proxy rotation for stateless HTTP WebAPI requests
 	var rotatableClients []proxy.WithClient

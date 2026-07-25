@@ -16,6 +16,8 @@ import (
 	"sync"
 
 	"github.com/lemon4ksan/miyako/generic"
+
+	"github.com/lemon4ksan/g-man/internal/bytesconv"
 )
 
 type contextKey string
@@ -422,7 +424,16 @@ func (e *Engine) Execute(ctx context.Context, cmdLine string) (string, error) {
 
 // ParseSchemaArgs parses the raw arguments according to the given schema.
 func (e *Engine) ParseSchemaArgs(rawArgs []string, schema []ArgSchema) ([]any, error) {
-	parsed := make([]any, len(schema))
+	var (
+		stackParsed [8]any
+		parsed      []any
+	)
+
+	if len(schema) <= len(stackParsed) {
+		parsed = stackParsed[:len(schema)]
+	} else {
+		parsed = make([]any, len(schema))
+	}
 
 	for i, argSchema := range schema {
 		if i >= len(rawArgs) {
@@ -455,9 +466,18 @@ func (e *Engine) ParseSchemaArgs(rawArgs []string, schema []ArgSchema) ([]any, e
 				ptr := reflect.New(argSchema.Type)
 				unmarshaler := ptr.Interface().(encoding.TextUnmarshaler)
 
-				err = unmarshaler.UnmarshalText([]byte(valStr))
+				err = unmarshaler.UnmarshalText(bytesconv.S2B(valStr))
 				if err == nil {
 					val = ptr.Elem().Interface()
+				}
+
+			case argSchema.Type.Implements(reflect.TypeFor[encoding.TextUnmarshaler]()):
+				ptr := reflect.New(argSchema.Type).Elem()
+				unmarshaler := ptr.Interface().(encoding.TextUnmarshaler)
+
+				err = unmarshaler.UnmarshalText(bytesconv.S2B(valStr))
+				if err == nil {
+					val = ptr.Interface()
 				}
 
 			default:

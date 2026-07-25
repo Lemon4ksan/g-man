@@ -9,7 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
-	"fmt"
+	"strconv"
 
 	"github.com/lemon4ksan/g-man/internal/bytesconv"
 )
@@ -138,17 +138,32 @@ func GenerateConfirmationKey(identitySecret string, timestamp int64, tag string)
 // It returns a formatted UUID string with an "android:" prefix.
 func GetDeviceID(steamID uint64) string {
 	h := sha1.New()
-	fmt.Fprintf(h, "%d", steamID)
-	sum := hex.EncodeToString(h.Sum(nil))
 
-	// UUID: 8-4-4-4-12
-	return fmt.Sprintf("android:%s-%s-%s-%s-%s",
-		sum[:8],
-		sum[8:12],
-		sum[12:16],
-		sum[16:20],
-		sum[20:32],
-	)
+	var idBuf [20]byte
+
+	b := strconv.AppendUint(idBuf[:0], steamID, 10)
+	h.Write(b)
+
+	var hashBuf [20]byte
+
+	sum := h.Sum(hashBuf[:0])
+
+	var hexBuf [40]byte
+	hex.Encode(hexBuf[:], sum)
+
+	var result [44]byte
+	copy(result[:8], "android:")
+	copy(result[8:16], hexBuf[:8])
+	result[16] = '-'
+	copy(result[17:21], hexBuf[8:12])
+	result[21] = '-'
+	copy(result[22:26], hexBuf[12:16])
+	result[26] = '-'
+	copy(result[27:31], hexBuf[16:20])
+	result[31] = '-'
+	copy(result[32:44], hexBuf[20:32])
+
+	return string(result[:])
 }
 
 func decodeSecret(secret string) ([]byte, error) {

@@ -81,18 +81,12 @@ func Unmarshal(r io.Reader, target any) error {
 		return fmt.Errorf("%w: root of binary vdf is not an object", ErrFormat)
 	}
 
-	config := &mapstructure.DecoderConfig{
-		WeaklyTypedInput: true,
-		Result:           target,
-		Squash:           true,
+	if targetMap, ok := target.(*map[string]any); ok {
+		*targetMap = parsed
+		return nil
 	}
 
-	decoder, err := mapstructure.NewDecoder(config)
-	if err != nil {
-		return err
-	}
-
-	return decoder.Decode(parsed)
+	return decodeMapstructure(parsed, target)
 }
 
 // UnmarshalOffset decodes Valve Binary KeyValues starting from the specified index.
@@ -114,6 +108,15 @@ func UnmarshalOffset(data []byte, offset *int, target any) error {
 		return fmt.Errorf("%w: root of binary vdf is not an object", ErrFormat)
 	}
 
+	if targetMap, ok := target.(*map[string]any); ok {
+		*targetMap = parsed
+		return nil
+	}
+
+	return decodeMapstructure(parsed, target)
+}
+
+func decodeMapstructure(input map[string]any, target any) error {
 	config := &mapstructure.DecoderConfig{
 		WeaklyTypedInput: true,
 		Result:           target,
@@ -125,7 +128,7 @@ func UnmarshalOffset(data []byte, offset *int, target any) error {
 		return err
 	}
 
-	return decoder.Decode(parsed)
+	return decoder.Decode(input)
 }
 
 // Parse detects the specific Valve Binary KeyValues format and decodes it.

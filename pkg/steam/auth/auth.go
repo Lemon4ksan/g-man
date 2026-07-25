@@ -25,14 +25,14 @@ import (
 	"github.com/lemon4ksan/miyako/log"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/lemon4ksan/g-man/pkg/crypto"
+	"github.com/lemon4ksan/g-man/internal/crypto"
+	"github.com/lemon4ksan/g-man/internal/socket/connector"
+	"github.com/lemon4ksan/g-man/internal/socket/dispatcher"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
-	"github.com/lemon4ksan/g-man/pkg/steam/socket/connector"
-	"github.com/lemon4ksan/g-man/pkg/steam/socket/dispatcher"
 	"github.com/lemon4ksan/g-man/pkg/storage"
 )
 

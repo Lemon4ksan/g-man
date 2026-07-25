@@ -249,34 +249,20 @@ func (d *Dispatcher) Dispatch(packet *protocol.Packet) bool {
 	}
 
 	if packet.Ctx == nil {
-		id := "pkt-" + log.GenerateCorrelationID()
-		packet.Ctx = log.WithCorrelationID(context.Background(), id)
+		packet.Ctx = context.Background()
 	}
 
 	// Handle special infrastructure messages first
 	switch packet.EMsg {
 	case enums.EMsg_Multi:
 		d.handleMulti(packet)
-		return true
+		return false
 	case enums.EMsg_ServiceMethod:
 		d.handleService(packet)
-		return true
+		return false
 	}
 
-	l := d.getLogger().With(
-		log.Int32("emsg", int32(packet.EMsg)),
-		log.Uint64("job_id", packet.GetTargetJobID()),
-	)
-
-	if !packet.ReceivedAt.IsZero() {
-		l = l.With(log.Int64("queue_delay_ms", time.Since(packet.ReceivedAt).Milliseconds()))
-	}
-
-	ctx := packet.Context()
-
-	// Check if this packet is a response to a previously registered Job
 	if d.handleJobResponse(packet) {
-		l.DebugContext(ctx, "Packet routed to job callback")
 		return true
 	}
 
@@ -286,10 +272,7 @@ func (d *Dispatcher) Dispatch(packet *protocol.Packet) bool {
 	d.mu.RUnlock()
 
 	if ok {
-		l.DebugContext(packet.Context(), "Packet routed to handler")
 		d.invokeHandler(handler, packet)
-	} else {
-		l.DebugContext(packet.Context(), "Unhandled message")
 	}
 
 	return false
@@ -401,6 +384,13 @@ var gzipReaderPool = sync.Pool{
 	New: func() any { return new(gzip.Reader) },
 }
 
+var decompressedPool = sync.Pool{
+	New: func() any {
+		b := make([]byte, 64*1024)
+		return &b
+	},
+}
+
 func (d *Dispatcher) decompressPayload(data []byte, unzippedSize int64) ([]byte, error) {
 	if unzippedSize > d.DecompressionLimit {
 		return nil, fmt.Errorf("%w: %d bytes", ErrDecompressionLimit, unzippedSize)
@@ -414,7 +404,18 @@ func (d *Dispatcher) decompressPayload(data []byte, unzippedSize int64) ([]byte,
 
 	defer gzipReaderPool.Put(gr)
 
-	out := make([]byte, unzippedSize)
+	var out []byte
+	if unzippedSize <= 64*1024 {
+		bufPtr := decompressedPool.Get().(*[]byte)
+		if cap(*bufPtr) < int(unzippedSize) {
+			*bufPtr = make([]byte, unzippedSize)
+		}
+
+		out = (*bufPtr)[:unzippedSize]
+	} else {
+		out = make([]byte, unzippedSize)
+	}
+
 	if _, err := io.ReadFull(gr, out); err != nil {
 		_ = gr.Close()
 		return nil, fmt.Errorf("failed to read full decompressed payload: %w", err)

@@ -118,17 +118,20 @@ func SymmetricEncryptWithHmacIv(input, key []byte) ([]byte, error) {
 		return nil, errors.New("key must be 32 bytes")
 	}
 
-	random := make([]byte, 3)
-	if _, err := io.ReadFull(rand.Reader, random); err != nil {
+	var random [3]byte
+	if _, err := io.ReadFull(rand.Reader, random[:]); err != nil {
 		return nil, err
 	}
 
 	h := hmac.New(sha1.New, key[:16])
-	h.Write(random)
+	h.Write(random[:])
 	h.Write(input)
 
-	// Build IV: partialHmac (13 bytes) + random (3 bytes)
-	return SymmetricEncrypt(input, key, append(h.Sum(nil)[:13], random...))
+	var ivBuf [16]byte
+	copy(ivBuf[:13], h.Sum(nil)[:13])
+	copy(ivBuf[13:], random[:])
+
+	return SymmetricEncrypt(input, key, ivBuf[:])
 }
 
 // SymmetricDecrypt decrypts ciphertext produced by [SymmetricEncrypt] or [SymmetricEncryptWithHmacIv].
@@ -205,10 +208,9 @@ func SymmetricDecryptECB(input, key []byte) ([]byte, error) {
 // It uses predefined formatting strings and hashing algorithms to produce a consistent ID
 // for recognized device identification.
 func GenerateAccountMachineID(accountName string) []byte {
-	format := "SteamUser Hash %s %s"
-	val1 := fmt.Sprintf(format, "BB3", accountName)
-	val2 := fmt.Sprintf(format, "FF2", accountName)
-	val3 := fmt.Sprintf(format, "3B3", accountName)
+	val1 := "SteamUser Hash BB3 " + accountName
+	val2 := "SteamUser Hash FF2 " + accountName
+	val3 := "SteamUser Hash 3B3 " + accountName
 
 	return CreateVDFMachineID(val1, val2, val3)
 }

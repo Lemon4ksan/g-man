@@ -11,7 +11,7 @@ import (
 	"io"
 	"net"
 
-	"github.com/lemon4ksan/g-man/pkg/crypto"
+	"github.com/lemon4ksan/g-man/internal/crypto"
 )
 
 const (

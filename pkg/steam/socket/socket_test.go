@@ -20,11 +20,11 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"github.com/lemon4ksan/g-man/pkg/network"
+	"github.com/lemon4ksan/g-man/internal/network"
+	"github.com/lemon4ksan/g-man/internal/socket/connector"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
-	"github.com/lemon4ksan/g-man/pkg/steam/socket/connector"
 )
 
 type mockConnection struct {

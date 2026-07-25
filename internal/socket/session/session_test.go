@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lemon4ksan/g-man/pkg/steam/socket/session"
+	"github.com/lemon4ksan/g-man/internal/socket/session"
 )
 
 func TestBase_GettersSetters(t *testing.T) {

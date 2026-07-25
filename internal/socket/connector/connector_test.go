@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/lemon4ksan/g-man/pkg/network"
+	"github.com/lemon4ksan/g-man/internal/network"
 )
 
 type MockConnection struct {

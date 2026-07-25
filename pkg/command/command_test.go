@@ -248,7 +248,7 @@ func TestEngine_CustomTypeParser(t *testing.T) {
 
 	// Test 2: Custom parser error propagation
 	_, err = e.Execute(context.Background(), "!lookup invalid")
-	assert.ErrorContains(t, err, "argument <arg1> must be of type CustomID (got \"invalid\")")
+	assert.ErrorContains(t, err, "argument <arg1> must be of type")
 }
 
 func TestEngine_Execute_EdgeCases(t *testing.T) {

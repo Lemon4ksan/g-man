@@ -16,13 +16,13 @@ import (
 	"github.com/lemon4ksan/aoni/cookie"
 
 	"github.com/lemon4ksan/g-man/internal/bytesconv"
+	"github.com/lemon4ksan/g-man/internal/crypto"
+	"github.com/lemon4ksan/g-man/internal/socket/connector"
 	"github.com/lemon4ksan/g-man/pkg/command"
-	"github.com/lemon4ksan/g-man/pkg/crypto"
 	"github.com/lemon4ksan/g-man/pkg/steam/encoding"
 	"github.com/lemon4ksan/g-man/pkg/steam/encoding/bvdf"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
-	"github.com/lemon4ksan/g-man/pkg/steam/socket/connector"
 	"github.com/lemon4ksan/g-man/pkg/trading"
 )
 

@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/trading"
 )
@@ -539,17 +541,20 @@ func TestHandleOffer(t *testing.T) {
 					}
 				}
 
-				lockCalls, unlockCalls := f.bp.GetCalls()
-
+				lockCalls, _ := f.bp.GetCalls()
 				if lockCalls != 1 {
 					t.Errorf("expected LockItems to be called once, got %d", lockCalls)
 				}
 
 				if tt.expectUnlock {
-					if unlockCalls != 1 {
-						t.Errorf("expected UnlockItems to be called once, got %d", unlockCalls)
-					}
+					assert.Eventually(t, func() bool {
+						_, unlockCalls := f.bp.GetCalls()
+						return unlockCalls == 1
+					}, 500*time.Millisecond, 5*time.Millisecond, "expected UnlockItems to be called once")
 				} else {
+					time.Sleep(10 * time.Millisecond)
+
+					_, unlockCalls := f.bp.GetCalls()
 					if unlockCalls != 0 {
 						t.Errorf("expected UnlockItems NOT to be called, got %d", unlockCalls)
 					}

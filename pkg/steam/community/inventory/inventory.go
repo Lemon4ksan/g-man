@@ -328,7 +328,19 @@ func convertTimeTo24h(timestamp string) (string, error) {
 		hour += 12
 	}
 
-	return fmt.Sprintf("%02d:%02d:00", hour, minute), nil
+	// fmt.Sprintf("%02d:%02d:00", hour, minute)
+	var buf [8]byte
+
+	buf[0] = byte('0' + hour/10)
+	buf[1] = byte('0' + hour%10)
+	buf[2] = ':'
+	buf[3] = byte('0' + minute/10)
+	buf[4] = byte('0' + minute%10)
+	buf[5] = ':'
+	buf[6] = '0'
+	buf[7] = '0'
+
+	return string(buf[:]), nil
 }
 
 func parseTradeDate(dateText, timeText string) (time.Time, error) {

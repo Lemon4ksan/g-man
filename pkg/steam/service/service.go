@@ -86,23 +86,17 @@ func WithDecoder(d decode.Decoder) CallOption {
 // WithFormat configures the expected [encoding.ResponseFormat] for the request.
 func WithFormat(f encoding.ResponseFormat) CallOption {
 	return func(req *tr.Request) {
-		var decoder decode.Decoder
 		switch f {
 		case encoding.FormatJSON:
-			decoder = encoding.SteamJSONDecoder
+			WithDecoder(encoding.SteamJSONDecoder)(req)
 		case encoding.FormatProtobuf:
-			decoder = encoding.ProtobufDecoder
+			WithDecoder(encoding.ProtobufDecoder)(req)
 		case encoding.FormatVDF:
-			decoder = encoding.VDFDecoder
+			WithDecoder(encoding.VDFDecoder)(req)
 		case encoding.FormatBinaryVDF:
-			decoder = encoding.BinaryVDFDecoder
+			WithDecoder(encoding.BinaryVDFDecoder)(req)
 		case encoding.FormatRaw:
-			decoder = decode.RawDecoder
-		}
-
-		if decoder != nil {
-			req.SetDecoder(decoder)
-			req.WithModifier(mod.WithDecoder(decoder))
+			WithDecoder(decode.RawDecoder)(req)
 		}
 	}
 }

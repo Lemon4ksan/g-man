@@ -18,7 +18,7 @@ import (
 
 	"github.com/lemon4ksan/miyako/log"
 
-	"github.com/lemon4ksan/g-man/pkg/network"
+	"github.com/lemon4ksan/g-man/internal/network"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 )
 
@@ -108,6 +108,7 @@ func DefaultDialers() map[string]Dialer {
 // ReconnectPolicy defines the strategy for recovering from network drops.
 type ReconnectPolicy struct {
 	// MaxAttempts is the maximum number of reconnect retries allowed before failing.
+	// 0 means unlimited retries for 24/7 operation.
 	MaxAttempts int
 	// InitialBackoff is the starting delay before the first reconnection attempt.
 	InitialBackoff time.Duration
@@ -120,7 +121,6 @@ type ReconnectPolicy struct {
 }
 
 // DefaultReconnectPolicy provides a standard exponential backoff strategy.
-// MaxAttempts=0 means unlimited retries for 24/7 operation.
 func DefaultReconnectPolicy() ReconnectPolicy {
 	return ReconnectPolicy{
 		MaxAttempts:    0,

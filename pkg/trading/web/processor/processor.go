@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package processor contains the web processor for the trading web interface.
 package processor
 
 import (
@@ -192,36 +193,30 @@ func (p *Processor) processSingleOffer(ctx context.Context, off *trading.TradeOf
 		l.Debug("Locked our items for processing")
 	}
 
+	shouldUnlock := true
+	defer func() {
+		if shouldUnlock && len(ourItemIDs) > 0 {
+			p.backpack.UnlockItems(ourItemIDs)
+			l.Debug("Unlocked our items")
+		}
+	}()
+
 	ctx = protocol.WithTransportType(ctx, protocol.TransportWebAPI)
 
 	decision, err := p.handler.ProcessOffer(ctx, off)
 	if err != nil {
 		l.Error("Handler failed to process offer", log.Err(err))
-
-		if len(ourItemIDs) > 0 {
-			p.backpack.UnlockItems(ourItemIDs)
-		}
-
 		return
 	}
 
 	err = p.applyAction(ctx, off, decision)
 	if err != nil {
 		p.handler.OnActionFailed(ctx, off, decision.Action, decision.Reason, err)
-
-		// If accept failed, we MUST unlock items so they can be used in other trades
-		if decision.Action == trading.ActionAccept && len(ourItemIDs) > 0 {
-			p.backpack.UnlockItems(ourItemIDs)
-			l.Debug("Unlocked our items after failed accept")
-		}
+		return
 	}
 
-	if decision.Action == trading.ActionDecline || decision.Action == trading.ActionSkip ||
-		decision.Action == trading.ActionCounter {
-		if len(ourItemIDs) > 0 {
-			p.backpack.UnlockItems(ourItemIDs)
-			l.Debug("Unlocked our items after decline/skip/counter")
-		}
+	if decision.Action == trading.ActionAccept {
+		shouldUnlock = false
 	}
 
 	l.Debug("Finished processing offer", log.Duration("took", time.Since(start)))

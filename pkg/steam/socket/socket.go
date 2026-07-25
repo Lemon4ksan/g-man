@@ -17,18 +17,40 @@ import (
 	"github.com/lemon4ksan/miyako/log"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/lemon4ksan/g-man/internal/socket/connector"
+	"github.com/lemon4ksan/g-man/internal/socket/dispatcher"
+	"github.com/lemon4ksan/g-man/internal/socket/processor"
+	"github.com/lemon4ksan/g-man/internal/socket/session"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
-	"github.com/lemon4ksan/g-man/pkg/steam/socket/connector"
-	"github.com/lemon4ksan/g-man/pkg/steam/socket/dispatcher"
-	"github.com/lemon4ksan/g-man/pkg/steam/socket/processor"
-	"github.com/lemon4ksan/g-man/pkg/steam/socket/session"
 )
 
 // ErrClosed is returned when an operation is attempted on a Socket that
 // has been permanently shut down via Close().
 var ErrClosed = errors.New("socket: instance is permanently closed")
+
+type (
+	// Dialer defines a function for establishing various network connections.
+	Dialer = connector.Dialer
+	// ConnectorConfig aggregates configuration for the connector's behavior.
+	ConnectorConfig = connector.Config
+	// ReconnectPolicy defines the strategy for recovering from network drops.
+	ReconnectPolicy = connector.ReconnectPolicy
+	// ProcessorConfig defines the concurrency and buffering parameters for the processor.
+	ProcessorConfig = processor.Config
+)
+
+var (
+	// DefaultConnectorConfig returns a standard configuration for Steam CM connections.
+	DefaultConnectorConfig = connector.DefaultConfig
+	// DefaultDialers provides implementations for TCP and WebSockets.
+	DefaultDialers = connector.DefaultDialers
+	// DefaultReconnectPolicy provides a standard exponential backoff strategy.
+	DefaultReconnectPolicy = connector.DefaultReconnectPolicy
+	// DefaultProcessorConfig returns a balanced configuration based on the available CPU cores.
+	DefaultProcessorConfig = processor.DefaultConfig
+)
 
 type (
 	// CMServer represents a Steam Connection Manager server endpoint.
@@ -88,9 +110,9 @@ type Session interface {
 // Config aggregates configurations for all underlying socket subsystems.
 type Config struct {
 	// Connector holds configuration parameters for raw network dials.
-	Connector connector.Config
+	Connector ConnectorConfig
 	// Processor holds configuration parameters for concurrent packet decoding.
-	Processor processor.Config
+	Processor ProcessorConfig
 	// MaxJobs specifies the maximum number of active tracking jobs in the dispatcher.
 	MaxJobs int
 }
@@ -98,8 +120,8 @@ type Config struct {
 // DefaultConfig returns a recommended baseline for high-performance Steam bots.
 func DefaultConfig() Config {
 	return Config{
-		Connector: connector.DefaultConfig(),
-		Processor: processor.DefaultConfig(),
+		Connector: DefaultConnectorConfig(),
+		Processor: DefaultProcessorConfig(),
 		MaxJobs:   1000,
 	}
 }

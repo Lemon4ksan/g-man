@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/lemon4ksan/g-man/pkg/steam/socket/connector"
+	"github.com/lemon4ksan/g-man/internal/socket/connector"
 )
 
 type failingWriter struct {

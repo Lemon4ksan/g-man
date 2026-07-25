@@ -40,10 +40,6 @@ const (
 	FormatJSON
 	// FormatProtobuf represents a binary wire format or JSON-encoded Protobuf payload.
 	FormatProtobuf
-	// FormatXML represents XML text payload format.
-	FormatXML
-	// FormatYAML represents YAML text payload format.
-	FormatYAML
 	// FormatVDF represents KeyValues/VDF text payload format.
 	FormatVDF
 	// FormatBinaryVDF represents Valve Proprietary Binary KeyValues payload format.
@@ -128,6 +124,15 @@ var VDFDecoder = decode.DecoderFunc(func(r io.Reader, target any) error {
 		return err
 	}
 
+	if res, ok := m["response"].(map[string]any); ok {
+		m = res
+	}
+
+	if targetMap, ok := target.(*map[string]any); ok {
+		*targetMap = m
+		return nil
+	}
+
 	config := &mapstructure.DecoderConfig{
 		WeaklyTypedInput: true,
 		Result:           target,
@@ -137,10 +142,6 @@ var VDFDecoder = decode.DecoderFunc(func(r io.Reader, target any) error {
 	decoder, err := mapstructure.NewDecoder(config)
 	if err != nil {
 		return err
-	}
-
-	if res, ok := m["response"].(map[string]any); ok {
-		return decoder.Decode(res)
 	}
 
 	return decoder.Decode(m)

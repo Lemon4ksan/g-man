@@ -20,7 +20,7 @@ import (
 	"github.com/lemon4ksan/miyako/sync/lazy"
 	"golang.org/x/time/rate"
 
-	"github.com/lemon4ksan/g-man/pkg/crypto"
+	"github.com/lemon4ksan/g-man/internal/crypto"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"

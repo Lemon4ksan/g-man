@@ -7,8 +7,8 @@ package processor
 
 import (
 	"context"
-	"fmt"
 	"slices"
+	"strconv"
 	"sync"
 	"time"
 
@@ -17,6 +17,7 @@ import (
 	"github.com/lemon4ksan/miyako/log"
 	"github.com/lemon4ksan/miyako/sync/keylock"
 
+	"github.com/lemon4ksan/g-man/internal/bytesconv"
 	"github.com/lemon4ksan/g-man/pkg/behavior"
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
@@ -167,14 +168,30 @@ func (p *Processor) Enqueue(offer *trading.TradeOffer) {
 	}
 }
 
+func generateCorrelationID(offerID uint64) string {
+	var buf [48]byte
+
+	n := copy(buf[:], "offer-")
+	n += len(strconv.AppendUint(buf[n:n], offerID, 10))
+	buf[n] = '-'
+	n++
+
+	corrSuffix := log.GenerateCorrelationID()
+	if len(corrSuffix) > 8 {
+		corrSuffix = corrSuffix[:8]
+	}
+
+	n += copy(buf[n:], corrSuffix)
+
+	return bytesconv.B2S(buf[:n])
+}
+
 func (p *Processor) handleOffer(ctx context.Context, offer *trading.TradeOffer) {
 	defer p.processing.Delete(offer.ID)
 
 	start := time.Now()
 
-	// Generate a unique CorrelationID for this trade offer reasoning execution
-	corrID := fmt.Sprintf("offer-%d-%s", offer.ID, log.GenerateCorrelationID()[:8])
-	ctx = log.WithCorrelationID(ctx, corrID)
+	ctx = log.WithCorrelationID(ctx, generateCorrelationID(offer.ID))
 
 	p.logger.InfoContext(ctx, "Processing offer", log.Uint64("id", offer.ID))
 

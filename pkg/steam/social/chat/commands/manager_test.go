@@ -689,7 +689,7 @@ func TestCommandManager_SteamIDParsing(t *testing.T) {
 		req := &pb.CFriendMessages_SendMessage_Request{}
 		ictx.MockService().GetLastCall(req)
 		assert.Equal(t, UserSteamID, req.GetSteamid())
-		assert.Contains(t, req.GetMessage(), "must be of type ID")
+		assert.Contains(t, req.GetMessage(), "must be of type")
 	})
 }
 

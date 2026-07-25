@@ -26,6 +26,7 @@ import (
 	"github.com/lemon4ksan/miyako/yumi"
 	"golang.org/x/time/rate"
 
+	"github.com/lemon4ksan/g-man/internal/bytesconv"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
@@ -355,20 +356,20 @@ func (m *Manager) SendOffer(ctx context.Context, p trading.OfferParams) (uint64,
 		})
 	}
 
-	jsonObj, _ := json.Marshal(tradeOfferObj)
+	jsonBytes, _ := json.Marshal(tradeOfferObj)
 
 	var paramsStr string
 	if p.Token != "" {
 		paramsObj := createParams{TradeOfferAccessToken: p.Token}
 		paramsBytes, _ := json.Marshal(paramsObj)
-		paramsStr = string(paramsBytes)
+		paramsStr = bytesconv.B2S(paramsBytes)
 	}
 
 	payload := sendNewReq{
 		ServerID:     1,
 		PartnerID:    p.PartnerID,
 		Message:      p.Message,
-		JSON:         string(jsonObj),
+		JSON:         bytesconv.B2S(jsonBytes),
 		CreateParams: paramsStr,
 		CounteredID:  p.CounteredID,
 	}
