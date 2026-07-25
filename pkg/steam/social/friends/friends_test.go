@@ -69,8 +69,8 @@ func TestManager_FriendCache(t *testing.T) {
 		m, _ := setupFriends(t)
 
 		m.mu.Lock()
-		m.relationships[FriendID1] = enums.EFriendRelationship_Friend
-		m.relationships[FriendID2] = enums.EFriendRelationship_RequestRecipient
+		m.relationships.Set(FriendID1, enums.EFriendRelationship_Friend)
+		m.relationships.Set(FriendID2, enums.EFriendRelationship_RequestRecipient)
 		m.mu.Unlock()
 
 		assert.True(t, m.IsFriend(FriendID1))
@@ -82,11 +82,12 @@ func TestManager_FriendCache(t *testing.T) {
 		m, _ := setupFriends(t)
 
 		m.mu.Lock()
-		m.relationships[FriendID1] = enums.EFriendRelationship_Friend
-		m.users[FriendID1] = &PersonaState{PlayerName: "G-man"}
+		m.relationships.Set(FriendID1, enums.EFriendRelationship_Friend)
+		m.users.Set(FriendID1, &PersonaState{PlayerName: "G-man"})
 		m.mu.Unlock()
 
-		p := m.GetFriend(FriendID1)
+		p, ok := m.GetFriend(FriendID1)
+		assert.True(t, ok)
 		assert.NotNil(t, p)
 		assert.Equal(t, "G-man", p.PlayerName)
 
@@ -206,7 +207,7 @@ func TestManager_InviteToGroups(t *testing.T) {
 		path := "actions/GroupInvite"
 
 		m.mu.Lock()
-		m.relationships[FriendID1] = enums.EFriendRelationship_Friend
+		m.relationships.Set(FriendID1, enums.EFriendRelationship_Friend)
 		m.mu.Unlock()
 
 		comm.ClearCalls()
@@ -226,7 +227,7 @@ func TestManager_InviteToGroups(t *testing.T) {
 		path := "actions/GroupInvite"
 
 		m.mu.Lock()
-		m.relationships[FriendID1] = enums.EFriendRelationship_Friend
+		m.relationships.Set(FriendID1, enums.EFriendRelationship_Friend)
 		m.mu.Unlock()
 
 		comm.ClearCalls()
@@ -313,11 +314,13 @@ func TestManager_HandlePersonaState(t *testing.T) {
 			},
 		})
 
-		p1 := m.GetFriend(FriendID1)
+		p1, ok := m.GetFriend(FriendID1)
+		assert.True(t, ok)
 		assert.Equal(t, "Updated Name", p1.PlayerName)
 		assert.Equal(t, []byte("abc"), p1.AvatarHash)
 
-		p2 := m.GetFriend(FriendID2)
+		p2, ok := m.GetFriend(FriendID2)
+		assert.True(t, ok)
 		assert.NotNil(t, p2)
 		assert.Empty(t, p2.PlayerName)
 
@@ -1050,7 +1053,9 @@ func TestManager_HandlePlayerNicknameList(t *testing.T) {
 			},
 		})
 
-		assert.Equal(t, "Bob", m.GetNickname(FriendID1))
+		nick, ok := m.GetNickname(FriendID1)
+		assert.True(t, ok)
+		assert.Equal(t, "Bob", nick)
 		assert.Len(t, m.GetNicknames(), 1)
 
 		select {
@@ -1066,7 +1071,7 @@ func TestManager_HandlePlayerNicknameList(t *testing.T) {
 		t.Parallel()
 		m, ictx := setupFriends(t)
 		m.mu.Lock()
-		m.nicknames[FriendID1] = "Bob"
+		m.nicknames.Set(FriendID1, "Bob")
 		m.mu.Unlock()
 
 		ictx.EmitPacket(t, enums.EMsg_ClientPlayerNicknameList, &pb.CMsgClientPlayerNicknameList{
@@ -1079,7 +1084,9 @@ func TestManager_HandlePlayerNicknameList(t *testing.T) {
 			},
 		})
 
-		assert.Empty(t, m.GetNickname(FriendID1))
+		nick, ok := m.GetNickname(FriendID1)
+		assert.False(t, ok)
+		assert.Empty(t, nick)
 	})
 }
 
@@ -1089,7 +1096,7 @@ func TestManager_HandleNotifyFriendNicknameChanged(t *testing.T) {
 	t.Run("success_update", func(t *testing.T) {
 		t.Parallel()
 		m, ictx := setupFriends(t)
-		m.relationships[FriendID1] = enums.EFriendRelationship_Friend
+		m.relationships.Set(FriendID1, enums.EFriendRelationship_Friend)
 
 		sub := ictx.Bus().Subscribe(&NicknameChangedEvent{})
 		defer sub.Unsubscribe()
@@ -1107,7 +1114,9 @@ func TestManager_HandleNotifyFriendNicknameChanged(t *testing.T) {
 			Payload: payload,
 		})
 
-		assert.Equal(t, "Alice", m.GetNickname(FriendID1))
+		nick, ok := m.GetNickname(FriendID1)
+		assert.True(t, ok)
+		assert.Equal(t, "Alice", nick)
 
 		select {
 		case ev := <-sub.C():
@@ -1122,8 +1131,8 @@ func TestManager_HandleNotifyFriendNicknameChanged(t *testing.T) {
 	t.Run("success_delete", func(t *testing.T) {
 		t.Parallel()
 		m, ictx := setupFriends(t)
-		m.relationships[FriendID1] = enums.EFriendRelationship_Friend
-		m.nicknames[FriendID1] = "Alice"
+		m.relationships.Set(FriendID1, enums.EFriendRelationship_Friend)
+		m.nicknames.Set(FriendID1, "Alice")
 
 		sub := ictx.Bus().Subscribe(&NicknameChangedEvent{})
 		defer sub.Unsubscribe()
@@ -1141,7 +1150,9 @@ func TestManager_HandleNotifyFriendNicknameChanged(t *testing.T) {
 			Payload: payload,
 		})
 
-		assert.Empty(t, m.GetNickname(FriendID1))
+		nick, ok := m.GetNickname(FriendID1)
+		assert.False(t, ok)
+		assert.Empty(t, nick)
 
 		select {
 		case ev := <-sub.C():
@@ -1174,7 +1185,9 @@ func TestManager_HandleNotifyFriendNicknameChanged(t *testing.T) {
 		})
 
 		expectedSteamID := id.FromAccountID(FriendID1.AccountID())
-		assert.Equal(t, "Alice", m.GetNickname(expectedSteamID))
+		nick, ok := m.GetNickname(expectedSteamID)
+		assert.True(t, ok)
+		assert.Equal(t, "Alice", nick)
 
 		select {
 		case ev := <-sub.C():

@@ -10,7 +10,6 @@ import (
 	"sync"
 
 	"github.com/lemon4ksan/miyako/log"
-	"google.golang.org/protobuf/proto"
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam"
@@ -154,7 +153,7 @@ func (a *Account) GetGifts() []map[string]any {
 
 func (a *Account) handleAccountInfo(packet *protocol.Packet) {
 	msg := &pb.CMsgClientAccountInfo{}
-	if err := proto.Unmarshal(packet.Payload, msg); err != nil {
+	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
 		a.Logger.Error("Failed to unmarshal account info", log.Err(err))
 		return
 	}
@@ -178,7 +177,7 @@ func (a *Account) handleAccountInfo(packet *protocol.Packet) {
 
 func (a *Account) handleEmailAddrInfo(packet *protocol.Packet) {
 	msg := &pb.CMsgClientEmailAddrInfo{}
-	if err := proto.Unmarshal(packet.Payload, msg); err != nil {
+	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
 		a.Logger.Error("Failed to unmarshal email addr info", log.Err(err))
 		return
 	}
@@ -198,7 +197,7 @@ func (a *Account) handleEmailAddrInfo(packet *protocol.Packet) {
 
 func (a *Account) handleIsLimitedAccount(packet *protocol.Packet) {
 	msg := &pb.CMsgClientIsLimitedAccount{}
-	if err := proto.Unmarshal(packet.Payload, msg); err != nil {
+	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
 		a.Logger.Error("Failed to unmarshal ClientIsLimited", log.Err(err))
 		return
 	}
@@ -260,7 +259,7 @@ func (a *Account) handleVACBanStatus(packet *protocol.Packet) {
 
 func (a *Account) handleWalletInfoUpdate(packet *protocol.Packet) {
 	msg := &pb.CMsgClientWalletInfoUpdate{}
-	if err := proto.Unmarshal(packet.Payload, msg); err != nil {
+	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
 		a.Logger.Error("Failed to unmarshal wallet info update", log.Err(err))
 		return
 	}
@@ -290,7 +289,7 @@ func (a *Account) handleWalletInfoUpdate(packet *protocol.Packet) {
 
 func (a *Account) handleVanityURLChangedNotification(packet *protocol.Packet) {
 	msg := &pb.CMsgClientVanityURLChangedNotification{}
-	if err := proto.Unmarshal(packet.Payload, msg); err != nil {
+	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
 		a.Logger.Error("Failed to unmarshal vanity URL changed notification", log.Err(err))
 		return
 	}

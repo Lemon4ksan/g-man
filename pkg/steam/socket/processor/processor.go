@@ -13,6 +13,7 @@ import (
 
 	"github.com/lemon4ksan/miyako/log"
 
+	"github.com/lemon4ksan/g-man/internal/ringbuffer"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 )
 
@@ -21,16 +22,22 @@ type Dispatcher interface {
 	Dispatch(packet *protocol.Packet) bool
 }
 
+// DefaultRingBufferCap defines the default capacity of the ring buffer used for packet buffering.
+const DefaultRingBufferCap uint64 = 4096
+
 // Config defines the concurrency and buffering parameters for the processor.
 type Config struct {
 	// WorkerCount is the number of parallel goroutines processing raw packets.
 	WorkerCount int
+	// RingBufferCap defines the capacity of the ring buffer used for packet buffering.
+	RingBufferCap uint64
 }
 
 // DefaultConfig returns a balanced configuration based on the available CPU cores.
 func DefaultConfig() Config {
 	return Config{
-		WorkerCount: max(runtime.NumCPU(), 2),
+		WorkerCount:   max(runtime.NumCPU(), 2),
+		RingBufferCap: DefaultRingBufferCap,
 	}
 }
 
@@ -43,7 +50,8 @@ type Processor struct {
 	logger log.Logger
 	dist   Dispatcher
 
-	input <-chan *protocol.InboundMessage
+	input      <-chan *protocol.InboundMessage
+	ringBuffer *ringbuffer.MPMCRingBuffer
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -62,12 +70,13 @@ func New(cfg Config, input <-chan *protocol.InboundMessage, dist Dispatcher, log
 	}
 
 	return &Processor{
-		ctx:    ctx,
-		cancel: cancel,
-		cfg:    cfg,
-		logger: logger.With(log.Component("proc")),
-		input:  input,
-		dist:   dist,
+		ctx:        ctx,
+		cancel:     cancel,
+		cfg:        cfg,
+		ringBuffer: ringbuffer.New(cfg.RingBufferCap),
+		logger:     logger.With(log.Component("proc")),
+		input:      input,
+		dist:       dist,
 	}
 }
 
@@ -127,20 +136,14 @@ func (p *Processor) Process(inbound *protocol.InboundMessage) {
 // worker processes packets from the internal queue and feeds them to the dispatcher.
 func (p *Processor) worker() {
 	for {
-		select {
-		case <-p.ctx.Done():
+		if p.ctx.Err() != nil {
 			return
+		}
 
-		case inbound, ok := <-p.input:
-			if !ok {
-				return
-			}
-
-			func() {
-				defer p.recoverPanic()
-
-				p.Process(inbound)
-			}()
+		if inbound, ok := p.ringBuffer.Pop(); ok {
+			p.Process(inbound)
+		} else {
+			runtime.Gosched()
 		}
 	}
 }

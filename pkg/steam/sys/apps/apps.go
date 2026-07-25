@@ -230,7 +230,7 @@ func (a *Apps) sendGamesPlayed(
 
 func (a *Apps) handlePlayingSessionState(packet *protocol.Packet) {
 	msg := &pb.CMsgClientPlayingSessionState{}
-	if err := proto.Unmarshal(packet.Payload, msg); err != nil {
+	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
 		a.Logger.Error("Failed to unmarshal playing session state", log.Err(err))
 		return
 	}
@@ -288,7 +288,7 @@ func (a *Apps) PopConnectToken() []byte {
 
 func (a *Apps) handleLicenseList(packet *protocol.Packet) {
 	msg := &pb.CMsgClientLicenseList{}
-	if err := proto.Unmarshal(packet.Payload, msg); err != nil {
+	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
 		a.Logger.Error("Failed to unmarshal license list", log.Err(err))
 		return
 	}
@@ -304,7 +304,7 @@ func (a *Apps) handleLicenseList(packet *protocol.Packet) {
 
 func (a *Apps) handleGameConnectTokens(packet *protocol.Packet) {
 	msg := &pb.CMsgClientGameConnectTokens{}
-	if err := proto.Unmarshal(packet.Payload, msg); err != nil {
+	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
 		a.Logger.Error("Failed to unmarshal game connect tokens", log.Err(err))
 		return
 	}

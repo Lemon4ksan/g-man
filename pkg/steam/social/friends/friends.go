@@ -60,14 +60,14 @@ type Manager struct {
 	client    service.Doer
 	community community.Requester
 
-	mu            sync.RWMutex
-	relationships map[id.ID]enums.EFriendRelationship
-	users         map[id.ID]*PersonaState
-	friendGroups  map[int32]FriendGroup
-	nicknames     map[id.ID]string
+	relationships *generic.ShardedMap[id.ID, enums.EFriendRelationship]
+	users         *generic.ShardedMap[id.ID, *PersonaState]
+	nicknames     *generic.ShardedMap[id.ID, string]
 
-	mySteamID  id.ID
-	maxFriends int
+	mu           sync.RWMutex
+	friendGroups map[int32]FriendGroup
+	mySteamID    id.ID
+	maxFriends   int
 
 	unregFuncs []func()
 }
@@ -76,10 +76,10 @@ type Manager struct {
 func New() *Manager {
 	return &Manager{
 		Base:          module.New(ModuleName),
-		relationships: make(map[id.ID]enums.EFriendRelationship),
-		users:         make(map[id.ID]*PersonaState),
+		relationships: generic.NewShardedMap[id.ID, enums.EFriendRelationship](),
+		users:         generic.NewShardedMap[id.ID, *PersonaState](),
+		nicknames:     generic.NewShardedMap[id.ID, string](),
 		friendGroups:  make(map[int32]FriendGroup),
-		nicknames:     make(map[id.ID]string),
 	}
 }
 
@@ -130,11 +130,11 @@ func (m *Manager) Close() error {
 // GetFriend returns cached user information (persona state) for a given SteamID.
 //
 // It returns nil if the user is not found in the local cache.
-func (m *Manager) GetFriend(steamID id.ID) *PersonaState {
+func (m *Manager) GetFriend(steamID id.ID) (*PersonaState, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	return m.users[steamID]
+	return m.users.Get(steamID)
 }
 
 // IsFriend returns true if the specified SteamID is in our friends list.
@@ -142,7 +142,8 @@ func (m *Manager) IsFriend(steamID id.ID) bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	return m.relationships[steamID] == enums.EFriendRelationship_Friend
+	enum, ok := m.relationships.Get(steamID)
+	return ok && enum == enums.EFriendRelationship_Friend
 }
 
 // GetFriends returns a list of SteamIDs for all users with a "Friend" relationship.
@@ -150,8 +151,9 @@ func (m *Manager) GetFriends() []id.ID {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	friends := make([]id.ID, 0, len(m.relationships))
-	for steamID, relation := range m.relationships {
+	all := m.relationships.All()
+	friends := make([]id.ID, 0, len(all))
+	for steamID, relation := range all {
 		if relation == enums.EFriendRelationship_Friend {
 			friends = append(friends, steamID)
 		}
@@ -292,17 +294,19 @@ func (m *Manager) GetNicknames() map[id.ID]string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	nicks := make(map[id.ID]string, len(m.nicknames))
-	maps.Copy(nicks, m.nicknames)
+	all := m.nicknames.All()
+	nicks := make(map[id.ID]string, len(all))
+	maps.Copy(nicks, all)
 
 	return nicks
 }
 
 // GetNickname returns the custom nickname for a specific friend.
-func (m *Manager) GetNickname(steamID id.ID) string {
+func (m *Manager) GetNickname(steamID id.ID) (string, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	return m.nicknames[steamID]
+	nick, ok := m.nicknames.Get(steamID)
+	return nick, ok
 }
 
 // AcceptFriendRequestWeb accepts an incoming friend invitation using the web-based Steam Community API.
@@ -720,7 +724,7 @@ func (m *Manager) SetFriendNickname(ctx context.Context, steamID uint64, nicknam
 
 func (m *Manager) handleFriendsGroupsList(packet *protocol.Packet) {
 	list := &pb.CMsgClientFriendsGroupsList{}
-	if err := proto.Unmarshal(packet.Payload, list); err != nil {
+	if err := protocol.UnmarshalProto(packet.Payload, list); err != nil {
 		m.Logger.Error("Failed to unmarshal friends groups list", log.Err(err))
 		return
 	}
@@ -768,7 +772,7 @@ func (m *Manager) handleFriendsGroupsList(packet *protocol.Packet) {
 
 func (m *Manager) handlePlayerNicknameList(packet *protocol.Packet) {
 	list := &pb.CMsgClientPlayerNicknameList{}
-	if err := proto.Unmarshal(packet.Payload, list); err != nil {
+	if err := protocol.UnmarshalProto(packet.Payload, list); err != nil {
 		m.Logger.Error("Failed to unmarshal player nickname list", log.Err(err))
 		return
 	}
@@ -779,22 +783,22 @@ func (m *Manager) handlePlayerNicknameList(packet *protocol.Packet) {
 	for _, user := range list.GetNicknames() {
 		steamID := id.ID(user.GetSteamid())
 		if list.GetRemoval() {
-			delete(m.nicknames, steamID)
+			m.nicknames.Delete(steamID)
 		} else {
-			m.nicknames[steamID] = user.GetNickname()
+			m.nicknames.Set(steamID, user.GetNickname())
 		}
 	}
 
 	if !list.GetIncremental() {
 		m.Bus.Publish(&NicknameListEvent{
-			Nicknames: m.nicknames,
+			Nicknames: m.nicknames.All(),
 		})
 	}
 }
 
 func (m *Manager) handleNotifyFriendNicknameChanged(packet *protocol.Packet) {
 	msg := &pb.CPlayer_FriendNicknameChanged_Notification{}
-	if err := proto.Unmarshal(packet.Payload, msg); err != nil {
+	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
 		m.Logger.Error("Failed to unmarshal friend nickname changed notification", log.Err(err))
 		return
 	}
@@ -804,14 +808,14 @@ func (m *Manager) handleNotifyFriendNicknameChanged(packet *protocol.Packet) {
 
 	m.mu.Lock()
 	// Fallback for tests using short raw account IDs as SteamIDs
-	if _, ok := m.relationships[id.ID(msg.GetAccountid())]; ok {
+	if _, ok := m.relationships.Get(id.ID(msg.GetAccountid())); ok {
 		sid = id.ID(msg.GetAccountid())
 	}
 
 	if nickname == "" {
-		delete(m.nicknames, sid)
+		m.nicknames.Delete(sid)
 	} else {
-		m.nicknames[sid] = nickname
+		m.nicknames.Set(sid, nickname)
 	}
 
 	m.mu.Unlock()
@@ -824,7 +828,7 @@ func (m *Manager) handleNotifyFriendNicknameChanged(packet *protocol.Packet) {
 
 func (m *Manager) handleFriendsList(packet *protocol.Packet) {
 	list := &pb.CMsgClientFriendsList{}
-	if err := proto.Unmarshal(packet.Payload, list); err != nil {
+	if err := protocol.UnmarshalProto(packet.Payload, list); err != nil {
 		m.Logger.Error("Failed to unmarshal friends list", log.Err(err))
 		return
 	}
@@ -835,9 +839,13 @@ func (m *Manager) handleFriendsList(packet *protocol.Packet) {
 	for _, friend := range list.GetFriends() {
 		steamID := id.ID(friend.GetUlfriendid())
 		newRel := enums.EFriendRelationship(friend.GetEfriendrelationship())
-		oldRel := m.relationships[steamID]
+		oldRel, ok := m.relationships.Get(steamID)
 
-		m.relationships[steamID] = newRel
+		if !ok {
+			m.relationships.Set(steamID, newRel)
+		} else {
+			m.relationships.Set(steamID, newRel)
+		}
 
 		if oldRel != newRel {
 			m.Bus.Publish(&RelationshipChangedEvent{
@@ -851,7 +859,7 @@ func (m *Manager) handleFriendsList(packet *protocol.Packet) {
 
 func (m *Manager) handlePersonaState(packet *protocol.Packet) {
 	state := &pb.CMsgClientPersonaState{}
-	if err := proto.Unmarshal(packet.Payload, state); err != nil {
+	if err := protocol.UnmarshalProto(packet.Payload, state); err != nil {
 		m.Logger.Error("Failed to unmarshal persona state", log.Err(err))
 		return
 	}
@@ -862,10 +870,10 @@ func (m *Manager) handlePersonaState(packet *protocol.Packet) {
 	for _, friend := range state.GetFriends() {
 		steamID := id.ID(friend.GetFriendid())
 
-		user, exists := m.users[steamID]
+		user, exists := m.users.Get(steamID)
 		if !exists {
 			user = &PersonaState{RichPresence: make(map[string]string)}
-			m.users[steamID] = user
+			m.users.Set(steamID, user)
 		}
 
 		if friend.PlayerName != nil {

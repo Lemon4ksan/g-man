@@ -358,7 +358,7 @@ func (d *Dispatcher) handleJobResponse(packet *protocol.Packet) bool {
 
 func (d *Dispatcher) handleMulti(packet *protocol.Packet) {
 	msg := &pb.CMsgMulti{}
-	if err := proto.Unmarshal(packet.Payload, msg); err != nil {
+	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
 		d.getLogger().ErrorContext(packet.Context(), "Failed to unmarshal CMsgMulti", log.Err(err))
 		return
 	}

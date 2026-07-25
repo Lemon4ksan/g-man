@@ -40,8 +40,8 @@ func RegisterBuiltinCommands(m *Manager, friendsMgr *friends.Manager, started ti
 
 		friendsList := friendsMgr.GetFriends()
 		for _, friendID := range friendsList {
-			persona := friendsMgr.GetFriend(friendID)
-			if persona != nil && strings.Contains(strings.ToLower(persona.PlayerName), query) {
+			persona, ok := friendsMgr.GetFriend(friendID)
+			if ok && strings.Contains(strings.ToLower(persona.PlayerName), query) {
 				matches = append(matches, fmt.Sprintf("%s (%s)", persona.PlayerName, friendID.String()))
 			}
 		}
@@ -68,9 +68,9 @@ func RegisterBuiltinCommands(m *Manager, friendsMgr *friends.Manager, started ti
 		}
 
 		steamID := args[0].(id.ID)
-		persona := friendsMgr.GetFriend(steamID)
+		persona, ok := friendsMgr.GetFriend(steamID)
 
-		if persona == nil {
+		if !ok {
 			return fmt.Sprintf("No cached data for %s.", steamID.String()), nil
 		}
 

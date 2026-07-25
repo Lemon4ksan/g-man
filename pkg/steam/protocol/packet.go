@@ -31,6 +31,34 @@ var (
 	ErrInvalidHeader = errors.New("invalid header format")
 )
 
+// VTUnmarshaler defines an interface for vtprotobuf unmarshaling.
+type VTUnmarshaler interface {
+	UnmarshalVT(data []byte) error
+}
+
+// VTMarshaler defines an interface for vtprotobuf marshaling.
+type VTMarshaler interface {
+	MarshalVT() ([]byte, error)
+}
+
+// UnmarshalProto unmarshals Protobuf with maximum speed:
+// If the structure supports vtprotobuf (UnmarshalVT) — calls the zero-reflection code directly.
+// Otherwise — falls back to the standard proto.Unmarshal.
+func UnmarshalProto(data []byte, msg proto.Message) error {
+	if vt, ok := msg.(VTUnmarshaler); ok {
+		return vt.UnmarshalVT(data)
+	}
+	return proto.Unmarshal(data, msg)
+}
+
+// MarshalProto marshals Protobuf with minimum reflection overhead.
+func MarshalProto(msg proto.Message) ([]byte, error) {
+	if vt, ok := msg.(VTMarshaler); ok {
+		return vt.MarshalVT()
+	}
+	return proto.Marshal(msg)
+}
+
 // Header describes the common interface for all Steam message headers.
 // It provides methods for accessing job IDs used for request-response tracking.
 type Header interface {
@@ -449,7 +477,7 @@ func ParseGCPacket(appID, msgType uint32, data []byte) (*GCPacket, error) {
 
 		hdr := acquireProtoHeader()
 
-		err := proto.Unmarshal(hdrBytes, hdr)
+		err := UnmarshalProto(hdrBytes, hdr)
 		if err != nil {
 			releaseProtoHeader(hdr)
 			ReleaseGCPacket(p)

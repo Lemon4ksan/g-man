@@ -14,6 +14,7 @@ import (
 	"sync"
 
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
@@ -244,7 +245,7 @@ func (m *ServiceMock) GetLastCall(out proto.Message) *tr.Request {
 
 	if out != nil && req.Body != nil {
 		bodyBytes, _ := io.ReadAll(req.Body)
-		_ = proto.Unmarshal(bodyBytes, out)
+		_ = protocol.UnmarshalProto(bodyBytes, out)
 
 		req.Body = bytes.NewReader(bodyBytes)
 	}

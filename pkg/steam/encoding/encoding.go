@@ -21,6 +21,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/encoding/bvdf"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 )
 
 // ErrFormat is returned when the response format is unexpected or when target structures are incompatible.
@@ -112,7 +113,7 @@ var ProtobufDecoder = decode.DecoderFunc(func(r io.Reader, target any) error {
 		return protojson.UnmarshalOptions{DiscardUnknown: true}.Unmarshal(data, pm)
 	}
 
-	return proto.Unmarshal(data, pm)
+	return protocol.UnmarshalProto(data, pm)
 })
 
 // VDFDecoder parses Valve Data Format (VDF) text KeyValues into a target object.

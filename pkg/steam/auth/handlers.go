@@ -115,7 +115,7 @@ func (a *Authenticator) handleChannelEncryptResult(packet *protocol.Packet) {
 // handleLogOnResponse handles the final authentication verdict from Steam.
 func (a *Authenticator) handleLogOnResponse(packet *protocol.Packet) {
 	msg := &pb.CMsgClientLogonResponse{}
-	if err := proto.Unmarshal(packet.Payload, msg); err != nil {
+	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
 		a.failLogin(fmt.Errorf("logon_response: unmarshal failed: %w", err))
 		return
 	}
@@ -167,7 +167,7 @@ func (a *Authenticator) handleLogOnResponse(packet *protocol.Packet) {
 // handleLoggedOff handles server-side disconnections (e.g., "Logged in elsewhere").
 func (a *Authenticator) handleLoggedOff(packet *protocol.Packet) {
 	resp := &pb.CMsgClientLoggedOff{}
-	if err := proto.Unmarshal(packet.Payload, resp); err != nil {
+	if err := protocol.UnmarshalProto(packet.Payload, resp); err != nil {
 		a.getLogger().Error("Unmarshal failed in handleLoggedOff", log.Err(err))
 		return
 	}

@@ -286,7 +286,7 @@ func (c *Coordinator) UnregisterGCHandler(appID, msgType uint32) {
 
 func (c *Coordinator) handleClientFromGC(packet *protocol.Packet) {
 	wrapper := &pb.CMsgGCClient{}
-	if err := proto.Unmarshal(packet.Payload, wrapper); err != nil {
+	if err := protocol.UnmarshalProto(packet.Payload, wrapper); err != nil {
 		c.Logger.Error("Failed to unmarshal ClientFromGC envelope", log.Err(err))
 		return
 	}

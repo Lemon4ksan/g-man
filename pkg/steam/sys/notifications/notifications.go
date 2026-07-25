@@ -189,7 +189,7 @@ func (n *Notifications) sendProto(ctx context.Context, eMsg enums.EMsg, msg prot
 
 func (n *Notifications) handleItemAnnouncements(packet *protocol.Packet) {
 	msg := &pb.CMsgClientItemAnnouncements{}
-	if err := proto.Unmarshal(packet.Payload, msg); err != nil {
+	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
 		n.Logger.Error("Failed to unmarshal item announcements", log.Err(err))
 		return
 	}
@@ -204,7 +204,7 @@ func (n *Notifications) handleItemAnnouncements(packet *protocol.Packet) {
 
 func (n *Notifications) handleCommentNotifications(packet *protocol.Packet) {
 	msg := &pb.CMsgClientCommentNotifications{}
-	if err := proto.Unmarshal(packet.Payload, msg); err != nil {
+	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
 		n.Logger.Error("Failed to unmarshal comment notifications", log.Err(err))
 		return
 	}
@@ -222,7 +222,7 @@ func (n *Notifications) handleCommentNotifications(packet *protocol.Packet) {
 
 func (n *Notifications) handleUserNotifications(packet *protocol.Packet) {
 	msg := &pb.CMsgClientUserNotifications{}
-	if err := proto.Unmarshal(packet.Payload, msg); err != nil {
+	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
 		n.Logger.Error("Failed to unmarshal user notifications", log.Err(err))
 		return
 	}
@@ -261,7 +261,7 @@ func (n *Notifications) handleUserNotifications(packet *protocol.Packet) {
 
 func (n *Notifications) handleOfflineMessages(packet *protocol.Packet) {
 	msg := &pb.CMsgClientOfflineMessageNotification{}
-	if err := proto.Unmarshal(packet.Payload, msg); err != nil {
+	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
 		n.Logger.Error("Failed to unmarshal offline messages", log.Err(err))
 		return
 	}
@@ -375,7 +375,7 @@ func parseMarketingMessage(payload []byte) *MarketingMessage {
 
 func (n *Notifications) handleNotificationsReceived(packet *protocol.Packet) {
 	msg := &pb.CSteamNotification_NotificationsReceived_Notification{}
-	if err := proto.Unmarshal(packet.Payload, msg); err != nil {
+	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
 		n.Logger.Error("Failed to unmarshal notifications received", log.Err(err))
 		return
 	}

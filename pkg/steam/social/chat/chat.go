@@ -44,6 +44,33 @@ func From(c *steam.Client) *Chat {
 	return steam.GetModule[*Chat](c)
 }
 
+var messageEventPool = sync.Pool{
+	New: func() any {
+		return &MessageEvent{}
+	},
+}
+
+// AcquireMessageEvent returns a new MessageEvent from the pool.
+func AcquireMessageEvent(senderID uint64, msg string, ts time.Time, ordinal uint32) *MessageEvent {
+	e := messageEventPool.Get().(*MessageEvent)
+	e.SenderID = senderID
+	e.Message = msg
+	e.Timestamp = ts
+	e.Ordinal = ordinal
+	return e
+}
+
+// ReleaseMessageEvent returns the event to the pool.
+func ReleaseMessageEvent(e *MessageEvent) {
+	if e == nil {
+		return
+	}
+	e.SenderID = 0
+	e.Message = ""
+	e.Ordinal = 0
+	messageEventPool.Put(e)
+}
+
 // Chat handles sending and receiving messages via Steam's Unified Services.
 //
 // It provides comprehensive methods for managing private sessions, group chats,
@@ -600,13 +627,13 @@ func (c *Chat) DeleteInviteLink(ctx context.Context, groupID uint64, inviteCode 
 
 func (c *Chat) handleIncomingMessage(packet *protocol.Packet) {
 	msg := &pb.CFriendMessages_IncomingMessage_Notification{}
-	if err := proto.Unmarshal(packet.Payload, msg); err != nil {
+	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
 		c.Logger.Error("Failed to unmarshal incoming friend message", log.Err(err))
 		return
 	}
 
 	if msg.GetLocalEcho() {
-		return // Ignore our own messages reflected by the server
+		return
 	}
 
 	senderID := msg.GetSteamidFriend()
@@ -614,40 +641,22 @@ func (c *Chat) handleIncomingMessage(packet *protocol.Packet) {
 
 	switch msg.GetChatEntryType() {
 	case ChatEntryTypeChatMsg, ChatEntryTypeEmote:
-		evt := &MessageEvent{
-			SenderID:  senderID,
-			Message:   msg.GetMessage(),
-			Timestamp: timestamp,
-			Ordinal:   msg.GetOrdinal(),
-		}
+		// Берем событие из пула без аллокаций в куче!
+		evt := AcquireMessageEvent(senderID, msg.GetMessage(), timestamp, msg.GetOrdinal())
 		evt.SetContext(packet.Context())
-		c.Bus.Publish(evt)
 
-	case ChatEntryTypeSticker:
-		evt := &StickerEvent{
-			SenderID:  senderID,
-			StickerID: msg.GetMessage(), // The message body contains sticker data
-			Timestamp: timestamp,
-		}
-		evt.SetContext(packet.Context())
 		c.Bus.Publish(evt)
 
 	case ChatEntryTypeTyping:
 		evt := &TypingEvent{SenderID: senderID}
 		evt.SetContext(packet.Context())
 		c.Bus.Publish(evt)
-	default:
-		c.Logger.DebugContext(
-			packet.Context(),
-			"Received unhandled chat entry type",
-			log.Int32("type", msg.GetChatEntryType()),
-		)
 	}
 }
 
 func (c *Chat) handleGroupMessage(packet *protocol.Packet) {
 	msg := &pb.CChatRoom_IncomingChatMessage_Notification{}
-	if err := proto.Unmarshal(packet.Payload, msg); err != nil {
+	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
 		c.Logger.ErrorContext(packet.Context(), "Failed to unmarshal incoming group message", log.Err(err))
 		return
 	}
@@ -670,7 +679,7 @@ func (c *Chat) handleGroupMessage(packet *protocol.Packet) {
 
 func (c *Chat) handleFriendReaction(packet *protocol.Packet) {
 	msg := &pb.CFriendMessages_MessageReaction_Notification{}
-	if err := proto.Unmarshal(packet.Payload, msg); err != nil {
+	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
 		c.Logger.Error("Failed to unmarshal friend reaction notification", log.Err(err))
 		return
 	}
@@ -688,7 +697,7 @@ func (c *Chat) handleFriendReaction(packet *protocol.Packet) {
 
 func (c *Chat) handleGroupReaction(packet *protocol.Packet) {
 	msg := &pb.CChatRoom_MessageReaction_Notification{}
-	if err := proto.Unmarshal(packet.Payload, msg); err != nil {
+	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
 		c.Logger.Error("Failed to unmarshal group reaction notification", log.Err(err))
 		return
 	}
@@ -798,7 +807,7 @@ func (c *Chat) synchronizeOfflineMessages(ctx context.Context) {
 
 func (c *Chat) handleLegacyFriendMsg(packet *protocol.Packet) {
 	msg := &pb.CMsgClientFriendMsgIncoming{}
-	if err := proto.Unmarshal(packet.Payload, msg); err != nil {
+	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
 		c.Logger.Error("Failed to unmarshal legacy friend message", log.Err(err))
 		return
 	}

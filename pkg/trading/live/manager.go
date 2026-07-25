@@ -149,7 +149,7 @@ func (m *Manager) RespondToInvite(ctx context.Context, tradeID uint32, accept bo
 
 func (m *Manager) handleTradeRequest(p *protocol.Packet) {
 	msg := &pb.CMsgTrading_InitiateTradeRequest{}
-	if err := proto.Unmarshal(p.Payload, msg); err != nil {
+	if err := protocol.UnmarshalProto(p.Payload, msg); err != nil {
 		m.Logger.Error("Failed to unmarshal trade request", log.Err(err))
 		return
 	}
@@ -168,7 +168,7 @@ func (m *Manager) handleTradeRequest(p *protocol.Packet) {
 
 func (m *Manager) handleTradeResult(p *protocol.Packet) {
 	msg := &pb.CMsgTrading_InitiateTradeResponse{}
-	if err := proto.Unmarshal(p.Payload, msg); err != nil {
+	if err := protocol.UnmarshalProto(p.Payload, msg); err != nil {
 		m.Logger.Error("Failed to unmarshal trade result", log.Err(err))
 		return
 	}
@@ -190,7 +190,7 @@ func (m *Manager) handleTradeResult(p *protocol.Packet) {
 
 func (m *Manager) handleTradeStarted(p *protocol.Packet) {
 	msg := &pb.CMsgTrading_StartSession{}
-	if err := proto.Unmarshal(p.Payload, msg); err != nil {
+	if err := protocol.UnmarshalProto(p.Payload, msg); err != nil {
 		m.Logger.Error("Failed to unmarshal trade session start", log.Err(err))
 		return
 	}

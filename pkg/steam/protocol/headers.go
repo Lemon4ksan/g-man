@@ -277,7 +277,7 @@ func (h *MsgHdrProtoBuf) Deserialize(r io.Reader) error {
 	}
 
 	h.Proto = new(pb.CMsgProtoBufHeader)
-	if err := proto.Unmarshal(hdrBuf, h.Proto); err != nil {
+	if err := UnmarshalProto(hdrBuf, h.Proto); err != nil {
 		return fmt.Errorf("unmarshal proto hdr: %w", err)
 	}
 
