@@ -16,7 +16,6 @@ type IClientStats_1046930_ReportEvent_v1_Request struct {
 }
 
 // IClientStats_1046930_ReportEvent_v1 calls ReportEvent (version 1).
-
 func IClientStats_1046930_ReportEvent_v1[Resp any](ctx context.Context, d service.Doer, req *IClientStats_1046930_ReportEvent_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "POST", "IClientStats_1046930", "ReportEvent", 1, req)
 }
@@ -36,7 +35,6 @@ type ICSGOPlayers_730_GetNextMatchSharingCode_v1_Request struct {
 }
 
 // ICSGOPlayers_730_GetNextMatchSharingCode_v1 calls GetNextMatchSharingCode (version 1).
-
 func ICSGOPlayers_730_GetNextMatchSharingCode_v1[Resp any](ctx context.Context, d service.Doer, req *ICSGOPlayers_730_GetNextMatchSharingCode_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ICSGOPlayers_730", "GetNextMatchSharingCode", 1, req)
 }
@@ -56,7 +54,6 @@ type ICSGOServers_730_GetGameMapsPlaytime_v1_Request struct {
 }
 
 // ICSGOServers_730_GetGameMapsPlaytime_v1 calls GetGameMapsPlaytime (version 1).
-
 func ICSGOServers_730_GetGameMapsPlaytime_v1[Resp any](ctx context.Context, d service.Doer, req *ICSGOServers_730_GetGameMapsPlaytime_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ICSGOServers_730", "GetGameMapsPlaytime", 1, req)
 }
@@ -66,7 +63,6 @@ type ICSGOServers_730_GetGameServersStatus_v1_Request struct {
 }
 
 // ICSGOServers_730_GetGameServersStatus_v1 calls GetGameServersStatus (version 1).
-
 func ICSGOServers_730_GetGameServersStatus_v1[Resp any](ctx context.Context, d service.Doer, req *ICSGOServers_730_GetGameServersStatus_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ICSGOServers_730", "GetGameServersStatus", 1, req)
 }
@@ -86,7 +82,6 @@ type ICSGOTournaments_730_GetTournamentFantasyLineup_v1_Request struct {
 }
 
 // ICSGOTournaments_730_GetTournamentFantasyLineup_v1 calls GetTournamentFantasyLineup (version 1).
-
 func ICSGOTournaments_730_GetTournamentFantasyLineup_v1[Resp any](ctx context.Context, d service.Doer, req *ICSGOTournaments_730_GetTournamentFantasyLineup_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ICSGOTournaments_730", "GetTournamentFantasyLineup", 1, req)
 }
@@ -102,7 +97,6 @@ type ICSGOTournaments_730_GetTournamentItems_v1_Request struct {
 }
 
 // ICSGOTournaments_730_GetTournamentItems_v1 calls GetTournamentItems (version 1).
-
 func ICSGOTournaments_730_GetTournamentItems_v1[Resp any](ctx context.Context, d service.Doer, req *ICSGOTournaments_730_GetTournamentItems_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ICSGOTournaments_730", "GetTournamentItems", 1, req)
 }
@@ -114,7 +108,6 @@ type ICSGOTournaments_730_GetTournamentLayout_v1_Request struct {
 }
 
 // ICSGOTournaments_730_GetTournamentLayout_v1 calls GetTournamentLayout (version 1).
-
 func ICSGOTournaments_730_GetTournamentLayout_v1[Resp any](ctx context.Context, d service.Doer, req *ICSGOTournaments_730_GetTournamentLayout_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ICSGOTournaments_730", "GetTournamentLayout", 1, req)
 }
@@ -130,7 +123,6 @@ type ICSGOTournaments_730_GetTournamentPredictions_v1_Request struct {
 }
 
 // ICSGOTournaments_730_GetTournamentPredictions_v1 calls GetTournamentPredictions (version 1).
-
 func ICSGOTournaments_730_GetTournamentPredictions_v1[Resp any](ctx context.Context, d service.Doer, req *ICSGOTournaments_730_GetTournamentPredictions_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ICSGOTournaments_730", "GetTournamentPredictions", 1, req)
 }
@@ -168,7 +160,6 @@ type ICSGOTournaments_730_UploadTournamentFantasyLineup_v1_Request struct {
 }
 
 // ICSGOTournaments_730_UploadTournamentFantasyLineup_v1 calls UploadTournamentFantasyLineup (version 1).
-
 func ICSGOTournaments_730_UploadTournamentFantasyLineup_v1[Resp any](ctx context.Context, d service.Doer, req *ICSGOTournaments_730_UploadTournamentFantasyLineup_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "POST", "ICSGOTournaments_730", "UploadTournamentFantasyLineup", 1, req)
 }
@@ -194,7 +185,6 @@ type ICSGOTournaments_730_UploadTournamentPredictions_v1_Request struct {
 }
 
 // ICSGOTournaments_730_UploadTournamentPredictions_v1 calls UploadTournamentPredictions (version 1).
-
 func ICSGOTournaments_730_UploadTournamentPredictions_v1[Resp any](ctx context.Context, d service.Doer, req *ICSGOTournaments_730_UploadTournamentPredictions_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "POST", "ICSGOTournaments_730", "UploadTournamentPredictions", 1, req)
 }
@@ -209,7 +199,6 @@ type IDOTA2MatchStats_570_GetRealtimeStats_v1_Request struct {
 }
 
 // IDOTA2MatchStats_570_GetRealtimeStats_v1 calls GetRealtimeStats (version 1).
-
 func IDOTA2MatchStats_570_GetRealtimeStats_v1[Resp any](ctx context.Context, d service.Doer, req *IDOTA2MatchStats_570_GetRealtimeStats_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IDOTA2MatchStats_570", "GetRealtimeStats", 1, req)
 }
@@ -229,7 +218,6 @@ type IDOTA2Match_570_GetLiveLeagueGames_v1_Request struct {
 }
 
 // IDOTA2Match_570_GetLiveLeagueGames_v1 calls GetLiveLeagueGames (version 1).
-
 func IDOTA2Match_570_GetLiveLeagueGames_v1[Resp any](ctx context.Context, d service.Doer, req *IDOTA2Match_570_GetLiveLeagueGames_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IDOTA2Match_570", "GetLiveLeagueGames", 1, req)
 }
@@ -243,7 +231,6 @@ type IDOTA2Match_570_GetMatchDetails_v1_Request struct {
 }
 
 // IDOTA2Match_570_GetMatchDetails_v1 calls GetMatchDetails (version 1).
-
 func IDOTA2Match_570_GetMatchDetails_v1[Resp any](ctx context.Context, d service.Doer, req *IDOTA2Match_570_GetMatchDetails_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IDOTA2Match_570", "GetMatchDetails", 1, req)
 }
@@ -269,7 +256,6 @@ type IDOTA2Match_570_GetMatchHistory_v1_Request struct {
 }
 
 // IDOTA2Match_570_GetMatchHistory_v1 calls GetMatchHistory (version 1).
-
 func IDOTA2Match_570_GetMatchHistory_v1[Resp any](ctx context.Context, d service.Doer, req *IDOTA2Match_570_GetMatchHistory_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IDOTA2Match_570", "GetMatchHistory", 1, req)
 }
@@ -281,7 +267,6 @@ type IDOTA2Match_570_GetMatchHistoryBySequenceNum_v1_Request struct {
 }
 
 // IDOTA2Match_570_GetMatchHistoryBySequenceNum_v1 calls GetMatchHistoryBySequenceNum (version 1).
-
 func IDOTA2Match_570_GetMatchHistoryBySequenceNum_v1[Resp any](ctx context.Context, d service.Doer, req *IDOTA2Match_570_GetMatchHistoryBySequenceNum_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IDOTA2Match_570", "GetMatchHistoryBySequenceNum", 1, req)
 }
@@ -293,7 +278,6 @@ type IDOTA2Match_570_GetTeamInfoByTeamID_v1_Request struct {
 }
 
 // IDOTA2Match_570_GetTeamInfoByTeamID_v1 calls GetTeamInfoByTeamID (version 1).
-
 func IDOTA2Match_570_GetTeamInfoByTeamID_v1[Resp any](ctx context.Context, d service.Doer, req *IDOTA2Match_570_GetTeamInfoByTeamID_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IDOTA2Match_570", "GetTeamInfoByTeamID", 1, req)
 }
@@ -305,7 +289,6 @@ type IDOTA2Match_570_GetTopLiveEventGame_v1_Request struct {
 }
 
 // IDOTA2Match_570_GetTopLiveEventGame_v1 calls GetTopLiveEventGame (version 1).
-
 func IDOTA2Match_570_GetTopLiveEventGame_v1[Resp any](ctx context.Context, d service.Doer, req *IDOTA2Match_570_GetTopLiveEventGame_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IDOTA2Match_570", "GetTopLiveEventGame", 1, req)
 }
@@ -317,7 +300,6 @@ type IDOTA2Match_570_GetTopLiveGame_v1_Request struct {
 }
 
 // IDOTA2Match_570_GetTopLiveGame_v1 calls GetTopLiveGame (version 1).
-
 func IDOTA2Match_570_GetTopLiveGame_v1[Resp any](ctx context.Context, d service.Doer, req *IDOTA2Match_570_GetTopLiveGame_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IDOTA2Match_570", "GetTopLiveGame", 1, req)
 }
@@ -331,7 +313,6 @@ type IDOTA2Match_570_GetTopWeekendTourneyGames_v1_Request struct {
 }
 
 // IDOTA2Match_570_GetTopWeekendTourneyGames_v1 calls GetTopWeekendTourneyGames (version 1).
-
 func IDOTA2Match_570_GetTopWeekendTourneyGames_v1[Resp any](ctx context.Context, d service.Doer, req *IDOTA2Match_570_GetTopWeekendTourneyGames_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IDOTA2Match_570", "GetTopWeekendTourneyGames", 1, req)
 }
@@ -346,7 +327,6 @@ type IDOTA2Match_570_GetTournamentPlayerStats_v1_Request struct {
 }
 
 // IDOTA2Match_570_GetTournamentPlayerStats_v1 calls GetTournamentPlayerStats (version 1).
-
 func IDOTA2Match_570_GetTournamentPlayerStats_v1[Resp any](ctx context.Context, d service.Doer, req *IDOTA2Match_570_GetTournamentPlayerStats_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IDOTA2Match_570", "GetTournamentPlayerStats", 1, req)
 }
@@ -362,7 +342,6 @@ type IDOTA2Match_570_GetTournamentPlayerStats_v2_Request struct {
 }
 
 // IDOTA2Match_570_GetTournamentPlayerStats_v2 calls GetTournamentPlayerStats (version 2).
-
 func IDOTA2Match_570_GetTournamentPlayerStats_v2[Resp any](ctx context.Context, d service.Doer, req *IDOTA2Match_570_GetTournamentPlayerStats_v2_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IDOTA2Match_570", "GetTournamentPlayerStats", 2, req)
 }
@@ -380,7 +359,6 @@ type IDOTA2StreamSystem_570_GetBroadcasterInfo_v1_Request struct {
 }
 
 // IDOTA2StreamSystem_570_GetBroadcasterInfo_v1 calls GetBroadcasterInfo (version 1).
-
 func IDOTA2StreamSystem_570_GetBroadcasterInfo_v1[Resp any](ctx context.Context, d service.Doer, req *IDOTA2StreamSystem_570_GetBroadcasterInfo_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IDOTA2StreamSystem_570", "GetBroadcasterInfo", 1, req)
 }
@@ -396,7 +374,6 @@ type IDOTA2Ticket_570_GetSteamIDForBadgeID_v1_Request struct {
 }
 
 // IDOTA2Ticket_570_GetSteamIDForBadgeID_v1 calls GetSteamIDForBadgeID (version 1).
-
 func IDOTA2Ticket_570_GetSteamIDForBadgeID_v1[Resp any](ctx context.Context, d service.Doer, req *IDOTA2Ticket_570_GetSteamIDForBadgeID_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IDOTA2Ticket_570", "GetSteamIDForBadgeID", 1, req)
 }
@@ -410,7 +387,6 @@ type IDOTA2Ticket_570_SetSteamAccountPurchased_v1_Request struct {
 }
 
 // IDOTA2Ticket_570_SetSteamAccountPurchased_v1 calls SetSteamAccountPurchased (version 1).
-
 func IDOTA2Ticket_570_SetSteamAccountPurchased_v1[Resp any](ctx context.Context, d service.Doer, req *IDOTA2Ticket_570_SetSteamAccountPurchased_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "POST", "IDOTA2Ticket_570", "SetSteamAccountPurchased", 1, req)
 }
@@ -430,7 +406,6 @@ type IDOTA2Ticket_570_SteamAccountValidForBadgeType_v1_Request struct {
 }
 
 // IDOTA2Ticket_570_SteamAccountValidForBadgeType_v1 calls SteamAccountValidForBadgeType (version 1).
-
 func IDOTA2Ticket_570_SteamAccountValidForBadgeType_v1[Resp any](ctx context.Context, d service.Doer, req *IDOTA2Ticket_570_SteamAccountValidForBadgeType_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IDOTA2Ticket_570", "SteamAccountValidForBadgeType", 1, req)
 }
@@ -450,7 +425,6 @@ type IEconDOTA2_570_GetEventStatsForAccount_v1_Request struct {
 }
 
 // IEconDOTA2_570_GetEventStatsForAccount_v1 calls GetEventStatsForAccount (version 1).
-
 func IEconDOTA2_570_GetEventStatsForAccount_v1[Resp any](ctx context.Context, d service.Doer, req *IEconDOTA2_570_GetEventStatsForAccount_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IEconDOTA2_570", "GetEventStatsForAccount", 1, req)
 }
@@ -464,7 +438,6 @@ type IEconDOTA2_570_GetHeroes_v1_Request struct {
 }
 
 // IEconDOTA2_570_GetHeroes_v1 calls GetHeroes (version 1).
-
 func IEconDOTA2_570_GetHeroes_v1[Resp any](ctx context.Context, d service.Doer, req *IEconDOTA2_570_GetHeroes_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IEconDOTA2_570", "GetHeroes", 1, req)
 }
@@ -476,7 +449,6 @@ type IEconDOTA2_570_GetItemCreators_v1_Request struct {
 }
 
 // IEconDOTA2_570_GetItemCreators_v1 calls GetItemCreators (version 1).
-
 func IEconDOTA2_570_GetItemCreators_v1[Resp any](ctx context.Context, d service.Doer, req *IEconDOTA2_570_GetItemCreators_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IEconDOTA2_570", "GetItemCreators", 1, req)
 }
@@ -488,7 +460,6 @@ type IEconDOTA2_570_GetItemWorkshopPublishedFileIDs_v1_Request struct {
 }
 
 // IEconDOTA2_570_GetItemWorkshopPublishedFileIDs_v1 calls GetItemWorkshopPublishedFileIDs (version 1).
-
 func IEconDOTA2_570_GetItemWorkshopPublishedFileIDs_v1[Resp any](ctx context.Context, d service.Doer, req *IEconDOTA2_570_GetItemWorkshopPublishedFileIDs_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IEconDOTA2_570", "GetItemWorkshopPublishedFileIDs", 1, req)
 }
@@ -500,7 +471,6 @@ type IEconDOTA2_570_GetRarities_v1_Request struct {
 }
 
 // IEconDOTA2_570_GetRarities_v1 calls GetRarities (version 1).
-
 func IEconDOTA2_570_GetRarities_v1[Resp any](ctx context.Context, d service.Doer, req *IEconDOTA2_570_GetRarities_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IEconDOTA2_570", "GetRarities", 1, req)
 }
@@ -512,7 +482,6 @@ type IEconDOTA2_570_GetTournamentPrizePool_v1_Request struct {
 }
 
 // IEconDOTA2_570_GetTournamentPrizePool_v1 calls GetTournamentPrizePool (version 1).
-
 func IEconDOTA2_570_GetTournamentPrizePool_v1[Resp any](ctx context.Context, d service.Doer, req *IEconDOTA2_570_GetTournamentPrizePool_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IEconDOTA2_570", "GetTournamentPrizePool", 1, req)
 }
@@ -528,7 +497,6 @@ type IEconItems_1046930_GetPlayerItems_v1_Request struct {
 }
 
 // IEconItems_1046930_GetPlayerItems_v1 calls GetPlayerItems (version 1).
-
 func IEconItems_1046930_GetPlayerItems_v1[Resp any](ctx context.Context, d service.Doer, req *IEconItems_1046930_GetPlayerItems_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IEconItems_1046930", "GetPlayerItems", 1, req)
 }
@@ -546,7 +514,6 @@ type IEconItems_1269260_GetEquippedPlayerItems_v1_Request struct {
 }
 
 // IEconItems_1269260_GetEquippedPlayerItems_v1 calls GetEquippedPlayerItems (version 1).
-
 func IEconItems_1269260_GetEquippedPlayerItems_v1[Resp any](ctx context.Context, d service.Doer, req *IEconItems_1269260_GetEquippedPlayerItems_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IEconItems_1269260", "GetEquippedPlayerItems", 1, req)
 }
@@ -562,7 +529,6 @@ type IEconItems_440_GetPlayerItems_v1_Request struct {
 }
 
 // IEconItems_440_GetPlayerItems_v1 calls GetPlayerItems (version 1).
-
 func IEconItems_440_GetPlayerItems_v1[Resp any](ctx context.Context, d service.Doer, req *IEconItems_440_GetPlayerItems_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IEconItems_440", "GetPlayerItems", 1, req)
 }
@@ -574,7 +540,6 @@ type IEconItems_440_GetSchema_v1_Request struct {
 }
 
 // IEconItems_440_GetSchema_v1 calls GetSchema (version 1).
-
 func IEconItems_440_GetSchema_v1[Resp any](ctx context.Context, d service.Doer, req *IEconItems_440_GetSchema_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IEconItems_440", "GetSchema", 1, req)
 }
@@ -588,7 +553,6 @@ type IEconItems_440_GetSchemaItems_v1_Request struct {
 }
 
 // IEconItems_440_GetSchemaItems_v1 calls GetSchemaItems (version 1).
-
 func IEconItems_440_GetSchemaItems_v1[Resp any](ctx context.Context, d service.Doer, req *IEconItems_440_GetSchemaItems_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IEconItems_440", "GetSchemaItems", 1, req)
 }
@@ -600,7 +564,6 @@ type IEconItems_440_GetSchemaOverview_v1_Request struct {
 }
 
 // IEconItems_440_GetSchemaOverview_v1 calls GetSchemaOverview (version 1).
-
 func IEconItems_440_GetSchemaOverview_v1[Resp any](ctx context.Context, d service.Doer, req *IEconItems_440_GetSchemaOverview_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IEconItems_440", "GetSchemaOverview", 1, req)
 }
@@ -610,7 +573,6 @@ type IEconItems_440_GetSchemaURL_v1_Request struct {
 }
 
 // IEconItems_440_GetSchemaURL_v1 calls GetSchemaURL (version 1).
-
 func IEconItems_440_GetSchemaURL_v1[Resp any](ctx context.Context, d service.Doer, req *IEconItems_440_GetSchemaURL_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IEconItems_440", "GetSchemaURL", 1, req)
 }
@@ -622,7 +584,6 @@ type IEconItems_440_GetStoreMetaData_v1_Request struct {
 }
 
 // IEconItems_440_GetStoreMetaData_v1 calls GetStoreMetaData (version 1).
-
 func IEconItems_440_GetStoreMetaData_v1[Resp any](ctx context.Context, d service.Doer, req *IEconItems_440_GetStoreMetaData_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IEconItems_440", "GetStoreMetaData", 1, req)
 }
@@ -632,7 +593,6 @@ type IEconItems_440_GetStoreStatus_v1_Request struct {
 }
 
 // IEconItems_440_GetStoreStatus_v1 calls GetStoreStatus (version 1).
-
 func IEconItems_440_GetStoreStatus_v1[Resp any](ctx context.Context, d service.Doer, req *IEconItems_440_GetStoreStatus_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IEconItems_440", "GetStoreStatus", 1, req)
 }
@@ -648,7 +608,6 @@ type IEconItems_570_GetPlayerItems_v1_Request struct {
 }
 
 // IEconItems_570_GetPlayerItems_v1 calls GetPlayerItems (version 1).
-
 func IEconItems_570_GetPlayerItems_v1[Resp any](ctx context.Context, d service.Doer, req *IEconItems_570_GetPlayerItems_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IEconItems_570", "GetPlayerItems", 1, req)
 }
@@ -660,7 +619,6 @@ type IEconItems_570_GetStoreMetaData_v1_Request struct {
 }
 
 // IEconItems_570_GetStoreMetaData_v1 calls GetStoreMetaData (version 1).
-
 func IEconItems_570_GetStoreMetaData_v1[Resp any](ctx context.Context, d service.Doer, req *IEconItems_570_GetStoreMetaData_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IEconItems_570", "GetStoreMetaData", 1, req)
 }
@@ -678,7 +636,6 @@ type IEconItems_583950_GetEquippedPlayerItems_v1_Request struct {
 }
 
 // IEconItems_583950_GetEquippedPlayerItems_v1 calls GetEquippedPlayerItems (version 1).
-
 func IEconItems_583950_GetEquippedPlayerItems_v1[Resp any](ctx context.Context, d service.Doer, req *IEconItems_583950_GetEquippedPlayerItems_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IEconItems_583950", "GetEquippedPlayerItems", 1, req)
 }
@@ -694,7 +651,6 @@ type IEconItems_620_GetPlayerItems_v1_Request struct {
 }
 
 // IEconItems_620_GetPlayerItems_v1 calls GetPlayerItems (version 1).
-
 func IEconItems_620_GetPlayerItems_v1[Resp any](ctx context.Context, d service.Doer, req *IEconItems_620_GetPlayerItems_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IEconItems_620", "GetPlayerItems", 1, req)
 }
@@ -706,7 +662,6 @@ type IEconItems_620_GetSchema_v1_Request struct {
 }
 
 // IEconItems_620_GetSchema_v1 calls GetSchema (version 1).
-
 func IEconItems_620_GetSchema_v1[Resp any](ctx context.Context, d service.Doer, req *IEconItems_620_GetSchema_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IEconItems_620", "GetSchema", 1, req)
 }
@@ -722,7 +677,6 @@ type IEconItems_730_GetPlayerItems_v1_Request struct {
 }
 
 // IEconItems_730_GetPlayerItems_v1 calls GetPlayerItems (version 1).
-
 func IEconItems_730_GetPlayerItems_v1[Resp any](ctx context.Context, d service.Doer, req *IEconItems_730_GetPlayerItems_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IEconItems_730", "GetPlayerItems", 1, req)
 }
@@ -734,7 +688,6 @@ type IEconItems_730_GetSchema_v2_Request struct {
 }
 
 // IEconItems_730_GetSchema_v2 calls GetSchema (version 2).
-
 func IEconItems_730_GetSchema_v2[Resp any](ctx context.Context, d service.Doer, req *IEconItems_730_GetSchema_v2_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IEconItems_730", "GetSchema", 2, req)
 }
@@ -744,7 +697,6 @@ type IEconItems_730_GetSchemaURL_v2_Request struct {
 }
 
 // IEconItems_730_GetSchemaURL_v2 calls GetSchemaURL (version 2).
-
 func IEconItems_730_GetSchemaURL_v2[Resp any](ctx context.Context, d service.Doer, req *IEconItems_730_GetSchemaURL_v2_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IEconItems_730", "GetSchemaURL", 2, req)
 }
@@ -756,7 +708,6 @@ type IEconItems_730_GetStoreMetaData_v1_Request struct {
 }
 
 // IEconItems_730_GetStoreMetaData_v1 calls GetStoreMetaData (version 1).
-
 func IEconItems_730_GetStoreMetaData_v1[Resp any](ctx context.Context, d service.Doer, req *IEconItems_730_GetStoreMetaData_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IEconItems_730", "GetStoreMetaData", 1, req)
 }
@@ -770,7 +721,6 @@ type IGCVersion_1046930_GetClientVersion_v1_Request struct {
 }
 
 // IGCVersion_1046930_GetClientVersion_v1 calls GetClientVersion (version 1).
-
 func IGCVersion_1046930_GetClientVersion_v1[Resp any](ctx context.Context, d service.Doer, req *IGCVersion_1046930_GetClientVersion_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IGCVersion_1046930", "GetClientVersion", 1, req)
 }
@@ -780,7 +730,6 @@ type IGCVersion_1046930_GetServerVersion_v1_Request struct {
 }
 
 // IGCVersion_1046930_GetServerVersion_v1 calls GetServerVersion (version 1).
-
 func IGCVersion_1046930_GetServerVersion_v1[Resp any](ctx context.Context, d service.Doer, req *IGCVersion_1046930_GetServerVersion_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IGCVersion_1046930", "GetServerVersion", 1, req)
 }
@@ -794,7 +743,6 @@ type IGCVersion_1269260_GetClientVersion_v1_Request struct {
 }
 
 // IGCVersion_1269260_GetClientVersion_v1 calls GetClientVersion (version 1).
-
 func IGCVersion_1269260_GetClientVersion_v1[Resp any](ctx context.Context, d service.Doer, req *IGCVersion_1269260_GetClientVersion_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IGCVersion_1269260", "GetClientVersion", 1, req)
 }
@@ -804,7 +752,6 @@ type IGCVersion_1269260_GetServerVersion_v1_Request struct {
 }
 
 // IGCVersion_1269260_GetServerVersion_v1 calls GetServerVersion (version 1).
-
 func IGCVersion_1269260_GetServerVersion_v1[Resp any](ctx context.Context, d service.Doer, req *IGCVersion_1269260_GetServerVersion_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IGCVersion_1269260", "GetServerVersion", 1, req)
 }
@@ -818,7 +765,6 @@ type IGCVersion_1422450_GetClientVersion_v1_Request struct {
 }
 
 // IGCVersion_1422450_GetClientVersion_v1 calls GetClientVersion (version 1).
-
 func IGCVersion_1422450_GetClientVersion_v1[Resp any](ctx context.Context, d service.Doer, req *IGCVersion_1422450_GetClientVersion_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IGCVersion_1422450", "GetClientVersion", 1, req)
 }
@@ -828,7 +774,6 @@ type IGCVersion_1422450_GetServerVersion_v1_Request struct {
 }
 
 // IGCVersion_1422450_GetServerVersion_v1 calls GetServerVersion (version 1).
-
 func IGCVersion_1422450_GetServerVersion_v1[Resp any](ctx context.Context, d service.Doer, req *IGCVersion_1422450_GetServerVersion_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IGCVersion_1422450", "GetServerVersion", 1, req)
 }
@@ -842,7 +787,6 @@ type IGCVersion_440_GetClientVersion_v1_Request struct {
 }
 
 // IGCVersion_440_GetClientVersion_v1 calls GetClientVersion (version 1).
-
 func IGCVersion_440_GetClientVersion_v1[Resp any](ctx context.Context, d service.Doer, req *IGCVersion_440_GetClientVersion_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IGCVersion_440", "GetClientVersion", 1, req)
 }
@@ -852,7 +796,6 @@ type IGCVersion_440_GetServerVersion_v1_Request struct {
 }
 
 // IGCVersion_440_GetServerVersion_v1 calls GetServerVersion (version 1).
-
 func IGCVersion_440_GetServerVersion_v1[Resp any](ctx context.Context, d service.Doer, req *IGCVersion_440_GetServerVersion_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IGCVersion_440", "GetServerVersion", 1, req)
 }
@@ -866,7 +809,6 @@ type IGCVersion_570_GetClientVersion_v1_Request struct {
 }
 
 // IGCVersion_570_GetClientVersion_v1 calls GetClientVersion (version 1).
-
 func IGCVersion_570_GetClientVersion_v1[Resp any](ctx context.Context, d service.Doer, req *IGCVersion_570_GetClientVersion_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IGCVersion_570", "GetClientVersion", 1, req)
 }
@@ -876,7 +818,6 @@ type IGCVersion_570_GetServerVersion_v1_Request struct {
 }
 
 // IGCVersion_570_GetServerVersion_v1 calls GetServerVersion (version 1).
-
 func IGCVersion_570_GetServerVersion_v1[Resp any](ctx context.Context, d service.Doer, req *IGCVersion_570_GetServerVersion_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IGCVersion_570", "GetServerVersion", 1, req)
 }
@@ -890,7 +831,6 @@ type IGCVersion_583950_GetClientVersion_v1_Request struct {
 }
 
 // IGCVersion_583950_GetClientVersion_v1 calls GetClientVersion (version 1).
-
 func IGCVersion_583950_GetClientVersion_v1[Resp any](ctx context.Context, d service.Doer, req *IGCVersion_583950_GetClientVersion_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IGCVersion_583950", "GetClientVersion", 1, req)
 }
@@ -900,7 +840,6 @@ type IGCVersion_583950_GetServerVersion_v1_Request struct {
 }
 
 // IGCVersion_583950_GetServerVersion_v1 calls GetServerVersion (version 1).
-
 func IGCVersion_583950_GetServerVersion_v1[Resp any](ctx context.Context, d service.Doer, req *IGCVersion_583950_GetServerVersion_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IGCVersion_583950", "GetServerVersion", 1, req)
 }
@@ -914,7 +853,6 @@ type IGCVersion_730_GetServerVersion_v1_Request struct {
 }
 
 // IGCVersion_730_GetServerVersion_v1 calls GetServerVersion (version 1).
-
 func IGCVersion_730_GetServerVersion_v1[Resp any](ctx context.Context, d service.Doer, req *IGCVersion_730_GetServerVersion_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IGCVersion_730", "GetServerVersion", 1, req)
 }
@@ -930,7 +868,6 @@ type IPortal2Leaderboards_620_GetBucketizedData_v1_Request struct {
 }
 
 // IPortal2Leaderboards_620_GetBucketizedData_v1 calls GetBucketizedData (version 1).
-
 func IPortal2Leaderboards_620_GetBucketizedData_v1[Resp any](ctx context.Context, d service.Doer, req *IPortal2Leaderboards_620_GetBucketizedData_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IPortal2Leaderboards_620", "GetBucketizedData", 1, req)
 }
@@ -946,7 +883,6 @@ type ISteamApps_GetSDRConfig_v1_Request struct {
 }
 
 // ISteamApps_GetSDRConfig_v1 calls GetSDRConfig (version 1).
-
 func ISteamApps_GetSDRConfig_v1[Resp any](ctx context.Context, d service.Doer, req *ISteamApps_GetSDRConfig_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ISteamApps", "GetSDRConfig", 1, req)
 }
@@ -958,7 +894,6 @@ type ISteamApps_GetServersAtAddress_v1_Request struct {
 }
 
 // ISteamApps_GetServersAtAddress_v1 calls GetServersAtAddress (version 1).
-
 func ISteamApps_GetServersAtAddress_v1[Resp any](ctx context.Context, d service.Doer, req *ISteamApps_GetServersAtAddress_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ISteamApps", "GetServersAtAddress", 1, req)
 }
@@ -972,7 +907,6 @@ type ISteamApps_UpToDateCheck_v1_Request struct {
 }
 
 // ISteamApps_UpToDateCheck_v1 calls UpToDateCheck (version 1).
-
 func ISteamApps_UpToDateCheck_v1[Resp any](ctx context.Context, d service.Doer, req *ISteamApps_UpToDateCheck_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ISteamApps", "UpToDateCheck", 1, req)
 }
@@ -986,7 +920,6 @@ type ISteamBroadcast_PlayerStats_v1_Request struct {
 }
 
 // ISteamBroadcast_PlayerStats_v1 calls PlayerStats (version 1).
-
 func ISteamBroadcast_PlayerStats_v1[Resp any](ctx context.Context, d service.Doer, req *ISteamBroadcast_PlayerStats_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "POST", "ISteamBroadcast", "PlayerStats", 1, req)
 }
@@ -1004,7 +937,6 @@ type ISteamBroadcast_ViewerHeartbeat_v1_Request struct {
 }
 
 // ISteamBroadcast_ViewerHeartbeat_v1 calls ViewerHeartbeat (version 1).
-
 func ISteamBroadcast_ViewerHeartbeat_v1[Resp any](ctx context.Context, d service.Doer, req *ISteamBroadcast_ViewerHeartbeat_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ISteamBroadcast", "ViewerHeartbeat", 1, req)
 }
@@ -1028,7 +960,6 @@ type ISteamCDN_SetClientFilters_v1_Request struct {
 }
 
 // ISteamCDN_SetClientFilters_v1 calls SetClientFilters (version 1).
-
 func ISteamCDN_SetClientFilters_v1[Resp any](ctx context.Context, d service.Doer, req *ISteamCDN_SetClientFilters_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "POST", "ISteamCDN", "SetClientFilters", 1, req)
 }
@@ -1050,7 +981,6 @@ type ISteamCDN_SetPerformanceStats_v1_Request struct {
 }
 
 // ISteamCDN_SetPerformanceStats_v1 calls SetPerformanceStats (version 1).
-
 func ISteamCDN_SetPerformanceStats_v1[Resp any](ctx context.Context, d service.Doer, req *ISteamCDN_SetPerformanceStats_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "POST", "ISteamCDN", "SetPerformanceStats", 1, req)
 }
@@ -1068,7 +998,6 @@ type ISteamDirectory_GetCMList_v1_Request struct {
 }
 
 // ISteamDirectory_GetCMList_v1 calls GetCMList (version 1).
-
 func ISteamDirectory_GetCMList_v1[Resp any](ctx context.Context, d service.Doer, req *ISteamDirectory_GetCMList_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ISteamDirectory", "GetCMList", 1, req)
 }
@@ -1088,7 +1017,6 @@ type ISteamDirectory_GetCMListForConnect_v1_Request struct {
 }
 
 // ISteamDirectory_GetCMListForConnect_v1 calls GetCMListForConnect (version 1).
-
 func ISteamDirectory_GetCMListForConnect_v1[Resp any](ctx context.Context, d service.Doer, req *ISteamDirectory_GetCMListForConnect_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ISteamDirectory", "GetCMListForConnect", 1, req)
 }
@@ -1098,7 +1026,6 @@ type ISteamDirectory_GetSteamPipeDomains_v1_Request struct {
 }
 
 // ISteamDirectory_GetSteamPipeDomains_v1 calls GetSteamPipeDomains (version 1).
-
 func ISteamDirectory_GetSteamPipeDomains_v1[Resp any](ctx context.Context, d service.Doer, req *ISteamDirectory_GetSteamPipeDomains_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ISteamDirectory", "GetSteamPipeDomains", 1, req)
 }
@@ -1122,7 +1049,6 @@ type ISteamEconomy_GetAssetClassInfo_v1_Request struct {
 }
 
 // ISteamEconomy_GetAssetClassInfo_v1 calls GetAssetClassInfo (version 1).
-
 func ISteamEconomy_GetAssetClassInfo_v1[Resp any](ctx context.Context, d service.Doer, req *ISteamEconomy_GetAssetClassInfo_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ISteamEconomy", "GetAssetClassInfo", 1, req)
 }
@@ -1138,7 +1064,6 @@ type ISteamEconomy_GetAssetPrices_v1_Request struct {
 }
 
 // ISteamEconomy_GetAssetPrices_v1 calls GetAssetPrices (version 1).
-
 func ISteamEconomy_GetAssetPrices_v1[Resp any](ctx context.Context, d service.Doer, req *ISteamEconomy_GetAssetPrices_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ISteamEconomy", "GetAssetPrices", 1, req)
 }
@@ -1162,7 +1087,6 @@ type ISteamNews_GetNewsForApp_v1_Request struct {
 }
 
 // ISteamNews_GetNewsForApp_v1 calls GetNewsForApp (version 1).
-
 func ISteamNews_GetNewsForApp_v1[Resp any](ctx context.Context, d service.Doer, req *ISteamNews_GetNewsForApp_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ISteamNews", "GetNewsForApp", 1, req)
 }
@@ -1184,7 +1108,6 @@ type ISteamNews_GetNewsForApp_v2_Request struct {
 }
 
 // ISteamNews_GetNewsForApp_v2 calls GetNewsForApp (version 2).
-
 func ISteamNews_GetNewsForApp_v2[Resp any](ctx context.Context, d service.Doer, req *ISteamNews_GetNewsForApp_v2_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ISteamNews", "GetNewsForApp", 2, req)
 }
@@ -1202,7 +1125,6 @@ type ISteamRemoteStorage_GetCollectionDetails_v1_Request struct {
 }
 
 // ISteamRemoteStorage_GetCollectionDetails_v1 calls GetCollectionDetails (version 1).
-
 func ISteamRemoteStorage_GetCollectionDetails_v1[Resp any](ctx context.Context, d service.Doer, req *ISteamRemoteStorage_GetCollectionDetails_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "POST", "ISteamRemoteStorage", "GetCollectionDetails", 1, req)
 }
@@ -1216,7 +1138,6 @@ type ISteamRemoteStorage_GetPublishedFileDetails_v1_Request struct {
 }
 
 // ISteamRemoteStorage_GetPublishedFileDetails_v1 calls GetPublishedFileDetails (version 1).
-
 func ISteamRemoteStorage_GetPublishedFileDetails_v1[Resp any](ctx context.Context, d service.Doer, req *ISteamRemoteStorage_GetPublishedFileDetails_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "POST", "ISteamRemoteStorage", "GetPublishedFileDetails", 1, req)
 }
@@ -1232,7 +1153,6 @@ type ISteamRemoteStorage_GetUGCFileDetails_v1_Request struct {
 }
 
 // ISteamRemoteStorage_GetUGCFileDetails_v1 calls GetUGCFileDetails (version 1).
-
 func ISteamRemoteStorage_GetUGCFileDetails_v1[Resp any](ctx context.Context, d service.Doer, req *ISteamRemoteStorage_GetUGCFileDetails_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ISteamRemoteStorage", "GetUGCFileDetails", 1, req)
 }
@@ -1252,7 +1172,6 @@ type ISteamUser_GetFriendList_v1_Request struct {
 }
 
 // ISteamUser_GetFriendList_v1 calls GetFriendList (version 1).
-
 func ISteamUser_GetFriendList_v1[Resp any](ctx context.Context, d service.Doer, req *ISteamUser_GetFriendList_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ISteamUser", "GetFriendList", 1, req)
 }
@@ -1266,7 +1185,6 @@ type ISteamUser_GetPlayerBans_v1_Request struct {
 }
 
 // ISteamUser_GetPlayerBans_v1 calls GetPlayerBans (version 1).
-
 func ISteamUser_GetPlayerBans_v1[Resp any](ctx context.Context, d service.Doer, req *ISteamUser_GetPlayerBans_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ISteamUser", "GetPlayerBans", 1, req)
 }
@@ -1280,7 +1198,6 @@ type ISteamUser_GetPlayerSummaries_v1_Request struct {
 }
 
 // ISteamUser_GetPlayerSummaries_v1 calls GetPlayerSummaries (version 1).
-
 func ISteamUser_GetPlayerSummaries_v1[Resp any](ctx context.Context, d service.Doer, req *ISteamUser_GetPlayerSummaries_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ISteamUser", "GetPlayerSummaries", 1, req)
 }
@@ -1294,7 +1211,6 @@ type ISteamUser_GetPlayerSummaries_v2_Request struct {
 }
 
 // ISteamUser_GetPlayerSummaries_v2 calls GetPlayerSummaries (version 2).
-
 func ISteamUser_GetPlayerSummaries_v2[Resp any](ctx context.Context, d service.Doer, req *ISteamUser_GetPlayerSummaries_v2_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ISteamUser", "GetPlayerSummaries", 2, req)
 }
@@ -1308,7 +1224,6 @@ type ISteamUser_GetUserGroupList_v1_Request struct {
 }
 
 // ISteamUser_GetUserGroupList_v1 calls GetUserGroupList (version 1).
-
 func ISteamUser_GetUserGroupList_v1[Resp any](ctx context.Context, d service.Doer, req *ISteamUser_GetUserGroupList_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ISteamUser", "GetUserGroupList", 1, req)
 }
@@ -1324,7 +1239,6 @@ type ISteamUser_ResolveVanityURL_v1_Request struct {
 }
 
 // ISteamUser_ResolveVanityURL_v1 calls ResolveVanityURL (version 1).
-
 func ISteamUser_ResolveVanityURL_v1[Resp any](ctx context.Context, d service.Doer, req *ISteamUser_ResolveVanityURL_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ISteamUser", "ResolveVanityURL", 1, req)
 }
@@ -1344,7 +1258,6 @@ type ISteamUserAuth_AuthenticateUserTicket_v1_Request struct {
 }
 
 // ISteamUserAuth_AuthenticateUserTicket_v1 calls AuthenticateUserTicket (version 1).
-
 func ISteamUserAuth_AuthenticateUserTicket_v1[Resp any](ctx context.Context, d service.Doer, req *ISteamUserAuth_AuthenticateUserTicket_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ISteamUserAuth", "AuthenticateUserTicket", 1, req)
 }
@@ -1360,7 +1273,6 @@ type ISteamUserOAuth_GetTokenDetails_v1_Request struct {
 }
 
 // ISteamUserOAuth_GetTokenDetails_v1 calls GetTokenDetails (version 1).
-
 func ISteamUserOAuth_GetTokenDetails_v1[Resp any](ctx context.Context, d service.Doer, req *ISteamUserOAuth_GetTokenDetails_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ISteamUserOAuth", "GetTokenDetails", 1, req)
 }
@@ -1376,7 +1288,6 @@ type ISteamUserStats_GetGlobalAchievementPercentagesForApp_v1_Request struct {
 }
 
 // ISteamUserStats_GetGlobalAchievementPercentagesForApp_v1 calls GetGlobalAchievementPercentagesForApp (version 1).
-
 func ISteamUserStats_GetGlobalAchievementPercentagesForApp_v1[Resp any](ctx context.Context, d service.Doer, req *ISteamUserStats_GetGlobalAchievementPercentagesForApp_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ISteamUserStats", "GetGlobalAchievementPercentagesForApp", 1, req)
 }
@@ -1388,7 +1299,6 @@ type ISteamUserStats_GetGlobalAchievementPercentagesForApp_v2_Request struct {
 }
 
 // ISteamUserStats_GetGlobalAchievementPercentagesForApp_v2 calls GetGlobalAchievementPercentagesForApp (version 2).
-
 func ISteamUserStats_GetGlobalAchievementPercentagesForApp_v2[Resp any](ctx context.Context, d service.Doer, req *ISteamUserStats_GetGlobalAchievementPercentagesForApp_v2_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ISteamUserStats", "GetGlobalAchievementPercentagesForApp", 2, req)
 }
@@ -1408,7 +1318,6 @@ type ISteamUserStats_GetGlobalStatsForGame_v1_Request struct {
 }
 
 // ISteamUserStats_GetGlobalStatsForGame_v1 calls GetGlobalStatsForGame (version 1).
-
 func ISteamUserStats_GetGlobalStatsForGame_v1[Resp any](ctx context.Context, d service.Doer, req *ISteamUserStats_GetGlobalStatsForGame_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ISteamUserStats", "GetGlobalStatsForGame", 1, req)
 }
@@ -1420,7 +1329,6 @@ type ISteamUserStats_GetNumberOfCurrentPlayers_v1_Request struct {
 }
 
 // ISteamUserStats_GetNumberOfCurrentPlayers_v1 calls GetNumberOfCurrentPlayers (version 1).
-
 func ISteamUserStats_GetNumberOfCurrentPlayers_v1[Resp any](ctx context.Context, d service.Doer, req *ISteamUserStats_GetNumberOfCurrentPlayers_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ISteamUserStats", "GetNumberOfCurrentPlayers", 1, req)
 }
@@ -1438,7 +1346,6 @@ type ISteamUserStats_GetPlayerAchievements_v1_Request struct {
 }
 
 // ISteamUserStats_GetPlayerAchievements_v1 calls GetPlayerAchievements (version 1).
-
 func ISteamUserStats_GetPlayerAchievements_v1[Resp any](ctx context.Context, d service.Doer, req *ISteamUserStats_GetPlayerAchievements_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ISteamUserStats", "GetPlayerAchievements", 1, req)
 }
@@ -1454,7 +1361,6 @@ type ISteamUserStats_GetSchemaForGame_v1_Request struct {
 }
 
 // ISteamUserStats_GetSchemaForGame_v1 calls GetSchemaForGame (version 1).
-
 func ISteamUserStats_GetSchemaForGame_v1[Resp any](ctx context.Context, d service.Doer, req *ISteamUserStats_GetSchemaForGame_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ISteamUserStats", "GetSchemaForGame", 1, req)
 }
@@ -1470,7 +1376,6 @@ type ISteamUserStats_GetSchemaForGame_v2_Request struct {
 }
 
 // ISteamUserStats_GetSchemaForGame_v2 calls GetSchemaForGame (version 2).
-
 func ISteamUserStats_GetSchemaForGame_v2[Resp any](ctx context.Context, d service.Doer, req *ISteamUserStats_GetSchemaForGame_v2_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ISteamUserStats", "GetSchemaForGame", 2, req)
 }
@@ -1486,7 +1391,6 @@ type ISteamUserStats_GetUserStatsForGame_v1_Request struct {
 }
 
 // ISteamUserStats_GetUserStatsForGame_v1 calls GetUserStatsForGame (version 1).
-
 func ISteamUserStats_GetUserStatsForGame_v1[Resp any](ctx context.Context, d service.Doer, req *ISteamUserStats_GetUserStatsForGame_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ISteamUserStats", "GetUserStatsForGame", 1, req)
 }
@@ -1502,7 +1406,6 @@ type ISteamUserStats_GetUserStatsForGame_v2_Request struct {
 }
 
 // ISteamUserStats_GetUserStatsForGame_v2 calls GetUserStatsForGame (version 2).
-
 func ISteamUserStats_GetUserStatsForGame_v2[Resp any](ctx context.Context, d service.Doer, req *ISteamUserStats_GetUserStatsForGame_v2_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ISteamUserStats", "GetUserStatsForGame", 2, req)
 }
@@ -1516,7 +1419,6 @@ type ISteamWebAPIUtil_GetServerInfo_v1_Request struct {
 }
 
 // ISteamWebAPIUtil_GetServerInfo_v1 calls GetServerInfo (version 1).
-
 func ISteamWebAPIUtil_GetServerInfo_v1[Resp any](ctx context.Context, d service.Doer, req *ISteamWebAPIUtil_GetServerInfo_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ISteamWebAPIUtil", "GetServerInfo", 1, req)
 }
@@ -1528,7 +1430,6 @@ type ISteamWebAPIUtil_GetSupportedAPIList_v1_Request struct {
 }
 
 // ISteamWebAPIUtil_GetSupportedAPIList_v1 calls GetSupportedAPIList (version 1).
-
 func ISteamWebAPIUtil_GetSupportedAPIList_v1[Resp any](ctx context.Context, d service.Doer, req *ISteamWebAPIUtil_GetSupportedAPIList_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ISteamWebAPIUtil", "GetSupportedAPIList", 1, req)
 }
@@ -1542,7 +1443,6 @@ type ITFItems_440_GetGoldenWrenches_v1_Request struct {
 }
 
 // ITFItems_440_GetGoldenWrenches_v1 calls GetGoldenWrenches (version 1).
-
 func ITFItems_440_GetGoldenWrenches_v1[Resp any](ctx context.Context, d service.Doer, req *ITFItems_440_GetGoldenWrenches_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ITFItems_440", "GetGoldenWrenches", 1, req)
 }
@@ -1552,7 +1452,6 @@ type ITFItems_440_GetGoldenWrenches_v2_Request struct {
 }
 
 // ITFItems_440_GetGoldenWrenches_v2 calls GetGoldenWrenches (version 2).
-
 func ITFItems_440_GetGoldenWrenches_v2[Resp any](ctx context.Context, d service.Doer, req *ITFItems_440_GetGoldenWrenches_v2_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ITFItems_440", "GetGoldenWrenches", 2, req)
 }
@@ -1570,7 +1469,6 @@ type ITFPromos_440_GetItemID_v1_Request struct {
 }
 
 // ITFPromos_440_GetItemID_v1 calls GetItemID (version 1).
-
 func ITFPromos_440_GetItemID_v1[Resp any](ctx context.Context, d service.Doer, req *ITFPromos_440_GetItemID_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ITFPromos_440", "GetItemID", 1, req)
 }
@@ -1584,7 +1482,6 @@ type ITFPromos_440_GrantItem_v1_Request struct {
 }
 
 // ITFPromos_440_GrantItem_v1 calls GrantItem (version 1).
-
 func ITFPromos_440_GrantItem_v1[Resp any](ctx context.Context, d service.Doer, req *ITFPromos_440_GrantItem_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "POST", "ITFPromos_440", "GrantItem", 1, req)
 }
@@ -1602,7 +1499,6 @@ type ITFPromos_620_GetItemID_v1_Request struct {
 }
 
 // ITFPromos_620_GetItemID_v1 calls GetItemID (version 1).
-
 func ITFPromos_620_GetItemID_v1[Resp any](ctx context.Context, d service.Doer, req *ITFPromos_620_GetItemID_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ITFPromos_620", "GetItemID", 1, req)
 }
@@ -1616,7 +1512,6 @@ type ITFPromos_620_GrantItem_v1_Request struct {
 }
 
 // ITFPromos_620_GrantItem_v1 calls GrantItem (version 1).
-
 func ITFPromos_620_GrantItem_v1[Resp any](ctx context.Context, d service.Doer, req *ITFPromos_620_GrantItem_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "POST", "ITFPromos_620", "GrantItem", 1, req)
 }
@@ -1630,7 +1525,6 @@ type ITFSystem_440_GetWorldStatus_v1_Request struct {
 }
 
 // ITFSystem_440_GetWorldStatus_v1 calls GetWorldStatus (version 1).
-
 func ITFSystem_440_GetWorldStatus_v1[Resp any](ctx context.Context, d service.Doer, req *ITFSystem_440_GetWorldStatus_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "ITFSystem_440", "GetWorldStatus", 1, req)
 }
@@ -2205,7 +2099,6 @@ type IContentServerDirectoryService_GetCDNForVideo_v1_Request struct {
 }
 
 // IContentServerDirectoryService_GetCDNForVideo_v1 calls GetCDNForVideo (version 1).
-
 func IContentServerDirectoryService_GetCDNForVideo_v1[Resp any](ctx context.Context, d service.Doer, req *IContentServerDirectoryService_GetCDNForVideo_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IContentServerDirectoryService", "GetCDNForVideo", 1, req)
 }
@@ -2221,7 +2114,6 @@ type IContentServerDirectoryService_PickSingleContentServer_v1_Request struct {
 }
 
 // IContentServerDirectoryService_PickSingleContentServer_v1 calls PickSingleContentServer (version 1).
-
 func IContentServerDirectoryService_PickSingleContentServer_v1[Resp any](ctx context.Context, d service.Doer, req *IContentServerDirectoryService_PickSingleContentServer_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IContentServerDirectoryService", "PickSingleContentServer", 1, req)
 }
@@ -2243,7 +2135,6 @@ type IContentServerDirectoryService_GetServersForSteamPipe_v1_Request struct {
 }
 
 // IContentServerDirectoryService_GetServersForSteamPipe_v1 calls GetServersForSteamPipe (version 1).
-
 func IContentServerDirectoryService_GetServersForSteamPipe_v1[Resp any](ctx context.Context, d service.Doer, req *IContentServerDirectoryService_GetServersForSteamPipe_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IContentServerDirectoryService", "GetServersForSteamPipe", 1, req)
 }
@@ -2254,7 +2145,6 @@ type IContentServerDirectoryService_GetClientUpdateHosts_v1_Request struct {
 }
 
 // IContentServerDirectoryService_GetClientUpdateHosts_v1 calls GetClientUpdateHosts (version 1).
-
 func IContentServerDirectoryService_GetClientUpdateHosts_v1[Resp any](ctx context.Context, d service.Doer, req *IContentServerDirectoryService_GetClientUpdateHosts_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IContentServerDirectoryService", "GetClientUpdateHosts", 1, req)
 }
@@ -2268,7 +2158,6 @@ type IContentServerDirectoryService_GetDepotPatchInfo_v1_Request struct {
 }
 
 // IContentServerDirectoryService_GetDepotPatchInfo_v1 calls GetDepotPatchInfo (version 1).
-
 func IContentServerDirectoryService_GetDepotPatchInfo_v1[Resp any](ctx context.Context, d service.Doer, req *IContentServerDirectoryService_GetDepotPatchInfo_v1_Request) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "GET", "IContentServerDirectoryService", "GetDepotPatchInfo", 1, req)
 }

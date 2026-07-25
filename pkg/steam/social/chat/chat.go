@@ -57,6 +57,7 @@ func AcquireMessageEvent(senderID uint64, msg string, ts time.Time, ordinal uint
 	e.Message = msg
 	e.Timestamp = ts
 	e.Ordinal = ordinal
+
 	return e
 }
 
@@ -65,6 +66,7 @@ func ReleaseMessageEvent(e *MessageEvent) {
 	if e == nil {
 		return
 	}
+
 	e.SenderID = 0
 	e.Message = ""
 	e.Ordinal = 0

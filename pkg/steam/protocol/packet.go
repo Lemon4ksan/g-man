@@ -48,6 +48,7 @@ func UnmarshalProto(data []byte, msg proto.Message) error {
 	if vt, ok := msg.(VTUnmarshaler); ok {
 		return vt.UnmarshalVT(data)
 	}
+
 	return proto.Unmarshal(data, msg)
 }
 
@@ -56,6 +57,7 @@ func MarshalProto(msg proto.Message) ([]byte, error) {
 	if vt, ok := msg.(VTMarshaler); ok {
 		return vt.MarshalVT()
 	}
+
 	return proto.Marshal(msg)
 }
 

@@ -143,6 +143,7 @@ func (m *Manager) IsFriend(steamID id.ID) bool {
 	defer m.mu.RUnlock()
 
 	enum, ok := m.relationships.Get(steamID)
+
 	return ok && enum == enums.EFriendRelationship_Friend
 }
 
@@ -152,6 +153,7 @@ func (m *Manager) GetFriends() []id.ID {
 	defer m.mu.RUnlock()
 
 	all := m.relationships.All()
+
 	friends := make([]id.ID, 0, len(all))
 	for steamID, relation := range all {
 		if relation == enums.EFriendRelationship_Friend {
@@ -305,7 +307,9 @@ func (m *Manager) GetNicknames() map[id.ID]string {
 func (m *Manager) GetNickname(steamID id.ID) (string, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
 	nick, ok := m.nicknames.Get(steamID)
+
 	return nick, ok
 }
 
@@ -839,13 +843,8 @@ func (m *Manager) handleFriendsList(packet *protocol.Packet) {
 	for _, friend := range list.GetFriends() {
 		steamID := id.ID(friend.GetUlfriendid())
 		newRel := enums.EFriendRelationship(friend.GetEfriendrelationship())
-		oldRel, ok := m.relationships.Get(steamID)
-
-		if !ok {
-			m.relationships.Set(steamID, newRel)
-		} else {
-			m.relationships.Set(steamID, newRel)
-		}
+		oldRel, _ := m.relationships.Get(steamID)
+		m.relationships.Set(steamID, newRel)
 
 		if oldRel != newRel {
 			m.Bus.Publish(&RelationshipChangedEvent{

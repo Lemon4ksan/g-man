@@ -60,14 +60,17 @@ func buildSteam(ctx context.Context) {
 	findAndCopyGoogleProto(*steamSrc, tempDir)
 
 	_ = os.MkdirAll(*steamOut, 0o755)
+
 	absSteamOut, err := filepath.Abs(*steamOut)
 	if err != nil {
 		absSteamOut = *steamOut
 	}
+
 	absSteamOut = filepath.ToSlash(absSteamOut)
 
 	fileNames := make([]string, 0, len(files))
-	var mappings []string
+
+	mappings := make([]string, 0, 4*len(files))
 
 	for _, f := range files {
 		base := filepath.Base(f)
@@ -79,7 +82,7 @@ func buildSteam(ctx context.Context) {
 		mappings = append(mappings, "--go-vtproto_opt=Msteam/"+base+"="+*steamImport)
 	}
 
-	baseArgs := []string{
+	allArgs := append(append([]string{
 		"-I=.",
 		"-I=..",
 		"--go_out=" + absSteamOut,
@@ -87,9 +90,7 @@ func buildSteam(ctx context.Context) {
 		"--go-vtproto_out=" + absSteamOut,
 		"--go-vtproto_opt=paths=source_relative",
 		"--go-vtproto_opt=features=marshal+unmarshal+size+pool",
-	}
-
-	allArgs := append(append(baseArgs, mappings...), fileNames...)
+	}, mappings...), fileNames...)
 	executeWithResponseFile(ctx, steamSandbox, allArgs)
 }
 
@@ -119,10 +120,12 @@ func buildTF2(ctx context.Context) {
 	}
 
 	_ = os.MkdirAll(*tf2Out, 0o755)
+
 	absTF2Out, err := filepath.Abs(*tf2Out)
 	if err != nil {
 		absTF2Out = *tf2Out
 	}
+
 	absTF2Out = filepath.ToSlash(absTF2Out)
 
 	blacklist := map[string]bool{
@@ -132,16 +135,17 @@ func buildTF2(ctx context.Context) {
 		"enums_clientserver.proto":         true,
 	}
 
-	var tf2ToCompile []string
+	tf2ToCompile := make([]string, 0, len(tf2Files))
 	for _, f := range tf2Files {
 		base := filepath.Base(f)
 		if blacklist[base] {
 			continue
 		}
+
 		tf2ToCompile = append(tf2ToCompile, base)
 	}
 
-	var mappings []string
+	var mappings []string //nolint:prealloc
 	for _, f := range steamFiles {
 		base := filepath.Base(f)
 		mappings = append(mappings, "--go_opt=M"+base+"="+*steamImport)
@@ -154,15 +158,13 @@ func buildTF2(ctx context.Context) {
 		mappings = append(mappings, "--go_opt=M"+base+"="+*tf2Import)
 	}
 
-	baseArgs := []string{
+	allArgs := append(append([]string{
 		"-I=.",
 		"-I=../steam",
 		"-I=..",
 		"--go_out=" + absTF2Out,
 		"--go_opt=paths=source_relative",
-	}
-
-	allArgs := append(append(baseArgs, mappings...), tf2ToCompile...)
+	}, mappings...), tf2ToCompile...)
 	executeWithResponseFile(ctx, tf2Sandbox, allArgs)
 }
 
@@ -172,7 +174,6 @@ func executeWithResponseFile(ctx context.Context, dir string, args []string) {
 		fmt.Printf("Failed to create response file: %v\n", err)
 		os.Exit(1)
 	}
-	defer os.Remove(respFile.Name())
 
 	var sb strings.Builder
 	for _, arg := range args {
@@ -182,19 +183,25 @@ func executeWithResponseFile(ctx context.Context, dir string, args []string) {
 		} else {
 			sb.WriteString(formattedArg)
 		}
+
 		sb.WriteString("\n")
 	}
 
 	if err := os.WriteFile(respFile.Name(), []byte(sb.String()), 0o644); err != nil {
 		fmt.Printf("Failed to write response file: %v\n", err)
+
+		_ = os.Remove(respFile.Name())
+
 		os.Exit(1)
 	}
+
 	_ = respFile.Close()
 
 	execute(ctx, dir, "protoc", []string{"@" + respFile.Name()})
+	_ = os.Remove(respFile.Name())
 }
 
-func findAndCopyGoogleProto(steamSrc string, tempDir string) {
+func findAndCopyGoogleProto(steamSrc, tempDir string) {
 	candidates := []string{
 		filepath.Join(steamSrc, "google"),
 		filepath.Join(filepath.Dir(steamSrc), "google"),
@@ -206,6 +213,7 @@ func findAndCopyGoogleProto(steamSrc string, tempDir string) {
 		if !strings.HasSuffix(cand, "google") {
 			gDir = filepath.Join(cand, "google")
 		}
+
 		if info, err := os.Stat(gDir); err == nil && info.IsDir() {
 			copyDir(gDir, filepath.Join(tempDir, "google"))
 			return
@@ -272,6 +280,7 @@ func copySanitizeProto(src, dst, overridePackage, goPackageImport string) {
 
 	if goPackageImport != "" {
 		reGoPkg := regexp.MustCompile(`(?m)^\s*option\s+go_package\s*=\s*[^;]+;`)
+
 		goPkgOption := fmt.Sprintf(`option go_package = "%s";`, goPackageImport)
 		if reGoPkg.MatchString(content) {
 			content = reGoPkg.ReplaceAllString(content, goPkgOption)

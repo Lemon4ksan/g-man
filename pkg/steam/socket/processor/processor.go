@@ -148,12 +148,6 @@ func (p *Processor) worker() {
 	}
 }
 
-func (p *Processor) recoverPanic() {
-	if r := recover(); r != nil {
-		p.getLogger().Error("Processor worker recovered from panic", log.Any("panic", r))
-	}
-}
-
 func (p *Processor) getLogger() log.Logger {
 	p.mu.RLock()
 	defer p.mu.RUnlock()

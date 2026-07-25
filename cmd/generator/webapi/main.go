@@ -120,6 +120,7 @@ func main() {
 	formatted, err := format.Source(buf.Bytes())
 	if err != nil {
 		log.Printf("Warning: failed to gofmt generated code: %v", err)
+
 		formatted = buf.Bytes()
 	}
 

@@ -2,8 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// pkg/steam/socket/processor/ringbuffer.go
-
+// Package ringbuffer provides a lock-free ring buffer for ultra-fast message passing between goroutines.
 package ringbuffer
 
 import (
@@ -25,6 +24,7 @@ type MPMCRingBuffer struct {
 	tail   uint64
 }
 
+// New creates a new MPMCRingBuffer with the specified capacity.
 func New(capacity uint64) *MPMCRingBuffer {
 	var cap uint64 = 1
 	for cap < capacity {
@@ -46,6 +46,7 @@ func New(capacity uint64) *MPMCRingBuffer {
 // Push adds a message to the buffer without blocking.
 func (rb *MPMCRingBuffer) Push(msg *protocol.InboundMessage) bool {
 	var cell *slot
+
 	pos := atomic.LoadUint64(&rb.head)
 
 	for {
@@ -53,25 +54,26 @@ func (rb *MPMCRingBuffer) Push(msg *protocol.InboundMessage) bool {
 		seq := atomic.LoadUint64(&cell.sequence)
 		dif := int64(seq) - int64(pos)
 
-		if dif == 0 {
-			if atomic.CompareAndSwapUint64(&rb.head, pos, pos+1) {
-				break
-			}
-		} else if dif < 0 {
-			return false // Буфер полон
-		} else {
-			pos = atomic.LoadUint64(&rb.head)
+		if dif == 0 && atomic.CompareAndSwapUint64(&rb.head, pos, pos+1) {
+			break
 		}
+
+		if dif < 0 {
+			return false
+		}
+
+		pos = atomic.LoadUint64(&rb.head)
 	}
 
-	cell.msg = msg
 	atomic.StoreUint64(&cell.sequence, pos+1)
+
 	return true
 }
 
 // Pop removes a message from the buffer without blocking.
 func (rb *MPMCRingBuffer) Pop() (*protocol.InboundMessage, bool) {
 	var cell *slot
+
 	pos := atomic.LoadUint64(&rb.tail)
 
 	for {
@@ -79,19 +81,20 @@ func (rb *MPMCRingBuffer) Pop() (*protocol.InboundMessage, bool) {
 		seq := atomic.LoadUint64(&cell.sequence)
 		dif := int64(seq) - int64(pos+1)
 
-		if dif == 0 {
-			if atomic.CompareAndSwapUint64(&rb.tail, pos, pos+1) {
-				break
-			}
-		} else if dif < 0 {
-			return nil, false // Буфер пуст
-		} else {
-			pos = atomic.LoadUint64(&rb.tail)
+		if dif == 0 && atomic.CompareAndSwapUint64(&rb.tail, pos, pos+1) {
+			break
 		}
+
+		if dif < 0 {
+			return nil, false
+		}
+
+		pos = atomic.LoadUint64(&rb.tail)
 	}
 
 	msg := cell.msg
 	cell.msg = nil
 	atomic.StoreUint64(&cell.sequence, pos+rb.mask+1)
+
 	return msg, true
 }
