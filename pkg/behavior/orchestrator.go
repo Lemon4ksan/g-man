@@ -18,9 +18,7 @@ import (
 
 // WithModule registers behavior orchestrator module in the client.
 func WithModule() steam.Option {
-	return func(c *steam.Client) {
-		c.RegisterModule(NewModule())
-	}
+	return steam.WithModule(NewModule())
 }
 
 // From returns the orchestrator module from the client.

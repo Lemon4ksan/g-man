@@ -10,7 +10,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -56,6 +55,10 @@ var (
 
 // SteamErrorsValidator is a steam response validation function that can be passed to [aoni.WithResponseValidator].
 func SteamErrorsValidator(resp *http.Response) error {
+	if resp == nil || resp.Body == nil {
+		return nil
+	}
+
 	contentType := resp.Header.Get("Content-Type")
 
 	if contentType != "" &&
@@ -65,15 +68,15 @@ func SteamErrorsValidator(resp *http.Response) error {
 		return CheckSteamErrors(resp.StatusCode, resp.Header, nil)
 	}
 
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 100*1024))
-	if err != nil {
+	peekBuf := request.ResolvePeekableReader(resp)
+
+	peekBytes, _ := peekBuf.Peek(4096)
+
+	if err := CheckSteamErrors(resp.StatusCode, resp.Header, peekBytes); err != nil {
 		return err
 	}
 
-	// Restore body so subsequent reads still work
-	resp.Body = io.NopCloser(bytes.NewReader(body))
-
-	return CheckSteamErrors(resp.StatusCode, resp.Header, body)
+	return nil
 }
 
 // Requester defines the contract for executing Steam Community requests.
