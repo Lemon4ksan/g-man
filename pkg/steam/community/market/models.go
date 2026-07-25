@@ -5,10 +5,10 @@
 package market
 
 import (
-	"encoding/json"
 	"strconv"
 	"time"
 
+	json "github.com/goccy/go-json"
 	"github.com/lemon4ksan/aoni/codec/values"
 )
 

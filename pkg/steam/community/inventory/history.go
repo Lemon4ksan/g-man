@@ -6,7 +6,6 @@ package inventory
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -14,6 +13,7 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	json "github.com/goccy/go-json"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 )

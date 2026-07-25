@@ -5,13 +5,13 @@
 package web
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"slices"
 	"strconv"
 	"strings"
 
+	json "github.com/goccy/go-json"
 	"github.com/lemon4ksan/aoni/codec/values"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/id"

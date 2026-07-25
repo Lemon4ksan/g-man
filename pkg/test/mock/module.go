@@ -8,7 +8,7 @@ package mock
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"io"
 	"net/http"
 	"strings"

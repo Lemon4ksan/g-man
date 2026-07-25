@@ -16,6 +16,8 @@ require (
 	google.golang.org/protobuf v1.36.11
 )
 
+require github.com/goccy/go-json v0.10.6
+
 require (
 	github.com/andybalholm/brotli v1.2.2 // indirect
 	github.com/andybalholm/cascadia v1.3.4 // indirect

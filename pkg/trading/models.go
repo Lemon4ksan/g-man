@@ -5,7 +5,7 @@
 package trading
 
 import (
-	"encoding/json"
+	json "github.com/goccy/go-json"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 )

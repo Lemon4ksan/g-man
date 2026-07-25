@@ -5,10 +5,10 @@
 package service
 
 import (
-	"encoding/json"
 	"io"
 	"testing"
 
+	json "github.com/goccy/go-json"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"

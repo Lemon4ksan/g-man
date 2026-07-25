@@ -6,13 +6,14 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"go/format"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"text/template"
+
+	json "github.com/goccy/go-json"
 )
 
 type APIListResp struct {

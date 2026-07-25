@@ -6,10 +6,10 @@ package service
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"strings"
 
+	json "github.com/goccy/go-json"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"

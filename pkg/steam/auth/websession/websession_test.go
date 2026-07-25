@@ -6,7 +6,6 @@ package websession
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -17,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	json "github.com/goccy/go-json"
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/miyako/log"
 	"github.com/stretchr/testify/assert"
