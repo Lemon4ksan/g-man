@@ -131,16 +131,18 @@ func (m *Manager) Close() error {
 //
 // It returns nil if the user is not found in the local cache.
 func (m *Manager) GetFriend(steamID id.ID) (*PersonaState, bool) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+	if m == nil || m.users == nil {
+		return nil, false
+	}
 
 	return m.users.Get(steamID)
 }
 
 // IsFriend returns true if the specified SteamID is in our friends list.
 func (m *Manager) IsFriend(steamID id.ID) bool {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+	if m == nil || m.relationships == nil {
+		return false
+	}
 
 	enum, ok := m.relationships.Get(steamID)
 
@@ -149,19 +151,20 @@ func (m *Manager) IsFriend(steamID id.ID) bool {
 
 // GetFriends returns a list of SteamIDs for all users with a "Friend" relationship.
 func (m *Manager) GetFriends() []id.ID {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+	if m == nil || m.relationships == nil {
+		return nil
+	}
 
-	all := m.relationships.All()
+	allRels := m.relationships.All()
 
-	friends := make([]id.ID, 0, len(all))
-	for steamID, relation := range all {
+	friendsList := make([]id.ID, 0, len(allRels))
+	for steamID, relation := range allRels {
 		if relation == enums.EFriendRelationship_Friend {
-			friends = append(friends, steamID)
+			friendsList = append(friendsList, steamID)
 		}
 	}
 
-	return friends
+	return friendsList
 }
 
 // GetMaxFriends calculates the friend limit based on the user's Steam level.
@@ -293,8 +296,9 @@ func (m *Manager) GetFriendGroups() map[int32]FriendGroup {
 
 // GetNicknames returns all friend nicknames.
 func (m *Manager) GetNicknames() map[id.ID]string {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+	if m == nil || m.nicknames == nil {
+		return nil
+	}
 
 	all := m.nicknames.All()
 	nicks := make(map[id.ID]string, len(all))
@@ -305,12 +309,11 @@ func (m *Manager) GetNicknames() map[id.ID]string {
 
 // GetNickname returns the custom nickname for a specific friend.
 func (m *Manager) GetNickname(steamID id.ID) (string, bool) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+	if m == nil || m.nicknames == nil {
+		return "", false
+	}
 
-	nick, ok := m.nicknames.Get(steamID)
-
-	return nick, ok
+	return m.nicknames.Get(steamID)
 }
 
 // AcceptFriendRequestWeb accepts an incoming friend invitation using the web-based Steam Community API.

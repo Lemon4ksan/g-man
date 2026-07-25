@@ -29,6 +29,8 @@ var (
 	ErrPayloadTooLarge = errors.New("payload exceeds maximum size")
 	// ErrInvalidHeader is returned when the invalid header is passed.
 	ErrInvalidHeader = errors.New("invalid header format")
+	// ErrProtoHeaderUnmarshal is returned when the proto header unmarshal fails.
+	ErrProtoHeaderUnmarshal = errors.New("gc: unmarshal proto header")
 )
 
 // VTUnmarshaler defines an interface for vtprotobuf unmarshaling.
@@ -196,17 +198,18 @@ type Packet struct {
 
 // Context returns the packet's execution context, defaulting to context.Background() if nil.
 func (p *Packet) Context() context.Context {
-	if p.Ctx == nil {
-		p.Ctx = context.Background()
+	ctx := p.Ctx
+	if ctx == nil {
+		ctx = context.Background()
 	}
 
 	if p.Transport != "" {
-		if _, ok := GetTransportType(p.Ctx); !ok {
-			p.Ctx = WithTransportType(p.Ctx, p.Transport)
+		if _, ok := GetTransportType(ctx); !ok {
+			ctx = WithTransportType(ctx, p.Transport)
 		}
 	}
 
-	return p.Ctx
+	return ctx
 }
 
 // ParsePacket decodes a steam network message from an [io.Reader].
@@ -483,7 +486,7 @@ func ParseGCPacket(appID, msgType uint32, data []byte) (*GCPacket, error) {
 		if err != nil {
 			releaseProtoHeader(hdr)
 			ReleaseGCPacket(p)
-			return nil, fmt.Errorf("gc: unmarshal proto header: %w", err)
+			return nil, fmt.Errorf("%w: %w", ErrProtoHeaderUnmarshal, err)
 		}
 
 		p.TargetJobID = hdr.GetJobidTarget()

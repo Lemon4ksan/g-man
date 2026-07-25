@@ -643,16 +643,30 @@ func (c *Chat) handleIncomingMessage(packet *protocol.Packet) {
 
 	switch msg.GetChatEntryType() {
 	case ChatEntryTypeChatMsg, ChatEntryTypeEmote:
-		// Берем событие из пула без аллокаций в куче!
 		evt := AcquireMessageEvent(senderID, msg.GetMessage(), timestamp, msg.GetOrdinal())
 		evt.SetContext(packet.Context())
+		c.Bus.Publish(evt)
 
+	case ChatEntryTypeSticker:
+		evt := &StickerEvent{
+			SenderID:  senderID,
+			StickerID: msg.GetMessage(),
+			Timestamp: timestamp,
+		}
+		evt.SetContext(packet.Context())
 		c.Bus.Publish(evt)
 
 	case ChatEntryTypeTyping:
 		evt := &TypingEvent{SenderID: senderID}
 		evt.SetContext(packet.Context())
 		c.Bus.Publish(evt)
+
+	default:
+		c.Logger.DebugContext(
+			packet.Context(),
+			"Received unhandled chat entry type",
+			log.Int32("type", msg.GetChatEntryType()),
+		)
 	}
 }
 

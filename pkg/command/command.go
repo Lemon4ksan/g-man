@@ -628,26 +628,21 @@ func ParseCommandLine(line string) []string {
 		return nil
 	}
 
-	args := make([]string, 0, 8)
+	args := make([]string, 0, 4)
 	inQuotes := false
 	inSingleQuotes := false
 	escaped := false
-	start := -1
 
-	var current *strings.Builder
+	var buf strings.Builder
+
+	hasSpecial := false
+	tokenStart := -1
 
 	for i := 0; i < len(line); i++ {
 		c := line[i]
 
 		if escaped {
-			if current == nil {
-				current = &strings.Builder{}
-				if start != -1 {
-					current.WriteString(line[start : i-1])
-				}
-			}
-
-			current.WriteByte(c)
+			buf.WriteByte(c)
 
 			escaped = false
 
@@ -655,60 +650,93 @@ func ParseCommandLine(line string) []string {
 		}
 
 		if c == '\\' {
+			if !hasSpecial {
+				hasSpecial = true
+
+				buf.Grow(len(line))
+
+				if tokenStart != -1 {
+					buf.WriteString(line[tokenStart:i])
+				}
+			}
+
 			escaped = true
+
 			continue
 		}
 
 		if c == '"' && !inSingleQuotes {
+			if !hasSpecial {
+				hasSpecial = true
+
+				buf.Grow(len(line))
+
+				if tokenStart != -1 {
+					buf.WriteString(line[tokenStart:i])
+				}
+			}
+
 			inQuotes = !inQuotes
 
-			if start == -1 {
-				start = i + 1
+			if tokenStart == -1 {
+				tokenStart = i
 			}
 
 			continue
 		}
 
 		if c == '\'' && !inQuotes {
+			if !hasSpecial {
+				hasSpecial = true
+
+				buf.Grow(len(line))
+
+				if tokenStart != -1 {
+					buf.WriteString(line[tokenStart:i])
+				}
+			}
+
 			inSingleQuotes = !inSingleQuotes
 
-			if start == -1 {
-				start = i + 1
+			if tokenStart == -1 {
+				tokenStart = i
 			}
 
 			continue
 		}
 
 		if (c == ' ' || c == '\t' || c == '\r' || c == '\n') && !inQuotes && !inSingleQuotes {
-			if current != nil {
-				if current.Len() > 0 {
-					args = append(args, current.String())
-					current = nil
+			if hasSpecial {
+				if buf.Len() > 0 {
+					args = append(args, buf.String())
+					buf.Reset()
 				}
-			} else if start != -1 && i > start {
-				args = append(args, line[start:i])
+
+				hasSpecial = false
+			} else if tokenStart != -1 {
+				args = append(args, line[tokenStart:i])
 			}
 
-			start = -1
+			tokenStart = -1
 
 			continue
 		}
 
-		if start == -1 {
-			start = i
+		if tokenStart == -1 {
+			tokenStart = i
 		}
 
-		if current != nil {
-			current.WriteByte(c)
+		if hasSpecial {
+			buf.WriteByte(c)
 		}
 	}
 
-	if current != nil {
-		if current.Len() > 0 {
-			args = append(args, current.String())
+	if hasSpecial {
+		if buf.Len() > 0 {
+			args = append(args, buf.String())
 		}
-	} else if start != -1 && len(line) > start {
-		args = append(args, line[start:])
+	} else if tokenStart != -1 && len(line) > tokenStart {
+		args = append(args, line[tokenStart:])
 	}
 
 	return args

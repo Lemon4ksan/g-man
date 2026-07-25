@@ -296,7 +296,7 @@ func TestGCPacket_Errors(t *testing.T) {
 
 		_, err := protocol.ParseGCPacket(appID, protocol.ProtoMask, []byte{1, 2})
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "gc: payload too short for proto header")
+		assert.ErrorIs(t, err, io.ErrUnexpectedEOF)
 	})
 
 	t.Run("parse_proto_header_len_error", func(t *testing.T) {
@@ -304,7 +304,7 @@ func TestGCPacket_Errors(t *testing.T) {
 
 		_, err := protocol.ParseGCPacket(appID, protocol.ProtoMask, []byte{1, 2, 3, 4, 5, 6})
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "gc: payload too short for proto header")
+		assert.ErrorIs(t, err, io.ErrUnexpectedEOF)
 	})
 
 	t.Run("parse_proto_header_read_error", func(t *testing.T) {
@@ -313,7 +313,7 @@ func TestGCPacket_Errors(t *testing.T) {
 		data := []byte{1, 2, 3, 4, 10, 0, 0, 0, 1, 2}
 		_, err := protocol.ParseGCPacket(appID, protocol.ProtoMask, data)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "gc: payload truncated for proto header")
+		assert.ErrorIs(t, err, io.ErrUnexpectedEOF)
 	})
 
 	t.Run("parse_proto_header_unmarshal_error", func(t *testing.T) {
@@ -322,7 +322,7 @@ func TestGCPacket_Errors(t *testing.T) {
 		data := []byte{1, 2, 3, 4, 3, 0, 0, 0, 0xFF, 0xFF, 0xFF}
 		_, err := protocol.ParseGCPacket(appID, protocol.ProtoMask, data)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "gc: unmarshal proto header")
+		assert.ErrorIs(t, err, protocol.ErrProtoHeaderUnmarshal)
 	})
 
 	t.Run("parse_legacy_header_error", func(t *testing.T) {
@@ -330,7 +330,7 @@ func TestGCPacket_Errors(t *testing.T) {
 
 		_, err := protocol.ParseGCPacket(appID, 0, []byte{1, 2, 3})
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "gc: payload too short for legacy header")
+		assert.ErrorIs(t, err, io.ErrUnexpectedEOF)
 	})
 }
 

@@ -136,15 +136,27 @@ func (p *Processor) Process(inbound *protocol.InboundMessage) {
 // worker processes packets from the internal queue and feeds them to the dispatcher.
 func (p *Processor) worker() {
 	for {
-		if p.ctx.Err() != nil {
+		select {
+		case <-p.ctx.Done():
 			return
-		}
 
-		if inbound, ok := p.ringBuffer.Pop(); ok {
-			p.Process(inbound)
-		} else {
-			runtime.Gosched()
+		case inbound, ok := <-p.input:
+			if !ok {
+				return
+			}
+
+			func() {
+				defer p.recoverPanic()
+
+				p.Process(inbound)
+			}()
 		}
+	}
+}
+
+func (p *Processor) recoverPanic() {
+	if r := recover(); r != nil {
+		p.getLogger().Error("Processor worker recovered from panic", log.Any("panic", r))
 	}
 }
 

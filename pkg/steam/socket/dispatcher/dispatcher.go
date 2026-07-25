@@ -272,9 +272,11 @@ func (d *Dispatcher) Dispatch(packet *protocol.Packet) bool {
 		l = l.With(log.Int64("queue_delay_ms", time.Since(packet.ReceivedAt).Milliseconds()))
 	}
 
+	ctx := packet.Context()
+
 	// Check if this packet is a response to a previously registered Job
 	if d.handleJobResponse(packet) {
-		l.DebugContext(packet.Context(), "Packet routed to job callback")
+		l.DebugContext(ctx, "Packet routed to job callback")
 		return true
 	}
 

@@ -45,6 +45,10 @@ type dummyEvent struct {
 }
 
 func populateMockFriends(friendsMgr *friends.Manager, friendID id.ID, name string) {
+	if friendsMgr == nil {
+		return
+	}
+
 	val := reflect.ValueOf(friendsMgr).Elem()
 	for i := 0; i < val.NumField(); i++ {
 		field := val.Field(i)
@@ -52,15 +56,62 @@ func populateMockFriends(friendsMgr *friends.Manager, friendID id.ID, name strin
 
 		settableField := reflect.NewAt(fieldType, unsafe.Pointer(field.UnsafeAddr())).Elem()
 
+		if fieldType.Kind() == reflect.Pointer {
+			if settableField.IsNil() {
+				settableField.Set(reflect.New(fieldType.Elem()))
+			}
+
+			if setMethod := settableField.MethodByName("Set"); setMethod.IsValid() {
+				methodType := setMethod.Type()
+
+				if methodType.NumIn() == 2 {
+					keyParamType := methodType.In(0)
+					valParamType := methodType.In(1)
+
+					var keyVal reflect.Value
+					if reflect.TypeFor[id.ID]().AssignableTo(keyParamType) {
+						keyVal = reflect.ValueOf(friendID)
+					} else if reflect.TypeOf(friendID.Uint64()).AssignableTo(keyParamType) {
+						keyVal = reflect.ValueOf(friendID.Uint64())
+					}
+
+					if keyVal.IsValid() {
+						if valParamType.Kind() == reflect.Pointer {
+							structType := valParamType.Elem()
+							if structType.Kind() == reflect.Struct {
+								if _, ok := structType.FieldByName("PlayerName"); ok {
+									newStruct := reflect.New(structType)
+									newStruct.Elem().FieldByName("PlayerName").SetString(name)
+
+									for k := 0; k < structType.NumField(); k++ {
+										f := structType.Field(k)
+
+										fName := strings.ToLower(f.Name)
+										if fName == "steamid" || fName == "id" {
+											newStruct.Elem().Field(k).Set(reflect.ValueOf(friendID).Convert(f.Type))
+										}
+									}
+
+									setMethod.Call([]reflect.Value{keyVal, newStruct})
+								}
+							}
+						} else if valParamType.ConvertibleTo(reflect.TypeFor[int]()) {
+							setMethod.Call([]reflect.Value{keyVal, reflect.ValueOf(3).Convert(valParamType)})
+						}
+					}
+				}
+			}
+		}
+
 		if fieldType.Kind() == reflect.Map {
 			keyType := fieldType.Key()
-			if keyType == reflect.TypeOf(id.ID(0)) || keyType == reflect.TypeOf(uint64(0)) {
+			if keyType == reflect.TypeFor[id.ID]() || keyType == reflect.TypeFor[uint64]() {
 				if settableField.IsNil() {
 					settableField.Set(reflect.MakeMap(fieldType))
 				}
 
 				var keyVal reflect.Value
-				if keyType == reflect.TypeOf(id.ID(0)) {
+				if keyType == reflect.TypeFor[id.ID]() {
 					keyVal = reflect.ValueOf(friendID)
 				} else {
 					keyVal = reflect.ValueOf(friendID.Uint64())
@@ -73,61 +124,11 @@ func populateMockFriends(friendsMgr *friends.Manager, friendID id.ID, name strin
 						if _, ok := structType.FieldByName("PlayerName"); ok {
 							newStruct := reflect.New(structType)
 							newStruct.Elem().FieldByName("PlayerName").SetString(name)
-
-							for k := 0; k < structType.NumField(); k++ {
-								f := structType.Field(k)
-
-								fName := strings.ToLower(f.Name)
-								if fName == "steamid" || fName == "id" {
-									newStruct.Elem().Field(k).Set(reflect.ValueOf(friendID).Convert(f.Type))
-								}
-
-								if strings.Contains(fName, "relation") {
-									newStruct.Elem().Field(k).Set(reflect.ValueOf(3).Convert(f.Type))
-								}
-							}
-
 							settableField.SetMapIndex(keyVal, newStruct)
 						}
 					}
-				} else if elemType.ConvertibleTo(reflect.TypeOf(int(0))) {
+				} else if elemType.ConvertibleTo(reflect.TypeFor[int]()) {
 					settableField.SetMapIndex(keyVal, reflect.ValueOf(3).Convert(elemType))
-				}
-			}
-		}
-
-		if fieldType.Kind() == reflect.Slice {
-			elemType := fieldType.Elem()
-			switch {
-			case elemType == reflect.TypeFor[id.ID]():
-				newSlice := reflect.Append(settableField, reflect.ValueOf(friendID))
-				settableField.Set(newSlice)
-			case elemType == reflect.TypeFor[uint64]():
-				newSlice := reflect.Append(settableField, reflect.ValueOf(friendID.Uint64()))
-				settableField.Set(newSlice)
-			case elemType.Kind() == reflect.Pointer:
-				structType := elemType.Elem()
-				if structType.Kind() == reflect.Struct {
-					if _, ok := structType.FieldByName("PlayerName"); ok {
-						newStruct := reflect.New(structType)
-						newStruct.Elem().FieldByName("PlayerName").SetString(name)
-
-						for k := 0; k < structType.NumField(); k++ {
-							f := structType.Field(k)
-
-							fName := strings.ToLower(f.Name)
-							if fName == "steamid" || fName == "id" {
-								newStruct.Elem().Field(k).Set(reflect.ValueOf(friendID).Convert(f.Type))
-							}
-
-							if strings.Contains(fName, "relation") {
-								newStruct.Elem().Field(k).Set(reflect.ValueOf(3).Convert(f.Type))
-							}
-						}
-
-						newSlice := reflect.Append(settableField, newStruct)
-						settableField.Set(newSlice)
-					}
 				}
 			}
 		}
@@ -1004,7 +1005,7 @@ func TestRegisterBuiltinCommands(t *testing.T) {
 		t.Parallel()
 
 		cmdMgr := NewManager()
-		friendsMgr := &friends.Manager{}
+		friendsMgr := friends.New()
 		RegisterBuiltinCommands(cmdMgr, friendsMgr, time.Now())
 
 		res, err := cmdMgr.engine.Execute(t.Context(), "!steamid test")
@@ -1016,7 +1017,7 @@ func TestRegisterBuiltinCommands(t *testing.T) {
 		t.Parallel()
 
 		cmdMgr := NewManager()
-		friendsMgr := &friends.Manager{}
+		friendsMgr := friends.New()
 
 		friendID := id.ID(76561198000000001)
 		populateMockFriends(friendsMgr, friendID, "Alice_test")
@@ -1033,7 +1034,7 @@ func TestRegisterBuiltinCommands(t *testing.T) {
 		t.Parallel()
 
 		cmdMgr := NewManager()
-		friendsMgr := &friends.Manager{}
+		friendsMgr := friends.New()
 
 		for i := range 11 {
 			friendID := id.ID(76561198000000000 + uint64(i))
@@ -1061,7 +1062,7 @@ func TestRegisterBuiltinCommands(t *testing.T) {
 		t.Parallel()
 
 		cmdMgr := NewManager()
-		friendsMgr := &friends.Manager{}
+		friendsMgr := friends.New()
 		RegisterBuiltinCommands(cmdMgr, friendsMgr, time.Now())
 
 		res, err := cmdMgr.engine.Execute(t.Context(), "!profile 76561198000000001")
@@ -1073,7 +1074,7 @@ func TestRegisterBuiltinCommands(t *testing.T) {
 		t.Parallel()
 
 		cmdMgr := NewManager()
-		friendsMgr := &friends.Manager{}
+		friendsMgr := friends.New()
 
 		friendID := id.ID(76561198000000001)
 		populateMockFriends(friendsMgr, friendID, "Alice")
