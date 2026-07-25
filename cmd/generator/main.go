@@ -96,7 +96,7 @@ func buildSteamLang(ctx context.Context) {
 	execute(ctx, "go", []string{
 		"run", "./steamlang/main.go",
 		"-out", absOutput,
-		"-pkg", "protocol",
+		"-pkg", "enums",
 	})
 }
 

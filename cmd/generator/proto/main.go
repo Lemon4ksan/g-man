@@ -42,30 +42,59 @@ func main() {
 }
 
 func buildSteam(ctx context.Context) {
-	_ = os.MkdirAll(*steamOut, 0o755)
+	fmt.Println("📦 Building Steam Protobufs (+vtprotobuf BLAZING speed)...")
+
+	tempDir, _ := os.MkdirTemp("", "steamproto_build")
+	defer os.RemoveAll(tempDir)
+
+	steamSandbox := filepath.Join(tempDir, "steam")
+	_ = os.MkdirAll(steamSandbox, 0o755)
 
 	files, _ := filepath.Glob(filepath.Join(*steamSrc, "*.proto"))
 
+	for _, f := range files {
+		dst := filepath.Join(steamSandbox, filepath.Base(f))
+		copySanitizeProto(f, dst, "steam", *steamImport)
+	}
+
+	findAndCopyGoogleProto(*steamSrc, tempDir)
+
+	_ = os.MkdirAll(*steamOut, 0o755)
+	absSteamOut, err := filepath.Abs(*steamOut)
+	if err != nil {
+		absSteamOut = *steamOut
+	}
+	absSteamOut = filepath.ToSlash(absSteamOut)
+
 	fileNames := make([]string, 0, len(files))
-	mappings := make([]string, 0, len(files))
+	var mappings []string
 
 	for _, f := range files {
 		base := filepath.Base(f)
-		mappings = append(mappings, "--go_opt=M"+base+"="+*steamImport)
 		fileNames = append(fileNames, base)
+
+		mappings = append(mappings, "--go_opt=M"+base+"="+*steamImport)
+		mappings = append(mappings, "--go_opt=Msteam/"+base+"="+*steamImport)
+		mappings = append(mappings, "--go-vtproto_opt=M"+base+"="+*steamImport)
+		mappings = append(mappings, "--go-vtproto_opt=Msteam/"+base+"="+*steamImport)
 	}
 
-	args := append([]string{
-		"-I=" + *steamSrc,
-		"--go_out=" + *steamOut,
+	baseArgs := []string{
+		"-I=.",
+		"-I=..",
+		"--go_out=" + absSteamOut,
 		"--go_opt=paths=source_relative",
-	}, append(mappings, fileNames...)...)
+		"--go-vtproto_out=" + absSteamOut,
+		"--go-vtproto_opt=paths=source_relative",
+		"--go-vtproto_opt=features=marshal+unmarshal+size+pool",
+	}
 
-	execute(ctx, *steamSrc, "protoc", args)
+	allArgs := append(append(baseArgs, mappings...), fileNames...)
+	executeWithResponseFile(ctx, steamSandbox, allArgs)
 }
 
 func buildTF2(ctx context.Context) {
-	fmt.Println("📦 Building TF2 Protobufs (with sanitization)...")
+	fmt.Println("📦 Building TF2 Protobufs (Standard Stable Go)...")
 
 	tempDir, _ := os.MkdirTemp("", "tf2proto_build")
 	defer os.RemoveAll(tempDir)
@@ -76,42 +105,26 @@ func buildTF2(ctx context.Context) {
 	_ = os.MkdirAll(tf2Sandbox, 0o755)
 	_ = os.MkdirAll(steamSandbox, 0o755)
 
-	// TF2 protobuffs import files like steammessages.proto.
-	// The compiler needs to see them in the same file structure.
 	steamFiles, _ := filepath.Glob(filepath.Join(*steamSrc, "*.proto"))
 	for _, f := range steamFiles {
-		copyFile(f, filepath.Join(steamSandbox, filepath.Base(f)))
+		copySanitizeProto(f, filepath.Join(steamSandbox, filepath.Base(f)), "steam", *steamImport)
 	}
+
+	findAndCopyGoogleProto(*steamSrc, tempDir)
 
 	tf2Files, _ := filepath.Glob(filepath.Join(*tf2Src, "*.proto"))
 	for _, f := range tf2Files {
 		dst := filepath.Join(tf2Sandbox, filepath.Base(f))
-		// Valve doesn't always specify packages, or specifies them incorrectly.
-		// We force 'package tf2_gc' for isolation.
-		copySanitizeTF2(f, dst, "tf2_gc")
+		copySanitizeProto(f, dst, "tf2_gc", *tf2Import)
 	}
 
 	_ = os.MkdirAll(*tf2Out, 0o755)
-
-	// If one .proto file imports another, protoc-gen-go doesn't know
-	// which Go path (import path) contains the generated code for that file.
-	// The Mfilename=import_path option tells the generator:
-	// "If you see an import for file X, assume it's in package Y."
-	var mappings []string
-	for _, f := range steamFiles {
-		mappings = append(mappings, "--go_opt=M"+filepath.Base(f)+"="+*steamImport)
+	absTF2Out, err := filepath.Abs(*tf2Out)
+	if err != nil {
+		absTF2Out = *tf2Out
 	}
+	absTF2Out = filepath.ToSlash(absTF2Out)
 
-	for _, f := range tf2Files {
-		base := filepath.Base(f)
-		// We map both the short name and the name with the directory prefix
-		mappings = append(mappings, "--go_opt=Mtf2_gc/"+base+"="+*tf2Import)
-		mappings = append(mappings, "--go_opt=M"+base+"="+*tf2Import)
-	}
-
-	// Some files in the Valve repositories duplicate core Steam messages.
-	// Compiling them within the TF2 package will result in a conflict
-	// of duplicate data types in Go. We'll skip these.
 	blacklist := map[string]bool{
 		"steammessages.proto":              true,
 		"steammessages_base.proto":         true,
@@ -119,22 +132,84 @@ func buildTF2(ctx context.Context) {
 		"enums_clientserver.proto":         true,
 	}
 
+	var tf2ToCompile []string
 	for _, f := range tf2Files {
 		base := filepath.Base(f)
 		if blacklist[base] {
 			continue
 		}
+		tf2ToCompile = append(tf2ToCompile, base)
+	}
 
-		fmt.Printf("  > Compiling: %s\n", base)
-		// Run protoc from the root of the temporary folder so that the -I (include) paths
-		// match the import structure in the .proto files.
-		execute(ctx, tempDir, "protoc", append([]string{
-			"-I=.",      // Sandbox root
-			"-I=tf2_gc", // For TF2 imports
-			"-I=steam",  // For Steam imports
-			"--go_out=" + *tf2Out,
-			"--go_opt=paths=source_relative",
-		}, append(mappings, filepath.Join("tf2_gc", base))...))
+	var mappings []string
+	for _, f := range steamFiles {
+		base := filepath.Base(f)
+		mappings = append(mappings, "--go_opt=M"+base+"="+*steamImport)
+		mappings = append(mappings, "--go_opt=Msteam/"+base+"="+*steamImport)
+	}
+
+	for _, f := range tf2Files {
+		base := filepath.Base(f)
+		mappings = append(mappings, "--go_opt=Mtf2_gc/"+base+"="+*tf2Import)
+		mappings = append(mappings, "--go_opt=M"+base+"="+*tf2Import)
+	}
+
+	baseArgs := []string{
+		"-I=.",
+		"-I=../steam",
+		"-I=..",
+		"--go_out=" + absTF2Out,
+		"--go_opt=paths=source_relative",
+	}
+
+	allArgs := append(append(baseArgs, mappings...), tf2ToCompile...)
+	executeWithResponseFile(ctx, tf2Sandbox, allArgs)
+}
+
+func executeWithResponseFile(ctx context.Context, dir string, args []string) {
+	respFile, err := os.CreateTemp("", "protoc_args_*.txt")
+	if err != nil {
+		fmt.Printf("Failed to create response file: %v\n", err)
+		os.Exit(1)
+	}
+	defer os.Remove(respFile.Name())
+
+	var sb strings.Builder
+	for _, arg := range args {
+		formattedArg := filepath.ToSlash(arg)
+		if strings.Contains(formattedArg, " ") {
+			sb.WriteString(`"` + strings.ReplaceAll(formattedArg, `\`, `\\`) + `"`)
+		} else {
+			sb.WriteString(formattedArg)
+		}
+		sb.WriteString("\n")
+	}
+
+	if err := os.WriteFile(respFile.Name(), []byte(sb.String()), 0o644); err != nil {
+		fmt.Printf("Failed to write response file: %v\n", err)
+		os.Exit(1)
+	}
+	_ = respFile.Close()
+
+	execute(ctx, dir, "protoc", []string{"@" + respFile.Name()})
+}
+
+func findAndCopyGoogleProto(steamSrc string, tempDir string) {
+	candidates := []string{
+		filepath.Join(steamSrc, "google"),
+		filepath.Join(filepath.Dir(steamSrc), "google"),
+		filepath.Dir(filepath.Dir(steamSrc)),
+	}
+
+	for _, cand := range candidates {
+		gDir := cand
+		if !strings.HasSuffix(cand, "google") {
+			gDir = filepath.Join(cand, "google")
+		}
+		if info, err := os.Stat(gDir); err == nil && info.IsDir() {
+			copyDir(gDir, filepath.Join(tempDir, "google"))
+			return
+		}
 	}
 }
 
@@ -162,24 +237,49 @@ func copyFile(src, dst string) {
 	}
 }
 
-func copySanitizeTF2(src, dst, newPkg string) {
-	data, _ := os.ReadFile(src)
-	content := string(data)
+func copyDir(src, dst string) {
+	_ = os.MkdirAll(dst, 0o755)
+	entries, _ := os.ReadDir(src)
 
-	// Valve often forgets 'package' or uses different names.
-	// We're unifying them so all TF2 GC messages end up in a single Go package.
-	rePkg := regexp.MustCompile(`(?m)^\s*package\s+[^;]+;`)
-	if rePkg.MatchString(content) {
-		content = rePkg.ReplaceAllString(content, "package "+newPkg+";")
-	} else {
-		content = "package " + newPkg + ";\n\n" + content
+	for _, entry := range entries {
+		srcPath := filepath.Join(src, entry.Name())
+		dstPath := filepath.Join(dst, entry.Name())
+
+		if entry.IsDir() {
+			copyDir(srcPath, dstPath)
+		} else {
+			copyFile(srcPath, dstPath)
+		}
+	}
+}
+
+func copySanitizeProto(src, dst, overridePackage, goPackageImport string) {
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return
 	}
 
-	// Steam .proto files often write the type as '.CMsgBase'.
-	// Modern protoc-gen-go treats leading dots as "absolute paths
-	// in the root namespace," which breaks Go generation (it looks for the '.' package).
-	// We convert '.CMsgBase' to 'CMsgBase' so that the search occurs within the package.
-	// Exception: google.protobuf types (e.g., .google.protobuf.DescriptorProto).
+	content := string(data)
+
+	if overridePackage != "" {
+		rePkg := regexp.MustCompile(`(?m)^\s*package\s+[^;]+;`)
+		if rePkg.MatchString(content) {
+			content = rePkg.ReplaceAllString(content, "package "+overridePackage+";")
+		} else {
+			content = "package " + overridePackage + ";\n\n" + content
+		}
+	}
+
+	if goPackageImport != "" {
+		reGoPkg := regexp.MustCompile(`(?m)^\s*option\s+go_package\s*=\s*[^;]+;`)
+		goPkgOption := fmt.Sprintf(`option go_package = "%s";`, goPackageImport)
+		if reGoPkg.MatchString(content) {
+			content = reGoPkg.ReplaceAllString(content, goPkgOption)
+		} else {
+			content = goPkgOption + "\n" + content
+		}
+	}
+
 	reLeadingDot := regexp.MustCompile(`([\s\(\<])\.([a-zA-Z])`)
 	content = reLeadingDot.ReplaceAllStringFunc(content, func(m string) string {
 		if strings.Contains(m, ".google") {

@@ -24,7 +24,7 @@ import (
 
 var (
 	outputFile = flag.String("out", "", "Output Go file path")
-	pkgName    = flag.String("pkg", "protocol", "Go package name")
+	pkgName    = flag.String("pkg", "enums", "Go package name")
 	apiURL     = flag.String(
 		"url",
 		"https://api.github.com/repos/SteamRE/SteamKit/contents/Resources/SteamLanguage",

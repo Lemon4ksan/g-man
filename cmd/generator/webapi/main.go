@@ -7,6 +7,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"go/format"
 	"log"
 	"os"
 	"path/filepath"
@@ -48,29 +49,35 @@ import (
 
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 )
-
 {{range .}}
 // ============================================================================
 // Interface: {{.Name}}
 // ============================================================================
-
 {{$ifaceName := .Name}}
 {{range .Methods}}
 {{$funcName := printf "%s_%s_v%d" $ifaceName .Name .Version}}
 {{$reqStruct := printf "%s_Request" $funcName}}
-
-{{if .Description}}// {{$reqStruct}} represents the request parameters for {{.Name}}.
-// {{.Description}}{{else}}// {{$reqStruct}} represents the request parameters for {{.Name}}.{{end}}
+// {{$reqStruct}} represents the request parameters for {{.Name}}.
+{{- if .Description}}
+// {{.Description}}
+{{- end}}
 type {{$reqStruct}} struct {
-{{range .Parameters}}	{{if .Description}}// {{.Description}}
-{{end}}	{{goName .Name}} {{goType .Type}} ` + "`" + `url:"{{.Name}}{{if .Optional}},omitempty{{end}}"` + "`" + `
-{{end}}}
+{{- range .Parameters}}
+{{- if .Description}}
+	// {{.Description}}
+{{- end}}
+	{{goName .Name}} {{goType .Type}} ` + "`" + `url:"{{.Name}}{{if .Optional}},omitempty{{end}}"` + "`" + `
+{{- end}}
+}
 
 // {{$funcName}} calls {{.Name}} (version {{.Version}}).
-{{if .Description}}// {{.Description}}{{end}}
+{{- if .Description}}
+// {{.Description}}
+{{- end}}
 func {{$funcName}}[Resp any](ctx context.Context, d service.Doer, req *{{$reqStruct}}) (*Resp, error) {
 	return service.WebAPI[Resp](ctx, d, "{{.HTTPMethod}}", "{{$ifaceName}}", "{{.Name}}", {{.Version}}, req)
 }
+
 {{end}}
 {{end}}
 `
@@ -109,7 +116,14 @@ func main() {
 		log.Fatalf("Failed to execute template: %v", err)
 	}
 
-	if err := os.WriteFile(outputFile, buf.Bytes(), 0o644); err != nil {
+	// Автоматическое форматирование gofmt перед записью
+	formatted, err := format.Source(buf.Bytes())
+	if err != nil {
+		log.Printf("Warning: failed to gofmt generated code: %v", err)
+		formatted = buf.Bytes()
+	}
+
+	if err := os.WriteFile(outputFile, formatted, 0o644); err != nil {
 		log.Fatalf("Failed to write output file: %v", err)
 	}
 
@@ -135,7 +149,6 @@ func formatGoName(name string) string {
 			parts[i] = "URL"
 		default:
 			if len(part) > 0 {
-				// Capitalize first letter
 				parts[i] = strings.ToUpper(part[:1]) + part[1:]
 			}
 		}
@@ -155,6 +168,6 @@ func formatGoType(t string) string {
 	case "rawbyte":
 		return "[]byte"
 	default:
-		return "string" // Fallback
+		return "string"
 	}
 }
