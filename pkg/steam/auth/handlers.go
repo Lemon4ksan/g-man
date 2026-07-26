@@ -128,16 +128,13 @@ func (a *Authenticator) handleLogOnResponse(packet *protocol.Packet) {
 		return
 	}
 
-	// Update session identifiers
-	if ah, ok := packet.Header.(protocol.AuthorizedHeader); ok {
-		sess := a.socket.Session()
-		if steamID := ah.GetSteamID(); steamID != 0 {
-			sess.SetSteamID(steamID)
-		}
+	sess := a.socket.Session()
+	if steamID := packet.GetSteamID(); steamID != 0 {
+		sess.SetSteamID(steamID)
+	}
 
-		if sessionID := ah.GetSessionID(); sessionID != 0 {
-			sess.SetSessionID(sessionID)
-		}
+	if sessionID := packet.GetSessionID(); sessionID != 0 {
+		sess.SetSessionID(sessionID)
 	}
 
 	// Start Heartbeat

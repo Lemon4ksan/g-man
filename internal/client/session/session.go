@@ -512,8 +512,10 @@ func (c *Session) doRefresh(ctx context.Context) error {
 		return fmt.Errorf("failed to generate access token: %w", err)
 	}
 
-	if err := c.SetAccessToken(resp.GetAccessToken()); err != nil {
-		return err
+	if token := resp.GetAccessToken(); token != "" {
+		if err := c.SetAccessToken(token); err != nil {
+			return err
+		}
 	}
 
 	err = c.Web().Authenticate(ctx, c.device.PlatformType, refreshToken, resp.GetAccessToken())

@@ -2,7 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package guard
+// Package clock provides clock interfaces and implementations for use in g-man.
+package clock
 
 import (
 	"sync/atomic"

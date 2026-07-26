@@ -44,6 +44,7 @@ func TestParsePacket(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, pkt.IsProto)
 		assert.Equal(t, enums.EMsg(100), pkt.EMsg)
+		assert.Equal(t, protocol.HeaderKindProto, pkt.HeaderKind)
 		assert.Equal(t, []byte("payload"), pkt.Payload)
 	})
 
@@ -57,8 +58,7 @@ func TestParsePacket(t *testing.T) {
 		pkt, err := protocol.ParsePacket(buf)
 		require.NoError(t, err)
 		assert.False(t, pkt.IsProto)
-		_, ok := pkt.Header.(*protocol.MsgHdr)
-		assert.True(t, ok)
+		assert.Equal(t, protocol.HeaderKindStandard, pkt.HeaderKind)
 	})
 
 	t.Run("extended_packet", func(t *testing.T) {
@@ -70,9 +70,7 @@ func TestParsePacket(t *testing.T) {
 
 		pkt, err := protocol.ParsePacket(buf)
 		require.NoError(t, err)
-
-		_, ok := pkt.Header.(*protocol.MsgHdrExtended)
-		assert.True(t, ok)
+		assert.Equal(t, protocol.HeaderKindExtended, pkt.HeaderKind)
 	})
 
 	t.Run("payload_too_large", func(t *testing.T) {
@@ -123,7 +121,7 @@ func TestPacket_Getters(t *testing.T) {
 	t.Run("default_values", func(t *testing.T) {
 		t.Parallel()
 
-		pkt := &protocol.Packet{Header: nil}
+		pkt := &protocol.Packet{}
 		assert.Equal(t, protocol.NoJob, pkt.GetSourceJobID())
 		assert.Equal(t, protocol.NoJob, pkt.GetTargetJobID())
 		assert.Equal(t, uint64(0), pkt.GetSteamID())
@@ -135,7 +133,10 @@ func TestPacket_Getters(t *testing.T) {
 		t.Parallel()
 
 		hdr := protocol.NewMsgHdrProtoBuf(enums.EMsg(1), 123, 456)
-		pkt := &protocol.Packet{Header: hdr}
+		pkt := &protocol.Packet{
+			HeaderKind: protocol.HeaderKindProto,
+			HdrProto:   *hdr,
+		}
 		assert.Equal(t, uint64(123), pkt.GetSteamID())
 		assert.Equal(t, int32(456), pkt.GetSessionID())
 	})
@@ -143,7 +144,7 @@ func TestPacket_Getters(t *testing.T) {
 	t.Run("nil_header_getters", func(t *testing.T) {
 		t.Parallel()
 
-		pkt := &protocol.Packet{Header: nil}
+		pkt := &protocol.Packet{HeaderKind: protocol.HeaderKindNone}
 		assert.Equal(t, protocol.NoJob, pkt.GetTargetJobID())
 		assert.Equal(t, protocol.NoJob, pkt.GetSourceJobID())
 	})
@@ -151,7 +152,10 @@ func TestPacket_Getters(t *testing.T) {
 	t.Run("eheader_interface_negative", func(t *testing.T) {
 		t.Parallel()
 
-		pkt := &protocol.Packet{Header: &protocol.MsgHdr{}}
+		pkt := &protocol.Packet{
+			HeaderKind: protocol.HeaderKindStandard,
+			HdrStd:     protocol.MsgHdr{},
+		}
 		assert.Equal(t, enums.EResult_Invalid, pkt.GetEResult())
 	})
 }
@@ -206,8 +210,8 @@ func TestPacket_SerializeTo(t *testing.T) {
 		t.Parallel()
 
 		pkt := &protocol.Packet{
-			IsProto: true,
-			Header:  &protocol.MsgHdr{},
+			IsProto:    true,
+			HeaderKind: protocol.HeaderKindNone,
 		}
 		err := pkt.SerializeTo(io.Discard)
 		assert.ErrorIs(t, err, protocol.ErrInvalidHeader)
@@ -217,7 +221,11 @@ func TestPacket_SerializeTo(t *testing.T) {
 		t.Parallel()
 
 		hdr := protocol.NewMsgHdr(enums.EMsg_ChannelEncryptRequest, 0)
-		pkt := &protocol.Packet{Header: hdr, Payload: []byte("hi")}
+		pkt := &protocol.Packet{
+			HeaderKind: protocol.HeaderKindStandard,
+			HdrStd:     *hdr,
+			Payload:    []byte("hi"),
+		}
 		buf := new(bytes.Buffer)
 		err := pkt.SerializeTo(buf)
 		assert.NoError(t, err)
@@ -227,8 +235,10 @@ func TestPacket_SerializeTo(t *testing.T) {
 	t.Run("serialize_to_header_error", func(t *testing.T) {
 		t.Parallel()
 
+		hdr := protocol.NewMsgHdr(enums.EMsg_ChannelEncryptRequest, 0)
 		p := &protocol.Packet{
-			Header: protocol.NewMsgHdr(enums.EMsg_ChannelEncryptRequest, 0),
+			HeaderKind: protocol.HeaderKindStandard,
+			HdrStd:     *hdr,
 		}
 		err := p.SerializeTo(&faultyIO{})
 		assert.Error(t, err)

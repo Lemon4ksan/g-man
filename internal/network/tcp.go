@@ -19,6 +19,8 @@ import (
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/miyako/log"
 	"golang.org/x/net/proxy"
+
+	"github.com/lemon4ksan/g-man/internal/framer"
 )
 
 const (
@@ -254,7 +256,7 @@ func (t *TCP) readLoop() {
 	reader := bufio.NewReaderSize(t.conn, 64*1024)
 
 	for {
-		payload, err := t.framer.ReadFrame(reader)
+		rawFB, err := t.framer.ReadFrame(reader)
 		if err != nil {
 			if !isIgnorableError(err) {
 				sendErr(NewError(OpFramer, ConnTypeTCP, err))
@@ -267,17 +269,27 @@ func (t *TCP) readLoop() {
 		cipher := t.cipher
 		t.keyMu.RUnlock()
 
+		var finalFB *framer.FrameBuffer
+
 		if cipher != nil {
-			payload, err = cipher.Decrypt(payload)
+			decryptedFB, err := cipher.Decrypt(rawFB)
+
+			framer.ReleaseFrameBuffer(rawFB)
+
 			if err != nil {
 				sendErr(NewError(OpDecrypt, ConnTypeTCP, err))
 				continue
 			}
+
+			finalFB = decryptedFB
+		} else {
+			finalFB = rawFB
 		}
 
 		select {
-		case t.msgChan <- payload:
+		case t.msgChan <- finalFB:
 		case <-t.closedChan:
+			framer.ReleaseFrameBuffer(finalFB)
 			return
 		}
 	}

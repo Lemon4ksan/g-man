@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	json "github.com/goccy/go-json"
@@ -36,21 +37,38 @@ var (
 	rxPaginationTrade = regexp.MustCompile(`after_trade=(\d+)`)
 )
 
-// descKey uses uint64 value types to prevent heap allocations during map lookup operations.
-type descKey struct {
-	ClassID    uint64
-	InstanceID uint64
+var descMapPool = sync.Pool{
+	New: func() any {
+		return make(map[descKey]*Description, 128)
+	},
 }
 
-func makeDescKey(classIDStr, instanceIDStr string) descKey {
+func acquireDescMap() map[descKey]*Description {
+	return descMapPool.Get().(map[descKey]*Description)
+}
+
+func releaseDescMap(m map[descKey]*Description) {
+	if m == nil {
+		return
+	}
+
+	clear(m)
+	descMapPool.Put(m)
+}
+
+type descKey = uint64
+
+// packDescKey parses ClassID and InstanceID into a 64-bit key, fast-pathing '0' instance IDs.
+func packDescKey(classIDStr, instanceIDStr string) descKey {
 	cID, _ := bytesconv.ParseUint64(bytesconv.S2B(classIDStr))
-	instID, _ := bytesconv.ParseUint64(bytesconv.S2B(instanceIDStr))
-	return descKey{ClassID: cID, InstanceID: instID}
-}
 
-// ItemStreamHandler represents a callback for processing items during inventory streaming.
-// Return false to abort streaming early.
-type ItemStreamHandler func(item *CEconItem, isCurrency bool) bool
+	var instID uint64
+	if len(instanceIDStr) > 0 && (len(instanceIDStr) != 1 || instanceIDStr[0] != '0') {
+		instID, _ = bytesconv.ParseUint64(bytesconv.S2B(instanceIDStr))
+	}
+
+	return descKey((cID << 32) | (instID & 0xFFFFFFFF))
+}
 
 // StreamUserInventoryContents streams user inventory items page-by-page directly to handler,
 // avoiding allocating full inventory slices in heap memory.
@@ -62,7 +80,7 @@ func StreamUserInventoryContents(
 	contextID int64,
 	tradableOnly bool,
 	language string,
-	handler ItemStreamHandler,
+	handler func(item *CEconItem, isCurrency bool) bool,
 ) (int, error) {
 	language = generic.Coalesce(language, "english")
 
@@ -84,16 +102,16 @@ func StreamUserInventoryContents(
 
 		totalCount = page.TotalCount
 
-		descMap := make(map[descKey]*Description, len(page.Descriptions))
+		descMap := acquireDescMap()
 		for i := range page.Descriptions {
 			d := &page.Descriptions[i]
-			key := makeDescKey(d.ClassID, d.InstanceID)
+			key := packDescKey(d.ClassID, d.InstanceID)
 			descMap[key] = d
 		}
 
 		for i := range page.Assets {
 			asset := &page.Assets[i]
-			key := makeDescKey(asset.ClassID, asset.InstanceID)
+			key := packDescKey(asset.ClassID, asset.InstanceID)
 
 			description, exists := descMap[key]
 			if !exists {
@@ -114,9 +132,12 @@ func StreamUserInventoryContents(
 
 			isCurrency := asset.CurrencyID != ""
 			if handler != nil && !handler(&item, isCurrency) {
+				releaseDescMap(descMap)
 				return totalCount, nil
 			}
 		}
+
+		releaseDescMap(descMap)
 
 		if !page.MoreItems {
 			break
@@ -128,14 +149,7 @@ func StreamUserInventoryContents(
 	return totalCount, nil
 }
 
-// GetUserInventoryContents recursively parses user inventory using community requester
-// and returns the list of items and currencies with their total count.
-//
-// If language is empty, it automatically defaults to "english".
-// It returns an error if the underlying WebAPI request fails or if Steam returns
-// an unsuccessful status payload.
-// GetUserInventoryContents recursively parses user inventory using community requester
-// and returns the list of items and currencies with their total count.
+// GetUserInventoryContents retrieves inventory contents appending directly to target slices with zero intermediate allocations.
 func GetUserInventoryContents(
 	ctx context.Context,
 	client community.Requester,
@@ -166,25 +180,21 @@ func GetUserInventoryContents(
 			return inventory, currency, page.TotalCount, nil
 		}
 
-		// Pre-allocate total capacity on the very first page response to avoid slice re-allocations
 		if inventory == nil {
 			inventory = make([]CEconItem, 0, page.TotalCount)
 			currency = make([]CEconItem, 0, 16)
 		}
 
-		descMap := make(map[descKey]*Description, len(page.Descriptions))
+		descMap := acquireDescMap()
 		for i := range page.Descriptions {
 			d := &page.Descriptions[i]
-			key := makeDescKey(d.ClassID, d.InstanceID)
+			key := packDescKey(d.ClassID, d.InstanceID)
 			descMap[key] = d
 		}
 
-		pageInventory, pageCurrency, newPos := processAssetsOpt(page.Assets, descMap, tradableOnly, pos)
+		pos = appendProcessedAssets(&inventory, &currency, page.Assets, descMap, tradableOnly, pos)
+		releaseDescMap(descMap)
 
-		pos = newPos
-
-		inventory = append(inventory, pageInventory...)
-		currency = append(currency, pageCurrency...)
 		totalCount = page.TotalCount
 
 		if !page.MoreItems {
@@ -197,20 +207,19 @@ func GetUserInventoryContents(
 	return inventory, currency, totalCount, nil
 }
 
-func processAssetsOpt(
+func appendProcessedAssets(
+	dstInventory *[]CEconItem,
+	dstCurrency *[]CEconItem,
 	assets []Asset,
 	descMap map[descKey]*Description,
 	tradableOnly bool,
 	startPos int,
-) ([]CEconItem, []CEconItem, int) {
-	inventory := make([]CEconItem, 0, len(assets))
-	currency := make([]CEconItem, 0, 8)
-
+) int {
 	pos := startPos
 
 	for i := range assets {
 		asset := &assets[i]
-		key := makeDescKey(asset.ClassID, asset.InstanceID)
+		key := packDescKey(asset.ClassID, asset.InstanceID)
 
 		description, exists := descMap[key]
 		if !exists {
@@ -230,13 +239,13 @@ func processAssetsOpt(
 		}
 
 		if asset.CurrencyID != "" {
-			currency = append(currency, item)
+			*dstCurrency = append(*dstCurrency, item)
 		} else {
-			inventory = append(inventory, item)
+			*dstInventory = append(*dstInventory, item)
 		}
 	}
 
-	return inventory, currency, pos
+	return pos
 }
 
 // GetUserInventoryContexts retrieves the application and context details for a user's inventory.
@@ -426,7 +435,6 @@ func convertTimeTo24h(timestamp string) (string, error) {
 		hour += 12
 	}
 
-	// fmt.Sprintf("%02d:%02d:00", hour, minute)
 	var buf [8]byte
 
 	buf[0] = byte('0' + hour/10)

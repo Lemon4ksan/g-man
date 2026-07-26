@@ -57,7 +57,11 @@ func S2B(s string) []byte {
 
 // LowercaseByte converts an ASCII byte character b to lowercase in O(1) time without branching.
 func LowercaseByte(b byte) byte {
-	return toLowerTable[b]
+	if b >= 'A' && b <= 'Z' {
+		return b | 0x20
+	}
+
+	return b
 }
 
 // EqualFoldASCII performs case-insensitive comparison of ASCII strings with zero allocations and BCE hints.

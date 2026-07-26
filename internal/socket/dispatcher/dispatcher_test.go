@@ -72,12 +72,16 @@ func TestDispatcher_Send_Logic(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotEmpty(t, mw.got)
 
-		// Simulate response
-		jobID := jm.NextID() - 1 // The ID generated inside Send
-		pkt := &protocol.Packet{EMsg: enums.EMsg_ClientLogOnResponse, IsProto: true}
+		jobID := jm.NextID() - 1
 		hdr := protocol.NewMsgHdrProtoBuf(enums.EMsg_ClientLogOnResponse, 0, 0)
 		hdr.Proto.JobidTarget = proto.Uint64(jobID)
-		pkt.Header = hdr
+
+		pkt := &protocol.Packet{
+			EMsg:       enums.EMsg_ClientLogOnResponse,
+			IsProto:    true,
+			HeaderKind: protocol.HeaderKindProto,
+			HdrProto:   *hdr,
+		}
 
 		d.Dispatch(pkt)
 
@@ -147,23 +151,24 @@ func TestDispatcher_Builders(t *testing.T) {
 		assert.NoError(t, err)
 
 		pkt, _ := protocol.ParsePacket(buf)
-		hdr := pkt.Header.(*protocol.MsgHdrProtoBuf)
+		hdr := pkt.ProtoHeader()
+		require.NotNil(t, hdr)
 		assert.Equal(t, "Service.Method", hdr.Proto.GetTargetJobName())
 		assert.Equal(t, "token", hdr.Proto.GetWgToken())
 	})
 
 	t.Run("dynamic_raw_builder", func(t *testing.T) {
 		t.Parallel()
-		// As Proto
+
 		buf := new(bytes.Buffer)
 		build := DynamicRaw(enums.EMsg_ServiceMethodCallFromClient, "Method", []byte("raw"), 440)
 		_ = build(sess, buf, 0, "tok")
 		pkt, _ := protocol.ParsePacket(buf)
 		assert.True(t, pkt.IsProto)
-		hdr := pkt.Header.(*protocol.MsgHdrProtoBuf)
+		hdr := pkt.ProtoHeader()
+		require.NotNil(t, hdr)
 		assert.Equal(t, uint32(440), hdr.Proto.GetRoutingAppid())
 
-		// As Extended
 		buf.Reset()
 
 		build = DynamicRaw(enums.EMsg_ClientLogon, "", []byte("raw"), 0)
@@ -183,7 +188,8 @@ func TestDispatcher_Builders(t *testing.T) {
 		pkt, err := protocol.ParsePacket(buf)
 		require.NoError(t, err)
 		assert.True(t, pkt.IsProto)
-		hdr := pkt.Header.(*protocol.MsgHdrProtoBuf)
+		hdr := pkt.ProtoHeader()
+		require.NotNil(t, hdr)
 		assert.Equal(t, uint32(440), hdr.Proto.GetRoutingAppid())
 		assert.Equal(t, "token", hdr.Proto.GetWgToken())
 	})
@@ -205,11 +211,15 @@ func TestDispatcher_Dispatch_SpecialCases(t *testing.T) {
 		errChan := make(chan error, 1)
 		_ = jm.Add(jobID, func(ctx context.Context, p *protocol.Packet, err error) { errChan <- err })
 
-		// Create EMsg_DestJobFailed packet
-		pkt := &protocol.Packet{EMsg: enums.EMsg_DestJobFailed}
 		hdr := protocol.NewMsgHdrProtoBuf(enums.EMsg_DestJobFailed, 0, 0)
 		hdr.Proto.JobidTarget = proto.Uint64(jobID)
-		pkt.Header = hdr
+
+		pkt := &protocol.Packet{
+			EMsg:       enums.EMsg_DestJobFailed,
+			IsProto:    true,
+			HeaderKind: protocol.HeaderKindProto,
+			HdrProto:   *hdr,
+		}
 
 		d.Dispatch(pkt)
 
@@ -221,8 +231,9 @@ func TestDispatcher_Dispatch_SpecialCases(t *testing.T) {
 		t.Parallel()
 		d, _, _ := setup(t)
 		pkt := &protocol.Packet{
-			EMsg:   enums.EMsg_ServiceMethod,
-			Header: &protocol.MsgHdrExtended{}, // Wrong header type
+			EMsg:       enums.EMsg_ServiceMethod,
+			HeaderKind: protocol.HeaderKindExtended,
+			HdrExt:     protocol.MsgHdrExtended{},
 		}
 		assert.NotPanics(t, func() { d.Dispatch(pkt) })
 	})
@@ -234,7 +245,12 @@ func TestDispatcher_Dispatch_SpecialCases(t *testing.T) {
 		hdr.Proto.TargetJobName = proto.String("NonExistent.Method")
 
 		assert.NotPanics(t, func() {
-			d.Dispatch(&protocol.Packet{EMsg: enums.EMsg_ServiceMethod, Header: hdr})
+			d.Dispatch(&protocol.Packet{
+				EMsg:       enums.EMsg_ServiceMethod,
+				IsProto:    true,
+				HeaderKind: protocol.HeaderKindProto,
+				HdrProto:   *hdr,
+			})
 		})
 	})
 
@@ -249,8 +265,7 @@ func TestDispatcher_Dispatch_SpecialCases(t *testing.T) {
 		pkt, err := protocol.ParsePacket(buf)
 		require.NoError(t, err)
 		assert.False(t, pkt.IsProto)
-		_, ok := pkt.Header.(*protocol.MsgHdr)
-		assert.True(t, ok)
+		assert.Equal(t, protocol.HeaderKindStandard, pkt.HeaderKind)
 	})
 }
 
@@ -260,7 +275,7 @@ func TestDispatcher_Multi_EdgeCases(t *testing.T) {
 	t.Run("malformed_subpacket_size", func(t *testing.T) {
 		t.Parallel()
 		d, _, _ := setup(t)
-		// Payload has size but no data
+
 		payload := []byte{0x04, 0x00, 0x00, 0x00}
 		multi, _ := proto.Marshal(&pb.CMsgMulti{MessageBody: payload})
 
@@ -280,7 +295,7 @@ func TestDispatcher_Multi_EdgeCases(t *testing.T) {
 		zw.Close()
 
 		multi, _ := proto.Marshal(&pb.CMsgMulti{
-			SizeUnzipped: proto.Uint32(100), // Claim 100, but only "short" provided
+			SizeUnzipped: proto.Uint32(100),
 			MessageBody:  zipped.Bytes(),
 		})
 
@@ -294,7 +309,7 @@ func TestDispatcher_Multi_EdgeCases(t *testing.T) {
 		d, _, _ := setup(t)
 		pkt := &protocol.Packet{
 			EMsg:    enums.EMsg_Multi,
-			Payload: []byte{0xFF, 0xFF}, // invalid protobuf
+			Payload: []byte{0xFF, 0xFF},
 		}
 		assert.NotPanics(t, func() {
 			d.Dispatch(pkt)
@@ -304,7 +319,7 @@ func TestDispatcher_Multi_EdgeCases(t *testing.T) {
 	t.Run("decompression_limit_exceeded", func(t *testing.T) {
 		t.Parallel()
 		d, _, _ := setup(t)
-		d.DecompressionLimit = 5 // low limit
+		d.DecompressionLimit = 5
 
 		var zipped bytes.Buffer
 
@@ -313,7 +328,7 @@ func TestDispatcher_Multi_EdgeCases(t *testing.T) {
 		zw.Close()
 
 		multi, _ := proto.Marshal(&pb.CMsgMulti{
-			SizeUnzipped: proto.Uint32(10), // > 5
+			SizeUnzipped: proto.Uint32(10),
 			MessageBody:  zipped.Bytes(),
 		})
 
@@ -346,7 +361,7 @@ func TestDispatcher_Multi_EdgeCases(t *testing.T) {
 		zw.Close()
 
 		multi, _ := proto.Marshal(&pb.CMsgMulti{
-			SizeUnzipped: proto.Uint32(50), // expects 50, but gzip only has "short" (5 bytes)
+			SizeUnzipped: proto.Uint32(50),
 			MessageBody:  zipped.Bytes(),
 		})
 
@@ -368,7 +383,8 @@ func TestDispatcher_SessionExclusion(t *testing.T) {
 		buf := new(bytes.Buffer)
 		_ = Proto(enums.EMsg_ClientHello, nil)(d.session, buf, 0, "")
 		pkt, _ := protocol.ParsePacket(buf)
-		hdr := pkt.Header.(*protocol.MsgHdrProtoBuf)
+		hdr := pkt.ProtoHeader()
+		require.NotNil(t, hdr)
 
 		assert.Equal(t, uint64(0), hdr.Proto.GetSteamid())
 		assert.Equal(t, int32(0), hdr.Proto.GetClientSessionid())
@@ -384,7 +400,7 @@ func TestDispatcher_BufferPooling(t *testing.T) {
 		t.Parallel()
 
 		buf := d.getBuffer()
-		buf.Write(make([]byte, 200*1024)) // > 128KB
+		buf.Write(make([]byte, 200*1024))
 		d.putBuffer(buf)
 
 		buf2 := d.getBuffer()
@@ -420,13 +436,21 @@ func TestDispatcher_Registration(t *testing.T) {
 
 		hdr := protocol.NewMsgHdrProtoBuf(enums.EMsg_ServiceMethod, 0, 0)
 		hdr.Proto.TargetJobName = proto.String("Test.Method")
-		d.Dispatch(&protocol.Packet{EMsg: enums.EMsg_ServiceMethod, Header: hdr})
+
+		pkt := &protocol.Packet{
+			EMsg:       enums.EMsg_ServiceMethod,
+			IsProto:    true,
+			HeaderKind: protocol.HeaderKindProto,
+			HdrProto:   *hdr,
+		}
+
+		d.Dispatch(pkt)
 
 		assert.True(t, called.Load())
 
 		d.RegisterServiceHandler("Test.Method", nil)
 		called.Store(false)
-		d.Dispatch(&protocol.Packet{EMsg: enums.EMsg_ServiceMethod, Header: hdr})
+		d.Dispatch(pkt)
 		assert.False(t, called.Load())
 	})
 }
@@ -453,11 +477,13 @@ func TestDispatcher_Multi_ReceivedAtPropagation(t *testing.T) {
 
 	d, _, _ := setup(t)
 
+	hdr := protocol.NewMsgHdrExtended(enums.EMsg_ClientHeartBeat, 0, 0)
 	subPkt := &protocol.Packet{
-		EMsg:    enums.EMsg_ClientHeartBeat,
-		IsProto: false,
-		Header:  &protocol.MsgHdrExtended{EMsg: enums.EMsg_ClientHeartBeat},
-		Payload: []byte("heartbeat"),
+		EMsg:       enums.EMsg_ClientHeartBeat,
+		IsProto:    false,
+		HeaderKind: protocol.HeaderKindExtended,
+		HdrExt:     *hdr,
+		Payload:    []byte("heartbeat"),
 	}
 	subBuf := new(bytes.Buffer)
 	err := subPkt.SerializeTo(subBuf)
@@ -509,7 +535,7 @@ func TestDispatcher_ClearHandlers(t *testing.T) {
 		d.RegisterMsgHandler(enums.EMsg_ClientLogon, func(p *protocol.Packet) {})
 		d.ClearHandlers()
 		d.mu.RLock()
-		assert.Empty(t, d.handlers)
+		assert.Empty(t, d.sparseHandlers)
 		d.mu.RUnlock()
 	})
 }

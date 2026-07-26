@@ -44,30 +44,25 @@ func hmacSha1Stack(key, msg []byte) [20]byte {
 }
 
 // GenerateAuthCode generates a 5-digit Steam Guard two-factor authentication code for the given timestamp.
-//
-// The sharedSecret argument must be a base64-encoded or 40-character hex-encoded string.
-//
-// It returns an error if the shared secret cannot be decoded from base64 or hexadecimal.
-func GenerateAuthCode(sharedSecret string, timestamp int64) (string, error) {
-	var (
-		secretBuf [20]byte
-		secret    []byte
-	)
+func GenerateAuthCode(secret []byte, timestamp int64) [5]byte {
+	if len(secret) == 0 {
+		return [5]byte{}
+	}
 
-	if len(sharedSecret) == 40 {
-		n, err := hex.Decode(secretBuf[:], bytesconv.S2B(sharedSecret))
-		if err != nil {
-			return "", err
-		}
-
-		secret = secretBuf[:n]
+	var keyBytes []byte
+	if len(secret) == 20 {
+		keyBytes = secret
 	} else {
-		s, err := base64.StdEncoding.DecodeString(sharedSecret)
-		if err != nil {
-			return "", err
-		}
+		var err error
 
-		secret = s
+		keyBytes, err = DecodeSecret(bytesconv.B2S(secret))
+		if err != nil {
+			return [5]byte{}
+		}
+	}
+
+	if len(keyBytes) == 0 {
+		return [5]byte{}
 	}
 
 	t := uint64(timestamp / 30)
@@ -75,7 +70,7 @@ func GenerateAuthCode(sharedSecret string, timestamp int64) (string, error) {
 	var msgBuf [8]byte
 	binary.BigEndian.PutUint64(msgBuf[:], t)
 
-	sum := hmacSha1Stack(secret, msgBuf[:])
+	sum := hmacSha1Stack(keyBytes, msgBuf[:])
 
 	start := sum[19] & 0x0F
 	fullCode := binary.BigEndian.Uint32(sum[start:start+4]) & 0x7FFFFFFF
@@ -86,36 +81,29 @@ func GenerateAuthCode(sharedSecret string, timestamp int64) (string, error) {
 		fullCode /= uint32(len(steamChars))
 	}
 
-	return string(code[:]), nil
+	return code
 }
 
 // GenerateConfirmationKey generates a base64-encoded key required to confirm mobile actions.
-//
-// The identitySecret must be a base64-encoded or 40-character hex-encoded string.
-// The tag parameter represents the action type (such as "conf", "allow", or "cancel").
-// If the tag exceeds 32 bytes, only the first 32 bytes of the tag are used.
-//
-// It returns an error if the identity secret cannot be decoded from base64 or hexadecimal.
-func GenerateConfirmationKey(identitySecret string, timestamp int64, tag string) (string, error) {
-	var (
-		secretBuf [20]byte
-		secret    []byte
-	)
+func GenerateConfirmationKey(secret []byte, timestamp int64, tag string) [28]byte {
+	if len(secret) == 0 {
+		return [28]byte{}
+	}
 
-	if len(identitySecret) == 40 {
-		n, err := hex.Decode(secretBuf[:], bytesconv.S2B(identitySecret))
-		if err != nil {
-			return "", err
-		}
-
-		secret = secretBuf[:n]
+	var keyBytes []byte
+	if len(secret) == 20 {
+		keyBytes = secret
 	} else {
-		s, err := base64.StdEncoding.DecodeString(identitySecret)
-		if err != nil {
-			return "", err
-		}
+		var err error
 
-		secret = s
+		keyBytes, err = DecodeSecret(bytesconv.B2S(secret))
+		if err != nil {
+			return [28]byte{}
+		}
+	}
+
+	if len(keyBytes) == 0 {
+		return [28]byte{}
 	}
 
 	dataLen := 8
@@ -129,13 +117,15 @@ func GenerateConfirmationKey(identitySecret string, timestamp int64, tag string)
 	binary.BigEndian.PutUint64(buf[:8], uint64(timestamp))
 	copy(buf[8:], bytesconv.S2B(tag))
 
-	sum := hmacSha1Stack(secret, buf[:dataLen])
+	sum := hmacSha1Stack(keyBytes, buf[:dataLen])
 
-	return base64.StdEncoding.EncodeToString(sum[:]), nil
+	var dst [28]byte
+	base64.StdEncoding.Encode(dst[:], sum[:])
+
+	return dst
 }
 
 // GetDeviceID generates a unique, deterministic device identifier based on the SteamID.
-// It returns a formatted UUID string with an "android:" prefix.
 func GetDeviceID(steamID uint64) string {
 	h := sha1.New()
 
@@ -166,10 +156,30 @@ func GetDeviceID(steamID uint64) string {
 	return string(result[:])
 }
 
-func decodeSecret(secret string) ([]byte, error) {
-	if len(secret) == 40 {
-		return hex.DecodeString(secret)
+// DecodeSecret decodes a Steam TOTP or confirmation secret string.
+// Supports 40-character Hex strings, standard Base64, and Raw/URL-safe Base64 formats.
+func DecodeSecret(secret string) ([]byte, error) {
+	if len(secret) == 0 {
+		return nil, base64.CorruptInputError(0)
 	}
 
-	return base64.StdEncoding.DecodeString(secret)
+	if len(secret) == 40 {
+		if b, err := hex.DecodeString(secret); err == nil {
+			return b, nil
+		}
+	}
+
+	if b, err := base64.StdEncoding.DecodeString(secret); err == nil {
+		return b, nil
+	}
+
+	if b, err := base64.RawStdEncoding.DecodeString(secret); err == nil {
+		return b, nil
+	}
+
+	if b, err := base64.URLEncoding.DecodeString(secret); err == nil {
+		return b, nil
+	}
+
+	return base64.RawURLEncoding.DecodeString(secret)
 }

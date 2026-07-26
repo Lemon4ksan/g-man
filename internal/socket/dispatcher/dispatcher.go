@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
-	"time"
+	"sync/atomic"
 
 	"github.com/lemon4ksan/miyako/jobs"
 	"github.com/lemon4ksan/miyako/log"
@@ -30,7 +30,7 @@ var (
 	// exceeds the safety threshold (default 100MB) to prevent OOM attacks.
 	ErrDecompressionLimit = errors.New("dispatcher: decompression limit exceeded")
 	// ErrDestJobFailed is returned when the Steam CM indicates a job failure.
-	ErrDestJobFailed = errors.New("dispatcher: destination job failed on Steam side")
+	ErrDestJobFailed = errors.New("dispatcher: destination job failed on steam side")
 )
 
 // Handler defines a callback function for processing a fully-parsed Steam packet.
@@ -134,6 +134,28 @@ func DynamicRawProto(eMsg enums.EMsg, payload []byte, routingAppID uint32) Paylo
 	}
 }
 
+const (
+	maxDenseEMsg     = 16384
+	serviceTableSize = 256
+)
+
+type serviceEntry struct {
+	hash    uint64
+	method  string
+	handler atomic.Pointer[Handler]
+}
+
+// fastHashString computes a fast hash of a string using the FNV-1a algorithm.
+func fastHashString(s string) uint64 {
+	var h uint64 = 14695981039346656037
+	for i := 0; i < len(s); i++ {
+		h ^= uint64(s[i])
+		h *= 1099511628211
+	}
+
+	return h
+}
+
 // Dispatcher coordinates the routing of Steam packets to handlers and job callbacks.
 type Dispatcher struct {
 	mu sync.RWMutex
@@ -143,9 +165,10 @@ type Dispatcher struct {
 	session    SessionReader
 	jobManager *jobs.Manager[uint64, *protocol.Packet]
 
-	handlers        map[enums.EMsg]Handler
-	serviceHandlers map[string]Handler
-	bufferPool      *sync.Pool
+	denseHandlers     [maxDenseEMsg]atomic.Pointer[Handler]
+	sparseHandlers    map[enums.EMsg]Handler
+	denseServiceTable [serviceTableSize]serviceEntry
+	bufferPool        *sync.Pool
 
 	// DecompressionLimit defines the maximum size allowed for unzipped Multi-messages.
 	DecompressionLimit int64
@@ -163,9 +186,8 @@ func New(
 		session:            session,
 		logger:             logger.With(log.Component("dispatch")),
 		jobManager:         jm,
-		handlers:           make(map[enums.EMsg]Handler),
-		serviceHandlers:    make(map[string]Handler),
-		DecompressionLimit: 100 * 1024 * 1024, // 100MB Default
+		sparseHandlers:     make(map[enums.EMsg]Handler),
+		DecompressionLimit: 100 * 1024 * 1024,
 		bufferPool: &sync.Pool{
 			New: func() any {
 				return bytes.NewBuffer(make([]byte, 0, 1024))
@@ -186,26 +208,53 @@ func (d *Dispatcher) UpdateLogger(logger log.Logger) {
 
 // RegisterMsgHandler registers a callback for a specific EMsg.
 func (d *Dispatcher) RegisterMsgHandler(eMsg enums.EMsg, handler Handler) {
+	if uint32(eMsg) < maxDenseEMsg {
+		if handler == nil {
+			d.denseHandlers[eMsg].Store(nil)
+			return
+		}
+
+		hPtr := new(Handler)
+		*hPtr = handler
+		d.denseHandlers[eMsg].Store(hPtr)
+
+		return
+	}
+
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
 	if handler == nil {
-		delete(d.handlers, eMsg)
+		delete(d.sparseHandlers, eMsg)
 	} else {
-		d.handlers[eMsg] = handler
+		d.sparseHandlers[eMsg] = handler
 	}
 }
 
 // RegisterServiceHandler registers a callback for a specific Unified Service Method.
 // Example method: "Player.GetGameBadgeLevels#1".
 func (d *Dispatcher) RegisterServiceHandler(method string, handler Handler) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
+	hash := fastHashString(method)
+	idx := hash & (serviceTableSize - 1)
 
-	if handler == nil {
-		delete(d.serviceHandlers, method)
-	} else {
-		d.serviceHandlers[method] = handler
+	for i := range serviceTableSize {
+		slotIdx := (idx + uint64(i)) & (serviceTableSize - 1)
+		entry := &d.denseServiceTable[slotIdx]
+
+		if entry.hash == 0 || entry.hash == hash {
+			entry.hash = hash
+			entry.method = method
+
+			if handler == nil {
+				entry.handler.Store(nil)
+			} else {
+				hPtr := new(Handler)
+				*hPtr = handler
+				entry.handler.Store(hPtr)
+			}
+
+			return
+		}
 	}
 }
 
@@ -214,8 +263,11 @@ func (d *Dispatcher) ClearHandlers() {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	clear(d.handlers)
-	clear(d.serviceHandlers)
+	clear(d.sparseHandlers)
+
+	for i := range d.denseHandlers {
+		d.denseHandlers[i].Store(nil)
+	}
 }
 
 // Send is the primary method for transmitting data. It handles job registration,
@@ -252,7 +304,6 @@ func (d *Dispatcher) Dispatch(packet *protocol.Packet) bool {
 		packet.Ctx = context.Background()
 	}
 
-	// Handle special infrastructure messages first
 	switch packet.EMsg {
 	case enums.EMsg_Multi:
 		d.handleMulti(packet)
@@ -266,9 +317,16 @@ func (d *Dispatcher) Dispatch(packet *protocol.Packet) bool {
 		return true
 	}
 
-	// Route to standard EMsg handlers
+	if uint32(packet.EMsg) < maxDenseEMsg {
+		hPtr := d.denseHandlers[packet.EMsg].Load()
+		if hPtr != nil && *hPtr != nil {
+			d.invokeHandler(*hPtr, packet)
+			return false
+		}
+	}
+
 	d.mu.RLock()
-	handler, ok := d.handlers[packet.EMsg]
+	handler, ok := d.sparseHandlers[packet.EMsg]
 	d.mu.RUnlock()
 
 	if ok {
@@ -297,33 +355,36 @@ func (d *Dispatcher) invokeHandler(handler Handler, packet *protocol.Packet) {
 }
 
 func (d *Dispatcher) handleService(packet *protocol.Packet) {
-	header, ok := packet.Header.(*protocol.MsgHdrProtoBuf)
-	if !ok {
-		d.getLogger().WarnContext(packet.Context(), "Received ServiceMethod with non-protobuf header")
+	protoHdr := packet.ProtoHeader()
+	if protoHdr == nil || protoHdr.Proto == nil {
 		return
 	}
 
-	methodName := header.Proto.GetTargetJobName()
+	methodName := protoHdr.Proto.GetTargetJobName()
+	hash := fastHashString(methodName)
+	idx := hash & (serviceTableSize - 1)
 
-	d.mu.RLock()
-	handler, ok := d.serviceHandlers[methodName]
-	d.mu.RUnlock()
+	var handler Handler
+	for i := range 8 {
+		slotIdx := (idx + uint64(i)) & (serviceTableSize - 1)
+		entry := &d.denseServiceTable[slotIdx]
 
-	l := d.getLogger().With(
-		log.Int32("emsg", int32(packet.EMsg)),
-		log.Uint64("job_id", packet.GetTargetJobID()),
-		log.String("method", methodName),
-	)
+		if entry.hash == hash && entry.method == methodName {
+			hPtr := entry.handler.Load()
+			if hPtr != nil {
+				handler = *hPtr
+			}
 
-	if !packet.ReceivedAt.IsZero() {
-		l = l.With(log.Int64("queue_delay_ms", time.Since(packet.ReceivedAt).Milliseconds()))
+			break
+		}
+
+		if entry.hash == 0 {
+			break
+		}
 	}
 
-	if ok {
-		l.DebugContext(packet.Context(), "Service method routed to handler")
+	if handler != nil {
 		d.invokeHandler(handler, packet)
-	} else {
-		l.DebugContext(packet.Context(), "Unhandled ServiceMethod")
 	}
 }
 
@@ -345,12 +406,27 @@ var cmsgMultiPool = sync.Pool{
 	New: func() any { return &pb.CMsgMulti{} },
 }
 
-// handleMulti processes batched Multi-messages, acquiring CMsgMulti from sync.Pool to eliminate allocations.
-func (d *Dispatcher) handleMulti(packet *protocol.Packet) {
+func acquireCMsgMulti() *pb.CMsgMulti {
 	msg := cmsgMultiPool.Get().(*pb.CMsgMulti)
-
+	body := msg.GetMessageBody()[:0]
 	msg.Reset()
-	defer cmsgMultiPool.Put(msg)
+	msg.MessageBody = body
+
+	return msg
+}
+
+func releaseCMsgMulti(msg *pb.CMsgMulti) {
+	if msg == nil {
+		return
+	}
+
+	cmsgMultiPool.Put(msg)
+}
+
+// handleMulti processes batched Multi-messages without reflection or LimitedReader allocations.
+func (d *Dispatcher) handleMulti(packet *protocol.Packet) {
+	msg := acquireCMsgMulti()
+	defer releaseCMsgMulti(msg)
 
 	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
 		d.getLogger().ErrorContext(packet.Context(), "Failed to unmarshal CMsgMulti", log.Err(err))
@@ -368,14 +444,19 @@ func (d *Dispatcher) handleMulti(packet *protocol.Packet) {
 		}
 	}
 
-	reader := bytes.NewReader(payload)
-	for reader.Len() > 0 {
-		var subSize uint32
-		if err := binary.Read(reader, binary.LittleEndian, &subSize); err != nil {
+	offset := 0
+	for offset+4 <= len(payload) {
+		subSize := binary.LittleEndian.Uint32(payload[offset : offset+4])
+		offset += 4
+
+		if offset+int(subSize) > len(payload) {
 			break
 		}
 
-		subPacket, err := protocol.ParsePacket(io.LimitReader(reader, int64(subSize)))
+		subPayload := payload[offset : offset+int(subSize)]
+		offset += int(subSize)
+
+		subPacket, err := protocol.ParsePacket(bytes.NewReader(subPayload))
 		if err != nil {
 			continue
 		}
@@ -441,7 +522,6 @@ func (d *Dispatcher) registerJob(ctx context.Context, cb jobs.Callback[*protocol
 	}
 
 	id := d.jobManager.NextID()
-
 	_ = d.jobManager.Add(id, cb, jobs.WithContext[*protocol.Packet](ctx))
 
 	return id
@@ -459,12 +539,11 @@ func (d *Dispatcher) getBuffer() *bytes.Buffer {
 }
 
 func (d *Dispatcher) putBuffer(buf *bytes.Buffer) {
-	if buf.Cap() <= 128*1024 { // Don't pool excessively large buffers
+	if buf.Cap() <= 128*1024 {
 		d.bufferPool.Put(buf)
 	}
 }
 
-// newPacket constructs an outbound packet acquiring a pooled instance to avoid heap allocations.
 func newPacket(
 	sess SessionReader,
 	eMsg enums.EMsg,
@@ -478,7 +557,6 @@ func newPacket(
 		sessionID int32
 	)
 
-	// We don't attach session info to ClientHello (Steam requirement)
 	if sess != nil && eMsg != enums.EMsg_ClientHello {
 		steamID = sess.SteamID()
 		sessionID = sess.SessionID()
@@ -489,33 +567,43 @@ func newPacket(
 	pkt.IsProto = isProto
 
 	if isProto {
-		hdr := protocol.NewMsgHdrProtoBuf(eMsg, steamID, sessionID)
-		hdr.Proto.JobidSource = proto.Uint64(jobID)
+		pkt.HeaderKind = protocol.HeaderKindProto
+		if pkt.HdrProto.Proto == nil {
+			pkt.HdrProto.Proto = protocol.AcquireProtoHeader()
+		} else {
+			pkt.HdrProto.Proto.Reset()
+		}
+
+		pkt.HdrProto.EMsg = eMsg
+		protocol.SetProtoUint64(&pkt.HdrProto.Proto.Steamid, steamID)
+		protocol.SetProtoInt32(&pkt.HdrProto.Proto.ClientSessionid, sessionID)
+		protocol.SetProtoUint64(&pkt.HdrProto.Proto.JobidSource, jobID)
+		protocol.SetProtoUint64(&pkt.HdrProto.Proto.JobidTarget, protocol.NoJob)
 
 		if routingAppID > 0 {
-			hdr.Proto.RoutingAppid = proto.Uint32(routingAppID)
+			pkt.HdrProto.Proto.RoutingAppid = proto.Uint32(routingAppID)
 		}
 
 		if jobName != "" {
-			hdr.Proto.TargetJobName = proto.String(jobName)
+			pkt.HdrProto.Proto.TargetJobName = proto.String(jobName)
 		}
 
 		if token != "" {
-			hdr.Proto.WgToken = proto.String(token)
+			pkt.HdrProto.Proto.WgToken = proto.String(token)
 		}
-
-		pkt.Header = hdr
 	} else {
 		if eMsg == enums.EMsg_ChannelEncryptRequest ||
 			eMsg == enums.EMsg_ChannelEncryptResponse ||
 			eMsg == enums.EMsg_ChannelEncryptResult {
+			pkt.HeaderKind = protocol.HeaderKindStandard
 			hdr := protocol.NewMsgHdr(eMsg, protocol.NoJob)
 			hdr.SourceJobID = jobID
-			pkt.Header = hdr
+			pkt.HdrStd = *hdr
 		} else {
+			pkt.HeaderKind = protocol.HeaderKindExtended
 			hdr := protocol.NewMsgHdrExtended(eMsg, steamID, sessionID)
 			hdr.SourceJobID = jobID
-			pkt.Header = hdr
+			pkt.HdrExt = *hdr
 		}
 	}
 

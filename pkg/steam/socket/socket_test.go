@@ -20,6 +20,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	"github.com/lemon4ksan/g-man/internal/framer"
 	"github.com/lemon4ksan/g-man/internal/network"
 	"github.com/lemon4ksan/g-man/internal/socket/connector"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
@@ -228,7 +229,8 @@ func TestSocket_MessagingHelpers(t *testing.T) {
 			p, err := protocol.ParsePacket(bytes.NewReader(data))
 			require.NoError(t, err)
 			assert.True(t, p.IsProto)
-			hdr := p.Header.(*protocol.MsgHdrProtoBuf)
+			hdr := p.ProtoHeader()
+			require.NotNil(t, hdr)
 			assert.Equal(t, uint32(440), hdr.Proto.GetRoutingAppid())
 
 		case <-time.After(time.Second):
@@ -250,16 +252,21 @@ func TestSocket_SendSync(t *testing.T) {
 			data := <-mConn.sentMsgs
 			req, _ := protocol.ParsePacket(bytes.NewReader(data))
 
-			resp := &protocol.Packet{EMsg: enums.EMsg_ClientLogOnResponse, IsProto: true}
 			hdr := protocol.NewMsgHdrProtoBuf(enums.EMsg_ClientLogOnResponse, 0, 0)
 			hdr.Proto.JobidTarget = proto.Uint64(req.GetSourceJobID())
-			resp.Header = hdr
-			resp.Payload = []byte("payload")
+
+			resp := &protocol.Packet{
+				EMsg:       enums.EMsg_ClientLogOnResponse,
+				IsProto:    true,
+				HeaderKind: protocol.HeaderKindProto,
+				HdrProto:   *hdr,
+				Payload:    []byte("payload"),
+			}
 
 			buf := new(bytes.Buffer)
 
 			_ = resp.SerializeTo(buf)
-			mConn.msgChan <- buf.Bytes()
+			mConn.msgChan <- &framer.FrameBuffer{B: buf.Bytes()}
 		}()
 
 		resp, err := s.SendSync(t.Context(), socket.Proto(enums.EMsg_ClientLogon, nil))
@@ -322,16 +329,21 @@ func TestSocket_SendAsync(t *testing.T) {
 			data := <-mConn.sentMsgs
 			req, _ := protocol.ParsePacket(bytes.NewReader(data))
 
-			resp := &protocol.Packet{EMsg: enums.EMsg_ClientLogOnResponse, IsProto: true}
 			hdr := protocol.NewMsgHdrProtoBuf(enums.EMsg_ClientLogOnResponse, 0, 0)
 			hdr.Proto.JobidTarget = proto.Uint64(req.GetSourceJobID())
-			resp.Header = hdr
-			resp.Payload = []byte("async_payload")
+
+			resp := &protocol.Packet{
+				EMsg:       enums.EMsg_ClientLogOnResponse,
+				IsProto:    true,
+				HeaderKind: protocol.HeaderKindProto,
+				HdrProto:   *hdr,
+				Payload:    []byte("async_payload"),
+			}
 
 			buf := new(bytes.Buffer)
 
 			_ = resp.SerializeTo(buf)
-			mConn.msgChan <- buf.Bytes()
+			mConn.msgChan <- &framer.FrameBuffer{B: buf.Bytes()}
 		}()
 
 		future := s.SendAsync(t.Context(), socket.Proto(enums.EMsg_ClientLogon, nil))
@@ -442,12 +454,20 @@ func TestSocket_Registration(t *testing.T) {
 
 		hdr := protocol.NewMsgHdrProtoBuf(enums.EMsg_ServiceMethod, 0, 0)
 		hdr.Proto.TargetJobName = proto.String("Method")
-		s.Dispatcher().Dispatch(&protocol.Packet{EMsg: enums.EMsg_ServiceMethod, Header: hdr})
+
+		pkt := &protocol.Packet{
+			EMsg:       enums.EMsg_ServiceMethod,
+			IsProto:    true,
+			HeaderKind: protocol.HeaderKindProto,
+			HdrProto:   *hdr,
+		}
+
+		s.Dispatcher().Dispatch(pkt)
 		assert.True(t, called.Load())
 
 		s.UnregisterServiceHandler("Method")
 		called.Store(false)
-		s.Dispatcher().Dispatch(&protocol.Packet{EMsg: enums.EMsg_ServiceMethod, Header: hdr})
+		s.Dispatcher().Dispatch(pkt)
 		assert.False(t, called.Load())
 	})
 }

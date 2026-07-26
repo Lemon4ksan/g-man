@@ -8,6 +8,8 @@ package ringbuffer
 import (
 	"sync/atomic"
 
+	"golang.org/x/sys/cpu"
+
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 )
 
@@ -20,8 +22,12 @@ type slot struct {
 type MPMCRingBuffer struct {
 	buffer []slot
 	mask   uint64
-	head   uint64
-	tail   uint64
+
+	_    cpu.CacheLinePad
+	head uint64
+	_    cpu.CacheLinePad
+	tail uint64
+	_    cpu.CacheLinePad
 }
 
 // New creates a new MPMCRingBuffer with the specified capacity.
@@ -65,6 +71,8 @@ func (rb *MPMCRingBuffer) Push(msg *protocol.InboundMessage) bool {
 		pos = atomic.LoadUint64(&rb.head)
 	}
 
+	// Assign message data before publishing the updated sequence number
+	cell.msg = msg
 	atomic.StoreUint64(&cell.sequence, pos+1)
 
 	return true

@@ -22,6 +22,7 @@ import (
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/fast"
 	"github.com/lemon4ksan/aoni/middleware"
+	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/request"
 	"github.com/lemon4ksan/miyako/log"
 
@@ -266,7 +267,7 @@ func (s *WebSession) Clear() {
 }
 
 func (s *WebSession) applyFastPath(accessToken, sessionID string) error {
-	secureCookieValue := fmt.Sprintf("%d||%s", s.steamID, accessToken)
+	secureCookieValue := fmt.Sprintf("%d%%7C%%7C%s", s.steamID, accessToken)
 	s.seedCookies(sessionID, secureCookieValue)
 
 	s.mu.Lock()
@@ -323,7 +324,7 @@ func (s *WebSession) executeTransfer(ctx context.Context, transferURL string, pa
 		Result enums.EResult `json:"result"`
 	}
 
-	resp, err := request.PostTo[transferResp](ctx, s.REST(), transferURL, params)
+	resp, err := request.PostTo[transferResp](ctx, s.REST(), transferURL, nil, mod.WithFormBody(params))
 	if err != nil {
 		return err
 	}

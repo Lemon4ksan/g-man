@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/lemon4ksan/g-man/internal/framer"
 	"github.com/lemon4ksan/g-man/internal/socket/processor"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
@@ -48,20 +49,21 @@ func (p *panicDispatcher) Dispatch(packet *protocol.Packet) bool {
 	panic("something went wrong inside dispatcher")
 }
 
-func packRaw(eMsg enums.EMsg, targetJob uint64, payload []byte) []byte {
+func packRaw(eMsg enums.EMsg, targetJob uint64, payload []byte) *framer.FrameBuffer {
+	hdr := protocol.NewMsgHdrExtended(eMsg, 0, 0)
+	hdr.TargetJobID = targetJob
+
 	pkt := &protocol.Packet{
-		EMsg:    eMsg,
-		IsProto: false,
-		Header: &protocol.MsgHdrExtended{
-			EMsg:        eMsg,
-			TargetJobID: targetJob,
-		},
-		Payload: payload,
+		EMsg:       eMsg,
+		IsProto:    false,
+		HeaderKind: protocol.HeaderKindExtended,
+		HdrExt:     *hdr,
+		Payload:    payload,
 	}
 	buf := new(bytes.Buffer)
 	_ = pkt.SerializeTo(buf)
 
-	return buf.Bytes()
+	return &framer.FrameBuffer{B: buf.Bytes()}
 }
 
 func TestProcessor_DefaultConfig(t *testing.T) {
@@ -85,7 +87,6 @@ func TestProcessor_Lifecycle(t *testing.T) {
 		input := make(chan *protocol.InboundMessage, 10)
 		p := processor.New(cfg, input, md, log.Discard)
 
-		// Idempotent Start
 		p.Start()
 		p.Start()
 
@@ -100,9 +101,8 @@ func TestProcessor_Lifecycle(t *testing.T) {
 			t.Fatal("Packet was not dispatched via worker loop")
 		}
 
-		// Graceful Stop
 		p.Stop()
-		p.Stop() // Idempotent Stop
+		p.Stop()
 
 		input <- &protocol.InboundMessage{
 			Data: packRaw(enums.EMsg_ClientHeartBeat, 0, nil),
@@ -118,7 +118,6 @@ func TestProcessor_Lifecycle(t *testing.T) {
 		p := processor.New(processor.DefaultConfig(), nil, md, log.Discard)
 		p.Stop()
 
-		// Process should return immediately since p.ctx.Err() != nil
 		p.Process(&protocol.InboundMessage{})
 		assert.Equal(t, int32(0), md.count.Load())
 	})
@@ -132,7 +131,7 @@ func TestProcessor_Lifecycle(t *testing.T) {
 		p.Start()
 
 		close(input)
-		p.Stop() // WaitGroup wait inside Stop unblocks immediately
+		p.Stop()
 		assert.Equal(t, int32(0), md.count.Load())
 	})
 }
@@ -212,17 +211,14 @@ func TestProcessor_Errors(t *testing.T) {
 		p.Start()
 		defer p.Stop()
 
-		// Send garbage that fails protocol.ParsePacket
 		input <- &protocol.InboundMessage{
-			Data: []byte{0x00}, // Too short for any EMsg
+			Data: &framer.FrameBuffer{B: []byte{0x00}},
 		}
 
-		// FIFO synchronization: send a valid packet after the garbage one
 		input <- &protocol.InboundMessage{
 			Data: packRaw(enums.EMsg_ClientHeartBeat, 0, nil),
 		}
 
-		// Wait for the valid packet to be successfully processed.
 		select {
 		case pkt := <-md.packets:
 			assert.Equal(t, enums.EMsg_ClientHeartBeat, pkt.EMsg)
@@ -230,7 +226,6 @@ func TestProcessor_Errors(t *testing.T) {
 			t.Fatal("Timeout waiting for subsequent valid packet")
 		}
 
-		// Verify that the garbage packet was safely ignored
 		assert.Equal(t, int32(1), md.count.Load())
 	})
 
@@ -248,7 +243,6 @@ func TestProcessor_Errors(t *testing.T) {
 			Data: packRaw(enums.EMsg_ClientLogon, 0, []byte("Hello")),
 		}
 
-		// Wait until panic is triggered and safely recovered
 		select {
 		case <-pd.called:
 		case <-time.After(1 * time.Second):
@@ -294,19 +288,20 @@ func TestProcessor_MetadataPropagation(t *testing.T) {
 	})
 
 	t.Run("ws_metadata", func(t *testing.T) {
+		hdr := protocol.NewMsgHdrProtoBuf(enums.EMsg_ClientLogon, 987654321, 42)
 		protoPkt := &protocol.Packet{
-			EMsg:    enums.EMsg_ClientLogon,
-			IsProto: true,
-			Header:  protocol.NewMsgHdrProtoBuf(enums.EMsg_ClientLogon, 987654321, 42),
-			Payload: []byte("payload"),
+			EMsg:       enums.EMsg_ClientLogon,
+			IsProto:    true,
+			HeaderKind: protocol.HeaderKindProto,
+			HdrProto:   *hdr,
+			Payload:    []byte("payload"),
 		}
 		buf := new(bytes.Buffer)
 		err := protoPkt.SerializeTo(buf)
 		require.NoError(t, err)
 
-		protoData := buf.Bytes()
 		p.Process(&protocol.InboundMessage{
-			Data:       protoData,
+			Data:       &framer.FrameBuffer{B: buf.Bytes()},
 			ReceivedAt: time.Now(),
 			Transport:  protocol.TransportWS,
 		})

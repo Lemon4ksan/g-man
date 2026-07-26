@@ -20,6 +20,7 @@ import (
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/lemon4ksan/g-man/internal/bytesconv"
 	"github.com/lemon4ksan/g-man/internal/crypto"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
@@ -333,14 +334,11 @@ func (s *TwoFactorService) FinalizeAuthenticator(
 	serverTime uint64,
 	smsCode string,
 ) (*pb.CTwoFactor_FinalizeAddAuthenticator_Response, error) {
-	totpCode, err := crypto.GenerateAuthCode(sharedSecret, int64(serverTime))
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate verification totp code: %w", err)
-	}
+	totpCode := crypto.GenerateAuthCode(bytesconv.S2B(sharedSecret), int64(serverTime))
 
 	req := &pb.CTwoFactor_FinalizeAddAuthenticator_Request{
 		Steamid:           proto.Uint64(steamID.Uint64()),
-		AuthenticatorCode: proto.String(totpCode),
+		AuthenticatorCode: proto.String(bytesconv.B2S(totpCode[:])),
 		AuthenticatorTime: proto.Uint64(serverTime),
 		ActivationCode:    proto.String(smsCode),
 		ValidateSmsCode:   proto.Bool(true),

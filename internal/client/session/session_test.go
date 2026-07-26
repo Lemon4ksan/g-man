@@ -340,8 +340,9 @@ func TestSessionManager_Refresh_ExpiredWebSession_RefreshesSuccessfully(t *testi
 	})
 
 	m.sock.On("SendSync", mock.Anything, mock.Anything, mock.Anything).Return(&protocol.Packet{
-		IsProto: true,
-		Header: &protocol.MsgHdrProtoBuf{
+		IsProto:    true,
+		HeaderKind: protocol.HeaderKindProto,
+		HdrProto: protocol.MsgHdrProtoBuf{
 			Proto: &pb.CMsgProtoBufHeader{
 				Eresult: proto.Int32(int32(enums.EResult_OK)),
 			},
@@ -491,8 +492,9 @@ func TestSessionManager_Refresh_VariousFailures_ReturnsExpectedError(t *testing.
 					&pb.CAuthentication_AccessToken_GenerateForApp_Response{AccessToken: proto.String("new_at")},
 				)
 				m.sock.On("SendSync", mock.Anything, mock.Anything, mock.Anything).Return(&protocol.Packet{
-					IsProto: true,
-					Header: &protocol.MsgHdrProtoBuf{
+					IsProto:    true,
+					HeaderKind: protocol.HeaderKindProto,
+					HdrProto: protocol.MsgHdrProtoBuf{
 						Proto: &pb.CMsgProtoBufHeader{
 							Eresult: proto.Int32(int32(enums.EResult_OK)),
 						},
@@ -561,8 +563,9 @@ func TestSessionManager_Refresh_SocketDisconnectMidway_ReturnsError(t *testing.T
 	})
 
 	m.sock.On("SendSync", mock.Anything, mock.Anything, mock.Anything).Return(&protocol.Packet{
-		IsProto: true,
-		Header: &protocol.MsgHdrProtoBuf{
+		IsProto:    true,
+		HeaderKind: protocol.HeaderKindProto,
+		HdrProto: protocol.MsgHdrProtoBuf{
 			Proto: &pb.CMsgProtoBufHeader{
 				Eresult: proto.Int32(int32(enums.EResult_OK)),
 			},
@@ -619,8 +622,9 @@ func TestSession_StartRefreshLoop_TriggerRefresh_Succeeds(t *testing.T) {
 	})
 
 	m.sock.On("SendSync", mock.Anything, mock.Anything, mock.Anything).Return(&protocol.Packet{
-		IsProto: true,
-		Header: &protocol.MsgHdrProtoBuf{
+		IsProto:    true,
+		HeaderKind: protocol.HeaderKindProto,
+		HdrProto: protocol.MsgHdrProtoBuf{
 			Proto: &pb.CMsgProtoBufHeader{
 				Eresult: proto.Int32(int32(enums.EResult_OK)),
 			},
@@ -725,8 +729,9 @@ func TestSessionManager_Refresh_SingleFlight_PreventsDuplicateConcurrentRequests
 	})
 
 	m.sock.On("SendSync", mock.Anything, mock.Anything, mock.Anything).Return(&protocol.Packet{
-		IsProto: true,
-		Header: &protocol.MsgHdrProtoBuf{
+		IsProto:    true,
+		HeaderKind: protocol.HeaderKindProto,
+		HdrProto: protocol.MsgHdrProtoBuf{
 			Proto: &pb.CMsgProtoBufHeader{
 				Eresult: proto.Int32(int32(enums.EResult_OK)),
 			},

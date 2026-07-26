@@ -2,10 +2,11 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package connector_test
+package framer_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"io"
 	"net"
@@ -15,8 +16,54 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/lemon4ksan/g-man/internal/socket/connector"
+	"github.com/lemon4ksan/g-man/internal/framer"
+	"github.com/lemon4ksan/g-man/internal/network"
 )
+
+type MockConnection struct {
+	id       int64
+	name     string
+	messages chan network.Message
+	errors   chan error
+	closed   chan struct{}
+	sent     chan []byte
+	closeErr error
+	sendErr  error
+}
+
+func (m *MockConnection) ID() int64                        { return m.id }
+func (m *MockConnection) Name() string                     { return m.name }
+func (m *MockConnection) Messages() <-chan network.Message { return m.messages }
+func (m *MockConnection) Errors() <-chan error             { return m.errors }
+func (m *MockConnection) Closed() <-chan struct{}          { return m.closed }
+
+func (m *MockConnection) Close() error {
+	close(m.closed)
+	return m.closeErr
+}
+
+func (m *MockConnection) Send(ctx context.Context, data []byte) error {
+	if m.sendErr != nil {
+		return m.sendErr
+	}
+
+	select {
+	case m.sent <- data:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+type MockEncryptableConn struct {
+	MockConnection
+	Cipher any
+}
+
+func (m *MockEncryptableConn) SetCipher(cipher network.Cipher) bool {
+	m.Cipher = cipher
+	return true
+}
 
 type failingWriter struct {
 	failOnWrite int
@@ -35,7 +82,7 @@ func (f *failingWriter) Write(p []byte) (int, error) {
 func TestSteamFramer_WriteFrame(t *testing.T) {
 	t.Parallel()
 
-	framer := connector.SteamFramer{}
+	framer := framer.SteamFramer{}
 
 	t.Run("oversized_payload", func(t *testing.T) {
 		t.Parallel()
@@ -101,7 +148,7 @@ func TestSteamFramer_WriteFrame(t *testing.T) {
 func TestSteamFramer_ReadFrame(t *testing.T) {
 	t.Parallel()
 
-	framer := connector.SteamFramer{}
+	framer := framer.SteamFramer{}
 
 	t.Run("short_header_read", func(t *testing.T) {
 		t.Parallel()
@@ -157,7 +204,7 @@ func TestSteamFramer_ReadFrame(t *testing.T) {
 
 		payload, err := framer.ReadFrame(buf)
 		require.NoError(t, err)
-		assert.Equal(t, []byte("data"), payload)
+		assert.Equal(t, []byte("data"), payload.B)
 	})
 }
 
@@ -172,8 +219,8 @@ func TestSteamCipher(t *testing.T) {
 			key[i] = 0
 		}
 
-		mockConn := &connector.MockEncryptableConn{Cipher: nil}
-		ok := mockConn.SetCipher(connector.NewSteamCipher(key))
+		mockConn := &MockEncryptableConn{Cipher: nil}
+		ok := mockConn.SetCipher(framer.NewSteamCipher(key))
 		require.True(t, ok)
 
 		// Test simple crypto flow
@@ -201,15 +248,15 @@ func TestSteamCipher_Custom(t *testing.T) {
 		t.Parallel()
 
 		key := make([]byte, 32)
-		cipher := connector.NewSteamCipher(key)
+		cipher := framer.NewSteamCipher(key)
 		require.NotNil(t, cipher)
 
 		data := []byte("hello_world_12345")
 		encrypted, err := cipher.Encrypt(data)
 		require.NoError(t, err)
 
-		decrypted, err := cipher.Decrypt(encrypted)
+		decrypted, err := cipher.Decrypt(&framer.FrameBuffer{B: encrypted})
 		require.NoError(t, err)
-		assert.Equal(t, data, decrypted)
+		assert.Equal(t, data, decrypted.B)
 	})
 }

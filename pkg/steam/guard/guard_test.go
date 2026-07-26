@@ -22,6 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/lemon4ksan/g-man/internal/clock"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
@@ -144,6 +145,20 @@ func setupGuardian(t *testing.T, cfg Config) (*Guardian, *module.InitContext, *M
 	return g, ictx, mockSvc
 }
 
+func setupGuardianFail(t *testing.T, cfg Config) (*Guardian, *module.InitContext, *MockConfService) {
+	t.Helper()
+
+	g, _ := New(cfg)
+
+	ictx := module.NewInitContext()
+	_ = g.Init(ictx)
+
+	mockSvc := new(MockConfService)
+	g.service = mockSvc
+
+	return g, ictx, mockSvc
+}
+
 func setupAuthenticatedGuardian(
 	t *testing.T,
 	cfg Config,
@@ -155,6 +170,22 @@ func setupAuthenticatedGuardian(
 	actx := module.NewAuthContext(steamID)
 	err := g.StartAuthed(t.Context(), actx)
 	require.NoError(t, err)
+
+	g.service = mockSvc
+
+	return g, ictx, mockSvc
+}
+
+func setupAuthenticatedGuardianFail(
+	t *testing.T,
+	cfg Config,
+	steamID id.ID,
+) (*Guardian, *module.InitContext, *MockConfService) {
+	t.Helper()
+	g, ictx, mockSvc := setupGuardianFail(t, cfg)
+
+	actx := module.NewAuthContext(steamID)
+	g.StartAuthed(t.Context(), actx)
 
 	g.service = mockSvc
 
@@ -382,7 +413,7 @@ func TestFetchConfirmations_VariousResponses_HandlesExpectedly(t *testing.T) {
 	t.Run("service_network_error", func(t *testing.T) {
 		t.Parallel()
 
-		g, _, mockSvc := setupAuthenticatedGuardian(t, defaultValidConfig(), id.ID(123))
+		g, _, mockSvc := setupAuthenticatedGuardianFail(t, defaultValidConfig(), id.ID(123))
 
 		mockSvc.On("GetConfirmations", mock.Anything, mock.Anything, g.SteamID(), mock.Anything, mock.Anything).
 			Return(nil, errors.New("network timeout")).Once()
@@ -404,10 +435,10 @@ func TestFetchConfirmations_VariousResponses_HandlesExpectedly(t *testing.T) {
 		t.Parallel()
 
 		cfg := Config{IdentitySecret: "invalid-b64-!!!", DeviceID: "android:123"}
-		g, _, _ := setupAuthenticatedGuardian(t, cfg, id.ID(123))
+		g, _, _ := setupAuthenticatedGuardianFail(t, cfg, id.ID(123))
 
 		_, err := g.FetchConfirmations(t.Context())
-		assert.ErrorContains(t, err, "key generation")
+		assert.ErrorContains(t, err, "crypto: invalid")
 	})
 
 	t.Run("error_not_configured", func(t *testing.T) {
@@ -489,7 +520,7 @@ func TestRespond_AcceptOrCancel_UpdatesMetricsAndCallsService(t *testing.T) {
 	t.Run("respond_multiple_error", func(t *testing.T) {
 		t.Parallel()
 
-		g, _, mockSvc := setupAuthenticatedGuardian(t, defaultValidConfig(), id.ID(123))
+		g, _, mockSvc := setupAuthenticatedGuardianFail(t, defaultValidConfig(), id.ID(123))
 
 		confs := []*Confirmation{{ID: 1}, {ID: 2}}
 		mockSvc.On("RespondToMultiple", mock.Anything, confs, true, mock.Anything, g.SteamID(), mock.Anything, mock.Anything).
@@ -506,10 +537,10 @@ func TestRespond_AcceptOrCancel_UpdatesMetricsAndCallsService(t *testing.T) {
 
 		cfg := defaultValidConfig()
 		cfg.IdentitySecret = "invalid-b64-!!!"
-		g, _, _ := setupAuthenticatedGuardian(t, cfg, id.ID(123))
+		g, _, _ := setupAuthenticatedGuardianFail(t, cfg, id.ID(123))
 
 		err := g.Accept(t.Context(), &Confirmation{})
-		assert.ErrorContains(t, err, "illegal base64 data")
+		assert.ErrorContains(t, err, "crypto: invalid")
 	})
 
 	t.Run("nil_guardian_respond_error", func(t *testing.T) {
@@ -555,7 +586,7 @@ func TestClock_OffsetAndSystem_ReturnsTimeWithinLimits(t *testing.T) {
 	t.Run("offset_clock", func(t *testing.T) {
 		t.Parallel()
 
-		oc := &OffsetClock{}
+		oc := &clock.OffsetClock{}
 		oc.SetOffset(10 * time.Second)
 		assert.WithinDuration(t, time.Now().Add(10*time.Second), oc.Now(), 2*time.Second)
 	})
@@ -563,7 +594,7 @@ func TestClock_OffsetAndSystem_ReturnsTimeWithinLimits(t *testing.T) {
 	t.Run("system_clock", func(t *testing.T) {
 		t.Parallel()
 
-		sc := SystemClock{}
+		sc := clock.SystemClock{}
 		assert.WithinDuration(t, time.Now(), sc.Now(), 2*time.Second)
 	})
 }
@@ -620,20 +651,14 @@ func TestMetrics_Always_ReturnsNonNilMetrics(t *testing.T) {
 func TestGenerateAuthCode_WithOrWithoutSecret_GeneratesExpectedCode(t *testing.T) {
 	t.Parallel()
 
-	g := &Guardian{clock: &OffsetClock{}}
+	g := &Guardian{clock: &clock.OffsetClock{}}
 	res := g.GenerateAuthCode()
-	assert.True(t, res.IsSuccess())
-	optCode, err := res.Unwrap()
-	assert.NoError(t, err)
-	assert.False(t, optCode.IsPresent())
+	assert.False(t, res.IsPresent())
 
 	g.config.SharedSecret = validSecret
 	res = g.GenerateAuthCode()
-	assert.True(t, res.IsSuccess())
-	optCode, err = res.Unwrap()
-	assert.NoError(t, err)
-	assert.True(t, optCode.IsPresent())
-	code, _ := optCode.Value()
+	assert.True(t, res.IsPresent())
+	code, _ := res.Value()
 	assert.NotEmpty(t, code)
 }
 
@@ -675,7 +700,7 @@ func TestTwoFactorService_QueryErrors_HandlesGracefullyWithoutPanic(t *testing.T
 	t.Parallel()
 
 	g := &Guardian{
-		clock: &OffsetClock{},
+		clock: &clock.OffsetClock{},
 	}
 	g.twoFactorSvc = lazy.New(func() (*TwoFactorService, error) {
 		return nil, errors.New("lazy fetch error")

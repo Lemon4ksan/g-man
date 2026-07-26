@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
@@ -88,13 +89,6 @@ type mockSession struct {
 
 func (m *mockSession) IsAuthenticated() bool { return m.authed }
 
-type simpleHeader struct {
-	protocol.Header
-	sourceJob uint64
-}
-
-func (s simpleHeader) GetSourceJob() uint64 { return s.sourceJob }
-
 func TestNewSocketTransport_ValidCaller_CreatesTransport(t *testing.T) {
 	t.Parallel()
 
@@ -109,14 +103,16 @@ func TestSocketTransportDo_VariousRequests_SendsPacketsAndMapsHeader(t *testing.
 	t.Run("success_with_eheader", func(t *testing.T) {
 		t.Parallel()
 
+		hdr := protocol.NewMsgHdrProtoBuf(enums.EMsg(1), 0, 0)
+		hdr.Proto.Eresult = proto.Int32(int32(enums.EResult_Fail))
+		hdr.Proto.JobidSource = proto.Uint64(777)
+
 		caller := &mockSocketCaller{
 			session: &mockSession{authed: true},
 			mockPacket: &protocol.Packet{
-				Payload: []byte("payload"),
-				Header: mockEHeader{
-					result:    enums.EResult_Fail,
-					sourceJob: 777,
-				},
+				Payload:    []byte("payload"),
+				HeaderKind: protocol.HeaderKindProto,
+				HdrProto:   *hdr,
 			},
 		}
 		tr := NewSocketTransport(caller)
@@ -137,8 +133,11 @@ func TestSocketTransportDo_VariousRequests_SendsPacketsAndMapsHeader(t *testing.
 		caller := &mockSocketCaller{
 			session: &mockSession{authed: false},
 			mockPacket: &protocol.Packet{
-				Payload: []byte("payload"),
-				Header:  simpleHeader{sourceJob: 888},
+				Payload:    []byte("payload"),
+				HeaderKind: protocol.HeaderKindExtended,
+				HdrExt: protocol.MsgHdrExtended{
+					SourceJobID: 888,
+				},
 			},
 		}
 		tr := NewSocketTransport(caller)
@@ -198,8 +197,11 @@ func TestSocketTransportDo_VariousRequests_SendsPacketsAndMapsHeader(t *testing.
 		caller := &mockSocketCaller{
 			session: &mockSession{authed: true},
 			mockPacket: &protocol.Packet{
-				Payload: []byte("proto_payload"),
-				Header:  simpleHeader{sourceJob: 999},
+				Payload:    []byte("proto_payload"),
+				HeaderKind: protocol.HeaderKindExtended,
+				HdrExt: protocol.MsgHdrExtended{
+					SourceJobID: 999,
+				},
 			},
 		}
 		tr := NewSocketTransport(caller)

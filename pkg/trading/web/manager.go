@@ -27,6 +27,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/lemon4ksan/g-man/internal/bytesconv"
+	"github.com/lemon4ksan/g-man/internal/heap"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
@@ -135,21 +136,16 @@ func DefaultConfig() Config {
 }
 
 // Manager handles trade offer synchronization, polling, and state tracking.
-//
-// It runs a background polling loop, monitors state transitions of sent and
-// received offers, and coordinates asynchronous decision processing via an internal
-// [processor.Processor] instance.
-//
-// Create new instances of Manager using the [New] constructor.
 type Manager struct {
 	module.Base
 
 	config Config
 
 	// Dependencies
-	web       service.Doer
-	community community.Requester
-	processor *processor.Processor
+	web           service.Doer
+	community     community.Requester
+	processor     *processor.Processor
+	priorityQueue *heap.PriorityQueue
 
 	// Polling synchronization
 	mu             sync.RWMutex
@@ -186,6 +182,7 @@ func New(cfg Config) *Manager {
 	return &Manager{
 		Base:           module.New(ModuleName),
 		config:         cfg,
+		priorityQueue:  heap.NewPriorityQueue(),
 		sentOffers:     make(map[uint64]trading.OfferState),
 		receivedOffers: make(map[uint64]trading.OfferState),
 		lastSeenOffers: make(map[uint64]time.Time),
@@ -197,7 +194,6 @@ func New(cfg Config) *Manager {
 }
 
 // Web returns the internal service.Doer.
-// Direct reading is thread-safe as web is immutable after Init.
 func (m *Manager) Web() service.Doer {
 	return m.web
 }
@@ -247,13 +243,11 @@ func (m *Manager) StartAuthed(ctx context.Context, authCtx module.AuthContext) e
 	m.community = authCtx.Community()
 	m.mu.Unlock()
 
-	// Listen for auth events to handle disconnects
 	sub := m.Bus.Subscribe(&auth.StateEvent{})
 	m.Go(func(ctx context.Context) {
 		m.listenEvents(ctx, sub)
 	})
 
-	// Listen for trade offer notification changes to trigger immediate poll
 	notifSub := m.Bus.Subscribe(
 		&notifications.UserNotificationsEvent{},
 		&notifications.ReceivedEvent{},
@@ -276,7 +270,6 @@ func (m *Manager) TriggerPoll() {
 	select {
 	case m.trigger <- struct{}{}:
 	default:
-		// Already triggered
 	}
 }
 
@@ -286,7 +279,6 @@ func (m *Manager) SetOfferHandler(ctx context.Context, handler processor.OfferHa
 	m.processor = processor.New(m, bp, handler, processor.WithLogger(m.Logger))
 	m.mu.Unlock()
 
-	// If the module has already started, start the processor immediately.
 	if m.Ctx != nil && m.Ctx.Err() == nil {
 		m.processor.Start(m.Ctx)
 	}
@@ -312,11 +304,6 @@ func (m *Manager) StopPolling() {
 }
 
 // SendOffer builds and sends a new trade offer based on provided parameters.
-//
-// It enforces rate limiting on outgoing calls and may block the current goroutine.
-// If the rate limit wait is canceled, or if the underlying HTTP request fails,
-// it returns an error. If Steam requires manual validation, it publishes a
-// [guard.ConfirmationRequiredEvent] before returning the offer ID.
 func (m *Manager) SendOffer(ctx context.Context, p trading.OfferParams) (uint64, error) {
 	if err := m.rateLimiter.Wait(ctx); err != nil {
 		return 0, err
@@ -405,12 +392,6 @@ func (m *Manager) SendOffer(ctx context.Context, p trading.OfferParams) (uint64,
 }
 
 // AcceptOffer accepts a trade offer.
-//
-// It returns [ErrCommunityNotReady] if the community requester is nil.
-// It enforces rate limiting and may block the current goroutine.
-// If the rate limit wait is canceled, or if the underlying HTTP request fails,
-// it returns an error. If the trade requires additional mobile or email confirmation,
-// it publishes a [guard.ConfirmationRequiredEvent].
 func (m *Manager) AcceptOffer(ctx context.Context, offerID uint64) error {
 	if err := m.rateLimiter.Wait(ctx); err != nil {
 		return err
@@ -449,10 +430,6 @@ func (m *Manager) AcceptOffer(ctx context.Context, offerID uint64) error {
 }
 
 // DeclineOffer declines a trade offer.
-//
-// It enforces rate limiting and may block the current goroutine.
-// If the rate limit wait is canceled, or if the underlying HTTP request fails,
-// it returns an error.
 func (m *Manager) DeclineOffer(ctx context.Context, offerID uint64) error {
 	if err := m.rateLimiter.Wait(ctx); err != nil {
 		return err
@@ -467,10 +444,6 @@ func (m *Manager) DeclineOffer(ctx context.Context, offerID uint64) error {
 }
 
 // CancelOffer cancels a trade offer sent by us.
-//
-// It enforces rate limiting and may block the current goroutine.
-// If the rate limit wait is canceled, or if the underlying HTTP request fails,
-// it returns an error.
 func (m *Manager) CancelOffer(ctx context.Context, offerID uint64) error {
 	if err := m.rateLimiter.Wait(ctx); err != nil {
 		return err
@@ -604,8 +577,35 @@ func (m *Manager) GetOffer(ctx context.Context, offerID uint64) (*trading.TradeO
 	return resp.Offer, nil
 }
 
+// PartnerInventoryOptions sets options for fetching partner inventory.
+type PartnerInventoryOptions struct {
+	FullMode bool
+}
+
+type sharedClassMeta struct {
+	Name           string
+	MarketName     string
+	MarketHashName string
+	Type           string
+	IconURL        string
+	Tradable       bool
+	Marketable     bool
+	Descriptions   []trading.Description
+	Tags           []trading.Tag
+	Actions        []trading.Action
+}
+
 // GetPartnerInventory fetches the inventory of a trade partner for the configured game.
 func (m *Manager) GetPartnerInventory(ctx context.Context, partnerID id.ID) ([]*trading.Item, error) {
+	return m.GetPartnerInventoryOpts(ctx, partnerID, PartnerInventoryOptions{FullMode: false})
+}
+
+// GetPartnerInventoryOpts fetches the inventory of a trade partner with 1 bulk contiguous allocation for item structs.
+func (m *Manager) GetPartnerInventoryOpts(
+	ctx context.Context,
+	partnerID id.ID,
+	opts PartnerInventoryOptions,
+) ([]*trading.Item, error) {
 	comm := m.Community()
 	if comm == nil {
 		return nil, ErrCommunityNotReady
@@ -618,59 +618,90 @@ func (m *Manager) GetPartnerInventory(ctx context.Context, partnerID id.ID) ([]*
 		return nil, err
 	}
 
+	if len(inv) == 0 {
+		return []*trading.Item{}, nil
+	}
+
+	itemStorage := make([]trading.Item, len(inv))
 	result := make([]*trading.Item, 0, len(inv))
+
+	classCache := make(map[uint64]*sharedClassMeta, 64)
+
+	validIndex := 0
 	for _, it := range inv {
-		assetID, err := strconv.ParseUint(it.Asset.AssetID, 10, 64)
-		if err != nil {
+		assetID, ok := bytesconv.ParseUint64(bytesconv.S2B(it.Asset.AssetID))
+		if !ok {
 			m.Logger.Warn("Invalid asset ID in partner inventory, skipping item",
 				log.String("asset_id", it.Asset.AssetID),
-				log.Err(err),
 			)
 
 			continue
 		}
 
-		classID, _ := strconv.ParseUint(it.Asset.ClassID, 10, 64)
-		instanceID, _ := strconv.ParseUint(it.Asset.InstanceID, 10, 64)
-		amount, _ := strconv.ParseInt(it.Asset.Amount, 10, 64)
+		classID, _ := bytesconv.ParseUint64(bytesconv.S2B(it.Asset.ClassID))
+		instanceID, _ := bytesconv.ParseUint64(bytesconv.S2B(it.Asset.InstanceID))
+		amount, _ := bytesconv.ParseInt64(bytesconv.S2B(it.Asset.Amount))
 
-		var descs []trading.Description
-		if len(it.Description.Descriptions) > 0 {
-			descs = make([]trading.Description, len(it.Description.Descriptions))
-			for idx, d := range it.Description.Descriptions {
-				descs[idx] = trading.Description{
-					Value: d.Value,
-					Color: d.Color,
+		packedKey := (classID << 32) | (instanceID & 0xFFFFFFFF)
+
+		meta, exists := classCache[packedKey]
+		if !exists {
+			meta = &sharedClassMeta{
+				Name:           it.Description.Name,
+				MarketName:     it.Description.Name,
+				MarketHashName: it.Description.MarketHashName,
+				Type:           it.Description.Type,
+				IconURL:        it.Description.IconURL,
+				Tradable:       it.Description.Tradable == 1,
+			}
+
+			if len(it.Description.Descriptions) > 0 {
+				meta.Descriptions = make([]trading.Description, len(it.Description.Descriptions))
+				for idx, d := range it.Description.Descriptions {
+					meta.Descriptions[idx] = trading.Description{
+						Value: d.Value,
+						Color: d.Color,
+					}
 				}
 			}
-		}
 
-		var tags []trading.Tag
-		if len(it.Description.Tags) > 0 {
-			tags = make([]trading.Tag, len(it.Description.Tags))
-			for idx, t := range it.Description.Tags {
-				tags[idx] = trading.Tag{
-					Category:      t.Category,
-					InternalName:  t.InternalName,
-					Localized:     t.LocalizedCategoryName,
-					LocalizedName: t.LocalizedTagName,
+			if len(it.Description.Tags) > 0 {
+				meta.Tags = make([]trading.Tag, len(it.Description.Tags))
+				for idx, t := range it.Description.Tags {
+					meta.Tags[idx] = trading.Tag{
+						Category:      t.Category,
+						InternalName:  t.InternalName,
+						Localized:     t.LocalizedCategoryName,
+						LocalizedName: t.LocalizedTagName,
+					}
 				}
 			}
+
+			classCache[packedKey] = meta
 		}
 
-		result = append(result, &trading.Item{
-			AppID:          m.config.AppID,
-			ContextID:      m.config.ContextID,
-			AssetID:        assetID,
-			ClassID:        classID,
-			InstanceID:     instanceID,
-			Amount:         amount,
-			Name:           it.Description.Name,
-			MarketHashName: it.Description.MarketHashName,
-			Tradable:       it.Description.Tradable == 1,
-			Descriptions:   descs,
-			Tags:           tags,
-		})
+		itemPtr := &itemStorage[validIndex]
+		validIndex++
+
+		itemPtr.AppID = m.config.AppID
+		itemPtr.ContextID = m.config.ContextID
+		itemPtr.AssetID = assetID
+		itemPtr.ClassID = classID
+		itemPtr.InstanceID = instanceID
+		itemPtr.Amount = amount
+		itemPtr.Name = meta.Name
+		itemPtr.MarketHashName = meta.MarketHashName
+		itemPtr.Tradable = meta.Tradable
+		itemPtr.Descriptions = meta.Descriptions
+		itemPtr.Tags = meta.Tags
+
+		if opts.FullMode {
+			itemPtr.IconURL = meta.IconURL
+			itemPtr.MarketName = meta.MarketName
+			itemPtr.Type = meta.Type
+		}
+
+		result = append(result, itemPtr)
 	}
 
 	_ = m.enrichItemsDescriptions(ctx, result)
@@ -679,9 +710,6 @@ func (m *Manager) GetPartnerInventory(ctx context.Context, partnerID id.ID) ([]*
 }
 
 // GetEscrowDuration loads the trade page and parses the Trade Hold information.
-//
-// It returns [ErrCommunityNotReady] if the community requester is nil.
-// It returns [ErrEscrowNotFound] if it fails to parse valid escrow hold durations from the page.
 func (m *Manager) GetEscrowDuration(ctx context.Context, offerID uint64) (processor.Details, error) {
 	comm := m.Community()
 	if comm == nil {
@@ -800,7 +828,7 @@ func (m *Manager) doPoll(ctx context.Context) {
 
 	cutoff := time.Now().Add(-24 * time.Hour).Unix()
 	if m.offersSince > 0 {
-		cutoff = m.offersSince - 1800 // 30-minute buffer
+		cutoff = m.offersSince - 1800
 	}
 
 	m.mu.RUnlock()
@@ -836,11 +864,7 @@ func (m *Manager) doPoll(ctx context.Context) {
 		}
 	}
 
-	// Auto-cancellation checks for active sent offers
-	m.handleAutoCancellation(ctx, resp.Sent)
-
 	m.mu.Lock()
-	defer m.mu.Unlock()
 
 	now := time.Now()
 	allOffers := make([]*trading.TradeOffer, 0, len(resp.Sent)+len(resp.Received))
@@ -891,9 +915,12 @@ func (m *Manager) doPoll(ctx context.Context) {
 				OldState: oldState,
 			})
 		}
+
+		if off.IsOurOffer && off.State == trading.OfferStateActive {
+			m.priorityQueue.Push(off)
+		}
 	}
 
-	// Update offersSince
 	latest := m.offersSince
 	for _, off := range allOffers {
 		if off.TimeUpdated > latest {
@@ -918,6 +945,11 @@ func (m *Manager) doPoll(ctx context.Context) {
 			PollData: newPollData,
 		})
 	}
+
+	m.mu.Unlock()
+
+	// Auto-cancellation MUST run AFTER m.priorityQueue and m.sentOffers are populated!
+	m.handleAutoCancellation(ctx, resp.Sent)
 
 	m.Logger.Debug("Trade poll completed",
 		log.Int("sent_active", len(resp.Sent)),
@@ -973,17 +1005,21 @@ func (m *Manager) cancelOverLimit(ctx context.Context, active []*trading.TradeOf
 		return
 	}
 
-	var oldest *trading.TradeOffer
-	for _, off := range active {
-		age := time.Since(off.UpdatedAt())
-		if m.config.CancelOfferCountMinAge > 0 && age < m.config.CancelOfferCountMinAge {
-			continue
+	oldest := m.priorityQueue.Peek(func(off *trading.TradeOffer) bool {
+		m.mu.RLock()
+		st, ok := m.sentOffers[off.ID]
+		m.mu.RUnlock()
+
+		if !ok || st != trading.OfferStateActive {
+			return false
 		}
 
-		if oldest == nil || off.TimeUpdated < oldest.TimeUpdated {
-			oldest = off
+		if m.config.CancelOfferCountMinAge > 0 && time.Since(off.UpdatedAt()) < m.config.CancelOfferCountMinAge {
+			return false
 		}
-	}
+
+		return true
+	})
 
 	if oldest == nil {
 		return
@@ -1006,7 +1042,6 @@ func (m *Manager) cancelOverLimit(ctx context.Context, active []*trading.TradeOf
 	}
 }
 
-// gcKnownOffers removes stale offers from memory to prevent memory leaks.
 func (m *Manager) gcKnownOffers(now time.Time) {
 	for id, lastSeen := range m.lastSeenOffers {
 		if now.Sub(lastSeen) > 1*time.Hour {
@@ -1086,11 +1121,28 @@ func (m *Manager) enrichOfferDescriptions(ctx context.Context, offer *trading.Tr
 		return nil
 	}
 
-	items := make([]*trading.Item, 0, len(offer.ItemsToGive)+len(offer.ItemsToReceive))
-	items = append(items, offer.ItemsToGive...)
-	items = append(items, offer.ItemsToReceive...)
+	missingKeys := m.getMissingKeysFromOffer(offer)
+	if len(missingKeys) == 0 {
+		return nil
+	}
 
-	return m.enrichItemsDescriptions(ctx, items)
+	resolvedDescs, uncachedKeys := m.resolveCachedKeys(missingKeys)
+	if len(uncachedKeys) > 0 {
+		fetched, err := m.fetchAssetClassInfos(ctx, uncachedKeys)
+		if err != nil {
+			return err
+		}
+
+		for k, desc := range fetched {
+			m.descCache.Set(k, desc, 5*time.Minute)
+			resolvedDescs[k] = desc
+		}
+	}
+
+	updateItems(offer.ItemsToGive, resolvedDescs)
+	updateItems(offer.ItemsToReceive, resolvedDescs)
+
+	return nil
 }
 
 func (m *Manager) enrichItemsDescriptions(ctx context.Context, items []*trading.Item) error {
@@ -1117,22 +1169,74 @@ func (m *Manager) enrichItemsDescriptions(ctx context.Context, items []*trading.
 	return nil
 }
 
-func (m *Manager) getMissingKeys(items []*trading.Item) []descKey {
-	var missingKeys []descKey
+func (m *Manager) getMissingKeysFromOffer(offer *trading.TradeOffer) []descKey {
+	var (
+		seenBuf [32]descKey
+		seen    = seenBuf[:0]
+		missing []descKey
+	)
 
-	seenKeys := generic.NewSet[descKey]()
+	checkItem := func(it *trading.Item) {
+		if it == nil || it.MarketHashName != "" {
+			return
+		}
+
+		k := packDescKey(it.ClassID, it.InstanceID)
+
+		for _, s := range seen {
+			if s == k {
+				return
+			}
+		}
+
+		seen = append(seen, k)
+		missing = append(missing, k)
+	}
+
+	for _, it := range offer.ItemsToGive {
+		checkItem(it)
+	}
+
+	for _, it := range offer.ItemsToReceive {
+		checkItem(it)
+	}
+
+	return missing
+}
+
+func (m *Manager) getMissingKeys(items []*trading.Item) []descKey {
+	if len(items) == 0 {
+		return nil
+	}
+
+	var (
+		seenBuf [32]descKey
+		seen    = seenBuf[:0]
+		missing []descKey
+	)
 
 	for _, it := range items {
-		if it.MarketHashName == "" {
-			k := descKey{ClassID: it.ClassID, InstanceID: it.InstanceID}
-			if !seenKeys.Has(k) {
-				seenKeys.Add(k)
-				missingKeys = append(missingKeys, k)
+		if it == nil || it.MarketHashName != "" {
+			continue
+		}
+
+		k := packDescKey(it.ClassID, it.InstanceID)
+
+		found := false
+		for _, s := range seen {
+			if s == k {
+				found = true
+				break
 			}
+		}
+
+		if !found {
+			seen = append(seen, k)
+			missing = append(missing, k)
 		}
 	}
 
-	return missingKeys
+	return missing
 }
 
 func (m *Manager) resolveCachedKeys(keys []descKey) (map[descKey]rawAssetClassDescription, []descKey) {
@@ -1143,7 +1247,7 @@ func (m *Manager) resolveCachedKeys(keys []descKey) (map[descKey]rawAssetClassDe
 	for _, k := range keys {
 		if desc, ok := m.descCache.Get(k); ok {
 			resolved[k] = desc
-		} else if desc, ok := m.descCache.Get(descKey{ClassID: k.ClassID, InstanceID: 0}); ok {
+		} else if desc, ok := m.descCache.Get(packDescKey(k>>32, 0)); ok {
 			resolved[k] = desc
 		} else {
 			uncached = append(uncached, k)
@@ -1178,10 +1282,10 @@ func (m *Manager) fetchAssetClassInfos(
 		params.Set("class_count", strconv.Itoa(len(chunk)))
 
 		for idx, k := range chunk {
-			params.Set(fmt.Sprintf("classid%d", idx), strconv.FormatUint(k.ClassID, 10))
+			params.Set(fmt.Sprintf("classid%d", idx), strconv.FormatUint(k>>32, 10))
 
-			if k.InstanceID != 0 {
-				params.Set(fmt.Sprintf("instanceid%d", idx), strconv.FormatUint(k.InstanceID, 10))
+			if k != 0 {
+				params.Set(fmt.Sprintf("instanceid%d", idx), strconv.FormatUint(k&0xFFFFFFFF, 10))
 			}
 		}
 
@@ -1220,7 +1324,6 @@ func (m *Manager) fetchAssetClassInfos(
 	return merged, nil
 }
 
-// isPollDataEqual deep-compares two PollData objects to check for equality.
 func isPollDataEqual(a, b trading.PollData) bool {
 	if a.OffersSince != b.OffersSince || len(a.Sent) != len(b.Sent) || len(a.Received) != len(b.Received) {
 		return false
@@ -1246,6 +1349,41 @@ func mapDescriptionsToOffer(offer *trading.TradeOffer, rawDescs []rawDescription
 		return
 	}
 
+	if len(rawDescs) <= 8 {
+		mapItemsLinear := func(items []*trading.Item) {
+			for _, it := range items {
+				if it == nil {
+					continue
+				}
+
+				key := packDescKey(it.ClassID, it.InstanceID)
+				for i := range rawDescs {
+					d := &rawDescs[i]
+					if newDescKey(d.ClassID, d.InstanceID) == key {
+						it.Name = d.Name
+						it.NameColor = d.NameColor
+						it.Type = d.Type
+						it.MarketName = d.MarketName
+						it.MarketHashName = d.MarketHashName
+						it.IconURL = d.IconURL
+						it.Tradable = bool(d.Tradable)
+						it.Marketable = bool(d.Marketable)
+						it.Descriptions = d.Descriptions
+						it.Tags = d.Tags
+						it.Actions = d.Actions
+
+						break
+					}
+				}
+			}
+		}
+
+		mapItemsLinear(offer.ItemsToGive)
+		mapItemsLinear(offer.ItemsToReceive)
+
+		return
+	}
+
 	descMap := make(map[descKey]*rawDescription, len(rawDescs))
 	for i := range rawDescs {
 		d := &rawDescs[i]
@@ -1254,7 +1392,11 @@ func mapDescriptionsToOffer(offer *trading.TradeOffer, rawDescs []rawDescription
 
 	mapItems := func(items []*trading.Item) {
 		for _, it := range items {
-			key := descKey{ClassID: it.ClassID, InstanceID: it.InstanceID}
+			if it == nil {
+				continue
+			}
+
+			key := packDescKey(it.ClassID, it.InstanceID)
 			if d, ok := descMap[key]; ok {
 				it.Name = d.Name
 				it.NameColor = d.NameColor
@@ -1277,15 +1419,15 @@ func mapDescriptionsToOffer(offer *trading.TradeOffer, rawDescs []rawDescription
 
 func updateItems(items []*trading.Item, descs map[descKey]rawAssetClassDescription) {
 	for _, it := range items {
-		if it.MarketHashName != "" {
+		if it == nil || it.MarketHashName != "" {
 			continue
 		}
 
-		key := descKey{ClassID: it.ClassID, InstanceID: it.InstanceID}
+		key := packDescKey(it.ClassID, it.InstanceID)
 
 		desc, found := descs[key]
 		if !found {
-			desc, found = descs[descKey{ClassID: it.ClassID, InstanceID: 0}]
+			desc, found = descs[packDescKey(it.ClassID, 0)]
 		}
 
 		if !found {

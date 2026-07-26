@@ -840,9 +840,9 @@ func (m *Manager) handleFriendsList(packet *protocol.Packet) {
 		return
 	}
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	var events []RelationshipChangedEvent
 
+	m.mu.Lock()
 	for _, friend := range list.GetFriends() {
 		steamID := id.ID(friend.GetUlfriendid())
 		newRel := enums.EFriendRelationship(friend.GetEfriendrelationship())
@@ -850,12 +850,18 @@ func (m *Manager) handleFriendsList(packet *protocol.Packet) {
 		m.relationships.Set(steamID, newRel)
 
 		if oldRel != newRel {
-			m.Bus.Publish(&RelationshipChangedEvent{
+			events = append(events, RelationshipChangedEvent{
 				SteamID: steamID,
 				Old:     oldRel,
 				New:     newRel,
 			})
 		}
+	}
+
+	m.mu.Unlock()
+
+	for i := range events {
+		m.Bus.Publish(&events[i])
 	}
 }
 

@@ -253,17 +253,6 @@ func TestTwoFactorService_UnifiedMethods(t *testing.T) {
 		assert.True(t, resp.GetSuccess())
 	})
 
-	t.Run("finalize_authenticator_totp_error", func(t *testing.T) {
-		t.Parallel()
-
-		mockSvc := mock.NewServiceMock()
-		svc := NewTwoFactorService(mockSvc)
-
-		_, err := svc.FinalizeAuthenticator(t.Context(), testSteamID, "invalid-secret-b64-!!!", 1700000000, "12345")
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to generate verification totp code")
-	})
-
 	t.Run("query_status", func(t *testing.T) {
 		t.Parallel()
 

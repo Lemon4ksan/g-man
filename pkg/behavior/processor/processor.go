@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/miyako/bus"
-	"github.com/lemon4ksan/miyako/generic"
 	"github.com/lemon4ksan/miyako/log"
 	"github.com/lemon4ksan/miyako/sync/keylock"
 
@@ -34,22 +33,12 @@ func ProcessTrades(client *steam.Client, eng *engine.Engine, n *notifications.Ma
 }
 
 // TradeExecutor defines the interface for executing final trade actions on Steam.
-//
-// This interface is typically implemented by the trade manager.
 type TradeExecutor interface {
-	// AcceptOffer approves and finalizes the specified trade offer ID.
 	AcceptOffer(ctx context.Context, id uint64) error
-	// DeclineOffer rejects and cancels the specified trade offer ID.
 	DeclineOffer(ctx context.Context, id uint64) error
 }
 
 // Processor coordinates the sequential processing of trade offers.
-//
-// It manages an internal, sequential processing queue to avoid concurrency races
-// in stock inventory, and maintains an active asset lock registry to prevent "double-spending"
-// (re-using the same item in parallel trade processing cycles).
-//
-// Create new instances of Processor using the [New] constructor.
 type Processor struct {
 	executor TradeExecutor
 	engine   *engine.Engine
@@ -58,19 +47,16 @@ type Processor struct {
 	logger   log.Logger
 	bus      *bus.Bus
 
-	// Queue for sequential processing (to avoid race conditions in inventory)
 	queue chan *trading.TradeOffer
 
-	// Tracking busy items using striped per-key locking
-	itemLocks *keylock.KeyMutex[uint64]
-	busyItems map[uint64]uint64 // assetID -> offerID
+	itemLocks   *keylock.KeyMutex[uint64]
+	busyItemsMu sync.RWMutex
+	busyItems   map[uint64]uint64 // assetID -> offerID
 
-	// Deduplication: prevents the same offer from being enqueued twice
 	processing sync.Map
 }
 
-// New creates a new Processor instance with the provided execution, decision,
-// notification, and reporting dependencies.
+// New creates a new Processor instance.
 func New(
 	ex TradeExecutor,
 	eng *engine.Engine,
@@ -106,14 +92,10 @@ func (p *Processor) Name() string {
 }
 
 // Run launches the sequential background worker goroutine.
-//
-// This worker reads from the internal queue and processes queued trade offers
-// sequentially to ensure inventory synchronization.
 func (p *Processor) Run(ctx context.Context) error {
 	sub := p.bus.Subscribe(&web.NewOfferEvent{})
 	defer sub.Unsubscribe()
 
-	// Run queue worker in a separate goroutine to ensure sequential processing
 	go p.worker(ctx)
 
 	for {
@@ -151,9 +133,6 @@ func (p *Processor) worker(ctx context.Context) {
 }
 
 // Enqueue adds the trade offer to the internal queue for sequential processing.
-//
-// If the internal queue buffer is full, writing to the queue blocks the caller.
-// Duplicate offers (same ID) are silently ignored.
 func (p *Processor) Enqueue(offer *trading.TradeOffer) {
 	if _, loaded := p.processing.LoadOrStore(offer.ID, true); loaded {
 		return
@@ -262,10 +241,21 @@ func (p *Processor) makeReviewMeta(v *engine.Verdict, d time.Duration) *review.T
 	}
 }
 
+// isAnyItemBusy checks item locks in a zero-alloc, zero-closure linear pass.
 func (p *Processor) isAnyItemBusy(offer *trading.TradeOffer) bool {
-	return generic.Any(append(offer.ItemsToGive, offer.ItemsToReceive...), func(item *trading.Item) bool {
-		return p.itemLocks.IsLocked(item.AssetID)
-	})
+	for _, item := range offer.ItemsToGive {
+		if item != nil && p.itemLocks.IsLocked(item.AssetID) {
+			return true
+		}
+	}
+
+	for _, item := range offer.ItemsToReceive {
+		if item != nil && p.itemLocks.IsLocked(item.AssetID) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (p *Processor) lockItems(offer *trading.TradeOffer) {
@@ -299,9 +289,12 @@ func (p *Processor) lockItems(offer *trading.TradeOffer) {
 		p.itemLocks.Lock(id)
 	}
 
+	p.busyItemsMu.Lock()
 	for _, id := range ids {
 		p.busyItems[id] = offer.ID
 	}
+
+	p.busyItemsMu.Unlock()
 }
 
 func (p *Processor) unlockItems(offer *trading.TradeOffer) {
@@ -331,8 +324,14 @@ func (p *Processor) unlockItems(offer *trading.TradeOffer) {
 
 	slices.Sort(ids)
 
+	p.busyItemsMu.Lock()
 	for _, id := range ids {
 		delete(p.busyItems, id)
+	}
+
+	p.busyItemsMu.Unlock()
+
+	for _, id := range ids {
 		p.itemLocks.Unlock(id)
 	}
 }

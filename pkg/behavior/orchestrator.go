@@ -27,7 +27,6 @@ func From(c *steam.Client) *Orchestrator {
 }
 
 // Orchestrator wraps miyako's [lifecycle.BehaviorRunner] and acts as a Steam client [module.Module].
-// It stores a shared bus and logger so that registered behaviors can access them.
 type Orchestrator struct {
 	*lifecycle.BehaviorRunner
 	bus    *bus.Bus
@@ -46,23 +45,45 @@ func NewOrchestrator(b *bus.Bus, logger log.Logger, opts ...lifecycle.Option) *O
 
 // NewModule returns an uninitialized orchestrator intended to be registered as a [module.Module].
 func NewModule() *Orchestrator {
-	return &Orchestrator{}
+	return &Orchestrator{
+		BehaviorRunner: lifecycle.NewBehaviorRunner(),
+	}
 }
 
 // Name returns the static identifier for the behavior module.
 func (o *Orchestrator) Name() string { return "behavior" }
 
+// Register безопасно регистрирует поведение, даже если Init еще не вызвался
+func (o *Orchestrator) Register(b lifecycle.Behavior) {
+	if o == nil {
+		return
+	}
+
+	if o.BehaviorRunner == nil {
+		o.BehaviorRunner = lifecycle.NewBehaviorRunner()
+	}
+
+	o.BehaviorRunner.Register(b)
+}
+
 // Init configures the orchestrator using the provided Steam client context.
 func (o *Orchestrator) Init(init module.InitContext) error {
 	o.bus = init.Bus()
 	o.logger = init.Logger().With(log.Module("behavior"))
-	o.BehaviorRunner = lifecycle.NewBehaviorRunner(lifecycle.WithLogger(o.logger))
+
+	if o.BehaviorRunner == nil {
+		o.BehaviorRunner = lifecycle.NewBehaviorRunner(lifecycle.WithLogger(o.logger))
+	}
 
 	return nil
 }
 
 // Start launches the registered behaviors.
 func (o *Orchestrator) Start(ctx context.Context) error {
+	if o.BehaviorRunner == nil {
+		return nil
+	}
+
 	return o.BehaviorRunner.Start(ctx)
 }
 

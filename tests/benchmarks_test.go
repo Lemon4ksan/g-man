@@ -2,23 +2,19 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// tests/benchmarks_test.go
-
 package tests_test
 
 import (
 	"bytes"
-	"net/http"
 	"strconv"
 	"sync"
 	"testing"
 
 	json "github.com/goccy/go-json"
-	"github.com/lemon4ksan/aoni/cookie"
 
 	"github.com/lemon4ksan/g-man/internal/bytesconv"
 	"github.com/lemon4ksan/g-man/internal/crypto"
-	"github.com/lemon4ksan/g-man/internal/socket/connector"
+	"github.com/lemon4ksan/g-man/internal/framer"
 	"github.com/lemon4ksan/g-man/pkg/command"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/community/inventory"
@@ -90,14 +86,20 @@ func BenchmarkSteamID_Parse_Steam3(b *testing.B) {
 
 func BenchmarkSteamFramer_ReadFrame(b *testing.B) {
 	frameData := []byte{0x05, 0x00, 0x00, 0x00, 'V', 'T', '0', '1', 'H', 'e', 'l', 'l', 'o'}
-	framer := connector.SteamFramer{}
+	f := framer.SteamFramer{}
 	r := bytes.NewReader(frameData)
 
 	b.ReportAllocs()
 
 	for b.Loop() {
 		r.Reset(frameData)
-		_, _ = framer.ReadFrame(r)
+
+		payload, err := f.ReadFrame(r)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		framer.ReleaseFrameBuffer(payload)
 	}
 }
 
@@ -273,20 +275,26 @@ func (r mockSendReq) EncodeFormString() (string, error) {
 	buf.Reset()
 	defer formBufferPool.Put(buf)
 
-	buf.WriteString("serverid=")
-	buf.WriteString(strconv.Itoa(r.ServerID))
-	buf.WriteString("&partner=")
+	var intBuf [20]byte
 
-	var numBuf [20]byte
-	buf.Write(strconv.AppendUint(numBuf[:0], uint64(r.PartnerID), 10))
+	buf.WriteString("serverid=")
+	buf.Write(strconv.AppendInt(intBuf[:0], int64(r.ServerID), 10))
+
+	buf.WriteString("&partner=")
+	buf.Write(strconv.AppendUint(intBuf[:0], uint64(r.PartnerID), 10))
 
 	buf.WriteString("&tradeoffermessage=")
-	bytesconv.AppendQueryEscaped(buf, []byte(r.Message))
+	bytesconv.AppendQueryEscaped(buf, bytesconv.S2B(r.Message))
 
 	buf.WriteString("&json_tradeoffer=")
-	bytesconv.AppendQueryEscaped(buf, []byte(r.JSON))
+	bytesconv.AppendQueryEscaped(buf, bytesconv.S2B(r.JSON))
 
-	return buf.String(), nil
+	if r.CreateParams != "" {
+		buf.WriteString("&trade_offer_create_params=")
+		bytesconv.AppendQueryEscaped(buf, bytesconv.S2B(r.CreateParams))
+	}
+
+	return bytesconv.B2S(buf.Bytes()), nil
 }
 
 func BenchmarkTrading_FastFormEncoder(b *testing.B) {
@@ -348,13 +356,13 @@ func BenchmarkTrading_ItemLockingPrep(b *testing.B) {
 // ============================================================================
 
 func BenchmarkCrypto_GenerateAuthCode(b *testing.B) {
-	secret := "1234567890123456789012345678901234567890"
+	secret := []byte("1234567890123456789012345678901234567890")
 	timestamp := int64(1700000000)
 
 	b.ReportAllocs()
 
 	for b.Loop() {
-		_, _ = crypto.GenerateAuthCode(secret, timestamp)
+		_ = crypto.GenerateAuthCode(secret, timestamp)
 	}
 }
 
@@ -366,7 +374,7 @@ func BenchmarkCrypto_GenerateConfirmationKey(b *testing.B) {
 	b.ReportAllocs()
 
 	for b.Loop() {
-		_, _ = crypto.GenerateConfirmationKey(identitySecret, timestamp, tag)
+		_ = crypto.GenerateConfirmationKey([]byte(identitySecret), timestamp, tag)
 	}
 }
 
@@ -391,20 +399,6 @@ func BenchmarkCommand_ParseCommandLine(b *testing.B) {
 
 	for b.Loop() {
 		_ = command.ParseCommandLine(line)
-	}
-}
-
-func BenchmarkCookie_BuildCookieHeader(b *testing.B) {
-	cookies := []*http.Cookie{
-		{Name: "sessionid", Value: "1234567890abcdef", Path: "/"},
-		{Name: "steamLoginSecure", Value: "76561198000000001||token", Path: "/"},
-		{Name: "browserid", Value: "9876543210", Path: "/"},
-	}
-
-	b.ReportAllocs()
-
-	for b.Loop() {
-		_ = cookie.BuildCookieHeader(cookies)
 	}
 }
 

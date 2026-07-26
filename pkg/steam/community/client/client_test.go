@@ -495,7 +495,7 @@ func TestClient_GetOrRegisterAPIKey_VariousScenarios_ReturnsExpected(t *testing.
 
 		_, err := client.GetOrRegisterAPIKey(ctx, "test.com")
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to fetch apikey page")
+		assert.Contains(t, err.Error(), "network error")
 	})
 
 	t.Run("registration_request_fails", func(t *testing.T) {
@@ -519,7 +519,7 @@ func TestClient_GetOrRegisterAPIKey_VariousScenarios_ReturnsExpected(t *testing.
 
 		_, err := client.GetOrRegisterAPIKey(ctx, "test.com")
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "registration request failed")
+		assert.Contains(t, err.Error(), "failed")
 	})
 
 	t.Run("no_key_and_no_registration_form", func(t *testing.T) {

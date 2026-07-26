@@ -17,6 +17,7 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
+	"github.com/lemon4ksan/g-man/internal/framer"
 	"github.com/lemon4ksan/g-man/internal/network"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
@@ -148,20 +149,33 @@ func GetTransportType(ctx context.Context) (TransportType, bool) {
 // arrival time and transport type context. This is passed through internal G-MAN
 // channels to eliminate metadata registry allocations.
 type InboundMessage struct {
-	Data       []byte
+	Data       *framer.FrameBuffer
 	ReceivedAt time.Time
 	Transport  TransportType
 }
 
+// HeaderKind indicates the type of header embedded inside a Packet.
+type HeaderKind uint8
+
+// HeaderKind constants indicate the type of header embedded inside a Packet.
+const (
+	HeaderKindNone HeaderKind = iota
+	HeaderKindProto
+	HeaderKindExtended
+	HeaderKindStandard
+)
+
 var packetPool = sync.Pool{
-	New: func() any { return &Packet{} },
+	New: func() any {
+		return &Packet{
+			Payload: make([]byte, 0, 4096),
+		}
+	},
 }
 
 // AcquirePacket acquires a packet from the pool and resets it for use.
 func AcquirePacket() *Packet {
-	p := packetPool.Get().(*Packet)
-	p.Reset()
-	return p
+	return packetPool.Get().(*Packet)
 }
 
 // ReleasePacket releases a packet back to the pool.
@@ -176,15 +190,20 @@ func ReleasePacket(p *Packet) {
 
 // Packet represents a parsed message received from or sent to a Steam Connection Manager.
 // It serves as a unified interface regardless of the underlying header format.
-//
-// Parse raw bytes into a Packet using the [ParsePacket] function.
+// Concrete headers are embedded directly to avoid runtime.iface boxing allocations.
 type Packet struct {
 	// EMsg identifies the type of message this packet contains
 	EMsg enums.EMsg
 	// IsProto is true if the packet uses a Protobuf-style header.
 	IsProto bool
-	// Header contains metadata about the sender, session and job tracking
-	Header Header
+	// HeaderKind indicates the type of header stored in the packet.
+	HeaderKind HeaderKind
+
+	// Inline concrete headers to completely bypass interface boxing allocations
+	HdrProto MsgHdrProtoBuf
+	HdrExt   MsgHdrExtended
+	HdrStd   MsgHdr
+
 	// Payload is the raw message body, which can be further
 	// unmarshaled into a specific Protobuf struct or VDF map.
 	Payload []byte
@@ -212,21 +231,24 @@ func (p *Packet) Context() context.Context {
 	return ctx
 }
 
-// ParsePacket decodes a steam network message from an [io.Reader].
-//
-// It automatically detects the header format by examining EMsg bitmask.
-// If the provided reader r is nil, ParsePacket returns a nil reader error.
+// ProtoHeader returns the concrete Protobuf header without interface conversion.
+func (p *Packet) ProtoHeader() *MsgHdrProtoBuf {
+	if p.HeaderKind == HeaderKindProto {
+		return &p.HdrProto
+	}
+
+	return nil
+}
+
 // ParsePacket decodes a steam network message from an [io.Reader].
 //
 // It automatically detects the header format by examining EMsg bitmask.
 // Uses fast-path byte reading when r is *bytes.Reader to eliminate binary.Read reflection overhead.
 func ParsePacket(r io.Reader) (*Packet, error) {
-	// Fast path for *bytes.Reader to eliminate binary.Read reflection and io.ReadAll heap allocations
 	if br, ok := r.(*bytes.Reader); ok {
 		return parseFast(br)
 	}
 
-	// Fallback path for generic io.Reader
 	var rawEMsg uint32
 	if err := binary.Read(r, binary.LittleEndian, &rawEMsg); err != nil {
 		return nil, fmt.Errorf("read emsg: %w", err)
@@ -235,39 +257,52 @@ func ParsePacket(r io.Reader) (*Packet, error) {
 	eMsg := enums.EMsg(rawEMsg & EMsgMask)
 	isProto := (rawEMsg & ProtoMask) != 0
 
-	var header interface {
-		Header
-		Deserialize(r io.Reader) error
-	}
+	p := AcquirePacket()
+	p.EMsg = eMsg
+	p.IsProto = isProto
 
 	switch {
 	case isProto:
-		header = &MsgHdrProtoBuf{EMsg: eMsg}
+		p.HeaderKind = HeaderKindProto
+
+		p.HdrProto.EMsg = eMsg
+		if err := p.HdrProto.Deserialize(r); err != nil {
+			ReleasePacket(p)
+			return nil, fmt.Errorf("deserialize header: %w", err)
+		}
+
 	case eMsg == enums.EMsg_ChannelEncryptRequest ||
 		eMsg == enums.EMsg_ChannelEncryptResponse ||
 		eMsg == enums.EMsg_ChannelEncryptResult:
-		header = &MsgHdr{EMsg: eMsg}
-	default:
-		header = &MsgHdrExtended{EMsg: eMsg}
-	}
+		p.HeaderKind = HeaderKindStandard
 
-	if err := header.Deserialize(r); err != nil {
-		return nil, fmt.Errorf("deserialize header: %w", err)
+		p.HdrStd.EMsg = eMsg
+		if err := p.HdrStd.Deserialize(r); err != nil {
+			ReleasePacket(p)
+			return nil, fmt.Errorf("deserialize header: %w", err)
+		}
+
+	default:
+		p.HeaderKind = HeaderKindExtended
+
+		p.HdrExt.EMsg = eMsg
+		if err := p.HdrExt.Deserialize(r); err != nil {
+			ReleasePacket(p)
+			return nil, fmt.Errorf("deserialize header: %w", err)
+		}
 	}
 
 	payload, err := io.ReadAll(r)
 	if err != nil {
+		ReleasePacket(p)
 		return nil, err
 	}
 
 	if len(payload) > MaxPayloadSize {
+		ReleasePacket(p)
 		return nil, ErrPayloadTooLarge
 	}
 
-	p := AcquirePacket()
-	p.EMsg = eMsg
-	p.IsProto = isProto
-	p.Header = header
 	p.Payload = payload
 	p.Transport = ""
 
@@ -288,42 +323,57 @@ func parseFast(br *bytes.Reader) (*Packet, error) {
 	eMsg := enums.EMsg(rawEMsg & EMsgMask)
 	isProto := (rawEMsg & ProtoMask) != 0
 
-	var header interface {
-		Header
-		Deserialize(r io.Reader) error
-	}
+	p := AcquirePacket()
+	p.EMsg = eMsg
+	p.IsProto = isProto
 
 	switch {
 	case isProto:
-		header = acquireMsgHdrProtoBuf(eMsg)
+		p.HeaderKind = HeaderKindProto
+
+		p.HdrProto.EMsg = eMsg
+		if err := p.HdrProto.Deserialize(br); err != nil {
+			ReleasePacket(p)
+			return nil, fmt.Errorf("deserialize header: %w", err)
+		}
+
 	case eMsg == enums.EMsg_ChannelEncryptRequest ||
 		eMsg == enums.EMsg_ChannelEncryptResponse ||
 		eMsg == enums.EMsg_ChannelEncryptResult:
-		header = &MsgHdr{EMsg: eMsg}
-	default:
-		header = &MsgHdrExtended{EMsg: eMsg}
-	}
+		p.HeaderKind = HeaderKindStandard
 
-	if err := header.Deserialize(br); err != nil {
-		return nil, fmt.Errorf("deserialize header: %w", err)
+		p.HdrStd.EMsg = eMsg
+		if err := p.HdrStd.Deserialize(br); err != nil {
+			ReleasePacket(p)
+			return nil, fmt.Errorf("deserialize header: %w", err)
+		}
+
+	default:
+		p.HeaderKind = HeaderKindExtended
+
+		p.HdrExt.EMsg = eMsg
+		if err := p.HdrExt.Deserialize(br); err != nil {
+			ReleasePacket(p)
+			return nil, fmt.Errorf("deserialize header: %w", err)
+		}
 	}
 
 	remLen := br.Len()
 	if remLen > MaxPayloadSize {
+		ReleasePacket(p)
 		return nil, ErrPayloadTooLarge
 	}
 
-	payload := make([]byte, remLen)
-	if _, err := io.ReadFull(br, payload); err != nil {
-		return nil, err
+	if cap(p.Payload) < remLen {
+		p.Payload = make([]byte, remLen)
+	} else {
+		p.Payload = p.Payload[:remLen]
 	}
 
-	p := AcquirePacket()
-	p.EMsg = eMsg
-	p.IsProto = isProto
-	p.Header = header
-	p.Payload = payload
-	p.Transport = ""
+	if _, err := io.ReadFull(br, p.Payload); err != nil {
+		ReleasePacket(p)
+		return nil, err
+	}
 
 	return p, nil
 }
@@ -332,48 +382,64 @@ func parseFast(br *bytes.Reader) (*Packet, error) {
 // Returns [NoJob] if the header does not support job tracking
 // or is not present.
 func (p *Packet) GetTargetJobID() uint64 {
-	if p.Header != nil {
-		return p.Header.GetTargetJob()
+	switch p.HeaderKind {
+	case HeaderKindProto:
+		return p.HdrProto.GetTargetJob()
+	case HeaderKindExtended:
+		return p.HdrExt.GetTargetJob()
+	case HeaderKindStandard:
+		return p.HdrStd.GetTargetJob()
+	default:
+		return NoJob
 	}
-
-	return NoJob
 }
 
 // GetSourceJobID returns the JobID assigned by the sender to track this request.
 // This is used to map responses back to their original requests.
 func (p *Packet) GetSourceJobID() uint64 {
-	if p.Header != nil {
-		return p.Header.GetSourceJob()
+	switch p.HeaderKind {
+	case HeaderKindProto:
+		return p.HdrProto.GetSourceJob()
+	case HeaderKindExtended:
+		return p.HdrExt.GetSourceJob()
+	case HeaderKindStandard:
+		return p.HdrStd.GetSourceJob()
+	default:
+		return NoJob
 	}
-
-	return NoJob
 }
 
 // GetSteamID returns the steamID of the header.
 // Returns 0 if header doesn't implement [AuthorizedHeader].
 func (p *Packet) GetSteamID() uint64 {
-	if ah, ok := p.Header.(AuthorizedHeader); ok {
-		return ah.GetSteamID()
+	switch p.HeaderKind {
+	case HeaderKindProto:
+		return p.HdrProto.GetSteamID()
+	case HeaderKindExtended:
+		return p.HdrExt.GetSteamID()
+	default:
+		return 0
 	}
-
-	return 0
 }
 
 // GetSessionID returns the sessionID of the header.
 // Returns 0 if header doesn't implement [AuthorizedHeader].
 func (p *Packet) GetSessionID() int32 {
-	if ah, ok := p.Header.(AuthorizedHeader); ok {
-		return ah.GetSessionID()
+	switch p.HeaderKind {
+	case HeaderKindProto:
+		return p.HdrProto.GetSessionID()
+	case HeaderKindExtended:
+		return p.HdrExt.GetSessionID()
+	default:
+		return 0
 	}
-
-	return 0
 }
 
 // GetEResult returns the header result code.
 // Returns [EResult_Invalid] if header doesn't implement [EHeader].
 func (p *Packet) GetEResult() enums.EResult {
-	if eh, ok := p.Header.(EHeader); ok {
-		return eh.GetEResult()
+	if p.HeaderKind == HeaderKindProto {
+		return p.HdrProto.GetEResult()
 	}
 
 	return enums.EResult_Invalid
@@ -381,34 +447,39 @@ func (p *Packet) GetEResult() enums.EResult {
 
 // SerializeTo encodes the packet to [io.Writer] for sending.
 // Returns error if packet marked as proto but header is not [MsgHdrProtoBuf].
+// SerializeTo encodes the packet to [io.Writer] for sending.
 func (p *Packet) SerializeTo(w io.Writer) error {
-	if p.IsProto {
-		if _, ok := p.Header.(*MsgHdrProtoBuf); !ok {
-			return fmt.Errorf("%w: packet marked as proto but header is not MsgHdrProtoBuf", ErrInvalidHeader)
-		}
+	var err error
+	switch p.HeaderKind {
+	case HeaderKindProto:
+		err = p.HdrProto.SerializeTo(w)
+	case HeaderKindExtended:
+		err = p.HdrExt.SerializeTo(w)
+	case HeaderKindStandard:
+		err = p.HdrStd.SerializeTo(w)
+	default:
+		return ErrInvalidHeader
 	}
 
-	if err := p.Header.SerializeTo(w); err != nil {
+	if err != nil {
 		return err
 	}
 
-	_, err := w.Write(p.Payload)
+	_, err = w.Write(p.Payload)
 
 	return err
 }
 
 // Reset resets the packet fields to their zero values and recycles headers to pools.
 func (p *Packet) Reset() {
-	if p.Header != nil {
-		if pbHdr, ok := p.Header.(*MsgHdrProtoBuf); ok {
-			releaseMsgHdrProtoBuf(pbHdr)
-		}
+	if p.HeaderKind == HeaderKindProto {
+		p.HdrProto.Reset()
 	}
 
 	p.EMsg = 0
 	p.IsProto = false
-	p.Header = nil
-	p.Payload = nil
+	p.HeaderKind = HeaderKindNone
+	p.Payload = p.Payload[:0]
 	p.Ctx = nil
 	p.ReceivedAt = time.Time{}
 	p.Transport = ""
@@ -433,22 +504,6 @@ func ReleaseGCPacket(p *GCPacket) {
 
 	p.Reset()
 	gcPacketPool.Put(p)
-}
-
-var protoHeaderPool = sync.Pool{
-	New: func() any { return &pb.CMsgProtoBufHeader{} },
-}
-
-func acquireProtoHeader() *pb.CMsgProtoBufHeader {
-	h := protoHeaderPool.Get().(*pb.CMsgProtoBufHeader)
-	h.Reset()
-	return h
-}
-
-func releaseProtoHeader(h *pb.CMsgProtoBufHeader) {
-	if h != nil {
-		protoHeaderPool.Put(h)
-	}
 }
 
 // GCPacket represents a Game Coordinator message.
@@ -519,7 +574,7 @@ func (p *GCPacket) Serialize() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// ParseGCPacket decodes a raw byte slice from ClientFromGC into a Packet.
+// ParseGCPacket decodes a raw byte slice from ClientFromGC into a Packet without heap pointer allocations.
 func ParseGCPacket(appID, msgType uint32, data []byte) (*GCPacket, error) {
 	p := AcquireGCPacket()
 	p.AppID = appID
@@ -550,18 +605,19 @@ func ParseGCPacket(appID, msgType uint32, data []byte) (*GCPacket, error) {
 		hdrBytes := data[offset : offset+int(hdrLen)]
 		offset += int(hdrLen)
 
-		hdr := acquireProtoHeader()
+		// Use MsgHdrProtoBuf's zero-alloc FastUnmarshal instead of CMsgProtoBufHeader.UnmarshalVT to avoid 22.6M allocations
+		pbHdr := acquireMsgHdrProtoBuf(0)
 
-		err := UnmarshalProto(hdrBytes, hdr)
+		err := pbHdr.FastUnmarshal(hdrBytes)
 		if err != nil {
-			releaseProtoHeader(hdr)
+			releaseMsgHdrProtoBuf(pbHdr)
 			ReleaseGCPacket(p)
 			return nil, fmt.Errorf("%w: %w", ErrProtoHeaderUnmarshal, err)
 		}
 
-		p.TargetJobID = hdr.GetJobidTarget()
-		p.SourceJobID = hdr.GetJobidSource()
-		releaseProtoHeader(hdr) // Возвращаем в пул
+		p.TargetJobID = pbHdr.GetTargetJob()
+		p.SourceJobID = pbHdr.GetSourceJob()
+		releaseMsgHdrProtoBuf(pbHdr)
 	} else {
 		if len(data) < 18 {
 			ReleaseGCPacket(p)

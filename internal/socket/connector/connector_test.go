@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/lemon4ksan/g-man/internal/framer"
 	"github.com/lemon4ksan/g-man/internal/network"
 )
 
@@ -336,11 +337,11 @@ func TestConnector_MonitorAndReconnect(t *testing.T) {
 		err := c.Connect(t.Context(), CMServer{Type: "tcp", Endpoint: "1.1.1.1"})
 		require.NoError(t, err)
 
-		mockConn.messages <- []byte("hello")
+		mockConn.messages <- &framer.FrameBuffer{B: []byte("hello")}
 
 		select {
 		case inbound := <-c.C():
-			assert.Equal(t, []byte("hello"), inbound.Data)
+			assert.Equal(t, []byte("hello"), inbound.Data.B)
 			assert.Equal(t, "tcp", string(inbound.Transport))
 		case <-time.After(1 * time.Second):
 			t.Fatal("timeout waiting for piped message")

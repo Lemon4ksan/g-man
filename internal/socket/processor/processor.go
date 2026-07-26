@@ -13,6 +13,7 @@ import (
 
 	"github.com/lemon4ksan/miyako/log"
 
+	"github.com/lemon4ksan/g-man/internal/framer"
 	"github.com/lemon4ksan/g-man/internal/ringbuffer"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 )
@@ -113,10 +114,20 @@ func (p *Processor) Stop() {
 // The packet is then queued for asynchronous dispatching.
 func (p *Processor) Process(inbound *protocol.InboundMessage) {
 	if p.ctx.Err() != nil {
+		if inbound.Data != nil {
+			framer.ReleaseFrameBuffer(inbound.Data)
+		}
+
 		return
 	}
 
-	reader := bytes.NewReader(inbound.Data)
+	if inbound.Data == nil || len(inbound.Data.B) == 0 {
+		return
+	}
+
+	defer framer.ReleaseFrameBuffer(inbound.Data)
+
+	reader := bytes.NewReader(inbound.Data.B)
 
 	packet, err := protocol.ParsePacket(reader)
 	if err != nil {

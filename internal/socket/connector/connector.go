@@ -19,6 +19,7 @@ import (
 	"github.com/lemon4ksan/aoni/fast"
 	"github.com/lemon4ksan/miyako/log"
 
+	"github.com/lemon4ksan/g-man/internal/framer"
 	"github.com/lemon4ksan/g-man/internal/network"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 )
@@ -102,17 +103,17 @@ func BuildDialers(fastClient *fast.Client) map[string]Dialer {
 	return map[string]Dialer{
 		"tcp": func(ctx context.Context, l log.Logger, s, p string, _ http.Header) (network.Connection, error) {
 			if fastClient != nil {
-				return network.NewTCPWithDialer(ctx, l, s, p, SteamFramer{}, fastClient.DialContext)
+				return network.NewTCPWithDialer(ctx, l, s, p, framer.SteamFramer{}, fastClient.DialContext)
 			}
 
-			return network.NewTCP(ctx, l, s, p, SteamFramer{})
+			return network.NewTCP(ctx, l, s, p, framer.SteamFramer{})
 		},
 		"netfilter": func(ctx context.Context, l log.Logger, s, p string, _ http.Header) (network.Connection, error) {
 			if fastClient != nil {
-				return network.NewTCPWithDialer(ctx, l, s, p, SteamFramer{}, fastClient.DialContext)
+				return network.NewTCPWithDialer(ctx, l, s, p, framer.SteamFramer{}, fastClient.DialContext)
 			}
 
-			return network.NewTCP(ctx, l, s, p, SteamFramer{})
+			return network.NewTCP(ctx, l, s, p, framer.SteamFramer{})
 		},
 		"websockets": func(ctx context.Context, l log.Logger, s, p string, h http.Header) (network.Connection, error) {
 			u := url.URL{Scheme: "wss", Host: s, Path: "/cmsocket/"}
@@ -280,7 +281,7 @@ func (c *Connector) SetEncryptionKey(key []byte) bool {
 	defer c.mu.RUnlock()
 
 	if enc, ok := c.conn.(network.Encryptable); ok {
-		return enc.SetCipher(NewSteamCipher(key))
+		return enc.SetCipher(framer.NewSteamCipher(key))
 	}
 
 	return false

@@ -17,14 +17,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/proxy"
+
+	"github.com/lemon4ksan/g-man/internal/framer"
 )
 
 type mockFramer struct {
-	readFunc  func(r io.Reader) ([]byte, error)
+	readFunc  func(r io.Reader) (*framer.FrameBuffer, error)
 	writeFunc func(w io.Writer, data []byte) error
 }
 
-func (m mockFramer) ReadFrame(r io.Reader) ([]byte, error) {
+func (m mockFramer) ReadFrame(r io.Reader) (*framer.FrameBuffer, error) {
 	if m.readFunc != nil {
 		return m.readFunc(r)
 	}
@@ -42,7 +44,7 @@ func (m mockFramer) WriteFrame(w io.Writer, data []byte) error {
 
 type mockCipher struct {
 	encFunc func(data []byte) ([]byte, error)
-	decFunc func(data []byte) ([]byte, error)
+	decFunc func(data *framer.FrameBuffer) (*framer.FrameBuffer, error)
 }
 
 func (m mockCipher) Encrypt(data []byte) ([]byte, error) {
@@ -53,7 +55,7 @@ func (m mockCipher) Encrypt(data []byte) ([]byte, error) {
 	return data, nil
 }
 
-func (m mockCipher) Decrypt(data []byte) ([]byte, error) {
+func (m mockCipher) Decrypt(data *framer.FrameBuffer) (*framer.FrameBuffer, error) {
 	if m.decFunc != nil {
 		return m.decFunc(data)
 	}
@@ -172,10 +174,10 @@ func TestTCP_ReadLoop_Coverage(t *testing.T) {
 			logger:         logger,
 			BaseConnection: NewBaseConnection("TCP"),
 			framer: mockFramer{
-				readFunc: func(r io.Reader) ([]byte, error) {
+				readFunc: func(r io.Reader) (*framer.FrameBuffer, error) {
 					b := make([]byte, 10)
-					_, err := r.Read(b)
-					return b, err
+					_, err := io.ReadFull(r, b)
+					return &framer.FrameBuffer{B: b}, err
 				},
 			},
 			msgChan:    make(chan Message, 10),
@@ -184,7 +186,7 @@ func TestTCP_ReadLoop_Coverage(t *testing.T) {
 		}
 
 		cipher := mockCipher{
-			decFunc: func(data []byte) ([]byte, error) {
+			decFunc: func(data *framer.FrameBuffer) (*framer.FrameBuffer, error) {
 				return nil, errors.New("decrypt failed")
 			},
 		}
@@ -211,7 +213,7 @@ func TestTCP_ReadLoop_Coverage(t *testing.T) {
 			conn:   c,
 			logger: log.Discard,
 			framer: mockFramer{
-				readFunc: func(r io.Reader) ([]byte, error) {
+				readFunc: func(r io.Reader) (*framer.FrameBuffer, error) {
 					return nil, errors.New("invalid frame")
 				},
 			},
@@ -239,10 +241,10 @@ func TestTCP_ReadLoop_Coverage(t *testing.T) {
 			logger:         logger,
 			BaseConnection: NewBaseConnection("TCP"),
 			framer: mockFramer{
-				readFunc: func(r io.Reader) ([]byte, error) {
+				readFunc: func(r io.Reader) (*framer.FrameBuffer, error) {
 					b := make([]byte, 4)
 					_, err := r.Read(b)
-					return b, err
+					return &framer.FrameBuffer{B: b}, err
 				},
 			},
 			msgChan:    make(chan Message, 10),
@@ -258,7 +260,7 @@ func TestTCP_ReadLoop_Coverage(t *testing.T) {
 
 		select {
 		case msg := <-tcp.Messages():
-			assert.Equal(t, Message("test"), msg)
+			assert.Equal(t, []byte("test"), msg.B)
 		case <-time.After(time.Second):
 			t.Fatal("timeout")
 		}
@@ -273,10 +275,10 @@ func TestTCP_ReadLoop_Coverage(t *testing.T) {
 			logger:         logger,
 			BaseConnection: NewBaseConnection("TCP"),
 			framer: mockFramer{
-				readFunc: func(r io.Reader) ([]byte, error) {
+				readFunc: func(r io.Reader) (*framer.FrameBuffer, error) {
 					b := make([]byte, 4)
 					_, err := r.Read(b)
-					return b, err
+					return &framer.FrameBuffer{B: b}, err
 				},
 			},
 			msgChan:    make(chan Message, 10),
@@ -285,8 +287,8 @@ func TestTCP_ReadLoop_Coverage(t *testing.T) {
 		}
 
 		cipher := mockCipher{
-			decFunc: func(data []byte) ([]byte, error) {
-				return []byte("decrypted"), nil
+			decFunc: func(data *framer.FrameBuffer) (*framer.FrameBuffer, error) {
+				return &framer.FrameBuffer{B: []byte("decrypted")}, nil
 			},
 		}
 		tcp.SetCipher(cipher)
@@ -299,7 +301,7 @@ func TestTCP_ReadLoop_Coverage(t *testing.T) {
 
 		select {
 		case msg := <-tcp.Messages():
-			assert.Equal(t, Message("decrypted"), msg)
+			assert.Equal(t, []byte("decrypted"), msg.B)
 		case <-time.After(time.Second):
 			t.Fatal("timeout")
 		}
@@ -315,7 +317,7 @@ func TestTCP_ReadLoop_Coverage(t *testing.T) {
 			logger:         logger,
 			BaseConnection: NewBaseConnection("TCP"),
 			framer: mockFramer{
-				readFunc: func(r io.Reader) ([]byte, error) {
+				readFunc: func(r io.Reader) (*framer.FrameBuffer, error) {
 					return nil, io.EOF
 				},
 			},
@@ -346,10 +348,10 @@ func TestTCP_ReadLoop_Coverage(t *testing.T) {
 			logger:         log.Discard,
 			BaseConnection: NewBaseConnection("TCP"),
 			framer: mockFramer{
-				readFunc: func(r io.Reader) ([]byte, error) {
+				readFunc: func(r io.Reader) (*framer.FrameBuffer, error) {
 					b := make([]byte, 10)
 					_, err := r.Read(b)
-					return b, err
+					return &framer.FrameBuffer{B: b}, err
 				},
 			},
 			msgChan:    make(chan Message), // unbuffered so it blocks

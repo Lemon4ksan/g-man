@@ -12,7 +12,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -510,75 +509,60 @@ func (m *Manager) eventLoop(ctx context.Context) {
 
 func (m *Manager) handleHelpCommand(ctx context.Context, args []string) (string, error) {
 	caller, ok := command.CallerFromContext(ctx)
-	trusted := ok && caller.IsAdmin()
+	isAdmin := ok && caller.IsAdmin()
 
-	var list []helpInfo
-	for name, c := range m.engine.Commands() {
-		if c.IsAlias {
-			continue
-		}
-
-		if trusted || !c.IsAdmin {
-			list = append(list, helpInfo{
-				Name:        name,
-				IsAdmin:     c.IsAdmin,
-				ArgsSchema:  c.ArgsSchema,
-				Description: c.Description,
-				Aliases:     c.Aliases,
-			})
-		}
+	commands := m.engine.Commands()
+	if len(commands) == 0 {
+		return "Available Commands:\n(No commands registered)", nil
 	}
-
-	sort.Slice(list, func(i, j int) bool {
-		return list[i].Name < list[j].Name
-	})
 
 	var sb strings.Builder
 	sb.WriteString("Available Commands:\n")
 
-	for _, item := range list {
-		if len(item.Aliases) > 0 {
-			var formattedAliases []string
-			for _, a := range item.Aliases {
-				formattedAliases = append(formattedAliases, "!"+a)
-			}
-
-			fmt.Fprintf(&sb, "- !%s (aliases: %s)", item.Name, strings.Join(formattedAliases, ", "))
-		} else {
-			fmt.Fprintf(&sb, "- !%s", item.Name)
+	for name, cmd := range commands {
+		if cmd.IsAdmin && !isAdmin {
+			continue
 		}
 
-		for _, arg := range item.ArgsSchema {
-			typeName := arg.Type.Name()
-			if typeName == "" {
-				typeName = arg.Type.String()
-			}
+		sb.WriteString("- !")
+		sb.WriteString(name)
 
-			if arg.Optional {
-				fmt.Fprintf(&sb, " [<%s:%s>]", arg.Name, typeName)
+		if len(cmd.Aliases) > 0 {
+			sb.WriteString(" (aliases: !")
+			sb.WriteString(strings.Join(cmd.Aliases, ", !"))
+			sb.WriteString(")")
+		}
+
+		for _, schema := range cmd.ArgsSchema {
+			sb.WriteString(" ")
+
+			if schema.Optional {
+				sb.WriteString("[<")
 			} else {
-				fmt.Fprintf(&sb, " <%s:%s>", arg.Name, typeName)
+				sb.WriteString("<")
+			}
+
+			sb.WriteString(schema.Name)
+
+			if schema.Type != nil {
+				sb.WriteString(":")
+				sb.WriteString(schema.Type.Name())
+			}
+
+			if schema.Optional {
+				sb.WriteString(">]")
+			} else {
+				sb.WriteString(">")
 			}
 		}
 
-		if item.IsAdmin {
-			sb.WriteString(" [Admin]")
-		}
-
-		if item.Description != "" {
-			fmt.Fprintf(&sb, ": %s", item.Description)
+		if cmd.Description != "" {
+			sb.WriteString(": ")
+			sb.WriteString(cmd.Description)
 		}
 
 		sb.WriteString("\n")
 	}
 
-	return sb.String(), nil
-}
-
-type helpInfo struct {
-	Name        string
-	IsAdmin     bool
-	ArgsSchema  []ArgSchema
-	Description string
-	Aliases     []string
+	return strings.TrimRight(sb.String(), "\n"), nil
 }

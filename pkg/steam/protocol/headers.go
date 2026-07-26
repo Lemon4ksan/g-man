@@ -6,11 +6,14 @@ package protocol
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"math"
 	"sync"
+	"unsafe"
 
+	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
@@ -194,6 +197,61 @@ func (h *MsgHdrExtended) Deserialize(r io.Reader) error {
 	return nil
 }
 
+type pooledProtoHeader struct {
+	hdr       pb.CMsgProtoBufHeader
+	steamID   uint64
+	sessionID int32
+	jobSource uint64
+	jobTarget uint64
+	eResult   int32
+}
+
+var protoHeaderPool = sync.Pool{
+	New: func() any {
+		ph := &pooledProtoHeader{}
+		ph.hdr.Steamid = &ph.steamID
+		ph.hdr.ClientSessionid = &ph.sessionID
+		ph.hdr.JobidSource = &ph.jobSource
+		ph.hdr.JobidTarget = &ph.jobTarget
+		ph.hdr.Eresult = &ph.eResult
+
+		return ph
+	},
+}
+
+// AcquireProtoHeader acquires a protobuf header from the pool and resets it for use.
+func AcquireProtoHeader() *pb.CMsgProtoBufHeader {
+	ph := protoHeaderPool.Get().(*pooledProtoHeader)
+	ph.steamID = 0
+	ph.sessionID = 0
+	ph.jobSource = NoJob
+	ph.jobTarget = NoJob
+	ph.eResult = 0
+
+	ph.hdr.TargetJobName = nil
+	ph.hdr.WgToken = nil
+	ph.hdr.RoutingAppid = nil
+
+	ph.hdr.ForwardToSysid = ph.hdr.GetForwardToSysid()[:0]
+
+	ph.hdr.ExcludeClientSessionids = ph.hdr.GetExcludeClientSessionids()[:0]
+	if ph.hdr.GetRoutingGc() != nil {
+		ph.hdr.GetRoutingGc().Reset()
+	}
+
+	return &ph.hdr
+}
+
+// ReleaseProtoHeader releases a protobuf header back to the pool.
+func ReleaseProtoHeader(h *pb.CMsgProtoBufHeader) {
+	if h == nil {
+		return
+	}
+
+	ph := (*pooledProtoHeader)(unsafe.Pointer(h))
+	protoHeaderPool.Put(ph)
+}
+
 var msgHdrProtoBufPool = sync.Pool{
 	New: func() any { return &MsgHdrProtoBuf{} },
 }
@@ -201,6 +259,11 @@ var msgHdrProtoBufPool = sync.Pool{
 func acquireMsgHdrProtoBuf(eMsg enums.EMsg) *MsgHdrProtoBuf {
 	h := msgHdrProtoBufPool.Get().(*MsgHdrProtoBuf)
 	h.EMsg = eMsg
+
+	if h.Proto == nil {
+		h.Proto = AcquireProtoHeader()
+	}
+
 	return h
 }
 
@@ -210,7 +273,7 @@ func releaseMsgHdrProtoBuf(h *MsgHdrProtoBuf) {
 	}
 
 	if h.Proto != nil {
-		releaseProtoHeader(h.Proto)
+		ReleaseProtoHeader(h.Proto)
 		h.Proto = nil
 	}
 
@@ -230,17 +293,12 @@ type MsgHdrProtoBuf struct {
 // It initializes a default CMsgProtoBufHeader with the provided session info
 // and sets Job IDs to [NoJob].
 func NewMsgHdrProtoBuf(eMsg enums.EMsg, steamID uint64, sessionID int32) *MsgHdrProtoBuf {
-	hdr := msgHdrProtoBufPool.Get().(*MsgHdrProtoBuf)
-	hdr.EMsg = eMsg
+	hdr := acquireMsgHdrProtoBuf(eMsg)
 
-	if hdr.Proto == nil {
-		hdr.Proto = acquireProtoHeader()
-	}
-
-	setProtoUint64(&hdr.Proto.Steamid, steamID)
-	setProtoInt32(&hdr.Proto.ClientSessionid, sessionID)
-	setProtoUint64(&hdr.Proto.JobidSource, NoJob)
-	setProtoUint64(&hdr.Proto.JobidTarget, NoJob)
+	SetProtoUint64(&hdr.Proto.Steamid, steamID)
+	SetProtoInt32(&hdr.Proto.ClientSessionid, sessionID)
+	SetProtoUint64(&hdr.Proto.JobidSource, NoJob)
+	SetProtoUint64(&hdr.Proto.JobidTarget, NoJob)
 
 	return hdr
 }
@@ -260,7 +318,7 @@ func (h *MsgHdrProtoBuf) GetSessionID() int32 { return h.Proto.GetClientSessioni
 // GetEResult returns the result code from the header if present.
 func (h *MsgHdrProtoBuf) GetEResult() enums.EResult {
 	if h.Proto.Eresult == nil {
-		return enums.EResult_OK // Cretified steam moment right here. Sometimes it just omits the field
+		return enums.EResult_OK
 	}
 
 	return enums.EResult(h.Proto.GetEresult())
@@ -275,7 +333,6 @@ func (h *MsgHdrProtoBuf) SerializeTo(w io.Writer) error {
 	}
 
 	var buf [8]byte
-	// Set the highest bit to signify this is a Protobuf message.
 	binary.LittleEndian.PutUint32(buf[0:4], uint32(h.EMsg)|ProtoMask)
 	binary.LittleEndian.PutUint32(buf[4:8], uint32(len(protoData)))
 
@@ -296,12 +353,14 @@ var protoHeaderBufPool = sync.Pool{
 }
 
 // Deserialize reads the Protobuf header length and body from the reader.
-// Uses pooled header structures and memory buffers to achieve zero allocations.
+// Uses pooled header buffers to guarantee zero heap escape.
 func (h *MsgHdrProtoBuf) Deserialize(r io.Reader) error {
-	var hdrLen uint32
-	if err := binary.Read(r, binary.LittleEndian, &hdrLen); err != nil {
+	var lenBuf [4]byte
+	if _, err := io.ReadFull(r, lenBuf[:]); err != nil {
 		return fmt.Errorf("read proto hdr len: %w", err)
 	}
+
+	hdrLen := binary.LittleEndian.Uint32(lenBuf[:])
 
 	if hdrLen > MaxHeaderSize {
 		return ErrHeaderTooLarge
@@ -322,21 +381,144 @@ func (h *MsgHdrProtoBuf) Deserialize(r io.Reader) error {
 	}
 
 	if h.Proto == nil {
-		h.Proto = acquireProtoHeader()
+		h.Proto = AcquireProtoHeader()
 	} else {
 		h.Proto.Reset()
 	}
 
-	if err := UnmarshalProto(hdrBuf, h.Proto); err != nil {
-		releaseProtoHeader(h.Proto)
-		h.Proto = nil
+	err := UnmarshalProto(hdrBuf, h.Proto)
+	if err != nil {
 		return fmt.Errorf("unmarshal proto hdr: %w", err)
 	}
 
 	return nil
 }
 
-func setProtoUint64(p **uint64, val uint64) {
+// FastUnmarshal unmarshals the given data into the MsgHdrProtoBuf struct without allocations.
+func (h *MsgHdrProtoBuf) FastUnmarshal(data []byte) error {
+	if h == nil {
+		return errors.New("nil MsgHdrProtoBuf")
+	}
+
+	if h.Proto == nil {
+		h.Proto = AcquireProtoHeader()
+	}
+
+	offset := 0
+	for offset < len(data) {
+		num, typ, n := protowire.ConsumeTag(data[offset:])
+		if n < 0 {
+			return errors.New("unmarshal proto hdr: invalid wire format tag")
+		}
+
+		offset += n
+
+		switch num {
+		case 1: // steamid (fixed64)
+			if typ == protowire.Fixed64Type {
+				v, n := protowire.ConsumeFixed64(data[offset:])
+				if n > 0 {
+					SetProtoUint64(&h.Proto.Steamid, v)
+
+					offset += n
+					continue
+				}
+			}
+
+		case 2: // client_sessionid (varint)
+			if typ == protowire.VarintType {
+				v, n := protowire.ConsumeVarint(data[offset:])
+				if n > 0 {
+					SetProtoInt32(&h.Proto.ClientSessionid, int32(v))
+
+					offset += n
+					continue
+				}
+			}
+
+		case 5: // target_job_name (string)
+			if typ == protowire.BytesType {
+				v, n := protowire.ConsumeBytes(data[offset:])
+				if n > 0 {
+					s := string(v)
+					h.Proto.TargetJobName = &s
+					offset += n
+
+					continue
+				}
+			}
+
+		case 6: // wg_token (string)
+			if typ == protowire.BytesType {
+				v, n := protowire.ConsumeBytes(data[offset:])
+				if n > 0 {
+					s := string(v)
+					h.Proto.WgToken = &s
+					offset += n
+
+					continue
+				}
+			}
+
+		case 10: // jobid_source (fixed64)
+			if typ == protowire.Fixed64Type {
+				v, n := protowire.ConsumeFixed64(data[offset:])
+				if n > 0 {
+					SetProtoUint64(&h.Proto.JobidSource, v)
+
+					offset += n
+					continue
+				}
+			}
+
+		case 11: // jobid_target (fixed64)
+			if typ == protowire.Fixed64Type {
+				v, n := protowire.ConsumeFixed64(data[offset:])
+				if n > 0 {
+					SetProtoUint64(&h.Proto.JobidTarget, v)
+
+					offset += n
+					continue
+				}
+			}
+
+		case 13: // eresult (varint)
+			if typ == protowire.VarintType {
+				v, n := protowire.ConsumeVarint(data[offset:])
+				if n > 0 {
+					SetProtoInt32(&h.Proto.Eresult, int32(v))
+
+					offset += n
+					continue
+				}
+			}
+
+		case 18: // routing_appid (varint)
+			if typ == protowire.VarintType {
+				v, n := protowire.ConsumeVarint(data[offset:])
+				if n > 0 {
+					u := uint32(v)
+					h.Proto.RoutingAppid = &u
+					offset += n
+
+					continue
+				}
+			}
+		}
+
+		n = protowire.ConsumeFieldValue(num, typ, data[offset:])
+		if n < 0 {
+			return errors.New("unmarshal proto hdr: invalid field value")
+		}
+
+		offset += n
+	}
+
+	return nil
+}
+
+// SetProtoUint64 sets the value of a *uint64 pointer, allocating if necessary.
+func SetProtoUint64(p **uint64, val uint64) {
 	if *p == nil {
 		v := val
 		*p = &v
@@ -345,11 +527,22 @@ func setProtoUint64(p **uint64, val uint64) {
 	}
 }
 
-func setProtoInt32(p **int32, val int32) {
+// SetProtoInt32 sets the value of a *int32 pointer, allocating if necessary.
+func SetProtoInt32(p **int32, val int32) {
 	if *p == nil {
 		v := val
 		*p = &v
 	} else {
 		**p = val
 	}
+}
+
+// Reset resets the MsgHdrProtoBuf struct fields.
+func (h *MsgHdrProtoBuf) Reset() {
+	if h.Proto != nil {
+		ReleaseProtoHeader(h.Proto)
+		h.Proto = nil
+	}
+
+	h.EMsg = 0
 }

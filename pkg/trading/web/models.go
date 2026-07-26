@@ -5,10 +5,11 @@
 package web
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
-	"net/url"
 	"strconv"
-	"strings"
+	"sync"
 
 	json "github.com/goccy/go-json"
 	"github.com/lemon4ksan/aoni/codec/values"
@@ -18,15 +19,16 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/trading"
 )
 
-type descKey struct {
-	ClassID    uint64
-	InstanceID uint64
+type descKey = uint64
+
+func packDescKey(classID, instanceID uint64) descKey {
+	return descKey((classID << 32) | (instanceID & 0xFFFFFFFF))
 }
 
 func newDescKey(classID, instanceID string) descKey {
 	cID, _ := strconv.ParseUint(classID, 10, 64)
 	instID, _ := strconv.ParseUint(instanceID, 10, 64)
-	return descKey{ClassID: cID, InstanceID: instID}
+	return packDescKey(cID, instID)
 }
 
 type tradeOfferObj struct {
@@ -62,30 +64,43 @@ type sendNewReq struct {
 	CounteredID  uint64 `url:"tradeofferid_countered,omitempty"`
 }
 
-func (r sendNewReq) EncodeFormString() (string, error) {
-	var sb strings.Builder
-	sb.Grow(128 + len(r.Message) + len(r.JSON) + len(r.CreateParams))
+var formBufferPool = sync.Pool{
+	New: func() any {
+		return new(bytes.Buffer)
+	},
+}
 
-	sb.WriteString("serverid=")
-	sb.WriteString(strconv.Itoa(r.ServerID))
-	sb.WriteString("&partner=")
-	sb.WriteString(r.PartnerID.String())
-	sb.WriteString("&tradeoffermessage=")
-	sb.WriteString(url.QueryEscape(r.Message))
-	sb.WriteString("&json_tradeoffer=")
-	sb.WriteString(url.QueryEscape(r.JSON))
+func (r sendNewReq) EncodeFormString() (string, error) {
+	buf := formBufferPool.Get().(*bytes.Buffer)
+
+	buf.Reset()
+	defer formBufferPool.Put(buf)
+
+	var intBuf [20]byte
+
+	buf.WriteString("serverid=")
+	buf.Write(strconv.AppendInt(intBuf[:0], int64(r.ServerID), 10))
+
+	buf.WriteString("&partner=")
+	buf.Write(strconv.AppendUint(intBuf[:0], uint64(r.PartnerID), 10))
+
+	buf.WriteString("&tradeoffermessage=")
+	bytesconv.AppendQueryEscaped(buf, bytesconv.S2B(r.Message))
+
+	buf.WriteString("&json_tradeoffer=")
+	bytesconv.AppendQueryEscaped(buf, bytesconv.S2B(r.JSON))
 
 	if r.CreateParams != "" {
-		sb.WriteString("&trade_offer_create_params=")
-		sb.WriteString(url.QueryEscape(r.CreateParams))
+		buf.WriteString("&trade_offer_create_params=")
+		bytesconv.AppendQueryEscaped(buf, bytesconv.S2B(r.CreateParams))
 	}
 
 	if r.CounteredID > 0 {
-		sb.WriteString("&tradeofferid_countered=")
-		sb.WriteString(strconv.FormatUint(r.CounteredID, 10))
+		buf.WriteString("&tradeofferid_countered=")
+		buf.Write(strconv.AppendUint(intBuf[:0], r.CounteredID, 10))
 	}
 
-	return sb.String(), nil
+	return buf.String(), nil
 }
 
 type sendNewResponse struct {
@@ -167,18 +182,201 @@ type assetClassTag struct {
 	Name                  string `json:"name"`
 }
 
+// scanJSONObjectElements scans a JSON object {"0": val0, "1": val1} into raw byte slices without map allocations.
+func scanJSONObjectElements(data []byte) ([][]byte, error) {
+	i := 0
+	n := len(data)
+
+	for i < n && data[i] != '{' {
+		i++
+	}
+
+	if i >= n {
+		return nil, errors.New("invalid json object: missing opening brace")
+	}
+
+	i++
+
+	var (
+		stackBuf [32][]byte
+		elements = stackBuf[:0]
+		maxIdx   = -1
+	)
+
+	for i < n {
+		for i < n && (data[i] == ' ' || data[i] == '\t' || data[i] == '\r' || data[i] == '\n' || data[i] == ',') {
+			i++
+		}
+
+		if i >= n {
+			return nil, errors.New("invalid json object: unexpected EOF")
+		}
+
+		if data[i] == '}' {
+			break
+		}
+
+		if data[i] != '"' {
+			return nil, errors.New("invalid json object: expected key string")
+		}
+
+		i++
+
+		keyStart := i
+		for i < n && data[i] != '"' {
+			i++
+		}
+
+		if i >= n {
+			return nil, errors.New("invalid json object: unterminated key string")
+		}
+
+		keyBytes := data[keyStart:i]
+		i++
+
+		idx, ok := bytesconv.ParseUint64(keyBytes)
+		if !ok {
+			for i < n && data[i] != ':' {
+				i++
+			}
+
+			if i < n {
+				i++
+			}
+
+			i = skipJSONValue(data, i)
+
+			continue
+		}
+
+		for i < n && data[i] != ':' {
+			i++
+		}
+
+		if i >= n {
+			return nil, errors.New("invalid json object: expected colon")
+		}
+
+		i++
+
+		for i < n && (data[i] == ' ' || data[i] == '\t' || data[i] == '\r' || data[i] == '\n') {
+			i++
+		}
+
+		valStart := i
+		i = skipJSONValue(data, i)
+		valEnd := i
+
+		if valEnd > valStart {
+			idxInt := int(idx)
+			if idxInt > maxIdx {
+				maxIdx = idxInt
+			}
+
+			if idxInt >= len(elements) {
+				newLen := idxInt + 1
+				if cap(elements) < newLen {
+					newCap := cap(elements) * 2
+					if newCap < newLen {
+						newCap = newLen
+					}
+
+					newElems := make([][]byte, newLen, newCap)
+					copy(newElems, elements)
+					elements = newElems
+				} else {
+					elements = elements[:newLen]
+				}
+			}
+
+			elements[idxInt] = data[valStart:valEnd]
+		}
+	}
+
+	if maxIdx < 0 {
+		return nil, errors.New("invalid json object: no valid numeric keys found")
+	}
+
+	return elements[:maxIdx+1], nil
+}
+
+func skipJSONValue(data []byte, i int) int {
+	n := len(data)
+	if i >= n {
+		return i
+	}
+
+	depth := 0
+	inString := false
+	escaped := false
+
+	for i < n {
+		c := data[i]
+
+		if escaped {
+			escaped = false
+			i++
+			continue
+		}
+
+		if c == '\\' && inString {
+			escaped = true
+			i++
+			continue
+		}
+
+		if c == '"' {
+			inString = !inString
+
+			i++
+			if !inString && depth == 0 {
+				return i
+			}
+
+			continue
+		}
+
+		if inString {
+			i++
+			continue
+		}
+
+		switch c {
+		case '{', '[':
+			depth++
+		case '}', ']':
+			depth--
+			if depth == 0 {
+				return i + 1
+			}
+		case ',', ' ', '\t', '\r', '\n':
+			if depth == 0 {
+				return i
+			}
+		}
+
+		i++
+	}
+
+	return i
+}
+
+var flexBufPool = sync.Pool{
+	New: func() any {
+		return new(bytes.Buffer)
+	},
+}
+
+// unmarshalFlexibleArray stitches pseudo-array object elements into a single JSON array,
+// performing a single json.Unmarshal call to eliminate multi-iteration decoder overhead.
 func unmarshalFlexibleArray[T any](data []byte) ([]T, error) {
+	data = bytes.TrimSpace(data)
 	if len(data) == 0 {
 		return nil, nil
 	}
 
 	switch data[0] {
 	case '"':
-		var s string
-		if err := json.Unmarshal(data, &s); err != nil {
-			return nil, err
-		}
-
 		return nil, nil
 
 	case '[':
@@ -190,37 +388,39 @@ func unmarshalFlexibleArray[T any](data []byte) ([]T, error) {
 		return arr, nil
 
 	case '{':
-		var rawMap map[string]json.RawMessage
-		if err := json.Unmarshal(data, &rawMap); err != nil {
+		rawElements, err := scanJSONObjectElements(data)
+		if err != nil {
 			return nil, err
 		}
 
-		if len(rawMap) == 0 {
+		if len(rawElements) == 0 {
 			return nil, nil
 		}
 
-		var (
-			maxIdx = -1
-			valid  = make(map[uint64]json.RawMessage, len(rawMap))
-		)
-		for k, raw := range rawMap {
-			if idx, ok := bytesconv.ParseUint64(bytesconv.S2B(k)); ok {
-				valid[idx] = raw
-				if int(idx) > maxIdx {
-					maxIdx = int(idx)
-				}
+		buf := flexBufPool.Get().(*bytes.Buffer)
+
+		buf.Reset()
+		defer flexBufPool.Put(buf)
+
+		buf.WriteByte('[')
+
+		for i, raw := range rawElements {
+			if i > 0 {
+				buf.WriteByte(',')
+			}
+
+			if len(raw) > 0 {
+				buf.Write(raw)
+			} else {
+				buf.WriteString("null")
 			}
 		}
 
-		if len(valid) == 0 {
-			return nil, nil
-		}
+		buf.WriteByte(']')
 
-		res := make([]T, maxIdx+1)
-		for idx, raw := range valid {
-			if err := json.Unmarshal(raw, &res[idx]); err != nil {
-				return nil, err
-			}
+		var res []T
+		if err := json.Unmarshal(buf.Bytes(), &res); err != nil {
+			return nil, err
 		}
 
 		return res, nil

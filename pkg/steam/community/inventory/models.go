@@ -38,6 +38,8 @@ type Description struct {
 	Tradable int `json:"tradable"`
 	// Name is the display name of the item.
 	Name string `json:"name"`
+	// Type is the type of the item (e.g. "Unique Level 10 Hat").
+	Type string `json:"type"`
 	// MarketHashName is the standard market identifier name.
 	MarketHashName string `json:"market_hash_name"`
 	// BackgroundColor is the background color of the item's icon.

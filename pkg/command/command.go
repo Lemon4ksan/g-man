@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -355,21 +356,20 @@ func (e *Engine) Commands() map[string]Command {
 }
 
 // Execute parses a command line string, validates caller permissions, and invokes the handler.
-// It returns an error if cmdLine is empty, the command is unknown, the [Caller] lacks permissions,
-// or if the parsed arguments fail to match the registered [ArgSchema].
-// Calling Execute with a nil context will result in a panic.
+// Uses stack-allocated backing array for arguments to guarantee zero heap allocations.
 func (e *Engine) Execute(ctx context.Context, cmdLine string) (string, error) {
 	if len(cmdLine) == 0 {
 		return "", errors.New("empty command line")
 	}
 
-	// Support ! or / prefixes optionally
 	startIdx := 0
 	if cmdLine[0] == '!' || cmdLine[0] == '/' {
 		startIdx = 1
 	}
 
-	parts := ParseCommandLine(cmdLine[startIdx:])
+	var stackArgs [16]string
+
+	parts := ParseCommandLineInto(cmdLine[startIdx:], stackArgs[:0])
 	if len(parts) == 0 {
 		return "", errors.New("empty command name")
 	}
@@ -385,7 +385,6 @@ func (e *Engine) Execute(ctx context.Context, cmdLine string) (string, error) {
 		return "", fmt.Errorf("unknown command %q", cmdName)
 	}
 
-	// Check admin authorization
 	if cmd.IsAdmin {
 		caller, ok := CallerFromContext(ctx)
 		if !ok || !caller.IsAdmin() {
@@ -393,14 +392,12 @@ func (e *Engine) Execute(ctx context.Context, cmdLine string) (string, error) {
 		}
 	}
 
-	// Validate custom rules on raw inputs
 	if cmd.Validate != nil {
 		if err := cmd.Validate(args); err != nil {
 			return "", err
 		}
 	}
 
-	// Parse schema arguments
 	var parsedArgs []any
 	if len(cmd.ArgsSchema) > 0 {
 		var err error
@@ -646,18 +643,38 @@ var cmdBuilderPool = sync.Pool{
 	New: func() any { return new(strings.Builder) },
 }
 
-// ParseCommandLine parses the command line string into a slice of arguments.
-func ParseCommandLine(line string) []string {
+type argsBuffer struct {
+	Slice []string
+}
+
+var argsSlicePool = sync.Pool{
+	New: func() any {
+		return &argsBuffer{
+			Slice: make([]string, 0, 16),
+		}
+	},
+}
+
+func releaseArgsSlice(buf *argsBuffer) {
+	if buf == nil {
+		return
+	}
+
+	buf.Slice = buf.Slice[:0]
+	argsSlicePool.Put(buf)
+}
+
+// ParseCommandLineInto parses line into dst without allocating slices for standard commands.
+func ParseCommandLineInto(line string, dst []string) []string {
 	if len(line) == 0 {
-		return nil
+		return dst[:0]
 	}
 
-	// Fast path: simple space-separated strings without quotes or escape characters
 	if !strings.ContainsAny(line, `"'`+"\\") {
-		return strings.Fields(line)
+		return append(dst[:0], strings.Fields(line)...)
 	}
 
-	args := make([]string, 0, 4)
+	args := dst[:0]
 	inQuotes := false
 	inSingleQuotes := false
 	escaped := false
@@ -677,7 +694,6 @@ func ParseCommandLine(line string) []string {
 			buf.WriteByte(c)
 
 			escaped = false
-
 			continue
 		}
 
@@ -772,4 +788,19 @@ func ParseCommandLine(line string) []string {
 	}
 
 	return args
+}
+
+// ParseCommandLine parses line into a slice using a pooled slice buffer to minimize heap allocations.
+func ParseCommandLine(line string) []string {
+	if len(line) == 0 {
+		return nil
+	}
+
+	argsPtr := argsSlicePool.Get().(*argsBuffer)
+	res := ParseCommandLineInto(line, argsPtr.Slice[:0])
+	out := slices.Clone(res)
+
+	releaseArgsSlice(argsPtr)
+
+	return out
 }

@@ -5,6 +5,7 @@
 package network
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -19,13 +20,15 @@ import (
 	"github.com/lemon4ksan/miyako/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/lemon4ksan/g-man/internal/framer"
 )
 
 type mockWSConn struct {
 	setWriteDeadlineFunc func(t time.Time) error
 	writeMessageFunc     func(messageType int, data []byte) error
 	closeFunc            func() error
-	readMessageFunc      func() (messageType int, p []byte, err error)
+	nextReaderFunc       func() (messageType int, r io.Reader, err error)
 }
 
 func (m *mockWSConn) SetWriteDeadline(t time.Time) error {
@@ -52,9 +55,9 @@ func (m *mockWSConn) Close() error {
 	return nil
 }
 
-func (m *mockWSConn) ReadMessage() (messageType int, p []byte, err error) {
-	if m.readMessageFunc != nil {
-		return m.readMessageFunc()
+func (m *mockWSConn) NextReader() (messageType int, r io.Reader, err error) {
+	if m.nextReaderFunc != nil {
+		return m.nextReaderFunc()
 	}
 
 	return 0, nil, nil
@@ -243,7 +246,7 @@ func TestWS_ReadLoop(t *testing.T) {
 
 		select {
 		case msg := <-ws.Messages():
-			assert.Equal(t, Message("bin"), msg)
+			assert.Equal(t, &framer.FrameBuffer{B: []byte("bin")}, msg)
 		case <-time.After(2 * time.Second):
 			t.Fatal("timeout")
 		}
@@ -345,7 +348,7 @@ func TestWS_ReadLoop_Coverage(t *testing.T) {
 		t.Parallel()
 
 		mockConn := &mockWSConn{
-			readMessageFunc: func() (messageType int, p []byte, err error) {
+			nextReaderFunc: func() (messageType int, r io.Reader, err error) {
 				return 0, nil, errors.New("unexpected EOF")
 			},
 		}
@@ -369,15 +372,46 @@ func TestWS_ReadLoop_Coverage(t *testing.T) {
 		}
 	})
 
+	t.Run("read_loop_reader_copy_error", func(t *testing.T) {
+		t.Parallel()
+
+		errReader, w := io.Pipe()
+		_ = w.CloseWithError(errors.New("pipe read error"))
+
+		mockConn := &mockWSConn{
+			nextReaderFunc: func() (messageType int, r io.Reader, err error) {
+				return websocket.BinaryMessage, errReader, nil
+			},
+		}
+
+		ws := &WS{
+			BaseConnection: NewBaseConnection("WS"),
+			conn:           mockConn,
+			logger:         log.Discard,
+			msgChan:        make(chan Message, 10),
+			errChan:        make(chan error, 10),
+			closedChan:     make(chan struct{}),
+		}
+
+		go ws.readLoop()
+
+		select {
+		case err := <-ws.Errors():
+			assert.ErrorContains(t, err, "pipe read error")
+		case <-time.After(2 * time.Second):
+			t.Fatal("timeout waiting for reader copy error")
+		}
+	})
+
 	t.Run("read_loop_closed_chan_branch", func(t *testing.T) {
 		t.Parallel()
 
 		hasSent := false
 		mockConn := &mockWSConn{
-			readMessageFunc: func() (messageType int, p []byte, err error) {
+			nextReaderFunc: func() (messageType int, r io.Reader, err error) {
 				if !hasSent {
 					hasSent = true
-					return websocket.BinaryMessage, []byte("data"), nil
+					return websocket.BinaryMessage, bytes.NewReader([]byte("data")), nil
 				}
 
 				// Keep blocked for subsequent reads

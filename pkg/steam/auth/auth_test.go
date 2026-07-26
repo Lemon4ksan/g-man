@@ -181,7 +181,6 @@ func (s *AuthenticatorSuite) TestPollAuthStatus_Coverage() {
 }
 
 func (s *AuthenticatorSuite) TestHandlers_Coverage() {
-	// handleChannelEncryptRequest
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.LittleEndian, uint32(ProtocolVersion))
 	binary.Write(buf, binary.LittleEndian, uint32(enums.EUniverse_Public))
@@ -189,7 +188,6 @@ func (s *AuthenticatorSuite) TestHandlers_Coverage() {
 	s.socket.On("SendRaw", mock.Anything, enums.EMsg_ChannelEncryptResponse, mock.Anything).Return(nil)
 	s.socket.SimulatePacketRaw(enums.EMsg_ChannelEncryptRequest, buf.Bytes())
 
-	// handleChannelEncryptResult success
 	key := []byte("12345678901234567890123456789012")
 	s.auth.tempKey.Store(&key)
 	s.auth.activeDetails.Store(&LogOnDetails{AccountName: "u"})
@@ -200,7 +198,6 @@ func (s *AuthenticatorSuite) TestHandlers_Coverage() {
 	s.socket.SimulatePacketRaw(enums.EMsg_ChannelEncryptResult, res)
 	s.Nil(s.auth.tempKey.Load())
 
-	// handleLogOnResponse failure (clear coverage)
 	s.auth.setLoginResult(make(chan error, 1))
 	s.socket.SimulatePacket(
 		enums.EMsg_ClientLogOnResponse,
@@ -214,7 +211,7 @@ func (s *AuthenticatorSuite) TestAcquireAuthToken_Coverage() {
 	ctx, cancel := context.WithCancelCause(s.T().Context())
 
 	s.auth.acquireAuthToken(ctx, cancel, details)
-	s.Equal(id.ID(123), details.SteamID) // Test SteamID logging branch
+	s.Equal(id.ID(123), details.SteamID)
 
 	details2 := &LogOnDetails{AccountName: "u2"}
 
@@ -275,8 +272,12 @@ func (s *AuthenticatorSuite) TestLogOn_WebSocket_Success() {
 
 	<-connected
 
+	hdr := protocol.NewMsgHdrProtoBuf(enums.EMsg_ClientLogOnResponse, 123, 456)
 	packet := &protocol.Packet{
-		EMsg: enums.EMsg_ClientLogOnResponse,
+		EMsg:       enums.EMsg_ClientLogOnResponse,
+		IsProto:    true,
+		HeaderKind: protocol.HeaderKindProto,
+		HdrProto:   *hdr,
 		Payload: func() []byte {
 			b, _ := proto.Marshal(&pb.CMsgClientLogonResponse{
 				Eresult:          proto.Int32(int32(enums.EResult_OK)),
@@ -285,7 +286,6 @@ func (s *AuthenticatorSuite) TestLogOn_WebSocket_Success() {
 
 			return b
 		}(),
-		Header: &mockAuthorizedHeader{steamID: 123, sessionID: 456},
 	}
 	s.auth.handleLogOnResponse(packet)
 
@@ -334,8 +334,12 @@ func (s *AuthenticatorSuite) TestHandleLogOnResponse_HeartbeatFailure() {
 	s.auth.setLoginResult(make(chan error, 1))
 	s.socket.On("StartHeartbeat", mock.Anything).Return(errors.New("heartbeat err")).Once()
 
+	hdr := protocol.NewMsgHdrProtoBuf(enums.EMsg_ClientLogOnResponse, 123, 456)
 	packet := &protocol.Packet{
-		EMsg: enums.EMsg_ClientLogOnResponse,
+		EMsg:       enums.EMsg_ClientLogOnResponse,
+		IsProto:    true,
+		HeaderKind: protocol.HeaderKindProto,
+		HdrProto:   *hdr,
 		Payload: func() []byte {
 			b, _ := proto.Marshal(&pb.CMsgClientLogonResponse{
 				Eresult:          proto.Int32(int32(enums.EResult_OK)),
@@ -344,7 +348,6 @@ func (s *AuthenticatorSuite) TestHandleLogOnResponse_HeartbeatFailure() {
 
 			return b
 		}(),
-		Header: &mockAuthorizedHeader{steamID: 123, sessionID: 456},
 	}
 	s.auth.handleLogOnResponse(packet)
 

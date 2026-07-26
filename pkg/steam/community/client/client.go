@@ -16,13 +16,10 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/PuerkitoBio/goquery"
 	"github.com/lemon4ksan/aoni"
-	"github.com/lemon4ksan/aoni/codec/decode"
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/option"
 	"github.com/lemon4ksan/aoni/request"
-	"github.com/lemon4ksan/miyako/generic"
 	"github.com/lemon4ksan/miyako/log"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
@@ -32,9 +29,13 @@ import (
 const BaseURL = "https://steamcommunity.com/"
 
 var (
-	rxSorry      = regexp.MustCompile(`<h1>Sorry!</h1>[\s\S]*?<h3>(.+?)</h3>`)
-	rxTradeError = regexp.MustCompile(`<div id="error_msg">\s*([^<]+)\s*</div>`)
-	rxAPIKey     = regexp.MustCompile(`Key: (?i)[0-9A-F]{32}`)
+	rxSorry       = regexp.MustCompile(`<h1>Sorry!</h1>[\s\S]*?<h3>(.+?)</h3>`)
+	rxTradeError  = regexp.MustCompile(`<div id="error_msg">\s*([^<]+)\s*</div>`)
+	apiKeyRegexes = []*regexp.Regexp{
+		regexp.MustCompile(`(?i)Key:\s*([0-9A-F]{32})`),
+		regexp.MustCompile(`(?i)id=["']apiKey["']\s+value=["']([0-9A-F]{32})["']`),
+		regexp.MustCompile(`(?i)value=["']([0-9A-F]{32})["']`),
+	}
 )
 
 var (
@@ -209,49 +210,74 @@ func (c *Client) Request(
 // GetOrRegisterAPIKey checks for a Steam WebAPI key or registers one for the given domain.
 // It defaults to registering for localhost if the domain argument is empty.
 // It returns [ErrAPITokenNotFound] or underlying connection errors if registration fails.
+// GetOrRegisterAPIKey fetches the existing Steam WebAPI key or registers a new one for the given domain.
+// GetOrRegisterAPIKey checks for a Steam WebAPI key or registers one for the given domain.
 func (c *Client) GetOrRegisterAPIKey(ctx context.Context, domain string) (string, error) {
-	dataPtr, err := request.GetTo[[]byte](ctx, c.r, "dev/apikey",
-		decode.WithRaw(),
-		mod.WithAccept("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"),
-	)
+	resp, err := c.Request(ctx, http.MethodGet, "dev/apikey")
 	if err != nil {
-		return "", fmt.Errorf("failed to fetch apikey page: %w", err)
+		return "", fmt.Errorf("community: get apikey page: %w", err)
 	}
+	defer resp.Body.Close()
 
-	data := *dataPtr
-
-	if apiKey := rxAPIKey.Find(data); apiKey != nil {
-		return string(apiKey[5:]), nil
-	}
-
-	doc, err := goquery.NewDocumentFromReader(bytes.NewReader(data))
+	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("community: read apikey page: %w", err)
 	}
 
-	if doc.Find("#register_form").Length() > 0 {
-		return c.registerAPIKey(ctx, generic.Coalesce(domain, "localhost"))
+	bodyStr := string(bodyBytes)
+
+	if strings.Contains(bodyStr, "login_form") || strings.Contains(bodyStr, "/login/home") {
+		return "", errors.New(
+			"community: web session not authenticated when accessing dev/apikey (redirected to login)",
+		)
 	}
 
-	return "", ErrAPITokenNotFound
-}
+	if strings.Contains(bodyStr, "Access Denied") || strings.Contains(bodyStr, "does not meet the requirements") {
+		return "", errors.New("community: account is limited ($5 USD required) and cannot create a WebAPI key")
+	}
 
-// registerAPIKey registers a new WebAPI key for the specified domain.
-func (c *Client) registerAPIKey(ctx context.Context, domain string) (string, error) {
-	c.logger.Info("Registering new WebAPI key...", log.String("domain", domain))
+	for _, re := range apiKeyRegexes {
+		if matches := re.FindStringSubmatch(bodyStr); len(matches) > 1 {
+			return matches[1], nil
+		}
+	}
 
-	req := url.Values{
+	hasForm := strings.Contains(bodyStr, "registerkey") ||
+		strings.Contains(bodyStr, "editForm") ||
+		strings.Contains(bodyStr, "name=\"domain\"") ||
+		strings.Contains(bodyStr, "name='domain'") ||
+		strings.Contains(bodyStr, "register_form")
+
+	if !hasForm {
+		return "", ErrAPITokenNotFound
+	}
+
+	if domain == "" {
+		domain = "localhost"
+	}
+
+	sessionID := c.SessionID(BaseURL)
+	if sessionID == "" {
+		return "", errors.New("community: missing sessionid cookie for registerkey request")
+	}
+
+	form := url.Values{
 		"domain":       {domain},
 		"agreeToTerms": {"agreed"},
 		"Submit":       {"Register"},
-		"sessionid":    {c.SessionID(BaseURL)},
+		"sessionid":    {sessionID},
 	}
 
-	_, err := request.PostTo[request.NoResponse](ctx, c.r, "dev/registerkey", nil, mod.WithFormValues(req))
+	regResp, err := c.Request(ctx, http.MethodPost, "dev/registerkey",
+		mod.WithBody(strings.NewReader(form.Encode())),
+		mod.WithContentType("application/x-www-form-urlencoded"),
+	)
 	if err != nil {
-		return "", fmt.Errorf("registration request failed: %w", err)
+		return "", fmt.Errorf("community: register key submission failed: %w", err)
 	}
+	defer regResp.Body.Close()
 
+	// Re-fetch the page after registration to obtain the newly generated key
 	return c.GetOrRegisterAPIKey(ctx, domain)
 }
 

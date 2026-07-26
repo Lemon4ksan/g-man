@@ -59,6 +59,7 @@ func NewSocketTransport(caller SocketCaller) *SocketTransport {
 //
 // It returns an error if the request's [Target] does not implement [SocketTarget],
 // if the connection session is missing, or if the synchronous write/read fails.
+// Do executes a [Request] over a persistent socket connection.
 func (t *SocketTransport) Do(ctx context.Context, req *Request) (*Response, error) {
 	target, ok := req.Target().(SocketTarget)
 	if !ok {
@@ -101,17 +102,12 @@ func (t *SocketTransport) Do(ctx context.Context, req *Request) (*Response, erro
 	}
 	defer protocol.ReleasePacket(resp)
 
-	result := enums.EResult_OK
-
-	var sourceJobID uint64
-
-	if resp.Header != nil {
-		if eh, ok := resp.Header.(protocol.EHeader); ok {
-			result = eh.GetEResult()
-		}
-
-		sourceJobID = resp.GetSourceJobID()
+	result := resp.GetEResult()
+	if result == enums.EResult_Invalid {
+		result = enums.EResult_OK
 	}
+
+	sourceJobID := resp.GetSourceJobID()
 
 	return NewResponse(io.NopCloser(bytes.NewReader(resp.Payload)), SocketMetadata{
 		Result:      result,

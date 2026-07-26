@@ -5,7 +5,6 @@
 package transport
 
 import (
-	"io"
 	"net/url"
 	"strings"
 	"testing"
@@ -13,8 +12,6 @@ import (
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/codec/decode"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 )
 
 type mockTarget struct {
@@ -22,16 +19,6 @@ type mockTarget struct {
 }
 
 func (m mockTarget) String() string { return m.name }
-
-type mockEHeader struct {
-	result    enums.EResult
-	sourceJob uint64
-}
-
-func (m mockEHeader) GetEResult() enums.EResult     { return m.result }
-func (m mockEHeader) GetSourceJob() uint64          { return m.sourceJob }
-func (m mockEHeader) GetTargetJob() uint64          { return 0 }
-func (m mockEHeader) SerializeTo(w io.Writer) error { return nil }
 
 func TestNewRequest_Initialization_SetsDefaults(t *testing.T) {
 	t.Parallel()
