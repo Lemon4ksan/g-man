@@ -85,10 +85,10 @@ type SocketProvider interface {
 }
 
 // WebSessionFactory constructs a custom [WebSessionProvider] instance.
-type WebSessionFactory func(steamID id.ID, logger log.Logger, baseDoer aoni.HTTPDoer) WebSessionProvider
+type WebSessionFactory func(steamID id.ID, logger log.Logger, r any) WebSessionProvider
 
 // CommunityClientFactory constructs a custom [CommunityProvider] instance.
-type CommunityClientFactory func(httpClient *http.Client, sess community.SessionProvider, logger log.Logger) community.Requester
+type CommunityClientFactory func(httpDoer aoni.HTTPDoer, sess community.SessionProvider, logger log.Logger) community.Requester
 
 // Config decouples configuration for [Session] from global client parameters.
 // Use [Config.ResolveDefaults] to initialize default fallback values.
@@ -104,7 +104,7 @@ type Config struct {
 	Storage storage.Provider
 	// HTTP defines the HTTP request executor for WebAPI calls.
 	// Default client is configured with 30 second timeout and default HTTP transport.
-	HTTP aoni.HTTPDoer
+	HTTP any
 	// WebAPIBase sets the target base URL for WebAPI requests.
 	// Default: [service.WebAPIBase].
 	WebAPIBase string
@@ -146,7 +146,7 @@ func (cfg *Config) ResolveDefaults() {
 	}
 
 	if cfg.HTTP == nil {
-		cfg.HTTP = &http.Client{Timeout: 30 * time.Second}
+		cfg.HTTP = aoni.NewClient(nil)
 	}
 
 	if cfg.Device == nil {
@@ -155,14 +155,14 @@ func (cfg *Config) ResolveDefaults() {
 	}
 
 	if cfg.WebFactory == nil {
-		cfg.WebFactory = func(steamID id.ID, logger log.Logger, baseDoer aoni.HTTPDoer) WebSessionProvider {
-			return websession.New(steamID, logger, baseDoer)
+		cfg.WebFactory = func(steamID id.ID, logger log.Logger, r any) WebSessionProvider {
+			return websession.New(steamID, logger, r)
 		}
 	}
 
 	if cfg.CommunityFactory == nil {
-		cfg.CommunityFactory = func(httpClient *http.Client, sess community.SessionProvider, logger log.Logger) community.Requester {
-			return community.NewClient(httpClient, sess).WithLogger(logger)
+		cfg.CommunityFactory = func(httpDoer aoni.HTTPDoer, sess community.SessionProvider, logger log.Logger) community.Requester {
+			return community.NewClient(aoni.NewHTTPDoerAdapter(httpDoer), sess).WithLogger(logger)
 		}
 	}
 }
@@ -181,7 +181,7 @@ type Session struct {
 	storage   storage.Provider
 	device    *auth.DeviceConfig
 	bus       *bus.Bus
-	http      aoni.HTTPDoer
+	http      any
 
 	webFactory       WebSessionFactory
 	communityFactory CommunityClientFactory

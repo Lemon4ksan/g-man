@@ -15,17 +15,15 @@ import (
 )
 
 const (
-	// magic are the 4 bytes that prefix every Steam TCP packet header.
-	magic = "VT01"
-	// magicUint32 is the 4-byte magic number used to identify Steam TCP packets.
+	magic              = "VT01"
 	magicUint32 uint32 = 0x31305456
 )
 
 // SteamFramer implements network.Framer for Steam's custom TCP protocol.
-// It handles length-prefixed message framing: [4-byte length][4-byte magic][payload].
 type SteamFramer struct{}
 
-// ReadFrame reads a frame from the given io.Reader using the Steam framer.
+// ReadFrame reads a length-prefixed frame from r.
+// Allocates exact payload size to avoid memory escape overhead of oversized pooled slices.
 func (s SteamFramer) ReadFrame(r io.Reader) ([]byte, error) {
 	var header [8]byte
 	if _, err := io.ReadFull(r, header[:]); err != nil {

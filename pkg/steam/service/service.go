@@ -254,23 +254,25 @@ func WebAPI[Resp any](
 
 	if reqMsg != nil {
 		if encoder, ok := reqMsg.(FastFormEncoder); ok {
-			if encoded, err := encoder.EncodeFormString(); err == nil {
-				req.WithParam("input_protobuf_encoded", encoded)
-			} else {
-				params, err := values.StructToValues(reqMsg)
-				if err != nil {
-					return nil, err
-				}
-
-				req.WithParams(params)
-			}
-		} else {
-			params, err := values.StructToValues(reqMsg)
+			encoded, err := encoder.EncodeFormString()
 			if err != nil {
 				return nil, err
 			}
 
-			req.WithParams(params)
+			req.WithParam("input_protobuf_encoded", encoded)
+		} else {
+			qStr, err := values.StructToQueryString(reqMsg)
+			if err != nil {
+				return nil, err
+			}
+
+			if qStr != "" {
+				for pair := range strings.SplitSeq(qStr, "&") {
+					if k, v, ok := strings.Cut(pair, "="); ok {
+						req.WithParam(k, v)
+					}
+				}
+			}
 		}
 	}
 

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/aoni/fast"
 	"github.com/lemon4ksan/aoni/request"
 	"github.com/lemon4ksan/miyako/bus"
 	"github.com/lemon4ksan/miyako/generic"
@@ -152,9 +153,53 @@ func WithSocket(sock session.SocketProvider) Option {
 	return func(c *Client) { c.socket = sock }
 }
 
-// WithREST sets a custom [aoni.Client] for [Client].
-func WithREST(rest *aoni.Client) Option {
-	return func(c *Client) { c.rest = rest }
+// WithREST configures the REST execution engine using any supported client type
+// (*fast.Client, *aoni.Client, aoni.RequestDoer, or aoni.HTTPDoer).
+func WithREST(doer any) Option {
+	return func(c *Client) {
+		if doer == nil {
+			return
+		}
+
+		if fc, ok := doer.(*fast.Client); ok {
+			c.fastClient = fc
+			c.rest = request.AsRequester(fc)
+			c.cfg.Socket.FastClient = fc
+			c.cfg.Socket.Connector.FastClient = fc
+
+			return
+		}
+
+		if r, ok := doer.(request.Requester); ok {
+			c.rest = r
+			return
+		}
+
+		if rd, ok := doer.(aoni.RequestDoer); ok {
+			c.rest = request.AsRequester(rd)
+			return
+		}
+
+		if hd, ok := doer.(aoni.HTTPDoer); ok {
+			c.rest = request.AsRequester(aoni.NewHTTPDoerAdapter(hd))
+			return
+		}
+	}
+}
+
+// WithFastClient configures a fast.Client for zero-copy REST requests,
+// uTLS WebSocket dialing, and TCP socket dialing across all client layers.
+func WithFastClient(fastClient *fast.Client) Option {
+	return func(c *Client) {
+		if fastClient == nil {
+			return
+		}
+
+		c.fastClient = fastClient
+		c.rest = request.AsRequester(fastClient)
+		c.cfg.Socket.FastClient = fastClient
+		c.cfg.Socket.Connector.FastClient = fastClient
+	}
 }
 
 // WithBus sets a custom [bus.Bus] for [Client].
@@ -192,12 +237,13 @@ type Client struct {
 	logger   log.Logger
 	bus      *bus.Bus
 
-	socket  session.SocketProvider
-	session *session.Session
-	router  *router.ServiceRouter
-	modules *modules.Manager
-	rest    *aoni.Client
-	storage storage.Provider
+	socket     session.SocketProvider
+	session    *session.Session
+	router     *router.ServiceRouter
+	modules    *modules.Manager
+	rest       request.Requester
+	fastClient *fast.Client
+	storage    storage.Provider
 
 	ctx       context.Context
 	cancel    context.CancelFunc
@@ -271,10 +317,20 @@ func New(cfg Config, opts ...Option) (*Client, error) {
 	}
 
 	if c.session == nil {
+		var sessionHTTPDoer any
+		switch {
+		case c.fastClient != nil:
+			sessionHTTPDoer = c.fastClient
+		case c.rest != nil:
+			sessionHTTPDoer = c.rest
+		default:
+			sessionHTTPDoer = aoni.NewClient(nil)
+		}
+
 		sessionCfg := session.Config{
 			Device:           cfg.Device,
 			Storage:          c.storage,
-			HTTP:             c.rest.HTTP(),
+			HTTP:             sessionHTTPDoer, // Correctly respects mock c.rest when fastClient is not configured
 			Bus:              c.bus,
 			Logger:           c.logger,
 			Authenticator:    c.authenticator,

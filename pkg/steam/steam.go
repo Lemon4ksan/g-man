@@ -45,6 +45,9 @@ var (
 	WithSocket = client.WithSocket
 	// WithREST sets a custom [aoni.Client] for [Client].
 	WithREST = client.WithREST
+	// WithFastClient configures a fast.Client for zero-copy REST requests,
+	// uTLS WebSocket dialing, and TCP socket dialing across all client layers.
+	WithFastClient = client.WithFastClient
 	// WithBus sets a custom [bus.Bus] for [Client].
 	WithBus = client.WithBus
 	// WithStorage sets a custom [storage.Provider] for [Client].

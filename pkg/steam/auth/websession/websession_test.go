@@ -17,7 +17,6 @@ import (
 	"time"
 
 	json "github.com/goccy/go-json"
-	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/miyako/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -50,12 +49,16 @@ func (m *mockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return nil, fmt.Errorf("mockTransport: no handler for URL: %s", urlStr)
 }
 
+func (m *mockTransport) Do(req *http.Request) (*http.Response, error) {
+	return m.RoundTrip(req)
+}
+
 func setupMockTransport() *mockTransport {
 	return &mockTransport{handlers: make(map[string]func(r *http.Request) (*http.Response, error))}
 }
 
 func newMockedSession(transport *mockTransport) *WebSession {
-	return New(testSteamID, log.Discard, aoni.DoerFunc(transport.RoundTrip))
+	return New(testSteamID, log.Discard, transport)
 }
 
 func TestNew(t *testing.T) {

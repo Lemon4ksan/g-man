@@ -25,12 +25,12 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/test/mock"
 )
 
-// mockHTTPDoer is a mock implementation of aoni.HTTPDoer for isolated client tests.
-type mockHTTPDoer struct {
-	doFunc func(req *http.Request) (*http.Response, error)
+// mockRequestDoer is a mock implementation of aoni.HTTPDoer for isolated client tests.
+type mockRequestDoer struct {
+	doFunc func(req aoni.Request) (aoni.Response, error)
 }
 
-func (m *mockHTTPDoer) Do(req *http.Request) (*http.Response, error) {
+func (m *mockRequestDoer) Do(req aoni.Request) (aoni.Response, error) {
 	return m.doFunc(req)
 }
 
@@ -167,7 +167,7 @@ func TestGet(t *testing.T) {
 		}
 		_, err := community.GetTo[genericResponse](t.Context(), client, "/test/get")
 		require.Error(t, err)
-		assert.IsType(t, &json.UnmarshalTypeError{}, err)
+		assert.IsType(t, &json.SyntaxError{}, err)
 	})
 }
 
@@ -413,9 +413,7 @@ func TestPostJSON(t *testing.T) {
 
 		_, err := community.PostTo[genericResponse](t.Context(), client, "/test/post", badJSON{})
 		require.Error(t, err)
-
-		var marshalErr *json.UnsupportedTypeError
-		assert.ErrorAs(t, err, &marshalErr)
+		assert.ErrorContains(t, err, "unsupported type")
 	})
 }
 
@@ -425,15 +423,18 @@ func TestPerformRequest(t *testing.T) {
 	t.Run("applies_call_options", func(t *testing.T) {
 		t.Parallel()
 
-		var receivedHeaders http.Header
+		var receivedHeader string
 
-		httpClient := &mockHTTPDoer{
-			doFunc: func(req *http.Request) (*http.Response, error) {
-				receivedHeaders = req.Header
-				return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader("{}"))}, nil
+		doer := &mockRequestDoer{
+			doFunc: func(req aoni.Request) (aoni.Response, error) {
+				receivedHeader = req.Header("X-Test-Header")
+
+				return aoni.NewStdResponse(
+					&http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader("{}"))},
+				), nil
 			},
 		}
-		client := community.NewClient(httpClient, nil)
+		client := community.NewClient(doer, nil)
 		_, err := community.GetTo[genericResponse](
 			t.Context(),
 			client,
@@ -442,7 +443,7 @@ func TestPerformRequest(t *testing.T) {
 			mod.WithHeader("X-Test-Header", "Value123"),
 		)
 		require.NoError(t, err)
-		assert.Equal(t, "Value123", receivedHeaders.Get("X-Test-Header"))
+		assert.Equal(t, "Value123", receivedHeader)
 	})
 
 	t.Run("registry_fallback", func(t *testing.T) {

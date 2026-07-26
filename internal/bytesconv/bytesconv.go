@@ -145,3 +145,73 @@ func TrimQuotes(b []byte) []byte {
 
 	return b
 }
+
+// ParseUint64 parses an ASCII decimal representation in b into a uint64 with zero allocations and BCE hints.
+func ParseUint64(b []byte) (uint64, bool) {
+	n := len(b)
+	if n == 0 {
+		return 0, false
+	}
+
+	// BCE hint to prove slice boundaries to SSA compiler
+	_ = b[n-1]
+
+	var v uint64
+	for i := 0; i < n; i++ {
+		c := b[i]
+		if c < '0' || c > '9' {
+			return 0, false
+		}
+
+		v = v*10 + uint64(c-'0')
+	}
+
+	return v, true
+}
+
+// ParseInt64 parses an optional signed ASCII decimal representation in b into an int64 with zero allocations.
+func ParseInt64(b []byte) (int64, bool) {
+	n := len(b)
+	if n == 0 {
+		return 0, false
+	}
+
+	neg := false
+	start := 0
+
+	switch b[0] {
+	case '-':
+		neg = true
+		start = 1
+
+		if n == 1 {
+			return 0, false
+		}
+
+	case '+':
+		start = 1
+
+		if n == 1 {
+			return 0, false
+		}
+	}
+
+	// BCE hint
+	_ = b[n-1]
+
+	var v int64
+	for i := start; i < n; i++ {
+		c := b[i]
+		if c < '0' || c > '9' {
+			return 0, false
+		}
+
+		v = v*10 + int64(c-'0')
+	}
+
+	if neg {
+		return -v, true
+	}
+
+	return v, true
+}

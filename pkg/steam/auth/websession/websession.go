@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/aoni/fast"
 	"github.com/lemon4ksan/aoni/middleware"
 	"github.com/lemon4ksan/aoni/request"
 	"github.com/lemon4ksan/miyako/log"
@@ -77,17 +78,28 @@ func (d *doerRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) 
 }
 
 // New creates a new, unauthenticated web session for the provided SteamID.
-//
-// If the baseDoer argument is nil, it automatically initializes a default
-// [http.Client] with a 30-second timeout.
-func New(steamID id.ID, logger log.Logger, baseDoer aoni.HTTPDoer) *WebSession {
-	if baseDoer == nil {
-		baseDoer = &http.Client{Timeout: 30 * time.Second}
+// Accepts any supported execution engine (*fast.Client, *aoni.Client, aoni.HTTPDoer, or nil).
+func New(steamID id.ID, logger log.Logger, doer any) *WebSession {
+	var httpDoer aoni.HTTPDoer
+
+	if doer == nil {
+		fastEngine := fast.NewClient()
+		httpDoer = fast.NewStdClient(fastEngine)
+	} else if fc, ok := doer.(*fast.Client); ok {
+		httpDoer = fast.NewStdClient(fc)
+	} else if ac, ok := doer.(*aoni.Client); ok {
+		httpDoer = ac.HTTP()
+	} else if hd, ok := doer.(aoni.HTTPDoer); ok {
+		httpDoer = hd
+	} else if rd, ok := doer.(aoni.RequestDoer); ok {
+		httpDoer = aoni.NewRequestDoerAdapter(rd)
+	} else {
+		httpDoer = aoni.NewClient(nil).HTTP()
 	}
 
 	ws := &WebSession{
 		steamID:      steamID,
-		baseDoer:     baseDoer,
+		baseDoer:     httpDoer,
 		logger:       logger.With(log.Module("websession")),
 		retryBackoff: time.Second,
 	}

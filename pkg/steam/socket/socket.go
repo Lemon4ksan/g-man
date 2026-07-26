@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/lemon4ksan/aoni/fast"
 	"github.com/lemon4ksan/miyako/generic"
 	"github.com/lemon4ksan/miyako/jobs"
 	"github.com/lemon4ksan/miyako/log"
@@ -109,6 +110,8 @@ type Session interface {
 
 // Config aggregates configurations for all underlying socket subsystems.
 type Config struct {
+	// FastClient specifies an optional fast.Client used for high-performance TCP and uTLS WebSocket dialing.
+	FastClient *fast.Client
 	// Connector holds configuration parameters for raw network dials.
 	Connector ConnectorConfig
 	// Processor holds configuration parameters for concurrent packet decoding.
@@ -150,6 +153,10 @@ type Socket struct {
 
 // New initializes a new Steam Socket facade.
 func New(cfg Config) *Socket {
+	if cfg.FastClient != nil && cfg.Connector.FastClient == nil {
+		cfg.Connector.FastClient = cfg.FastClient
+	}
+
 	s := &Socket{
 		cfg:     cfg,
 		logger:  log.Discard,

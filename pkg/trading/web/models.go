@@ -7,13 +7,13 @@ package web
 import (
 	"fmt"
 	"net/url"
-	"slices"
 	"strconv"
 	"strings"
 
 	json "github.com/goccy/go-json"
 	"github.com/lemon4ksan/aoni/codec/values"
 
+	"github.com/lemon4ksan/g-man/internal/bytesconv"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/trading"
 )
@@ -190,33 +190,37 @@ func unmarshalFlexibleArray[T any](data []byte) ([]T, error) {
 		return arr, nil
 
 	case '{':
-		var m map[string]T
-		if err := json.Unmarshal(data, &m); err != nil {
+		var rawMap map[string]json.RawMessage
+		if err := json.Unmarshal(data, &rawMap); err != nil {
 			return nil, err
 		}
 
-		type indexedItem struct {
-			idx int
-			val T
+		if len(rawMap) == 0 {
+			return nil, nil
 		}
 
-		items := make([]indexedItem, 0, len(m))
-		for k, v := range m {
-			idx, err := strconv.Atoi(k)
-			if err != nil {
-				continue
+		var (
+			maxIdx = -1
+			valid  = make(map[uint64]json.RawMessage, len(rawMap))
+		)
+		for k, raw := range rawMap {
+			if idx, ok := bytesconv.ParseUint64(bytesconv.S2B(k)); ok {
+				valid[idx] = raw
+				if int(idx) > maxIdx {
+					maxIdx = int(idx)
+				}
 			}
-
-			items = append(items, indexedItem{idx: idx, val: v})
 		}
 
-		slices.SortFunc(items, func(a, b indexedItem) int {
-			return a.idx - b.idx
-		})
+		if len(valid) == 0 {
+			return nil, nil
+		}
 
-		res := make([]T, len(items))
-		for i, item := range items {
-			res[i] = item.val
+		res := make([]T, maxIdx+1)
+		for idx, raw := range valid {
+			if err := json.Unmarshal(raw, &res[idx]); err != nil {
+				return nil, err
+			}
 		}
 
 		return res, nil

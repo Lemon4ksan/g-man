@@ -341,8 +341,17 @@ func (d *Dispatcher) handleJobResponse(packet *protocol.Packet) bool {
 	return d.jobManager.Resolve(targetID, packet, err)
 }
 
+var cmsgMultiPool = sync.Pool{
+	New: func() any { return &pb.CMsgMulti{} },
+}
+
+// handleMulti processes batched Multi-messages, acquiring CMsgMulti from sync.Pool to eliminate allocations.
 func (d *Dispatcher) handleMulti(packet *protocol.Packet) {
-	msg := &pb.CMsgMulti{}
+	msg := cmsgMultiPool.Get().(*pb.CMsgMulti)
+
+	msg.Reset()
+	defer cmsgMultiPool.Put(msg)
+
 	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
 		d.getLogger().ErrorContext(packet.Context(), "Failed to unmarshal CMsgMulti", log.Err(err))
 		return
@@ -455,6 +464,7 @@ func (d *Dispatcher) putBuffer(buf *bytes.Buffer) {
 	}
 }
 
+// newPacket constructs an outbound packet acquiring a pooled instance to avoid heap allocations.
 func newPacket(
 	sess SessionReader,
 	eMsg enums.EMsg,
@@ -474,7 +484,10 @@ func newPacket(
 		sessionID = sess.SessionID()
 	}
 
-	pkt := &protocol.Packet{EMsg: eMsg, IsProto: isProto}
+	pkt := protocol.AcquirePacket()
+	pkt.EMsg = eMsg
+	pkt.IsProto = isProto
+
 	if isProto {
 		hdr := protocol.NewMsgHdrProtoBuf(eMsg, steamID, sessionID)
 		hdr.Proto.JobidSource = proto.Uint64(jobID)

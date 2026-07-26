@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/aoni/request"
 	"github.com/lemon4ksan/g-man/internal/client/router"
 	"github.com/lemon4ksan/g-man/internal/client/session"
 	"github.com/lemon4ksan/g-man/pkg/steam/client"
@@ -38,12 +39,12 @@ func SetupTestClient(t *testing.T) (*client.Client, *TestMocks) {
 	}
 
 	sess := session.New(m.Sock, session.Config{
-		HTTP:          m.Http,
+		HTTP:          request.AsRequester(aoni.NewHTTPDoerAdapter(m.Http)),
 		Authenticator: m.Auth,
-		WebFactory: func(steamID id.ID, logger log.Logger, baseDoer aoni.HTTPDoer) session.WebSessionProvider {
+		WebFactory: func(steamID id.ID, logger log.Logger, r any) session.WebSessionProvider {
 			return m.Web
 		},
-		CommunityFactory: func(httpClient *http.Client, sess community.SessionProvider, logger log.Logger) community.Requester {
+		CommunityFactory: func(httpDoer aoni.HTTPDoer, sess community.SessionProvider, logger log.Logger) community.Requester {
 			return m.Comm
 		},
 	})
@@ -54,11 +55,11 @@ func SetupTestClient(t *testing.T) (*client.Client, *TestMocks) {
 		client.WithSession(sess),
 		client.WithRouter(router.New(sess, m.Sock)),
 		client.WithAuthenticator(m.Auth),
-		client.WithWebFactory(func(steamID id.ID, logger log.Logger, baseDoer aoni.HTTPDoer) session.WebSessionProvider {
+		client.WithWebFactory(func(steamID id.ID, logger log.Logger, r any) session.WebSessionProvider {
 			return m.Web
 		}),
 		client.WithCommunityFactory(
-			func(httpClient *http.Client, sess community.SessionProvider, logger log.Logger) community.Requester {
+			func(httpDoer aoni.HTTPDoer, sess community.SessionProvider, logger log.Logger) community.Requester {
 				return m.Comm
 			},
 		),

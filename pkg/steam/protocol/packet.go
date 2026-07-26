@@ -216,7 +216,17 @@ func (p *Packet) Context() context.Context {
 //
 // It automatically detects the header format by examining EMsg bitmask.
 // If the provided reader r is nil, ParsePacket returns a nil reader error.
+// ParsePacket decodes a steam network message from an [io.Reader].
+//
+// It automatically detects the header format by examining EMsg bitmask.
+// Uses fast-path byte reading when r is *bytes.Reader to eliminate binary.Read reflection overhead.
 func ParsePacket(r io.Reader) (*Packet, error) {
+	// Fast path for *bytes.Reader to eliminate binary.Read reflection and io.ReadAll heap allocations
+	if br, ok := r.(*bytes.Reader); ok {
+		return parseFast(br)
+	}
+
+	// Fallback path for generic io.Reader
 	var rawEMsg uint32
 	if err := binary.Read(r, binary.LittleEndian, &rawEMsg); err != nil {
 		return nil, fmt.Errorf("read emsg: %w", err)
@@ -245,13 +255,67 @@ func ParsePacket(r io.Reader) (*Packet, error) {
 		return nil, fmt.Errorf("deserialize header: %w", err)
 	}
 
-	payload, err := io.ReadAll(r) // Potential OOM, but steam shouldn't send large packages
+	payload, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}
 
 	if len(payload) > MaxPayloadSize {
 		return nil, ErrPayloadTooLarge
+	}
+
+	p := AcquirePacket()
+	p.EMsg = eMsg
+	p.IsProto = isProto
+	p.Header = header
+	p.Payload = payload
+	p.Transport = ""
+
+	return p, nil
+}
+
+func parseFast(br *bytes.Reader) (*Packet, error) {
+	if br.Len() < 4 {
+		return nil, fmt.Errorf("read emsg: %w", io.ErrUnexpectedEOF)
+	}
+
+	var emsgBuf [4]byte
+	if _, err := io.ReadFull(br, emsgBuf[:]); err != nil {
+		return nil, fmt.Errorf("read emsg: %w", err)
+	}
+
+	rawEMsg := binary.LittleEndian.Uint32(emsgBuf[:])
+	eMsg := enums.EMsg(rawEMsg & EMsgMask)
+	isProto := (rawEMsg & ProtoMask) != 0
+
+	var header interface {
+		Header
+		Deserialize(r io.Reader) error
+	}
+
+	switch {
+	case isProto:
+		header = acquireMsgHdrProtoBuf(eMsg)
+	case eMsg == enums.EMsg_ChannelEncryptRequest ||
+		eMsg == enums.EMsg_ChannelEncryptResponse ||
+		eMsg == enums.EMsg_ChannelEncryptResult:
+		header = &MsgHdr{EMsg: eMsg}
+	default:
+		header = &MsgHdrExtended{EMsg: eMsg}
+	}
+
+	if err := header.Deserialize(br); err != nil {
+		return nil, fmt.Errorf("deserialize header: %w", err)
+	}
+
+	remLen := br.Len()
+	if remLen > MaxPayloadSize {
+		return nil, ErrPayloadTooLarge
+	}
+
+	payload := make([]byte, remLen)
+	if _, err := io.ReadFull(br, payload); err != nil {
+		return nil, err
 	}
 
 	p := AcquirePacket()
@@ -333,8 +397,14 @@ func (p *Packet) SerializeTo(w io.Writer) error {
 	return err
 }
 
-// Reset resets the packet fields to their zero values.
+// Reset resets the packet fields to their zero values and recycles headers to pools.
 func (p *Packet) Reset() {
+	if p.Header != nil {
+		if pbHdr, ok := p.Header.(*MsgHdrProtoBuf); ok {
+			releaseMsgHdrProtoBuf(pbHdr)
+		}
+	}
+
 	p.EMsg = 0
 	p.IsProto = false
 	p.Header = nil

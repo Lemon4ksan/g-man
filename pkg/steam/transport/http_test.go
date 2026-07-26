@@ -49,7 +49,7 @@ func TestNewHTTPTransport_ValidDoer_CreatesClient(t *testing.T) {
 	doer := &mockHTTPDoer{}
 	tr := NewHTTPTransport(doer, "https://api.example.com")
 
-	assert.NotNil(t, tr.fastClient)
+	assert.NotNil(t, tr.doer)
 }
 
 func TestParseEResult_VariousResponseHeaders_ReturnsExpectedEResults(t *testing.T) {

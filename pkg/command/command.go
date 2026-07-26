@@ -642,10 +642,19 @@ func (e *Engine) registerFuncDynamic(val reflect.Value, c *Command) {
 	}
 }
 
+var cmdBuilderPool = sync.Pool{
+	New: func() any { return new(strings.Builder) },
+}
+
 // ParseCommandLine parses the command line string into a slice of arguments.
 func ParseCommandLine(line string) []string {
 	if len(line) == 0 {
 		return nil
+	}
+
+	// Fast path: simple space-separated strings without quotes or escape characters
+	if !strings.ContainsAny(line, `"'`+"\\") {
+		return strings.Fields(line)
 	}
 
 	args := make([]string, 0, 4)
@@ -653,7 +662,10 @@ func ParseCommandLine(line string) []string {
 	inSingleQuotes := false
 	escaped := false
 
-	var buf strings.Builder
+	buf := cmdBuilderPool.Get().(*strings.Builder)
+
+	buf.Reset()
+	defer cmdBuilderPool.Put(buf)
 
 	hasSpecial := false
 	tokenStart := -1

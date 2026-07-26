@@ -14,6 +14,10 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/aoni/fast"
+	"github.com/lemon4ksan/aoni/mod"
+	"github.com/lemon4ksan/aoni/realtime/ws"
 	"github.com/lemon4ksan/miyako/log"
 )
 
@@ -112,6 +116,55 @@ func NewWS(
 	w := &WS{
 		BaseConnection: NewBaseConnection(ConnTypeWS),
 		conn:           conn,
+		logger:         logger.With(log.String("transport", ConnTypeWS), log.String("endpoint", endpoint)),
+		msgChan:        make(chan Message, 100),
+		errChan:        make(chan error, 10),
+		closedChan:     make(chan struct{}),
+	}
+
+	go w.readLoop()
+
+	return w, nil
+}
+
+// NewWSWithFastClient establishes a WebSocket connection using fast.Client
+// as the underlying WSDialer over uTLS with active browser fingerprints.
+func NewWSWithFastClient(
+	ctx context.Context,
+	logger log.Logger,
+	endpoint, proxyURL string,
+	headers http.Header,
+	fastClient *fast.Client,
+) (*WS, error) {
+	if fastClient == nil {
+		return NewWS(ctx, logger, endpoint, proxyURL, headers)
+	}
+
+	reqMods := make([]aoni.RequestModifier, 0, len(headers)+1)
+	if proxyURL != "" {
+		reqMods = append(reqMods, mod.WithProxyOverride(proxyURL))
+	}
+
+	for k, vv := range headers {
+		for _, v := range vv {
+			reqMods = append(reqMods, mod.WithHeader(k, v))
+		}
+	}
+
+	conn, _, err := ws.DialWebSocket(ctx, fastClient, endpoint, reqMods...) //nolint:bodyclose
+	if err != nil {
+		return nil, NewError(OpDial, ConnTypeWS, err)
+	}
+
+	wsConnAdapter, ok := conn.(wsConn)
+	if !ok {
+		_ = conn.Close()
+		return nil, NewError(OpDial, ConnTypeWS, errors.New("websocket connection does not satisfy wsConn interface"))
+	}
+
+	w := &WS{
+		BaseConnection: NewBaseConnection(ConnTypeWS),
+		conn:           wsConnAdapter,
 		logger:         logger.With(log.String("transport", ConnTypeWS), log.String("endpoint", endpoint)),
 		msgChan:        make(chan Message, 100),
 		errChan:        make(chan error, 10),

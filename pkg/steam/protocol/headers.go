@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"sync"
 
 	"google.golang.org/protobuf/proto"
 
@@ -193,6 +194,29 @@ func (h *MsgHdrExtended) Deserialize(r io.Reader) error {
 	return nil
 }
 
+var msgHdrProtoBufPool = sync.Pool{
+	New: func() any { return &MsgHdrProtoBuf{} },
+}
+
+func acquireMsgHdrProtoBuf(eMsg enums.EMsg) *MsgHdrProtoBuf {
+	h := msgHdrProtoBufPool.Get().(*MsgHdrProtoBuf)
+	h.EMsg = eMsg
+	return h
+}
+
+func releaseMsgHdrProtoBuf(h *MsgHdrProtoBuf) {
+	if h == nil {
+		return
+	}
+
+	if h.Proto != nil {
+		releaseProtoHeader(h.Proto)
+		h.Proto = nil
+	}
+
+	msgHdrProtoBufPool.Put(h)
+}
+
 // MsgHdrProtoBuf is the modern Steam header format. It wraps
 // a Protobuf message containing routing and session metadata.
 type MsgHdrProtoBuf struct {
@@ -206,15 +230,19 @@ type MsgHdrProtoBuf struct {
 // It initializes a default CMsgProtoBufHeader with the provided session info
 // and sets Job IDs to [NoJob].
 func NewMsgHdrProtoBuf(eMsg enums.EMsg, steamID uint64, sessionID int32) *MsgHdrProtoBuf {
-	return &MsgHdrProtoBuf{
-		EMsg: eMsg,
-		Proto: &pb.CMsgProtoBufHeader{
-			Steamid:         proto.Uint64(steamID),
-			ClientSessionid: proto.Int32(sessionID),
-			JobidSource:     proto.Uint64(NoJob),
-			JobidTarget:     proto.Uint64(NoJob),
-		},
+	hdr := msgHdrProtoBufPool.Get().(*MsgHdrProtoBuf)
+	hdr.EMsg = eMsg
+
+	if hdr.Proto == nil {
+		hdr.Proto = acquireProtoHeader()
 	}
+
+	setProtoUint64(&hdr.Proto.Steamid, steamID)
+	setProtoInt32(&hdr.Proto.ClientSessionid, sessionID)
+	setProtoUint64(&hdr.Proto.JobidSource, NoJob)
+	setProtoUint64(&hdr.Proto.JobidTarget, NoJob)
+
+	return hdr
 }
 
 // GetSourceJob returns the source JobID from the Protobuf header.
@@ -260,7 +288,15 @@ func (h *MsgHdrProtoBuf) SerializeTo(w io.Writer) error {
 	return err
 }
 
+var protoHeaderBufPool = sync.Pool{
+	New: func() any {
+		b := make([]byte, 512)
+		return &b
+	},
+}
+
 // Deserialize reads the Protobuf header length and body from the reader.
+// Uses pooled header structures and memory buffers to achieve zero allocations.
 func (h *MsgHdrProtoBuf) Deserialize(r io.Reader) error {
 	var hdrLen uint32
 	if err := binary.Read(r, binary.LittleEndian, &hdrLen); err != nil {
@@ -271,15 +307,49 @@ func (h *MsgHdrProtoBuf) Deserialize(r io.Reader) error {
 		return ErrHeaderTooLarge
 	}
 
-	hdrBuf := make([]byte, hdrLen)
+	var hdrBuf []byte
+	if hdrLen <= 512 {
+		bufPtr := protoHeaderBufPool.Get().(*[]byte)
+
+		hdrBuf = (*bufPtr)[:hdrLen]
+		defer protoHeaderBufPool.Put(bufPtr)
+	} else {
+		hdrBuf = make([]byte, hdrLen)
+	}
+
 	if _, err := io.ReadFull(r, hdrBuf); err != nil {
 		return fmt.Errorf("read proto hdr body: %w", err)
 	}
 
-	h.Proto = new(pb.CMsgProtoBufHeader)
+	if h.Proto == nil {
+		h.Proto = acquireProtoHeader()
+	} else {
+		h.Proto.Reset()
+	}
+
 	if err := UnmarshalProto(hdrBuf, h.Proto); err != nil {
+		releaseProtoHeader(h.Proto)
+		h.Proto = nil
 		return fmt.Errorf("unmarshal proto hdr: %w", err)
 	}
 
 	return nil
+}
+
+func setProtoUint64(p **uint64, val uint64) {
+	if *p == nil {
+		v := val
+		*p = &v
+	} else {
+		**p = val
+	}
+}
+
+func setProtoInt32(p **int32, val int32) {
+	if *p == nil {
+		v := val
+		*p = &v
+	} else {
+		**p = val
+	}
 }

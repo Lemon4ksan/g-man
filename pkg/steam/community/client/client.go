@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -69,8 +70,12 @@ func SteamErrorsValidator(resp *http.Response) error {
 	}
 
 	peekBuf := request.ResolvePeekableReader(resp)
+	resp.Body = io.NopCloser(peekBuf)
 
-	peekBytes, _ := peekBuf.Peek(4096)
+	peekBytes, peekErr := peekBuf.Peek(4096)
+	if peekErr != nil && !errors.Is(peekErr, io.EOF) {
+		return peekErr
+	}
 
 	if err := CheckSteamErrors(resp.StatusCode, resp.Header, peekBytes); err != nil {
 		return err
@@ -101,29 +106,42 @@ type SessionProvider interface {
 
 // Client executes HTTP requests against the Steam Community website.
 // Use [New] to instantiate and initialize a ready-to-use client.
-// The client relies on an internal [request.Requester] and an optional [SessionProvider] to manage authentication and state.
+// The client relies on an internal [aoni.RequestDoer] and an optional [SessionProvider] to manage authentication and state.
 type Client struct {
-	rest    request.Requester
+	r       request.Requester
 	session SessionProvider
 	logger  log.Logger
 }
 
 // New creates an initialized [Client] with browser-like headers.
 // If the session provider is nil, the client executes requests as an unauthenticated guest.
-// If the httpClient is nil, the constructor uses the default HTTP client configuration.
-func New(doer aoni.HTTPDoer, session SessionProvider) *Client {
-	rc := aoni.NewClient(doer,
+// If the doer is nil, the constructor uses the default HTTP client configuration.
+func New(doer aoni.RequestDoer, session SessionProvider) *Client {
+	r := request.AsRequester(aoni.Configure(doer,
 		option.WithBaseURL(BaseURL),
 		option.WithOrigin(BaseURL),
-	)
+	))
 
 	c := &Client{
-		rest:    rc,
+		r:       r,
 		session: session,
 		logger:  log.Discard,
 	}
 
 	return c
+}
+
+// With applies the given options to the client, returning a new client with the updated configuration.
+func (c *Client) With(opts ...aoni.ClientOption) *Client {
+	if len(opts) == 0 {
+		return c
+	}
+
+	return &Client{
+		r:       request.AsRequester(aoni.Configure(c.r, opts...)),
+		session: c.session,
+		logger:  c.logger,
+	}
 }
 
 // WithLogger returns a new [Client] with the logger set to the given logger.
@@ -133,16 +151,16 @@ func (c *Client) WithLogger(l log.Logger) *Client {
 	return &copy
 }
 
-// WithREST returns a new [Client] with the REST client set to the given client.
+// WithREST returns a new [Client] with the REST client set to the given requester.
 func (c *Client) WithREST(r request.Requester) *Client {
 	copy := *c
-	copy.rest = r
+	copy.r = r
 	return &copy
 }
 
 // Unwrap returns the underlying [request.Requester] wrapped by the [Client].
 func (c *Client) Unwrap() request.Requester {
-	return c.rest
+	return c.r
 }
 
 // SessionID retrieves the active session identifier for the given target URI.
@@ -166,11 +184,7 @@ func (c *Client) Request(
 ) (*http.Response, error) {
 	c.logger.Debug("Community Request", log.String("method", method), log.String("path", path))
 
-	mods = append([]aoni.RequestModifier{
-		mod.WithResponseValidator(SteamErrorsValidator),
-	}, mods...)
-
-	resp, err := c.rest.Request(ctx, method, path, mods...)
+	resp, err := c.r.Request(ctx, method, path, mods...)
 	if err != nil {
 		if IsSessionExpiredError(err) {
 			c.logger.Warn("Session expired during redirect loop, triggering auto-refresh")
@@ -180,26 +194,13 @@ func (c *Client) Request(
 		return nil, err
 	}
 
-	// Fallback validation for mocked Requesters (like ServiceMock)
-	// that do not natively execute response validators.
-	if resp != nil {
-		if resp.Request == nil {
-			stdReq, _ := http.NewRequestWithContext(ctx, method, path, nil)
-			resp.Request = stdReq
+	if err := SteamErrorsValidator(resp); err != nil {
+		if IsSessionExpiredError(err) {
+			c.logger.Warn("Session expired during redirect loop, triggering auto-refresh")
+			return nil, ErrRedirectLoop
 		}
 
-		if fn := aoni.GetResponseValidator(resp.Request.Context()); fn != nil {
-			if validErr := fn(resp); validErr != nil {
-				_ = resp.Body.Close()
-
-				if IsSessionExpiredError(validErr) {
-					c.logger.Warn("Session expired during redirect loop, triggering auto-refresh")
-					return nil, ErrRedirectLoop
-				}
-
-				return nil, validErr
-			}
-		}
+		return nil, err
 	}
 
 	return resp, nil
@@ -209,7 +210,7 @@ func (c *Client) Request(
 // It defaults to registering for localhost if the domain argument is empty.
 // It returns [ErrAPITokenNotFound] or underlying connection errors if registration fails.
 func (c *Client) GetOrRegisterAPIKey(ctx context.Context, domain string) (string, error) {
-	dataPtr, err := request.GetTo[[]byte](ctx, c.rest, "dev/apikey",
+	dataPtr, err := request.GetTo[[]byte](ctx, c.r, "dev/apikey",
 		decode.WithRaw(),
 		mod.WithAccept("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"),
 	)
@@ -246,7 +247,7 @@ func (c *Client) registerAPIKey(ctx context.Context, domain string) (string, err
 		"sessionid":    {c.SessionID(BaseURL)},
 	}
 
-	_, err := request.PostTo[request.NoResponse](ctx, c.rest, "dev/registerkey", nil, mod.WithFormValues(req))
+	_, err := request.PostTo[request.NoResponse](ctx, c.r, "dev/registerkey", nil, mod.WithFormValues(req))
 	if err != nil {
 		return "", fmt.Errorf("registration request failed: %w", err)
 	}

@@ -5,6 +5,8 @@
 package trading
 
 import (
+	"bytes"
+
 	json "github.com/goccy/go-json"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
@@ -79,27 +81,37 @@ type Description struct {
 
 // UnmarshalJSON implements custom JSON unmarshaling to handle inconsistent types for app_data (string vs object).
 func (d *Description) UnmarshalJSON(data []byte) error {
-	type alias Description
-
-	var a struct {
-		alias
-		AppData json.RawMessage `json:"app_data,omitempty"`
+	type plainDescription struct {
+		Value string `json:"value"`
+		Color string `json:"color,omitempty"`
 	}
-	if err := json.Unmarshal(data, &a); err != nil {
+
+	var pd plainDescription
+	if err := json.Unmarshal(data, &pd); err != nil {
 		return err
 	}
 
-	d.Value = a.Value
+	d.Value = pd.Value
+	d.Color = pd.Color
 
-	d.Color = a.Color
-	if len(a.AppData) > 0 && a.AppData[0] == '{' {
-		var appData struct {
-			Defindex int `json:"def_index,string"`
+	// Fast check: avoid wrapper struct allocations if app_data is not present in payload
+	if bytes.Contains(data, []byte(`"app_data"`)) {
+		var appDataWrapper struct {
+			AppData json.RawMessage `json:"app_data"`
 		}
-		if err := json.Unmarshal(a.AppData, &appData); err == nil {
-			d.AppData = &struct {
+		if err := json.Unmarshal(
+			data,
+			&appDataWrapper,
+		); err == nil && len(appDataWrapper.AppData) > 0 &&
+			appDataWrapper.AppData[0] == '{' {
+			var appData struct {
 				Defindex int `json:"def_index,string"`
-			}{Defindex: appData.Defindex}
+			}
+			if err := json.Unmarshal(appDataWrapper.AppData, &appData); err == nil {
+				d.AppData = &struct {
+					Defindex int `json:"def_index,string"`
+				}{Defindex: appData.Defindex}
+			}
 		}
 	}
 

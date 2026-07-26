@@ -15,6 +15,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/miyako/log"
 	"golang.org/x/net/proxy"
 )
@@ -90,6 +92,47 @@ func NewTCP(
 		conn, err = new(net.Dialer).DialContext(ctx, "tcp", endpoint)
 	}
 
+	if err != nil {
+		return nil, NewError(OpDial, ConnTypeTCP, err)
+	}
+
+	t := &TCP{
+		BaseConnection: NewBaseConnection(ConnTypeTCP),
+		conn:           conn,
+		logger:         logger.With(log.String("transport", ConnTypeTCP), log.String("endpoint", endpoint)),
+		framer:         framer,
+		msgChan:        make(chan Message, 100),
+		errChan:        make(chan error, 10),
+		closedChan:     make(chan struct{}),
+	}
+
+	go t.readLoop()
+
+	return t, nil
+}
+
+// NewTCPWithDialer establishes a TCP connection using a custom dialing
+// function, integrating low-level socket options and proxy routing.
+func NewTCPWithDialer(
+	ctx context.Context,
+	logger log.Logger,
+	endpoint, proxyURL string,
+	framer Framer,
+	dialFunc func(ctx context.Context, network, addr string) (net.Conn, error),
+) (*TCP, error) {
+	if framer == nil {
+		return nil, NewError(OpFramer, ConnTypeTCP, errors.New("framer cannot be nil"))
+	}
+
+	if dialFunc == nil {
+		return NewTCP(ctx, logger, endpoint, proxyURL, framer)
+	}
+
+	if proxyURL != "" {
+		ctx = aoni.WithContextModifier(ctx, mod.WithProxyOverride(proxyURL))
+	}
+
+	conn, err := dialFunc(ctx, "tcp", endpoint)
 	if err != nil {
 		return nil, NewError(OpDial, ConnTypeTCP, err)
 	}

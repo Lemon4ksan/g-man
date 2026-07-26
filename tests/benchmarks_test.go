@@ -13,18 +13,46 @@ import (
 	"sync"
 	"testing"
 
+	json "github.com/goccy/go-json"
 	"github.com/lemon4ksan/aoni/cookie"
 
 	"github.com/lemon4ksan/g-man/internal/bytesconv"
 	"github.com/lemon4ksan/g-man/internal/crypto"
 	"github.com/lemon4ksan/g-man/internal/socket/connector"
 	"github.com/lemon4ksan/g-man/pkg/command"
+	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
+	"github.com/lemon4ksan/g-man/pkg/steam/community/inventory"
 	"github.com/lemon4ksan/g-man/pkg/steam/encoding"
 	"github.com/lemon4ksan/g-man/pkg/steam/encoding/bvdf"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/trading"
 )
+
+// ============================================================================
+// 1. BYTESCONV & NUMBER PARSING BENCHMARKS
+// ============================================================================
+
+func BenchmarkBytesconv_ParseUint64(b *testing.B) {
+	data := []byte("76561198000000001")
+
+	b.ReportAllocs()
+
+	for b.Loop() {
+		_, _ = bytesconv.ParseUint64(data)
+	}
+}
+
+func BenchmarkBytesconv_ParseInt64(b *testing.B) {
+	data := []byte("-1234567890")
+
+	b.ReportAllocs()
+
+	for b.Loop() {
+		_, _ = bytesconv.ParseInt64(data)
+	}
+}
 
 func BenchmarkSteamID_Parse_Uint64(b *testing.B) {
 	s := "76561198000000001"
@@ -56,6 +84,10 @@ func BenchmarkSteamID_Parse_Steam3(b *testing.B) {
 	}
 }
 
+// ============================================================================
+// 2. SOCKET & PROTOCOL PACKET PARSING BENCHMARKS
+// ============================================================================
+
 func BenchmarkSteamFramer_ReadFrame(b *testing.B) {
 	frameData := []byte{0x05, 0x00, 0x00, 0x00, 'V', 'T', '0', '1', 'H', 'e', 'l', 'l', 'o'}
 	framer := connector.SteamFramer{}
@@ -69,14 +101,27 @@ func BenchmarkSteamFramer_ReadFrame(b *testing.B) {
 	}
 }
 
-func BenchmarkCrypto_GenerateAuthCode(b *testing.B) {
-	secret := "1234567890123456789012345678901234567890"
-	timestamp := int64(1700000000)
+func BenchmarkProtocol_ParsePacket_FastBytesReader(b *testing.B) {
+	// Construct a sample Protobuf CM header packet
+	hdr := protocol.NewMsgHdrProtoBuf(enums.EMsg_ClientHeartBeat, 76561198000000001, 101)
+	hdrBuf := new(bytes.Buffer)
+	_ = hdr.SerializeTo(hdrBuf)
+	hdrBuf.WriteString("payload_data_bytes")
+	packetBytes := hdrBuf.Bytes()
+
+	r := bytes.NewReader(packetBytes)
 
 	b.ReportAllocs()
 
 	for b.Loop() {
-		_, _ = crypto.GenerateAuthCode(secret, timestamp)
+		r.Reset(packetBytes)
+
+		pkt, err := protocol.ParsePacket(r)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		protocol.ReleasePacket(pkt)
 	}
 }
 
@@ -100,9 +145,113 @@ func BenchmarkProtocol_ParseGCPacket_Proto(b *testing.B) {
 			b.Fatal(err)
 		}
 
-		_ = pkt
+		protocol.ReleaseGCPacket(pkt)
 	}
 }
+
+func BenchmarkProtocol_CMsgMulti_Unmarshal(b *testing.B) {
+	multiMsg := &pb.CMsgMulti{
+		MessageBody: []byte("sample_compressed_or_uncompressed_inner_packet_data"),
+	}
+	data, _ := protocol.MarshalProto(multiMsg)
+
+	b.ReportAllocs()
+
+	msg := &pb.CMsgMulti{}
+	for b.Loop() {
+		msg.Reset()
+		_ = protocol.UnmarshalProto(data, msg)
+	}
+}
+
+// ============================================================================
+// 3. INVENTORY & FLEXIBLE ARRAY UNMARSHALING BENCHMARKS
+// ============================================================================
+
+func BenchmarkInventory_UnmarshalFlexibleArray_Array(b *testing.B) {
+	data := []byte(`[{"value":"Line 1","color":"7a7a7a"},{"value":"Line 2","color":"ffffff"}]`)
+
+	b.ReportAllocs()
+
+	for b.Loop() {
+		var descs []trading.Description
+		if len(data) > 0 && data[0] == '[' {
+			_ = json.Unmarshal(data, &descs)
+		}
+	}
+}
+
+func BenchmarkInventory_UnmarshalFlexibleArray_Object(b *testing.B) {
+	// Steam's edge-case format: object instead of array
+	data := []byte(`{"0":{"value":"Line 1","color":"7a7a7a"},"1":{"value":"Line 2","color":"ffffff"}}`)
+
+	b.ReportAllocs()
+
+	for b.Loop() {
+		var rawMap map[string]json.RawMessage
+		if err := json.Unmarshal(data, &rawMap); err == nil {
+			res := make([]trading.Description, len(rawMap))
+			for k, raw := range rawMap {
+				idx, ok := bytesconv.ParseUint64(bytesconv.S2B(k))
+				if ok && idx < uint64(len(res)) {
+					_ = json.Unmarshal(raw, &res[idx])
+				}
+			}
+		}
+	}
+}
+
+func BenchmarkInventory_ProcessAssets_Opt(b *testing.B) {
+	assets := make([]inventory.Asset, 500)
+	for i := range assets {
+		assets[i] = inventory.Asset{
+			AssetID:    strconv.Itoa(10000 + i),
+			ClassID:    strconv.Itoa(20000 + (i % 10)),
+			InstanceID: "0",
+			Amount:     "1",
+		}
+	}
+
+	descriptions := make([]inventory.Description, 10)
+	for i := range descriptions {
+		descriptions[i] = inventory.Description{
+			ClassID:        strconv.Itoa(20000 + i),
+			InstanceID:     "0",
+			Name:           "Item Name",
+			MarketHashName: "Item Market Hash Name",
+			Tradable:       1,
+		}
+	}
+
+	b.ReportAllocs()
+
+	for b.Loop() {
+		descMap := make(map[struct{ ClassID, InstanceID uint64 }]*inventory.Description, len(descriptions))
+		for i := range descriptions {
+			d := &descriptions[i]
+			cID, _ := bytesconv.ParseUint64(bytesconv.S2B(d.ClassID))
+			instID, _ := bytesconv.ParseUint64(bytesconv.S2B(d.InstanceID))
+			descMap[struct{ ClassID, InstanceID uint64 }{ClassID: cID, InstanceID: instID}] = d
+		}
+
+		pos := 1
+		for i := range assets {
+			asset := &assets[i]
+			cID, _ := bytesconv.ParseUint64(bytesconv.S2B(asset.ClassID))
+			instID, _ := bytesconv.ParseUint64(bytesconv.S2B(asset.InstanceID))
+			key := struct{ ClassID, InstanceID uint64 }{ClassID: cID, InstanceID: instID}
+
+			if desc, ok := descMap[key]; ok && desc.Tradable == 1 {
+				asset.Pos = pos
+				pos++
+			}
+		}
+	}
+}
+
+// ============================================================================
+// 4. TRADING & FORM ENCODING BENCHMARKS
+// ============================================================================
 
 var formBufferPool = sync.Pool{
 	New: func() any {
@@ -155,52 +304,6 @@ func BenchmarkTrading_FastFormEncoder(b *testing.B) {
 	}
 }
 
-func BenchmarkEncoding_RapidValidate_JSON(b *testing.B) {
-	data := []byte(`{"response":{"trade_offers_sent":[],"trade_offers_received":[]}}`)
-
-	b.ReportAllocs()
-
-	for b.Loop() {
-		_ = encoding.RapidValidateSteamResponse(data)
-	}
-}
-
-func BenchmarkCrypto_GenerateConfirmationKey(b *testing.B) {
-	identitySecret := "1234567890123456789012345678901234567890"
-	timestamp := int64(1700000000)
-	tag := "conf"
-
-	b.ReportAllocs()
-
-	for b.Loop() {
-		_, _ = crypto.GenerateConfirmationKey(identitySecret, timestamp, tag)
-	}
-}
-
-func BenchmarkCommand_ParseCommandLine(b *testing.B) {
-	line := `!accept 123456789 "trade offer note"`
-
-	b.ReportAllocs()
-
-	for b.Loop() {
-		_ = command.ParseCommandLine(line)
-	}
-}
-
-func BenchmarkCookie_BuildCookieHeader(b *testing.B) {
-	cookies := []*http.Cookie{
-		{Name: "sessionid", Value: "1234567890abcdef", Path: "/"},
-		{Name: "steamLoginSecure", Value: "76561198000000001||token", Path: "/"},
-		{Name: "browserid", Value: "9876543210", Path: "/"},
-	}
-
-	b.ReportAllocs()
-
-	for b.Loop() {
-		_ = cookie.BuildCookieHeader(cookies)
-	}
-}
-
 func BenchmarkTrading_ItemLockingPrep(b *testing.B) {
 	offer := &trading.TradeOffer{
 		ID: 123456,
@@ -237,6 +340,71 @@ func BenchmarkTrading_ItemLockingPrep(b *testing.B) {
 		}
 
 		_ = ids
+	}
+}
+
+// ============================================================================
+// 5. CRYPTO & SECURITY BENCHMARKS
+// ============================================================================
+
+func BenchmarkCrypto_GenerateAuthCode(b *testing.B) {
+	secret := "1234567890123456789012345678901234567890"
+	timestamp := int64(1700000000)
+
+	b.ReportAllocs()
+
+	for b.Loop() {
+		_, _ = crypto.GenerateAuthCode(secret, timestamp)
+	}
+}
+
+func BenchmarkCrypto_GenerateConfirmationKey(b *testing.B) {
+	identitySecret := "1234567890123456789012345678901234567890"
+	timestamp := int64(1700000000)
+	tag := "conf"
+
+	b.ReportAllocs()
+
+	for b.Loop() {
+		_, _ = crypto.GenerateConfirmationKey(identitySecret, timestamp, tag)
+	}
+}
+
+// ============================================================================
+// 6. UTILITY & ENCODING BENCHMARKS
+// ============================================================================
+
+func BenchmarkEncoding_RapidValidate_JSON(b *testing.B) {
+	data := []byte(`{"response":{"trade_offers_sent":[],"trade_offers_received":[]}}`)
+
+	b.ReportAllocs()
+
+	for b.Loop() {
+		_ = encoding.RapidValidateSteamResponse(data)
+	}
+}
+
+func BenchmarkCommand_ParseCommandLine(b *testing.B) {
+	line := `!accept 123456789 "trade offer note"`
+
+	b.ReportAllocs()
+
+	for b.Loop() {
+		_ = command.ParseCommandLine(line)
+	}
+}
+
+func BenchmarkCookie_BuildCookieHeader(b *testing.B) {
+	cookies := []*http.Cookie{
+		{Name: "sessionid", Value: "1234567890abcdef", Path: "/"},
+		{Name: "steamLoginSecure", Value: "76561198000000001||token", Path: "/"},
+		{Name: "browserid", Value: "9876543210", Path: "/"},
+	}
+
+	b.ReportAllocs()
+
+	for b.Loop() {
+		_ = cookie.BuildCookieHeader(cookies)
 	}
 }
 

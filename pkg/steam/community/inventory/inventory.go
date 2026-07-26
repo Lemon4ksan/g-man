@@ -20,6 +20,7 @@ import (
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/miyako/generic"
 
+	"github.com/lemon4ksan/g-man/internal/bytesconv"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 )
@@ -35,12 +36,106 @@ var (
 	rxPaginationTrade = regexp.MustCompile(`after_trade=(\d+)`)
 )
 
+// descKey uses uint64 value types to prevent heap allocations during map lookup operations.
+type descKey struct {
+	ClassID    uint64
+	InstanceID uint64
+}
+
+func makeDescKey(classIDStr, instanceIDStr string) descKey {
+	cID, _ := bytesconv.ParseUint64(bytesconv.S2B(classIDStr))
+	instID, _ := bytesconv.ParseUint64(bytesconv.S2B(instanceIDStr))
+	return descKey{ClassID: cID, InstanceID: instID}
+}
+
+// ItemStreamHandler represents a callback for processing items during inventory streaming.
+// Return false to abort streaming early.
+type ItemStreamHandler func(item *CEconItem, isCurrency bool) bool
+
+// StreamUserInventoryContents streams user inventory items page-by-page directly to handler,
+// avoiding allocating full inventory slices in heap memory.
+func StreamUserInventoryContents(
+	ctx context.Context,
+	client community.Requester,
+	steamID uint64,
+	appID uint32,
+	contextID int64,
+	tradableOnly bool,
+	language string,
+	handler ItemStreamHandler,
+) (int, error) {
+	language = generic.Coalesce(language, "english")
+
+	var (
+		startAssetID string
+		totalCount   int
+		pos          = 1
+	)
+
+	for {
+		page, err := fetchInventoryPage(ctx, client, steamID, appID, contextID, startAssetID, language)
+		if err != nil {
+			return 0, err
+		}
+
+		if page.TotalCount == 0 || len(page.Assets) == 0 {
+			return page.TotalCount, nil
+		}
+
+		totalCount = page.TotalCount
+
+		descMap := make(map[descKey]*Description, len(page.Descriptions))
+		for i := range page.Descriptions {
+			d := &page.Descriptions[i]
+			key := makeDescKey(d.ClassID, d.InstanceID)
+			descMap[key] = d
+		}
+
+		for i := range page.Assets {
+			asset := &page.Assets[i]
+			key := makeDescKey(asset.ClassID, asset.InstanceID)
+
+			description, exists := descMap[key]
+			if !exists {
+				continue
+			}
+
+			if tradableOnly && description.Tradable == 0 {
+				continue
+			}
+
+			asset.Pos = pos
+			pos++
+
+			item := CEconItem{
+				Asset:       *asset,
+				Description: *description,
+			}
+
+			isCurrency := asset.CurrencyID != ""
+			if handler != nil && !handler(&item, isCurrency) {
+				return totalCount, nil
+			}
+		}
+
+		if !page.MoreItems {
+			break
+		}
+
+		startAssetID = page.LastAssetID
+	}
+
+	return totalCount, nil
+}
+
 // GetUserInventoryContents recursively parses user inventory using community requester
 // and returns the list of items and currencies with their total count.
 //
 // If language is empty, it automatically defaults to "english".
 // It returns an error if the underlying WebAPI request fails or if Steam returns
 // an unsuccessful status payload.
+// GetUserInventoryContents recursively parses user inventory using community requester
+// and returns the list of items and currencies with their total count.
 func GetUserInventoryContents(
 	ctx context.Context,
 	client community.Requester,
@@ -71,11 +166,20 @@ func GetUserInventoryContents(
 			return inventory, currency, page.TotalCount, nil
 		}
 
-		descMap := generic.IndexBy(page.Descriptions, func(d Description) descKey {
-			return descKey{ClassID: d.ClassID, InstanceID: d.InstanceID}
-		})
+		// Pre-allocate total capacity on the very first page response to avoid slice re-allocations
+		if inventory == nil {
+			inventory = make([]CEconItem, 0, page.TotalCount)
+			currency = make([]CEconItem, 0, 16)
+		}
 
-		pageInventory, pageCurrency, newPos := processAssets(page.Assets, descMap, tradableOnly, pos)
+		descMap := make(map[descKey]*Description, len(page.Descriptions))
+		for i := range page.Descriptions {
+			d := &page.Descriptions[i]
+			key := makeDescKey(d.ClassID, d.InstanceID)
+			descMap[key] = d
+		}
+
+		pageInventory, pageCurrency, newPos := processAssetsOpt(page.Assets, descMap, tradableOnly, pos)
 
 		pos = newPos
 
@@ -91,6 +195,48 @@ func GetUserInventoryContents(
 	}
 
 	return inventory, currency, totalCount, nil
+}
+
+func processAssetsOpt(
+	assets []Asset,
+	descMap map[descKey]*Description,
+	tradableOnly bool,
+	startPos int,
+) ([]CEconItem, []CEconItem, int) {
+	inventory := make([]CEconItem, 0, len(assets))
+	currency := make([]CEconItem, 0, 8)
+
+	pos := startPos
+
+	for i := range assets {
+		asset := &assets[i]
+		key := makeDescKey(asset.ClassID, asset.InstanceID)
+
+		description, exists := descMap[key]
+		if !exists {
+			continue
+		}
+
+		if tradableOnly && description.Tradable == 0 {
+			continue
+		}
+
+		asset.Pos = pos
+		pos++
+
+		item := CEconItem{
+			Asset:       *asset,
+			Description: *description,
+		}
+
+		if asset.CurrencyID != "" {
+			currency = append(currency, item)
+		} else {
+			inventory = append(inventory, item)
+		}
+	}
+
+	return inventory, currency, pos
 }
 
 // GetUserInventoryContexts retrieves the application and context details for a user's inventory.
@@ -208,54 +354,6 @@ func fetchInventoryPage(
 	}
 
 	return resp, nil
-}
-
-type descKey struct {
-	ClassID    string
-	InstanceID string
-}
-
-func processAssets(
-	assets []Asset,
-	descMap map[descKey]Description,
-	tradableOnly bool,
-	startPos int,
-) ([]CEconItem, []CEconItem, int) {
-	var (
-		inventory []CEconItem
-		currency  []CEconItem
-	)
-
-	pos := startPos
-
-	for _, asset := range assets {
-		key := descKey{ClassID: asset.ClassID, InstanceID: asset.InstanceID}
-
-		description, exists := descMap[key]
-		if !exists {
-			continue
-		}
-
-		if tradableOnly && description.Tradable == 0 {
-			continue
-		}
-
-		asset.Pos = pos
-		pos++
-
-		item := CEconItem{
-			Asset:       asset,
-			Description: description,
-		}
-
-		if asset.CurrencyID != "" {
-			currency = append(currency, item)
-		} else {
-			inventory = append(inventory, item)
-		}
-	}
-
-	return inventory, currency, pos
 }
 
 func fetchInventoryPageHTML(ctx context.Context, client community.Requester, userID uint64) ([]byte, error) {

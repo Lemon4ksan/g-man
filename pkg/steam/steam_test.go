@@ -83,11 +83,11 @@ func setupReadyClientMocks(t *testing.T) *readyClientMocks {
 		steam.WithSocket(sock),
 		steam.WithAuthenticator(authenticator),
 		steam.WithREST(aoni.NewClient(httpMock)),
-		steam.WithWebFactory(func(steamID id.ID, logger log.Logger, baseDoer aoni.HTTPDoer) session.WebSessionProvider {
+		steam.WithWebFactory(func(steamID id.ID, logger log.Logger, r any) session.WebSessionProvider {
 			return webMock
 		}),
 		steam.WithCommunityFactory(
-			func(httpClient *http.Client, sess community.SessionProvider, logger log.Logger) community.Requester {
+			func(httpDoer aoni.HTTPDoer, sess community.SessionProvider, logger log.Logger) community.Requester {
 				return commMock
 			},
 		),

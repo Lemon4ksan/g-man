@@ -842,15 +842,6 @@ func (m *Manager) doPoll(ctx context.Context) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	// Clone original poll data for comparison
-	origPollData := trading.PollData{
-		OffersSince: m.offersSince,
-		Sent:        make(map[uint64]trading.OfferState, len(m.sentOffers)),
-		Received:    make(map[uint64]trading.OfferState, len(m.receivedOffers)),
-	}
-	maps.Copy(origPollData.Sent, m.sentOffers)
-	maps.Copy(origPollData.Received, m.receivedOffers)
-
 	now := time.Now()
 	allOffers := make([]*trading.TradeOffer, 0, len(resp.Sent)+len(resp.Received))
 
@@ -865,6 +856,8 @@ func (m *Manager) doPoll(ctx context.Context) {
 			allOffers = append(allOffers, off)
 		}
 	}
+
+	pollDataChanged := false
 
 	for _, off := range allOffers {
 		m.lastSeenOffers[off.ID] = now
@@ -883,12 +876,16 @@ func (m *Manager) doPoll(ctx context.Context) {
 		}
 
 		if !exists && off.State == trading.OfferStateActive {
+			pollDataChanged = true
+
 			m.Bus.Publish(&NewOfferEvent{Offer: off})
 
 			if m.processor != nil {
 				m.processor.Enqueue(off)
 			}
 		} else if oldState != off.State {
+			pollDataChanged = true
+
 			m.Bus.Publish(&OfferChangedEvent{
 				Offer:    off,
 				OldState: oldState,
@@ -901,23 +898,22 @@ func (m *Manager) doPoll(ctx context.Context) {
 	for _, off := range allOffers {
 		if off.TimeUpdated > latest {
 			latest = off.TimeUpdated
+			pollDataChanged = true
 		}
 	}
 
 	m.offersSince = latest
-
 	m.gcKnownOffers(now)
 
-	// Compare with old poll data and trigger PollDataEvent if changed
-	newPollData := trading.PollData{
-		OffersSince: m.offersSince,
-		Sent:        make(map[uint64]trading.OfferState, len(m.sentOffers)),
-		Received:    make(map[uint64]trading.OfferState, len(m.receivedOffers)),
-	}
-	maps.Copy(newPollData.Sent, m.sentOffers)
-	maps.Copy(newPollData.Received, m.receivedOffers)
+	if pollDataChanged {
+		newPollData := trading.PollData{
+			OffersSince: m.offersSince,
+			Sent:        make(map[uint64]trading.OfferState, len(m.sentOffers)),
+			Received:    make(map[uint64]trading.OfferState, len(m.receivedOffers)),
+		}
+		maps.Copy(newPollData.Sent, m.sentOffers)
+		maps.Copy(newPollData.Received, m.receivedOffers)
 
-	if !isPollDataEqual(origPollData, newPollData) {
 		m.Bus.Publish(&PollDataEvent{
 			PollData: newPollData,
 		})
@@ -942,7 +938,7 @@ func (m *Manager) handleAutoCancellation(ctx context.Context, sent []*trading.Tr
 	m.cancelOverLimit(ctx, activeSent)
 }
 
-func (m *Manager) cancelTimeouts(_ context.Context, active []*trading.TradeOffer) {
+func (m *Manager) cancelTimeouts(ctx context.Context, active []*trading.TradeOffer) {
 	if m.config.CancelTime <= 0 {
 		return
 	}
@@ -962,18 +958,17 @@ func (m *Manager) cancelTimeouts(_ context.Context, active []*trading.TradeOffer
 			log.Duration("age", age),
 		)
 
-		// Spawn background cancel work tied to the persistent lifecycle context (m.Ctx)
-		go func(id uint64) {
+		func(id uint64) {
 			defer m.cancellingOffers.Delete(id)
 
-			if err := m.CancelOffer(m.Ctx, id); err != nil {
+			if err := m.CancelOffer(ctx, id); err != nil {
 				m.Logger.Error("Failed to auto-cancel offer", log.Uint64("offer_id", id), log.Err(err))
 			}
 		}(off.ID)
 	}
 }
 
-func (m *Manager) cancelOverLimit(_ context.Context, active []*trading.TradeOffer) {
+func (m *Manager) cancelOverLimit(ctx context.Context, active []*trading.TradeOffer) {
 	if m.config.CancelOfferCount <= 0 || len(active) < m.config.CancelOfferCount {
 		return
 	}
@@ -1001,11 +996,10 @@ func (m *Manager) cancelOverLimit(_ context.Context, active []*trading.TradeOffe
 			log.Int("limit", m.config.CancelOfferCount),
 		)
 
-		// Spawn background cancel work tied to the persistent lifecycle context (m.Ctx)
-		go func(id uint64) {
+		func(id uint64) {
 			defer m.cancellingOffers.Delete(id)
 
-			if err := m.CancelOffer(m.Ctx, id); err != nil {
+			if err := m.CancelOffer(ctx, id); err != nil {
 				m.Logger.Error("Failed to auto-cancel oldest offer", log.Uint64("offer_id", id), log.Err(err))
 			}
 		}(oldest.ID)

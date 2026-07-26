@@ -16,6 +16,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/lemon4ksan/aoni/fast"
 	"github.com/lemon4ksan/miyako/log"
 
 	"github.com/lemon4ksan/g-man/internal/network"
@@ -53,6 +54,8 @@ var (
 
 // Config aggregates configuration for the connector's behavior.
 type Config struct {
+	// FastClient specifies an optional fast.Client used for high-performance TCP and uTLS WebSocket dialing.
+	FastClient *fast.Client
 	// Dialers maps protocol types (such as "tcp" or "websockets") to their dialing functions.
 	Dialers map[string]Dialer
 	// ReconnectPolicy defines the strategy for recovering from connection drops.
@@ -91,15 +94,32 @@ type Dialer func(ctx context.Context, logger log.Logger, endpoint, proxyURL stri
 
 // DefaultDialers provides implementations for TCP and WebSockets.
 func DefaultDialers() map[string]Dialer {
+	return BuildDialers(nil)
+}
+
+// BuildDialers constructs protocol dialers using fastClient if provided.
+func BuildDialers(fastClient *fast.Client) map[string]Dialer {
 	return map[string]Dialer{
 		"tcp": func(ctx context.Context, l log.Logger, s, p string, _ http.Header) (network.Connection, error) {
+			if fastClient != nil {
+				return network.NewTCPWithDialer(ctx, l, s, p, SteamFramer{}, fastClient.DialContext)
+			}
+
 			return network.NewTCP(ctx, l, s, p, SteamFramer{})
 		},
 		"netfilter": func(ctx context.Context, l log.Logger, s, p string, _ http.Header) (network.Connection, error) {
+			if fastClient != nil {
+				return network.NewTCPWithDialer(ctx, l, s, p, SteamFramer{}, fastClient.DialContext)
+			}
+
 			return network.NewTCP(ctx, l, s, p, SteamFramer{})
 		},
 		"websockets": func(ctx context.Context, l log.Logger, s, p string, h http.Header) (network.Connection, error) {
 			u := url.URL{Scheme: "wss", Host: s, Path: "/cmsocket/"}
+			if fastClient != nil {
+				return network.NewWSWithFastClient(ctx, l, u.String(), p, h, fastClient)
+			}
+
 			return network.NewWS(ctx, l, u.String(), p, h)
 		},
 	}
@@ -159,6 +179,10 @@ type Connector struct {
 // New initializes a new Connector with a lifecycle tied to the provided context.
 func New(cfg Config, logger log.Logger) *Connector {
 	ctx, cancel := context.WithCancel(context.Background())
+
+	if cfg.Dialers == nil {
+		cfg.Dialers = BuildDialers(cfg.FastClient)
+	}
 
 	c := &Connector{
 		cfg:      cfg,

@@ -37,10 +37,10 @@ func (m *mockSession) SessionID(s string) string {
 }
 
 // newMockedClient is a helper to construct a client with a mocked REST service.
-func newMockedClient(t *testing.T, mock *mock.ServiceMock) *client.Client {
+func newMockedClient(t *testing.T, mockSvc *mock.ServiceMock) *client.Client {
 	t.Helper()
 
-	return client.New(nil, mock).WithREST(mock)
+	return client.New(nil, mockSvc).WithREST(mockSvc)
 }
 
 func TestNew_InitializesCorrectly(t *testing.T) {
@@ -52,7 +52,7 @@ func TestNew_InitializesCorrectly(t *testing.T) {
 		t.Parallel()
 
 		mockHTTP := &http.Client{}
-		c := client.New(mockHTTP, &mockSession{})
+		c := client.New(aoni.NewHTTPDoerAdapter(mockHTTP), &mockSession{})
 		require.NotNil(t, c)
 		assert.Equal(t, "test_session_id", c.SessionID(client.BaseURL))
 	})
@@ -61,7 +61,7 @@ func TestNew_InitializesCorrectly(t *testing.T) {
 		t.Parallel()
 
 		mockHTTP := &http.Client{}
-		c := client.New(mockHTTP, &mockSession{})
+		c := client.New(aoni.NewHTTPDoerAdapter(mockHTTP), &mockSession{})
 		require.NotNil(t, c)
 
 		updated := c.WithLogger(logger)
@@ -75,7 +75,7 @@ func TestNew_InitializesCorrectly(t *testing.T) {
 
 		mockHTTP := &http.Client{}
 		rc := aoni.NewClient(mockHTTP)
-		c := client.New(mockHTTP, &mockSession{})
+		c := client.New(aoni.NewHTTPDoerAdapter(mockHTTP), &mockSession{})
 		require.NotNil(t, c)
 
 		updated := c.WithREST(rc)
@@ -110,7 +110,7 @@ func TestClient_SessionID_VariousSessions_ReturnsExpectedID(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			c := client.New(&http.Client{}, tt.session)
+			c := client.New(aoni.NewHTTPDoerAdapter(&http.Client{}), tt.session)
 			assert.Equal(t, tt.want, c.SessionID("any_url"))
 		})
 	}
@@ -566,7 +566,7 @@ func TestClient_Request_ReplayableBody_Success(t *testing.T) {
 		},
 	}
 
-	c := client.New(httpClient, &mockSession{})
+	c := client.New(aoni.NewHTTPDoerAdapter(httpClient), &mockSession{})
 
 	httpClient.doFunc = func(req *http.Request) (*http.Response, error) {
 		return &http.Response{
@@ -594,7 +594,7 @@ func TestClient_Request_ReplayableBody_ReadError(t *testing.T) {
 		},
 	}
 
-	c := client.New(httpClient, &customSessionProvider{})
+	c := client.New(aoni.NewHTTPDoerAdapter(httpClient), &customSessionProvider{})
 	_, err := c.Request(ctx, http.MethodGet, "/test")
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "read error")

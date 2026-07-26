@@ -5,18 +5,19 @@
 package transport
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/fast"
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/option"
 
+	"github.com/lemon4ksan/g-man/internal/bytesconv"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 )
 
@@ -25,12 +26,9 @@ const HTTPUserAgent = "Valve/Steam HTTP Client 1.0"
 
 // HTTPMetadata holds context-specific information from an HTTP response.
 type HTTPMetadata struct {
-	// Result is the Steam result code extracted from the response headers.
-	Result enums.EResult
-	// StatusCode is the standard HTTP status code returned by the server.
+	Result     enums.EResult
 	StatusCode int
-	// Header contains the full set of HTTP response headers.
-	Header http.Header
+	Header     http.Header
 }
 
 // HTTPTransport implements the [Transport] interface for HTTP-based communication.
@@ -52,23 +50,58 @@ type HTTPTarget interface {
 	HTTPMethod() string
 }
 
-// NewHTTPTransport creates a new HTTP transport layer.
-// It uses the provided aoni.HTTPDoer for executing requests.
-func NewHTTPTransport(doer aoni.HTTPDoer, baseURL string) *HTTPTransport {
+// NewHTTPTransport creates a new HTTPTransport instance with the given HTTPDoer and base URL.
+func NewHTTPTransport(doer any, baseURL string) *HTTPTransport {
 	tr := &HTTPTransport{
-		doer:       doer,
-		baseURL:    baseURL,
-		fastClient: fast.NewClient(option.WithBaseURL(baseURL), option.WithUserAgent(HTTPUserAgent)),
+		baseURL: baseURL,
 	}
 
-	if doer != nil {
-		tr.client = aoni.NewClient(doer,
+	if doer == nil {
+		tr.fastClient = fast.NewClient(option.WithBaseURL(baseURL), option.WithUserAgent(HTTPUserAgent))
+		return tr
+	}
+
+	if fc, ok := doer.(*fast.Client); ok {
+		tr.fastClient = fc.With(option.WithBaseURL(baseURL), option.WithUserAgent(HTTPUserAgent))
+		return tr
+	}
+
+	if ac, ok := doer.(*aoni.Client); ok {
+		tr.client = ac.With(option.WithBaseURL(baseURL), option.WithUserAgent(HTTPUserAgent))
+		return tr
+	}
+
+	if hd, ok := doer.(aoni.HTTPDoer); ok {
+		tr.doer = hd
+		tr.client = aoni.NewClient(hd, option.WithBaseURL(baseURL), option.WithUserAgent(HTTPUserAgent))
+
+		return tr
+	}
+
+	if rd, ok := doer.(aoni.RequestDoer); ok {
+		tr.client = aoni.NewClient(
+			aoni.NewRequestDoerAdapter(rd),
 			option.WithBaseURL(baseURL),
 			option.WithUserAgent(HTTPUserAgent),
 		)
+
+		return tr
 	}
 
 	return tr
+}
+
+type fastUnsafeReadCloser struct {
+	*bytes.Reader
+	resp aoni.Response
+}
+
+func (f *fastUnsafeReadCloser) Close() error {
+	if f.resp != nil {
+		return f.resp.Close()
+	}
+
+	return nil
 }
 
 // Do executes a [Request] over HTTP.
@@ -83,80 +116,87 @@ func (t *HTTPTransport) Do(ctx context.Context, req *Request) (*Response, error)
 
 	params := req.Params()
 
-	var bodyBytes []byte
-	if req.Body != nil {
-		var err error
-
-		bodyBytes, err = io.ReadAll(req.Body)
-		if err != nil {
-			return nil, fmt.Errorf("http: failed to read request body: %w", err)
-		}
+	bodyBytes, err := extractBodyBytes(req.Body)
+	if err != nil {
+		return nil, fmt.Errorf("http: failed to read request body: %w", err)
 	}
 
 	if len(bodyBytes) > 0 {
-		params.Set("input_protobuf_encoded", base64.StdEncoding.EncodeToString(bodyBytes))
+		encBuf := make([]byte, base64.StdEncoding.EncodedLen(len(bodyBytes)))
+		base64.StdEncoding.Encode(encBuf, bodyBytes)
+		params.Set("input_protobuf_encoded", bytesconv.B2S(encBuf))
 	}
 
-	if t.doer != nil && t.client != nil {
-		mods := append([]aoni.RequestModifier{
-			mod.WithQuery(params),
-			func(r aoni.Request) {
-				for key, values := range req.Header() {
-					for _, val := range values {
-						r.AddHeader(key, val)
-					}
-				}
+	if t.fastClient != nil {
+		fastReq := fast.NewRequest(nil)
+		defer fastReq.Release()
 
-				r.SetHeader("Accept", "text/html,*/*;q=0.9")
-			},
-		}, req.Modifiers()...)
+		fastReq.SetContext(ctx)
+		fastReq.SetMethod(target.HTTPMethod())
+		fastReq.SetURL(t.baseURL + target.HTTPPath())
 
-		resp, err := t.client.Request(ctx, target.HTTPMethod(), target.HTTPPath(), mods...) //nolint:bodyclose
+		if len(params) > 0 {
+			fastReq.SetRawQuery(params.Encode())
+		}
+
+		for key, values := range req.Header() {
+			for _, val := range values {
+				fastReq.AddHeader(key, val)
+			}
+		}
+
+		fastReq.SetHeader("Accept", "text/html,*/*;q=0.9")
+
+		for _, m := range req.Modifiers() {
+			if m != nil {
+				m(fastReq)
+			}
+		}
+
+		resp, err := t.fastClient.Do(fastReq)
 		if err != nil {
 			return nil, err
 		}
 
-		return NewResponse(resp.Body, HTTPMetadata{
+		var bodyRC io.ReadCloser
+		if unsafeResp, ok := resp.(interface{ UnsafeBodyBytes() []byte }); ok {
+			bodyRC = &fastUnsafeReadCloser{
+				Reader: bytes.NewReader(unsafeResp.UnsafeBodyBytes()),
+				resp:   resp,
+			}
+		} else {
+			bodyRC = resp.BodyStream()
+		}
+
+		return NewResponse(bodyRC, HTTPMetadata{
 			Result:     t.parseEResult(resp),
-			Header:     resp.Header,
-			StatusCode: resp.StatusCode,
+			Header:     http.Header(resp.Headers()),
+			StatusCode: resp.StatusCode(),
 		}), nil
 	}
 
-	fastReq := fast.NewRequest(nil)
-	defer fastReq.Release()
+	mods := append([]aoni.RequestModifier{
+		mod.WithQuery(params),
+		func(r aoni.Request) {
+			for key, values := range req.Header() {
+				for _, val := range values {
+					r.AddHeader(key, val)
+				}
+			}
 
-	fastReq.SetContext(ctx)
-	fastReq.SetMethod(target.HTTPMethod())
-	fastReq.SetURL(t.baseURL + target.HTTPPath())
+			r.SetHeader("Accept", "text/html,*/*;q=0.9")
+		},
+	}, req.Modifiers()...)
 
-	if len(params) > 0 {
-		fastReq.SetRawQuery(params.Encode())
-	}
-
-	for key, values := range req.Header() {
-		for _, val := range values {
-			fastReq.AddHeader(key, val)
-		}
-	}
-
-	fastReq.SetHeader("Accept", "text/html,*/*;q=0.9")
-
-	for _, m := range req.Modifiers() {
-		if m != nil {
-			m(fastReq)
-		}
-	}
-
-	resp, err := t.fastClient.Do(fastReq)
+	resp, err := t.client.Request(ctx, target.HTTPMethod(), target.HTTPPath(), mods...) //nolint:bodyclose
 	if err != nil {
 		return nil, err
 	}
 
-	return NewResponse(resp.BodyStream(), HTTPMetadata{
+	return NewResponse(resp.Body, HTTPMetadata{
 		Result:     t.parseEResult(resp),
-		Header:     http.Header(resp.Headers()),
-		StatusCode: resp.StatusCode(),
+		Header:     resp.Header,
+		StatusCode: resp.StatusCode,
 	}), nil
 }
 
@@ -177,10 +217,28 @@ func (t *HTTPTransport) parseEResult(v any) enums.EResult {
 	}
 
 	if resHeader != "" {
-		if val, err := strconv.Atoi(resHeader); err == nil {
+		if val, ok := bytesconv.ParseInt64(bytesconv.S2B(resHeader)); ok {
 			return enums.EResult(val)
 		}
 	}
 
 	return enums.EResult_OK
+}
+
+func extractBodyBytes(r io.Reader) ([]byte, error) {
+	if r == nil {
+		return nil, nil
+	}
+
+	if buf, ok := r.(*bytes.Buffer); ok {
+		return buf.Bytes(), nil
+	}
+
+	if br, ok := r.(*bytes.Reader); ok {
+		b := make([]byte, br.Len())
+		_, err := br.ReadAt(b, 0)
+		return b, err
+	}
+
+	return io.ReadAll(r)
 }

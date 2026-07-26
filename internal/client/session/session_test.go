@@ -250,10 +250,10 @@ func setupTestClient(t *testing.T) (*testClient, *testMocks) {
 		Logger:        log.Discard,
 		HTTP:          m.http,
 		Authenticator: m.auth,
-		WebFactory: func(steamID id.ID, logger log.Logger, baseDoer aoni.HTTPDoer) WebSessionProvider {
+		WebFactory: func(steamID id.ID, logger log.Logger, r any) WebSessionProvider {
 			return m.web
 		},
-		CommunityFactory: func(httpClient *http.Client, sess community.SessionProvider, logger log.Logger) community.Requester {
+		CommunityFactory: func(httpDoer aoni.HTTPDoer, sess community.SessionProvider, logger log.Logger) community.Requester {
 			return m.comm
 		},
 	}
@@ -671,11 +671,11 @@ func TestSessionManager_CustomFactories_ValidFactories_InvokesCustomFactories(t 
 	mc.On("GetOrRegisterAPIKey", mock.Anything, mock.Anything).Return("key_12345", nil).Maybe()
 
 	cfg := Config{
-		WebFactory: func(steamID id.ID, logger log.Logger, baseDoer aoni.HTTPDoer) WebSessionProvider {
+		WebFactory: func(steamID id.ID, logger log.Logger, r any) WebSessionProvider {
 			webCalled = true
 			return mw
 		},
-		CommunityFactory: func(httpClient *http.Client, sess community.SessionProvider, logger log.Logger) community.Requester {
+		CommunityFactory: func(httpDoer aoni.HTTPDoer, sess community.SessionProvider, logger log.Logger) community.Requester {
 			commCalled = true
 			return mc
 		},
