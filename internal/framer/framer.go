@@ -42,6 +42,7 @@ func (fb *FrameBuffer) Equal(other any) bool {
 		}
 
 		return bytes.Equal(fb.B, v.B)
+
 	case []byte:
 		return bytes.Equal(fb.B, v)
 	}

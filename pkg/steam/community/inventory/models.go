@@ -5,12 +5,79 @@
 package inventory
 
 import (
+	"bytes"
+	"strconv"
 	"time"
 
+	json "github.com/goccy/go-json"
 	"github.com/lemon4ksan/aoni/codec/values"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 )
+
+// AppData represents typed metadata attached to Steam inventory items.
+// Replaces map[string]any to eliminate map allocations and interface boxing.
+type AppData struct {
+	DefIndex     int    `json:"-"`
+	Quality      int    `json:"-"`
+	OriginalID   uint64 `json:"-"`
+	IsAustralium bool   `json:"-"`
+}
+
+// UnmarshalJSON implements custom zero-allocation unmarshaling for AppData.
+// Steam WebAPI can return numbers as either integers or JSON string numbers.
+func (a *AppData) UnmarshalJSON(data []byte) error {
+	if len(data) == 0 || bytes.Equal(data, []byte("null")) {
+		return nil
+	}
+
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil //nolint:nilerr
+	}
+
+	parseInt := func(msg json.RawMessage) int {
+		if len(msg) == 0 {
+			return 0
+		}
+
+		s := bytes.Trim(msg, `"`)
+		val, _ := strconv.Atoi(string(s))
+
+		return val
+	}
+
+	parseUint64 := func(msg json.RawMessage) uint64 {
+		if len(msg) == 0 {
+			return 0
+		}
+
+		s := bytes.Trim(msg, `"`)
+		val, _ := strconv.ParseUint(string(s), 10, 64)
+
+		return val
+	}
+
+	if msg, ok := raw["def_index"]; ok {
+		a.DefIndex = parseInt(msg)
+	}
+
+	if msg, ok := raw["quality"]; ok {
+		a.Quality = parseInt(msg)
+	}
+
+	if msg, ok := raw["original_id"]; ok {
+		a.OriginalID = parseUint64(msg)
+	}
+
+	if msg, ok := raw["attributes"]; ok {
+		if bytes.Contains(msg, []byte(`"2027"`)) {
+			a.IsAustralium = true
+		}
+	}
+
+	return nil
+}
 
 // Asset represents an item in the inventory.
 type Asset struct {
@@ -48,8 +115,8 @@ type Description struct {
 	IconURL string `json:"icon_url"`
 	// Tags contains the parsed tags of the item.
 	Tags []Tag `json:"tags"`
-	// AppData contains optional application-specific metadata.
-	AppData map[string]any `json:"app_data,omitempty"`
+	// AppData contains typed application-specific metadata without map overhead.
+	AppData *AppData `json:"app_data,omitempty"`
 	// Descriptions contains detailed inline text descriptions.
 	Descriptions []struct {
 		Value string `json:"value"`

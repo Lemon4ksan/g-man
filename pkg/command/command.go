@@ -694,6 +694,7 @@ func ParseCommandLineInto(line string, dst []string) []string {
 			buf.WriteByte(c)
 
 			escaped = false
+
 			continue
 		}
 

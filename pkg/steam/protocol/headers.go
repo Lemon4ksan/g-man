@@ -421,6 +421,7 @@ func (h *MsgHdrProtoBuf) FastUnmarshal(data []byte) error {
 					SetProtoUint64(&h.Proto.Steamid, v)
 
 					offset += n
+
 					continue
 				}
 			}
@@ -432,6 +433,7 @@ func (h *MsgHdrProtoBuf) FastUnmarshal(data []byte) error {
 					SetProtoInt32(&h.Proto.ClientSessionid, int32(v))
 
 					offset += n
+
 					continue
 				}
 			}
@@ -467,6 +469,7 @@ func (h *MsgHdrProtoBuf) FastUnmarshal(data []byte) error {
 					SetProtoUint64(&h.Proto.JobidSource, v)
 
 					offset += n
+
 					continue
 				}
 			}
@@ -478,6 +481,7 @@ func (h *MsgHdrProtoBuf) FastUnmarshal(data []byte) error {
 					SetProtoUint64(&h.Proto.JobidTarget, v)
 
 					offset += n
+
 					continue
 				}
 			}
@@ -489,6 +493,7 @@ func (h *MsgHdrProtoBuf) FastUnmarshal(data []byte) error {
 					SetProtoInt32(&h.Proto.Eresult, int32(v))
 
 					offset += n
+
 					continue
 				}
 			}
