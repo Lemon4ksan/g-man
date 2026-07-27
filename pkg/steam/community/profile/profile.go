@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package profile manages profile details, privacy settings, and avatars for Steam Community accounts.
+// Package profile manages profile bio details, avatars, and privacy configurations for Steam Community accounts.
 package profile
 
 import (
@@ -26,8 +26,16 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 )
 
-// WithAvatarUpload assembles a Steam-specific multipart avatar upload form.
-// It ensures that the field name is "avatar" and the filename has the correct extension.
+var (
+	// ErrEmptyAvatarBuffer indicates avatar image buffer is empty.
+	ErrEmptyAvatarBuffer = errors.New("profile: empty avatar image buffer")
+	// ErrConfigNotFound indicates profile edit JSON element was missing from page HTML.
+	ErrConfigNotFound = errors.New("profile: config element not found (possibly not logged in)")
+	// ErrMissingDataAttr indicates data-profile-edit HTML attribute was missing.
+	ErrMissingDataAttr = errors.New("profile: missing data-profile-edit attribute")
+)
+
+// WithAvatarUpload constructs a multipart avatar upload form.
 func WithAvatarUpload(fields map[string]string, filename string, image []byte) aoni.RequestModifier {
 	return func(req aoni.Request) {
 		body := &bytes.Buffer{}
@@ -61,38 +69,26 @@ func WithAvatarUpload(fields map[string]string, filename string, image []byte) a
 	}
 }
 
-// Settings represents customizable profile details.
-//
-// Struct fields are pointers. Any field set to nil is ignored during update,
-// keeping the existing profile values in Steam.
+// Settings represents customizable profile bio fields.
 type Settings struct {
-	// Name is the custom display nickname of the user.
-	Name *string
-	// RealName is the user's real name.
-	RealName *string
-	// Summary is the user's custom bio description.
-	Summary *string
-	// Country is the ISO two-letter country code of the location.
-	Country *string
-	// State is the state code of the location.
-	State *string
-	// City is the city code of the location.
-	City *string
-	// CustomURL is the custom vanity URL slug.
+	Name      *string
+	RealName  *string
+	Summary   *string
+	Country   *string
+	State     *string
+	City      *string
 	CustomURL *string
 }
 
-// PrivacyState represents profile privacy level.
+// PrivacyState represents profile visibility permissions.
 type PrivacyState int
 
-// PrivacyState constants define the profile privacy level.
 const (
 	PrivacyPrivate     PrivacyState = 1
 	PrivacyFriendsOnly PrivacyState = 2
 	PrivacyPublic      PrivacyState = 3
 )
 
-// String returns a human-readable representation of PrivacyState.
 func (p PrivacyState) String() string {
 	switch p {
 	case PrivacyPrivate:
@@ -106,38 +102,27 @@ func (p PrivacyState) String() string {
 	}
 }
 
-// CommentPermission represents who can post comments on the profile.
+// CommentPermission represents commentary permissions.
 type CommentPermission int
 
-// CommentPermission constants define who can post comments on the profile.
 const (
 	CommentFriendsOnly CommentPermission = 0
 	CommentAnyone      CommentPermission = 1
 	CommentPrivate     CommentPermission = 2
 )
 
-// PrivacySettings represents customizable profile privacy details.
-//
-// Struct fields are pointers. Any field set to nil is ignored during update,
-// keeping the existing privacy values in Steam.
+// PrivacySettings represents customizable profile privacy settings.
 type PrivacySettings struct {
-	// Profile is the general privacy level of the profile.
-	Profile *PrivacyState
-	// Comments is the commentary permission level of the profile.
-	Comments *CommentPermission
-	// Inventory is the privacy level of the inventory.
-	Inventory *PrivacyState
-	// InventoryGifts specifies if inventory gifts are kept private (true) or public (false).
+	Profile        *PrivacyState
+	Comments       *CommentPermission
+	Inventory      *PrivacyState
 	InventoryGifts *bool
-	// GameDetails is the privacy level of active game playtimes and details.
-	GameDetails *PrivacyState
-	// Playtime specifies if total gameplay playtime is kept private (true) or public (false).
-	Playtime *bool
-	// FriendsList is the privacy level of the friends list.
-	FriendsList *PrivacyState
+	GameDetails    *PrivacyState
+	Playtime       *bool
+	FriendsList    *PrivacyState
 }
 
-// EditProfile retrieves the existing profile configuration, merges the changes, and saves the updated settings.
+// EditProfile updates profile display details.
 func EditProfile(ctx context.Context, client community.Requester, steamID id.ID, settings Settings) error {
 	html, err := community.GetHTML(
 		ctx, client, "profiles/{steamID}/edit/info",
@@ -146,6 +131,7 @@ func EditProfile(ctx context.Context, client community.Requester, steamID id.ID,
 	if err != nil {
 		return fmt.Errorf("profile: failed to fetch edit page: %w", err)
 	}
+
 	defer html.Close()
 
 	currentConfig, err := parseSteamConfig[rawProfileEditConfig](html)
@@ -175,7 +161,7 @@ func EditProfile(ctx context.Context, client community.Requester, steamID id.ID,
 	return nil
 }
 
-// UpdatePrivacySettings fetches the current privacy status, merges the changes, and posts updates.
+// UpdatePrivacySettings modifies profile privacy options.
 func UpdatePrivacySettings(
 	ctx context.Context,
 	client community.Requester,
@@ -189,6 +175,7 @@ func UpdatePrivacySettings(
 	if err != nil {
 		return fmt.Errorf("profile: failed to fetch settings page: %w", err)
 	}
+
 	defer html.Close()
 
 	currentConfig, err := parseSteamConfig[rawPrivacyConfig](html)
@@ -220,7 +207,7 @@ func UpdatePrivacySettings(
 	return nil
 }
 
-// UploadAvatar uploads a new profile avatar image and returns its secure hash.
+// UploadAvatar uploads an image buffer and sets it as the profile avatar.
 func UploadAvatar(
 	ctx context.Context,
 	client community.Requester,
@@ -229,7 +216,7 @@ func UploadAvatar(
 	contentType string,
 ) (string, error) {
 	if len(image) == 0 {
-		return "", errors.New("profile: empty avatar image buffer")
+		return "", ErrEmptyAvatarBuffer
 	}
 
 	filename, err := resolveAvatarFilename(contentType)
@@ -276,12 +263,12 @@ func parseSteamConfig[T any](html io.Reader) (*T, error) {
 
 	configEl := doc.Find("#profile_edit_config")
 	if configEl.Length() == 0 {
-		return nil, errors.New("profile: config element not found (possibly not logged in)")
+		return nil, ErrConfigNotFound
 	}
 
 	dataVal, exists := configEl.Attr("data-profile-edit")
 	if !exists {
-		return nil, errors.New("profile: missing data-profile-edit attribute")
+		return nil, ErrMissingDataAttr
 	}
 
 	var config T

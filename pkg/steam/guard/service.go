@@ -30,20 +30,24 @@ import (
 
 var rxTradeOfferID = regexp.MustCompile(`id="tradeofferid_(\d+)"`)
 
-// TwoFactorService covers ITwoFactorService methods.
-//
-// Create new instances of the service using the [NewTwoFactorService] constructor.
+var (
+	// ErrOfferIDNotFound indicates trade offer ID was missing from confirmation HTML details.
+	ErrOfferIDNotFound = errors.New("offer ID not found in confirmation details page")
+	// ErrConfirmationRejected indicates Steam rejected mobile confirmation operation.
+	ErrConfirmationRejected = errors.New("steam rejected confirmation action")
+)
+
+// TwoFactorService wraps ITwoFactorService WebAPI endpoints.
 type TwoFactorService struct {
 	client service.Doer
 }
 
-// NewTwoFactorService creates a new wrapper around unified client.
+// NewTwoFactorService constructs a TwoFactorService wrapper.
 func NewTwoFactorService(client service.Doer) *TwoFactorService {
 	return &TwoFactorService{client: client}
 }
 
-// QueryTimeOffset calculates the drift between local computer time and Steam Server time.
-// Crucial for generating valid TOTP codes if the local clock is out of sync.
+// QueryTimeOffset computes time drift between local machine clock and Steam Server time.
 func (s *TwoFactorService) QueryTimeOffset(ctx context.Context) (time.Duration, error) {
 	type respStruct struct {
 		ServerTime string `json:"server_time"`
@@ -63,26 +67,22 @@ func (s *TwoFactorService) QueryTimeOffset(ctx context.Context) (time.Duration, 
 		return 0, fmt.Errorf("invalid server time format from steam: %w", err)
 	}
 
-	// Adjust server time by adding half of the Round-Trip Time (RTT)
 	adjustedServerTime := time.Unix(serverTime, 0).Add(rtt / 2)
-	diff := time.Until(adjustedServerTime)
 
-	return diff, nil
+	return time.Until(adjustedServerTime), nil
 }
 
-// MobileConf provides access to Steam's mobile verification endpoints.
-//
-// Create new instances of the service using the [NewMobileConf] constructor.
+// MobileConf executes mobile confirmation operations against mobileconf endpoints.
 type MobileConf struct {
 	client community.Requester
 }
 
-// NewMobileConf creates a new wrapper around unified client for responding to mobile confirmations.
+// NewMobileConf constructs a MobileConf instance.
 func NewMobileConf(client community.Requester) *MobileConf {
 	return &MobileConf{client: client}
 }
 
-// GetConfirmations fetches the list of pending mobile confirmations.
+// GetConfirmations fetches active mobile confirmations.
 func (s *MobileConf) GetConfirmations(
 	ctx context.Context,
 	deviceID string,
@@ -105,7 +105,7 @@ func (s *MobileConf) GetConfirmations(
 	)
 }
 
-// GetConfirmationOfferID retrieves the trade offer ID associated with a market listing confirmation.
+// GetConfirmationOfferID parses the trade offer ID associated with a confirmation details page.
 func (s *MobileConf) GetConfirmationOfferID(
 	ctx context.Context,
 	confID uint64,
@@ -136,13 +136,13 @@ func (s *MobileConf) GetConfirmationOfferID(
 
 	matches := rxTradeOfferID.FindSubmatch(*respBytes)
 	if len(matches) < 2 {
-		return 0, errors.New("offer ID not found in confirmation details page")
+		return 0, ErrOfferIDNotFound
 	}
 
 	return strconv.ParseUint(string(matches[1]), 10, 64)
 }
 
-// RespondToConfirmation accepts or denies a single confirmation.
+// RespondToConfirmation accepts or rejects a single confirmation.
 func (s *MobileConf) RespondToConfirmation(
 	ctx context.Context,
 	conf *Confirmation,
@@ -177,7 +177,7 @@ func (s *MobileConf) RespondToConfirmation(
 	}
 
 	if !resp.Success {
-		return errors.New("steam rejected confirmation action")
+		return ErrConfirmationRejected
 	}
 
 	return nil
@@ -213,7 +213,7 @@ func (r multiRequest) EncodeFormString() (string, error) {
 	return sb.String(), nil
 }
 
-// RespondToMultiple accepts or denies multiple confirmations in a single request.
+// RespondToMultiple accepts or rejects multiple confirmations in a single batch request.
 func (s *MobileConf) RespondToMultiple(
 	ctx context.Context,
 	confs []*Confirmation,
@@ -326,7 +326,7 @@ func (s *TwoFactorService) AddAuthenticator(
 	return service.Unified[pb.CTwoFactor_AddAuthenticator_Response](ctx, s.client, req)
 }
 
-// FinalizeAuthenticator finalizes linking the authenticator using the verification SMS/email code and generated TOTP.
+// FinalizeAuthenticator links the authenticator using SMS code and active TOTP code.
 func (s *TwoFactorService) FinalizeAuthenticator(
 	ctx context.Context,
 	steamID id.ID,
@@ -347,7 +347,7 @@ func (s *TwoFactorService) FinalizeAuthenticator(
 	return service.Unified[pb.CTwoFactor_FinalizeAddAuthenticator_Response](ctx, s.client, req)
 }
 
-// QueryStatus queries the current two-factor status for the account.
+// QueryStatus retrieves current two-factor settings status.
 func (s *TwoFactorService) QueryStatus(
 	ctx context.Context,
 	steamID id.ID,
@@ -359,7 +359,7 @@ func (s *TwoFactorService) QueryStatus(
 	return service.Unified[pb.CTwoFactor_Status_Response](ctx, s.client, req)
 }
 
-// RemoveAuthenticator removes/revokes the authenticator using a revocation code.
+// RemoveAuthenticator revokes two-factor authenticator protection using a revocation code.
 func (s *TwoFactorService) RemoveAuthenticator(
 	ctx context.Context,
 	revocationCode string,
@@ -371,7 +371,7 @@ func (s *TwoFactorService) RemoveAuthenticator(
 	return service.Unified[pb.CTwoFactor_RemoveAuthenticator_Response](ctx, s.client, req)
 }
 
-// RemoveAuthenticatorViaChallengeStart begins the authenticator transfer.
+// RemoveAuthenticatorViaChallengeStart initiates authenticator transfer.
 func (s *TwoFactorService) RemoveAuthenticatorViaChallengeStart(
 	ctx context.Context,
 ) (*pb.CTwoFactor_RemoveAuthenticatorViaChallengeStart_Response, error) {
@@ -380,7 +380,7 @@ func (s *TwoFactorService) RemoveAuthenticatorViaChallengeStart(
 	return service.Unified[pb.CTwoFactor_RemoveAuthenticatorViaChallengeStart_Response](ctx, s.client, req)
 }
 
-// RemoveAuthenticatorViaChallengeContinue finishes the authenticator transfer using the SMS code.
+// RemoveAuthenticatorViaChallengeContinue completes authenticator transfer using SMS code.
 func (s *TwoFactorService) RemoveAuthenticatorViaChallengeContinue(
 	ctx context.Context,
 	steamID id.ID,
@@ -395,8 +395,7 @@ func (s *TwoFactorService) RemoveAuthenticatorViaChallengeContinue(
 	return service.Unified[pb.CTwoFactor_RemoveAuthenticatorViaChallengeContinue_Response](ctx, s.client, req)
 }
 
-// IsFinalizeWantMore parses the unknown fields of CTwoFactor_FinalizeAddAuthenticator_Response
-// to determine if Steam expects more authentication codes.
+// IsFinalizeWantMore inspects unknown fields in CTwoFactor_FinalizeAddAuthenticator_Response to check if Steam expects additional authentication codes.
 func IsFinalizeWantMore(resp *pb.CTwoFactor_FinalizeAddAuthenticator_Response) bool {
 	if resp == nil {
 		return false

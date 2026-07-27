@@ -16,8 +16,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/trading/reason"
 )
 
-// RecoverMiddleware catches panics in the middleware chain and converts them to errors.
-// This ensures one broken check doesn't crash the entire bot.
+// RecoverMiddleware catches panics in the middleware chain and marks the offer for review.
 func RecoverMiddleware(logger log.Logger) Middleware {
 	return func(next Handler) Handler {
 		return func(ctx *TradeContext) (err error) {
@@ -39,8 +38,7 @@ func RecoverMiddleware(logger log.Logger) Middleware {
 	}
 }
 
-// LoggerMiddleware measures and logs the time taken to process an offer,
-// along with the final verdict.
+// LoggerMiddleware measures processing duration and logs verdicts.
 func LoggerMiddleware(logger log.Logger) Middleware {
 	return func(next Handler) Handler {
 		return func(ctx *TradeContext) error {
@@ -61,7 +59,7 @@ func LoggerMiddleware(logger log.Logger) Middleware {
 	}
 }
 
-// BlacklistMiddleware rejects offers from specific SteamIDs.
+// BlacklistMiddleware rejects offers from blacklisted SteamIDs.
 func BlacklistMiddleware(blacklist generic.Set[id.ID]) Middleware {
 	return func(next Handler) Handler {
 		return func(ctx *TradeContext) error {
@@ -70,20 +68,17 @@ func BlacklistMiddleware(blacklist generic.Set[id.ID]) Middleware {
 				return nil
 			}
 
-			// Precondition passed, continue down the chain
 			return next(ctx)
 		}
 	}
 }
 
-// EmptyOfferMiddleware automatically declines offers where the partner
-// asks for items but offers nothing in return (Begging).
-// It also handles donations (where we take items for free), optionally filtering "junk".
+// EmptyOfferMiddleware automatically declines begging offers and accepts non-junk donations.
 func EmptyOfferMiddleware(isJunk func(*trading.Item) bool) Middleware {
 	return func(next Handler) Handler {
 		return func(ctx *TradeContext) error {
-			gaveItems := len(ctx.Offer.ItemsToReceive) > 0 // We receive = they gave
-			tookItems := len(ctx.Offer.ItemsToGive) > 0    // We give = they took
+			gaveItems := len(ctx.Offer.ItemsToReceive) > 0
+			tookItems := len(ctx.Offer.ItemsToGive) > 0
 
 			if tookItems && !gaveItems {
 				ctx.Decline(reason.DeclineBegging)
@@ -94,20 +89,16 @@ func EmptyOfferMiddleware(isJunk func(*trading.Item) bool) Middleware {
 				allJunk := true
 				for _, it := range ctx.Offer.ItemsToReceive {
 					if !it.Tradable {
-						ctx.Decline(reason.DeclineBegging) // Don't even review untradable junk
+						ctx.Decline(reason.DeclineBegging)
 						return nil
 					}
 
-					// If we have a validator, use it to check for junk
 					if isJunk != nil {
 						if !isJunk(it) {
 							allJunk = false
 						}
-					} else {
-						// Default: if it has a SKU, it's probably not junk
-						if it.SKU != "" {
-							allJunk = false
-						}
+					} else if it.SKU != "" {
+						allJunk = false
 					}
 				}
 
@@ -118,7 +109,7 @@ func EmptyOfferMiddleware(isJunk func(*trading.Item) bool) Middleware {
 
 				ctx.Accept(reason.AcceptDonation)
 
-				return nil // Stop chain, accept immediately
+				return nil
 			}
 
 			return next(ctx)

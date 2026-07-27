@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package module defines extensible plugin interfaces and base lifecycle state machines for Steam client extensions.
 package module
 
 import (
@@ -24,19 +25,14 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/storage"
 )
 
-// State defines the current lifecycle stage of a module.
 type State int32
 
 const (
-	// StateNew indicates the module is created but not yet initialized.
 	StateNew State = iota
-	// StateStarted indicates the module is running.
 	StateStarted
-	// StateClosed indicates the module has been shut down.
 	StateClosed
 )
 
-// String returns a human-readable representation of the State.
 func (s State) String() string {
 	switch s {
 	case StateNew:
@@ -50,17 +46,13 @@ func (s State) String() string {
 	}
 }
 
-// Event defines a trigger that drives a module state transition.
 type Event int32
 
 const (
-	// EventStart triggers the transition from New to Started.
 	EventStart Event = iota
-	// EventClose triggers the transition to Closed.
 	EventClose
 )
 
-// String returns a human-readable representation of the Event.
 func (e Event) String() string {
 	switch e {
 	case EventStart:
@@ -73,13 +65,13 @@ func (e Event) String() string {
 }
 
 var (
-	// ErrClosed is returned when an operation is executed on a closed or shutting down module.
+	// ErrClosed indicates an operation was performed on a closed module or client.
 	ErrClosed = errors.New("steam: client is closed")
-	// ErrNotAuthenticated is returned when a module tries to access a session before successful authentication.
+	// ErrNotAuthenticated indicates authenticated resources were accessed before user logon.
 	ErrNotAuthenticated = errors.New("steam: not authenticated")
 )
 
-// Get retrieves a typed module from the specified [InitContext] using its unique name.
+// Get retrieves a typed module instance by name from an InitContext.
 func Get[T any](init InitContext, name string) (T, error) {
 	mod := init.Module(name)
 	if mod == nil {
@@ -90,14 +82,16 @@ func Get[T any](init InitContext, name string) (T, error) {
 	if !ok {
 		return generic.Zero[T](), fmt.Errorf(
 			"module %q has invalid type %T (expected %T)",
-			name, mod, generic.Zero[T](),
+			name,
+			mod,
+			generic.Zero[T](),
 		)
 	}
 
 	return typed, nil
 }
 
-// InitContext exposes client configuration parameters and resources to a module during its initialization phase.
+// InitContext provides client configuration, event bus, and packet registration handlers to initializing modules.
 type InitContext interface {
 	Storage() storage.Provider
 	Bus() *bus.Bus
@@ -111,32 +105,32 @@ type InitContext interface {
 	UnregisterServiceHandler(method string)
 }
 
-// AuthContext exposes resources that are only available after successful authentication.
+// AuthContext provides authenticated resources available after user logon.
 type AuthContext interface {
 	Community() community.Requester
 	SteamID() id.ID
 }
 
-// Module defines the required lifecycle and identity contract for all pluggable extensions.
+// Module defines required lifecycle methods for extensions.
 type Module interface {
 	Name() string
 	Init(init InitContext) error
 	Start(ctx context.Context) error
 }
 
-// Dependent defines an optional interface to specify dependencies on other client modules.
+// Dependent specifies explicit inter-module dependencies.
 type Dependent interface {
 	Module
 	Dependencies() []string
 }
 
-// Auth defines the lifecycle contract for modules that depend on an authenticated user session.
+// Auth defines lifecycle methods for modules dependent on authenticated user sessions.
 type Auth interface {
 	Module
 	StartAuthed(ctx context.Context, auth AuthContext) error
 }
 
-// Base provides a standard implementation of the pluggable module lifecycle contract.
+// Base provides standard lifecycle state machine management, logger binding, and task waitgroup tracking.
 type Base struct {
 	NameStr string
 	Logger  log.Logger
@@ -150,7 +144,7 @@ type Base struct {
 	mu *sync.Mutex
 }
 
-// New creates a new [Base] module initialized with the specified name and state.
+// New constructs a Base module.
 func New(name string) Base {
 	fsm := kata.NewFSM[State, Event](StateNew)
 	fsm.AddRules(
@@ -168,22 +162,16 @@ func New(name string) Base {
 	}
 }
 
-// Name returns the unique string identifier of the [Base] module.
 func (b *Base) Name() string { return b.NameStr }
 
-// Dependencies returns the list of module names that this [Base] module depends on.
-func (b *Base) Dependencies() []string {
-	return b.Deps
-}
+func (b *Base) Dependencies() []string { return b.Deps }
 
-// WithDeps sets the dependency slice for the [Base] module and returns it.
 func (b Base) WithDeps(deps ...string) Base {
 	b.Deps = deps
+
 	return b
 }
 
-// Init configures common scoped dependencies such as [log.Logger] and [bus.Bus] using the provided [InitContext].
-// It is called exactly once when client is fist run, so the initialized fields don't need to be protected.
 func (b *Base) Init(ctx InitContext) error {
 	b.Logger = ctx.Logger().With(log.Module(b.NameStr))
 	b.Bus = ctx.Bus()
@@ -207,7 +195,6 @@ func (b *Base) Init(ctx InitContext) error {
 	}
 
 	b.mu.Lock()
-
 	if b.Ctx == nil || b.Ctx.Err() != nil {
 		b.Ctx, b.Cancel = context.WithCancel(context.Background())
 	}
@@ -217,7 +204,6 @@ func (b *Base) Init(ctx InitContext) error {
 	return nil
 }
 
-// Start activates the [Base] module's lifecycle using the provided context.
 func (b *Base) Start(ctx context.Context) error {
 	b.mu.Lock()
 	b.Ctx, b.Cancel = context.WithCancel(ctx)
@@ -228,7 +214,6 @@ func (b *Base) Start(ctx context.Context) error {
 	return nil
 }
 
-// Close shuts down the [Base] module, cancels its context, and waits for tracked background tasks to complete.
 func (b *Base) Close() error {
 	b.mu.Lock()
 	cancel := b.Cancel
@@ -247,19 +232,15 @@ func (b *Base) Close() error {
 	return nil
 }
 
-// State returns the current [State] of the [Base] module's lifecycle.
 func (b *Base) State() State { return b.Fsm.CurrentState() }
 
-// IsNew returns true if the module is in StateNew.
 func (b *Base) IsNew() bool { return b.State() == StateNew }
 
-// IsStarted returns true if the module is in StateStarted.
 func (b *Base) IsStarted() bool { return b.State() == StateStarted }
 
-// IsClosed returns true if the module is in StateClosed.
 func (b *Base) IsClosed() bool { return b.State() == StateClosed }
 
-// Go spawns an asynchronous background task tracked by the internal [sync.WaitGroup].
+// Go launches a background task tracked by the internal WaitGroup.
 func (b *Base) Go(fn func(ctx context.Context)) {
 	if b.Wg == nil {
 		b.Wg = new(sync.WaitGroup)
@@ -278,8 +259,7 @@ func (b *Base) Go(fn func(ctx context.Context)) {
 	})
 }
 
-// AuthBase extends [Base] to provide boilerplate-free state management for authorized modules.
-// It automatically tracks the active [AuthContext] and provides thread-safe helpers.
+// AuthBase extends Base with thread-safe AuthContext storage.
 type AuthBase struct {
 	Base
 
@@ -287,14 +267,13 @@ type AuthBase struct {
 	authCtx AuthContext
 }
 
-// NewAuthBase creates a new [AuthBase] module with the specified name.
+// NewAuthBase constructs an AuthBase instance.
 func NewAuthBase(name string) AuthBase {
 	return AuthBase{
 		Base: New(name),
 	}
 }
 
-// StartAuthed caches the authenticated context and transitions the module.
 func (ab *AuthBase) StartAuthed(ctx context.Context, auth AuthContext) error {
 	ab.authMu.Lock()
 	ab.authCtx = auth
@@ -303,14 +282,13 @@ func (ab *AuthBase) StartAuthed(ctx context.Context, auth AuthContext) error {
 	return nil
 }
 
-// AuthContext returns the currently cached [AuthContext], or nil if not authenticated.
 func (ab *AuthBase) AuthContext() AuthContext {
 	ab.authMu.RLock()
 	defer ab.authMu.RUnlock()
+
 	return ab.authCtx
 }
 
-// SteamID returns the authenticated SteamID, or 0 if not authenticated.
 func (ab *AuthBase) SteamID() id.ID {
 	ab.authMu.RLock()
 	defer ab.authMu.RUnlock()
@@ -322,7 +300,6 @@ func (ab *AuthBase) SteamID() id.ID {
 	return ab.authCtx.SteamID()
 }
 
-// Community returns the authorized community requester, or nil if not authenticated.
 func (ab *AuthBase) Community() community.Requester {
 	ab.authMu.RLock()
 	defer ab.authMu.RUnlock()
@@ -334,14 +311,13 @@ func (ab *AuthBase) Community() community.Requester {
 	return ab.authCtx.Community()
 }
 
-// IsAuthenticated returns true if an active authenticated context is present.
 func (ab *AuthBase) IsAuthenticated() bool {
 	ab.authMu.RLock()
 	defer ab.authMu.RUnlock()
+
 	return ab.authCtx != nil
 }
 
-// ClearAuth clears the active authentication context (e.g. on logout/reconnect).
 func (ab *AuthBase) ClearAuth() {
 	ab.authMu.Lock()
 	ab.authCtx = nil

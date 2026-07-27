@@ -137,7 +137,7 @@ func TestAuthenticationService_EncryptPassword(t *testing.T) {
 						&pb.CAuthentication_GetPasswordRSAPublicKey_Response{},
 					)
 				},
-				wantErr: "steam returned empty rsa parameters",
+				wantErr: "auth: steam returned empty rsa parameters",
 			},
 			{
 				name: "invalid_modulus_hex",
@@ -151,7 +151,7 @@ func TestAuthenticationService_EncryptPassword(t *testing.T) {
 						},
 					)
 				},
-				wantErr: "invalid rsa modulus hex string",
+				wantErr: "auth: invalid rsa modulus hex string",
 			},
 			{
 				name: "invalid_exponent_hex",
@@ -165,7 +165,7 @@ func TestAuthenticationService_EncryptPassword(t *testing.T) {
 						},
 					)
 				},
-				wantErr: "invalid rsa exponent hex string",
+				wantErr: "auth: invalid rsa exponent hex string",
 			},
 		}
 

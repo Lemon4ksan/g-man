@@ -10,12 +10,14 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/lemon4ksan/miyako/jobs"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
-	"github.com/lemon4ksan/miyako/jobs"
 )
+
+var ErrNoPendingCall = errors.New("mock: no pending call for this msgType")
 
 type GCMock struct {
 	mu           sync.RWMutex
@@ -35,21 +37,10 @@ func NewGCMock() *GCMock {
 	}
 }
 
-func (m *GCMock) Name() string {
-	return "gc"
-}
-
-func (m *GCMock) Init(init module.InitContext) error {
-	return nil
-}
-
-func (m *GCMock) Start(ctx context.Context) error {
-	return nil
-}
-
-func (m *GCMock) Close() error {
-	return nil
-}
+func (m *GCMock) Name() string                       { return "gc" }
+func (m *GCMock) Init(init module.InitContext) error { return nil }
+func (m *GCMock) Start(ctx context.Context) error    { return nil }
+func (m *GCMock) Close() error                       { return nil }
 
 func (m *GCMock) Send(ctx context.Context, appID, msgType uint32, msg proto.Message) error {
 	m.mu.Lock()
@@ -156,7 +147,7 @@ func (m *GCMock) ReplyToLastCall(msgType uint32, payload []byte, err error) erro
 	m.mu.Unlock()
 
 	if !ok || cb == nil {
-		return errors.New("no pending call for this msgType")
+		return ErrNoPendingCall
 	}
 
 	go cb(context.Background(), &protocol.GCPacket{

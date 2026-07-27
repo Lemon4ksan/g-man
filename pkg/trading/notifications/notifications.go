@@ -2,51 +2,38 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package notifications generates chat messages based on trade outcomes.
+// Package notifications compiles template-driven chat notifications responding to trade offer resolution events.
 package notifications
 
 import (
 	"bytes"
 	"context"
 	"fmt"
+	"sync"
 	"text/template"
 
 	"github.com/lemon4ksan/miyako/log"
 )
 
-// Manager is responsible for generating and sending trade-related chat notifications.
-//
-// It parses and caches Go text templates internally using [text/template] to prevent
-// redundant parsing over high-frequency notification cycles.
-// Create new instances of Manager using the [NewManager] constructor.
+// Manager parses, caches, and renders notification message templates.
 type Manager struct {
-	chat   ChatProvider
-	config ConfigProvider
-	logger log.Logger
-
-	// Template cache to avoid re-parsing on every notification.
-	templateCache *template.Template
+	chat     ChatProvider
+	config   ConfigProvider
+	logger   log.Logger
+	tplMu    sync.RWMutex
+	tplCache map[string]*template.Template
 }
 
-// NewManager creates a new [Manager] instance with the provided chat, config,
-// and logging dependencies.
 func NewManager(chat ChatProvider, config ConfigProvider, logger log.Logger) *Manager {
 	return &Manager{
-		chat:   chat,
-		config: config,
-		logger: logger,
-		// We can pre-compile common templates or add custom functions here.
-		templateCache: template.New("notifications").Funcs(template.FuncMap{
-			"prefix": config.GetCommandPrefix, // {{.Prefix}}
-		}),
+		chat:     chat,
+		config:   config,
+		logger:   logger,
+		tplCache: make(map[string]*template.Template),
 	}
 }
 
-// SendNotification determines the correct template for a trade outcome and sends it.
-//
-// It compiles details from the [TradeInfo] and transmits the resulting message
-// using the [ChatProvider]. It returns an error if template rendering or message
-// transmission fails.
+// SendNotification resolves and renders the template for info, delivering it via ChatProvider.
 func (m *Manager) SendNotification(ctx context.Context, info *TradeInfo) error {
 	key, defaultTpl, err := m.resolveTemplate(info)
 	if err != nil {
@@ -60,18 +47,14 @@ func (m *Manager) SendNotification(ctx context.Context, info *TradeInfo) error {
 
 	msg, err := m.renderTemplate(key, tplStr, info)
 	if err != nil {
-		m.logger.Error("Failed to render notification template",
-			log.String("key", key),
-			log.Err(err),
-		)
-		// Send a generic error message to the user instead of nothing.
+		m.logger.Error("Failed to render notification template", log.String("key", key), log.Err(err))
+
 		msg = "An internal error occurred while generating a response."
 	}
 
 	return m.chat.SendMessage(ctx, info.PartnerSteamID, msg)
 }
 
-// resolveTemplate selects the correct template key and default content based on the trade outcome.
 func (m *Manager) resolveTemplate(info *TradeInfo) (key, defaultTpl string, err error) {
 	switch info.OldState {
 	case StateAccepted:
@@ -82,10 +65,9 @@ func (m *Manager) resolveTemplate(info *TradeInfo) (key, defaultTpl string, err 
 		return "invalid_trade", GetDefaultTemplate("invalid_trade"), nil
 	case StateDeclined:
 		declineKey := "decline." + string(info.ReasonType)
-
 		defaultDeclineTpl := GetDefaultTemplate(declineKey)
+
 		if defaultDeclineTpl == "" {
-			// Fallback for unknown decline reasons
 			return "decline.general", GetDefaultTemplate("decline.general"), nil
 		}
 
@@ -102,11 +84,31 @@ func (m *Manager) resolveTemplate(info *TradeInfo) (key, defaultTpl string, err 
 	return "", "", fmt.Errorf("no template found for trade state: %d", info.OldState)
 }
 
-// renderTemplate executes a Go template with the provided trade data.
 func (m *Manager) renderTemplate(name, tplStr string, data any) (string, error) {
-	tpl, err := m.templateCache.New(name).Parse(tplStr)
-	if err != nil {
-		return "", fmt.Errorf("template parse error: %w", err)
+	m.tplMu.RLock()
+	tpl, ok := m.tplCache[name]
+	m.tplMu.RUnlock()
+
+	if !ok {
+		m.tplMu.Lock()
+
+		var err error
+
+		tpl, ok = m.tplCache[name]
+		if !ok {
+			tpl, err = template.New(name).Funcs(template.FuncMap{
+				"prefix": m.config.GetCommandPrefix,
+			}).Parse(tplStr)
+			if err == nil {
+				m.tplCache[name] = tpl
+			}
+		}
+
+		m.tplMu.Unlock()
+
+		if err != nil {
+			return "", fmt.Errorf("template parse error: %w", err)
+		}
 	}
 
 	var buf bytes.Buffer

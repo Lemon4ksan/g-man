@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -21,20 +22,17 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 )
 
-// HTTPUserAgent is the user agent string used by the official Steam Client.
 const HTTPUserAgent = "Valve/Steam HTTP Client 1.0"
 
-// HTTPMetadata holds context-specific information from an HTTP response.
+var ErrTargetNotHTTP = errors.New("http: target does not support HTTP transport")
+
 type HTTPMetadata struct {
 	Result     enums.EResult
 	StatusCode int
 	Header     http.Header
 }
 
-// HTTPTransport implements the [Transport] interface for HTTP-based communication.
-// It translates abstract [Request] structures into concrete HTTP requests.
-//
-// Create new instances of HTTPTransport using [NewHTTPTransport].
+// HTTPTransport executes transport requests over HTTPS WebAPI using standard or fast.Client engines.
 type HTTPTransport struct {
 	client     *aoni.Client
 	fastClient *fast.Client
@@ -42,15 +40,13 @@ type HTTPTransport struct {
 	baseURL    string
 }
 
-// HTTPTarget is an extension of the Target interface for destinations that can be
-// reached via HTTP.
 type HTTPTarget interface {
 	Target
 	HTTPPath() string
 	HTTPMethod() string
 }
 
-// NewHTTPTransport creates a new HTTPTransport instance with the given HTTPDoer and base URL.
+// NewHTTPTransport constructs an HTTPTransport instance.
 func NewHTTPTransport(doer any, baseURL string) *HTTPTransport {
 	tr := &HTTPTransport{
 		baseURL: baseURL,
@@ -104,14 +100,10 @@ func (f *fastUnsafeReadCloser) Close() error {
 	return nil
 }
 
-// Do executes a [Request] over HTTP.
-//
-// It returns an error if the request's [Target] does not implement [HTTPTarget],
-// if the underlying REST call fails, or if reading the response body fails.
 func (t *HTTPTransport) Do(ctx context.Context, req *Request) (*Response, error) {
 	target, ok := req.Target().(HTTPTarget)
 	if !ok {
-		return nil, fmt.Errorf("http: target %T does not support HTTP transport", req.Target())
+		return nil, fmt.Errorf("%w: %T", ErrTargetNotHTTP, req.Target())
 	}
 
 	params := req.Params()
@@ -200,8 +192,6 @@ func (t *HTTPTransport) Do(ctx context.Context, req *Request) (*Response, error)
 	}), nil
 }
 
-// parseEResult extracts the Steam EResult from the 'x-eresult' response header.
-// Returns EResult_OK if the header is missing or invalid.
 func (t *HTTPTransport) parseEResult(v any) enums.EResult {
 	var resHeader string
 
@@ -210,6 +200,7 @@ func (t *HTTPTransport) parseEResult(v any) enums.EResult {
 		if r != nil && r.Header != nil {
 			resHeader = r.Header.Get("x-eresult")
 		}
+
 	case aoni.Response:
 		if r != nil {
 			resHeader = r.Header("x-eresult")
@@ -237,6 +228,7 @@ func extractBodyBytes(r io.Reader) ([]byte, error) {
 	if br, ok := r.(*bytes.Reader); ok {
 		b := make([]byte, br.Len())
 		_, err := br.ReadAt(b, 0)
+
 		return b, err
 	}
 

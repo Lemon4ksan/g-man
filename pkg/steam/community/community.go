@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package community provides a high-level client and helpers for interacting with the Steam Community website.
+// Package community provides high-level helpers for HTTP interactions with steamcommunity.com.
 package community
 
 import (
@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/codec/values"
@@ -20,24 +21,20 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/encoding"
 )
 
-// BaseURL is the default base URL for Steam Community requests, mapped from [client.BaseURL].
 const BaseURL = client.BaseURL
 
-// Requester defines the requirements for executing Steam Community requests.
 type Requester = client.Requester
 
-// SessionProvider defines how to retrieve active Steam session identifiers.
 type SessionProvider = client.SessionProvider
 
-// NewClient creates a new [Requester] instance using the constructor from [client.New].
 var NewClient = client.New
 
-// FastFormEncoder allows DTO structs to serialize directly into URL-encoded strings with zero map allocations.
+// FastFormEncoder allows DTO structs to serialize into form strings without map allocations.
 type FastFormEncoder interface {
 	EncodeFormString() (string, error)
 }
 
-// Decorate wraps an existing [Requester] to append default global request modifiers to every request.
+// Decorate wraps a Requester with additional default request modifiers.
 func Decorate(r Requester, mods ...aoni.RequestModifier) Requester {
 	if len(mods) == 0 {
 		return r
@@ -49,7 +46,7 @@ func Decorate(r Requester, mods ...aoni.RequestModifier) Requester {
 	}
 }
 
-// GetTo executes a GET request and decodes the response body into a new [Resp] instance.
+// GetTo executes a GET request and unmarshals JSON response data into Resp.
 func GetTo[Resp any](
 	ctx context.Context,
 	r Requester,
@@ -65,7 +62,7 @@ func GetTo[Resp any](
 	return request.GetTo[Resp](ctx, r, path, mods...)
 }
 
-// GetHTML executes a GET request optimized for raw HTML content.
+// GetHTML executes a GET request and returns an HTML body stream.
 func GetHTML(ctx context.Context, r Requester, path string, mods ...aoni.RequestModifier) (io.ReadCloser, error) {
 	mods = append([]aoni.RequestModifier{
 		mod.WithAccept("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"),
@@ -79,7 +76,7 @@ func GetHTML(ctx context.Context, r Requester, path string, mods ...aoni.Request
 	return resp.Body, nil
 }
 
-// PostTo executes a POST request with a JSON-encoded body and decodes the response into a new [Resp] instance.
+// PostTo executes a POST request with JSON payload.
 func PostTo[Resp any](
 	ctx context.Context,
 	r Requester,
@@ -102,8 +99,7 @@ func PostTo[Resp any](
 	return request.PostTo[Resp](ctx, r, path, body, mods...)
 }
 
-// PostFormTo executes a POST request with URL-encoded form data and decodes the response into a new [Resp] instance.
-// It uses FastFormEncoder if implemented by body to eliminate url.Values map allocations.
+// PostFormTo executes a POST request with URL-encoded form data.
 func PostFormTo[Resp any](
 	ctx context.Context,
 	r Requester,
@@ -159,7 +155,7 @@ func PostFormTo[Resp any](
 }
 
 func urlValuesHasKey(formStr, key string) bool {
-	return url.Values{}.Has(key)
+	return strings.Contains(formStr, key+"=")
 }
 
 type decoratedRequester struct {

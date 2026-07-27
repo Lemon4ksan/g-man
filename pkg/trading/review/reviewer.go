@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package review generates trade reports and alerts for bot administrators.
+// Package review generates trade summaries, admin alerts, and formatted review reports.
 package review
 
 import (
@@ -16,24 +16,16 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 )
 
-// Reviewer provides functionality for generating trade reports and alerts.
-//
-// It compiles trade metadata into structured summaries using a [SchemaProvider] and
-// [ChatProvider], formatting the resulting alerts using a platform-specific [Formatter].
-//
-// Create new instances of Reviewer using the [New] constructor.
 type Reviewer struct {
 	schema SchemaProvider
 	chat   ChatProvider
 	logger log.Logger
 }
 
-// New creates a new Reviewer instance.
 func New(s SchemaProvider, c ChatProvider, l log.Logger) *Reviewer {
 	return &Reviewer{schema: s, chat: c, logger: l}
 }
 
-// BuildSummary generates a structured [Report] based on metadata.
 func (rv *Reviewer) BuildSummary(meta *TradeMetadata, f Formatter) *Report {
 	report := &Report{}
 
@@ -52,10 +44,7 @@ func (rv *Reviewer) BuildSummary(meta *TradeMetadata, f Formatter) *Report {
 	return report
 }
 
-// SendDeclinedAlert sends a detailed alert to the admin about why the offer was rejected.
-//
-// It compiles details from the [TradeMetadata] and [BotStatsProvider] and transmits
-// them using the [ChatProvider]. It returns an error if transmission fails.
+// SendDeclinedAlert constructs and dispatches an admin alert explaining offer rejection details.
 func (rv *Reviewer) SendDeclinedAlert(
 	ctx context.Context,
 	offerID uint64,
@@ -86,17 +75,12 @@ func (rv *Reviewer) SendDeclinedAlert(
 	return rv.chat.MessageAdmins(ctx, sb.String())
 }
 
-// SendReviewAlert sends a detailed message to the administrator that the offer
-// is awaiting manual approval and provides instructions on how to proceed.
-//
-// It compiles details from the [TradeMetadata] and transmits them using the [ChatProvider].
-// It returns an error if transmission fails.
+// SendReviewAlert constructs and dispatches an admin alert notifying that an offer requires manual approval.
 func (rv *Reviewer) SendReviewAlert(ctx context.Context, offerID uint64, partnerID id.ID, meta *TradeMetadata) error {
 	f := SteamFormatter{}
 	report := rv.BuildSummary(meta, f)
 
 	var sb strings.Builder
-
 	fmt.Fprint(&sb, f.Header("Manual Review Required! ⚠️\n"))
 	fmt.Fprintf(&sb, "Offer #%d from user %d is pending your decision.\n", offerID, partnerID)
 
@@ -120,10 +104,7 @@ func (rv *Reviewer) SendReviewAlert(ctx context.Context, offerID uint64, partner
 	return rv.chat.MessageAdmins(ctx, sb.String())
 }
 
-// Report is an intermediate object with strings ready for output.
 type Report struct {
-	// MainReason is the formatted description of the primary decline reason.
 	MainReason string
-	// Details contains formatted detailed descriptions of each triggered reason.
-	Details []string
+	Details    []string
 }

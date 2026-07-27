@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// test/mock/client.go
+// Package mock provides mock implementations for testing.
 package mock
 
 import (
@@ -11,14 +11,15 @@ import (
 
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/request"
+	"github.com/lemon4ksan/miyako/log"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+
 	"github.com/lemon4ksan/g-man/internal/client/router"
 	"github.com/lemon4ksan/g-man/internal/client/session"
 	"github.com/lemon4ksan/g-man/pkg/steam/client"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
-	"github.com/lemon4ksan/miyako/log"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 )
 
 type TestMocks struct {
@@ -26,20 +27,21 @@ type TestMocks struct {
 	Web  *WebSession
 	Comm *Community
 	Sock *Socket
-	Http *HTTPDoer
+	Doer *HTTPDoer
 }
 
+// SetupTestClient initializes a mock-backed Client for testing.
 func SetupTestClient(t *testing.T) (*client.Client, *TestMocks) {
 	m := &TestMocks{
 		Auth: new(Authenticator),
 		Web:  new(WebSession),
 		Comm: new(Community),
 		Sock: new(Socket),
-		Http: new(HTTPDoer),
+		Doer: new(HTTPDoer),
 	}
 
 	sess := session.New(m.Sock, session.Config{
-		HTTP:          request.AsRequester(aoni.NewHTTPDoerAdapter(m.Http)),
+		HTTP:          request.AsRequester(aoni.NewHTTPDoerAdapter(m.Doer)),
 		Authenticator: m.Auth,
 		WebFactory: func(steamID id.ID, logger log.Logger, r any) session.WebSessionProvider {
 			return m.Web
@@ -50,7 +52,7 @@ func SetupTestClient(t *testing.T) (*client.Client, *TestMocks) {
 	})
 
 	opts := []client.Option{
-		client.WithREST(aoni.NewClient(m.Http)),
+		client.WithREST(aoni.NewClient(m.Doer)),
 		client.WithSocket(m.Sock),
 		client.WithSession(sess),
 		client.WithRouter(router.New(sess, m.Sock)),

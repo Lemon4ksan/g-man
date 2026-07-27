@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package guard manages Steam Guard Mobile Authenticator confirmations.
+// Package guard manages Steam Guard Mobile Authenticator 2FA code generation and mobile confirmation approvals.
 package guard
 
 import (
@@ -31,10 +31,9 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 )
 
-// ModuleName is the unique identifier for the guard module.
 const ModuleName string = "guard"
 
-// WithModule returns a steam.Option that registers the guardian module in the client.
+// WithModule registers the Guardian module in the client.
 func WithModule(config Config) steam.Option {
 	m, err := New(config)
 	if err != nil {
@@ -46,23 +45,40 @@ func WithModule(config Config) steam.Option {
 	return steam.WithModule(m)
 }
 
-// From returns the guardian module from the client.
+// From retrieves the Guardian module from the client.
 func From(client *steam.Client) *Guardian {
 	return steam.GetModule[*Guardian](client)
 }
 
-// ErrInvalidSecret is returned when the secret encoding is invalid.
-var ErrInvalidSecret = errors.New("crypto: invalid secret encoding")
+var (
+	// ErrInvalidSecret indicates an invalid secret encoding.
+	ErrInvalidSecret = errors.New("crypto: invalid secret encoding")
+	// ErrEmptySecret indicates an empty secret string was provided.
+	ErrEmptySecret = errors.New("crypto: secret cannot be empty")
+	// ErrIdentitySecretRequired indicates identity secret parameter is missing.
+	ErrIdentitySecretRequired = errors.New("guard: identity secret is required")
+	// ErrDeviceIDRequired indicates device ID parameter is missing.
+	ErrDeviceIDRequired = errors.New("guard: device ID is required")
+	// ErrDeviceIDInvalidPrefix indicates device ID lacks required 'android:' or 'ios:' prefix.
+	ErrDeviceIDInvalidPrefix = errors.New("guard: device ID must start with 'android:' or 'ios:'")
+	// ErrGuardClosed indicates operation was attempted on a closed Guardian module.
+	ErrGuardClosed = errors.New("guard: closed")
+	// ErrNotAuthenticated indicates the Guardian module lacks an active community session.
+	ErrNotAuthenticated = errors.New("guard: not authenticated")
+	// ErrNotConfigured indicates Guardian was used without required configurations.
+	ErrNotConfigured = errors.New("guard: not configured")
+	// ErrCommunityRequired indicates community requester is unavailable.
+	ErrCommunityRequired = errors.New("guard: community client is required")
+)
 
-// DecodeSecret decodes a Steam TOTP or confirmation secret string.
-// Supports 40-character Hex strings, standard Base64, and Raw/URL-safe Base64 formats.
+// DecodeSecret decodes hex or Base64 secret strings into raw bytes.
 func DecodeSecret(secret string) ([]byte, error) {
 	return decodeSecret(secret)
 }
 
 func decodeSecret(secret string) ([]byte, error) {
 	if len(secret) == 0 {
-		return nil, errors.New("crypto: secret cannot be empty")
+		return nil, ErrEmptySecret
 	}
 
 	if len(secret) == 40 {
@@ -90,17 +106,13 @@ func decodeSecret(secret string) ([]byte, error) {
 	return nil, ErrInvalidSecret
 }
 
-// PollingState represents the operational polling status of the Guardian.
 type PollingState int32
 
 const (
-	// PollingStopped indicates that confirmation polling is currently inactive.
 	PollingStopped PollingState = iota
-	// PollingActive indicates that the guardian is actively polling for confirmations.
 	PollingActive
 )
 
-// String returns a human-readable representation of PollingState.
 func (s PollingState) String() string {
 	switch s {
 	case PollingStopped:
@@ -112,16 +124,7 @@ func (s PollingState) String() string {
 	}
 }
 
-var (
-	// ErrGuardClosed is returned when an operation is performed on a closed guardian.
-	ErrGuardClosed = errors.New("guard: closed")
-	// ErrNotAuthenticated is returned when the guardian is not yet linked to a session.
-	ErrNotAuthenticated = errors.New("guard: not authenticated")
-	// ErrNotConfigured is returned when the guardian is not configured.
-	ErrNotConfigured = errors.New("guard: not configured")
-)
-
-// ConfService defines the interface for interacting with Steam's mobile confirmation endpoints.
+// ConfService defines mobile confirmation API endpoints.
 type ConfService interface {
 	GetConfirmations(
 		ctx context.Context,
@@ -150,60 +153,54 @@ type ConfService interface {
 	) error
 }
 
-// Config holds all configuration options for the Guardian.
+// Config configures shared/identity secrets and rate limits for Guardian.
 type Config struct {
-	// SharedSecret is the TOTP secret used to generate 2FA codes.
-	SharedSecret string
-	// IdentitySecret is the TOTP secret used to generate confirmation keys.
+	SharedSecret   string
 	IdentitySecret string
-	// DeviceID is the mobile device identifier (e.g., "android:...").
-	DeviceID string
-	// RateLimit is the minimum time between API calls to Steam.
-	RateLimit time.Duration
+	DeviceID       string
+	RateLimit      time.Duration
 }
 
-// DefaultConfig returns a Config with production-ready defaults.
+// DefaultConfig builds default Guardian options.
 func DefaultConfig() Config {
 	return Config{
 		RateLimit: 2 * time.Second,
 	}
 }
 
-// Validate checks if the configuration is valid for use.
+// Validate checks configuration field constraints.
 func (c Config) Validate() error {
 	if c.IdentitySecret == "" {
-		return errors.New("identity secret is required")
+		return ErrIdentitySecretRequired
 	}
 
 	if c.DeviceID == "" {
-		return errors.New("device ID is required")
+		return ErrDeviceIDRequired
 	}
 
 	if !strings.HasPrefix(c.DeviceID, "android:") && !strings.HasPrefix(c.DeviceID, "ios:") {
-		return errors.New("device ID must start with 'android:' or 'ios:'")
+		return ErrDeviceIDInvalidPrefix
 	}
 
 	return nil
 }
 
-// String returns a masked representation of the config for logging.
 func (c Config) String() string {
 	return fmt.Sprintf("GuardConfig{DeviceID: %s}", maskDeviceID(c.DeviceID))
 }
 
-// GuardianMetrics tracks operational metrics for monitoring using atomics.
+// GuardianMetrics tracks total confirmations fetched, accepted, and rejected.
 type GuardianMetrics struct {
-	// TotalFetched is the total number of confirmations retrieved.
-	TotalFetched atomic.Int64
-	// TotalAccepted is the total number of confirmations successfully approved.
+	TotalFetched  atomic.Int64
 	TotalAccepted atomic.Int64
-	// TotalRejected is the total number of confirmations successfully declined.
 	TotalRejected atomic.Int64
-	// TotalErrors is the total number of API errors encountered.
-	TotalErrors atomic.Int64
+	TotalErrors   atomic.Int64
 }
 
-// Guardian manages Steam Guard mobile confirmations.
+// Guardian generates 2FA TOTP codes and manages mobile confirmations.
+//
+// Thread Safety:
+//   - Safe for concurrent access across goroutines.
 type Guardian struct {
 	module.AuthBase
 
@@ -214,7 +211,6 @@ type Guardian struct {
 
 	pollingState PollingState
 
-	// Confirmation tracking
 	mu            sync.RWMutex
 	confirmations map[uint64]*Confirmation
 	seenIDs       map[uint64]time.Time
@@ -227,7 +223,7 @@ type Guardian struct {
 	identitySecretBytes [20]byte
 }
 
-// New creates a new confirmation guardian instance.
+// New initializes a Guardian module instance.
 func New(config Config) (*Guardian, error) {
 	if err := config.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid guard config: %w", err)
@@ -260,7 +256,7 @@ func New(config Config) (*Guardian, error) {
 	return g, nil
 }
 
-// Init initializes the module dependencies.
+// Init configures module dependencies.
 func (g *Guardian) Init(init module.InitContext) error {
 	if err := g.Base.Init(init); err != nil {
 		return err
@@ -277,14 +273,14 @@ func (g *Guardian) Init(init module.InitContext) error {
 	return nil
 }
 
-// StartAuthed starts the guardian in an authenticated state.
+// StartAuthed initializes mobile confirmation services and synchronizes time offsets.
 func (g *Guardian) StartAuthed(ctx context.Context, auth module.AuthContext) error {
 	if err := g.AuthBase.StartAuthed(ctx, auth); err != nil {
 		return err
 	}
 
 	if g.Community() == nil {
-		return errors.New("guard: community client is required")
+		return ErrCommunityRequired
 	}
 
 	g.mu.Lock()
@@ -297,7 +293,7 @@ func (g *Guardian) StartAuthed(ctx context.Context, auth module.AuthContext) err
 	return nil
 }
 
-// SetConfig dynamically updates the guardian configuration.
+// SetConfig updates configuration parameters.
 func (g *Guardian) SetConfig(config Config) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -305,29 +301,31 @@ func (g *Guardian) SetConfig(config Config) {
 	g.config = config
 }
 
-// Config returns the current guardian configuration.
+// Config returns current configuration options.
 func (g *Guardian) Config() Config {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
+
 	return g.config
 }
 
-// Service returns the confirmation service used by the guardian.
-func (g *Guardian) Service() ConfService {
-	return g.service
-}
+// Service returns the underlying mobile confirmation service.
+func (g *Guardian) Service() ConfService { return g.service }
 
-// Metrics returns the operational metrics of the guardian.
+// Metrics returns operational metrics counters.
 func (g *Guardian) Metrics() *GuardianMetrics { return g.metrics }
 
-// PollingState returns the current operational polling status.
+// PollingState returns active polling status.
 func (g *Guardian) PollingState() PollingState {
 	g.mu.RLock()
-	defer g.mu.RUnlock()
+	defer mStateRUnlock(g)
+
 	return g.pollingState
 }
 
-// GenerateAuthCode generates a 5-digit Steam Guard code for the current time.
+func mStateRUnlock(g *Guardian) { g.mu.RUnlock() }
+
+// GenerateAuthCode generates a 5-character Steam Guard TOTP code for the current time.
 func (g *Guardian) GenerateAuthCode() generic.Optional[[5]byte] {
 	if g == nil || g.config.SharedSecret == "" {
 		return generic.None[[5]byte]()
@@ -338,7 +336,7 @@ func (g *Guardian) GenerateAuthCode() generic.Optional[[5]byte] {
 	)
 }
 
-// FetchConfirmations requests the list of active confirmations from Steam.
+// FetchConfirmations fetches pending mobile confirmations from Steam.
 func (g *Guardian) FetchConfirmations(ctx context.Context) ([]*Confirmation, error) {
 	if g == nil {
 		return nil, ErrNotConfigured
@@ -362,24 +360,25 @@ func (g *Guardian) Accept(ctx context.Context, confirmation *Confirmation) error
 	return g.respond(ctx, []*Confirmation{confirmation}, true)
 }
 
-// AcceptMultiple accepts multiple confirmations at once.
+// AcceptMultiple approves multiple confirmations in a single request.
 func (g *Guardian) AcceptMultiple(ctx context.Context, confirmations []*Confirmation) error {
 	return g.respond(ctx, confirmations, true)
 }
 
-// Cancel declines a single confirmation.
+// Cancel rejects a single confirmation.
 func (g *Guardian) Cancel(ctx context.Context, confirmation *Confirmation) error {
 	return g.respond(ctx, []*Confirmation{confirmation}, false)
 }
 
-// CancelMultiple rejects multiple confirmations at once.
+// CancelMultiple rejects multiple confirmations in a single request.
 func (g *Guardian) CancelMultiple(ctx context.Context, confirmations []*Confirmation) error {
 	return g.respond(ctx, confirmations, false)
 }
 
-// Close shuts down the guardian module.
+// Close shuts down the module.
 func (g *Guardian) Close() error {
 	_ = g.Fsm.Transition(context.Background(), module.EventClose)
+
 	return g.Base.Close()
 }
 
@@ -418,9 +417,7 @@ func (g *Guardian) logGuardStatus(ctx context.Context, auth module.AuthContext) 
 	})
 
 	if status, err := statusFuture.Get(ctx); err == nil && status != nil {
-		g.Logger.Info("Steam Guard Status loaded",
-			log.String("device_id", status.GetDeviceIdentifier()),
-		)
+		g.Logger.Info("Steam Guard Status loaded", log.String("device_id", status.GetDeviceIdentifier()))
 	}
 }
 
@@ -432,6 +429,7 @@ func (g *Guardian) executeFetch(ctx context.Context) ([]*Confirmation, error) {
 	secretBytes, err := decodeSecret(g.config.IdentitySecret)
 	if err != nil {
 		g.metrics.TotalErrors.Add(1)
+
 		return nil, fmt.Errorf("key generation failed: %w", err)
 	}
 
@@ -441,6 +439,7 @@ func (g *Guardian) executeFetch(ctx context.Context) ([]*Confirmation, error) {
 	resp, err := g.service.GetConfirmations(ctx, g.config.DeviceID, g.SteamID(), bytesconv.B2S(key[:]), timestamp)
 	if err != nil {
 		g.metrics.TotalErrors.Add(1)
+
 		return nil, err
 	}
 
@@ -471,16 +470,17 @@ func (g *Guardian) respond(ctx context.Context, confirmations []*Confirmation, a
 	secretBytes, err := decodeSecret(g.config.IdentitySecret)
 	if err != nil {
 		g.metrics.TotalErrors.Add(1)
+
 		return fmt.Errorf("key generation failed: %w", err)
 	}
 
 	timestamp := g.clock.Now().Unix()
 	tag := generic.Ternary(accept, "accept", "reject")
-
 	key := crypto.GenerateConfirmationKey(secretBytes, timestamp, tag)
 
 	if err := g.executeResponse(ctx, confirmations, accept, key, timestamp); err != nil {
 		g.metrics.TotalErrors.Add(1)
+
 		return err
 	}
 

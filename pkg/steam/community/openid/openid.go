@@ -2,8 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package openid provides automated OpenID authentication for third-party websites
-// that use "Sign in through Steam".
+// Package openid executes automated Steam OpenID authentication flows against third-party websites.
 package openid
 
 import (
@@ -19,23 +18,18 @@ import (
 )
 
 var (
-	// ErrNotSignedIn indicates that the provided Steam cookies are missing,
-	// invalid, or expired, resulting in a redirect to the Steam login page.
+	// ErrNotSignedIn indicates the provided Steam session cookies are expired or invalid.
 	ErrNotSignedIn = errors.New("openid: not signed in to Steam (cookies expired or invalid)")
-	// ErrNoForm indicates that the hidden OpenID submission form could not be found
-	// on the Steam Community authorization page.
+	// ErrNoForm indicates the OpenID submission form was missing on steamcommunity.com.
 	ErrNoForm = errors.New("openid: could not find OpenID login form")
-	// ErrWrongHost indicates that the initial request did not redirect to the
-	// Steam Community OpenID provider as expected.
+	// ErrWrongHost indicates initial authorization redirects ended outside steamcommunity.com.
 	ErrWrongHost = errors.New("openid: was not redirected to steamcommunity.com")
 )
 
-// Login performs an automated OpenID authorization flow on a third-party website
-// using active Steam session cookies.
+// Login performs OpenID authentication on a target site using active Steam session cookies.
 //
-// The function returns a configured [aoni.Client] which contains a CookieJar populated
-// with the target website's authorization cookies. This client can be used for
-// subsequent API requests to the third-party service.
+// Returns:
+//   - Configured *aoni.Client populated with the target site's authenticated cookies.
 func Login(ctx context.Context, targetURL string, steamCookies []*http.Cookie) (*aoni.Client, error) {
 	parsedTarget, err := url.Parse(targetURL)
 	if err != nil {
@@ -56,6 +50,7 @@ func Login(ctx context.Context, targetURL string, steamCookies []*http.Cookie) (
 	if err != nil {
 		return nil, fmt.Errorf("openid: initial request failed: %w", err)
 	}
+
 	defer resp.Body.Close()
 
 	redirected, err := verifyRedirect(parsedTarget.Host, resp.Request.URL)

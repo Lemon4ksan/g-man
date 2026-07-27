@@ -739,9 +739,7 @@ func TestApplyAction(t *testing.T) {
 			t.Fatalf("expected error, got nil")
 		}
 
-		if !strings.Contains(err.Error(), "counter params are missing") {
-			t.Errorf("expected error containing 'counter params are missing', got: %v", err)
-		}
+		assert.ErrorIs(t, err, ErrCounterParamsMissing)
 	})
 }
 

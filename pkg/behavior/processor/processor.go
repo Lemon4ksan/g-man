@@ -2,13 +2,14 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package processor acts as the central orchestrator for the trade management subsystem.
+// Package processor coordinates sequential trade offer processing, asset locking, and verdict execution.
 package processor
 
 import (
 	"context"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,7 +17,6 @@ import (
 	"github.com/lemon4ksan/miyako/log"
 	"github.com/lemon4ksan/miyako/sync/keylock"
 
-	"github.com/lemon4ksan/g-man/internal/bytesconv"
 	"github.com/lemon4ksan/g-man/pkg/behavior"
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
@@ -27,18 +27,18 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/trading/web"
 )
 
-// ProcessTrades registers the trade processing behavior with the orchestrator.
+// ProcessTrades registers trade processing behavior with the client orchestrator.
 func ProcessTrades(client *steam.Client, eng *engine.Engine, n *notifications.Manager, r *review.Reviewer) {
 	behavior.From(client).Register(New(web.From(client), eng, n, r, client.Bus(), client.Logger()))
 }
 
-// TradeExecutor defines the interface for executing final trade actions on Steam.
+// TradeExecutor executes accepting and declining operations against Steam.
 type TradeExecutor interface {
 	AcceptOffer(ctx context.Context, id uint64) error
 	DeclineOffer(ctx context.Context, id uint64) error
 }
 
-// Processor coordinates the sequential processing of trade offers.
+// Processor manages sequential processing of incoming trade offers and enforces asset locks to prevent concurrent trade conflicts.
 type Processor struct {
 	executor TradeExecutor
 	engine   *engine.Engine
@@ -51,12 +51,12 @@ type Processor struct {
 
 	itemLocks   *keylock.KeyMutex[uint64]
 	busyItemsMu sync.RWMutex
-	busyItems   map[uint64]uint64 // assetID -> offerID
+	busyItems   map[uint64]uint64
 
 	processing sync.Map
 }
 
-// New creates a new Processor instance.
+// New constructs a trade Processor instance.
 func New(
 	ex TradeExecutor,
 	eng *engine.Engine,
@@ -86,12 +86,12 @@ func New(
 	}
 }
 
-// Name returns the name of this behavior.
+// Name returns behavior name "trade_processor".
 func (p *Processor) Name() string {
 	return "trade_processor"
 }
 
-// Run launches the sequential background worker goroutine.
+// Run launches event listeners and worker goroutines.
 func (p *Processor) Run(ctx context.Context) error {
 	sub := p.bus.Subscribe(&web.NewOfferEvent{})
 	defer sub.Unsubscribe()
@@ -102,37 +102,24 @@ func (p *Processor) Run(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
+
 		case ev, ok := <-sub.C():
 			if !ok {
 				return nil
 			}
 
-			switch ev := ev.(type) {
-			case *web.NewOfferEvent:
+			if offerEv, ok := ev.(*web.NewOfferEvent); ok {
 				p.logger.Info("New active trade offer received from event bus",
-					log.Uint64("offer_id", ev.Offer.ID),
-					log.Uint64("partner_steam_id", uint64(ev.Offer.OtherSteamID)),
+					log.Uint64("offer_id", offerEv.Offer.ID),
+					log.Uint64("partner_steam_id", uint64(offerEv.Offer.OtherSteamID)),
 				)
-				p.Enqueue(ev.Offer)
-
-			default:
+				p.Enqueue(offerEv.Offer)
 			}
 		}
 	}
 }
 
-func (p *Processor) worker(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case offer := <-p.queue:
-			p.handleOffer(ctx, offer)
-		}
-	}
-}
-
-// Enqueue adds the trade offer to the internal queue for sequential processing.
+// Enqueue adds an offer to the processing queue if not currently handled.
 func (p *Processor) Enqueue(offer *trading.TradeOffer) {
 	if _, loaded := p.processing.LoadOrStore(offer.ID, true); loaded {
 		return
@@ -147,29 +134,47 @@ func (p *Processor) Enqueue(offer *trading.TradeOffer) {
 	}
 }
 
-func generateCorrelationID(offerID uint64) string {
-	var buf [48]byte
+var corrBufPool = sync.Pool{
+	New: func() any { return new(strings.Builder) },
+}
 
-	n := copy(buf[:], "offer-")
-	n += len(strconv.AppendUint(buf[n:n], offerID, 10))
-	buf[n] = '-'
-	n++
+func generateCorrelationID(offerID uint64) string {
+	sb := corrBufPool.Get().(*strings.Builder)
+
+	sb.Reset()
+	defer corrBufPool.Put(sb)
+
+	sb.WriteString("offer-")
+
+	var intBuf [20]byte
+	sb.Write(strconv.AppendUint(intBuf[:0], offerID, 10))
+	sb.WriteByte('-')
 
 	corrSuffix := log.GenerateCorrelationID()
 	if len(corrSuffix) > 8 {
 		corrSuffix = corrSuffix[:8]
 	}
 
-	n += copy(buf[n:], corrSuffix)
+	sb.WriteString(corrSuffix)
 
-	return bytesconv.B2S(buf[:n])
+	return sb.String()
+}
+
+func (p *Processor) worker(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case offer := <-p.queue:
+			p.handleOffer(ctx, offer)
+		}
+	}
 }
 
 func (p *Processor) handleOffer(ctx context.Context, offer *trading.TradeOffer) {
 	defer p.processing.Delete(offer.ID)
 
 	start := time.Now()
-
 	ctx = log.WithCorrelationID(ctx, generateCorrelationID(offer.ID))
 
 	p.logger.InfoContext(ctx, "Processing offer", log.Uint64("id", offer.ID))
@@ -241,7 +246,6 @@ func (p *Processor) makeReviewMeta(v *engine.Verdict, d time.Duration) *review.T
 	}
 }
 
-// isAnyItemBusy checks item locks in a zero-alloc, zero-closure linear pass.
 func (p *Processor) isAnyItemBusy(offer *trading.TradeOffer) bool {
 	for _, item := range offer.ItemsToGive {
 		if item != nil && p.itemLocks.IsLocked(item.AssetID) {

@@ -13,23 +13,14 @@ import (
 var (
 	templatesMu      sync.RWMutex
 	defaultTemplates = map[string]string{
-		// Success
-		"success":        "/pre ✅ Success! The trade offer has been accepted.",
-		"success_escrow": "✅ The trade was accepted, but your items are held in escrow by Steam. Please enable the Steam Guard Mobile Authenticator to avoid this in the future.",
-
-		// Canceled
-		"cancel.by_user": "/pre ❌ The offer is no longer available because it was canceled by the user.",
-		"cancel.generic": "/pre ❌ The offer is no longer available. This can happen due to Steam issues. Please try again.",
-
-		// Invalid
-		"invalid_trade": "/pre ❌ This trade is no longer valid. The items may have been traded away.",
-
-		// Declines (General)
-		"decline.general":                          "/pre ❌ Your trade offer has been declined.",
-		"decline." + reason.DeclineManual.String(): "/pre ❌ Your trade offer has been declined by the owner.",
-		"decline." + reason.DeclineEscrow.String(): "/pre ❌ Your offer was declined because it would result in a trade hold (escrow). Please enable the Steam Guard Mobile Authenticator.",
-
-		// Declines (Value & Items)
+		"success":         "/pre ✅ Success! The trade offer has been accepted.",
+		"success_escrow":  "✅ The trade was accepted, but your items are held in escrow by Steam. Please enable the Steam Guard Mobile Authenticator to avoid this in the future.",
+		"cancel.by_user":  "/pre ❌ The offer is no longer available because it was canceled by the user.",
+		"cancel.generic":  "/pre ❌ The offer is no longer available. This can happen due to Steam issues. Please try again.",
+		"invalid_trade":   "/pre ❌ This trade is no longer valid. The items may have been traded away.",
+		"decline.general": "/pre ❌ Your trade offer has been declined.",
+		"decline." + reason.DeclineManual.String():        "/pre ❌ Your trade offer has been declined by the owner.",
+		"decline." + reason.DeclineEscrow.String():        "/pre ❌ Your offer was declined because it would result in a trade hold (escrow). Please enable the Steam Guard Mobile Authenticator.",
 		"decline." + reason.ReviewInvalidItems.String():   "/pre ❌ Your offer was declined because it contains items I am not currently trading for.",
 		"decline." + reason.ReviewOverstocked.String():    "/pre ❌ Your offer was declined because I am overstocked on the items you are offering.",
 		"decline." + reason.ReviewUnderstocked.String():   "/pre ❌ Your offer was declined because I am understocked on the items you are requesting.",
@@ -39,8 +30,6 @@ var (
 	}
 )
 
-// RegisterDefaultTemplate adds or updates a fallback template.
-// This allows game-specific packages (like tf2) to register their own reasons.
 func RegisterDefaultTemplate(key, content string) {
 	templatesMu.Lock()
 	defer templatesMu.Unlock()
@@ -48,9 +37,9 @@ func RegisterDefaultTemplate(key, content string) {
 	defaultTemplates[key] = content
 }
 
-// GetDefaultTemplate retrieves a fallback template by key.
 func GetDefaultTemplate(key string) string {
 	templatesMu.RLock()
 	defer templatesMu.RUnlock()
+
 	return defaultTemplates[key]
 }

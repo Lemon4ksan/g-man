@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package command coordinates registration, validation, parsing, and execution of text commands.
+// Package command coordinates parsing, schema validation, authorization, and execution of text commands.
 package command
 
 import (
@@ -23,25 +23,30 @@ import (
 
 type contextKey string
 
-// CallerKey is the context key used to store [Caller] identity details in a context.
-const CallerKey contextKey = "cmd_caller"
+const (
+	CallerKey    contextKey = "cmd_caller"
+	TransportKey contextKey = "cmd_transport"
+)
 
-// TransportKey is the context key used to store the transport name string in a context.
-const TransportKey contextKey = "cmd_transport"
+var (
+	// ErrEmptyCommandLine is returned when executing an empty input line.
+	ErrEmptyCommandLine = errors.New("command: empty command line")
+	// ErrEmptyCommandName is returned when no command token can be extracted from input.
+	ErrEmptyCommandName = errors.New("command: empty command name")
+	// ErrUnauthorized is returned when a non-admin caller attempts to execute an admin command.
+	ErrUnauthorized = errors.New("command: unauthorized command execution")
+	// ErrMissingHandler is returned when a registered command lacks an executable handler function.
+	ErrMissingHandler = errors.New("command: command missing executable handler")
+)
 
 // Caller abstracts the identity executing a command.
-// Use [CallerFromContext] to extract the active caller from a [context.Context].
 type Caller interface {
-	// ID returns a unique string representation of the identifier (such as SteamID, Discord ID, or "console").
 	ID() string
-	// DisplayName returns a human-readable display name of the caller.
 	DisplayName() string
-	// IsAdmin reports whether the caller has administrator/privilege execution rights.
 	IsAdmin() bool
 }
 
-// WithCaller injects a [Caller] into the provided [context.Context].
-// It returns the original context unchanged if ctx is nil.
+// WithCaller injects a Caller into context.
 func WithCaller(ctx context.Context, caller Caller) context.Context {
 	if ctx == nil {
 		return ctx
@@ -50,8 +55,7 @@ func WithCaller(ctx context.Context, caller Caller) context.Context {
 	return context.WithValue(ctx, CallerKey, caller)
 }
 
-// CallerFromContext extracts a [Caller] from the provided [context.Context].
-// It returns false if no caller is found or if ctx is nil.
+// CallerFromContext extracts a Caller from context.
 func CallerFromContext(ctx context.Context) (Caller, bool) {
 	if ctx == nil {
 		return nil, false
@@ -62,8 +66,7 @@ func CallerFromContext(ctx context.Context) (Caller, bool) {
 	return c, ok
 }
 
-// WithTransport injects a transport name string into the provided [context.Context].
-// It returns the original context unchanged if ctx is nil or transport is empty.
+// WithTransport injects transport label metadata into context.
 func WithTransport(ctx context.Context, transport string) context.Context {
 	if ctx == nil {
 		return ctx
@@ -72,8 +75,7 @@ func WithTransport(ctx context.Context, transport string) context.Context {
 	return context.WithValue(ctx, TransportKey, transport)
 }
 
-// TransportFromContext extracts a transport name string from the provided [context.Context].
-// It returns false if no transport is found or if ctx is nil.
+// TransportFromContext extracts transport label metadata from context.
 func TransportFromContext(ctx context.Context) (string, bool) {
 	if ctx == nil {
 		return "", false
@@ -84,107 +86,76 @@ func TransportFromContext(ctx context.Context) (string, bool) {
 	return t, ok
 }
 
-// Handler processes raw text commands using raw string arguments.
+// Handler processes raw string argument slices.
 type Handler func(ctx context.Context, args []string) (string, error)
 
-// TypedHandler processes parsed and type-converted command arguments.
+// TypedHandler processes parsed interface argument slices.
 type TypedHandler func(ctx context.Context, args []any) (string, error)
 
-// ArgType represents Go's standard [reflect.Type] for type safety and extensibility.
+// ArgType alias for reflect.Type.
 type ArgType = reflect.Type
 
-// ArgSchema represents an individual command argument definition.
-// Use [Required] or [Optional] to instantiate standard argument schemas.
+// ArgSchema defines command argument type requirements and optionality.
 type ArgSchema struct {
-	// Name is the programmatic identifier of the argument.
-	Name string
-	// Type is the expected [reflect.Type] of the argument value.
-	Type ArgType
-	// Optional is true if the argument is optional and can be omitted by the caller.
+	Name     string
+	Type     ArgType
 	Optional bool
 }
 
-// Required defines a required argument schema with a specified name.
-// If the name argument is empty, a default placeholder name is assigned.
+// Required constructs a required ArgSchema for generic type T.
 func Required[T any](name string) ArgSchema {
 	return ArgSchema{Name: name, Type: reflect.TypeOf(generic.Zero[T]()), Optional: false}
 }
 
-// Optional defines an optional argument schema with a specified name.
-// If the name argument is empty, a default placeholder name is assigned.
+// Optional constructs an optional ArgSchema for generic type T.
 func Optional[T any](name string) ArgSchema {
 	return ArgSchema{Name: name, Type: reflect.TypeOf(generic.Zero[T]()), Optional: true}
 }
 
-// Command wraps execution handlers with structural privilege levels and validation metadata.
-// Register commands with an engine using [Engine.Register].
+// Command stores execution handlers, privilege scopes, and parameter schemas for a command.
 type Command struct {
-	// Handler is the default raw string arguments execution function.
-	Handler Handler
-	// TypedHandler is the dynamic, slice-of-interface arguments execution function.
+	Handler      Handler
 	TypedHandler TypedHandler
-	// IsAdmin is true if execution of this command is restricted to administrators.
-	IsAdmin bool
-	// Description is a human-readable short text describing what the command does.
-	Description string
-	// ArgsSchema is the list of expected arguments mapped to their types and optionality.
-	ArgsSchema []ArgSchema
-	// Validate is an optional custom validation hook executed on raw string inputs before dispatch.
-	Validate func(args []string) error
-	// Aliases is the list of alternative command names registered.
-	Aliases []string
-	// IsAlias is true if this specific command entry is registered as an alias of another command.
-	IsAlias bool
+	IsAdmin      bool
+	Description  string
+	ArgsSchema   []ArgSchema
+	Validate     func(args []string) error
+	Aliases      []string
+	IsAlias      bool
 }
 
-// Option defines a functional option for configuring a [Command].
+// Option configures a Command structure.
 type Option = generic.Option[*Command]
 
-// WithDescription adds a descriptive text for the [Command].
-// It returns an unchanged option if desc is empty.
+// WithDescription sets command description text.
 func WithDescription(desc string) Option {
-	return func(c *Command) {
-		c.Description = desc
-	}
+	return func(c *Command) { c.Description = desc }
 }
 
-// WithAdmin restricts [Command] execution rights to trusted administrators.
+// WithAdmin marks command execution as restricted to administrators.
 func WithAdmin() Option {
-	return func(c *Command) {
-		c.IsAdmin = true
-	}
+	return func(c *Command) { c.IsAdmin = true }
 }
 
-// WithArgsSchema configures an automated type validation and conversion schema for the [Command].
-// It uses [ArgSchema] instances to enforce parameter constraints.
+// WithArgsSchema configures argument type schemas for automated validation.
 func WithArgsSchema(schema ...ArgSchema) Option {
-	return func(c *Command) {
-		c.ArgsSchema = schema
-	}
+	return func(c *Command) { c.ArgsSchema = schema }
 }
 
-// WithValidation configures a custom validation hook executed on raw string inputs.
-// The validation function returns an error if checks fail.
+// WithValidation sets custom raw input validation hooks.
 func WithValidation(valFn func(args []string) error) Option {
-	return func(c *Command) {
-		c.Validate = valFn
-	}
+	return func(c *Command) { c.Validate = valFn }
 }
 
-// WithAlias registers alternative command names for the [Command].
+// WithAlias registers alternative command trigger aliases.
 func WithAlias(aliases ...string) Option {
-	return func(c *Command) {
-		c.Aliases = aliases
-	}
+	return func(c *Command) { c.Aliases = aliases }
 }
 
-// TypeParser defines a function that parses a raw string value into a typed Go interface.
+// TypeParser parses raw argument strings into custom Go types.
 type TypeParser func(valStr string) (any, error)
 
-// ParseArgs parses raw interface arguments into a typed tuple of type T.
-// It checks arguments against the provided [ArgSchema] slice and returns type-converted results.
-// It returns an error if arguments count is less than required, or if type conversion fails.
-// It will panic if the schema slice is nil.
+// ParseArgs parses dynamic interface slices into target struct representations based on schema definitions.
 func ParseArgs[T any](args []any, schema []ArgSchema) (T, error) {
 	minRequired := 0
 	for _, s := range schema {
@@ -233,9 +204,10 @@ func ParseArgs[T any](args []any, schema []ArgSchema) (T, error) {
 	return result, nil
 }
 
-// Engine coordinates registration, validation, parsing, and execution of text commands.
-// Use [NewEngine] to instantiate a thread-safe coordinator.
-// Custom argument types can be handled by registering parsers via [Engine.RegisterTypeParser].
+// Engine manages registration, parsing, permissions verification, and execution of text commands.
+//
+// Thread Safety:
+//   - Safe for concurrent registration and execution.
 type Engine struct {
 	commandsMu sync.RWMutex
 	commands   map[string]Command
@@ -244,7 +216,7 @@ type Engine struct {
 	parsers   map[reflect.Type]TypeParser
 }
 
-// NewEngine creates a new thread-safe command [Engine] instance.
+// NewEngine constructs a thread-safe Engine.
 func NewEngine() *Engine {
 	return &Engine{
 		commands: make(map[string]Command),
@@ -252,8 +224,7 @@ func NewEngine() *Engine {
 	}
 }
 
-// RegisterTypeParser registers a custom unmarshal function for the specified [reflect.Type].
-// It will panic if the type argument t is nil.
+// RegisterTypeParser registers custom parsing logic for reflect.Type.
 func (e *Engine) RegisterTypeParser(t reflect.Type, parser TypeParser) {
 	e.parsersMu.Lock()
 	defer e.parsersMu.Unlock()
@@ -261,9 +232,7 @@ func (e *Engine) RegisterTypeParser(t reflect.Type, parser TypeParser) {
 	e.parsers[t] = parser
 }
 
-// Register registers a command name and its associated execution handler with options.
-// The handler parameter accepts [Handler], [TypedHandler], or dynamic custom function signatures.
-// It panics if the handler has an invalid signature, or if the cmd argument is empty.
+// Register adds a command handler and its aliases to the engine.
 func (e *Engine) Register(cmd string, handler any, opts ...Option) {
 	c := Command{}
 
@@ -295,15 +264,14 @@ func (e *Engine) Register(cmd string, handler any, opts ...Option) {
 	for _, alias := range c.Aliases {
 		aliasCmd := c
 		aliasCmd.IsAlias = true
-		aliasCmd.Aliases = nil // prevent loops/recursion
+		aliasCmd.Aliases = nil
 		e.commands[alias] = aliasCmd
 	}
 
 	e.commandsMu.Unlock()
 }
 
-// UnregisterCommand removes a registered command and its aliases from the [Engine] registry.
-// If the specified command name does not exist, UnregisterCommand does nothing.
+// UnregisterCommand removes a registered command and its associated aliases.
 func (e *Engine) UnregisterCommand(name string) {
 	e.commandsMu.Lock()
 	defer e.commandsMu.Unlock()
@@ -317,8 +285,7 @@ func (e *Engine) UnregisterCommand(name string) {
 	delete(e.commands, name)
 }
 
-// UpdateCommandDescription modifies the short help description of a registered command.
-// If the specified command name does not exist, UpdateCommandDescription does nothing.
+// UpdateCommandDescription updates short help text for a registered command.
 func (e *Engine) UpdateCommandDescription(cmd, desc string) {
 	e.commandsMu.Lock()
 	defer e.commandsMu.Unlock()
@@ -329,8 +296,7 @@ func (e *Engine) UpdateCommandDescription(cmd, desc string) {
 	}
 }
 
-// GetCommand retrieves a copy of a registered [Command] configuration.
-// It returns false if the specified command name does not exist.
+// GetCommand retrieves a registered Command metadata copy.
 func (e *Engine) GetCommand(cmd string) (Command, bool) {
 	e.commandsMu.RLock()
 	defer e.commandsMu.RUnlock()
@@ -340,7 +306,7 @@ func (e *Engine) GetCommand(cmd string) (Command, bool) {
 	return c, exists
 }
 
-// Commands returns a map containing all registered [Command] configurations, excluding aliases.
+// Commands returns all primary registered commands (excluding aliases).
 func (e *Engine) Commands() map[string]Command {
 	e.commandsMu.RLock()
 	defer e.commandsMu.RUnlock()
@@ -355,11 +321,10 @@ func (e *Engine) Commands() map[string]Command {
 	return res
 }
 
-// Execute parses a command line string, validates caller permissions, and invokes the handler.
-// Uses stack-allocated backing array for arguments to guarantee zero heap allocations.
+// Execute parses raw command lines, verifies admin privileges, converts schema arguments, and invokes handlers.
 func (e *Engine) Execute(ctx context.Context, cmdLine string) (string, error) {
 	if len(cmdLine) == 0 {
-		return "", errors.New("empty command line")
+		return "", ErrEmptyCommandLine
 	}
 
 	startIdx := 0
@@ -371,7 +336,7 @@ func (e *Engine) Execute(ctx context.Context, cmdLine string) (string, error) {
 
 	parts := ParseCommandLineInto(cmdLine[startIdx:], stackArgs[:0])
 	if len(parts) == 0 {
-		return "", errors.New("empty command name")
+		return "", ErrEmptyCommandName
 	}
 
 	cmdName := parts[0]
@@ -388,7 +353,7 @@ func (e *Engine) Execute(ctx context.Context, cmdLine string) (string, error) {
 	if cmd.IsAdmin {
 		caller, ok := CallerFromContext(ctx)
 		if !ok || !caller.IsAdmin() {
-			return "", errors.New("unauthorized command execution")
+			return "", ErrUnauthorized
 		}
 	}
 
@@ -416,10 +381,10 @@ func (e *Engine) Execute(ctx context.Context, cmdLine string) (string, error) {
 		return cmd.Handler(ctx, args)
 	}
 
-	return "", errors.New("command missing executable handler")
+	return "", ErrMissingHandler
 }
 
-// ParseSchemaArgs parses the raw arguments according to the given schema.
+// ParseSchemaArgs parses raw string arguments against schema type expectations.
 func (e *Engine) ParseSchemaArgs(rawArgs []string, schema []ArgSchema) ([]any, error) {
 	var (
 		stackParsed [8]any
@@ -664,7 +629,7 @@ func releaseArgsSlice(buf *argsBuffer) {
 	argsSlicePool.Put(buf)
 }
 
-// ParseCommandLineInto parses line into dst without allocating slices for standard commands.
+// ParseCommandLineInto parses line into dst slice without allocating heap slices for standard quotes and escapes.
 func ParseCommandLineInto(line string, dst []string) []string {
 	if len(line) == 0 {
 		return dst[:0]
@@ -687,7 +652,7 @@ func ParseCommandLineInto(line string, dst []string) []string {
 	hasSpecial := false
 	tokenStart := -1
 
-	for i := 0; i < len(line); i++ {
+	for i := range len(line) {
 		c := line[i]
 
 		if escaped {
@@ -791,7 +756,7 @@ func ParseCommandLineInto(line string, dst []string) []string {
 	return args
 }
 
-// ParseCommandLine parses line into a slice using a pooled slice buffer to minimize heap allocations.
+// ParseCommandLine parses input command lines into a slice using pooled buffer objects.
 func ParseCommandLine(line string) []string {
 	if len(line) == 0 {
 		return nil

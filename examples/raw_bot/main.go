@@ -6,6 +6,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -32,23 +33,19 @@ import (
 	trading "github.com/lemon4ksan/g-man/pkg/trading/web"
 )
 
-// ---------------------------------------------------------
-// Mock & Simple Providers for Notifications and Reviews
-// ---------------------------------------------------------
+var ErrCredentialsNotSet = errors.New("raw_bot: STEAM_USER and STEAM_PASS environment variables are not set")
 
-// SimpleSchema implements review.SchemaProvider to translate SKUs to item names.
 type SimpleSchema struct{}
 
-func (s SimpleSchema) GetName(sku string, useDefindex bool) string {
+func (s SimpleSchema) GetName(sku string, _ bool) string {
 	return "Generic Item [" + sku + "]"
 }
 
-// NotificationChat implements notifications.ChatProvider to send messages to users.
 type NotificationChat struct {
 	logger log.Logger
 }
 
-func (c NotificationChat) SendMessage(ctx context.Context, steamID id.ID, message string) error {
+func (c NotificationChat) SendMessage(_ context.Context, steamID id.ID, message string) error {
 	c.logger.Info("Chat notification sent to partner",
 		log.Uint64("partner_steam_id", uint64(steamID)),
 		log.String("message", message),
@@ -57,12 +54,11 @@ func (c NotificationChat) SendMessage(ctx context.Context, steamID id.ID, messag
 	return nil
 }
 
-// ReviewChat implements review.ChatProvider to send administrator alerts.
 type ReviewChat struct {
 	logger log.Logger
 }
 
-func (c ReviewChat) SendMessage(ctx context.Context, steamID uint64, message string) error {
+func (c ReviewChat) SendMessage(_ context.Context, steamID uint64, message string) error {
 	c.logger.Info("Review chat sent to partner",
 		log.Uint64("partner_steam_id", steamID),
 		log.String("message", message),
@@ -71,7 +67,7 @@ func (c ReviewChat) SendMessage(ctx context.Context, steamID uint64, message str
 	return nil
 }
 
-func (c ReviewChat) MessageAdmins(ctx context.Context, message string) error {
+func (c ReviewChat) MessageAdmins(_ context.Context, message string) error {
 	c.logger.Warn("ADMIN ALERT: Trade Offer sent to Manual Review!",
 		log.String("alert_details", message),
 	)
@@ -79,7 +75,6 @@ func (c ReviewChat) MessageAdmins(ctx context.Context, message string) error {
 	return nil
 }
 
-// NotificationConfig implements notifications.ConfigProvider for trade outcome templates.
 type NotificationConfig struct{}
 
 func (c NotificationConfig) GetTemplate(key string) string {
@@ -97,10 +92,6 @@ func (c NotificationConfig) GetCommandPrefix() string {
 	return "!"
 }
 
-// ---------------------------------------------------------
-// Main Bot Entry Point
-// ---------------------------------------------------------
-
 func main() {
 	jsonStorage, err := jsonfile.New("storage.json")
 	if err != nil {
@@ -112,7 +103,6 @@ func main() {
 
 	logger.Info("Starting G-man Generic Raw Trading Bot Example...")
 
-	// Setup Steam Guard configuration for automatic mobile confirmations
 	sharedSecret := os.Getenv("STEAM_SHARED_SECRET")
 	identitySecret := os.Getenv("STEAM_IDENTITY_SECRET")
 	deviceID := os.Getenv("STEAM_DEVICE_ID")
@@ -142,15 +132,14 @@ func main() {
 		PollOnStart:     true,
 	})
 
-	// Setup the Generic Trading Engine
 	tradeEngine := engine.New()
 
-	// Middleware 1: Simple Escrow Hold Protection Check
 	tradeEngine.Use(func(next engine.Handler) engine.Handler {
 		return func(ctx *engine.TradeContext) error {
 			if ctx.Offer.EscrowEndDate > 0 {
 				logger.Warn("Decline offer: trade involves escrow hold period", log.Uint64("offer_id", ctx.Offer.ID))
 				ctx.Decline(reason.TradeReason("ESCROW_HOLD_DETECTION"))
+
 				return nil
 			}
 
@@ -158,23 +147,22 @@ func main() {
 		}
 	})
 
-	// Middleware 2: Raw Exchange Value Check (Item Count comparison)
 	tradeEngine.Use(func(next engine.Handler) engine.Handler {
 		return func(ctx *engine.TradeContext) error {
 			giveCount := len(ctx.Offer.ItemsToGive)
 			receiveCount := len(ctx.Offer.ItemsToReceive)
 
-			// Simple raw rule: we must receive at least as many items as we give
 			if receiveCount < giveCount {
 				logger.Info("Decline offer: unequal exchange ratio", log.Uint64("offer_id", ctx.Offer.ID))
 				ctx.Decline(reason.TradeReason("INSUFFICIENT_ITEMS_VALUE"))
+
 				return nil
 			}
 
-			// If the trade is highly profitable (we get twice as many items), accept immediately
 			if receiveCount >= giveCount*2 && giveCount > 0 {
 				logger.Info("Accept offer: highly profitable raw trade exchange", log.Uint64("offer_id", ctx.Offer.ID))
 				ctx.Accept(reason.TradeReason("PROFITABLE_ITEM_RATIO"))
+
 				return nil
 			}
 
@@ -182,10 +170,8 @@ func main() {
 		}
 	})
 
-	// Middleware 3: Security & High-Volume Review Filter
 	tradeEngine.Use(func(next engine.Handler) engine.Handler {
 		return func(ctx *engine.TradeContext) error {
-			// Security rule: if we are giving away more than 10 items, send to manual review
 			if len(ctx.Offer.ItemsToGive) > 10 {
 				logger.Warn(
 					"Review offer: high-volume outgoing items limit reached",
@@ -196,15 +182,12 @@ func main() {
 				return nil
 			}
 
-			// Otherwise, if all checks pass, accept the trade offer!
 			ctx.Accept(reason.AcceptCorrectValue)
 
 			return nil
 		}
 	})
 
-	// Initialize the Unified Cohesive Trade Processor
-	// We instantiate mock chat/config providers to route notifications and reviews.
 	notifChat := &NotificationChat{logger: logger}
 	notifConfig := &NotificationConfig{}
 	notifManager := notifications.NewManager(notifChat, notifConfig, logger)
@@ -230,7 +213,7 @@ func main() {
 
 	user, pass := os.Getenv("STEAM_USER"), os.Getenv("STEAM_PASS")
 	if user == "" || pass == "" {
-		logger.Error("Credentials not set! Specify STEAM_USER and STEAM_PASS env variables.")
+		logger.Error("Credentials not set!", log.Err(ErrCredentialsNotSet))
 		return
 	}
 
@@ -242,7 +225,6 @@ func main() {
 		return
 	}
 
-	// Wait for OS exit signal
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 	<-stop

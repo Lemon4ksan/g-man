@@ -31,10 +31,16 @@ var toLowerTable = [256]byte{
 	0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7, 0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd, 0xfe, 0xff,
 }
 
-// B2S converts a byte slice to a string without heap allocations using [unsafe.StringData].
+const upperHex = "0123456789ABCDEF"
+
+// B2S converts a byte slice to a string without heap allocations.
 //
 // Preconditions:
-//   - The backing array of b MUST NOT be mutated while the returned string is referenced.
+//   - The backing array of b MUST NOT be mutated for the duration of the returned string's lifetime.
+//     Mutating the byte slice while referencing the returned string leads to undefined behavior.
+//
+// Thread Safety:
+//   - Safe for concurrent calls provided the input slice is not concurrently modified.
 func B2S(b []byte) string {
 	if len(b) == 0 {
 		return ""
@@ -43,10 +49,14 @@ func B2S(b []byte) string {
 	return unsafe.String(unsafe.SliceData(b), len(b))
 }
 
-// S2B converts a string to a byte slice without heap allocations using [unsafe.StringData].
+// S2B converts a string to a byte slice without heap allocations.
 //
 // Preconditions:
-//   - The returned byte slice MUST NOT be written to or mutated.
+//   - The returned byte slice MUST be treated as read-only.
+//     Writing to or mutating the elements of the returned slice will cause a runtime panic or memory corruption.
+//
+// Thread Safety:
+//   - Safe for concurrent calls.
 func S2B(s string) []byte {
 	if len(s) == 0 {
 		return nil
@@ -55,7 +65,8 @@ func S2B(s string) []byte {
 	return unsafe.Slice(unsafe.StringData(s), len(s))
 }
 
-// LowercaseByte converts an ASCII byte character b to lowercase in O(1) time without branching.
+// LowercaseByte maps an ASCII uppercase character to its lowercase counterpart in O(1) time.
+// Non-uppercase ASCII characters and non-ASCII bytes are returned unaltered.
 func LowercaseByte(b byte) byte {
 	if b >= 'A' && b <= 'Z' {
 		return b | 0x20
@@ -64,7 +75,13 @@ func LowercaseByte(b byte) byte {
 	return b
 }
 
-// EqualFoldASCII performs case-insensitive comparison of ASCII strings with zero allocations and BCE hints.
+// EqualFoldASCII performs a case-insensitive comparison of ASCII strings without heap allocations.
+//
+// Preconditions:
+//   - Input strings should consist of valid ASCII characters for accurate comparison.
+//
+// Side Effects:
+//   - Employs static bounds-check elimination (BCE) hints to allow compiler SSA vectorization.
 func EqualFoldASCII(a, b string) bool {
 	n := len(a)
 	if n != len(b) {
@@ -75,12 +92,11 @@ func EqualFoldASCII(a, b string) bool {
 		return true
 	}
 
-	// BCE hints: prove slice boundaries to SSA compiler to eliminate bounds checks in loop
 	_ = a[n-1]
 	_ = b[n-1]
 	_ = toLowerTable[255]
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		if toLowerTable[a[i]] != toLowerTable[b[i]] {
 			return false
 		}
@@ -89,7 +105,10 @@ func EqualFoldASCII(a, b string) bool {
 	return true
 }
 
-// AppendToLower appends the ASCII lowercased version of src to dst with zero heap allocations when capacity allows.
+// AppendToLower converts src to ASCII lowercase and appends it to dst without heap allocations when capacity permits.
+//
+// Returns:
+//   - Resized byte slice containing destination buffer with lowercased src content.
 func AppendToLower(dst, src []byte) []byte {
 	n := len(src)
 	if n == 0 {
@@ -98,29 +117,21 @@ func AppendToLower(dst, src []byte) []byte {
 
 	start := len(dst)
 	dst = slices.Grow(dst, n)[:start+n]
-
 	out := dst[start : start+n]
 
-	// BCE hints: prove boundaries to SSA compiler to enable auto-vectorization
 	_ = src[n-1]
 	_ = out[n-1]
 	_ = toLowerTable[255]
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		out[i] = toLowerTable[src[i]]
 	}
 
 	return dst
 }
 
-const upperHex = "0123456789ABCDEF"
-
-func isUnreserved(c byte) bool {
-	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
-		c == '-' || c == '.' || c == '_' || c == '~'
-}
-
-// AppendQueryEscaped appends the URL-encoded version of s to buf with zero heap allocations.
+// AppendQueryEscaped URL-encodes a byte slice and writes the result directly to buf without heap allocations.
+// Unreserved RFC 3986 characters are preserved, spaces are converted to '+', and other bytes are hex-encoded.
 func AppendQueryEscaped(buf *bytes.Buffer, s []byte) {
 	for i := range s {
 		c := s[i]
@@ -137,7 +148,8 @@ func AppendQueryEscaped(buf *bytes.Buffer, s []byte) {
 	}
 }
 
-// TrimQuotes strips leading and trailing JSON double-quote characters from b with zero allocations and BCE hints.
+// TrimQuotes removes leading and trailing double-quote ('"') characters from JSON byte strings.
+// Returns the original slice unchanged if it lacks surrounding quotes or is shorter than 2 bytes.
 func TrimQuotes(b []byte) []byte {
 	n := len(b)
 	if n >= 2 {
@@ -150,18 +162,21 @@ func TrimQuotes(b []byte) []byte {
 	return b
 }
 
-// ParseUint64 parses an ASCII decimal representation in b into a uint64 with zero allocations and BCE hints.
+// ParseUint64 parses an ASCII decimal representation in b into a uint64 without allocations.
+//
+// Returns:
+//   - (parsedValue, true) on success.
+//   - (0, false) if input is empty or contains non-digit characters.
 func ParseUint64(b []byte) (uint64, bool) {
 	n := len(b)
 	if n == 0 {
 		return 0, false
 	}
 
-	// BCE hint to prove slice boundaries to SSA compiler
 	_ = b[n-1]
 
 	var v uint64
-	for i := 0; i < n; i++ {
+	for i := range n {
 		c := b[i]
 		if c < '0' || c > '9' {
 			return 0, false
@@ -173,7 +188,11 @@ func ParseUint64(b []byte) (uint64, bool) {
 	return v, true
 }
 
-// ParseInt64 parses an optional signed ASCII decimal representation in b into an int64 with zero allocations.
+// ParseInt64 parses an optional signed ASCII decimal representation in b into an int64 without allocations.
+//
+// Returns:
+//   - (parsedValue, true) on success.
+//   - (0, false) if input is empty, single sign byte, or contains invalid characters.
 func ParseInt64(b []byte) (int64, bool) {
 	n := len(b)
 	if n == 0 {
@@ -200,7 +219,6 @@ func ParseInt64(b []byte) (int64, bool) {
 		}
 	}
 
-	// BCE hint
 	_ = b[n-1]
 
 	var v int64
@@ -218,4 +236,9 @@ func ParseInt64(b []byte) (int64, bool) {
 	}
 
 	return v, true
+}
+
+func isUnreserved(c byte) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+		c == '-' || c == '.' || c == '_' || c == '~'
 }

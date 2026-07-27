@@ -14,19 +14,18 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/storage"
 )
 
-// PostgresProvider implements the storage.Provider interface
+// PostgresProvider implements storage.Provider backed by a PostgreSQL database table.
 type PostgresProvider struct {
 	db *sql.DB
 }
 
-// NewPostgresProvider creates a new provider and initializes the database table
+// NewPostgresProvider constructs a PostgresProvider, configures connection pools, and ensures table schema creation.
 func NewPostgresProvider(connStr string) (*PostgresProvider, error) {
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
-	// Configure the connection pool for multi-threaded operation
 	db.SetMaxOpenConns(25)
 	db.SetMaxIdleConns(5)
 	db.SetConnMaxLifetime(5 * time.Minute)
@@ -38,7 +37,6 @@ func NewPostgresProvider(connStr string) (*PostgresProvider, error) {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	// Create a table for isolated namespaces
 	query := `
 	CREATE TABLE IF NOT EXISTS gman_storage (
 		namespace VARCHAR(128) NOT NULL,
@@ -47,6 +45,7 @@ func NewPostgresProvider(connStr string) (*PostgresProvider, error) {
 		updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
 		PRIMARY KEY (namespace, key)
 	);`
+
 	if _, err := db.ExecContext(ctx, query); err != nil {
 		return nil, fmt.Errorf("failed to initialize schema: %w", err)
 	}
@@ -54,7 +53,6 @@ func NewPostgresProvider(connStr string) (*PostgresProvider, error) {
 	return &PostgresProvider{db: db}, nil
 }
 
-// KV returns the storage.KV interface for the specified scope
 func (p *PostgresProvider) KV(namespace string) storage.KV {
 	return &postgresKV{
 		db:        p.db,
@@ -62,18 +60,15 @@ func (p *PostgresProvider) KV(namespace string) storage.KV {
 	}
 }
 
-// Close closes the database connection pool
 func (p *PostgresProvider) Close() error {
 	return p.db.Close()
 }
 
-// postgresKV implements key-value storage within a single namespace
 type postgresKV struct {
 	db        *sql.DB
 	namespace string
 }
 
-// Set writes data atomically using a transaction and UPSERT syntax
 func (kv *postgresKV) Set(ctx context.Context, key string, value []byte) error {
 	tx, err := kv.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -97,7 +92,6 @@ func (kv *postgresKV) Set(ctx context.Context, key string, value []byte) error {
 	return tx.Commit()
 }
 
-// Get retrieves a value by key. If the key is missing, it returns storage.ErrNotFound
 func (kv *postgresKV) Get(ctx context.Context, key string) ([]byte, error) {
 	query := `SELECT value FROM gman_storage WHERE namespace = $1 AND key = $2;`
 
@@ -115,14 +109,14 @@ func (kv *postgresKV) Get(ctx context.Context, key string) ([]byte, error) {
 	return val, nil
 }
 
-// Delete removes the key-value pair
 func (kv *postgresKV) Delete(ctx context.Context, key string) error {
 	query := `DELETE FROM gman_storage WHERE namespace = $1 AND key = $2;`
+
 	_, err := kv.db.ExecContext(ctx, query, kv.namespace, key)
+
 	return err
 }
 
-// Has checks if the key exists
 func (kv *postgresKV) Has(ctx context.Context, key string) (bool, error) {
 	query := `SELECT EXISTS(SELECT 1 FROM gman_storage WHERE namespace = $1 AND key = $2);`
 
@@ -133,7 +127,6 @@ func (kv *postgresKV) Has(ctx context.Context, key string) (bool, error) {
 	return exists, err
 }
 
-// Keys returns a sorted list of keys with support for prefix filtering
 func (kv *postgresKV) Keys(ctx context.Context, prefix string) ([]string, error) {
 	query := `
 	SELECT key FROM gman_storage
@@ -144,9 +137,11 @@ func (kv *postgresKV) Keys(ctx context.Context, prefix string) ([]string, error)
 	if err != nil {
 		return nil, err
 	}
+
 	defer rows.Close()
 
 	var keys []string
+
 	for rows.Next() {
 		var k string
 		if err := rows.Scan(&k); err != nil {

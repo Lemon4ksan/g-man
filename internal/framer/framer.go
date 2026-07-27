@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package framer provides network framer implementations for use in g-man.
+// Package framer implements length-prefixed packet framing and symmetric encryption for Steam socket connections.
 package framer
 
 import (
@@ -24,12 +24,21 @@ const (
 	maxPooledCapacity = 128 * 1024
 )
 
-// FrameBuffer holds a byte slice for use in the framer pool.
+var (
+	// ErrInvalidMagic is returned when a packet header lacks the expected "VT01" magic bytes.
+	ErrInvalidMagic = errors.New("framer: invalid magic bytes")
+	// ErrPacketTooLarge is returned when packet payload length exceeds maximum allowed bounds (10MB).
+	ErrPacketTooLarge = errors.New("framer: packet exceeds maximum size limit")
+	// ErrEmptyFrameBuffer is returned when attempting to decrypt an empty frame buffer.
+	ErrEmptyFrameBuffer = errors.New("cipher: empty frame buffer")
+)
+
+// FrameBuffer encapsulates pooled memory buffers used during packet framing.
 type FrameBuffer struct {
 	B []byte
 }
 
-// Equal implements testify equality check against []byte or another FrameBuffer.
+// Equal checks equality against raw byte slices or another FrameBuffer.
 func (fb *FrameBuffer) Equal(other any) bool {
 	if fb == nil {
 		return other == nil
@@ -58,7 +67,7 @@ var frameBufferPool = sync.Pool{
 	},
 }
 
-// AcquireFrameBuffer acquires a FrameBuffer from the pool, resizing if necessary.
+// AcquireFrameBuffer fetches a FrameBuffer from the global pool, resizing if necessary.
 func AcquireFrameBuffer(length int) *FrameBuffer {
 	fb := frameBufferPool.Get().(*FrameBuffer)
 	if cap(fb.B) < length {
@@ -70,7 +79,7 @@ func AcquireFrameBuffer(length int) *FrameBuffer {
 	return fb
 }
 
-// ReleaseFrameBuffer releases the given FrameBuffer back to the pool.
+// ReleaseFrameBuffer recycles a FrameBuffer back to the pool if its capacity is within safe memory limits.
 func ReleaseFrameBuffer(fb *FrameBuffer) {
 	if fb == nil || cap(fb.B) > maxPooledCapacity {
 		return
@@ -80,10 +89,10 @@ func ReleaseFrameBuffer(fb *FrameBuffer) {
 	frameBufferPool.Put(fb)
 }
 
-// SteamFramer implements network.Framer for Steam's custom TCP protocol.
+// SteamFramer handles length-prefixed packet framing over raw TCP streams.
 type SteamFramer struct{}
 
-// ReadFrame reads a length-prefixed frame from r.
+// ReadFrame reads a "VT01" length-prefixed packet from the reader.
 func (s SteamFramer) ReadFrame(r io.Reader) (*FrameBuffer, error) {
 	var header [8]byte
 	if _, err := io.ReadFull(r, header[:]); err != nil {
@@ -91,12 +100,12 @@ func (s SteamFramer) ReadFrame(r io.Reader) (*FrameBuffer, error) {
 	}
 
 	if binary.LittleEndian.Uint32(header[4:8]) != magicUint32 {
-		return nil, errors.New("steam framer: invalid magic bytes")
+		return nil, ErrInvalidMagic
 	}
 
 	length := binary.LittleEndian.Uint32(header[0:4])
 	if length > 10*1024*1024 {
-		return nil, fmt.Errorf("steam framer: packet too large (%d bytes)", length)
+		return nil, fmt.Errorf("%w (%d bytes)", ErrPacketTooLarge, length)
 	}
 
 	fb := AcquireFrameBuffer(int(length))
@@ -108,10 +117,10 @@ func (s SteamFramer) ReadFrame(r io.Reader) (*FrameBuffer, error) {
 	return fb, nil
 }
 
-// WriteFrame writes a frame to the given io.Writer using the Steam framer.
+// WriteFrame writes data prepended with length and "VT01" magic header to writer.
 func (s SteamFramer) WriteFrame(w io.Writer, data []byte) error {
 	if len(data) > 10*1024*1024 {
-		return errors.New("steam framer: data exceeds maximum packet size")
+		return ErrPacketTooLarge
 	}
 
 	var header [8]byte
@@ -119,8 +128,14 @@ func (s SteamFramer) WriteFrame(w io.Writer, data []byte) error {
 	copy(header[4:8], magic)
 
 	if conn, ok := w.(net.Conn); ok {
-		buffers := net.Buffers{header[:], data}
-		_, err := buffers.WriteTo(conn)
+		fb := AcquireFrameBuffer(8 + len(data))
+		defer ReleaseFrameBuffer(fb)
+
+		copy(fb.B[0:8], header[:])
+		copy(fb.B[8:], data)
+
+		_, err := conn.Write(fb.B)
+
 		return err
 	}
 
@@ -135,25 +150,25 @@ func (s SteamFramer) WriteFrame(w io.Writer, data []byte) error {
 	return nil
 }
 
-// SteamCipher implements network.Cipher for Steam's symmetric encryption (AES + HMAC).
+// SteamCipher manages AES symmetric encryption and HMAC verification over framed packets.
 type SteamCipher struct {
 	sessionKey []byte
 }
 
-// NewSteamCipher creates a new SteamCipher with the given session key.
+// NewSteamCipher constructs a SteamCipher instance using sessionKey.
 func NewSteamCipher(key []byte) *SteamCipher {
 	return &SteamCipher{sessionKey: key}
 }
 
-// Encrypt encrypts the given data using the Steam cipher.
+// Encrypt encrypts data using AES-256-CBC with derived HMAC IV.
 func (c *SteamCipher) Encrypt(data []byte) ([]byte, error) {
 	return crypto.SymmetricEncryptWithHmacIv(data, c.sessionKey)
 }
 
-// Decrypt decrypts the given data using the Steam cipher.
+// Decrypt decrypts ciphertext inside fb using sessionKey and validates HMAC integrity.
 func (c *SteamCipher) Decrypt(fb *FrameBuffer) (*FrameBuffer, error) {
 	if fb == nil || len(fb.B) == 0 {
-		return nil, errors.New("steam cipher: empty frame buffer")
+		return nil, ErrEmptyFrameBuffer
 	}
 
 	plaintext, err := crypto.SymmetricDecrypt(fb.B, c.sessionKey, true)

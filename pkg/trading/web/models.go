@@ -19,6 +19,15 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/trading"
 )
 
+var (
+	ErrInvalidJSONObjectBrace   = errors.New("invalid json object: missing opening brace")
+	ErrInvalidJSONObjectEOF     = errors.New("invalid json object: unexpected EOF")
+	ErrInvalidJSONObjectKey     = errors.New("invalid json object: expected key string")
+	ErrInvalidJSONObjectKeyTerm = errors.New("invalid json object: unterminated key string")
+	ErrInvalidJSONObjectColon   = errors.New("invalid json object: expected colon")
+	ErrInvalidJSONObjectNoKeys  = errors.New("invalid json object: no valid numeric keys found")
+)
+
 type descKey = uint64
 
 func packDescKey(classID, instanceID uint64) descKey {
@@ -28,6 +37,7 @@ func packDescKey(classID, instanceID uint64) descKey {
 func newDescKey(classID, instanceID string) descKey {
 	cID, _ := strconv.ParseUint(classID, 10, 64)
 	instID, _ := strconv.ParseUint(instanceID, 10, 64)
+
 	return packDescKey(cID, instID)
 }
 
@@ -72,8 +82,8 @@ var formBufferPool = sync.Pool{
 
 func (r sendNewReq) EncodeFormString() (string, error) {
 	buf := formBufferPool.Get().(*bytes.Buffer)
-
 	buf.Reset()
+
 	defer formBufferPool.Put(buf)
 
 	var intBuf [20]byte
@@ -182,7 +192,6 @@ type assetClassTag struct {
 	Name                  string `json:"name"`
 }
 
-// scanJSONObjectElements scans a JSON object {"0": val0, "1": val1} into raw byte slices without map allocations.
 func scanJSONObjectElements(data []byte) ([][]byte, error) {
 	i := 0
 	n := len(data)
@@ -192,7 +201,7 @@ func scanJSONObjectElements(data []byte) ([][]byte, error) {
 	}
 
 	if i >= n {
-		return nil, errors.New("invalid json object: missing opening brace")
+		return nil, ErrInvalidJSONObjectBrace
 	}
 
 	i++
@@ -209,7 +218,7 @@ func scanJSONObjectElements(data []byte) ([][]byte, error) {
 		}
 
 		if i >= n {
-			return nil, errors.New("invalid json object: unexpected EOF")
+			return nil, ErrInvalidJSONObjectEOF
 		}
 
 		if data[i] == '}' {
@@ -217,7 +226,7 @@ func scanJSONObjectElements(data []byte) ([][]byte, error) {
 		}
 
 		if data[i] != '"' {
-			return nil, errors.New("invalid json object: expected key string")
+			return nil, ErrInvalidJSONObjectKey
 		}
 
 		i++
@@ -228,7 +237,7 @@ func scanJSONObjectElements(data []byte) ([][]byte, error) {
 		}
 
 		if i >= n {
-			return nil, errors.New("invalid json object: unterminated key string")
+			return nil, ErrInvalidJSONObjectKeyTerm
 		}
 
 		keyBytes := data[keyStart:i]
@@ -254,7 +263,7 @@ func scanJSONObjectElements(data []byte) ([][]byte, error) {
 		}
 
 		if i >= n {
-			return nil, errors.New("invalid json object: expected colon")
+			return nil, ErrInvalidJSONObjectColon
 		}
 
 		i++
@@ -294,7 +303,7 @@ func scanJSONObjectElements(data []byte) ([][]byte, error) {
 	}
 
 	if maxIdx < 0 {
-		return nil, errors.New("invalid json object: no valid numeric keys found")
+		return nil, ErrInvalidJSONObjectNoKeys
 	}
 
 	return elements[:maxIdx+1], nil
@@ -316,12 +325,14 @@ func skipJSONValue(data []byte, i int) int {
 		if escaped {
 			escaped = false
 			i++
+
 			continue
 		}
 
 		if c == '\\' && inString {
 			escaped = true
 			i++
+
 			continue
 		}
 
@@ -367,8 +378,6 @@ var flexBufPool = sync.Pool{
 	},
 }
 
-// unmarshalFlexibleArray stitches pseudo-array object elements into a single JSON array,
-// performing a single json.Unmarshal call to eliminate multi-iteration decoder overhead.
 func unmarshalFlexibleArray[T any](data []byte) ([]T, error) {
 	data = bytes.TrimSpace(data)
 	if len(data) == 0 {
@@ -398,8 +407,8 @@ func unmarshalFlexibleArray[T any](data []byte) ([]T, error) {
 		}
 
 		buf := flexBufPool.Get().(*bytes.Buffer)
-
 		buf.Reset()
+
 		defer flexBufPool.Put(buf)
 
 		buf.WriteByte('[')

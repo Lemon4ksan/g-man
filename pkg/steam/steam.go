@@ -16,59 +16,35 @@ import (
 )
 
 var (
-	// ErrNotRunning is returned when the client is not running.
-	ErrNotRunning = client.ErrNotRunning
-	// ErrSocketDisabled is returned when attempting socket operations while the transport layer is disabled.
+	ErrNotRunning     = client.ErrNotRunning
 	ErrSocketDisabled = client.ErrSocketDisabled
 )
 
-// Client acts as the central hub connecting socket, authentication, and modules.
-// Create new instances of Client using [NewClient] or [NewReadyClient].
 type Client = client.Client
 
-// Config aggregates configurations for all core subsystems of [Client].
-// Use [DefaultConfig] to initialize a configuration with standard settings.
 type Config = client.Config
 
-// DefaultConfig returns the baseline [Config] with standard defaults.
 var DefaultConfig = client.DefaultConfig
 
-// Option defines a functional configuration option for [Client].
 type Option = client.Option
 
 var (
-	// WithLogger sets a custom [log.Logger] for [Client].
-	WithLogger = client.WithLogger
-	// WithModule adds a [module.Module] to [Client] and initializes it immediately.
-	WithModule = client.WithModule
-	// WithSocket sets a custom [SocketProvider] for [Client].
-	WithSocket = client.WithSocket
-	// WithREST sets a custom [aoni.Client] for [Client].
-	WithREST = client.WithREST
-	// WithFastClient configures a fast.Client for zero-copy REST requests,
-	// uTLS WebSocket dialing, and TCP socket dialing across all client layers.
-	WithFastClient = client.WithFastClient
-	// WithBus sets a custom [bus.Bus] for [Client].
-	WithBus = client.WithBus
-	// WithStorage sets a custom [storage.Provider] for [Client].
-	WithStorage = client.WithStorage
-	// WithSession sets a custom [session.Session] for [Client].
-	WithSession = client.WithSession
-	// WithAuthenticator sets a custom [AuthenticatorProvider] for [Client].
-	WithAuthenticator = client.WithAuthenticator
-	// WithWebFactory sets a custom [WebSessionFactory] for [Client].
-	WithWebFactory = client.WithWebFactory
-	// WithCommunityFactory sets a custom [CommunityClientFactory] for [Client].
+	WithLogger           = client.WithLogger
+	WithModule           = client.WithModule
+	WithSocket           = client.WithSocket
+	WithREST             = client.WithREST
+	WithFastClient       = client.WithFastClient
+	WithBus              = client.WithBus
+	WithStorage          = client.WithStorage
+	WithSession          = client.WithSession
+	WithAuthenticator    = client.WithAuthenticator
+	WithWebFactory       = client.WithWebFactory
 	WithCommunityFactory = client.WithCommunityFactory
 )
 
-// NewClient initializes and returns a new [Client] with the given [Config] and [Option] list.
-// Returns an error if option application fails or configuration is invalid.
 var NewClient = client.New
 
-// NewReadyClient creates a [Client], configures a default logger if none is provided, connects to the optimal server, and performs logon.
-// It returns an error if CM server discovery fails, connection fails, or login is rejected.
-// It returns an error if the context ctx is canceled or details is nil.
+// NewReadyClient constructs a Client, connects to an optimal Connection Manager server, and logs in.
 func NewReadyClient(ctx context.Context, cfg Config, details *auth.LogOnDetails, opts ...Option) (*Client, error) {
 	logger := log.New(log.DefaultConfig(log.LevelInfo))
 	opts = append([]Option{WithLogger(logger)}, opts...)
@@ -96,9 +72,7 @@ func NewReadyClient(ctx context.Context, cfg Config, details *auth.LogOnDetails,
 	return c, nil
 }
 
-// GetModule returns the first registered module matching type T from the [Client].
-// Returns the zero value of T if no matching module is registered.
-// Returns the zero value of T if c is nil.
+// GetModule returns the first registered module matching type T.
 func GetModule[T any](c *Client) T {
 	if c == nil {
 		return generic.Zero[T]()

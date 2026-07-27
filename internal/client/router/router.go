@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package router implements a network transport router for the Steam client.
+// Package router implements dynamic transport selection and automated session recovery for Steam API requests.
 package router
 
 import (
@@ -15,50 +15,42 @@ import (
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
 )
 
-// ErrNoActiveClient is returned by [ServiceRouter.Do] when no active transport client is available.
+// ErrNoActiveClient indicates that no transport client is connected or available for the targeted route.
 var ErrNoActiveClient = errors.New("router: no active client for target transport")
 
-// SessionRefresher defines the interface for managing session tokens and targets.
-// It is utilized by [ServiceRouter] to handle automatic session updates when expired.
+// SessionRefresher manages token refresh workflows and provides active service clients.
 type SessionRefresher interface {
-	// Refresh updates session credentials using the provided context.
 	Refresh(ctx context.Context) error
-	// Unified returns the unified HTTP WebAPI service client.
 	Unified() *service.Client
-	// Socket returns the low-level socket service client.
 	Socket() *service.Client
 }
 
-// StateProvider defines network connectivity check operations used by [ServiceRouter].
+// StateProvider reports low-level network connectivity states.
 type StateProvider interface {
-	// IsConnected reports whether the network socket is actively connected.
 	IsConnected() bool
 }
 
-// TransportType represents the selected network channel for request execution.
+// TransportType identifies the physical network channel selected for request delivery.
 type TransportType int
 
 const (
 	// TransportWebAPI routes requests over HTTPS WebAPI.
 	TransportWebAPI TransportType = iota
-	// TransportSocket routes requests over the active socket connection.
+	// TransportSocket routes requests over an active TCP/WebSocket connection.
 	TransportSocket
 )
 
-// RouteMatcher determines the optimal [TransportType] for a given [tr.Request].
+// RouteMatcher inspects a request to determine the appropriate transport type.
 type RouteMatcher func(req *tr.Request) TransportType
 
-// ServiceRouter encapsulates transport selection and automatic token refresh workflows.
-// It routes requests over TCP/WebSockets or HTTP based on target compatibility and connectivity.
-// Use [New] to construct a new router.
+// ServiceRouter routes outbound Steam network requests across WebAPI or Socket channels, transparently handling session updates.
 type ServiceRouter struct {
 	refresher SessionRefresher
 	state     StateProvider
 	matcher   RouteMatcher
 }
 
-// New creates a new [ServiceRouter] with standard defaults.
-// If sess or sock is nil, subsequent requests may cause runtime panics.
+// New constructs a ServiceRouter with default route matching logic.
 func New(sess SessionRefresher, sock StateProvider) *ServiceRouter {
 	router := &ServiceRouter{
 		refresher: sess,
@@ -69,8 +61,8 @@ func New(sess SessionRefresher, sock StateProvider) *ServiceRouter {
 	return router
 }
 
-// SetRouteMatcher configures a custom [RouteMatcher] for transport selection.
-// Falls back to [ServiceRouter.DefaultRouteMatcher] if the provided matcher is nil.
+// SetRouteMatcher overrides the default route selection logic.
+// If matcher is nil, resets to DefaultRouteMatcher.
 func (r *ServiceRouter) SetRouteMatcher(matcher RouteMatcher) {
 	if matcher == nil {
 		r.matcher = r.DefaultRouteMatcher
@@ -79,9 +71,7 @@ func (r *ServiceRouter) SetRouteMatcher(matcher RouteMatcher) {
 	}
 }
 
-// DefaultRouteMatcher determines the transport type based on socket connectivity and target requirements.
-// Returns [TransportSocket] if the socket is connected and the target implements [tr.SocketTarget].
-// Otherwise, falls back to [TransportWebAPI].
+// DefaultRouteMatcher selects TransportSocket if the socket is connected and the target supports socket transport; otherwise defaults to TransportWebAPI.
 func (r *ServiceRouter) DefaultRouteMatcher(req *tr.Request) TransportType {
 	_, isSocketCompatible := req.Target().(tr.SocketTarget)
 	if r.state.IsConnected() && isSocketCompatible {
@@ -91,13 +81,15 @@ func (r *ServiceRouter) DefaultRouteMatcher(req *tr.Request) TransportType {
 	return TransportWebAPI
 }
 
-// Do executes a network request using the optimal transport type.
-// Automatically attempts a [SessionRefresher.Refresh] if the request fails with [service.ErrSessionExpired].
-// Returns [ErrNoActiveClient] if the resolved service client is nil.
-// Aborts request execution if the context ctx is canceled.
+// Do executes a network request using the optimal transport.
+// If execution fails with service.ErrSessionExpired, Do attempts a single automated session refresh and retries the request.
+//
+// Returns:
+//   - *tr.Response on successful execution.
+//   - ErrNoActiveClient if the selected transport client is nil.
+//   - Context error if ctx is cancelled during request execution or refresh.
 func (r *ServiceRouter) Do(ctx context.Context, req *tr.Request) (*tr.Response, error) {
 	resp, err := r.perform(ctx, req)
-
 	if err != nil && errors.Is(err, service.ErrSessionExpired) {
 		if refreshErr := r.refresher.Refresh(ctx); refreshErr != nil {
 			return nil, fmt.Errorf("router: auto-refresh failed: %w", refreshErr)

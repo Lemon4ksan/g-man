@@ -8,10 +8,10 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/stretchr/testify/mock"
+
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
-
-	"github.com/stretchr/testify/mock"
 )
 
 type Session struct {

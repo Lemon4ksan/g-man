@@ -251,7 +251,7 @@ func TestClient_Do_VariousStates_BehavesCorrectly(t *testing.T) {
 		c.ForceState(client.StateRunning)
 
 		m.Sock.On("IsConnected").Return(false)
-		m.Http.On("Do", mock.Anything).Return(&http.Response{StatusCode: 200}, nil).Once()
+		m.Doer.On("Do", mock.Anything).Return(&http.Response{StatusCode: 200}, nil).Once()
 
 		resp, err := c.Do(t.Context(), req)
 		assert.NoError(t, err)
@@ -398,7 +398,7 @@ func TestClient_Reconnect_SuccessfulDiscovery_ReconnectsSuccessfully(t *testing.
 
 	m.Sock.On("Disconnect").Return(nil).Once()
 
-	m.Http.On("Do", mock.MatchedBy(func(r *http.Request) bool {
+	m.Doer.On("Do", mock.MatchedBy(func(r *http.Request) bool {
 		return r.URL.Path == "/ISteamDirectory/GetCMListForConnect/v1" ||
 			r.URL.Path == "/ISteamDirectory/GetCMListForConnect/v1/" ||
 			r.URL.Path == "/ISteamDirectory/GetCMList/v1" ||
@@ -444,7 +444,7 @@ func TestClient_Reconnect_DiscoveryFails_CompletesQuietly(t *testing.T) {
 	assert.NoError(t, err)
 
 	m.Sock.On("Disconnect").Return(errors.New("disc err")).Once()
-	m.Http.On("Do", mock.Anything).Return(nil, errors.New("http err")).Once()
+	m.Doer.On("Do", mock.Anything).Return(nil, errors.New("http err")).Once()
 
 	err = c.Reconnect(ctx)
 	assert.NoError(t, err)
@@ -467,7 +467,7 @@ func TestClient_Reconnect_LogOnFails_ReturnsReconnectError(t *testing.T) {
 	assert.NoError(t, err)
 
 	m.Sock.On("Disconnect").Return(nil).Once()
-	m.Http.On("Do", mock.Anything).Return(nil, errors.New("http err")).Once()
+	m.Doer.On("Do", mock.Anything).Return(nil, errors.New("http err")).Once()
 
 	m.Auth.On("LogOn", ctx, details, mock.Anything).Return(errors.New("logon fail")).Once()
 

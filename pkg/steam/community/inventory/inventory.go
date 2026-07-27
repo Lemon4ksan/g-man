@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package inventory retrieves and parses Steam user inventories.
+// Package inventory fetches and parses Steam user inventories and trade history records.
 package inventory
 
 import (
@@ -29,12 +29,23 @@ import (
 var (
 	rxAppContextData   = regexp.MustCompile(`(?s)var g_rgAppContextData\s*=\s*(.*?);`)
 	rxHistoryInventory = regexp.MustCompile(`(?s)var g_rgHistoryInventory\s*=\s*(.*?);`)
-	rxHoverScript      = regexp.MustCompile(
+
+	rxHoverScript = regexp.MustCompile(
 		`HistoryPageCreateItemHover\(\s*'\s*([^']+)\s*'\s*,\s*(\d+)\s*,\s*['"]([^'"]+)['"]\s*,\s*['"]([^'"]+)['"]\s*,\s*['"]([^'"]+)['"]\s*\)`,
 	)
+
 	rxTimestamp       = regexp.MustCompile(`(\d+):(\d+)\s*(am|pm|AM|PM)`)
 	rxPaginationTime  = regexp.MustCompile(`after_time=(\d+)`)
 	rxPaginationTrade = regexp.MustCompile(`after_trade=(\d+)`)
+)
+
+var (
+	// ErrPrivateProfile indicates target user profile is private.
+	ErrPrivateProfile = errors.New("inventory: profile is private")
+	// ErrPrivateInventory indicates target user inventory is private.
+	ErrPrivateInventory = errors.New("inventory: inventory is private")
+	// ErrMalformedAppContext indicates inventory page HTML lacked expected g_rgAppContextData JSON.
+	ErrMalformedAppContext = errors.New("inventory: malformed page (g_rgAppContextData not found)")
 )
 
 var descMapPool = sync.Pool{
@@ -58,7 +69,6 @@ func releaseDescMap(m map[descKey]*Description) {
 
 type descKey = uint64
 
-// packDescKey parses ClassID and InstanceID into a 64-bit key, fast-pathing '0' instance IDs.
 func packDescKey(classIDStr, instanceIDStr string) descKey {
 	cID, _ := bytesconv.ParseUint64(bytesconv.S2B(classIDStr))
 
@@ -70,8 +80,7 @@ func packDescKey(classIDStr, instanceIDStr string) descKey {
 	return descKey((cID << 32) | (instID & 0xFFFFFFFF))
 }
 
-// StreamUserInventoryContents streams user inventory items page-by-page directly to handler,
-// avoiding allocating full inventory slices in heap memory.
+// StreamUserInventoryContents streams user inventory items page-by-page directly to handler without storing full inventory slices in memory.
 func StreamUserInventoryContents(
 	ctx context.Context,
 	client community.Requester,
@@ -149,7 +158,7 @@ func StreamUserInventoryContents(
 	return totalCount, nil
 }
 
-// GetUserInventoryContents retrieves inventory contents appending directly to target slices with zero intermediate allocations.
+// GetUserInventoryContents retrieves inventory assets and descriptions.
 func GetUserInventoryContents(
 	ctx context.Context,
 	client community.Requester,
@@ -248,7 +257,7 @@ func appendProcessedAssets(
 	return pos
 }
 
-// GetUserInventoryContexts retrieves the application and context details for a user's inventory.
+// GetUserInventoryContexts fetches app context details for a user's inventory.
 func GetUserInventoryContexts(
 	ctx context.Context,
 	client community.Requester,
@@ -280,23 +289,20 @@ func GetUserInventoryContexts(
 	return data, nil
 }
 
-// TradeDirection defines the navigation direction of pagination.
 type TradeDirection string
 
-// Direction constants define the valid directions for pagination.
 const (
 	DirectionPast   TradeDirection = "past"
 	DirectionFuture TradeDirection = "future"
 )
 
-// HistoryOptions represents search parameters for fetching inventory history.
 type HistoryOptions struct {
 	StartTime  *time.Time
 	StartTrade *uint64
 	Direction  TradeDirection
 }
 
-// GetInventoryHistory fetches and parses the Steam inventory history for the specified user.
+// GetInventoryHistory fetches and parses trade history records.
 func GetInventoryHistory(
 	ctx context.Context,
 	client community.Requester,
@@ -318,6 +324,7 @@ func GetInventoryHistory(
 	if err != nil {
 		return nil, fmt.Errorf("history: failed to fetch inventory history page: %w", err)
 	}
+
 	defer html.Close()
 
 	bodyBytes, err := io.ReadAll(html)
@@ -373,6 +380,7 @@ func fetchInventoryPageHTML(ctx context.Context, client community.Requester, use
 	if err != nil {
 		return nil, fmt.Errorf("inventory: failed to fetch inventory page: %w", err)
 	}
+
 	defer html.Close()
 
 	return io.ReadAll(html)
@@ -380,12 +388,12 @@ func fetchInventoryPageHTML(ctx context.Context, client community.Requester, use
 
 func verifyInventoryPrivacy(bodyBytes []byte) error {
 	if bytes.Contains(bodyBytes, []byte("This profile is private.")) {
-		return errors.New("inventory: profile is private")
+		return ErrPrivateProfile
 	}
 
 	if bytes.Contains(bodyBytes, []byte("The inventory is currently private.")) ||
 		bytes.Contains(bodyBytes, []byte("inventory is currently private")) {
-		return errors.New("inventory: inventory is private")
+		return ErrPrivateInventory
 	}
 
 	return nil
@@ -394,7 +402,7 @@ func verifyInventoryPrivacy(bodyBytes []byte) error {
 func extractAppContextJSON(bodyBytes []byte) ([]byte, error) {
 	match := rxAppContextData.FindSubmatch(bodyBytes)
 	if len(match) != 2 {
-		return nil, errors.New("inventory: malformed page (g_rgAppContextData not found)")
+		return nil, ErrMalformedAppContext
 	}
 
 	return bytes.TrimSpace(match[1]), nil
@@ -481,5 +489,6 @@ func parseTradeDate(dateText, timeText string) (time.Time, error) {
 
 func cleanWhitespace(input string) string {
 	trimmed := strings.TrimSpace(input)
+
 	return strings.ReplaceAll(trimmed, "  ", " ")
 }

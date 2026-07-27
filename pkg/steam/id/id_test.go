@@ -245,8 +245,7 @@ func TestParseTradeURL(t *testing.T) {
 		t.Parallel()
 
 		_, _, err := id.ParseTradeURL("")
-		assert.Error(t, err)
-		assert.Equal(t, "trade url is empty", err.Error())
+		assert.ErrorIs(t, err, id.ErrEmptyTradeURL)
 	})
 
 	t.Run("invalid_url_syntax", func(t *testing.T) {
@@ -260,8 +259,7 @@ func TestParseTradeURL(t *testing.T) {
 		t.Parallel()
 
 		_, _, err := id.ParseTradeURL("https://steamcommunity.com/tradeoffer/new/?token=abc")
-		assert.Error(t, err)
-		assert.Equal(t, "missing partner parameter in trade URL", err.Error())
+		assert.ErrorIs(t, err, id.ErrMissingPartnerParam)
 	})
 
 	t.Run("invalid_partner_integer", func(t *testing.T) {

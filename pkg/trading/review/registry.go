@@ -10,7 +10,6 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/trading/reason"
 )
 
-// ReasonProcessor is a function that formats a specific trade reason into a human-readable string.
 type ReasonProcessor func(raw any, s SchemaProvider, f Formatter) string
 
 var reasonRegistry = map[reason.TradeReason]struct {
@@ -36,12 +35,12 @@ var reasonRegistry = map[reason.TradeReason]struct {
 		Description: "Items not in pricelist.",
 		Processor: func(raw any, s SchemaProvider, f Formatter) string {
 			r := raw.(*ReasonInvalidItems)
+
 			return fmt.Sprintf("%s (%s)", f.Item(s.GetName(r.SKU, false)), r.Price)
 		},
 	},
 }
 
-// RegisterReason adds or updates a reason in the registry.
 func RegisterReason(r reason.TradeReason, description string, processor ReasonProcessor) {
 	reasonRegistry[r] = struct {
 		Description string

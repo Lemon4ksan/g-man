@@ -1,9 +1,7 @@
 # Project variables
 BINARY_NAME=g-man-bot
 PKG       := $(shell go list ./... | grep -v /examples | grep -v /scripts | grep -v /vendor/)
-COVER_PKG := $(shell go list ./... | grep -v /examples | grep -v /scripts | grep -v /vendor/ | tr '\n' ',' | sed 's/,$$//')
 COVER_OUT ?= coverage.out
-COVER_PKG ?= $(PKG)
 
 # Path to the Steam API JSON schema (download it manually via ISteamWebAPIUtil/GetSupportedAPIList)
 API_JSON=api.steampowered.com.json
@@ -27,12 +25,12 @@ race: ## Run tests with race detector
 
 cover: ## Run tests and open the coverage report in a browser
 	@printf "$(CYAN)Generating coverage report...$(RESET)\n"
-	go test -coverprofile=$(COVER_OUT) $(COVER_PKG)
+	go test -coverprofile=$(COVER_OUT) $(PKG)
 	go tool cover -html=$(COVER_OUT)
 
 cover-clean: ## Display the clean coverage report in the terminal
 	@printf "$(CYAN)Generating clean coverage report...$(RESET)\n"
-	go test -coverprofile=$(COVER_OUT) $(COVER_PKG)
+	go test -coverprofile=$(COVER_OUT) $(PKG)
 	go run cmd/coverage/main.go --file=$(COVER_OUT) --sort=percent
 
 generate: ## Update all generated files (manual review required)

@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package memory provides an in-memory storage provider.
+// Package memory provides an in-memory storage provider implementation.
 package memory
 
 import (
@@ -14,24 +14,19 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/storage"
 )
 
-// Provider implements [storage.Provider] using fast in-memory maps.
-//
-// All stored data is transient and exists only in memory. All state is lost
-// permanently when the application shuts down.
-// Create new instances of Provider using the [New] constructor.
+// Provider implements storage.Provider in memory.
 type Provider struct {
 	kvStores map[string]*kvStore
 	mu       sync.Mutex
 }
 
-// New creates a new in-memory storage provider.
+// New constructs an in-memory Provider.
 func New() *Provider {
 	return &Provider{
 		kvStores: make(map[string]*kvStore),
 	}
 }
 
-// KV returns the key-value store for the given namespace.
 func (p *Provider) KV(namespace string) storage.KV {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -46,29 +41,24 @@ func (p *Provider) KV(namespace string) storage.KV {
 	return store
 }
 
-// Close closes the provider.
 func (p *Provider) Close() error {
 	return nil
 }
-
-// --- KV Store Implementation ---
 
 type kvStore struct {
 	mu   sync.RWMutex
 	data map[string][]byte
 }
 
-// Set adds a key-value pair to the store.
 func (s *kvStore) Set(ctx context.Context, key string, value []byte) error {
 	s.mu.Lock()
 
-	s.data[key] = append([]byte(nil), value...) // Copy slice to prevent mutation
+	s.data[key] = append([]byte(nil), value...)
 	s.mu.Unlock()
 
 	return nil
 }
 
-// Get retrieves a value from the store by key.
 func (s *kvStore) Get(ctx context.Context, key string) ([]byte, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -80,7 +70,6 @@ func (s *kvStore) Get(ctx context.Context, key string) ([]byte, error) {
 	return nil, storage.ErrNotFound
 }
 
-// Delete removes a key-value pair from the store.
 func (s *kvStore) Delete(ctx context.Context, key string) error {
 	s.mu.Lock()
 	delete(s.data, key)
@@ -89,7 +78,6 @@ func (s *kvStore) Delete(ctx context.Context, key string) error {
 	return nil
 }
 
-// Has checks if a key exists in the store.
 func (s *kvStore) Has(ctx context.Context, key string) (bool, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -99,7 +87,6 @@ func (s *kvStore) Has(ctx context.Context, key string) (bool, error) {
 	return ok, nil
 }
 
-// Keys returns all keys starting with the given prefix.
 func (s *kvStore) Keys(ctx context.Context, prefix string) ([]string, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

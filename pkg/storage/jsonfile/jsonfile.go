@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package jsonfile provides a JSON file storage provider.
+// Package jsonfile provides a thread-safe, JSON-backed persistent key-value storage provider.
 package jsonfile
 
 import (
@@ -21,21 +21,14 @@ type dataLayout struct {
 	KV map[string]map[string][]byte `json:"kv"`
 }
 
-// Provider implements [storage.Provider], persisting all data in a single JSON file.
-//
-// All read and write operations are concurrent-safe and synchronized using an internal mutex.
-// Create new instances of Provider using the [New] constructor.
+// Provider implements storage.Provider backed by atomic file writes.
 type Provider struct {
 	path string
 	mu   sync.RWMutex
 	data dataLayout
 }
 
-// New creates a new JSON file storage provider at the specified file path.
-//
-// If the file already exists, it is parsed and loaded into memory.
-// If the file path is empty, or if the directory cannot be accessed,
-// or if the existing file contains invalid JSON, New returns an error.
+// New constructs a Provider reading from path.
 func New(path string) (*Provider, error) {
 	p := &Provider{
 		path: path,
@@ -51,12 +44,12 @@ func New(path string) (*Provider, error) {
 	return p, nil
 }
 
-// KV returns a generic key-value store for the given namespace.
+// KV returns a namespace-isolated key-value store.
 func (p *Provider) KV(namespace string) storage.KV {
 	return &kvStore{p, namespace}
 }
 
-// Close writes all in-memory data back to the file and closes the provider.
+// Close flushes in-memory storage data to disk.
 func (p *Provider) Close() error {
 	return p.save()
 }
@@ -133,6 +126,7 @@ func (s *kvStore) Delete(ctx context.Context, key string) error {
 
 	if ns, ok := s.p.data.KV[s.namespace]; ok {
 		delete(ns, key)
+
 		return s.p.save()
 	}
 
@@ -145,6 +139,7 @@ func (s *kvStore) Has(ctx context.Context, key string) (bool, error) {
 
 	if ns, ok := s.p.data.KV[s.namespace]; ok {
 		_, exists := ns[key]
+
 		return exists, nil
 	}
 

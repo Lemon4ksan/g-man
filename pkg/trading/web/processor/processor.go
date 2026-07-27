@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package processor contains the web processor for the trading web interface.
+// Package processor executes automated sequential offer processing, asset locking, escrow checking, and exponential retry policies.
 package processor
 
 import (
@@ -22,33 +22,25 @@ import (
 )
 
 var (
-	// RxTheir matches the their escrow duration regex.
 	RxTheir = regexp.MustCompile(`(?i)g_DaysTheirEscrow\s*=\s*(\d+);`)
-	// RxMy matches the my escrow duration regex.
-	RxMy = regexp.MustCompile(`(?i)g_DaysMyEscrow\s*=\s*(\d+);`)
+	RxMy    = regexp.MustCompile(`(?i)g_DaysMyEscrow\s*=\s*(\d+);`)
 
-	// ErrMaxRetriesReached is returned when the maximum number of retries is reached.
-	ErrMaxRetriesReached = errors.New("max retries reached")
-	// ErrCommunityNotReady is returned when the community client is not ready.
-	ErrCommunityNotReady = errors.New("community client is not ready (bot not logged in)")
-	// ErrEscrowNotFound is returned when the escrow data is not found on the page.
-	ErrEscrowNotFound = errors.New(
-		"escrow data not found on the page (Steam might be down or offer is invalid)",
-	)
+	ErrMaxRetriesReached    = errors.New("max retries reached")
+	ErrCommunityNotReady    = errors.New("community client is not ready (bot not logged in)")
+	ErrEscrowNotFound       = errors.New("escrow data not found on the page (Steam might be down or offer is invalid)")
+	ErrCounterParamsMissing = errors.New("processor: counter params missing for counter action")
+	ErrUnknownActionType    = errors.New("processor: unknown action type")
 )
 
-// Details contains information about the trade delay (in days).
 type Details struct {
 	MyDays    int
 	TheirDays int
 }
 
-// HasHold returns true if either side has a hold.
 func (e Details) HasHold() bool {
 	return e.MyDays > 0 || e.TheirDays > 0
 }
 
-// ManagerProvider is the interface for the manager.
 type ManagerProvider interface {
 	GetEscrowDuration(ctx context.Context, offerID uint64) (Details, error)
 	AcceptOffer(ctx context.Context, offerID uint64) error
@@ -56,34 +48,25 @@ type ManagerProvider interface {
 	SendOffer(ctx context.Context, p trading.OfferParams) (uint64, error)
 }
 
-// BackpackProvider is the interface for the backpack.
 type BackpackProvider interface {
 	LockItems(ids []uint64)
 	UnlockItems(ids []uint64)
 }
 
-// OfferHandler is implemented by your main bot logic.
-// The Processor will call these methods sequentially.
 type OfferHandler interface {
-	// ProcessOffer analyzes the offer and decides what to do.
 	ProcessOffer(ctx context.Context, offer *trading.TradeOffer) (trading.ActionDecision, error)
-	// OnActionFailed is called if the SDK completely fails to execute the action after all retries.
 	OnActionFailed(ctx context.Context, offer *trading.TradeOffer, action trading.ActionType, reason string, err error)
 }
 
-// Option defines a functional configuration for the Processor.
 type Option = generic.Option[*Processor]
 
-// WithLogger sets a custom logger for the processor.
 func WithLogger(l log.Logger) Option {
 	return func(p *Processor) {
 		p.logger = l
 	}
 }
 
-// Processor handles a sequential queue of incoming trade offers.
-// It ensures that only one offer is evaluated at a time to prevent race conditions
-// with inventory and pure calculations.
+// Processor manages a buffered queue of incoming trade offers and executes trade actions sequentially.
 type Processor struct {
 	manager  ManagerProvider
 	backpack BackpackProvider
@@ -92,11 +75,9 @@ type Processor struct {
 
 	queue chan *trading.TradeOffer
 
-	// ItemsInTrade tracks assetIDs that are currently involved in active offers.
 	processing sync.Map
 }
 
-// New creates a new sequential offer processor.
 func New(
 	manager ManagerProvider,
 	backpack BackpackProvider,
@@ -108,16 +89,14 @@ func New(
 		handler:  handler,
 		backpack: backpack,
 		logger:   log.Discard,
-		queue:    make(chan *trading.TradeOffer, 500), // Buffered queue for incoming offers
+		queue:    make(chan *trading.TradeOffer, 500),
 	}
 }
 
-// Start begins the worker goroutine.
 func (p *Processor) Start(ctx context.Context) {
 	go p.worker(ctx)
 }
 
-// Enqueue adds an offer to the processing queue if it isn't already handled.
 func (p *Processor) Enqueue(off *trading.TradeOffer) {
 	if _, loaded := p.processing.LoadOrStore(off.ID, true); loaded {
 		return
@@ -132,7 +111,6 @@ func (p *Processor) Enqueue(off *trading.TradeOffer) {
 	}
 }
 
-// CheckEscrow checks if the partner has a Trade Hold.
 func (p *Processor) CheckEscrow(ctx context.Context, offer *trading.TradeOffer) (bool, error) {
 	if offer.EscrowEndDate > 0 {
 		return true, nil
@@ -144,7 +122,6 @@ func (p *Processor) CheckEscrow(ctx context.Context, offer *trading.TradeOffer) 
 		var fetchErr error
 
 		details, fetchErr = p.manager.GetEscrowDuration(ctx, offer.ID)
-
 		if errors.Is(fetchErr, ErrEscrowNotFound) {
 			return fetchErr
 		}
@@ -168,10 +145,10 @@ func (p *Processor) worker(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
+
 		case off := <-p.queue:
 			p.processSingleOffer(ctx, off)
-			// Keep the offer ID in 'processing' for a short while (5s) after completion
-			// to prevent re-processing if Steam API is slow to update the state.
+
 			time.AfterFunc(5*time.Second, func() {
 				p.processing.Delete(off.ID)
 			})
@@ -222,20 +199,21 @@ func (p *Processor) processSingleOffer(ctx context.Context, off *trading.TradeOf
 	l.Debug("Finished processing offer", log.Duration("took", time.Since(start)))
 }
 
-// applyAction executes the decision and handles retries automatically.
 func (p *Processor) applyAction(ctx context.Context, off *trading.TradeOffer, decision trading.ActionDecision) error {
 	switch decision.Action {
 	case trading.ActionAccept:
 		return p.withRetry(ctx, 5, func() error {
 			return p.manager.AcceptOffer(ctx, off.ID)
 		})
+
 	case trading.ActionDecline:
 		return p.withRetry(ctx, 5, func() error {
 			return p.manager.DeclineOffer(ctx, off.ID)
 		})
+
 	case trading.ActionCounter:
 		if decision.CounterParams == nil {
-			return errors.New("counter params are missing for counter action")
+			return ErrCounterParamsMissing
 		}
 
 		params := trading.OfferParams{
@@ -253,22 +231,21 @@ func (p *Processor) applyAction(ctx context.Context, off *trading.TradeOffer, de
 
 	case trading.ActionSkip:
 		return nil
+
 	default:
-		return errors.New("unknown action type")
+		return ErrUnknownActionType
 	}
 }
 
-// withRetry implements exponential backoff retry logic.
-// Matches TS logic: attempt -> wait(2^attempts * 1000) -> retry.
 func (p *Processor) withRetry(ctx context.Context, maxRetries int, fn func() error) error {
 	var err error
+
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		err = fn()
 		if err == nil {
-			return nil // Success
+			return nil
 		}
 
-		// Don't sleep on the last attempt
 		if attempt == maxRetries {
 			break
 		}
@@ -277,7 +254,6 @@ func (p *Processor) withRetry(ctx context.Context, maxRetries int, fn func() err
 			return err
 		}
 
-		// Calculate backoff: 2^attempt seconds (1s, 2s, 4s, 8s, 16s)
 		backoffDuration := time.Duration(math.Pow(2, float64(attempt))) * time.Second
 		p.logger.Warn("Action failed, retrying",
 			log.Err(err),
@@ -285,11 +261,17 @@ func (p *Processor) withRetry(ctx context.Context, maxRetries int, fn func() err
 			log.Duration("backoff", backoffDuration),
 		)
 
-		// Wait for backoff or context cancellation
+		timer := time.NewTimer(backoffDuration)
 		select {
-		case <-time.After(backoffDuration):
-			// continue loop
+		case <-timer.C:
 		case <-ctx.Done():
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+
 			return ctx.Err()
 		}
 	}

@@ -8,23 +8,17 @@ import (
 	"github.com/lemon4ksan/miyako/bus"
 )
 
-// ConfirmationRequiredEvent is emitted when a trade action (sending or accepting)
-// requires mobile or email confirmation.
+// ConfirmationRequiredEvent is published when trade or account actions require mobile/email approval.
 type ConfirmationRequiredEvent struct {
 	bus.BaseEvent
-	// TradeOfferID is the unique identifier of the trade offer.
 	TradeOfferID string
-	// IsAppConfirm is true if the confirmation must be completed via the mobile app.
 	IsAppConfirm bool
-	// IsEmail is true if the confirmation code was sent via email.
-	IsEmail bool
-	// EmailDomain is the target domain name where the email confirmation was sent.
-	EmailDomain string
+	IsEmail      bool
+	EmailDomain  string
 }
 
-// NeedAuthEvent is emitted when confirmation is returned with NeedAuth field set to True.
+// NeedAuthEvent is published when mobile confirmation endpoints report re-authentication is required.
 type NeedAuthEvent struct {
 	bus.BaseEvent
-	// Message is the authentication failure description from Steam.
 	Message string
 }

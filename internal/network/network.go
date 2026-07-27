@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package network provides network utilities for the g-man client.
+// Package network provides socket primitives, packet framing, and encrypted transport abstractions.
 package network
 
 import (
@@ -15,22 +15,22 @@ import (
 
 var globalConnectionID atomic.Int64
 
-// Message represents a complete, raw binary message received from the network.
+// Message represents a framed byte buffer.
 type Message = *framer.FrameBuffer
 
-// Cipher defines an interface for symmetric encryption and decryption.
+// Cipher defines symmetric encryption and decryption methods for framed messages.
 type Cipher interface {
 	Encrypt(data []byte) ([]byte, error)
 	Decrypt(data *framer.FrameBuffer) (*framer.FrameBuffer, error)
 }
 
-// Framer defines an interface for reading and writing discrete frames.
+// Framer defines reading and writing packet framing contracts over byte streams.
 type Framer interface {
 	ReadFrame(r io.Reader) (*framer.FrameBuffer, error)
 	WriteFrame(w io.Writer, data []byte) error
 }
 
-// Connection represents a bi-directional network connection.
+// Connection represents a bidirectional network connection.
 type Connection interface {
 	Send(ctx context.Context, data []byte) error
 	Close() error
@@ -41,21 +41,18 @@ type Connection interface {
 	Closed() <-chan struct{}
 }
 
-// Encryptable is an optional interface to support session-based encryption.
+// Encryptable provides dynamic cipher assignment capabilities for connections.
 type Encryptable interface {
 	SetCipher(cipher Cipher) bool
 }
 
-// BaseConnection provides common fields shared by all connection implementations.
+// BaseConnection tracks unique connection IDs and network protocol labels.
 type BaseConnection struct {
 	id   int64
 	name string
 }
 
-// NewBaseConnection returns a new BaseConnection initialized with a unique identifier
-// and the specified protocol name.
-//
-// The unique identifier is generated using a global, thread-safe atomic counter.
+// NewBaseConnection constructs a BaseConnection with an auto-incremented atomic ID.
 func NewBaseConnection(name string) BaseConnection {
 	return BaseConnection{
 		id:   globalConnectionID.Add(1),
@@ -63,7 +60,7 @@ func NewBaseConnection(name string) BaseConnection {
 	}
 }
 
-// ID returns the unique identifier for the connection.
+// ID returns the connection's atomic identifier.
 func (b *BaseConnection) ID() int64 {
 	return b.id
 }

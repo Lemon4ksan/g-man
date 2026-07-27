@@ -14,25 +14,19 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/trading/reason"
 )
 
-// Item Attribute IDs (generic representation)
-const (
-	AttrItemOrigin = 12345 // Attribute ID representing item origin/type
-)
+const AttrItemOrigin = 12345
 
 func main() {
 	fmt.Println("G-man: Advanced Trade Testing Engine Example")
 	fmt.Println("--------------------------------------------")
 
-	// 1. Initialize the generic Trade Tester with a base price feed.
 	tester := tradingtest.NewTradeTester[int]().
 		WithPrices(map[string]int{
-			"item_premium":      60, // Premium item, e.g., 60 currency units
-			"item_currency":     1,  // Base currency item, e.g., 1 unit
-			"item_sub_currency": 5,  // Sub-currency item, e.g., 5 units
+			"item_premium":      60,
+			"item_currency":     1,
+			"item_sub_currency": 5,
 		})
 
-	// 2. Add "Bulk Discount" Middleware
-	// If a partner sells 10+ premium items, we give them a 1 currency unit bonus per premium item.
 	tester.AddMiddleware(func(next engine.Handler) engine.Handler {
 		return func(ctx *engine.TradeContext) error {
 			premiumToReceive := 0
@@ -54,8 +48,6 @@ func main() {
 		}
 	})
 
-	// 3. Add Advanced Value Validator
-	// This middleware calculates the total value and compares it, considering the bulk bonus.
 	tester.AddMiddleware(func(next engine.Handler) engine.Handler {
 		return func(ctx *engine.TradeContext) error {
 			giveValue := 0
@@ -73,7 +65,6 @@ func main() {
 				}
 			}
 
-			// Apply bulk bonus if exists
 			if bonus, ok := ctx.Get("bulk_bonus").Value(); ok {
 				recvValue += bonus.(int)
 			}
@@ -91,39 +82,32 @@ func main() {
 		}
 	})
 
-	// We want to buy 10 premium items. Total value is 600 currency units.
-	// We give 610 currency units, but with our 10 unit bonus (1 per premium item),
-	// the received value effectively becomes 600 + 10 = 610.
 	fmt.Println("\n>>> Scenario 1: Bulk Premium Sale (10 premium items) with 10 unit bonus")
 
 	bulkOffer := tradingtest.NewOfferBuilder().
-		AddReceiveItem("item_premium", 10). // 10 premium items (600 value)
+		AddReceiveItem("item_premium", 10).
 		AddGiveItem("item_currency", 610).
-		// We give 610 currency units (normally we'd decline, but bonus makes it 610)
 		Build()
 
 	verdict, _ := tester.Run(context.Background(), bulkOffer)
 	fmt.Printf("Result: %s (Reason: %s)\n", verdict.Action, verdict.Reason)
 
-	// Partner sells 9 premium items (no bonus). Total value is 540.
-	// They want 549 currency units.
 	fmt.Println("\n>>> Scenario 2: 9 Premium Items (no bonus) for 549 currency units")
 
 	cheaterOffer := tradingtest.NewOfferBuilder().
-		AddReceiveItem("item_premium", 9). // 9 premium items (540 value)
-		AddGiveItem("item_currency", 549). // They want 549 currency units
+		AddReceiveItem("item_premium", 9).
+		AddGiveItem("item_currency", 549).
 		Build()
 
 	verdict, _ = tester.Run(context.Background(), cheaterOffer)
 	fmt.Printf("Result: %s (Reason: %s)\n", verdict.Action, verdict.Reason)
 
-	// Giving 1 premium item (60), receiving 55 base currency (55) and 1 sub-currency (5). Total 60.
 	fmt.Println("\n>>> Scenario 3: Mixed Currency Trade (1 Premium Item for 55 Currency + 1 Sub-Currency)")
 
 	mixedOffer := tradingtest.NewOfferBuilder().
-		AddGiveItem("item_premium", 1).         // Give 1 Premium Item (60)
-		AddReceiveItem("item_currency", 55).    // Receive 55 base currency units (55)
-		AddReceiveItem("item_sub_currency", 1). // Receive 1 sub-currency unit (5)
+		AddGiveItem("item_premium", 1).
+		AddReceiveItem("item_currency", 55).
+		AddReceiveItem("item_sub_currency", 1).
 		Build()
 
 	verdict, _ = tester.Run(context.Background(), mixedOffer)
@@ -131,14 +115,10 @@ func main() {
 
 	tester = tradingtest.NewTradeTester[int]().
 		WithPrices(map[string]int{
-			"item_premium":     60, // Premium item
-			"item_rare_weapon": 10, // A rare game weapon or skin
+			"item_premium":     60,
+			"item_rare_weapon": 10,
 		})
 
-	// 1. "Special Attribute Detector" Middleware
-	// Items with a special origin (Origin 24) are extremely rare and valuable to collectors.
-	// If we detect one in our 'give' side, we should probably STOP and REVIEW.
-	// If we detect one in 'receive' side, we might want to accept it as a huge win!
 	tester.AddMiddleware(func(next engine.Handler) engine.Handler {
 		return func(ctx *engine.TradeContext) error {
 			for _, it := range ctx.Offer.ItemsToGive {
@@ -146,6 +126,7 @@ func main() {
 					if attr.Defindex == AttrItemOrigin && attr.Value == "24" {
 						fmt.Printf("[ALARM] We are giving away a SPECIAL item! AssetID: %d\n", it.AssetID)
 						ctx.Review(reason.TradeReason("SPECIAL_GIVEAWAY_PROTECTION"))
+
 						return nil
 					}
 				}
@@ -164,7 +145,6 @@ func main() {
 		}
 	})
 
-	// 2. Final Validator
 	tester.AddMiddleware(func(next engine.Handler) engine.Handler {
 		return func(ctx *engine.TradeContext) error {
 			if jackpot, _ := ctx.Get("is_jackpot").Value(); jackpot == true {
@@ -172,7 +152,6 @@ func main() {
 				return nil
 			}
 
-			// Standard value check...
 			ctx.Accept(reason.AcceptCorrectValue)
 
 			return nil
@@ -186,10 +165,10 @@ func main() {
 			AssetID: 12345678,
 			SKU:     "item_rare_weapon",
 			Attributes: []trading.Attribute{
-				{Defindex: AttrItemOrigin, Value: "24"}, // SPECIAL FLAG
+				{Defindex: AttrItemOrigin, Value: "24"},
 			},
 		}).
-		AddReceiveItem("item_premium", 1). // For 1 premium item
+		AddReceiveItem("item_premium", 1).
 		Build()
 
 	verdict, _ = tester.Run(context.Background(), dangerousOffer)
@@ -198,12 +177,12 @@ func main() {
 	fmt.Println("\n>>> Scenario 5: Receiving a Special Item")
 
 	jackpotOffer := tradingtest.NewOfferBuilder().
-		AddGiveItem("item_premium", 1). // We give 1 premium item
+		AddGiveItem("item_premium", 1).
 		AddReceiveItemFull(&trading.Item{
 			AssetID: 87654321,
 			SKU:     "item_rare_weapon",
 			Attributes: []trading.Attribute{
-				{Defindex: AttrItemOrigin, Value: "24"}, // SPECIAL FLAG
+				{Defindex: AttrItemOrigin, Value: "24"},
 			},
 		}).
 		Build()

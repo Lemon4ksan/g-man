@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package guard handles the decision-making policy for Steam Guard confirmations.
+// Package guard provides an event-driven behavior for automated handling of Steam Guard mobile confirmations.
 package guard
 
 import (
@@ -19,39 +19,21 @@ import (
 )
 
 var (
-	// WithModule returns a Steam client option that registers the guard module with the client.
 	WithModule = guard.WithModule
-	// From returns the guardian module from the client.
-	From = guard.From
+	From       = guard.From
 )
 
-// ConfirmationType is the type of confirmation to accept.
 type ConfirmationType = guard.ConfirmationType
 
 const (
-	// ConfTypeGeneric is a catch-all for unknown confirmation types.
-	// Rarely used in practice.
-	ConfTypeGeneric = guard.ConfTypeGeneric
-
-	// ConfTypeTrade represents a trade offer confirmation.
-	// Generated when someone sends you a trade offer, or you send one.
-	// These are the most common confirmations for trading bots.
-	ConfTypeTrade = guard.ConfTypeTrade
-
-	// ConfTypeMarket represents a Steam Community Market listing confirmation.
-	// Generated when listing or buying items on the market.
-	ConfTypeMarket = guard.ConfTypeMarket
-
-	// ConfTypeLogin represents a login from a new device confirmation.
-	// Generated when someone tries to log in from an unrecognized device.
-	ConfTypeLogin = guard.ConfTypeLogin
-
-	// ConfTypeAccountChange represents account settings changes.
-	// Generated for sensitive actions like password changes, email changes, etc.
+	ConfTypeGeneric       = guard.ConfTypeGeneric
+	ConfTypeTrade         = guard.ConfTypeTrade
+	ConfTypeMarket        = guard.ConfTypeMarket
+	ConfTypeLogin         = guard.ConfTypeLogin
 	ConfTypeAccountChange = guard.ConfTypeAccountChange
 )
 
-// DefaultConfig returns a default guard configuration with the given shared secret, identity secret, and device ID.
+// DefaultConfig builds guard Config using secrets and device identifiers.
 func DefaultConfig(sharedSecret, identitySecret, deviceID string) guard.Config {
 	guardCfg := guard.DefaultConfig()
 	guardCfg.SharedSecret = sharedSecret
@@ -64,29 +46,24 @@ func DefaultConfig(sharedSecret, identitySecret, deviceID string) guard.Config {
 // BehaviorName is the unique name of the guard behavior.
 const BehaviorName = "guard_manager"
 
-// AutoAccept registers the guard manager behavior with the orchestrator.
+// AutoAccept registers a guard manager behavior with the client orchestrator.
 func AutoAccept(client *steam.Client, cfg Config) {
 	behavior.From(client).Register(New(guard.From(client), client.Logger(), client.Bus(), cfg))
 }
 
-// Provider defines the interface for fetching and accepting Steam Guard confirmations.
+// Provider defines methods required to query and accept pending mobile confirmations.
 type Provider interface {
-	// FetchConfirmations retrieves a list of pending confirmations from the Steam Guard module.
 	FetchConfirmations(ctx context.Context) ([]*guard.Confirmation, error)
-	// AcceptMultiple accepts multiple confirmations in a single batch.
 	AcceptMultiple(ctx context.Context, confs []*guard.Confirmation) error
 }
 
-// Config defines which confirmations should be automatically accepted.
+// Config configures confirmation categories to automatically approve.
 type Config struct {
-	// AutoAcceptTypes specifies which confirmation types to auto-accept (e.g. Trade, Login).
 	AutoAcceptTypes generic.Set[guard.ConfirmationType]
-	// PollOnStart enables a one-time fetch when the behavior starts to catch missed confirmations.
-	PollOnStart bool
+	PollOnStart     bool
 }
 
-// Manager handles the decision-making policy for Steam Guard confirmations.
-// It listens for events from various modules and uses the guard module to resolve them.
+// Manager listens for Steam Guard event notifications and executes automated confirmation approvals.
 type Manager struct {
 	guardian Provider
 	logger   log.Logger
@@ -94,7 +71,7 @@ type Manager struct {
 	bus      *bus.Bus
 }
 
-// New creates a new guard manager behavior.
+// New constructs a guard Manager instance.
 func New(guardian Provider, logger log.Logger, bus *bus.Bus, cfg Config) *Manager {
 	return &Manager{
 		guardian: guardian,
@@ -104,12 +81,12 @@ func New(guardian Provider, logger log.Logger, bus *bus.Bus, cfg Config) *Manage
 	}
 }
 
-// Name returns the unique name of the behavior.
+// Name returns behavior name "guard_manager".
 func (m *Manager) Name() string {
 	return BehaviorName
 }
 
-// Run starts the guard manager, listening for confirmation-related events.
+// Run starts event subscriptions and listens for confirmation triggers.
 func (m *Manager) Run(ctx context.Context) error {
 	m.logger.Info("Guard Manager behavior started", log.Any("auto_accept", m.config.AutoAcceptTypes))
 
@@ -118,7 +95,6 @@ func (m *Manager) Run(ctx context.Context) error {
 		m.resolveConfirmations(ctx)
 	}
 
-	// Subscribe to all events that might indicate a new mobile confirmation is available
 	sub := m.bus.Subscribe(
 		&auth.SteamGuardRequiredEvent{},
 		&guard.ConfirmationRequiredEvent{},
@@ -152,7 +128,6 @@ func (m *Manager) Run(ctx context.Context) error {
 			}
 
 			if trigger {
-				// Proactively resolve confirmations
 				go m.resolveConfirmations(ctx)
 			}
 		}

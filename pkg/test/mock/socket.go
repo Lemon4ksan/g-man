@@ -7,13 +7,13 @@ package mock
 import (
 	"context"
 
+	"github.com/stretchr/testify/mock"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/lemon4ksan/g-man/internal/client/session"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
 	"github.com/lemon4ksan/miyako/log"
-	"github.com/stretchr/testify/mock"
-
-	"google.golang.org/protobuf/proto"
 )
 
 type Socket struct {
@@ -29,6 +29,7 @@ func (m *Socket) OnDefault() *Socket {
 	m.On("Disconnect").Return(nil).Maybe()
 	m.On("Close").Return(nil).Maybe()
 	m.On("IsConnected").Return(false).Maybe()
+
 	return m
 }
 
@@ -71,6 +72,7 @@ func (m *Socket) Close() error {
 func (m *Socket) Session() socket.Session {
 	args := m.Called()
 	sess, _ := args.Get(0).(socket.Session)
+
 	return sess
 }
 

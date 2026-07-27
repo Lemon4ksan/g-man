@@ -18,13 +18,20 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 )
 
-// HistoryParser encapsulates all HTML/JS parsing logic for a Steam Trade History page.
+var (
+	// ErrMalformedPagingRow indicates trade history page HTML lacked expected paging elements.
+	ErrMalformedPagingRow = errors.New("history: malformed page (paging row not found)")
+	// ErrMalformedHistoryInventory indicates trade history page HTML lacked expected inventory JSON blocks.
+	ErrMalformedHistoryInventory = errors.New("history: malformed page (g_rgHistoryInventory not found)")
+)
+
+// HistoryParser extracts trade history records, assets, and pagination keys from raw HTML pages.
 type HistoryParser struct {
 	rawHTML []byte
 	doc     *goquery.Document
 }
 
-// NewHistoryParser initializes a HistoryParser with raw HTML content.
+// NewHistoryParser initializes a HistoryParser.
 func NewHistoryParser(rawHTML []byte) (*HistoryParser, error) {
 	doc, err := goquery.NewDocumentFromReader(bytes.NewReader(rawHTML))
 	if err != nil {
@@ -37,10 +44,10 @@ func NewHistoryParser(rawHTML []byte) (*HistoryParser, error) {
 	}, nil
 }
 
-// Parse extracts trade records, asset descriptions, hover elements, and pagination links.
+// Parse extracts trade history rows and pagination tokens.
 func (p *HistoryParser) Parse() (*TradeHistoryResult, error) {
 	if p.doc.Find(".inventory_history_pagingrow").Length() == 0 {
-		return nil, errors.New("history: malformed page (paging row not found)")
+		return nil, ErrMalformedPagingRow
 	}
 
 	inventory, err := p.extractHistoryInventory()
@@ -60,7 +67,7 @@ func (p *HistoryParser) Parse() (*TradeHistoryResult, error) {
 func (p *HistoryParser) extractHistoryInventory() (map[string]map[string]map[string]EconItem, error) {
 	match := rxHistoryInventory.FindSubmatch(p.rawHTML)
 	if len(match) != 2 {
-		return nil, errors.New("history: malformed page (g_rgHistoryInventory not found)")
+		return nil, ErrMalformedHistoryInventory
 	}
 
 	var inventory map[string]map[string]map[string]EconItem
@@ -106,8 +113,8 @@ func (p *HistoryParser) parsePagination(result *TradeHistoryResult) {
 
 func (p *HistoryParser) extractPaginationParams(href string, result *TradeHistoryResult) {
 	timeMatch := rxPaginationTime.FindStringSubmatch(href)
-
 	tradeMatch := rxPaginationTrade.FindStringSubmatch(href)
+
 	if len(timeMatch) != 2 || len(tradeMatch) != 2 {
 		return
 	}
@@ -167,6 +174,7 @@ func (p *HistoryParser) parseRows(
 
 func (p *HistoryParser) parseRowHoldStatus(rowSel *goquery.Selection) bool {
 	holdText := rowSel.Find("span:nth-of-type(2)").Text()
+
 	return strings.Contains(strings.ToLower(holdText), "trade on hold")
 }
 

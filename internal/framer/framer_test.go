@@ -82,13 +82,13 @@ func (f *failingWriter) Write(p []byte) (int, error) {
 func TestSteamFramer_WriteFrame(t *testing.T) {
 	t.Parallel()
 
-	framer := framer.SteamFramer{}
+	f := framer.SteamFramer{}
 
 	t.Run("oversized_payload", func(t *testing.T) {
 		t.Parallel()
 
-		err := framer.WriteFrame(io.Discard, make([]byte, 11*1024*1024))
-		assert.ErrorContains(t, err, "exceeds maximum packet size")
+		err := f.WriteFrame(io.Discard, make([]byte, 11*1024*1024))
+		assert.ErrorIs(t, err, framer.ErrPacketTooLarge)
 	})
 
 	t.Run("valid_payload_on_generic_writer", func(t *testing.T) {
@@ -96,7 +96,7 @@ func TestSteamFramer_WriteFrame(t *testing.T) {
 
 		buf := &bytes.Buffer{}
 		data := []byte("hello")
-		err := framer.WriteFrame(buf, data)
+		err := f.WriteFrame(buf, data)
 		require.NoError(t, err)
 
 		out := buf.Bytes()
@@ -114,7 +114,7 @@ func TestSteamFramer_WriteFrame(t *testing.T) {
 		defer client.Close()
 
 		go func() {
-			_ = framer.WriteFrame(client, []byte("pipe"))
+			_ = f.WriteFrame(client, []byte("pipe"))
 		}()
 
 		out := make([]byte, 12)
@@ -132,7 +132,7 @@ func TestSteamFramer_WriteFrame(t *testing.T) {
 		t.Parallel()
 
 		fw := &failingWriter{failOnWrite: 1}
-		err := framer.WriteFrame(fw, []byte("test"))
+		err := f.WriteFrame(fw, []byte("test"))
 		assert.ErrorIs(t, err, io.ErrShortWrite)
 	})
 
@@ -140,7 +140,7 @@ func TestSteamFramer_WriteFrame(t *testing.T) {
 		t.Parallel()
 
 		fw := &failingWriter{failOnWrite: 2}
-		err := framer.WriteFrame(fw, []byte("test"))
+		err := f.WriteFrame(fw, []byte("test"))
 		assert.ErrorIs(t, err, io.ErrShortWrite)
 	})
 }
@@ -148,13 +148,13 @@ func TestSteamFramer_WriteFrame(t *testing.T) {
 func TestSteamFramer_ReadFrame(t *testing.T) {
 	t.Parallel()
 
-	framer := framer.SteamFramer{}
+	f := framer.SteamFramer{}
 
 	t.Run("short_header_read", func(t *testing.T) {
 		t.Parallel()
 
 		buf := bytes.NewBuffer([]byte{1, 2, 3})
-		_, err := framer.ReadFrame(buf)
+		_, err := f.ReadFrame(buf)
 		assert.ErrorIs(t, err, io.ErrUnexpectedEOF)
 	})
 
@@ -162,7 +162,7 @@ func TestSteamFramer_ReadFrame(t *testing.T) {
 		t.Parallel()
 
 		buf := bytes.NewBuffer([]byte{0, 0, 0, 0, 'B', 'A', 'A', 'D'})
-		_, err := framer.ReadFrame(buf)
+		_, err := f.ReadFrame(buf)
 		assert.ErrorContains(t, err, "invalid magic bytes")
 	})
 
@@ -174,8 +174,8 @@ func TestSteamFramer_ReadFrame(t *testing.T) {
 		copy(header[4:8], "VT01")
 		buf := bytes.NewBuffer(header)
 
-		_, err := framer.ReadFrame(buf)
-		assert.ErrorContains(t, err, "packet too large")
+		_, err := f.ReadFrame(buf)
+		assert.ErrorIs(t, err, framer.ErrPacketTooLarge)
 	})
 
 	t.Run("incomplete_payload", func(t *testing.T) {
@@ -188,7 +188,7 @@ func TestSteamFramer_ReadFrame(t *testing.T) {
 		buf := bytes.NewBuffer(header)
 		buf.Write([]byte{1}) // Only 1 byte out of 100
 
-		_, err := framer.ReadFrame(buf)
+		_, err := f.ReadFrame(buf)
 		assert.ErrorIs(t, err, io.ErrUnexpectedEOF)
 	})
 
@@ -202,7 +202,7 @@ func TestSteamFramer_ReadFrame(t *testing.T) {
 		buf := bytes.NewBuffer(header)
 		buf.Write([]byte("data"))
 
-		payload, err := framer.ReadFrame(buf)
+		payload, err := f.ReadFrame(buf)
 		require.NoError(t, err)
 		assert.Equal(t, []byte("data"), payload.B)
 	})

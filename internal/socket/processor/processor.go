@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package processor handles the transformation of raw network messages into structured packets.
+// Package processor parses raw socket byte buffers into structured Steam packets using worker pools.
 package processor
 
 import (
@@ -18,23 +18,21 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 )
 
-// Dispatcher defines the interface for routing parsed packets.
+// Dispatcher defines packet dispatching interfaces.
 type Dispatcher interface {
 	Dispatch(packet *protocol.Packet) bool
 }
 
-// DefaultRingBufferCap defines the default capacity of the ring buffer used for packet buffering.
+// DefaultRingBufferCap default capacity for inbound ring buffer.
 const DefaultRingBufferCap uint64 = 4096
 
-// Config defines the concurrency and buffering parameters for the processor.
+// Config defines worker concurrency and ring buffer parameters.
 type Config struct {
-	// WorkerCount is the number of parallel goroutines processing raw packets.
-	WorkerCount int
-	// RingBufferCap defines the capacity of the ring buffer used for packet buffering.
+	WorkerCount   int
 	RingBufferCap uint64
 }
 
-// DefaultConfig returns a balanced configuration based on the available CPU cores.
+// DefaultConfig builds default processor settings based on CPU core count.
 func DefaultConfig() Config {
 	return Config{
 		WorkerCount:   max(runtime.NumCPU(), 2),
@@ -42,9 +40,7 @@ func DefaultConfig() Config {
 	}
 }
 
-// Processor handles the transformation of raw network messages into structured packets.
-// It orchestrates a worker pool to handle decompression and parsing asynchronously,
-// ensuring the network thread remains unblocked.
+// Processor manages background worker goroutines to parse incoming raw byte frames into structured packets.
 type Processor struct {
 	cfg    Config
 	mu     sync.RWMutex
@@ -62,7 +58,7 @@ type Processor struct {
 	isStopped sync.Once
 }
 
-// New initializes a new Processor with the given configuration and dispatcher.
+// New constructs a Processor.
 func New(cfg Config, input <-chan *protocol.InboundMessage, dist Dispatcher, logger log.Logger) *Processor {
 	ctx, cancel := context.WithCancel(context.Background()) // #nosec G118
 
@@ -81,7 +77,7 @@ func New(cfg Config, input <-chan *protocol.InboundMessage, dist Dispatcher, log
 	}
 }
 
-// UpdateLogger updates the logger used by the processor.
+// UpdateLogger thread-safely sets the logger instance.
 func (p *Processor) UpdateLogger(logger log.Logger) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -89,7 +85,7 @@ func (p *Processor) UpdateLogger(logger log.Logger) {
 	p.logger = logger.With(log.Component("proc"))
 }
 
-// Start spawns the worker pool. This method is idempotent.
+// Start spawns worker pool goroutines. Safe to call multiple times.
 func (p *Processor) Start() {
 	p.isStarted.Do(func() {
 		p.getLogger().Debug("Starting worker pool", log.Int("workers", p.cfg.WorkerCount))
@@ -100,7 +96,7 @@ func (p *Processor) Start() {
 	})
 }
 
-// Stop gracefully shuts down the worker pool, waiting for all pending packets to be processed.
+// Stop gracefully terminates worker pool goroutines.
 func (p *Processor) Stop() {
 	p.isStopped.Do(func() {
 		p.getLogger().Debug("Stopping processor...")
@@ -110,8 +106,7 @@ func (p *Processor) Stop() {
 	})
 }
 
-// Process takes raw decrypted data from the network and parses it into a packet.
-// The packet is then queued for asynchronous dispatching.
+// Process parses a raw decrypted message buffer and dispatches the packet.
 func (p *Processor) Process(inbound *protocol.InboundMessage) {
 	if p.ctx.Err() != nil {
 		if inbound.Data != nil {
@@ -136,15 +131,19 @@ func (p *Processor) Process(inbound *protocol.InboundMessage) {
 	}
 
 	packet.ReceivedAt = inbound.ReceivedAt
-	packet.Ctx = p.ctx
 	packet.Transport = inbound.Transport
+
+	if inbound.Transport != "" {
+		packet.Ctx = protocol.WithTransportType(p.ctx, inbound.Transport)
+	} else {
+		packet.Ctx = p.ctx
+	}
 
 	if !p.dist.Dispatch(packet) {
 		protocol.ReleasePacket(packet)
 	}
 }
 
-// worker processes packets from the internal queue and feeds them to the dispatcher.
 func (p *Processor) worker() {
 	for {
 		select {
@@ -174,5 +173,6 @@ func (p *Processor) recoverPanic() {
 func (p *Processor) getLogger() log.Logger {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
+
 	return p.logger
 }

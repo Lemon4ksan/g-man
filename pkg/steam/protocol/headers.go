@@ -21,33 +21,20 @@ import (
 )
 
 const (
-	// NoJob is a sentinel value used to indicate that a message is not part
-	// of an asynchronous job chain. It represents the maximum uint64 value.
 	NoJob uint64 = math.MaxUint64
 
-	// ProtoMask is a bit flag applied to the EMsg (message type) to indicate
-	// that the message body and header are encoded using Protobuf.
 	ProtoMask uint32 = 0x80000000
-
-	// EMsgMask is used to strip the ProtoMask bit and retrieve the actual
-	// EMsg numeric value.
-	EMsgMask uint32 = ^ProtoMask
+	EMsgMask  uint32 = ^ProtoMask
 )
 
-// MsgHdr (Standard Header) is a basic header format primarily used during
-// the initial connection phase and encryption handshake.
-// It does not contain SteamID or SessionID.
+// MsgHdr (Standard Header) is a 20-byte non-protobuf header without session fields.
 type MsgHdr struct {
-	// EMsg is the Steam protocol message type identifier.
-	EMsg enums.EMsg
-	// TargetJobID is the unique job correlation ID of the recipient.
+	EMsg        enums.EMsg
 	TargetJobID uint64
-	// SourceJobID is the unique job correlation ID of the sender.
 	SourceJobID uint64
 }
 
-// NewMsgHdr creates a new standard message header with the specified EMsg
-// and target job ID. SourceJobID is automatically initialized to [NoJob].
+// NewMsgHdr creates a standard message header.
 func NewMsgHdr(eMsg enums.EMsg, targetJobID uint64) *MsgHdr {
 	return &MsgHdr{
 		EMsg:        eMsg,
@@ -56,13 +43,9 @@ func NewMsgHdr(eMsg enums.EMsg, targetJobID uint64) *MsgHdr {
 	}
 }
 
-// GetSourceJob returns the source JobID.
 func (h *MsgHdr) GetSourceJob() uint64 { return h.SourceJobID }
-
-// GetTargetJob returns the target JobID.
 func (h *MsgHdr) GetTargetJob() uint64 { return h.TargetJobID }
 
-// SerializeTo writes the 20-byte standard header to the provided writer.
 func (h *MsgHdr) SerializeTo(w io.Writer) error {
 	var buf [20]byte
 	binary.LittleEndian.PutUint32(buf[0:4], uint32(h.EMsg))
@@ -73,7 +56,6 @@ func (h *MsgHdr) SerializeTo(w io.Writer) error {
 	return err
 }
 
-// Deserialize reads the standard header fields (excluding EMsg) from the reader.
 func (h *MsgHdr) Deserialize(r io.Reader) error {
 	var jobIDs [16]byte
 	if _, err := io.ReadFull(r, jobIDs[:]); err != nil {
@@ -87,43 +69,27 @@ func (h *MsgHdr) Deserialize(r io.Reader) error {
 }
 
 const (
-	// HeaderSizeExtended is the fixed size (36 bytes) of a legacy extended header.
 	HeaderSizeExtended = 36
-	// HeaderVersion is the protocol version for extended headers.
-	HeaderVersion = 2
-	// HeaderCanary is a magic byte (0xEF) used to verify header integrity.
-	HeaderCanary = 0xEF
-	// MaxPayloadSize is the maximum allowed payload size.
-	// Packages should never exceed this limit.
+	HeaderVersion      = 2
+	HeaderCanary       = 0xEF
+
 	MaxPayloadSize = 16 * 1024 * 1024
-	// MaxHeaderSize is the maximum allowed header size.
-	// Parsed packages should never exceed this limit.
-	MaxHeaderSize = 1024 * 1024
+	MaxHeaderSize  = 1024 * 1024
 )
 
-// MsgHdrExtended (Extended Header) is used for legacy Steam messages that require
-// session state (SteamID and SessionID) but do not use Protobuf.
+// MsgHdrExtended (Extended Header) is a 36-byte non-protobuf header containing SteamID and SessionID.
 type MsgHdrExtended struct {
-	// EMsg is the Steam protocol message type identifier.
-	EMsg enums.EMsg
-	// HeaderSize is the size of the legacy extended header in bytes (always 36).
-	HeaderSize byte
-	// HeaderVer is the protocol version for extended headers (always 2).
-	HeaderVer uint16
-	// TargetJobID is the unique job correlation ID of the recipient.
-	TargetJobID uint64
-	// SourceJobID is the unique job correlation ID of the sender.
-	SourceJobID uint64
-	// HeaderCanary is a magic byte used to verify header integrity (always 0xEF).
+	EMsg         enums.EMsg
+	HeaderSize   byte
+	HeaderVer    uint16
+	TargetJobID  uint64
+	SourceJobID  uint64
 	HeaderCanary byte
-	// SteamID is the 64-bit Steam identifier associated with the active session.
-	SteamID uint64
-	// SessionID is the 32-bit session ID assigned by the Connection Manager.
-	SessionID int32
+	SteamID      uint64
+	SessionID    int32
 }
 
-// NewMsgHdrExtended creates an extended header for authorized messages.
-// Both Job IDs are initialized to [NoJob].
+// NewMsgHdrExtended constructs an Extended Header.
 func NewMsgHdrExtended(eMsg enums.EMsg, steamID uint64, sessionID int32) *MsgHdrExtended {
 	return &MsgHdrExtended{
 		EMsg:         eMsg,
@@ -137,19 +103,11 @@ func NewMsgHdrExtended(eMsg enums.EMsg, steamID uint64, sessionID int32) *MsgHdr
 	}
 }
 
-// GetSourceJob returns the source JobID.
 func (h *MsgHdrExtended) GetSourceJob() uint64 { return h.SourceJobID }
-
-// GetTargetJob returns the target JobID.
 func (h *MsgHdrExtended) GetTargetJob() uint64 { return h.TargetJobID }
+func (h *MsgHdrExtended) GetSteamID() uint64   { return h.SteamID }
+func (h *MsgHdrExtended) GetSessionID() int32  { return h.SessionID }
 
-// GetSteamID returns the SteamID associated with this header.
-func (h *MsgHdrExtended) GetSteamID() uint64 { return h.SteamID }
-
-// GetSessionID returns the SessionID associated with this header.
-func (h *MsgHdrExtended) GetSessionID() int32 { return h.SessionID }
-
-// SerializeTo writes the 36-byte extended header to the provided writer.
 func (h *MsgHdrExtended) SerializeTo(w io.Writer) error {
 	var buf [HeaderSizeExtended]byte
 	binary.LittleEndian.PutUint32(buf[0:4], uint32(h.EMsg))
@@ -165,8 +123,6 @@ func (h *MsgHdrExtended) SerializeTo(w io.Writer) error {
 	return err
 }
 
-// Deserialize reads the extended header fields from an io.Reader.
-// Note: It assumes the EMsg (first 4 bytes) has already been read.
 func (h *MsgHdrExtended) Deserialize(r io.Reader) error {
 	var data [HeaderSizeExtended - 4]byte
 	if _, err := io.ReadFull(r, data[:]); err != nil {
@@ -219,7 +175,7 @@ var protoHeaderPool = sync.Pool{
 	},
 }
 
-// AcquireProtoHeader acquires a protobuf header from the pool and resets it for use.
+// AcquireProtoHeader fetches a pooled CMsgProtoBufHeader instance.
 func AcquireProtoHeader() *pb.CMsgProtoBufHeader {
 	ph := protoHeaderPool.Get().(*pooledProtoHeader)
 	ph.steamID = 0
@@ -231,10 +187,9 @@ func AcquireProtoHeader() *pb.CMsgProtoBufHeader {
 	ph.hdr.TargetJobName = nil
 	ph.hdr.WgToken = nil
 	ph.hdr.RoutingAppid = nil
-
 	ph.hdr.ForwardToSysid = ph.hdr.GetForwardToSysid()[:0]
-
 	ph.hdr.ExcludeClientSessionids = ph.hdr.GetExcludeClientSessionids()[:0]
+
 	if ph.hdr.GetRoutingGc() != nil {
 		ph.hdr.GetRoutingGc().Reset()
 	}
@@ -242,7 +197,7 @@ func AcquireProtoHeader() *pb.CMsgProtoBufHeader {
 	return &ph.hdr
 }
 
-// ReleaseProtoHeader releases a protobuf header back to the pool.
+// ReleaseProtoHeader recycles a CMsgProtoBufHeader instance back to the memory pool.
 func ReleaseProtoHeader(h *pb.CMsgProtoBufHeader) {
 	if h == nil {
 		return
@@ -280,18 +235,13 @@ func releaseMsgHdrProtoBuf(h *MsgHdrProtoBuf) {
 	msgHdrProtoBufPool.Put(h)
 }
 
-// MsgHdrProtoBuf is the modern Steam header format. It wraps
-// a Protobuf message containing routing and session metadata.
+// MsgHdrProtoBuf represents modern Protobuf-style Steam Connection Manager headers.
 type MsgHdrProtoBuf struct {
-	// EMsg is the Steam protocol message type identifier.
-	EMsg enums.EMsg
-	// Proto is the Protobuf-encoded routing and session metadata.
+	EMsg  enums.EMsg
 	Proto *pb.CMsgProtoBufHeader
 }
 
-// NewMsgHdrProtoBuf creates a modern Protobuf-style header.
-// It initializes a default CMsgProtoBufHeader with the provided session info
-// and sets Job IDs to [NoJob].
+// NewMsgHdrProtoBuf constructs a MsgHdrProtoBuf header.
 func NewMsgHdrProtoBuf(eMsg enums.EMsg, steamID uint64, sessionID int32) *MsgHdrProtoBuf {
 	hdr := acquireMsgHdrProtoBuf(eMsg)
 
@@ -303,19 +253,11 @@ func NewMsgHdrProtoBuf(eMsg enums.EMsg, steamID uint64, sessionID int32) *MsgHdr
 	return hdr
 }
 
-// GetSourceJob returns the source JobID from the Protobuf header.
 func (h *MsgHdrProtoBuf) GetSourceJob() uint64 { return h.Proto.GetJobidSource() }
-
-// GetTargetJob returns the target JobID from the Protobuf header.
 func (h *MsgHdrProtoBuf) GetTargetJob() uint64 { return h.Proto.GetJobidTarget() }
+func (h *MsgHdrProtoBuf) GetSteamID() uint64   { return h.Proto.GetSteamid() }
+func (h *MsgHdrProtoBuf) GetSessionID() int32  { return h.Proto.GetClientSessionid() }
 
-// GetSteamID returns the SteamID from the Protobuf header.
-func (h *MsgHdrProtoBuf) GetSteamID() uint64 { return h.Proto.GetSteamid() }
-
-// GetSessionID returns the SessionID from the Protobuf header.
-func (h *MsgHdrProtoBuf) GetSessionID() int32 { return h.Proto.GetClientSessionid() }
-
-// GetEResult returns the result code from the header if present.
 func (h *MsgHdrProtoBuf) GetEResult() enums.EResult {
 	if h.Proto.Eresult == nil {
 		return enums.EResult_OK
@@ -324,8 +266,6 @@ func (h *MsgHdrProtoBuf) GetEResult() enums.EResult {
 	return enums.EResult(h.Proto.GetEresult())
 }
 
-// SerializeTo marshals the Protobuf header and writes it to the writer,
-// preceded by the EMsg (with ProtoMask set) and the header length.
 func (h *MsgHdrProtoBuf) SerializeTo(w io.Writer) error {
 	protoData, err := proto.Marshal(h.Proto)
 	if err != nil {
@@ -348,12 +288,11 @@ func (h *MsgHdrProtoBuf) SerializeTo(w io.Writer) error {
 var protoHeaderBufPool = sync.Pool{
 	New: func() any {
 		b := make([]byte, 512)
+
 		return &b
 	},
 }
 
-// Deserialize reads the Protobuf header length and body from the reader.
-// Uses pooled header buffers to guarantee zero heap escape.
 func (h *MsgHdrProtoBuf) Deserialize(r io.Reader) error {
 	var lenBuf [4]byte
 	if _, err := io.ReadFull(r, lenBuf[:]); err != nil {
@@ -361,7 +300,6 @@ func (h *MsgHdrProtoBuf) Deserialize(r io.Reader) error {
 	}
 
 	hdrLen := binary.LittleEndian.Uint32(lenBuf[:])
-
 	if hdrLen > MaxHeaderSize {
 		return ErrHeaderTooLarge
 	}
@@ -369,8 +307,8 @@ func (h *MsgHdrProtoBuf) Deserialize(r io.Reader) error {
 	var hdrBuf []byte
 	if hdrLen <= 512 {
 		bufPtr := protoHeaderBufPool.Get().(*[]byte)
-
 		hdrBuf = (*bufPtr)[:hdrLen]
+
 		defer protoHeaderBufPool.Put(bufPtr)
 	} else {
 		hdrBuf = make([]byte, hdrLen)
@@ -386,15 +324,14 @@ func (h *MsgHdrProtoBuf) Deserialize(r io.Reader) error {
 		h.Proto.Reset()
 	}
 
-	err := UnmarshalProto(hdrBuf, h.Proto)
-	if err != nil {
+	if err := UnmarshalProto(hdrBuf, h.Proto); err != nil {
 		return fmt.Errorf("unmarshal proto hdr: %w", err)
 	}
 
 	return nil
 }
 
-// FastUnmarshal unmarshals the given data into the MsgHdrProtoBuf struct without allocations.
+// FastUnmarshal unmarshals raw wire bytes directly into MsgHdrProtoBuf without allocations.
 func (h *MsgHdrProtoBuf) FastUnmarshal(data []byte) error {
 	if h == nil {
 		return errors.New("nil MsgHdrProtoBuf")
@@ -414,7 +351,7 @@ func (h *MsgHdrProtoBuf) FastUnmarshal(data []byte) error {
 		offset += n
 
 		switch num {
-		case 1: // steamid (fixed64)
+		case 1:
 			if typ == protowire.Fixed64Type {
 				v, n := protowire.ConsumeFixed64(data[offset:])
 				if n > 0 {
@@ -426,7 +363,7 @@ func (h *MsgHdrProtoBuf) FastUnmarshal(data []byte) error {
 				}
 			}
 
-		case 2: // client_sessionid (varint)
+		case 2:
 			if typ == protowire.VarintType {
 				v, n := protowire.ConsumeVarint(data[offset:])
 				if n > 0 {
@@ -438,7 +375,7 @@ func (h *MsgHdrProtoBuf) FastUnmarshal(data []byte) error {
 				}
 			}
 
-		case 5: // target_job_name (string)
+		case 5:
 			if typ == protowire.BytesType {
 				v, n := protowire.ConsumeBytes(data[offset:])
 				if n > 0 {
@@ -450,7 +387,7 @@ func (h *MsgHdrProtoBuf) FastUnmarshal(data []byte) error {
 				}
 			}
 
-		case 6: // wg_token (string)
+		case 6:
 			if typ == protowire.BytesType {
 				v, n := protowire.ConsumeBytes(data[offset:])
 				if n > 0 {
@@ -462,7 +399,7 @@ func (h *MsgHdrProtoBuf) FastUnmarshal(data []byte) error {
 				}
 			}
 
-		case 10: // jobid_source (fixed64)
+		case 10:
 			if typ == protowire.Fixed64Type {
 				v, n := protowire.ConsumeFixed64(data[offset:])
 				if n > 0 {
@@ -474,7 +411,7 @@ func (h *MsgHdrProtoBuf) FastUnmarshal(data []byte) error {
 				}
 			}
 
-		case 11: // jobid_target (fixed64)
+		case 11:
 			if typ == protowire.Fixed64Type {
 				v, n := protowire.ConsumeFixed64(data[offset:])
 				if n > 0 {
@@ -486,7 +423,7 @@ func (h *MsgHdrProtoBuf) FastUnmarshal(data []byte) error {
 				}
 			}
 
-		case 13: // eresult (varint)
+		case 13:
 			if typ == protowire.VarintType {
 				v, n := protowire.ConsumeVarint(data[offset:])
 				if n > 0 {
@@ -498,7 +435,7 @@ func (h *MsgHdrProtoBuf) FastUnmarshal(data []byte) error {
 				}
 			}
 
-		case 18: // routing_appid (varint)
+		case 18:
 			if typ == protowire.VarintType {
 				v, n := protowire.ConsumeVarint(data[offset:])
 				if n > 0 {
@@ -522,7 +459,6 @@ func (h *MsgHdrProtoBuf) FastUnmarshal(data []byte) error {
 	return nil
 }
 
-// SetProtoUint64 sets the value of a *uint64 pointer, allocating if necessary.
 func SetProtoUint64(p **uint64, val uint64) {
 	if *p == nil {
 		v := val
@@ -532,7 +468,6 @@ func SetProtoUint64(p **uint64, val uint64) {
 	}
 }
 
-// SetProtoInt32 sets the value of a *int32 pointer, allocating if necessary.
 func SetProtoInt32(p **int32, val int32) {
 	if *p == nil {
 		v := val
@@ -542,7 +477,6 @@ func SetProtoInt32(p **int32, val int32) {
 	}
 }
 
-// Reset resets the MsgHdrProtoBuf struct fields.
 func (h *MsgHdrProtoBuf) Reset() {
 	if h.Proto != nil {
 		ReleaseProtoHeader(h.Proto)

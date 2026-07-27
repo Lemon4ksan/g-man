@@ -15,15 +15,13 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/social/friends"
 )
 
-// RegisterBuiltinCommands registers built-in chat commands on the given manager.
-//
-// Available commands:
-//   - !status - Shows bot uptime
-//   - !steamid <name> - Looks up a user by persona name
-//   - !profile <steamid> - Shows profile info for a SteamID
+var ErrFriendsModuleMissing = errors.New("chat_commands: friends module not available")
+
+// RegisterBuiltinCommands registers standard utility commands (!status, !steamid, !profile) on m.
 func RegisterBuiltinCommands(m *Manager, friendsMgr *friends.Manager, started time.Time) {
 	m.Register("status", func(_ context.Context, _ []string) (string, error) {
 		uptime := time.Since(started).Truncate(time.Second)
+
 		return fmt.Sprintf("Bot is online. Uptime: %s", uptime), nil
 	},
 		WithDescription("Shows bot status and uptime"),
@@ -31,7 +29,7 @@ func RegisterBuiltinCommands(m *Manager, friendsMgr *friends.Manager, started ti
 
 	m.Register("steamid", func(_ context.Context, args []string) (string, error) {
 		if friendsMgr == nil {
-			return "", errors.New("friends module not available")
+			return "", ErrFriendsModuleMissing
 		}
 
 		query := strings.ToLower(args[0])
@@ -64,7 +62,7 @@ func RegisterBuiltinCommands(m *Manager, friendsMgr *friends.Manager, started ti
 
 	m.Register("profile", func(_ context.Context, args []any) (string, error) {
 		if friendsMgr == nil {
-			return "", errors.New("friends module not available")
+			return "", ErrFriendsModuleMissing
 		}
 
 		steamID := args[0].(id.ID)

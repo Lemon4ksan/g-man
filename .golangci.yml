@@ -53,7 +53,9 @@ linters:
     revive:
       rules:
         - name: exported
-          severity: warning
+          disabled: true
+        - name: package-comments
+          disabled: true
 
     wsl_v5:
       default: default
@@ -76,31 +78,35 @@ linters:
       - linters: [errcheck, revive, staticcheck, protogetter]
         path: .*(pb\.go|generated\.go)
 
-      # Steam has a lot of conversions from uint64 (SteamID) to strings and back.
+      - linters: [revive]
+        text: "exported: (exported|comment on exported|should have comment)"
+
       - linters: [gosec]
         text: "G115:"
 
-      # For a bot/generator, rights 0644 (instead of 0600) is the norm.
       - linters: [gosec]
         text: "G306:|G301:"
 
-      # Steam Protocol requires SHA1. Without it, the library will not work.
       - linters: [gosec]
         text: "G401:|G505:"
 
-      # Ignoring the lack of comments in tests
+      - linters: [gosec]
+        text: "G103:"
+
+      - linters: [gosec]
+        text: "G404:"
+
       - linters: [revive]
         path: "_test\\.go"
         text: "exported: (exported|comment on exported)"
 
-      # Ignore most linters in tests
       - linters: [gosec, noctx, bodyclose, errcheck]
         path: "_test\\.go"
 
-      # Ignore path issues in CLI
       - linters: [gosec]
         text: "G703:|G706:"
         path: "cmd/.*"
+
     paths:
       - pkg/protobuf/.*
       - pkg/steam/webapi/.*

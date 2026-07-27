@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package service implements transport-agnostic execution engines for Steam WebAPI, Unified Services, and legacy protocols.
+// Package service provides transport-agnostic execution engines for Steam Unified Services, WebAPI, and EMsg socket calls.
 package service
 
 import (
@@ -26,30 +26,23 @@ import (
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
 )
 
-// FastFormEncoder allows DTO structs to serialize directly into URL-encoded strings with zero map allocations.
 type FastFormEncoder interface {
 	EncodeFormString() (string, error)
 }
 
-// WebAPIBase is the default base URL used for standard Steam Web API endpoints.
 const WebAPIBase = "https://api.steampowered.com/"
 
-// ErrInvalidMessage is returned when a provided Protobuf message structure is invalid or nil.
 var ErrInvalidMessage = errors.New("service: invalid protobuf message")
 
-// Doer abstracts the core transport execution engine.
+// Doer executes abstract transport requests.
 type Doer interface {
-	// Do executes the specified request using the underlying transport layers.
 	Do(ctx context.Context, req *tr.Request) (*tr.Response, error)
 }
 
-// NoResponse indicates that response body marshaling and decoding should be skipped entirely.
 type NoResponse struct{}
 
-// CallOption defines a functional configuration option used to modify a [tr.Request] before execution.
 type CallOption func(req *tr.Request)
 
-// WithHTTPMethod overrides the default HTTP verb for the request.
 func WithHTTPMethod(method string) CallOption {
 	type httpMethodSetter interface {
 		SetHTTPMethod(string)
@@ -62,7 +55,6 @@ func WithHTTPMethod(method string) CallOption {
 	}
 }
 
-// WithVersion overrides the API target version.
 func WithVersion(version int) CallOption {
 	type versionSetter interface {
 		SetVersion(int)
@@ -75,7 +67,6 @@ func WithVersion(version int) CallOption {
 	}
 }
 
-// WithDecoder configures a custom [decode.Decoder] for decoding the response body.
 func WithDecoder(d decode.Decoder) CallOption {
 	return func(req *tr.Request) {
 		req.SetDecoder(d)
@@ -83,7 +74,6 @@ func WithDecoder(d decode.Decoder) CallOption {
 	}
 }
 
-// WithFormat configures the expected [encoding.ResponseFormat] for the request.
 func WithFormat(f encoding.ResponseFormat) CallOption {
 	return func(req *tr.Request) {
 		switch f {
@@ -101,63 +91,47 @@ func WithFormat(f encoding.ResponseFormat) CallOption {
 	}
 }
 
-// WithModifier adds the aoni.RequestModifier to the service request.
 func WithModifier(m aoni.RequestModifier) CallOption {
 	return func(req *tr.Request) {
 		req.WithModifier(m)
 	}
 }
 
-// WithRoutingAppID configures the routing AppID inside the outer packet header.
-// This is typically required when routing EMsg messages to specific Game Coordinators.
 func WithRoutingAppID(appID uint32) CallOption {
 	return func(req *tr.Request) {
 		req.WithRoutingAppID(appID)
 	}
 }
 
-// Client executes requests on Steam services by wrapping and decorating a [tr.Transport].
-// It automatically handles WebAPI key and OAuth2 access token injection.
-// It validates standard [enums.EResult] responses upon execution.
+// Client wraps a transport layer and injects configured WebAPI keys and OAuth access tokens.
 type Client struct {
 	transport   tr.Transport
 	apiKey      string
 	accessToken string
 }
 
-// APIKey returns the configured WebAPI key.
 func (c *Client) APIKey() string { return c.apiKey }
 
-// AccessToken returns the configured OAuth2 access token.
 func (c *Client) AccessToken() string { return c.accessToken }
 
-// New creates a new [Client] instance wrapping the specified [tr.Transport].
-// It will panic if the provided transport argument is nil.
 func New(tr tr.Transport) *Client {
-	c := &Client{transport: tr}
-	return c
+	return &Client{transport: tr}
 }
 
-// WithAPIKey creates a shallow copy of the client configured with the specified WebAPI key.
-// Subsequent requests executed via the returned clone will inject the provided key.
 func (c *Client) WithAPIKey(key string) *Client {
 	clone := *c
 	clone.apiKey = key
+
 	return &clone
 }
 
-// WithAccessToken creates a shallow copy of the client configured with the specified OAuth2 access token.
-// Subsequent requests executed via the returned clone will inject the provided token.
 func (c *Client) WithAccessToken(token string) *Client {
 	clone := *c
 	clone.accessToken = token
+
 	return &clone
 }
 
-// Do executes the specified request using the underlying [tr.Transport].
-// It injects configured credentials and validates the response [enums.EResult] code.
-// It returns an error if transport execution fails or if the response status is unsuccessful.
-// It will panic if the provided request argument is nil.
 func (c *Client) Do(ctx context.Context, req *tr.Request) (*tr.Response, error) {
 	if c.apiKey != "" {
 		req.WithParam("key", c.apiKey)
@@ -207,10 +181,7 @@ func (c *Client) validateEResult(resp *tr.Response) error {
 	return nil
 }
 
-// Unified executes a modern Service method using a Protobuf message via the POST method.
-// It automatically infers the interface and method path from the protobuf type name.
-// It returns [ErrInvalidMessage] if the protobuf message is nil or malformed.
-// It returns transport or decoding errors if request execution fails.
+// Unified executes a Service method using Protobuf type reflection to infer interface and method names.
 func Unified[Resp any](ctx context.Context, d Doer, msg proto.Message, opts ...CallOption) (*Resp, error) {
 	iface, method, err := inferUnifiedMethod(msg)
 	if err != nil {
@@ -220,9 +191,7 @@ func Unified[Resp any](ctx context.Context, d Doer, msg proto.Message, opts ...C
 	return UnifiedExplicit[Resp](ctx, d, http.MethodPost, iface, method, 1, msg, opts...)
 }
 
-// UnifiedExplicit executes a modern Service method with an explicitly specified path and version.
-// It returns [ErrInvalidMessage] if the protobuf message is nil or malformed.
-// It returns transport or decoding errors if request execution fails.
+// UnifiedExplicit executes a Service method with explicit interface and method path overrides.
 func UnifiedExplicit[Resp any](
 	ctx context.Context,
 	d Doer,
@@ -239,9 +208,7 @@ func UnifiedExplicit[Resp any](
 	return Execute[Resp](ctx, d, req, encoding.ProtobufDecoder, opts...)
 }
 
-// WebAPI executes a standard Steam WebAPI request.
-// It serializes the reqMsg query parameters if they are not nil.
-// It returns transport or decoding errors if request execution fails.
+// WebAPI executes a standard WebAPI request.
 func WebAPI[Resp any](
 	ctx context.Context,
 	d Doer,
@@ -279,8 +246,7 @@ func WebAPI[Resp any](
 	return Execute[Resp](ctx, d, req, encoding.SteamJSONDecoder, opts...)
 }
 
-// Legacy executes a low-level Protobuf request matched against a specific [enums.EMsg].
-// It returns transport or decoding errors if request execution fails.
+// Legacy executes an EMsg socket request.
 func Legacy[Resp any](
 	ctx context.Context,
 	d Doer,
@@ -296,8 +262,7 @@ func Legacy[Resp any](
 	return Execute[Resp](ctx, d, req, encoding.ProtobufDecoder, opts...)
 }
 
-// LegacyProto executes a low-level Protobuf request, forcing a Protobuf header on the outer packet.
-// It returns transport or decoding errors if request execution fails.
+// LegacyProto executes an EMsg socket request forcing a Protobuf outer header.
 func LegacyProto[Resp any](
 	ctx context.Context,
 	d Doer,
@@ -313,10 +278,7 @@ func LegacyProto[Resp any](
 	return Execute[Resp](ctx, d, req, encoding.ProtobufDecoder, opts...)
 }
 
-// Execute sends a [tr.Request] using a [Doer] and decodes the response body.
-// It evaluates options, manages the request payload lifecycle, and automatically closes the response body.
-// It returns transport, formatting, or decoding errors if execution fails.
-// It will panic if either d or req is nil.
+// Execute transmits a Request and unmarshals the response payload into Resp.
 func Execute[Resp any](
 	ctx context.Context,
 	d Doer,
@@ -337,6 +299,7 @@ func Execute[Resp any](
 	if err != nil {
 		return nil, err
 	}
+
 	defer resp.Body.Close()
 
 	if isNoResponse {
@@ -365,6 +328,7 @@ func inferUnifiedMethod(req proto.Message) (string, string, error) {
 	t := reflect.TypeOf(req)
 	if val, ok := methodCache.Load(t); ok {
 		res := val.(methodInfo)
+
 		return res.Iface, res.Method, nil
 	}
 
@@ -374,8 +338,8 @@ func inferUnifiedMethod(req proto.Message) (string, string, error) {
 	}
 
 	name := t.Name()
-
 	parts := strings.Split(name, "_")
+
 	if len(parts) < 2 {
 		return "", "", fmt.Errorf("%w: cannot infer unified method from %q", ErrInvalidMessage, name)
 	}

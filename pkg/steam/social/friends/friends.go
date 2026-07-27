@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package friends manages the user's friends list, persona states, and group interactions.
+// Package friends manages friend lists, user persona caches, profile comments, and group invitations.
 package friends
 
 import (
@@ -36,24 +36,39 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 )
 
-// ModuleName is the name of the friends module.
 const ModuleName string = "friends"
 
-// WithModule returns an option that registers the friends module with the steam client.
+// WithModule registers the Friends module in the client.
 func WithModule() steam.Option {
 	return steam.WithModule(New())
 }
 
-// From returns the friends manager module from the client.
+// From retrieves the Friends module instance from the client.
 func From(c *steam.Client) *Manager {
 	return steam.GetModule[*Manager](c)
 }
 
-// Manager handles friends list synchronization and user status tracking.
+var (
+	// ErrUserNotAFriend indicates group invitations failed because target user is not a friend.
+	ErrUserNotAFriend = errors.New("friends: group invite failed: user is not a friend")
+	// ErrWebAcceptFailed indicates web-based friend accept request was rejected.
+	ErrWebAcceptFailed = errors.New("friends: web accept request unsuccessful")
+	// ErrBlockUserFailed indicates web-based block request was rejected.
+	ErrBlockUserFailed = errors.New("friends: block user request unsuccessful")
+	// ErrCommentNotFound indicates posted comment element was missing from returned HTML.
+	ErrCommentNotFound = errors.New("friends: new comment not found in returned HTML")
+	// ErrCommentMissingID indicates posted comment element lacked an 'id' attribute.
+	ErrCommentMissingID = errors.New("friends: new comment missing id attribute")
+	// ErrDeleteCommentInHTML indicates deleted comment element remained in returned HTML payload.
+	ErrDeleteCommentInHTML = errors.New("friends: failed to delete comment (comment still in HTML)")
+	// ErrCommunityNotInitialized indicates community requester is not configured.
+	ErrCommunityNotInitialized = errors.New("friends: community requester is not initialized")
+)
+
+// Manager synchronizes relationships, user persona states, and group memberships.
 //
-// It maintains a real-time cache of friendship relationships, persona states,
-// and provides rich interfaces for community comment moderation and invite links.
-// Use [New] to construct new instances of the manager.
+// Thread Safety:
+//   - Safe for concurrent use across all methods.
 type Manager struct {
 	module.Base
 
@@ -72,7 +87,7 @@ type Manager struct {
 	unregFuncs []func()
 }
 
-// New creates a new instance of the friends manager.
+// New constructs a Manager instance.
 func New() *Manager {
 	return &Manager{
 		Base:          module.New(ModuleName),
@@ -83,7 +98,6 @@ func New() *Manager {
 	}
 }
 
-// Init registers packet handlers and sets up module dependencies.
 func (m *Manager) Init(init module.InitContext) error {
 	if err := m.Base.Init(init); err != nil {
 		return err
@@ -108,7 +122,6 @@ func (m *Manager) Init(init module.InitContext) error {
 	return nil
 }
 
-// StartAuthed is called when the client is logged in and ready.
 func (m *Manager) StartAuthed(ctx context.Context, auth module.AuthContext) error {
 	m.mu.Lock()
 	m.community = auth.Community()
@@ -118,7 +131,6 @@ func (m *Manager) StartAuthed(ctx context.Context, auth module.AuthContext) erro
 	return nil
 }
 
-// Close cleans up registered handlers and cancels background tasks.
 func (m *Manager) Close() error {
 	for _, unreg := range m.unregFuncs {
 		unreg()
@@ -127,9 +139,7 @@ func (m *Manager) Close() error {
 	return m.Base.Close()
 }
 
-// GetFriend returns cached user information (persona state) for a given SteamID.
-//
-// It returns nil if the user is not found in the local cache.
+// GetFriend retrieves cached persona state for steamID.
 func (m *Manager) GetFriend(steamID id.ID) (*PersonaState, bool) {
 	if m == nil || m.users == nil {
 		return nil, false
@@ -138,7 +148,7 @@ func (m *Manager) GetFriend(steamID id.ID) (*PersonaState, bool) {
 	return m.users.Get(steamID)
 }
 
-// IsFriend returns true if the specified SteamID is in our friends list.
+// IsFriend reports whether steamID exists in our friends list.
 func (m *Manager) IsFriend(steamID id.ID) bool {
 	if m == nil || m.relationships == nil {
 		return false
@@ -149,15 +159,15 @@ func (m *Manager) IsFriend(steamID id.ID) bool {
 	return ok && enum == enums.EFriendRelationship_Friend
 }
 
-// GetFriends returns a list of SteamIDs for all users with a "Friend" relationship.
+// GetFriends returns all user SteamIDs with active Friend relationships.
 func (m *Manager) GetFriends() []id.ID {
 	if m == nil || m.relationships == nil {
 		return nil
 	}
 
 	allRels := m.relationships.All()
-
 	friendsList := make([]id.ID, 0, len(allRels))
+
 	for steamID, relation := range allRels {
 		if relation == enums.EFriendRelationship_Friend {
 			friendsList = append(friendsList, steamID)
@@ -167,14 +177,13 @@ func (m *Manager) GetFriends() []id.ID {
 	return friendsList
 }
 
-// GetMaxFriends calculates the friend limit based on the user's Steam level.
-//
-// It returns an error if the underlying WebAPI request to IPlayerService/GetBadges fails.
+// GetMaxFriends calculates friend slots capacity based on user Steam level.
 func (m *Manager) GetMaxFriends(ctx context.Context) (int, error) {
 	m.mu.RLock()
 
 	if m.maxFriends > 0 {
 		defer m.mu.RUnlock()
+
 		return m.maxFriends, nil
 	}
 
@@ -198,32 +207,34 @@ func (m *Manager) GetMaxFriends(ctx context.Context) (int, error) {
 	return max, nil
 }
 
-// AddFriend sends a friend request or accepts an incoming invitation.
+// AddFriend sends a friend request or accepts an incoming invite.
 func (m *Manager) AddFriend(ctx context.Context, steamID uint64) error {
 	req := &pb.CMsgClientAddFriend{
 		SteamidToAdd: &steamID,
 	}
+
 	_, err := service.LegacyProto[service.NoResponse](ctx, m.client, enums.EMsg_ClientAddFriend, req)
 
 	return err
 }
 
-// RemoveFriend removes a friend or rejects an incoming request.
+// RemoveFriend removes a friend or declines an invite.
 func (m *Manager) RemoveFriend(ctx context.Context, steamID uint64) error {
 	req := &pb.CMsgClientRemoveFriend{
 		Friendid: &steamID,
 	}
+
 	_, err := service.LegacyProto[service.NoResponse](ctx, m.client, enums.EMsg_ClientRemoveFriend, req)
 
 	return err
 }
 
-// SetPersona changes the bot's current Steam persona status (e.g. Online, Busy, Snooze) and/or profile name.
-// If name is empty, it changes only the status.
+// SetPersona updates online status or profile display name.
 func (m *Manager) SetPersona(ctx context.Context, state enums.EPersonaState, name string) error {
 	req := &pb.CMsgClientChangeStatus{
 		PersonaState: proto.Uint32(uint32(state)),
 	}
+
 	if name != "" {
 		req.PlayerName = proto.String(name)
 	}
@@ -233,8 +244,7 @@ func (m *Manager) SetPersona(ctx context.Context, state enums.EPersonaState, nam
 	return err
 }
 
-// InviteToGroups sends group invitations to a friend.
-// Standard HTTP 400 errors (already in group/already invited) are ignored.
+// InviteToGroups sends group invites to a friend.
 func (m *Manager) InviteToGroups(ctx context.Context, steamID id.ID, groupIDs []uint64) error {
 	client, err := m.ensureAuthenticated()
 	if err != nil {
@@ -242,7 +252,7 @@ func (m *Manager) InviteToGroups(ctx context.Context, steamID id.ID, groupIDs []
 	}
 
 	if !m.IsFriend(steamID) {
-		return errors.New("friends: group invite failed: user is not a friend")
+		return ErrUserNotAFriend
 	}
 
 	var (
@@ -266,10 +276,7 @@ func (m *Manager) InviteToGroups(ctx context.Context, steamID id.ID, groupIDs []
 				return nil
 			}
 
-			m.Logger.Warn("Failed to invite to group",
-				log.Uint64("group_id", groupID),
-				log.Err(err),
-			)
+			m.Logger.Warn("Failed to invite to group", log.Uint64("group_id", groupID), log.Err(err))
 
 			mu.Lock()
 
@@ -283,7 +290,7 @@ func (m *Manager) InviteToGroups(ctx context.Context, steamID id.ID, groupIDs []
 	return errors.Join(errs...)
 }
 
-// GetFriendGroups returns the list of all friend groups.
+// GetFriendGroups returns all custom friend group definitions.
 func (m *Manager) GetFriendGroups() map[int32]FriendGroup {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -294,7 +301,7 @@ func (m *Manager) GetFriendGroups() map[int32]FriendGroup {
 	return groups
 }
 
-// GetNicknames returns all friend nicknames.
+// GetNicknames returns all assigned friend nicknames.
 func (m *Manager) GetNicknames() map[id.ID]string {
 	if m == nil || m.nicknames == nil {
 		return nil
@@ -307,7 +314,7 @@ func (m *Manager) GetNicknames() map[id.ID]string {
 	return nicks
 }
 
-// GetNickname returns the custom nickname for a specific friend.
+// GetNickname retrieves a custom nickname for steamID.
 func (m *Manager) GetNickname(steamID id.ID) (string, bool) {
 	if m == nil || m.nicknames == nil {
 		return "", false
@@ -316,9 +323,7 @@ func (m *Manager) GetNickname(steamID id.ID) (string, bool) {
 	return m.nicknames.Get(steamID)
 }
 
-// AcceptFriendRequestWeb accepts an incoming friend invitation using the web-based Steam Community API.
-//
-// It returns an error if the web-based request fails or is rejected by Steam.
+// AcceptFriendRequestWeb accepts a friend request using web endpoints.
 func (m *Manager) AcceptFriendRequestWeb(ctx context.Context, steamID id.ID) error {
 	client, err := m.ensureAuthenticated()
 	if err != nil {
@@ -340,15 +345,13 @@ func (m *Manager) AcceptFriendRequestWeb(ctx context.Context, steamID id.ID) err
 	}
 
 	if !resp.Success {
-		return errors.New("friends: web accept request unsuccessful")
+		return ErrWebAcceptFailed
 	}
 
 	return nil
 }
 
-// BlockCommunication blocks all communications from the specified SteamID.
-//
-// It returns an error if the request fails or is rejected by Steam.
+// BlockCommunication blocks all communications from steamID.
 func (m *Manager) BlockCommunication(ctx context.Context, steamID id.ID) error {
 	client, err := m.ensureAuthenticated()
 	if err != nil {
@@ -369,15 +372,13 @@ func (m *Manager) BlockCommunication(ctx context.Context, steamID id.ID) error {
 	}
 
 	if !resp.Success {
-		return errors.New("friends: block user request unsuccessful")
+		return ErrBlockUserFailed
 	}
 
 	return nil
 }
 
-// UnblockCommunication unblocks communication for the specified SteamID.
-//
-// It returns an error if the request fails or is rejected by Steam.
+// UnblockCommunication unblocks communications from steamID.
 func (m *Manager) UnblockCommunication(ctx context.Context, steamID id.ID) error {
 	client, err := m.ensureAuthenticated()
 	if err != nil {
@@ -404,10 +405,7 @@ func (m *Manager) UnblockCommunication(ctx context.Context, steamID id.ID) error
 	return nil
 }
 
-// PostUserComment posts a text comment on the user's profile and returns the new comment ID.
-//
-// It returns an error if the request fails, if Steam returns an error message,
-// or if the comment element cannot be parsed from the returned HTML payload.
+// PostUserComment posts a text comment on a user profile.
 func (m *Manager) PostUserComment(ctx context.Context, steamID id.ID, message string) (string, error) {
 	client, err := m.ensureAuthenticated()
 	if err != nil {
@@ -444,12 +442,12 @@ func (m *Manager) PostUserComment(ctx context.Context, steamID id.ID, message st
 
 	firstComment := doc.Find(".commentthread_comment").First()
 	if firstComment.Length() == 0 {
-		return "", errors.New("friends: new comment not found in returned HTML")
+		return "", ErrCommentNotFound
 	}
 
 	idAttr, exists := firstComment.Attr("id")
 	if !exists {
-		return "", errors.New("friends: new comment missing id attribute")
+		return "", ErrCommentMissingID
 	}
 
 	parts := strings.Split(idAttr, "_")
@@ -460,10 +458,7 @@ func (m *Manager) PostUserComment(ctx context.Context, steamID id.ID, message st
 	return parts[1], nil
 }
 
-// DeleteUserComment deletes a text comment on the user's profile.
-//
-// It returns an error if the request fails, if Steam returns an error message,
-// or if the comment remains inside the returned HTML payload.
+// DeleteUserComment deletes a profile comment by commentID.
 func (m *Manager) DeleteUserComment(ctx context.Context, steamID id.ID, commentID string) error {
 	client, err := m.ensureAuthenticated()
 	if err != nil {
@@ -496,16 +491,13 @@ func (m *Manager) DeleteUserComment(ctx context.Context, steamID id.ID, commentI
 	}
 
 	if strings.Contains(resp.CommentsHTML, commentID) {
-		return errors.New("friends: failed to delete comment (comment still in HTML)")
+		return ErrDeleteCommentInHTML
 	}
 
 	return nil
 }
 
-// GetUserComments retrieves a list of profile comments for the specified user.
-//
-// It returns the parsed comment list, the total number of comments available on the profile,
-// and any error encountered during network request or HTML parsing.
+// GetUserComments fetches profile comments for steamID.
 func (m *Manager) GetUserComments(ctx context.Context, steamID id.ID, start, count int) ([]Comment, int, error) {
 	client, err := m.ensureAuthenticated()
 	if err != nil {
@@ -552,7 +544,6 @@ func (m *Manager) GetUserComments(ctx context.Context, steamID id.ID, start, cou
 		}
 
 		commentID := parts[1]
-
 		miniprofile, _ := s.Find("[data-miniprofile]").Attr("data-miniprofile")
 
 		var authorSteamID id.ID
@@ -587,7 +578,6 @@ func (m *Manager) GetUserComments(ctx context.Context, steamID id.ID, start, cou
 	return comments, resp.TotalCount, nil
 }
 
-// UIMode constants represent the client user interface modes.
 const (
 	UIModeNone       uint32 = 0
 	UIModeDesktop    uint32 = 1
@@ -596,7 +586,7 @@ const (
 	UIModeWeb        uint32 = 4
 )
 
-// SetUIMode sets your current client UI mode (e.g. Desktop, Mobile, Big Picture).
+// SetUIMode sets active client interface mode.
 func (m *Manager) SetUIMode(ctx context.Context, mode uint32) error {
 	req := &pb.CMsgClientUIMode{
 		Uimode: &mode,
@@ -607,23 +597,21 @@ func (m *Manager) SetUIMode(ctx context.Context, mode uint32) error {
 	return err
 }
 
-// UploadRichPresence uploads custom rich presence data to Steam for a specific AppID.
-// Example: richPresence = map[string]string{"steam_display": "#Status_AtMainMenu"}
+// UploadRichPresence uploads custom rich presence KeyValues data.
 func (m *Manager) UploadRichPresence(ctx context.Context, appID uint32, richPresence map[string]string) error {
 	var buf bytes.Buffer
 
-	// Binary Valve KeyValues (KV) format encoder
-	buf.WriteByte(0)            // Section start (type 0)
-	buf.Write([]byte("RP\x00")) // Section name "RP" null-terminated
+	buf.WriteByte(0)
+	buf.Write([]byte("RP\x00"))
 
 	for k, v := range richPresence {
-		buf.WriteByte(1)              // Value type String (type 1)
-		buf.Write([]byte(k + "\x00")) // Key name null-terminated
-		buf.Write([]byte(v + "\x00")) // Value string null-terminated
+		buf.WriteByte(1)
+		buf.Write([]byte(k + "\x00"))
+		buf.Write([]byte(v + "\x00"))
 	}
 
-	buf.WriteByte(8) // End of section (0x08)
-	buf.WriteByte(8) // End of KV document (0x08)
+	buf.WriteByte(8)
+	buf.WriteByte(8)
 
 	req := &pb.CMsgClientRichPresenceUpload{
 		RichPresenceKv: buf.Bytes(),
@@ -634,9 +622,7 @@ func (m *Manager) UploadRichPresence(ctx context.Context, appID uint32, richPres
 	return err
 }
 
-// CreateFriendInviteToken creates a quick-invite token/link that allows any user to add you.
-// limit: maximum number of uses allowed.
-// duration: invite link duration in seconds.
+// CreateFriendInviteToken generates a shareable quick-invite link token.
 func (m *Manager) CreateFriendInviteToken(ctx context.Context, limit, duration uint32) (string, error) {
 	req := &pb.CUserAccount_CreateFriendInviteToken_Request{
 		InviteLimit:    &limit,
@@ -653,7 +639,7 @@ func (m *Manager) CreateFriendInviteToken(ctx context.Context, limit, duration u
 	return resp.GetInviteToken(), nil
 }
 
-// GetFriendInviteTokens retrieves the list of active quick-invite tokens for this account.
+// GetFriendInviteTokens lists active quick-invite tokens.
 func (m *Manager) GetFriendInviteTokens(
 	ctx context.Context,
 ) ([]*pb.CUserAccount_CreateFriendInviteToken_Response, error) {
@@ -669,7 +655,7 @@ func (m *Manager) GetFriendInviteTokens(
 	return resp.GetTokens(), nil
 }
 
-// RevokeFriendInviteToken revokes (invalidates) an active quick-invite token.
+// RevokeFriendInviteToken invalidates a quick-invite token.
 func (m *Manager) RevokeFriendInviteToken(ctx context.Context, token string) error {
 	req := &pb.CUserAccount_RevokeFriendInviteToken_Request{
 		InviteToken: &token,
@@ -685,7 +671,7 @@ func (m *Manager) RevokeFriendInviteToken(ctx context.Context, token string) err
 	return nil
 }
 
-// ViewFriendInviteToken checks the validity of a quick-invite token belonging to another user.
+// ViewFriendInviteToken views details for a quick-invite token owned by steamID.
 func (m *Manager) ViewFriendInviteToken(
 	ctx context.Context,
 	steamID uint64,
@@ -706,9 +692,7 @@ func (m *Manager) ViewFriendInviteToken(
 	return resp, nil
 }
 
-// SetFriendNickname sets a custom nickname for a specific friend.
-//
-// It returns an error if the request fails or is rejected by Steam.
+// SetFriendNickname assigns a custom nickname to steamID.
 func (m *Manager) SetFriendNickname(ctx context.Context, steamID uint64, nickname string) error {
 	req := &pb.CMsgClientSetPlayerNickname{
 		Steamid:  proto.Uint64(steamID),
@@ -814,7 +798,6 @@ func (m *Manager) handleNotifyFriendNicknameChanged(packet *protocol.Packet) {
 	nickname := msg.GetNickname()
 
 	m.mu.Lock()
-	// Fallback for tests using short raw account IDs as SteamIDs
 	if _, ok := m.relationships.Get(id.ID(msg.GetAccountid())); ok {
 		sid = id.ID(msg.GetAccountid())
 	}
@@ -911,7 +894,7 @@ func (m *Manager) ensureAuthenticated() (community.Requester, error) {
 	m.mu.RUnlock()
 
 	if comm == nil {
-		return nil, errors.New("friends: community requester is not initialized")
+		return nil, ErrCommunityNotInitialized
 	}
 
 	return comm, nil

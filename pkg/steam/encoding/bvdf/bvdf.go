@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package bvdf provides tools to parse and unmarshal Valve Binary KeyValues (VDF) format files.
 package bvdf
 
 import (
@@ -35,34 +34,34 @@ const (
 )
 
 const (
-	// AppInfoMagic40 represents the magic signature of Steam appinfo.vdf version 40.
-	AppInfoMagic40 = 0x07564428
-	// AppInfoMagic41 represents the magic signature of Steam appinfo.vdf version 41.
-	AppInfoMagic41 = 0x07564429
-	// PackageInfoMagic39 represents the magic signature of Steam packageinfo.vdf version 39.
-	PackageInfoMagic39 = 0x06565527
-	// PackageInfoMagic40 represents the magic signature of Steam packageinfo.vdf version 40.
-	PackageInfoMagic40 = 0x06565528
-	// PackageInfoMagicBase represents the common base magic signature for packageinfo.vdf formats.
+	AppInfoMagic40       = 0x07564428
+	AppInfoMagic41       = 0x07564429
+	PackageInfoMagic39   = 0x06565527
+	PackageInfoMagic40   = 0x06565528
 	PackageInfoMagicBase = 0x065655
 )
 
-// ErrFormat is returned when the parser encounters invalid binary structures or signatures.
-var ErrFormat = errors.New("binary vdf: format error")
+var (
+	// ErrFormat indicates a corrupted binary VDF format structure.
+	ErrFormat = errors.New("binary vdf: format error")
+	// ErrAppInfoHeaderTooShort indicates appinfo payload is shorter than header size bounds.
+	ErrAppInfoHeaderTooShort = errors.New("bvdf: appinfo header too short")
+	// ErrPackageInfoHeaderTooShort indicates packageinfo payload is shorter than header size bounds.
+	ErrPackageInfoHeaderTooShort = errors.New("bvdf: packageinfo header too short")
+	// ErrStringTableTooShort indicates string table header is shorter than expected size.
+	ErrStringTableTooShort = errors.New("bvdf: string table too short")
+	// ErrUnterminatedCString indicates a C-string missing null-terminator byte.
+	ErrUnterminatedCString = errors.New("bvdf: unterminated c-string")
+)
 
-// Parser holds the active state of a Valve Binary KeyValues (VDF) decoder.
-// Direct use of this struct is typically discouraged. Users should call
-// [Unmarshal], [UnmarshalOffset], or [Parse] to perform decoding.
+// Parser holds the active state of a Valve Binary KeyValues decoder.
 type Parser struct {
 	data        []byte
 	offset      int
 	stringTable []string
 }
 
-// Unmarshal decodes Valve Binary KeyValues from a reader and stores the result in a target.
-// It returns [ErrFormat] if the payload structure is invalid, or decoder errors if mapstructure decoding fails.
-// The target argument must be a non-nil pointer to a map or a struct.
-// If the reader is nil or empty, Unmarshal returns a read error or [ErrFormat].
+// Unmarshal decodes binary VDF data from reader into target.
 func Unmarshal(r io.Reader, target any) error {
 	data, err := io.ReadAll(r)
 	if err != nil {
@@ -89,10 +88,7 @@ func Unmarshal(r io.Reader, target any) error {
 	return decodeMapstructure(parsed, target)
 }
 
-// UnmarshalOffset decodes Valve Binary KeyValues starting from the specified index.
-// It updates the offset pointer with the new byte boundary position upon successful decoding.
-// It returns [ErrFormat] or structure mapping errors if the data is corrupted.
-// Both data and target must be non-nil. The offset pointer must not be nil or it will panic.
+// UnmarshalOffset decodes binary VDF starting at offset.
 func UnmarshalOffset(data []byte, offset *int, target any) error {
 	p := &Parser{data: data, offset: *offset}
 
@@ -131,10 +127,7 @@ func decodeMapstructure(input map[string]any, target any) error {
 	return decoder.Decode(input)
 }
 
-// Parse detects the specific Valve Binary KeyValues format and decodes it.
-// It recognizes appinfo and packageinfo file headers and routes parsing accordingly.
-// It returns [ErrFormat] or specific file format validation errors if parsing fails.
-// If the data slice is nil or empty, Parse returns an unexpected end of file error.
+// Parse detects binary format magic headers (appinfo/packageinfo) and routes parsing.
 func Parse(data []byte) (any, error) {
 	if len(data) >= 4 {
 		magic := binary.LittleEndian.Uint32(data[0:4])
@@ -159,13 +152,10 @@ func Parse(data []byte) (any, error) {
 	return p.parse()
 }
 
-// ParseAppInfo decodes Steam appinfo.vdf binary data into Go structures.
-// It expects data to match [AppInfoMagic40] or [AppInfoMagic41] magic signatures.
-// It returns formatting errors if headers are too short or if individual app entries are corrupted.
-// The data slice must contain a valid appinfo header and payload.
+// ParseAppInfo decodes appinfo.vdf binary data.
 func ParseAppInfo(data []byte) (any, error) {
 	if len(data) < 16 {
-		return nil, errors.New("bvdf: appinfo header too short")
+		return nil, ErrAppInfoHeaderTooShort
 	}
 
 	magic := binary.LittleEndian.Uint32(data[0:4])
@@ -255,13 +245,10 @@ func ParseAppInfo(data []byte) (any, error) {
 	}, nil
 }
 
-// ParsePackageInfo decodes Steam packageinfo.vdf binary data into Go structures.
-// It expects data to match [PackageInfoMagicBase] and a supported version like version 39 or 40.
-// It returns formatting errors if headers are too short or if package metadata parsing fails.
-// The data slice must contain a valid packageinfo header and payload.
+// ParsePackageInfo decodes packageinfo.vdf binary data.
 func ParsePackageInfo(data []byte) (any, error) {
 	if len(data) < 8 {
-		return nil, errors.New("bvdf: packageinfo header too short")
+		return nil, ErrPackageInfoHeaderTooShort
 	}
 
 	magic := binary.LittleEndian.Uint32(data[0:4])
@@ -282,9 +269,9 @@ func ParsePackageInfo(data []byte) (any, error) {
 
 	var headerSize int
 	if hasToken {
-		headerSize = 36 // PACKAGEINFO_ENTRY_HEADER_SIZE_V40 (ID + Hash + ChangeNumber + Token)
+		headerSize = 36
 	} else {
-		headerSize = 28 // PACKAGEINFO_ENTRY_HEADER_SIZE_V39 (ID + Hash + ChangeNumber)
+		headerSize = 28
 	}
 
 	offset := 8
@@ -341,7 +328,7 @@ func ParsePackageInfo(data []byte) (any, error) {
 
 func parseStringTable(data []byte) ([]string, error) {
 	if len(data) < 4 {
-		return nil, errors.New("bvdf: string table too short")
+		return nil, ErrStringTableTooShort
 	}
 
 	count := binary.LittleEndian.Uint32(data[0:4])
@@ -476,7 +463,7 @@ func (p *Parser) readKey() (string, error) {
 func (p *Parser) readCString() (string, error) {
 	end := bytes.IndexByte(p.data[p.offset:], 0)
 	if end == -1 {
-		return "", errors.New("unterminated c-string")
+		return "", ErrUnterminatedCString
 	}
 
 	str := string(p.data[p.offset : p.offset+end])

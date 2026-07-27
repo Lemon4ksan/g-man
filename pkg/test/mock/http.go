@@ -2,25 +2,23 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// test/mock/http.go
 package mock
 
 import (
 	"bytes"
 	"context"
-	json "github.com/goccy/go-json"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync"
 
+	json "github.com/goccy/go-json"
 	"github.com/lemon4ksan/aoni"
+
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 )
 
-// HTTPStub implements aoni.HTTPDoer, request.Requester, and community.Requester.
-// It unifies all HTTP and Steam Community mocking under a single, thread-safe stub.
 type HTTPStub struct {
 	mu sync.RWMutex
 
@@ -35,7 +33,6 @@ type HTTPStub struct {
 	MockSessionID string
 }
 
-// NewHTTPStub instantiates a new HTTPStub with production-ready defaults.
 func NewHTTPStub() *HTTPStub {
 	return &HTTPStub{
 		ResponseErrs:  make(map[string]error),
@@ -47,35 +44,32 @@ func NewHTTPStub() *HTTPStub {
 	}
 }
 
-// SessionID fulfills the community.SessionProvider interface.
 func (s *HTTPStub) SessionID(baseURL string) string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+
 	return s.MockSessionID
 }
 
-// SetSessionID updates the stubbed session ID.
 func (s *HTTPStub) SetSessionID(sid string) {
 	s.mu.Lock()
 	s.MockSessionID = sid
 	s.mu.Unlock()
 }
 
-// GetOrRegisterAPIKey fulfills the community.Requester interface.
 func (s *HTTPStub) GetOrRegisterAPIKey(ctx context.Context, domain string) (string, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+
 	return s.apiKey, nil
 }
 
-// SetAPIKey updates the stubbed WebAPI key.
 func (s *HTTPStub) SetAPIKey(key string) {
 	s.mu.Lock()
 	s.apiKey = key
 	s.mu.Unlock()
 }
 
-// Do fulfills the aoni.HTTPDoer interface.
 func (s *HTTPStub) Do(req *http.Request) (*http.Response, error) {
 	s.mu.Lock()
 	s.Calls = append(s.Calls, req)
@@ -87,7 +81,6 @@ func (s *HTTPStub) Do(req *http.Request) (*http.Response, error) {
 	key, _ := url.PathUnescape(req.URL.String())
 	path, _ := url.PathUnescape(strings.TrimPrefix(req.URL.Path, "/"))
 
-	// Fallback lookup: Full URL -> Path suffix -> Default fallback
 	matchErrKey := key
 	if _, exists := s.ResponseErrs[matchErrKey]; !exists {
 		if _, exists := s.ResponseErrs[path]; exists {
@@ -123,7 +116,6 @@ func (s *HTTPStub) Do(req *http.Request) (*http.Response, error) {
 	}, nil
 }
 
-// Request fulfills the request.Requester interface.
 func (s *HTTPStub) Request(
 	ctx context.Context,
 	method, path string,
@@ -132,6 +124,7 @@ func (s *HTTPStub) Request(
 	urlStr := community.BaseURL + path
 	req, _ := http.NewRequestWithContext(ctx, method, urlStr, nil)
 	stdReq := aoni.NewStdRequest(req)
+
 	for _, mod := range mods {
 		mod(stdReq)
 	}
@@ -156,31 +149,29 @@ func (s *HTTPStub) Request(
 			s.headers[resolvedPath] = s.headers[path]
 		}
 	}
+
 	s.mu.Unlock()
 
 	return s.Do(req)
 }
 
-// SetRawResponse registers a raw byte slice response for a path/URL.
 func (s *HTTPStub) SetRawResponse(key string, statusCode int, data []byte) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	s.responses[key] = data
 	s.statusCodes[key] = statusCode
 }
 
-// SetJSONResponse serializes and registers an object response for a path/URL.
 func (s *HTTPStub) SetJSONResponse(key string, statusCode int, obj any) {
 	b, _ := json.Marshal(obj)
 	s.SetRawResponse(key, statusCode, b)
 }
 
-// SetHTMLResponse registers an HTML string response for a path/URL.
 func (s *HTTPStub) SetHTMLResponse(key string, statusCode int, html string) {
 	s.SetRawResponse(key, statusCode, []byte(html))
 }
 
-// SetRedirect registers a 302 redirect response for a path/URL.
 func (s *HTTPStub) SetRedirect(key, location string) {
 	s.mu.Lock()
 	s.statusCodes[key] = http.StatusFound
@@ -190,39 +181,40 @@ func (s *HTTPStub) SetRedirect(key, location string) {
 	s.mu.Unlock()
 }
 
-// GetLastCall returns the last captured HTTP request.
 func (s *HTTPStub) GetLastCall() *http.Request {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+
 	if len(s.Calls) == 0 {
 		return nil
 	}
+
 	return s.Calls[len(s.Calls)-1]
 }
 
-// GetLastCallParams returns the parameters (Query or Form) of the last call.
 func (s *HTTPStub) GetLastCallParams() url.Values {
 	req := s.GetLastCall()
 	if req == nil {
 		return nil
 	}
+
 	if req.Method == http.MethodPost {
 		_ = req.ParseForm()
 		return req.PostForm
 	}
+
 	return req.URL.Query()
 }
 
-// ClearCalls clears the captured calls history.
 func (s *HTTPStub) ClearCalls() {
 	s.mu.Lock()
 	s.Calls = nil
 	s.mu.Unlock()
 }
 
-// CallsCount returns the number of captured calls.
 func (s *HTTPStub) CallsCount() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+
 	return len(s.Calls)
 }

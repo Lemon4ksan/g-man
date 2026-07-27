@@ -16,23 +16,16 @@ import (
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
 )
 
-// UnifiedTarget represents a modern Steam Service method call.
-// It supports both HTTP routing (via path) and Socket routing (via EMsg).
+// UnifiedTarget represents a Service method target supporting both WebAPI and socket calls.
 type UnifiedTarget struct {
-	// HttpMethod is the verb used for web requests (default is POST).
 	HttpMethod string
-	// Interface is the name of the service (for example, "Player").
-	Interface string
-	// Method is the name of the RPC function (for example, "GetNickname").
-	Method string
-	// Version is the API version (for example, 1).
-	Version int
-	// IsService determines if the "Service" suffix is appended to the interface name in HTTP paths.
-	IsService bool
+	Interface  string
+	Method     string
+	Version    int
+	IsService  bool
 }
 
-// NewUnifiedRequest creates a transport request for a Service method.
-// The msg parameter can be a proto.Message, raw []byte, or a struct (which will be JSON encoded).
+// NewUnifiedRequest constructs a transport request for a Unified Service call.
 func NewUnifiedRequest(httpMethod, iface, method string, version int, msg any) (*tr.Request, error) {
 	body, err := marshalBody(msg)
 	if err != nil {
@@ -50,12 +43,10 @@ func NewUnifiedRequest(httpMethod, iface, method string, version int, msg any) (
 	return tr.NewRequest(target, bytes.NewReader(body)), nil
 }
 
-// String returns a human-readable identifier for the UnifiedTarget.
 func (u *UnifiedTarget) String() string {
 	return fmt.Sprintf("%s.%s#%d", u.Interface, u.Method, u.Version)
 }
 
-// HTTPMethod returns "POST" if not explicitly set, as Unified Services require a body.
 func (u *UnifiedTarget) HTTPMethod() string {
 	if u.HttpMethod != "" {
 		return u.HttpMethod
@@ -64,7 +55,6 @@ func (u *UnifiedTarget) HTTPMethod() string {
 	return "POST"
 }
 
-// HTTPPath constructs the Steam URL path, e.g., "IPlayerService/GetNickname/v1".
 func (u *UnifiedTarget) HTTPPath() string {
 	iface := u.Interface
 	if !strings.HasPrefix(iface, "I") {
@@ -78,7 +68,6 @@ func (u *UnifiedTarget) HTTPPath() string {
 	return fmt.Sprintf("%s/%s/v%d", iface, u.Method, u.Version)
 }
 
-// EMsg returns the appropriate EMsg for socket-based service calls.
 func (u *UnifiedTarget) EMsg(isAuth bool) enums.EMsg {
 	if isAuth {
 		return enums.EMsg_ServiceMethodCallFromClient
@@ -87,16 +76,11 @@ func (u *UnifiedTarget) EMsg(isAuth bool) enums.EMsg {
 	return enums.EMsg_ServiceMethodCallFromClientNonAuthed
 }
 
-// SetHTTPMethod updates the HTTP method for the target.
 func (u *UnifiedTarget) SetHTTPMethod(method string) { u.HttpMethod = method }
+func (u *UnifiedTarget) SetVersion(v int)            { u.Version = v }
+func (u *UnifiedTarget) ObjectName() string          { return u.String() }
 
-// SetVersion updates the API method version for the target.
-func (u *UnifiedTarget) SetVersion(v int) { u.Version = v }
-
-// ObjectName returns the name for the socket representation of the target.
-func (u *UnifiedTarget) ObjectName() string { return u.String() }
-
-// WebAPITarget represents a classic JSON/VDF WebAPI call.
+// WebAPITarget represents standard WebAPI endpoints.
 type WebAPITarget struct {
 	HttpMethod string
 	Interface  string
@@ -104,7 +88,7 @@ type WebAPITarget struct {
 	Version    int
 }
 
-// NewWebAPIRequest creates a transport request for a standard WebAPI endpoint.
+// NewWebAPIRequest constructs a transport request for a standard WebAPI call.
 func NewWebAPIRequest(httpMethod, iface, method string, version int) *tr.Request {
 	return tr.NewRequest(&WebAPITarget{
 		HttpMethod: httpMethod,
@@ -114,32 +98,24 @@ func NewWebAPIRequest(httpMethod, iface, method string, version int) *tr.Request
 	}, nil)
 }
 
-// String returns a human-readable identifier for the WebAPITarget.
 func (w *WebAPITarget) String() string { return w.Interface + "/" + w.Method }
 
-// HTTPMethod returns the configured HTTP method.
 func (w *WebAPITarget) HTTPMethod() string { return w.HttpMethod }
 
-// HTTPPath constructs the Steam WebAPI URL path.
 func (w *WebAPITarget) HTTPPath() string {
 	return fmt.Sprintf("%s/%s/v%d", w.Interface, w.Method, w.Version)
 }
 
-// SetHTTPMethod updates the HTTP method for the target.
 func (w *WebAPITarget) SetHTTPMethod(m string) { w.HttpMethod = m }
+func (w *WebAPITarget) ObjectName() string     { return fmt.Sprintf("%s/%s", w.Interface, w.Method) }
+func (w *WebAPITarget) SetVersion(v int)       { w.Version = v }
 
-// ObjectName returns the WebAPI method name for identification purposes.
-func (w *WebAPITarget) ObjectName() string { return fmt.Sprintf("%s/%s", w.Interface, w.Method) }
-
-// SetVersion updates the WebAPI version for the target.
-func (w *WebAPITarget) SetVersion(v int) { w.Version = v }
-
-// LegacyTarget represents a raw EMsg-based message used in socket connections.
+// LegacyTarget represents raw EMsg socket calls.
 type LegacyTarget struct {
 	eMsg enums.EMsg
 }
 
-// NewLegacyRequest creates a request identified solely by its EMsg.
+// NewLegacyRequest constructs a transport request for an EMsg socket call.
 func NewLegacyRequest(eMsg enums.EMsg, msg proto.Message) (*tr.Request, error) {
 	body, err := marshalBody(msg)
 	if err != nil {
@@ -149,7 +125,7 @@ func NewLegacyRequest(eMsg enums.EMsg, msg proto.Message) (*tr.Request, error) {
 	return tr.NewRequest(&LegacyTarget{eMsg}, bytes.NewReader(body)), nil
 }
 
-// NewLegacyProtoRequest forces a Protobuf CM header for the outer Steam packet.
+// NewLegacyProtoRequest constructs a transport request for an EMsg socket call forcing Protobuf headers.
 func NewLegacyProtoRequest(eMsg enums.EMsg, msg proto.Message) (*tr.Request, error) {
 	req, err := NewLegacyRequest(eMsg, msg)
 	if err != nil {
@@ -159,14 +135,9 @@ func NewLegacyProtoRequest(eMsg enums.EMsg, msg proto.Message) (*tr.Request, err
 	return req.WithForceProto(), nil
 }
 
-// String returns the string representation of the underlying EMsg.
-func (l *LegacyTarget) String() string { return l.eMsg.String() }
-
-// EMsg returns the associated EMsg for the target.
+func (l *LegacyTarget) String() string              { return l.eMsg.String() }
 func (l *LegacyTarget) EMsg(isAuth bool) enums.EMsg { return l.eMsg }
-
-// ObjectName returns an empty string as legacy targets do not have object names.
-func (l *LegacyTarget) ObjectName() string { return "" }
+func (l *LegacyTarget) ObjectName() string          { return "" }
 
 func marshalBody(msg any) ([]byte, error) {
 	if msg == nil {

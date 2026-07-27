@@ -13,19 +13,20 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 )
 
-// DeviceConfig allows customizing how the client presents itself to Steam.
+var (
+	ErrMissingAccountOrToken = errors.New("auth: account name or refresh token is required")
+	ErrMissingPassword       = errors.New("auth: password is required when refresh token is missing")
+)
+
+// DeviceConfig configures hardware and platform properties presented to Steam servers during logon.
 type DeviceConfig struct {
-	// DeviceFriendlyName is the readable brand identifier of the simulated hardware.
 	DeviceFriendlyName string
-	// PlatformType is the category platform identifier.
-	PlatformType pb.EAuthTokenPlatformType
-	// OSType is the operating system identifier.
-	OSType enums.EOSType
-	// GamingDeviceType is the hardware form factor type (usually 1 for Desktop).
-	GamingDeviceType uint32
+	PlatformType       pb.EAuthTokenPlatformType
+	OSType             enums.EOSType
+	GamingDeviceType   uint32
 }
 
-// DefaultDeviceConfig returns settings mimicking the official Steam Desktop Client on Windows.
+// DefaultDeviceConfig builds standard desktop client parameters.
 func DefaultDeviceConfig() DeviceConfig {
 	hostname, err := os.Hostname()
 	if err != nil || hostname == "" {
@@ -40,70 +41,23 @@ func DefaultDeviceConfig() DeviceConfig {
 	}
 }
 
-// LogOnDetails contains all parameters needed to authenticate with Steam.
-// The struct supports multiple authentication methods:
-//
-//  1. Refresh Token (modern, preferred):
-//     RefreshToken = "eyJ..." // JWT token from previous session
-//
-//  2. Password + Steam Guard:
-//     AccountName = "username"
-//     Password    = "password"
-//     AuthCode    = "ABC123" (optional, for email Steam Guard)
-//     TwoFactorCode = "123456" (optional, for mobile 2FA)
-//
-//  3. Anonymous:
-//     (no credentials) // Limited functionality
+// LogOnDetails encapsulates parameters required for Steam authentication via tokens or credentials.
 type LogOnDetails struct {
-	// AccountName is the Steam username for password authentication.
-	// Ignored if RefreshToken is provided.
-	AccountName string
-
-	// Password is the account password.
-	Password string
-
-	// RefreshToken is a JWT token from a previous successful login.
-	// This is the preferred authentication method as it's more secure
-	// and doesn't require storing passwords.
-	RefreshToken string
-
-	// AccessToken is a short-lived token that is generated during login.
-	AccessToken string
-
-	// SteamID can be provided to avoid looking it up during login.
-	// If not provided, it will be extracted from the refresh token or
-	// obtained during authentication.
-	SteamID id.ID
-
-	// AuthCode is the email-based Steam Guard code.
-	// Required when Steam Guard is enabled and not using 2FA.
-	AuthCode string
-
-	// TwoFactorCode is the mobile authenticator code.
-	// Required when 2FA is enabled.
-	TwoFactorCode string
-
-	// MachineID is the unique machine identifier for the client.
-	MachineID []byte
-
-	// MachineName is the name of the machine the client is running on (os.Hostname()).
-	MachineName string
-
-	// ClientOSType identifies the client operating system.
-	// Defaults to Windows 10 if not specified.
-	ClientOSType uint32
-
-	// ProtocolVersion is the Steam protocol version.
-	// Defaults to [ProtocolVersion] if not specified.
+	AccountName     string
+	Password        string
+	RefreshToken    string
+	AccessToken     string
+	SteamID         id.ID
+	AuthCode        string
+	TwoFactorCode   string
+	MachineID       []byte
+	MachineName     string
+	ClientOSType    uint32
 	ProtocolVersion uint32
-
-	// ClientLanguage specifies the language the client should use.
-	// Defaults to "english" if not specified.
-	ClientLanguage string
+	ClientLanguage  string
 }
 
-// Validate checks if the LogOnDetails contains valid authentication credentials.
-// It returns an error if the details are incomplete or invalid.
+// Validate checks completeness of logon parameters.
 func (l *LogOnDetails) Validate() error {
 	if l.ClientOSType == 0 {
 		l.ClientOSType = uint32(enums.EOSType_Windows10)
@@ -118,25 +72,24 @@ func (l *LogOnDetails) Validate() error {
 	}
 
 	if l.RefreshToken == "" && l.AccountName == "" {
-		return errors.New("auth: account name or refresh token is required")
+		return ErrMissingAccountOrToken
 	}
 
 	if l.RefreshToken == "" && l.Password == "" {
-		return errors.New("auth: password is required when refresh token is missing")
+		return ErrMissingPassword
 	}
 
 	return nil
 }
 
-// Wipe clears sensitive fields from the LogOnDetails to prevent credentials
-// from lingering in memory after authentication is complete.
+// Wipe clears sensitive password and 2FA strings from memory.
 func (l *LogOnDetails) Wipe() {
 	l.Password = ""
 	l.AuthCode = ""
 	l.TwoFactorCode = ""
 }
 
-// NewLogOnDetails creates a new structure with default fields.
+// NewLogOnDetails constructs a LogOnDetails instance with defaults.
 func NewLogOnDetails(account, password string) *LogOnDetails {
 	hostname, err := os.Hostname()
 	if err != nil || hostname == "" {

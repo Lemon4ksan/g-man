@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package id parses, validates, and resolves unique 64-bit Steam identifiers.
 package id
 
 import (
@@ -17,42 +16,37 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 )
 
-// ID represents a unique 64-bit Steam identifier.
-// Bit structure:
-// [ 8 bits: Universe | 4 bits: Account Type | 20 bits: Instance | 32 bits: Account ID ]
-//
-// Create new instances of ID using [New], [Parse], [FromAccountID], or [Resolve].
-// To verify if a parsed ID contains valid bits within a plausible range, use [ID.IsValid].
+// ID represents a 64-bit Steam identifier.
+// Bit structure: [ 8 bits: Universe | 4 bits: Account Type | 20 bits: Instance | 32 bits: Account ID ].
 type ID uint64
 
 const (
-	// InvalidID is the default null value for a Steam [ID].
 	InvalidID ID = 0
 
-	// IndividualBase is the base 64-bit ID for individual accounts in the public universe.
 	IndividualBase ID = ID(
 		(uint64(UniversePublic) << 56) | (uint64(AccountTypeIndividual) << 52) | (1 << 32),
-	) // 76561197960265728
+	)
 )
 
-// Universe defines the Steam network universe.
-// Retrieve an account's universe using the [ID.Universe] method.
+var (
+	// ErrInvalidInputFormat indicates an input string could not be parsed as a Steam ID or profile URL.
+	ErrInvalidInputFormat = errors.New("steamid: invalid input format")
+	// ErrEmptyTradeURL indicates an empty trade offer URL string was passed.
+	ErrEmptyTradeURL = errors.New("steamid: trade url is empty")
+	// ErrMissingPartnerParam indicates a trade URL lacked the 'partner' query parameter.
+	ErrMissingPartnerParam = errors.New("steamid: missing partner parameter in trade URL")
+)
+
 type Universe uint8
 
 const (
-	// UniverseInvalid represents an uninitialized or invalid universe.
-	UniverseInvalid Universe = 0
-	// UniversePublic represents the standard public Steam network.
-	UniversePublic Universe = 1
-	// UniverseBeta represents the Steam beta network.
-	UniverseBeta Universe = 2
-	// UniverseInternal represents Valve's internal network.
+	UniverseInvalid  Universe = 0
+	UniversePublic   Universe = 1
+	UniverseBeta     Universe = 2
 	UniverseInternal Universe = 3
-	// UniverseDev represents the Steam development network.
-	UniverseDev Universe = 4
+	UniverseDev      Universe = 4
 )
 
-// String returns a human-readable representation of the [Universe].
 func (u Universe) String() string {
 	switch u {
 	case UniverseInvalid:
@@ -70,36 +64,22 @@ func (u Universe) String() string {
 	}
 }
 
-// AccountType defines the classification of the account.
-// Retrieve an account's classification using the [ID.Type] method.
 type AccountType uint8
 
 const (
-	// AccountTypeInvalid represents an invalid or unknown account type.
-	AccountTypeInvalid AccountType = 0
-	// AccountTypeIndividual represents a standard user account.
-	AccountTypeIndividual AccountType = 1
-	// AccountTypeMultiseat represents a shared account (legacy).
-	AccountTypeMultiseat AccountType = 2
-	// AccountTypeGameServer represents an official game server.
-	AccountTypeGameServer AccountType = 3
-	// AccountTypeAnonGameServer represents an anonymous game server.
+	AccountTypeInvalid        AccountType = 0
+	AccountTypeIndividual     AccountType = 1
+	AccountTypeMultiseat      AccountType = 2
+	AccountTypeGameServer     AccountType = 3
 	AccountTypeAnonGameServer AccountType = 4
-	// AccountTypePending represents a pending account.
-	AccountTypePending AccountType = 5
-	// AccountTypeContentServer represents a Steam content server.
-	AccountTypeContentServer AccountType = 6
-	// AccountTypeClan represents a Steam Group (Clan).
-	AccountTypeClan AccountType = 7
-	// AccountTypeChat represents a Steam chat room.
-	AccountTypeChat AccountType = 8
-	// AccountTypeConsoleUser represents a legacy console user.
-	AccountTypeConsoleUser AccountType = 9
-	// AccountTypeAnonUser represents an anonymous user account.
-	AccountTypeAnonUser AccountType = 10
+	AccountTypePending        AccountType = 5
+	AccountTypeContentServer  AccountType = 6
+	AccountTypeClan           AccountType = 7
+	AccountTypeChat           AccountType = 8
+	AccountTypeConsoleUser    AccountType = 9
+	AccountTypeAnonUser       AccountType = 10
 )
 
-// String returns a human-readable representation of the [AccountType].
 func (a AccountType) String() string {
 	switch a {
 	case AccountTypeInvalid:
@@ -131,19 +111,15 @@ func (a AccountType) String() string {
 
 var rxURL = regexp.MustCompile(`(?:https?://)?steamcommunity\.com/(?:profiles|id)/([a-zA-Z0-9_-]+)`)
 
-// New constructs an [ID] from a raw 64-bit unsigned integer.
-// It returns [InvalidID] if the input integer is 0.
+// New constructs an ID from a raw 64-bit unsigned integer.
 func New(id uint64) ID { return ID(id) }
 
-// FromAccountID creates a standard individual [ID] in the public universe from a 32-bit AccountID.
-// If the accountID argument is 0, it still constructs an individual ID with Account ID set to 0.
+// FromAccountID converts a 32-bit account ID into a 64-bit individual public universe Steam ID.
 func FromAccountID(accountID uint32) ID {
 	return ID(accountID) + IndividualBase
 }
 
-// Parse parses a string representation of a Steam ID into an [ID].
-// It supports parsing legacy Steam2 formats, modern Steam3 formats, and raw 64-bit string values.
-// It returns [InvalidID] if the input string is empty, malformed, or invalid.
+// Parse parses string representations of 64-bit raw IDs, legacy Steam2 (STEAM_0:1:...), or Steam3 ([U:1:...]) formats.
 func Parse(s string) ID {
 	if len(s) == 0 {
 		return InvalidID
@@ -158,7 +134,7 @@ func Parse(s string) ID {
 	}
 
 	if strings.HasPrefix(s, "STEAM_") {
-		rest := s[6:] // "0:1:19867136"
+		rest := s[6:]
 
 		idx1 := strings.IndexByte(rest, ':')
 		if idx1 == -1 {
@@ -173,8 +149,8 @@ func Parse(s string) ID {
 		idx2 += idx1 + 1
 
 		authServer, err1 := strconv.ParseUint(rest[idx1+1:idx2], 10, 64)
-
 		accountID, err2 := strconv.ParseUint(rest[idx2+1:], 10, 64)
+
 		if err1 == nil && err2 == nil {
 			return ID(IndividualBase.Uint64() + (accountID * 2) + authServer)
 		}
@@ -198,31 +174,27 @@ func Parse(s string) ID {
 	return InvalidID
 }
 
-// AccountID returns the 32-bit portion of the [ID] representing the user's account number.
-// It returns 0 if the original [ID] is [InvalidID].
+// AccountID extracts the 32-bit account ID portion.
 func (id ID) AccountID() uint32 {
 	return uint32(uint64(id) & 0xFFFFFFFF)
 }
 
-// Instance returns the 20-bit portion of the [ID] representing the account instance.
-// It returns 0 if the original [ID] is [InvalidID].
+// Instance extracts the 20-bit instance portion.
 func (id ID) Instance() uint32 {
 	return uint32((uint64(id) >> 32) & 0xFFFFF)
 }
 
-// Type returns the account classification of the [ID] as an [AccountType].
-// It returns [AccountTypeInvalid] if the original [ID] is [InvalidID].
+// Type extracts the 4-bit account type descriptor.
 func (id ID) Type() AccountType {
 	return AccountType((uint64(id) >> 52) & 0xF)
 }
 
-// Universe returns the Steam network universe of the [ID] as a [Universe].
-// It returns [UniverseInvalid] if the original [ID] is [InvalidID].
+// Universe extracts the 8-bit universe descriptor.
 func (id ID) Universe() Universe {
 	return Universe((uint64(id) >> 56) & 0xFF)
 }
 
-// IsValid checks if the [ID] bits are within a plausible range of universes and account types.
+// IsValid reports whether universe and account type bits fall within standard valid ranges.
 func (id ID) IsValid() bool {
 	t := id.Type()
 	u := id.Universe()
@@ -230,48 +202,41 @@ func (id ID) IsValid() bool {
 	return u > UniverseInvalid && u <= UniverseDev && t > AccountTypeInvalid && t <= AccountTypeAnonUser
 }
 
-// Steam2 returns the legacy string representation of the [ID].
-// Calling this on an [InvalidID] or non-individual accounts yields a mathematically formatted legacy string.
+// Steam2 formats the ID as legacy "STEAM_0:X:YYYY".
 func (id ID) Steam2() string {
 	accID := uint64(id.AccountID())
+
 	return fmt.Sprintf("STEAM_0:%d:%d", accID%2, accID/2)
 }
 
-// Steam3 returns the modern string representation of the [ID].
-// Calling this on an [InvalidID] yields a formatted string with account ID set to 0.
+// Steam3 formats the ID as modern "[U:1:YYYY]".
 func (id ID) Steam3() string {
 	return fmt.Sprintf("[U:1:%d]", id.AccountID())
 }
 
-// String returns the raw 64-bit [ID] formatted as a decimal string.
 func (id ID) String() string {
 	return strconv.FormatUint(uint64(id), 10)
 }
 
-// Uint64 returns the raw 64-bit value of the [ID] as an unsigned integer.
 func (id ID) Uint64() uint64 {
 	return uint64(id)
 }
 
-// MarshalJSON encodes the [ID] as a JSON decimal string to prevent precision loss.
-// It conforms to the [encoding/json.Marshaler] interface.
 func (id ID) MarshalJSON() ([]byte, error) {
 	return fmt.Appendf(nil, `"%d"`, id), nil
 }
 
-// UnmarshalJSON decodes a JSON decimal string or numeric value into the [ID].
-// It conforms to the [encoding/json.Unmarshaler] interface.
-// If the JSON data is empty or represents a null value, the target is set to [InvalidID].
 func (id *ID) UnmarshalJSON(data []byte) error {
 	if len(data) == 0 {
 		*id = InvalidID
+
 		return nil
 	}
 
 	s := strings.Trim(string(data), `"`)
-
 	if s == "null" {
 		*id = InvalidID
+
 		return nil
 	}
 
@@ -285,10 +250,7 @@ func (id *ID) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// Resolve extracts a Steam [ID] from a raw string, profile URL, or custom vanity URL.
-// If the input is a vanity custom URL slug, Resolve queries the Steam WebAPI using the [service.Doer] client.
-// It returns [InvalidID] and an error if the input format is invalid, if vanity resolution fails, or if the context is cancelled.
-// Calling Resolve with a nil [service.Doer] client will result in a panic.
+// Resolve parses raw IDs, profile URLs, or vanity custom URL slugs using ISteamUser/ResolveVanityURL.
 func Resolve(ctx context.Context, d service.Doer, input string) (ID, error) {
 	input = strings.TrimSpace(input)
 	if id := Parse(input); id.IsValid() {
@@ -297,7 +259,7 @@ func Resolve(ctx context.Context, d service.Doer, input string) (ID, error) {
 
 	matches := rxURL.FindStringSubmatch(input)
 	if len(matches) < 2 {
-		return InvalidID, errors.New("steamid: invalid input format")
+		return InvalidID, ErrInvalidInputFormat
 	}
 
 	slug := matches[1]
@@ -308,9 +270,7 @@ func Resolve(ctx context.Context, d service.Doer, input string) (ID, error) {
 	return ResolveVanityURL(ctx, d, slug)
 }
 
-// ResolveVanityURL resolves a custom Steam vanity URL slug into a 64-bit [ID] using the Steam WebAPI.
-// It returns [InvalidID] and an error if the WebAPI request fails, if the context is cancelled, or if vanityURL is empty.
-// Calling ResolveVanityURL with a nil [service.Doer] client will result in a panic.
+// ResolveVanityURL resolves a custom vanity URL slug via WebAPI.
 func ResolveVanityURL(ctx context.Context, d service.Doer, vanityURL string) (ID, error) {
 	type response struct {
 		SteamID string `json:"steamid"`
@@ -322,7 +282,6 @@ func ResolveVanityURL(ctx context.Context, d service.Doer, vanityURL string) (ID
 		VanityURL string `url:"vanityurl"`
 	}{VanityURL: vanityURL}
 
-	// Using the WebAPI helper from the service package
 	res, err := service.WebAPI[response](ctx, d, "GET", "ISteamUser", "ResolveVanityURL", 1, req)
 	if err != nil {
 		return InvalidID, err
@@ -339,11 +298,10 @@ func ResolveVanityURL(ctx context.Context, d service.Doer, vanityURL string) (ID
 	return Parse(res.SteamID), nil
 }
 
-// ParseTradeURL parses a Steam trade link, extracting the partner's 64-bit [ID] and trade token.
-// It returns [InvalidID] and an error if tradeURL is empty, malformed, or missing query parameters.
+// ParseTradeURL extracts partner Steam ID and trade token from a trade offer link.
 func ParseTradeURL(tradeURL string) (ID, string, error) {
 	if tradeURL == "" {
-		return 0, "", errors.New("trade url is empty")
+		return 0, "", ErrEmptyTradeURL
 	}
 
 	u, err := url.Parse(tradeURL)
@@ -356,7 +314,7 @@ func ParseTradeURL(tradeURL string) (ID, string, error) {
 	token := params.Get("token")
 
 	if partnerStr == "" {
-		return 0, "", errors.New("missing partner parameter in trade URL")
+		return 0, "", ErrMissingPartnerParam
 	}
 
 	accountID, err := strconv.ParseUint(partnerStr, 10, 32)

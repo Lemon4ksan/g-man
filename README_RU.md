@@ -3,7 +3,7 @@
 <img src="assets/logo.png" alt="G-MAN Logo"/>
 
 [![Go Reference](https://img.shields.io/badge/go-reference-007d9c?logo=go&logoColor=white&style=flat-square)](https://pkg.go.dev/github.com/lemon4ksan/g-man)
-[![Coverage](https://img.shields.io/badge/coverage-94.5%25-brightgreen?style=flat-square&logo=go&logoColor=white)](https://github.com/lemon4ksan/g-man)
+[![Coverage](https://img.shields.io/badge/coverage-90%25-brightgreen?style=flat-square&logo=go&logoColor=white)](https://github.com/lemon4ksan/g-man)
 [![License](https://img.shields.io/github/license/lemon4ksan/g-man?style=flat-square)](LICENSE)
 [![Linter](https://img.shields.io/badge/linter-golangci--lint-brightgreen?style=flat-square&logo=go)](https://github.com/golangci/golangci-lint)
 

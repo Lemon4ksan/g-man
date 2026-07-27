@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package live manages real-time Steam trade invitations via the Steam Connection Manager (CM).
+// Package live manages real-time Steam live trade invitations via Connection Manager binary packets.
 package live
 
 import (
@@ -21,42 +21,33 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 )
 
-// ModuleName is the unique identifier for the live trading module.
 const ModuleName string = "offers"
 
-// WithModule returns a steam.Option that registers the trading module in the client.
+// WithModule registers the Manager module in the client.
 func WithModule() steam.Option {
 	return steam.WithModule(New())
 }
 
-// From returns the live trading module from the client.
+// From retrieves the Manager module instance from the client.
 func From(c *steam.Client) *Manager {
 	return steam.GetModule[*Manager](c)
 }
 
-// Manager handles trade invitations (proposing, accepting, canceling).
-//
-// It registers low-level binary message handlers on the client socket to monitor
-// incoming invitations, and manages real-time session transitions.
-// Create new instances of Manager using the [New] constructor.
 type Manager struct {
 	module.Base
 
-	// client is used to send Legacy Protobuf messages (EMsgs) to Steam.
 	client service.Doer
 
 	mu         sync.Mutex
 	unregFuncs []func()
 }
 
-// New creates a new instance of the trade offers manager.
 func New() *Manager {
 	return &Manager{
 		Base: module.New(ModuleName),
 	}
 }
 
-// Init registers network handlers for trade events.
 func (m *Manager) Init(init module.InitContext) error {
 	if err := m.Base.Init(init); err != nil {
 		return err
@@ -77,7 +68,6 @@ func (m *Manager) Init(init module.InitContext) error {
 	return nil
 }
 
-// Close ensures all packet handlers are removed and background tasks are stopped.
 func (m *Manager) Close() error {
 	m.mu.Lock()
 	for _, unreg := range m.unregFuncs {
@@ -90,9 +80,7 @@ func (m *Manager) Close() error {
 	return m.Base.Close()
 }
 
-// Invite sends a trade invitation to another Steam user.
-//
-// It returns an error if the underlying legacy packet transmission fails.
+// Invite sends a live trade invitation to another user.
 func (m *Manager) Invite(ctx context.Context, otherSteamID uint64) error {
 	req := &pb.CMsgTrading_InitiateTradeRequest{
 		OtherSteamid: proto.Uint64(otherSteamID),
@@ -108,9 +96,7 @@ func (m *Manager) Invite(ctx context.Context, otherSteamID uint64) error {
 	return nil
 }
 
-// CancelInvitation revokes a pending trade invitation sent to another user.
-//
-// It returns an error if the underlying legacy packet transmission fails.
+// CancelInvitation cancels an outgoing live trade invitation.
 func (m *Manager) CancelInvitation(ctx context.Context, otherSteamID uint64) error {
 	req := &pb.CMsgTrading_CancelTradeRequest{
 		OtherSteamid: proto.Uint64(otherSteamID),
@@ -123,9 +109,7 @@ func (m *Manager) CancelInvitation(ctx context.Context, otherSteamID uint64) err
 	return err
 }
 
-// RespondToInvite approves or declines an incoming trade invitation.
-//
-// It returns an error if the underlying legacy packet transmission fails.
+// RespondToInvite approves or declines an incoming live trade invitation.
 func (m *Manager) RespondToInvite(ctx context.Context, tradeID uint32, accept bool) error {
 	responseCode := enums.EEconTradeResponse_Declined
 	if accept {

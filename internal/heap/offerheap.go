@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package heap provides heap optimized structures for trading offers.
+// Package heap provides thread-safe priority queues for trade offer prioritization.
 package heap
 
 import (
@@ -15,7 +15,7 @@ import (
 type offerHeap []*trading.TradeOffer
 
 func (h offerHeap) Len() int           { return len(h) }
-func (h offerHeap) Less(i, j int) bool { return h[i].TimeUpdated < h[j].TimeUpdated } // Самый старый первым
+func (h offerHeap) Less(i, j int) bool { return h[i].TimeUpdated < h[j].TimeUpdated }
 func (h offerHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
 
 func (h *offerHeap) Push(x any) {
@@ -31,20 +31,24 @@ func (h *offerHeap) Pop() any {
 	return x
 }
 
-// PriorityQueue is a thread-safe wrapper around an offer heap with lazy cleanup.
+// PriorityQueue wraps an offer min-heap ordered by update timestamp.
+//
+// Thread Safety:
+//   - Safe for concurrent use across goroutines.
 type PriorityQueue struct {
 	mu    sync.Mutex
 	items offerHeap
 }
 
-// NewPriorityQueue creates a new PriorityQueue with an initial capacity of 64.
+// NewPriorityQueue constructs a PriorityQueue pre-allocated for 64 entries.
 func NewPriorityQueue() *PriorityQueue {
 	pq := &PriorityQueue{items: make(offerHeap, 0, 64)}
 	heap.Init(&pq.items)
+
 	return pq
 }
 
-// Push adds an offer to the priority queue.
+// Push adds an offer to the queue.
 func (pq *PriorityQueue) Push(off *trading.TradeOffer) {
 	if off == nil {
 		return
@@ -55,8 +59,7 @@ func (pq *PriorityQueue) Push(off *trading.TradeOffer) {
 	pq.mu.Unlock()
 }
 
-// Peek returns the oldest ACTIVE offer in O(1) amortized time.
-// isValid is a predicate function that checks if the offer is still valid in the Manager.
+// Peek inspects and returns the oldest valid offer without removing it, lazy-pruning invalid entries.
 func (pq *PriorityQueue) Peek(isValid func(off *trading.TradeOffer) bool) *trading.TradeOffer {
 	pq.mu.Lock()
 	defer pq.mu.Unlock()

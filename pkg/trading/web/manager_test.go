@@ -2006,3 +2006,23 @@ func TestIsPollDataEqual(t *testing.T) {
 		})
 	}
 }
+
+func isPollDataEqual(a, b trading.PollData) bool {
+	if a.OffersSince != b.OffersSince || len(a.Sent) != len(b.Sent) || len(a.Received) != len(b.Received) {
+		return false
+	}
+
+	for k, v := range a.Sent {
+		if b.Sent[k] != v {
+			return false
+		}
+	}
+
+	for k, v := range a.Received {
+		if b.Received[k] != v {
+			return false
+		}
+	}
+
+	return true
+}

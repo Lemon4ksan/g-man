@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package session provides a session orchestrator for Steam connections.
+// Package session orchestrates session credential lifecycles, OAuth2 tokens, and cookie synchronization across Steam transports.
 package session
 
 import (
@@ -34,96 +34,64 @@ import (
 )
 
 var (
-	// ErrMissingCredentials is returned when no cached credentials are available.
+	// ErrMissingCredentials indicates missing or uninitialized session tokens/credentials.
 	ErrMissingCredentials = errors.New("session: missing required credentials")
-	// ErrSocketNotConnected is returned by [Session.SetAccessToken] when the socket is not connected.
+	// ErrSocketNotConnected indicates that session token updates cannot be synchronized because the socket is offline.
 	ErrSocketNotConnected = errors.New("session: cannot refresh session: socket is not connected")
-	// ErrNoCommunityClient is returned by [Session.GetOrRegisterAPIKey] when the community client is not available.
+	// ErrNoCommunityClient indicates that the community client requested for WebAPI operations is unavailable.
 	ErrNoCommunityClient = errors.New("session: no community client available")
+	// ErrNilCredentials indicates an attempt to log in using nil credentials.
+	ErrNilCredentials = errors.New("session: cannot login with nil credentials")
 )
 
-// AuthenticatorProvider defines the contract for logging on to the Steam server.
+// AuthenticatorProvider performs network logon sequences against Steam Connection Managers.
 type AuthenticatorProvider interface {
-	// LogOn performs a network logon sequence using the provided credentials.
 	LogOn(ctx context.Context, details *auth.LogOnDetails, server socket.CMServer) error
 }
 
-// WebSessionProvider defines the contract for managing OIDC web sessions and cookie jars.
+// WebSessionProvider manages OIDC web sessions and cookie synchronization across Steam web domains.
 type WebSessionProvider interface {
-	// HTTP returns the underlying HTTP client containing session cookies.
 	HTTP() *http.Client
-	// SessionID returns the unique session ID string for the given base URL.
 	SessionID(baseURL string) string
-	// Verify checks if the current web session is active and valid.
 	Verify(ctx context.Context) (bool, error)
-	// Authenticate performs OIDC authentication using the given OAuth tokens.
 	Authenticate(ctx context.Context, platformType pb.EAuthTokenPlatformType, refreshToken, accessToken string) error
-	// IsAuthenticated reports whether the session has valid active credentials.
 	IsAuthenticated() bool
 }
 
-// SocketProvider defines the network socket operations required by [Session].
+// SocketProvider encapsulates socket operations required by Session.
 type SocketProvider interface {
 	auth.SocketProvider
-	// IsConnected reports whether the network socket is actively connected.
 	IsConnected() bool
-	// UpdateLogger sets a new logger instance for the socket.
 	UpdateLogger(logger log.Logger)
-	// UpdateServers updates the client's internal list of Connection Manager servers.
 	UpdateServers(servers []socket.CMServer)
-	// Send transmits a message asynchronously over the socket.
 	Send(ctx context.Context, build socket.PayloadBuilder, opts ...socket.SendOption) error
-	// SendSync transmits a message and blocks until a matching response is received.
-	// The caller is responsible for releasing the returned packet using [protocol.ReleasePacket].
 	SendSync(ctx context.Context, build socket.PayloadBuilder, opts ...socket.SendOption) (*protocol.Packet, error)
-	// RegisterServiceHandler registers a handler function for incoming unified service messages.
 	RegisterServiceHandler(method string, handler socket.Handler)
-	// Disconnect gracefully shuts down the current socket connection.
 	Disconnect() error
-	// Close permanently releases all socket resources.
 	Close() error
 }
 
-// WebSessionFactory constructs a custom [WebSessionProvider] instance.
+// WebSessionFactory constructs custom WebSessionProvider instances.
 type WebSessionFactory func(steamID id.ID, logger log.Logger, r any) WebSessionProvider
 
-// CommunityClientFactory constructs a custom [CommunityProvider] instance.
+// CommunityClientFactory constructs custom community requester instances.
 type CommunityClientFactory func(httpDoer aoni.HTTPDoer, sess community.SessionProvider, logger log.Logger) community.Requester
 
-// Config decouples configuration for [Session] from global client parameters.
-// Use [Config.ResolveDefaults] to initialize default fallback values.
+// Config configures the Session manager behavior and fallback providers.
 type Config struct {
-	// RefreshJobInterval specifies the interval at which the refresh loop runs.
-	// Default: 5 minutes.
 	RefreshJobInterval time.Duration
-	// Device specifies the hardware and platform information used during logon.
-	// Default: [auth.DefaultDeviceConfig].
-	Device *auth.DeviceConfig
-	// Storage provides persistent key-value storage for cached sessions.
-	// Default: [memory.New].
-	Storage storage.Provider
-	// HTTP defines the HTTP request executor for WebAPI calls.
-	// Default client is configured with 30 second timeout and default HTTP transport.
-	HTTP any
-	// WebAPIBase sets the target base URL for WebAPI requests.
-	// Default: [service.WebAPIBase].
-	WebAPIBase string
-	// Bus is the internal event bus used to dispatch session events.
-	Bus *bus.Bus
-	// Logger is the logger instance used by the session manager.
-	Logger log.Logger
-	// Authenticator is the provider used to authenticate with Steam CM servers.
-	// Default: [auth.NewAuthenticator].
-	Authenticator AuthenticatorProvider
-	// WebFactory constructs the provider used for web authentication.
-	// Default: [websession.New].
-	WebFactory WebSessionFactory
-	// CommunityFactory constructs the provider used for community interactions.
-	// Default: [community.New].
-	CommunityFactory CommunityClientFactory
+	Device             *auth.DeviceConfig
+	Storage            storage.Provider
+	HTTP               any
+	WebAPIBase         string
+	Bus                *bus.Bus
+	Logger             log.Logger
+	Authenticator      AuthenticatorProvider
+	WebFactory         WebSessionFactory
+	CommunityFactory   CommunityClientFactory
 }
 
-// ResolveDefaults initializes default values for unconfigured [Config] fields.
+// ResolveDefaults populates zero-value fields in Config with defaults.
 func (cfg *Config) ResolveDefaults() {
 	if cfg.RefreshJobInterval == 0 {
 		cfg.RefreshJobInterval = 5 * time.Minute
@@ -167,9 +135,10 @@ func (cfg *Config) ResolveDefaults() {
 	}
 }
 
-// Session orchestrates and maintains the lifetime of all Steam sessions (Socket & Web).
-// It manages OAuth2 token lifetime, cookie synchronization, and background verification.
-// Use [New] to construct a new session manager instance.
+// Session manages user authentication state, OAuth tokens, and session renewal loops.
+//
+// Thread Safety:
+//   - All methods are safe for concurrent access.
 type Session struct {
 	mu sync.RWMutex
 
@@ -186,8 +155,8 @@ type Session struct {
 	webFactory       WebSessionFactory
 	communityFactory CommunityClientFactory
 
-	unified   *service.Client // WebAPI Client (HTTP)
-	socketAPI *service.Client // CM Client (TCP/WS)
+	unified   *service.Client
+	socketAPI *service.Client
 
 	refreshLoopOnce    sync.Once
 	refreshJobInterval time.Duration
@@ -202,8 +171,7 @@ type Session struct {
 	enrichedSteamID id.ID
 }
 
-// New creates a new standalone, cohesive [Session] instance.
-// Falls back to standard defaults via [Config.ResolveDefaults] if [Config] is empty.
+// New constructs an initialized Session orchestrator.
 func New(socket SocketProvider, cfg Config) *Session {
 	cfg.ResolveDefaults()
 
@@ -236,11 +204,10 @@ func New(socket SocketProvider, cfg Config) *Session {
 	}
 }
 
-// Storage returns the configured persistent [storage.Provider] instance.
+// Storage returns the configured persistent storage provider.
 func (c *Session) Storage() storage.Provider { return c.storage }
 
-// SteamID returns the logged-in user's [id.ID] if a socket session exists.
-// Returns 0 if no active socket session is found.
+// SteamID returns the active user's 64-bit Steam ID, or 0 if unauthenticated.
 func (c *Session) SteamID() id.ID {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -256,8 +223,7 @@ func (c *Session) SteamID() id.ID {
 	return 0
 }
 
-// AccessToken returns the current OAuth2 access token if a socket session is active.
-// Returns an empty string if no session exists.
+// AccessToken returns the current OAuth2 access token, or an empty string if absent.
 func (c *Session) AccessToken() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -273,8 +239,7 @@ func (c *Session) AccessToken() string {
 	return ""
 }
 
-// RefreshToken returns the current OAuth2 refresh token if a socket session is active.
-// Returns an empty string if no session exists.
+// RefreshToken returns the current OAuth2 refresh token, or an empty string if absent.
 func (c *Session) RefreshToken() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -290,8 +255,7 @@ func (c *Session) RefreshToken() string {
 	return ""
 }
 
-// Community returns the active [community.Requester] instance.
-// Lazily initializes the community client if it has not been constructed.
+// Community returns the active community requester, lazily instantiating it if uninitialized.
 func (c *Session) Community() community.Requester {
 	c.mu.RLock()
 	comm := c.community
@@ -311,8 +275,7 @@ func (c *Session) Community() community.Requester {
 	return comm
 }
 
-// Web returns the active [WebSessionProvider] instance.
-// Lazily initializes the web session if it has not been constructed.
+// Web returns the active WebSessionProvider, lazily instantiating it if uninitialized.
 func (c *Session) Web() WebSessionProvider {
 	c.mu.RLock()
 	web := c.web
@@ -332,7 +295,7 @@ func (c *Session) Web() WebSessionProvider {
 	return web
 }
 
-// Socket returns the low-level service client communicating over socket transport.
+// Socket returns the service client configured for low-level socket transport.
 func (c *Session) Socket() *service.Client {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -340,7 +303,7 @@ func (c *Session) Socket() *service.Client {
 	return c.socketAPI
 }
 
-// Unified returns the service client communicating over unified HTTP WebAPI transport.
+// Unified returns the service client configured for WebAPI HTTP transport.
 func (c *Session) Unified() *service.Client {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -348,28 +311,30 @@ func (c *Session) Unified() *service.Client {
 	return c.unified
 }
 
-// IsAuthenticated reports whether the current web session is validated and active.
+// IsAuthenticated reports whether the current web session contains valid cookies.
 func (c *Session) IsAuthenticated() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
+
 	return c.web != nil && c.web.IsAuthenticated()
 }
 
-// IsSocketConnected reports whether the current socket connection is active.
+// IsSocketConnected reports whether the socket connection is currently active.
 func (c *Session) IsSocketConnected() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
+
 	return c.socket != nil && c.socket.IsConnected()
 }
 
-// SetLogonServer updates the target [socket.CMServer] address used for connections.
+// SetLogonServer updates the target Connection Manager server address.
 func (c *Session) SetLogonServer(s socket.CMServer) {
 	c.mu.Lock()
 	c.logonServer = s
 	c.mu.Unlock()
 }
 
-// SetAPIKey configures the web and socket API clients with the given Steam WebAPI key.
+// SetAPIKey configures WebAPI service clients with the specified Steam WebAPI key.
 func (c *Session) SetAPIKey(key string) {
 	c.mu.Lock()
 	c.unified = c.unified.WithAPIKey(key)
@@ -377,8 +342,10 @@ func (c *Session) SetAPIKey(key string) {
 	c.mu.Unlock()
 }
 
-// SetAccessToken updates the active OAuth2 access token across socket and API subsystems.
-// Returns [ErrSocketNotConnected] if no active network socket session exists.
+// SetAccessToken updates the OAuth2 access token across active socket and API clients.
+//
+// Returns:
+//   - ErrSocketNotConnected if no active socket session exists.
 func (c *Session) SetAccessToken(token string) error {
 	sess := c.socket.Session()
 	if sess == nil {
@@ -395,12 +362,14 @@ func (c *Session) SetAccessToken(token string) error {
 	return nil
 }
 
-// LogOn performs a full authentication sequence and initializes the web session.
-// Automatically fetches and configures the required Steam WebAPI key.
-// Returns an error if login, token refresh, or API key discovery fails, or if context ctx is canceled.
+// LogOn executes authentication, performs an initial token refresh, and auto-fetches WebAPI keys.
+//
+// Returns:
+//   - ErrNilCredentials if details is nil.
+//   - Error if authentication, initial refresh, or key retrieval fails.
 func (c *Session) LogOn(ctx context.Context, server socket.CMServer, details *auth.LogOnDetails) error {
 	if details == nil {
-		return errors.New("session: cannot login with nil credentials")
+		return ErrNilCredentials
 	}
 
 	c.EnrichLogger(details.AccountName, details.SteamID)
@@ -430,26 +399,17 @@ func (c *Session) LogOn(ctx context.Context, server socket.CMServer, details *au
 	return nil
 }
 
-// GetOrRegisterAPIKey retrieves the Steam WebAPI key, registering one for the domain if none exists.
-// Returns an error if the context ctx is canceled or the login attempt fails.
-// If the community client is not available, returns [ErrNoCommunityClient].
+// GetOrRegisterAPIKey retrieves or registers a Steam WebAPI key for the given domain.
 func (c *Session) GetOrRegisterAPIKey(ctx context.Context, name string) (string, error) {
 	comm := c.Community()
 	if comm == nil {
 		return "", ErrNoCommunityClient
 	}
 
-	apiKey, err := comm.GetOrRegisterAPIKey(ctx, name)
-	if err != nil {
-		return "", err
-	}
-
-	return apiKey, nil
+	return comm.GetOrRegisterAPIKey(ctx, name)
 }
 
-// Reconnect performs a login sequence using cached session details.
-// Returns [ErrMissingCredentials] if no logon details were stored.
-// Returns an error if the context ctx is canceled or the login attempt fails.
+// Reconnect resets web states and re-authenticates using cached logon details.
 func (c *Session) Reconnect(ctx context.Context) error {
 	c.mu.RLock()
 	details := c.logonDetails
@@ -470,15 +430,16 @@ func (c *Session) Reconnect(ctx context.Context) error {
 	return c.LogOn(ctx, server, details)
 }
 
-// Verify checks the validity of the active web session.
-// Returns an error if context ctx is canceled or the verification request fails.
+// Verify checks if the current web session cookies are valid.
 func (c *Session) Verify(ctx context.Context) (bool, error) {
 	return c.Web().Verify(ctx)
 }
 
-// Refresh performs a safe, deduplicated OAuth2 token refresh.
-// Returns [module.ErrClosed] if the session manager has been closed.
-// Returns [ErrMissingRefreshTokenOrSteamID] if required token parameters are absent.
+// Refresh performs single-flight deduplicated OAuth2 token generation and web session re-authentication.
+//
+// Returns:
+//   - module.ErrClosed if the session is closed.
+//   - ErrMissingCredentials if refresh token or SteamID is missing.
 func (c *Session) Refresh(ctx context.Context) error {
 	if c.closed.Load() {
 		return module.ErrClosed
@@ -526,9 +487,7 @@ func (c *Session) doRefresh(ctx context.Context) error {
 	return nil
 }
 
-// StartRefreshLoop runs a periodic checker that validates and refreshes the web session.
-// Blocks until the context ctx is canceled, then triggers a socket [Session.Disconnect].
-// Subsequent calls are safe and will only start a single refresh loop.
+// StartRefreshLoop starts a periodic background worker verifying web session health and performing automated renewals.
 func (c *Session) StartRefreshLoop(ctx context.Context) {
 	c.refreshLoopOnce.Do(func() {
 		ticker := time.NewTicker(c.refreshJobInterval)
@@ -537,7 +496,8 @@ func (c *Session) StartRefreshLoop(ctx context.Context) {
 		for {
 			select {
 			case <-ctx.Done():
-				goto shutdown
+				c.Logger().Debug("Session refresh loop stopped")
+				return
 			case <-ticker.C:
 				if web := c.Web(); web != nil && web.IsAuthenticated() {
 					if isAlive, _ := web.Verify(ctx); !isAlive {
@@ -548,33 +508,29 @@ func (c *Session) StartRefreshLoop(ctx context.Context) {
 				}
 			}
 		}
-
-	shutdown:
-		c.Logger().Debug("Session refresh loop stopped")
 	})
 }
 
-// Disconnect gracefully terminates the active socket connection.
-// Returns an error if socket shutdown fails.
+// Disconnect gracefully disconnects the network socket connection.
 func (c *Session) Disconnect() error {
 	return c.socket.Disconnect()
 }
 
-// Close permanently shuts down the session manager and releases resources.
-// Can be safely called multiple times; subsequent calls use cached state.
+// Close permanently shuts down the session manager and socket connection.
 func (c *Session) Close() error {
 	c.closed.Store(true)
 	return c.socket.Close()
 }
 
-// Logger returns the thread-safe, configured [log.Logger] instance.
+// Logger returns the configured logger.
 func (c *Session) Logger() log.Logger {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
+
 	return c.logger
 }
 
-// EnrichLogger appends metadata fields to the thread-safe session logger context.
+// EnrichLogger appends account name and SteamID attributes to the logger context.
 func (c *Session) EnrichLogger(account string, steamID id.ID) {
 	c.mu.Lock()
 	defer c.mu.Unlock()

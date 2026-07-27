@@ -15,18 +15,20 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/sys/apps"
 )
 
-// HumanMimicryBehavior describes the account hour-boosting behavior model
+// HumanMimicryBehavior implements a time-windowed gameplay simulation behavior
+// to mimic human online/offline hours and randomized game activity.
 type HumanMimicryBehavior struct {
 	client *steam.Client
 	logger log.Logger
 	rng    *rand.Rand
 
 	gamePool    []uint32
-	startHour   int // Start of activity (e.g., 9 AM)
-	endHour     int // End of activity (e.g., 11 PM)
+	startHour   int
+	endHour     int
 	activeState bool
 }
 
+// NewHumanMimicryBehavior constructs a HumanMimicryBehavior instance.
 func NewHumanMimicryBehavior(
 	client *steam.Client,
 	gamePool []uint32,
@@ -36,29 +38,28 @@ func NewHumanMimicryBehavior(
 	return &HumanMimicryBehavior{
 		client:    client,
 		logger:    logger.With(log.Module("mimicry")),
-		rng:       rand.New(rand.NewSource(time.Now().UnixNano())), // #nosec G404
+		rng:       rand.New(rand.NewSource(time.Now().UnixNano())),
 		gamePool:  gamePool,
 		startHour: startHour,
 		endHour:   endHour,
 	}
 }
 
+// Name returns the behavior identifier "human_mimicry".
 func (h *HumanMimicryBehavior) Name() string {
 	return "human_mimicry"
 }
 
-// Run contains the main lifecycle of the behavior
+// Run executes the main activity state evaluation loop.
 func (h *HumanMimicryBehavior) Run(ctx context.Context) error {
 	h.logger.Info("Human Mimicry behavior started",
 		log.Int("active_hours", h.startHour),
 		log.Int("inactive_hours", h.endHour),
 	)
 
-	// Check status every 5 minutes
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
-	// Initialization step
 	h.evaluateState(ctx)
 
 	for {
@@ -71,7 +72,6 @@ func (h *HumanMimicryBehavior) Run(ctx context.Context) error {
 	}
 }
 
-// evaluateState evaluates the time of day and determines activity
 func (h *HumanMimicryBehavior) evaluateState(ctx context.Context) {
 	now := time.Now()
 	currentHour := now.Hour()
@@ -82,12 +82,10 @@ func (h *HumanMimicryBehavior) evaluateState(ctx context.Context) {
 		return
 	}
 
-	// Check if current time falls within the active window
 	isWorkTime := false
 	if h.startHour < h.endHour {
 		isWorkTime = currentHour >= h.startHour && currentHour < h.endHour
 	} else {
-		// Nighttime activity spanning across midnight
 		isWorkTime = currentHour >= h.startHour || currentHour < h.endHour
 	}
 
@@ -96,10 +94,8 @@ func (h *HumanMimicryBehavior) evaluateState(ctx context.Context) {
 			h.activeState = true
 			h.logger.Info("Entering daily active state. Simulating gameplay...")
 
-			// Simulate a random delay before "launching" games (10 to 120 seconds)
 			h.randomSleep(ctx, 10, 120)
 
-			// Select up to 3 random games from the available pool for idling
 			selectedGames := h.selectRandomGames(3)
 			h.logger.Info("Starting game idling session", log.Any("game_ids", selectedGames))
 
@@ -113,11 +109,14 @@ func (h *HumanMimicryBehavior) evaluateState(ctx context.Context) {
 			selectedGames := h.selectRandomGames(2)
 			_ = appsMgr.PlayGames(ctx, selectedGames, false)
 		}
-	} else if h.activeState {
+
+		return
+	}
+
+	if h.activeState {
 		h.activeState = false
 		h.logger.Info("Entering nightly sleep state. Shutting down games...")
 
-		// Simulate a random delay before exiting the game before sleep (1 to 15 minutes)
 		h.randomSleep(ctx, 60, 900)
 
 		if err := appsMgr.StopPlaying(ctx); err != nil {
@@ -131,9 +130,9 @@ func (h *HumanMimicryBehavior) selectRandomGames(maxCount int) []uint32 {
 		return nil
 	}
 
-	// Shuffle a copy of the pool
 	shuffled := make([]uint32, len(h.gamePool))
 	copy(shuffled, h.gamePool)
+
 	h.rng.Shuffle(len(shuffled), func(i, j int) {
 		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
 	})

@@ -25,12 +25,16 @@ import (
 	"github.com/lemon4ksan/g-man/internal/framer"
 )
 
-// ConnTypeWS is the connection type for WebSocket connections.
+// ConnTypeWS labels WebSocket transport connections.
 const ConnTypeWS = "WS"
 
 var _ Connection = (*WS)(nil)
 
-// wsConn defines the minimum interface required for a base WebSocket connection.
+var (
+	ErrWSConnTypeMismatch = errors.New("ws: connection does not satisfy wsConn interface")
+	ErrWSConnectionClosed = errors.New("ws: connection closed")
+)
+
 type wsConn interface {
 	SetWriteDeadline(t time.Time) error
 	WriteMessage(messageType int, data []byte) error
@@ -38,7 +42,7 @@ type wsConn interface {
 	NextReader() (messageType int, r io.Reader, err error)
 }
 
-// WS implements the [Connection] interface using the WebSocket protocol.
+// WS implements Connection over WebSocket protocols.
 type WS struct {
 	BaseConnection
 
@@ -49,8 +53,8 @@ type WS struct {
 	errChan    chan error
 	closedChan chan struct{}
 
-	writeMu   sync.Mutex // Protects conn for concurrent writes.
-	closeOnce sync.Once  // Ensures Close actions are performed only once.
+	writeMu   sync.Mutex
+	closeOnce sync.Once
 }
 
 // NewWS establishes a WebSocket connection to the specified endpoint.
@@ -144,7 +148,7 @@ func NewWSWithFastClient(
 	wsConnAdapter, ok := conn.(wsConn)
 	if !ok {
 		_ = conn.Close()
-		return nil, NewError(OpDial, ConnTypeWS, errors.New("websocket connection does not satisfy wsConn interface"))
+		return nil, NewError(OpDial, ConnTypeWS, ErrWSConnTypeMismatch)
 	}
 
 	w := &WS{
@@ -161,25 +165,25 @@ func NewWSWithFastClient(
 	return w, nil
 }
 
-// Name returns the protocol name [ConnTypeWS].
+// Name returns protocol label "WS".
 func (w *WS) Name() string { return ConnTypeWS }
 
-// Messages returns a channel that receives incoming binary messages from the WebSocket.
+// Messages returns channel receiving incoming binary WebSocket frames.
 func (w *WS) Messages() <-chan Message { return w.msgChan }
 
-// Errors returns a channel that receives non-fatal errors from the WebSocket read loop.
+// Errors returns channel receiving non-fatal read errors.
 func (w *WS) Errors() <-chan error { return w.errChan }
 
-// Closed returns a channel that is closed once the WebSocket connection has terminated.
+// Closed returns channel closed upon connection termination.
 func (w *WS) Closed() <-chan struct{} { return w.closedChan }
 
-// Send transmits the message payload as a binary frame over the WebSocket.
+// Send transmits binary frames over the WebSocket connection.
 func (w *WS) Send(ctx context.Context, data []byte) error {
 	w.writeMu.Lock()
 	defer w.writeMu.Unlock()
 
 	if w.conn == nil {
-		return NewError(OpSend, ConnTypeWS, errors.New("connection closed"))
+		return NewError(OpSend, ConnTypeWS, ErrWSConnectionClosed)
 	}
 
 	var err error
@@ -200,7 +204,7 @@ func (w *WS) Send(ctx context.Context, data []byte) error {
 	return nil
 }
 
-// Close gracefully closes the WebSocket connection.
+// Close gracefully closes the WebSocket session.
 func (w *WS) Close() error {
 	var err error
 
@@ -222,7 +226,6 @@ func (w *WS) Close() error {
 	return nil
 }
 
-// readLoop runs in a dedicated goroutine, reading messages zero-alloc into pooled buffers.
 func (w *WS) readLoop() {
 	defer func() {
 		_ = w.Close()

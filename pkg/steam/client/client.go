@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package client provides the central coordination hub for the Steam client subsystem.
+// Package client provides the primary orchestrator for Steam network connections, authentications, request routing, and plugin modules.
 package client
 
 import (
@@ -39,32 +39,26 @@ import (
 )
 
 var (
-	// ErrNotRunning is returned when executing operations on a [Client] that is not running.
+	// ErrNotRunning indicates an operation was performed before calling Run.
 	ErrNotRunning = errors.New("steam: client must be running (call Run() first)")
-	// ErrSocketDisabled is returned when attempting socket operations while socket transport is disabled.
+	// ErrSocketDisabled indicates socket transport was explicitly disabled in configuration.
 	ErrSocketDisabled = errors.New("steam: socket transport is disabled")
-	// ErrNilLogOnDetails is returned when [Client.ConnectAndLogin] receives nil credentials.
+	// ErrNilLogOnDetails indicates login was attempted with nil credentials.
 	ErrNilLogOnDetails = errors.New("steam: logon details cannot be nil")
-	// ErrAlreadyRunning is returned on subsequent [Client.Run] calls.
+	// ErrAlreadyRunning indicates Run was called on an already active client.
 	ErrAlreadyRunning = errors.New("steam: client is already running")
 )
 
-// Config aggregates configuration parameters for all core subsystems of [Client].
-// Use [DefaultConfig] to initialize a configuration with standard settings.
+// Config aggregates options for client transports, socket behavior, and logon profiles.
 type Config struct {
-	// PersonaState defines the initial [enums.EPersonaState] on logon.
-	PersonaState enums.EPersonaState
-	// Socket holds the configuration for the [socket.Config] connection.
-	Socket socket.Config
-	// Device specifies the [auth.DeviceConfig] used during credential verification.
-	Device *auth.DeviceConfig
-	// ProxyURL defines a global proxy URL affecting all transport traffic.
-	ProxyURL string
-	// DisableSocket disables the socket transport layer, forcing WebAPI-only mode.
+	PersonaState  enums.EPersonaState
+	Socket        socket.Config
+	Device        *auth.DeviceConfig
+	ProxyURL      string
 	DisableSocket bool
 }
 
-// DefaultConfig returns the baseline [Config] with standard defaults.
+// DefaultConfig builds default client configuration options.
 func DefaultConfig() Config {
 	return Config{
 		PersonaState: enums.EPersonaState_Online,
@@ -72,38 +66,30 @@ func DefaultConfig() Config {
 	}
 }
 
-// ResolveDefaults applies default fallbacks to the [Config] fields.
+// ResolveDefaults applies proxy fallback options to socket configurations.
 func (cfg *Config) ResolveDefaults() {
 	cfg.Socket.Connector.ProxyURL = generic.Coalesce(cfg.Socket.Connector.ProxyURL, cfg.ProxyURL)
 }
 
-// State represents the lifecycle state of the [Client].
+// State represents client lifecycle states.
 type State int32
 
 const (
-	// StateNew indicates the [Client] is initialized but not yet running.
 	StateNew State = iota
-	// StateRunning indicates the [Client] background loops are active.
 	StateRunning
-	// StateAuthorized indicates the [Client] is fully authorized and ready.
 	StateAuthorized
-	// StateClosed indicates the [Client] has been permanently shut down.
 	StateClosed
 )
 
-// Event represents a transition trigger in the [Client] lifecycle.
+// Event represents lifecycle state transitions.
 type Event int32
 
 const (
-	// EventRun triggers a [Client] state transition from New to Running.
 	EventRun Event = iota
-	// EventAuthorize triggers a [Client] state transition from Running to Authorized.
 	EventAuthorize
-	// EventClose triggers a [Client] state transition to Closed from any active state.
 	EventClose
 )
 
-// String returns a human-readable representation of [State].
 func (s State) String() string {
 	switch s {
 	case StateNew:
@@ -119,25 +105,25 @@ func (s State) String() string {
 	}
 }
 
-// Option defines a functional configuration option for [Client].
+// Option configures Client parameters.
 type Option = generic.Option[*Client]
 
-// WithLogger sets a custom [log.Logger] for [Client].
+// WithLogger assigns a logger instance.
 func WithLogger(l log.Logger) Option {
 	return func(c *Client) { c.logger = l.With(log.Module("steam")) }
 }
 
-// WithSession sets a custom [session.Session] for [Client].
+// WithSession assigns a custom session manager.
 func WithSession(s *session.Session) Option {
 	return func(c *Client) { c.session = s }
 }
 
-// WithRouter sets a custom [router.ServiceRouter] for [Client].
+// WithRouter assigns a custom service router.
 func WithRouter(r *router.ServiceRouter) Option {
 	return func(c *Client) { c.router = r }
 }
 
-// WithModule adds a [module.Module] to [Client] and initializes it immediately.
+// WithModule registers an extension module with the client.
 func WithModule(m module.Module) Option {
 	return func(c *Client) {
 		if c.modules != nil {
@@ -148,13 +134,12 @@ func WithModule(m module.Module) Option {
 	}
 }
 
-// WithSocket sets a custom [session.SocketProvider] for [Client].
+// WithSocket assigns a socket provider implementation.
 func WithSocket(sock session.SocketProvider) Option {
 	return func(c *Client) { c.socket = sock }
 }
 
-// WithREST configures the REST execution engine using any supported client type
-// (*fast.Client, *aoni.Client, aoni.RequestDoer, or aoni.HTTPDoer).
+// WithREST configures standard or fast REST engines.
 func WithREST(doer any) Option {
 	return func(c *Client) {
 		if doer == nil {
@@ -187,8 +172,7 @@ func WithREST(doer any) Option {
 	}
 }
 
-// WithFastClient configures a fast.Client for zero-copy REST requests,
-// uTLS WebSocket dialing, and TCP socket dialing across all client layers.
+// WithFastClient configures fast.Client for high-performance zero-copy socket and REST transport.
 func WithFastClient(fastClient *fast.Client) Option {
 	return func(c *Client) {
 		if fastClient == nil {
@@ -202,35 +186,35 @@ func WithFastClient(fastClient *fast.Client) Option {
 	}
 }
 
-// WithBus sets a custom [bus.Bus] for [Client].
+// WithBus assigns an event bus instance.
 func WithBus(bus *bus.Bus) Option {
 	return func(c *Client) { c.bus = bus }
 }
 
-// WithStorage sets a custom [storage.Provider] for [Client].
+// WithStorage assigns a storage provider instance.
 func WithStorage(storage storage.Provider) Option {
 	return func(c *Client) { c.storage = storage }
 }
 
-// WithAuthenticator sets a custom [session.AuthenticatorProvider] for [Client].
+// WithAuthenticator assigns an authenticator provider.
 func WithAuthenticator(authenticator session.AuthenticatorProvider) Option {
 	return func(c *Client) { c.authenticator = authenticator }
 }
 
-// WithWebFactory sets a custom [session.WebSessionFactory] for [Client].
+// WithWebFactory assigns a custom WebSession provider factory.
 func WithWebFactory(webFactory session.WebSessionFactory) Option {
 	return func(c *Client) { c.webFactory = webFactory }
 }
 
-// WithCommunityFactory sets a custom [session.CommunityClientFactory] for [Client].
+// WithCommunityFactory assigns a custom Community requester factory.
 func WithCommunityFactory(communityFactory session.CommunityClientFactory) Option {
 	return func(c *Client) { c.communityFactory = communityFactory }
 }
 
-// Client acts as the central hub connecting socket, authentication, and modules.
-// It orchestrates low-level communication via [session.SocketProvider] and HTTP transport,
-// manages authentication state using [session.Session], and routes requests using [router.ServiceRouter].
-// Create new instances of Client using [New] or [NewReady].
+// Client acts as the primary entry point connecting socket channels, authentication services, module managers, and request routers.
+//
+// Thread Safety:
+//   - Safe for concurrent use across goroutines.
 type Client struct {
 	cfg      Config
 	loggerMu sync.RWMutex
@@ -265,9 +249,7 @@ type Client struct {
 	closeErr         error
 }
 
-// New initializes and returns a new [Client] with the given [Config] and [Option] list.
-// Returns an error if option application fails or configuration is invalid.
-// Falls back to empty arrays if no functional options are provided.
+// New initializes a Client instance with defaults and options.
 func New(cfg Config, opts ...Option) (*Client, error) {
 	ctx, cancel := context.WithCancel(context.Background()) //nolint:gosec
 
@@ -330,7 +312,7 @@ func New(cfg Config, opts ...Option) (*Client, error) {
 		sessionCfg := session.Config{
 			Device:           cfg.Device,
 			Storage:          c.storage,
-			HTTP:             sessionHTTPDoer, // Correctly respects mock c.rest when fastClient is not configured
+			HTTP:             sessionHTTPDoer,
 			Bus:              c.bus,
 			Logger:           c.logger,
 			Authenticator:    c.authenticator,
@@ -362,70 +344,65 @@ func New(cfg Config, opts ...Option) (*Client, error) {
 	return c, nil
 }
 
-// Storage returns the [storage.Provider] instance configured for the [Client].
+// Storage returns the configured storage provider.
 func (c *Client) Storage() storage.Provider { return c.storage }
 
-// State returns the current lifecycle [State] of the [Client].
+// State returns the current client lifecycle state.
 func (c *Client) State() State { return c.fsm.CurrentState() }
 
-// IsNew returns trur if [Client.Run] was not called yet.
+// IsNew reports whether the client has not yet been started via Run.
 func (c *Client) IsNew() bool { return c.State() == StateNew }
 
-// IsRunning returns true if the [Client] has reached at least [StateRunning].
+// IsRunning reports whether background worker routines are active.
 func (c *Client) IsRunning() bool { return !c.IsNew() && !c.IsClosed() }
 
-// IsAuthorized returns true if the [Client] has reached [StateAuthorized].
+// IsAuthorized reports whether user authorization is complete.
 func (c *Client) IsAuthorized() bool { return c.State() == StateAuthorized }
 
-// IsClosed returns true if the [Client] is closed.
+// IsClosed reports whether the client has been permanently shut down.
 func (c *Client) IsClosed() bool { return c.State() == StateClosed }
 
-// Session returns the active [session.Session] instance of the [Client].
+// Session returns the session manager instance.
 func (c *Client) Session() *session.Session { return c.session }
 
-// Router returns the [router.ServiceRouter] instance of the [Client].
+// Router returns the request router instance.
 func (c *Client) Router() *router.ServiceRouter { return c.router }
 
-// Module returns the registered [module.Module] by its name.
+// Module retrieves a registered module by name.
 func (c *Client) Module(name string) module.Module { return c.modules.Get(name) }
 
-// Modules returns all registered [module.Module] instances of the [Client].
+// Modules returns a snapshot of all registered modules.
 func (c *Client) Modules() []module.Module { return c.modules.All() }
 
-// RegisterModule adds a [module.Module] to the [Client] and initializes it immediately.
-// Logs an error if module registration fails.
-// Does nothing if the module is nil.
+// RegisterModule dynamically registers and initializes a module.
 func (c *Client) RegisterModule(m module.Module) {
 	if m == nil {
 		return
 	}
 
 	if err := c.modules.Register(c.ctx, m); err != nil {
-		c.Logger().Error("Failed to register module",
-			log.String("name", m.Name()),
-			log.Err(err))
+		c.Logger().Error("Failed to register module", log.String("name", m.Name()), log.Err(err))
 	}
 }
 
-// Socket returns the underlying [session.SocketProvider] of the [Client].
+// Socket returns the low-level socket provider.
 func (c *Client) Socket() session.SocketProvider { return c.socket }
 
-// Bus returns the [bus.Bus] used by the [Client] for event handling.
+// Bus returns the event bus.
 func (c *Client) Bus() *bus.Bus { return c.bus }
 
-// Logger returns the configured thread-safe [log.Logger] of the [Client].
+// Logger returns the configured logger.
 func (c *Client) Logger() log.Logger {
 	c.loggerMu.RLock()
 	defer c.loggerMu.RUnlock()
+
 	return c.logger
 }
 
-// Rest returns the low-level [request.Requester] of the [Client].
+// Rest returns the low-level REST requester.
 func (c *Client) Rest() request.Requester { return c.rest }
 
-// Run starts all registered modules and runs the background CM session refresh loop.
-// Returns an error if any module fails to initialize or start.
-// Aborts execution if the context ctx is canceled.
+// Run initializes modules, starts session refresh routines, and transitions to StateRunning.
 func (c *Client) Run() error {
 	if c.IsRunning() {
 		return ErrAlreadyRunning
@@ -451,6 +428,7 @@ func (c *Client) Run() error {
 			select {
 			case <-c.ctx.Done():
 				return
+
 			case ev, ok := <-sub.C():
 				if !ok {
 					return
@@ -468,10 +446,7 @@ func (c *Client) Run() error {
 	return c.fsm.Transition(c.ctx, EventRun)
 }
 
-// Do executes a network request using the [Client].
-// It selects between [session.SocketProvider] and HTTP transport, and handles silent token refresh.
-// Returns [ErrNotRunning] if the client is not running.
-// Aborts request processing if the context ctx is canceled.
+// Do executes a network request using optimal transport routing and automated session refresh retries.
 func (c *Client) Do(ctx context.Context, req *tr.Request) (*tr.Response, error) {
 	if !c.IsRunning() {
 		return nil, ErrNotRunning
@@ -480,8 +455,7 @@ func (c *Client) Do(ctx context.Context, req *tr.Request) (*tr.Response, error) 
 	return c.router.Do(ctx, req)
 }
 
-// SetPersonaState updates the client [enums.EPersonaState] on the server.
-// Returns an error if sending the status packet over [session.SocketProvider] fails or if context ctx is canceled.
+// SetPersonaState updates persona availability status on Steam.
 func (c *Client) SetPersonaState(ctx context.Context, state enums.EPersonaState) error {
 	c.setPersonaState(state)
 
@@ -492,10 +466,7 @@ func (c *Client) SetPersonaState(ctx context.Context, state enums.EPersonaState)
 	return c.socket.SendProto(ctx, enums.EMsg_ClientChangeStatus, statusReq)
 }
 
-// ConnectAndLogin connects to the CM server and performs the logon sequence.
-// Returns [module.ErrClosed] if the client is closed, or [ErrSocketDisabled] if socket transport is disabled.
-// Returns an error if connection, handshake, or login credentials fail.
-// Returns an error if context ctx is canceled or details is nil.
+// ConnectAndLogin connects to a Connection Manager server and executes authentication.
 func (c *Client) ConnectAndLogin(ctx context.Context, server socket.CMServer, details *auth.LogOnDetails) error {
 	if c.IsClosed() {
 		return module.ErrClosed
@@ -533,9 +504,7 @@ func (c *Client) ConnectAndLogin(ctx context.Context, server socket.CMServer, de
 	return nil
 }
 
-// Reconnect re-authenticates with Steam using cached credentials after a session loss.
-// Returns an error if reconnect or subsequent persona state update fails.
-// Aborts reconnect sequence if context ctx is canceled.
+// Reconnect re-discovers optimal Connection Managers and re-authenticates using cached credentials.
 func (c *Client) Reconnect(ctx context.Context) error {
 	if c.IsClosed() {
 		return module.ErrClosed
@@ -567,14 +536,12 @@ func (c *Client) Reconnect(ctx context.Context) error {
 	return nil
 }
 
-// Disconnect terminates the CM connection but keeps the [Client] and its modules active.
-// Returns an error if the socket disconnect operation fails.
+// Disconnect gracefully disconnects the socket transport.
 func (c *Client) Disconnect() error {
 	return c.session.Disconnect()
 }
 
-// Close shuts down the [Client], stops all modules, and releases allocated network resources.
-// Can be called safely multiple times; subsequent calls return no new errors.
+// Close gracefully stops modules, cancels contexts, and releases socket resources.
 func (c *Client) Close() error {
 	c.closeOnce.Do(func() {
 		var errs []error
@@ -606,12 +573,12 @@ func (c *Client) Close() error {
 	return c.closeErr
 }
 
-// Wait blocks the calling goroutine until the [Client] has finished its shutdown sequence.
+// Wait blocks until client shutdown is complete.
 func (c *Client) Wait() {
 	<-c.closed
 }
 
-// EnrichLogger adds the account and/or steamID to the loggers of the client and all its subsystems.
+// EnrichLogger appends account name and SteamID fields to the logger context.
 func (c *Client) EnrichLogger(account string, steamID id.ID) {
 	c.loggerMu.Lock()
 	defer c.loggerMu.Unlock()
@@ -632,7 +599,6 @@ func (c *Client) EnrichLogger(account string, steamID id.ID) {
 	}
 
 	c.logger = c.logger.With(logFields...)
-
 	c.session.EnrichLogger(account, steamID)
 
 	if c.socket != nil {
@@ -640,10 +606,11 @@ func (c *Client) EnrichLogger(account string, steamID id.ID) {
 	}
 }
 
-// PersonaState returns the current persona state of the client.
+// PersonaState returns the current online persona state.
 func (c *Client) PersonaState() enums.EPersonaState {
 	c.personaStateMu.RLock()
 	defer c.personaStateMu.RUnlock()
+
 	return c.personaState
 }
 
@@ -664,6 +631,7 @@ func (noopSocketProvider) Connect(ctx context.Context, server socket.CMServer) e
 func (noopSocketProvider) LogOn(ctx context.Context, payload []byte) error {
 	return ErrSocketDisabled
 }
+
 func (noopSocketProvider) SetEncryptionKey(key []byte) bool { return false }
 func (noopSocketProvider) Send(ctx context.Context, build socket.PayloadBuilder, opts ...socket.SendOption) error {
 	return ErrSocketDisabled
@@ -694,11 +662,13 @@ func (noopSocketProvider) SendRaw(
 ) error {
 	return ErrSocketDisabled
 }
+
 func (noopSocketProvider) RegisterMsgHandler(eMsg enums.EMsg, handler socket.Handler)   {}
 func (noopSocketProvider) RegisterServiceHandler(method string, handler socket.Handler) {}
 func (noopSocketProvider) StartHeartbeat(time.Duration) error {
 	return ErrSocketDisabled
 }
+
 func (noopSocketProvider) Disconnect() error               { return nil }
 func (noopSocketProvider) Close() error                    { return nil }
 func (noopSocketProvider) UpdateLogger(log.Logger)         {}

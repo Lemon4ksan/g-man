@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package ringbuffer provides a lock-free ring buffer for ultra-fast message passing between goroutines.
+// Package ringbuffer provides a lock-free multi-producer multi-consumer (MPMC) bounded ring buffer.
 package ringbuffer
 
 import (
@@ -18,7 +18,10 @@ type slot struct {
 	msg      *protocol.InboundMessage
 }
 
-// MPMCRingBuffer is a lock-free ring buffer for ultra-fast message passing between goroutines.
+// MPMCRingBuffer implements a lock-free bounded queue optimized for high-throughput packet passing between goroutines without mutex contention.
+//
+// Thread Safety:
+//   - Fully thread-safe and lock-free across concurrent producers and consumers.
 type MPMCRingBuffer struct {
 	buffer []slot
 	mask   uint64
@@ -30,7 +33,7 @@ type MPMCRingBuffer struct {
 	_    cpu.CacheLinePad
 }
 
-// New creates a new MPMCRingBuffer with the specified capacity.
+// New creates an MPMCRingBuffer with a capacity rounded up to the nearest power-of-two boundary.
 func New(capacity uint64) *MPMCRingBuffer {
 	var cap uint64 = 1
 	for cap < capacity {
@@ -42,14 +45,18 @@ func New(capacity uint64) *MPMCRingBuffer {
 		mask:   cap - 1,
 	}
 
-	for i := uint64(0); i < cap; i++ {
+	for i := range cap {
 		rb.buffer[i].sequence = i
 	}
 
 	return rb
 }
 
-// Push adds a message to the buffer without blocking.
+// Push enqueues a message without blocking or memory allocations.
+//
+// Returns:
+//   - true if the message was enqueued.
+//   - false if the buffer is full.
 func (rb *MPMCRingBuffer) Push(msg *protocol.InboundMessage) bool {
 	var cell *slot
 
@@ -71,14 +78,17 @@ func (rb *MPMCRingBuffer) Push(msg *protocol.InboundMessage) bool {
 		pos = atomic.LoadUint64(&rb.head)
 	}
 
-	// Assign message data before publishing the updated sequence number
 	cell.msg = msg
 	atomic.StoreUint64(&cell.sequence, pos+1)
 
 	return true
 }
 
-// Pop removes a message from the buffer without blocking.
+// Pop dequeues the next message without blocking or memory allocations.
+//
+// Returns:
+//   - (msg, true) if a message was dequeued.
+//   - (nil, false) if the buffer is empty.
 func (rb *MPMCRingBuffer) Pop() (*protocol.InboundMessage, bool) {
 	var cell *slot
 

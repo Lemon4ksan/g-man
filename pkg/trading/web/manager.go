@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package web manages asynchronous trade offers via the Steam WebAPI.
+// Package web manages trade offer polling, creation, acceptance, and offer lifecycle state tracking via WebAPI and Community endpoints.
 package web
 
 import (
@@ -42,55 +42,49 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/trading/web/processor"
 )
 
-// ModuleName is the name of the module.
-const ModuleName = "trading"
+const ModuleName string = "trading"
 
-// WithModule returns a steam.Option that registers the trade manager with the given configuration.
+var (
+	// ErrManagerClosed indicates operation was attempted on closed trade Manager.
+	ErrManagerClosed = errors.New("trade: closed")
+	// ErrManagerPolling indicates polling is already active.
+	ErrManagerPolling = errors.New("trade: already polling")
+	// ErrCommunityNotReady indicates community requester is unavailable.
+	ErrCommunityNotReady = processor.ErrCommunityNotReady
+	// ErrEscrowNotFound indicates escrow data was absent from trade offer HTML page.
+	ErrEscrowNotFound = processor.ErrEscrowNotFound
+
+	ErrUnauthenticatedTrade = errors.New("trading: community client not authenticated or initialized")
+	ErrOfferNotFound        = errors.New("trade offer not found")
+	ErrMissingPartnerParam  = errors.New("trade URL is missing partner parameter")
+)
+
+// WithModule registers the Manager module in the client.
 func WithModule(cfg Config) steam.Option {
 	return steam.WithModule(New(cfg))
 }
 
-// From returns the trade manager module from the client.
+// From retrieves the Manager module instance from the client.
 func From(c *steam.Client) *Manager {
 	return steam.GetModule[*Manager](c)
 }
 
-var (
-	// ErrManagerClosed is returned when the manager is closed.
-	ErrManagerClosed = errors.New("trade: closed")
-	// ErrManagerPolling is returned when the manager is already polling.
-	ErrManagerPolling = errors.New("trade: already polling")
-	// ErrCommunityNotReady is returned when the community client is not ready.
-	ErrCommunityNotReady = processor.ErrCommunityNotReady
-	// ErrEscrowNotFound is returned when the escrow data is not found on the page.
-	ErrEscrowNotFound = processor.ErrEscrowNotFound
-)
-
-// State constants representing the module lifecycle.
 type State int32
 
 const (
-	// StateStopped represents the stopped state.
 	StateStopped State = iota
-	// StatePolling represents the polling state.
 	StatePolling
-	// StateClosed represents the closed state.
 	StateClosed
 )
 
-// Event represents a trigger that drives a Manager state transition.
 type Event int32
 
 const (
-	// EventStartPolling triggers transition from Stopped to Polling.
 	EventStartPolling Event = iota
-	// EventStopPolling triggers transition from Polling to Stopped.
 	EventStopPolling
-	// EventClose triggers transition to Closed from any active state.
 	EventClose
 )
 
-// String returns the string representation of the state.
 func (s State) String() string {
 	switch s {
 	case StateStopped:
@@ -104,25 +98,16 @@ func (s State) String() string {
 	}
 }
 
-// Config holds the configuration for the trade manager.
 type Config struct {
-	// PollInterval is the time interval between trade offer polls.
-	PollInterval time.Duration
-	// Language is the language to use for trade offers.
-	Language string
-	// AppID is the Steam AppID for the current game (e.g. 440 for TF2).
-	AppID uint32
-	// ContextID is the Steam ContextID for the current game (e.g. 2 for TF2).
-	ContextID int64
-	// CancelOfferCount is the limit of active sent offers, exceeding which will auto-cancel the oldest active sent offer.
-	CancelOfferCount int
-	// CancelOfferCountMinAge is the minimum duration an offer must have existed before it is eligible for CancelOfferCount auto-cancellation.
+	PollInterval           time.Duration
+	Language               string
+	AppID                  uint32
+	ContextID              int64
+	CancelOfferCount       int
 	CancelOfferCountMinAge time.Duration
-	// CancelTime is the duration after which active sent offers are automatically cancelled.
-	CancelTime time.Duration
+	CancelTime             time.Duration
 }
 
-// DefaultConfig returns the default configuration.
 func DefaultConfig() Config {
 	return Config{
 		PollInterval:           30 * time.Second,
@@ -135,37 +120,35 @@ func DefaultConfig() Config {
 	}
 }
 
-// Manager handles trade offer synchronization, polling, and state tracking.
+// Manager polls IEconService for trade offer changes, manages offer creation, and tracks historical states.
+//
+// Thread Safety:
+//   - Safe for concurrent use across all methods.
 type Manager struct {
 	module.Base
 
 	config Config
 
-	// Dependencies
 	web           service.Doer
 	community     community.Requester
 	processor     *processor.Processor
 	priorityQueue *heap.PriorityQueue
 
-	// Polling synchronization
 	mu             sync.RWMutex
 	offersSince    int64
 	sentOffers     map[uint64]trading.OfferState
 	receivedOffers map[uint64]trading.OfferState
 	lastSeenOffers map[uint64]time.Time
 
-	// Auto-cancel deduplication
 	cancellingOffers sync.Map
 
 	rateLimiter *rate.Limiter
 	trigger     chan struct{}
 	fsm         *kata.FSM[State, Event]
 
-	// Cache for asset class descriptions to avoid re-fetching
 	descCache *generic.Cache[descKey, rawAssetClassDescription]
 }
 
-// New creates a new instance of the trade manager.
 func New(cfg Config) *Manager {
 	if cfg.PollInterval < 1*time.Second {
 		cfg.PollInterval = 30 * time.Second
@@ -193,19 +176,15 @@ func New(cfg Config) *Manager {
 	}
 }
 
-// Web returns the internal service.Doer.
-func (m *Manager) Web() service.Doer {
-	return m.web
-}
+func (m *Manager) Web() service.Doer { return m.web }
 
-// Community returns the internal community.Requester.
 func (m *Manager) Community() community.Requester {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
 	return m.community
 }
 
-// Init initializes the trade manager.
 func (m *Manager) Init(init module.InitContext) error {
 	if err := m.Base.Init(init); err != nil {
 		return err
@@ -216,7 +195,6 @@ func (m *Manager) Init(init module.InitContext) error {
 	return nil
 }
 
-// Start initializes the module's context and starts the processor if configured.
 func (m *Manager) Start(ctx context.Context) error {
 	if err := m.Base.Start(ctx); err != nil {
 		return err
@@ -233,7 +211,6 @@ func (m *Manager) Start(ctx context.Context) error {
 	return nil
 }
 
-// StartAuthed starts the trade offer polling loop.
 func (m *Manager) StartAuthed(ctx context.Context, authCtx module.AuthContext) error {
 	if m.fsm.CurrentState() == StatePolling {
 		m.StopPolling()
@@ -259,13 +236,12 @@ func (m *Manager) StartAuthed(ctx context.Context, authCtx module.AuthContext) e
 	return m.StartPolling()
 }
 
-// Close stops all background activities and cleans up the module.
 func (m *Manager) Close() error {
 	_ = m.fsm.Transition(context.Background(), EventClose)
+
 	return m.Base.Close()
 }
 
-// TriggerPoll manually triggers a trade offer poll.
 func (m *Manager) TriggerPoll() {
 	select {
 	case m.trigger <- struct{}{}:
@@ -273,7 +249,6 @@ func (m *Manager) TriggerPoll() {
 	}
 }
 
-// SetOfferHandler injects the business logic for processing trade offers.
 func (m *Manager) SetOfferHandler(ctx context.Context, handler processor.OfferHandler, bp processor.BackpackProvider) {
 	m.mu.Lock()
 	m.processor = processor.New(m, bp, handler, processor.WithLogger(m.Logger))
@@ -284,7 +259,6 @@ func (m *Manager) SetOfferHandler(ctx context.Context, handler processor.OfferHa
 	}
 }
 
-// StartPolling begins the trade offer polling loop.
 func (m *Manager) StartPolling() error {
 	if err := m.fsm.Transition(context.Background(), EventStartPolling); err != nil {
 		return ErrManagerPolling
@@ -296,14 +270,13 @@ func (m *Manager) StartPolling() error {
 	return nil
 }
 
-// StopPolling halts the trade offer polling loop and waits for completion.
 func (m *Manager) StopPolling() {
 	if err := m.fsm.Transition(context.Background(), EventStopPolling); err == nil {
 		m.Logger.Info("Trade polling stopped")
 	}
 }
 
-// SendOffer builds and sends a new trade offer based on provided parameters.
+// SendOffer sends a new trade offer to partner.
 func (m *Manager) SendOffer(ctx context.Context, p trading.OfferParams) (uint64, error) {
 	if err := m.rateLimiter.Wait(ctx); err != nil {
 		return 0, err
@@ -311,7 +284,7 @@ func (m *Manager) SendOffer(ctx context.Context, p trading.OfferParams) (uint64,
 
 	comm := m.Community()
 	if comm == nil {
-		return 0, errors.New("trading: community client not authenticated or initialized")
+		return 0, ErrUnauthenticatedTrade
 	}
 
 	tradeOfferObj := tradeOfferObj{
@@ -391,7 +364,7 @@ func (m *Manager) SendOffer(ctx context.Context, p trading.OfferParams) (uint64,
 	return id, nil
 }
 
-// AcceptOffer accepts a trade offer.
+// AcceptOffer accepts an incoming active trade offer.
 func (m *Manager) AcceptOffer(ctx context.Context, offerID uint64) error {
 	if err := m.rateLimiter.Wait(ctx); err != nil {
 		return err
@@ -429,7 +402,7 @@ func (m *Manager) AcceptOffer(ctx context.Context, offerID uint64) error {
 	return nil
 }
 
-// DeclineOffer declines a trade offer.
+// DeclineOffer declines an incoming active trade offer.
 func (m *Manager) DeclineOffer(ctx context.Context, offerID uint64) error {
 	if err := m.rateLimiter.Wait(ctx); err != nil {
 		return err
@@ -438,12 +411,13 @@ func (m *Manager) DeclineOffer(ctx context.Context, offerID uint64) error {
 	req := struct {
 		TradeOfferID uint64 `url:"tradeofferid"`
 	}{offerID}
+
 	_, err := service.WebAPI[service.NoResponse](ctx, m.web, "POST", "IEconService", "DeclineTradeOffer", 1, req)
 
 	return err
 }
 
-// CancelOffer cancels a trade offer sent by us.
+// CancelOffer cancels an active sent trade offer.
 func (m *Manager) CancelOffer(ctx context.Context, offerID uint64) error {
 	if err := m.rateLimiter.Wait(ctx); err != nil {
 		return err
@@ -452,12 +426,13 @@ func (m *Manager) CancelOffer(ctx context.Context, offerID uint64) error {
 	req := struct {
 		TradeOfferID uint64 `url:"tradeofferid"`
 	}{offerID}
+
 	_, err := service.WebAPI[service.NoResponse](ctx, m.web, "POST", "IEconService", "CancelTradeOffer", 1, req)
 
 	return err
 }
 
-// GetPollData returns the current polling state.
+// GetPollData snapshots active polling state for persistence.
 func (m *Manager) GetPollData() trading.PollData {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -475,7 +450,7 @@ func (m *Manager) GetPollData() trading.PollData {
 	}
 }
 
-// SetPollData restores a previously saved polling state.
+// SetPollData restores polling state from persistence.
 func (m *Manager) SetPollData(data trading.PollData) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -489,7 +464,7 @@ func (m *Manager) SetPollData(data trading.PollData) {
 	maps.Copy(m.receivedOffers, data.Received)
 }
 
-// ParseTradeURL extracts the partner's Steam ID and the trade token from a trade offer URL.
+// ParseTradeURL extracts partner ID and trade token from a trade URL.
 func ParseTradeURL(tradeURL string) (id.ID, string, error) {
 	u, err := url.Parse(tradeURL)
 	if err != nil {
@@ -497,10 +472,10 @@ func ParseTradeURL(tradeURL string) (id.ID, string, error) {
 	}
 
 	q := u.Query()
-
 	partnerStr := q.Get("partner")
+
 	if partnerStr == "" {
-		return 0, "", errors.New("trade URL is missing partner parameter")
+		return 0, "", ErrMissingPartnerParam
 	}
 
 	partnerAccountID, err := strconv.ParseUint(partnerStr, 10, 32)
@@ -514,7 +489,7 @@ func ParseTradeURL(tradeURL string) (id.ID, string, error) {
 	return partnerID, token, nil
 }
 
-// GetExchangeDetails retrieves the status, timing, and assets with their new IDs for a completed trade.
+// GetExchangeDetails fetches transaction assets and new asset IDs for a completed trade.
 func (m *Manager) GetExchangeDetails(ctx context.Context, tradeID uint64) (*trading.ExchangeDetails, error) {
 	if err := m.rateLimiter.Wait(ctx); err != nil {
 		return nil, err
@@ -532,7 +507,7 @@ func (m *Manager) GetExchangeDetails(ctx context.Context, tradeID uint64) (*trad
 	}
 
 	if len(resp.Trades) == 0 {
-		return nil, fmt.Errorf("trade %d not found", tradeID)
+		return nil, fmt.Errorf("%w: %d", ErrOfferNotFound, tradeID)
 	}
 
 	t := resp.Trades[0]
@@ -568,7 +543,7 @@ func (m *Manager) GetOffer(ctx context.Context, offerID uint64) (*trading.TradeO
 	}
 
 	if resp.Offer == nil {
-		return nil, fmt.Errorf("offer %d not found", offerID)
+		return nil, fmt.Errorf("%w: %d", ErrOfferNotFound, offerID)
 	}
 
 	mapDescriptionsToOffer(resp.Offer, resp.Descriptions)
@@ -577,7 +552,6 @@ func (m *Manager) GetOffer(ctx context.Context, offerID uint64) (*trading.TradeO
 	return resp.Offer, nil
 }
 
-// PartnerInventoryOptions sets options for fetching partner inventory.
 type PartnerInventoryOptions struct {
 	FullMode bool
 }
@@ -595,12 +569,12 @@ type sharedClassMeta struct {
 	Actions        []trading.Action
 }
 
-// GetPartnerInventory fetches the inventory of a trade partner for the configured game.
+// GetPartnerInventory fetches partner inventory items.
 func (m *Manager) GetPartnerInventory(ctx context.Context, partnerID id.ID) ([]*trading.Item, error) {
 	return m.GetPartnerInventoryOpts(ctx, partnerID, PartnerInventoryOptions{FullMode: false})
 }
 
-// GetPartnerInventoryOpts fetches the inventory of a trade partner with 1 bulk contiguous allocation for item structs.
+// GetPartnerInventoryOpts fetches partner inventory with a contiguous item storage slice.
 func (m *Manager) GetPartnerInventoryOpts(
 	ctx context.Context,
 	partnerID id.ID,
@@ -624,7 +598,6 @@ func (m *Manager) GetPartnerInventoryOpts(
 
 	itemStorage := make([]trading.Item, len(inv))
 	result := make([]*trading.Item, 0, len(inv))
-
 	classCache := make(map[uint64]*sharedClassMeta, 64)
 
 	validIndex := 0
@@ -709,7 +682,7 @@ func (m *Manager) GetPartnerInventoryOpts(
 	return result, nil
 }
 
-// GetEscrowDuration loads the trade page and parses the Trade Hold information.
+// GetEscrowDuration parses escrow hold days from the trade offer web page.
 func (m *Manager) GetEscrowDuration(ctx context.Context, offerID uint64) (processor.Details, error) {
 	comm := m.Community()
 	if comm == nil {
@@ -723,6 +696,7 @@ func (m *Manager) GetEscrowDuration(ctx context.Context, offerID uint64) (proces
 	if err != nil {
 		return processor.Details{}, fmt.Errorf("failed to fetch offer page: %w", err)
 	}
+
 	defer body.Close()
 
 	var buf bytes.Buffer
@@ -746,7 +720,6 @@ func (m *Manager) GetEscrowDuration(ctx context.Context, offerID uint64) (proces
 	}, nil
 }
 
-// CheckEscrow checks if a trade offer has a trade hold.
 func (m *Manager) CheckEscrow(ctx context.Context, offer *trading.TradeOffer) (bool, error) {
 	details, err := m.GetEscrowDuration(ctx, offer.ID)
 	if err != nil {
@@ -768,9 +741,11 @@ func (m *Manager) pollingLoop(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
+
 		case <-m.trigger:
 			time.Sleep(1 * time.Second)
 			m.doPoll(ctx)
+
 		case <-ticker.C:
 			if m.fsm.CurrentState() != StatePolling {
 				return
@@ -781,7 +756,7 @@ func (m *Manager) pollingLoop(ctx context.Context) {
 	}
 }
 
-// GetActiveSentOffers returns all active trade offers sent by us.
+// GetActiveSentOffers fetches all active offers sent by our account.
 func (m *Manager) GetActiveSentOffers(ctx context.Context) ([]trading.TradeOffer, error) {
 	if err := m.rateLimiter.Wait(ctx); err != nil {
 		return nil, err
@@ -827,6 +802,7 @@ func (m *Manager) doPoll(ctx context.Context) {
 	m.mu.RLock()
 
 	cutoff := time.Now().Add(-24 * time.Hour).Unix()
+
 	if m.offersSince > 0 {
 		cutoff = m.offersSince - 1800
 	}
@@ -922,6 +898,7 @@ func (m *Manager) doPoll(ctx context.Context) {
 	}
 
 	latest := m.offersSince
+
 	for _, off := range allOffers {
 		if off.TimeUpdated > latest {
 			latest = off.TimeUpdated
@@ -938,6 +915,7 @@ func (m *Manager) doPoll(ctx context.Context) {
 			Sent:        make(map[uint64]trading.OfferState, len(m.sentOffers)),
 			Received:    make(map[uint64]trading.OfferState, len(m.receivedOffers)),
 		}
+
 		maps.Copy(newPollData.Sent, m.sentOffers)
 		maps.Copy(newPollData.Received, m.receivedOffers)
 
@@ -948,7 +926,6 @@ func (m *Manager) doPoll(ctx context.Context) {
 
 	m.mu.Unlock()
 
-	// Auto-cancellation MUST run AFTER m.priorityQueue and m.sentOffers are populated!
 	m.handleAutoCancellation(ctx, resp.Sent)
 
 	m.Logger.Debug("Trade poll completed",
@@ -1063,6 +1040,7 @@ func (m *Manager) listenEvents(ctx context.Context, sub *bus.Subscription) {
 		select {
 		case <-ctx.Done():
 			return
+
 		case ev, ok := <-sub.C():
 			if !ok {
 				return
@@ -1084,6 +1062,7 @@ func (m *Manager) listenNotifications(ctx context.Context, sub *bus.Subscription
 		select {
 		case <-ctx.Done():
 			return
+
 		case ev, ok := <-sub.C():
 			if !ok {
 				return
@@ -1092,14 +1071,13 @@ func (m *Manager) listenNotifications(ctx context.Context, sub *bus.Subscription
 			switch e := ev.(type) {
 			case *notifications.UserNotificationsEvent:
 				if count, exists := e.Notifications[notifications.NotificationTradeOffer]; exists && count > 0 {
-					m.Logger.Debug("Trade offer notification received, triggering poll",
-						log.Uint32("count", count),
-					)
+					m.Logger.Debug("Trade offer notification received, triggering poll", log.Uint32("count", count))
 					m.TriggerPoll()
 				}
 
 			case *notifications.ReceivedEvent:
 				hasTradeOffer := false
+
 				for _, notif := range e.Notifications {
 					if notif.GetNotificationType() == pb.ESteamNotificationType_k_ESteamNotificationType_TradeOffer {
 						hasTradeOffer = true
@@ -1221,11 +1199,12 @@ func (m *Manager) getMissingKeys(items []*trading.Item) []descKey {
 		}
 
 		k := packDescKey(it.ClassID, it.InstanceID)
-
 		found := false
+
 		for _, s := range seen {
 			if s == k {
 				found = true
+
 				break
 			}
 		}
@@ -1324,26 +1303,6 @@ func (m *Manager) fetchAssetClassInfos(
 	return merged, nil
 }
 
-func isPollDataEqual(a, b trading.PollData) bool {
-	if a.OffersSince != b.OffersSince || len(a.Sent) != len(b.Sent) || len(a.Received) != len(b.Received) {
-		return false
-	}
-
-	for k, v := range a.Sent {
-		if b.Sent[k] != v {
-			return false
-		}
-	}
-
-	for k, v := range a.Received {
-		if b.Received[k] != v {
-			return false
-		}
-	}
-
-	return true
-}
-
 func mapDescriptionsToOffer(offer *trading.TradeOffer, rawDescs []rawDescription) {
 	if offer == nil || len(rawDescs) == 0 {
 		return
@@ -1357,6 +1316,7 @@ func mapDescriptionsToOffer(offer *trading.TradeOffer, rawDescs []rawDescription
 				}
 
 				key := packDescKey(it.ClassID, it.InstanceID)
+
 				for i := range rawDescs {
 					d := &rawDescs[i]
 					if newDescKey(d.ClassID, d.InstanceID) == key {

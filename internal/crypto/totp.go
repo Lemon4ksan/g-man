@@ -26,7 +26,7 @@ func hmacSha1Stack(key, msg []byte) [20]byte {
 	}
 
 	var ipad, opad [64]byte
-	for i := 0; i < 64; i++ {
+	for i := range 64 {
 		ipad[i] = kPad[i] ^ 0x36
 		opad[i] = kPad[i] ^ 0x5c
 	}
@@ -43,7 +43,7 @@ func hmacSha1Stack(key, msg []byte) [20]byte {
 	return sha1.Sum(outerBuf[:])
 }
 
-// GenerateAuthCode generates a 5-digit Steam Guard two-factor authentication code for the given timestamp.
+// GenerateAuthCode calculates a 5-character Steam Guard TOTP code for a given timestamp.
 func GenerateAuthCode(secret []byte, timestamp int64) [5]byte {
 	if len(secret) == 0 {
 		return [5]byte{}
@@ -84,7 +84,7 @@ func GenerateAuthCode(secret []byte, timestamp int64) [5]byte {
 	return code
 }
 
-// GenerateConfirmationKey generates a base64-encoded key required to confirm mobile actions.
+// GenerateConfirmationKey derives a Base64-encoded confirmation key for mobile actions (e.g., trade/market confirmations).
 func GenerateConfirmationKey(secret []byte, timestamp int64, tag string) [28]byte {
 	if len(secret) == 0 {
 		return [28]byte{}
@@ -125,7 +125,7 @@ func GenerateConfirmationKey(secret []byte, timestamp int64, tag string) [28]byt
 	return dst
 }
 
-// GetDeviceID generates a unique, deterministic device identifier based on the SteamID.
+// GetDeviceID builds a deterministic Steam mobile device identifier formatted as "android:..." from a 64-bit SteamID.
 func GetDeviceID(steamID uint64) string {
 	h := sha1.New()
 
@@ -156,8 +156,7 @@ func GetDeviceID(steamID uint64) string {
 	return string(result[:])
 }
 
-// DecodeSecret decodes a Steam TOTP or confirmation secret string.
-// Supports 40-character Hex strings, standard Base64, and Raw/URL-safe Base64 formats.
+// DecodeSecret parses hex, standard Base64, raw Base64, or URL-safe Base64 encoded secret strings into raw bytes.
 func DecodeSecret(secret string) ([]byte, error) {
 	if len(secret) == 0 {
 		return nil, base64.CorruptInputError(0)

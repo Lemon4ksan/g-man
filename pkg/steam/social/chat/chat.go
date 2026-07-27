@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package chat manages one-on-one friend messages and Steam group chats.
+// Package chat manages 1-on-1 friend messages and modern Steam group chats via Unified Services.
 package chat
 
 import (
@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/lemon4ksan/miyako/generic"
 	"github.com/lemon4ksan/miyako/log"
 	"google.golang.org/protobuf/proto"
 
@@ -25,21 +26,19 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 )
 
-// ModuleName is the unique identifier for the chat module.
 const ModuleName string = "chat"
 
-// messageInterval is the minimum time between sent messages to avoid rate limits.
 const messageInterval = 1200 * time.Millisecond
 
-// ErrNotInGroupChat is returned when trying to perform an operation on a group chat that the bot is not a member of.
+// ErrNotInGroupChat indicates an operation was performed on a group chat the bot is not currently joined to.
 var ErrNotInGroupChat = errors.New("chat: not currently in this group chat")
 
-// WithModule returns a steam.Option that registers the chat module in the client.
+// WithModule registers the Chat module in the client.
 func WithModule() steam.Option {
 	return steam.WithModule(New())
 }
 
-// From returns the chat module from the client.
+// From retrieves the Chat module instance from the client.
 func From(c *steam.Client) *Chat {
 	return steam.GetModule[*Chat](c)
 }
@@ -50,7 +49,7 @@ var messageEventPool = sync.Pool{
 	},
 }
 
-// AcquireMessageEvent returns a new MessageEvent from the pool.
+// AcquireMessageEvent fetches a pooled MessageEvent instance.
 func AcquireMessageEvent(senderID uint64, msg string, ts time.Time, ordinal uint32) *MessageEvent {
 	e := messageEventPool.Get().(*MessageEvent)
 	e.SenderID = senderID
@@ -61,7 +60,7 @@ func AcquireMessageEvent(senderID uint64, msg string, ts time.Time, ordinal uint
 	return e
 }
 
-// ReleaseMessageEvent returns the event to the pool.
+// ReleaseMessageEvent recycles a MessageEvent back to memory pool.
 func ReleaseMessageEvent(e *MessageEvent) {
 	if e == nil {
 		return
@@ -73,32 +72,26 @@ func ReleaseMessageEvent(e *MessageEvent) {
 	messageEventPool.Put(e)
 }
 
-// Chat handles sending and receiving messages via Steam's Unified Services.
+// Chat manages friend messaging, group chat interactions, reactions, and offline message synchronization.
 //
-// It provides comprehensive methods for managing private sessions, group chats,
-// and invite links. During authentication, it automatically synchronizes unread
-// offline messages using [Chat.synchronizeOfflineMessages] in a background goroutine.
-//
-// Create and register new instances of Chat using the [New] constructor.
+// Thread Safety:
+//   - Safe for concurrent use across all public methods.
 type Chat struct {
 	module.Base
 
-	// Dependencies
 	service service.Doer
 
-	// State management
 	stateMu          sync.RWMutex
 	steamID          id.ID
-	botAccountID     uint32            // Cached 32-bit account ID for fast comparison
-	activeGroupChats map[uint64]uint64 // GroupID -> ChatID
+	botAccountID     uint32
+	activeGroupChats map[uint64]uint64
 	unregFuncs       []func()
 
-	// Rate limiting
 	rateLimitMu     sync.Mutex
 	lastMessageTime time.Time
 }
 
-// New creates a new instance of the chat manager.
+// New constructs a Chat module instance.
 func New() *Chat {
 	return &Chat{
 		Base:             module.New(ModuleName),
@@ -106,7 +99,6 @@ func New() *Chat {
 	}
 }
 
-// Init registers service handlers for incoming friend and group messages.
 func (c *Chat) Init(init module.InitContext) error {
 	if err := c.Base.Init(init); err != nil {
 		return err
@@ -136,14 +128,12 @@ func (c *Chat) Init(init module.InitContext) error {
 	return nil
 }
 
-// StartAuthed updates the user's SteamID and starts offline message sync.
 func (c *Chat) StartAuthed(ctx context.Context, auth module.AuthContext) error {
 	c.stateMu.Lock()
 	c.steamID = auth.SteamID()
-	c.botAccountID = c.steamID.AccountID() // Extract 32-bit ID
+	c.botAccountID = c.steamID.AccountID()
 	c.stateMu.Unlock()
 
-	// Start synchronization in the background to not block the client startup.
 	c.Go(func(ctx context.Context) {
 		c.synchronizeOfflineMessages(ctx)
 	})
@@ -151,7 +141,6 @@ func (c *Chat) StartAuthed(ctx context.Context, auth module.AuthContext) error {
 	return nil
 }
 
-// Close ensures all service handlers are removed and background tasks are stopped.
 func (c *Chat) Close() error {
 	c.stateMu.Lock()
 	for _, unreg := range c.unregFuncs {
@@ -164,49 +153,50 @@ func (c *Chat) Close() error {
 	return c.Base.Close()
 }
 
-// SendMessage sends a plain text message to a specific Steam user.
-//
-// It blocks and waits if messages are being sent faster than the configured
-// safety interval of 1.2 seconds.
+// SendMessage transmits a private chat message to a friend, enforcing safety rate limits.
 func (c *Chat) SendMessage(ctx context.Context, steamID uint64, text string) error {
 	if err := c.applyRateLimit(); err != nil {
 		return err
 	}
 
+	entryType := int32(ChatEntryTypeChatMsg)
 	req := &pb.CFriendMessages_SendMessage_Request{
-		Steamid:        proto.Uint64(steamID),
-		ChatEntryType:  proto.Int32(ChatEntryTypeChatMsg),
-		Message:        proto.String(text),
-		ContainsBbcode: proto.Bool(true),
+		Steamid:        &steamID,
+		ChatEntryType:  &entryType,
+		Message:        &text,
+		ContainsBbcode: generic.Ptr[bool](true),
 	}
+
 	_, err := service.Unified[service.NoResponse](ctx, c.service, req)
 
 	return err
 }
 
-// SendTyping notifies a friend that the bot is currently typing a message.
+// SendTyping sends a typing indicator signal to a friend.
 func (c *Chat) SendTyping(ctx context.Context, steamID uint64) error {
 	req := &pb.CFriendMessages_SendMessage_Request{
 		Steamid:       proto.Uint64(steamID),
 		ChatEntryType: proto.Int32(ChatEntryTypeTyping),
 	}
+
 	_, err := service.Unified[service.NoResponse](ctx, c.service, req)
 
 	return err
 }
 
-// AckFriendMessage marks all messages from a specific friend up to the timestamp as read.
+// AckFriendMessage acknowledges received messages up to timestamp.
 func (c *Chat) AckFriendMessage(ctx context.Context, steamID uint64, timestamp uint32) error {
 	req := &pb.CFriendMessages_AckMessage_Notification{
 		SteamidPartner: proto.Uint64(steamID),
 		Timestamp:      proto.Uint32(timestamp),
 	}
+
 	_, err := service.Unified[service.NoResponse](ctx, c.service, req)
 
 	return err
 }
 
-// GetRecentMessages retrieves the chat history with a specific friend.
+// GetRecentMessages fetches chat history logs with a friend.
 func (c *Chat) GetRecentMessages(
 	ctx context.Context, steamID uint64, count uint32,
 ) ([]*pb.CFriendMessages_GetRecentMessages_Response_FriendMessage, error) {
@@ -229,10 +219,7 @@ func (c *Chat) GetRecentMessages(
 	return resp.GetMessages(), nil
 }
 
-// SendChatMessage sends a message to a specific modern chat room group channel.
-//
-// It blocks and waits if messages are being sent faster than the configured
-// safety interval of 1.2 seconds.
+// SendChatMessage sends a message to a specific chat room channel in a group.
 func (c *Chat) SendChatMessage(ctx context.Context, chatGroupID, chatID uint64, message string) error {
 	if err := c.applyRateLimit(); err != nil {
 		return err
@@ -249,7 +236,7 @@ func (c *Chat) SendChatMessage(ctx context.Context, chatGroupID, chatID uint64, 
 	return err
 }
 
-// SendChatReaction updates (adds or removes) a reaction to a specific message in a modern chat room channel.
+// SendChatReaction adds or removes an emoji reaction on a message in a group chat channel.
 func (c *Chat) SendChatReaction(
 	ctx context.Context,
 	chatGroupID, chatID uint64,
@@ -273,7 +260,7 @@ func (c *Chat) SendChatReaction(
 	return err
 }
 
-// GetChatHistory retrieves chat history for a given modern chat room group channel with pagination options.
+// GetChatHistory fetches chat history records for a group chat channel.
 func (c *Chat) GetChatHistory(
 	ctx context.Context,
 	chatGroupID, chatID uint64,
@@ -296,9 +283,6 @@ func (c *Chat) GetChatHistory(
 }
 
 // JoinGroupChat enters a group chat room.
-//
-// It updates the internal active group chats state and returns an error
-// if the WebAPI request fails.
 func (c *Chat) JoinGroupChat(ctx context.Context, groupID uint64) error {
 	req := &pb.CChatRoom_JoinChatRoomGroup_Request{ChatGroupId: proto.Uint64(groupID)}
 
@@ -315,9 +299,6 @@ func (c *Chat) JoinGroupChat(ctx context.Context, groupID uint64) error {
 }
 
 // LeaveGroupChat exits a group chat room.
-//
-// It returns [ErrNotInGroupChat] if the bot is not currently a member
-// of the specified group chatroom.
 func (c *Chat) LeaveGroupChat(ctx context.Context, groupID uint64) error {
 	c.stateMu.RLock()
 	_, ok := c.activeGroupChats[groupID]
@@ -341,11 +322,7 @@ func (c *Chat) LeaveGroupChat(ctx context.Context, groupID uint64) error {
 	return err
 }
 
-// SendGroupMessage sends a text message to a Steam group chatroom.
-//
-// It blocks and waits if messages are being sent faster than the configured
-// safety interval of 1.2 seconds. It returns [ErrNotInGroupChat] if the bot
-// is not a member of the group chatroom.
+// SendGroupMessage sends a message to the active main channel of a group chat.
 func (c *Chat) SendGroupMessage(ctx context.Context, groupID uint64, text string) error {
 	c.stateMu.RLock()
 	chatID, ok := c.activeGroupChats[groupID]
@@ -364,12 +341,13 @@ func (c *Chat) SendGroupMessage(ctx context.Context, groupID uint64, text string
 		ChatId:      proto.Uint64(chatID),
 		Message:     proto.String(text),
 	}
+
 	_, err := service.Unified[service.NoResponse](ctx, c.service, req)
 
 	return err
 }
 
-// DeleteGroupMessages deletes messages from a group chatroom.
+// DeleteGroupMessages deletes messages from a group chat channel.
 func (c *Chat) DeleteGroupMessages(
 	ctx context.Context,
 	groupID uint64,
@@ -392,24 +370,26 @@ func (c *Chat) DeleteGroupMessages(
 		ChatId:      proto.Uint64(chatID),
 		Messages:    messages,
 	}
+
 	_, err := service.Unified[pb.CChatRoom_DeleteChatMessages_Response](ctx, c.service, req)
 
 	return err
 }
 
-// AckGroupMessage marks all messages in a group chat as read up to a given timestamp.
+// AckGroupMessage acknowledges received group messages up to timestamp.
 func (c *Chat) AckGroupMessage(ctx context.Context, groupID, chatID uint64, timestamp uint32) error {
 	req := &pb.CChatRoom_AckChatMessage_Notification{
 		ChatGroupId: proto.Uint64(groupID),
 		ChatId:      proto.Uint64(chatID),
 		Timestamp:   proto.Uint32(timestamp),
 	}
+
 	_, err := service.Unified[service.NoResponse](ctx, c.service, req)
 
 	return err
 }
 
-// GetGroupMessageHistory retrieves chat history for a group chatroom.
+// GetGroupMessageHistory fetches message history for a group chat room.
 func (c *Chat) GetGroupMessageHistory(
 	ctx context.Context,
 	groupID uint64,
@@ -437,7 +417,7 @@ func (c *Chat) GetGroupMessageHistory(
 	return resp.GetMessages(), nil
 }
 
-// InviteFriendToGroupChat invites a friend to a Steam group chatroom.
+// InviteFriendToGroupChat invites a friend to a group chat room.
 func (c *Chat) InviteFriendToGroupChat(ctx context.Context, groupID, friendSteamID uint64) error {
 	c.stateMu.RLock()
 	chatID, ok := c.activeGroupChats[groupID]
@@ -452,12 +432,13 @@ func (c *Chat) InviteFriendToGroupChat(ctx context.Context, groupID, friendSteam
 		ChatId:      proto.Uint64(chatID),
 		Steamid:     proto.Uint64(friendSteamID),
 	}
+
 	_, err := service.Unified[pb.CChatRoom_InviteFriendToChatRoomGroup_Response](ctx, c.service, req)
 
 	return err
 }
 
-// KickUserFromGroupChat removes a user from a Steam group chatroom.
+// KickUserFromGroupChat kicks a user from a group chat room.
 func (c *Chat) KickUserFromGroupChat(
 	ctx context.Context,
 	groupID, targetSteamID uint64,
@@ -476,12 +457,13 @@ func (c *Chat) KickUserFromGroupChat(
 		Steamid:     proto.Uint64(targetSteamID),
 		Expiration:  proto.Int32(expirationSeconds),
 	}
+
 	_, err := service.Unified[pb.CChatRoom_KickUser_Response](ctx, c.service, req)
 
 	return err
 }
 
-// MuteUserInGroupChat mutes a user in a Steam group chatroom.
+// MuteUserInGroupChat mutes a user in a group chat room.
 func (c *Chat) MuteUserInGroupChat(ctx context.Context, groupID, targetSteamID uint64, expirationSeconds int32) error {
 	c.stateMu.RLock()
 	_, ok := c.activeGroupChats[groupID]
@@ -496,12 +478,13 @@ func (c *Chat) MuteUserInGroupChat(ctx context.Context, groupID, targetSteamID u
 		Steamid:     proto.Uint64(targetSteamID),
 		Expiration:  proto.Int32(expirationSeconds),
 	}
+
 	_, err := service.Unified[pb.CChatRoom_MuteUser_Response](ctx, c.service, req)
 
 	return err
 }
 
-// SetUserBanStateInGroupChat bans or unbans a user in a Steam group chatroom.
+// SetUserBanStateInGroupChat bans or unbans a user in a group chat room.
 func (c *Chat) SetUserBanStateInGroupChat(ctx context.Context, groupID, targetSteamID uint64, ban bool) error {
 	c.stateMu.RLock()
 	_, ok := c.activeGroupChats[groupID]
@@ -516,13 +499,13 @@ func (c *Chat) SetUserBanStateInGroupChat(ctx context.Context, groupID, targetSt
 		Steamid:     proto.Uint64(targetSteamID),
 		BanState:    proto.Bool(ban),
 	}
+
 	_, err := service.Unified[pb.CChatRoom_SetUserBanState_Response](ctx, c.service, req)
 
 	return err
 }
 
-// CreateChatRoomGroup creates a new chat room group and invites people to join it.
-// If name is empty, it creates an "ad-hoc" group chat.
+// CreateChatRoomGroup creates a new group chat room and invites candidate users.
 func (c *Chat) CreateChatRoomGroup(
 	ctx context.Context,
 	name string,
@@ -536,18 +519,19 @@ func (c *Chat) CreateChatRoomGroup(
 	return service.Unified[pb.CChatRoom_CreateChatRoomGroup_Response](ctx, c.service, req)
 }
 
-// SaveChatRoomGroup saves an unnamed "ad-hoc" group chat and converts it into a full chat room group.
+// SaveChatRoomGroup converts an ad-hoc group chat into a saved named group chat.
 func (c *Chat) SaveChatRoomGroup(ctx context.Context, groupID uint64, name string) error {
 	req := &pb.CChatRoom_SaveChatRoomGroup_Request{
 		ChatGroupId: proto.Uint64(groupID),
 		Name:        proto.String(name),
 	}
+
 	_, err := service.Unified[service.NoResponse](ctx, c.service, req)
 
 	return err
 }
 
-// RenameChatRoomGroup renames a saved chat room group.
+// RenameChatRoomGroup changes the display name of a group chat room.
 func (c *Chat) RenameChatRoomGroup(ctx context.Context, groupID uint64, newName string) (string, error) {
 	req := &pb.CChatRoom_RenameChatRoomGroup_Request{
 		ChatGroupId: proto.Uint64(groupID),
@@ -562,13 +546,14 @@ func (c *Chat) RenameChatRoomGroup(ctx context.Context, groupID uint64, newName 
 	return resp.GetName(), nil
 }
 
-// GetMyChatRoomGroups retrieves a list of all the chat room groups the bot is currently in.
+// GetMyChatRoomGroups lists all group chat rooms joined by the account.
 func (c *Chat) GetMyChatRoomGroups(ctx context.Context) (*pb.CChatRoom_GetMyChatRoomGroups_Response, error) {
 	req := &pb.CChatRoom_GetMyChatRoomGroups_Request{}
+
 	return service.Unified[pb.CChatRoom_GetMyChatRoomGroups_Response](ctx, c.service, req)
 }
 
-// GetChatRoomGroupState retrieves the detailed state of a specific chat room group.
+// GetChatRoomGroupState fetches detailed state metrics for a group chat room.
 func (c *Chat) GetChatRoomGroupState(
 	ctx context.Context,
 	groupID uint64,
@@ -580,8 +565,7 @@ func (c *Chat) GetChatRoomGroupState(
 	return service.Unified[pb.CChatRoom_GetChatRoomGroupState_Response](ctx, c.service, req)
 }
 
-// CreateInviteLink creates an invite link for a given chat group.
-// voiceChatID is optional (can be 0 if not targeting a specific voice chat).
+// CreateInviteLink generates a shareable invite link for a group chat room.
 func (c *Chat) CreateInviteLink(
 	ctx context.Context,
 	groupID uint64,
@@ -592,6 +576,7 @@ func (c *Chat) CreateInviteLink(
 		ChatGroupId:  proto.Uint64(groupID),
 		SecondsValid: proto.Uint32(secondsValid),
 	}
+
 	if voiceChatID > 0 {
 		req.ChatId = proto.Uint64(voiceChatID)
 	}
@@ -599,7 +584,7 @@ func (c *Chat) CreateInviteLink(
 	return service.Unified[pb.CChatRoom_CreateInviteLink_Response](ctx, c.service, req)
 }
 
-// GetInviteLinksForGroup gets all active invite links for a given chat group.
+// GetInviteLinksForGroup lists active invite links for a group chat room.
 func (c *Chat) GetInviteLinksForGroup(
 	ctx context.Context,
 	groupID uint64,
@@ -616,12 +601,13 @@ func (c *Chat) GetInviteLinksForGroup(
 	return resp.GetInviteLinks(), nil
 }
 
-// DeleteInviteLink revokes and deletes an active invite link by its code.
+// DeleteInviteLink revokes a group chat invite link by code.
 func (c *Chat) DeleteInviteLink(ctx context.Context, groupID uint64, inviteCode string) error {
 	req := &pb.CChatRoom_DeleteInviteLink_Request{
 		ChatGroupId: proto.Uint64(groupID),
 		InviteCode:  proto.String(inviteCode),
 	}
+
 	_, err := service.Unified[service.NoResponse](ctx, c.service, req)
 
 	return err
@@ -677,7 +663,6 @@ func (c *Chat) handleGroupMessage(packet *protocol.Packet) {
 		return
 	}
 
-	// Update our state in case we joined this chat from another client.
 	c.stateMu.Lock()
 	c.activeGroupChats[msg.GetChatGroupId()] = msg.GetChatId()
 	c.stateMu.Unlock()
@@ -689,6 +674,7 @@ func (c *Chat) handleGroupMessage(packet *protocol.Packet) {
 		Message:     msg.GetMessage(),
 		Timestamp:   time.Unix(int64(msg.GetTimestamp()), 0),
 	}
+
 	evt.SetContext(packet.Context())
 	c.Bus.Publish(evt)
 }
@@ -847,6 +833,7 @@ func (c *Chat) handleLegacyFriendMsg(packet *protocol.Packet) {
 		evt := &TypingEvent{SenderID: senderID}
 		evt.SetContext(packet.Context())
 		c.Bus.Publish(evt)
+
 	default:
 		c.Logger.DebugContext(
 			packet.Context(),

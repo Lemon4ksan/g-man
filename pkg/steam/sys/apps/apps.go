@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package apps manages the user's "In-Game" presence on Steam.
+// Package apps manages "In-Game" playing statuses, license lists, and game connect tokens.
 package apps
 
 import (
@@ -23,33 +23,29 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 )
 
-// ModuleName is the name of the module.
 const ModuleName string = "apps"
 
-// NonSteamGameID is the special ID used by Steam to represent a "Non-Steam Game" shortcut.
 const NonSteamGameID uint64 = 15190414816125648896
 
-// WithModule returns a steam Option that registers the Apps module.
+// WithModule registers the Apps module in the client.
 func WithModule() steam.Option {
 	return steam.WithModule(New())
 }
 
-// From returns the apps module from the client.
+// From retrieves the Apps module instance from the client.
 func From(c *steam.Client) *Apps {
 	return steam.GetModule[*Apps](c)
 }
 
-// Apps manages the "In-Game" status and interacts with Steam's app services.
+// Apps tracks active playing states and license holdings.
 //
-// It provides methods for launching games, stopping play status, and checking player counts.
-// Create new instances of Apps using the [New] constructor.
+// Thread Safety:
+//   - Safe for concurrent use across all methods.
 type Apps struct {
 	module.Base
 
-	// Dependencies
 	client service.Doer
 
-	// Internal State
 	mu             sync.RWMutex
 	playingAppIDs  []uint32
 	playingBlocked bool
@@ -59,7 +55,7 @@ type Apps struct {
 	unregFuncs []func()
 }
 
-// New creates a new instance of the Apps module.
+// New constructs an Apps module instance.
 func New() *Apps {
 	return &Apps{
 		Base:          module.New(ModuleName),
@@ -68,7 +64,6 @@ func New() *Apps {
 	}
 }
 
-// Init registers handlers for tracking the state of playing sessions.
 func (a *Apps) Init(init module.InitContext) error {
 	if err := a.Base.Init(init); err != nil {
 		return err
@@ -89,7 +84,6 @@ func (a *Apps) Init(init module.InitContext) error {
 	return nil
 }
 
-// Close ensures all packet handlers are removed and background tasks are stopped.
 func (a *Apps) Close() error {
 	a.mu.Lock()
 	for _, unreg := range a.unregFuncs {
@@ -102,11 +96,7 @@ func (a *Apps) Close() error {
 	return a.Base.Close()
 }
 
-// GetPlayerCount requests the current number of online players for a specific AppID.
-// Set appID to 0 to get the total number of users currently connected to Steam.
-//
-// It returns an error if the request fails, or if Steam returns an EResult
-// other than OK.
+// GetPlayerCount queries current online player count for an appID via Steam Data Publisher.
 func (a *Apps) GetPlayerCount(ctx context.Context, appID uint32) (int32, error) {
 	req := &pb.CMsgDPGetNumberOfCurrentPlayers{
 		Appid: proto.Uint32(appID),
@@ -130,9 +120,7 @@ func (a *Apps) GetPlayerCount(ctx context.Context, appID uint32) (int32, error) 
 	return resp.GetPlayerCount(), nil
 }
 
-// PlayGames updates the account's status to "In-Game" for the specified AppIDs.
-// Pass an empty slice to stop playing.
-// If forceKick is true, it will attempt to disconnect any other session currently playing games.
+// PlayGames sets account presence to "In-Game" for specified AppIDs.
 func (a *Apps) PlayGames(ctx context.Context, appIDs []uint32, forceKick bool) error {
 	a.mu.RLock()
 	blocked := a.playingBlocked
@@ -145,7 +133,6 @@ func (a *Apps) PlayGames(ctx context.Context, appIDs []uint32, forceKick bool) e
 			a.Logger.Error("Failed to kick other playing session", log.Err(err))
 		}
 
-		// Give Steam a moment to invalidate the other session
 		time.Sleep(500 * time.Millisecond)
 	}
 
@@ -159,7 +146,7 @@ func (a *Apps) PlayGames(ctx context.Context, appIDs []uint32, forceKick bool) e
 	return a.sendGamesPlayed(ctx, games, appIDs)
 }
 
-// PlayCustomGames sets the "In-Game" status to one or more non-Steam games with custom names.
+// PlayCustomGames sets "In-Game" status for non-Steam shortcuts with custom display names.
 func (a *Apps) PlayCustomGames(ctx context.Context, names []string) error {
 	games := make([]*pb.CMsgClientGamesPlayed_GamePlayed, 0, len(names))
 	for _, name := range names {
@@ -172,13 +159,12 @@ func (a *Apps) PlayCustomGames(ctx context.Context, names []string) error {
 	return a.sendGamesPlayed(ctx, games, nil)
 }
 
-// StopPlaying clears the "In-Game" status for the account.
+// StopPlaying clears active "In-Game" presence.
 func (a *Apps) StopPlaying(ctx context.Context) error {
 	return a.PlayGames(ctx, nil, false)
 }
 
-// KickPlayingSession sends a request to Steam to terminate any other active
-// game-playing sessions on this account (e.g., on another PC).
+// KickPlayingSession disconnects active playing sessions on other devices.
 func (a *Apps) KickPlayingSession(ctx context.Context) error {
 	_, err := service.LegacyProto[service.NoResponse](
 		ctx,
@@ -207,7 +193,6 @@ func (a *Apps) sendGamesPlayed(
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	// Emit events for newly launched apps
 	for _, newID := range newAppIDs {
 		if !slices.Contains(a.playingAppIDs, newID) {
 			a.Logger.Debug("App launched", log.Uint32("appid", newID))
@@ -215,7 +200,6 @@ func (a *Apps) sendGamesPlayed(
 		}
 	}
 
-	// Emit events for quit apps
 	for _, oldID := range a.playingAppIDs {
 		if !slices.Contains(newAppIDs, oldID) {
 			a.Logger.Debug("App quit", log.Uint32("appid", oldID))
@@ -252,10 +236,11 @@ func (a *Apps) handlePlayingSessionState(packet *protocol.Packet) {
 	})
 }
 
-// GetLicenses returns the cached list of user licenses.
+// GetLicenses returns cached user license records.
 func (a *Apps) GetLicenses() []*pb.CMsgClientLicenseList_License {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
+
 	return a.licenses
 }
 
@@ -270,8 +255,7 @@ func (a *Apps) GetConnectTokens() [][]byte {
 	return tokens
 }
 
-// PopConnectToken retrieves and removes the first available game connect token.
-// Returns nil if no tokens are available.
+// PopConnectToken retrieves and pops the first available game connect token.
 func (a *Apps) PopConnectToken() []byte {
 	a.mu.Lock()
 	defer a.mu.Unlock()

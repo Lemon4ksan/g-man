@@ -8,17 +8,18 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	json "github.com/goccy/go-json"
 	"io"
 	"net/http"
 	"sync"
 
+	json "github.com/goccy/go-json"
 	"github.com/lemon4ksan/aoni"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
-	"google.golang.org/protobuf/proto"
 )
 
 type restCall struct {
@@ -41,10 +42,9 @@ type ServiceMock struct {
 	restCalls     []restCall
 	restResponses map[string]restResponse
 
-	OnDo        func(req *tr.Request) (*tr.Response, error)
-	OnRest      func(method, path string, body any) (*http.Response, error)
-	OnSessionID func(string) string
-
+	OnDo                  func(req *tr.Request) (*tr.Response, error)
+	OnRest                func(method, path string, body any) (*http.Response, error)
+	OnSessionID           func(string) string
 	OnGetOrRegisterAPIKey func(ctx context.Context, domain string) (string, error)
 
 	ResponseErr  error
@@ -119,9 +119,11 @@ func (m *ServiceMock) Request(
 	var bodyBytes []byte
 	dummyReq, _ := http.NewRequestWithContext(ctx, method, path, nil)
 	stdReq := aoni.NewStdRequest(dummyReq)
+
 	for _, mod := range mods {
 		mod(stdReq)
 	}
+
 	if dummyReq.Body != nil {
 		bodyBytes, _ = io.ReadAll(dummyReq.Body)
 		dummyReq.Body.Close()
@@ -130,16 +132,21 @@ func (m *ServiceMock) Request(
 	m.restCalls = append(m.restCalls, restCall{method, path, bodyBytes, nil})
 
 	if m.OnRest != nil {
-		var resp *http.Response
-		var err error
+		var (
+			resp *http.Response
+			err  error
+		)
+
 		if len(bodyBytes) > 0 {
 			resp, err = m.OnRest(method, path, bodyBytes)
 		} else {
 			resp, err = m.OnRest(method, path, nil)
 		}
+
 		if resp != nil && resp.Request == nil {
 			resp.Request = dummyReq
 		}
+
 		return resp, err
 	}
 
@@ -155,6 +162,7 @@ func (m *ServiceMock) Request(
 
 	dummyReq2, _ := http.NewRequestWithContext(ctx, method, path, bytes.NewReader(bodyBytes))
 	stdReq2 := aoni.NewStdRequest(dummyReq2)
+
 	for _, mod := range mods {
 		mod(stdReq2)
 	}
@@ -167,11 +175,11 @@ func (m *ServiceMock) Request(
 	}, nil
 }
 
-// GetOrRegisterAPIKey checks for the presence of a WebAPI key or registers a new one.
 func (m *ServiceMock) GetOrRegisterAPIKey(ctx context.Context, domain string) (string, error) {
 	if m.OnGetOrRegisterAPIKey != nil {
 		return m.OnGetOrRegisterAPIKey(ctx, domain)
 	}
+
 	return "", nil
 }
 
@@ -179,57 +187,67 @@ func (m *ServiceMock) SessionID(targetURI string) string {
 	if m.OnSessionID != nil {
 		return m.OnSessionID(targetURI)
 	}
+
 	return "mock_session_id"
 }
 
 func (m *ServiceMock) SetErrorResponse(iface, method string, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	m.ResponseErrs[fmt.Sprintf("%s/%s", iface, method)] = err
 }
 
 func (m *ServiceMock) SetJSONResponse(iface, method string, resp any) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	m.jsonResponses[fmt.Sprintf("%s/%s", iface, method)] = resp
 }
 
 func (m *ServiceMock) SetProtoResponse(iface, method string, resp proto.Message) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	m.protoResponses[fmt.Sprintf("%s.%s", iface, method)] = resp
 }
 
 func (m *ServiceMock) SetLegacyResponse(message enums.EMsg, resp proto.Message) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	m.protoResponses[message.String()] = resp
 }
 
 func (m *ServiceMock) SetRawResponse(key string, body []byte) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	m.rawResponses[key] = body
 }
 
 func (m *ServiceMock) GetLastRequest() *tr.Request {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	if len(m.Calls) == 0 {
 		return nil
 	}
+
 	return m.Calls[len(m.Calls)-1]
 }
 
 func (m *ServiceMock) CallsCount() int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	return len(m.Calls)
 }
 
 func (m *ServiceMock) ClearCalls() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	m.Calls = nil
 }
 
@@ -246,7 +264,6 @@ func (m *ServiceMock) GetLastCall(out proto.Message) *tr.Request {
 	if out != nil && req.Body != nil {
 		bodyBytes, _ := io.ReadAll(req.Body)
 		_ = protocol.UnmarshalProto(bodyBytes, out)
-
 		req.Body = bytes.NewReader(bodyBytes)
 	}
 

@@ -2,17 +2,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package crypto provides cryptographic utilities for the Steam client.
-//
-// It implements Steam-specific security operations including RSA-OAEP session
-// key generation, symmetric AES-256-CBC and AES-256-ECB encryption, and Steam
-// Guard Mobile Authenticator TOTP algorithms.
-//
-// Common operations include:
-//   - Generating temporary encrypted session keys using [GenerateSessionKey].
-//   - Performing AES encryption and decryption using [SymmetricEncrypt] and [SymmetricDecrypt].
-//   - Constructing deterministic hardware identifiers using [GenerateAccountMachineID].
-//   - Generating 2FA authentication codes via [GenerateAuthCode].
 package crypto
 
 import (
@@ -32,7 +21,23 @@ import (
 	"io"
 )
 
-// Public key loaded from system.pem (RSA)
+var (
+	// ErrInvalidKeyLength is returned when an AES key is not exactly 32 bytes long.
+	ErrInvalidKeyLength = errors.New("crypto: key must be 32 bytes for AES-256")
+	// ErrInvalidIVLength is returned when a custom initialization vector is not 16 bytes long.
+	ErrInvalidIVLength = errors.New("crypto: IV must be 16 bytes")
+	// ErrInputTooShort is returned when ciphertext is shorter than the AES block size.
+	ErrInputTooShort = errors.New("crypto: input payload too short")
+	// ErrInvalidBlockSize is returned when ciphertext length is not a multiple of the AES block size.
+	ErrInvalidBlockSize = errors.New("crypto: payload length is not a multiple of AES block size")
+	// ErrInvalidHMAC is returned when HMAC verification fails during decryption.
+	ErrInvalidHMAC = errors.New("crypto: received invalid HMAC signature")
+	// ErrEmptyData is returned when unpadding an empty byte slice.
+	ErrEmptyData = errors.New("crypto: empty data payload")
+	// ErrInvalidPadding is returned when PKCS7 padding validation fails.
+	ErrInvalidPadding = errors.New("crypto: invalid PKCS7 padding")
+)
+
 var pubKeySystem *rsa.PublicKey
 
 //go:embed system.pem
@@ -42,15 +47,12 @@ func init() {
 	mustParsePublicKey(systemPem)
 }
 
-// GenerateSessionKey creates a 32-byte random session key, optionally appends a nonce,
-// and encrypts it with the system public key using RSA-OAEP (SHA-1).
+// GenerateSessionKey constructs a 32-byte random session key, appends an optional nonce, and encrypts it using Steam's RSA public key (OAEP SHA-1).
 //
-// If the nonce is provided, the function appends it to the generated session key
-// before encrypting the combined buffer. An empty or nil nonce is ignored and
-// only the session key is encrypted.
-//
-// It returns an error if the cryptographically secure random number generator
-// fails, or if the RSA encryption fails.
+// Returns:
+//   - sessionKey: Plaintext 32-byte symmetric AES key.
+//   - encrypted: RSA-OAEP encrypted session payload ready for logon transmission.
+//   - error: Non-nil if crypto/rand or RSA encryption fails.
 func GenerateSessionKey(nonce []byte) (sessionKey, encrypted []byte, err error) {
 	sessionKey = make([]byte, 32)
 	if _, err := io.ReadFull(rand.Reader, sessionKey); err != nil {
@@ -72,18 +74,12 @@ func GenerateSessionKey(nonce []byte) (sessionKey, encrypted []byte, err error) 
 	return sessionKey, encrypted, nil
 }
 
-// SymmetricEncrypt performs AES-256-CBC encryption on the input payload.
-// The initialization vector (IV) is encrypted with AES-256-ECB and prepended
-// to the resulting ciphertext.
-//
-// If the iv argument is nil, the function automatically generates a secure
-// random vector of the standard block size.
-//
-// It returns an error if the provided key is not exactly 32 bytes, if the iv is
-// non-nil but is not exactly 16 bytes, or if the secure random generator fails.
+// SymmetricEncrypt encrypts payload using AES-256-CBC.
+// The initial IV is encrypted using AES-256-ECB and prepended to the resulting ciphertext stream.
+// If iv is nil, a cryptographically random 16-byte vector is generated.
 func SymmetricEncrypt(input, key, iv []byte) ([]byte, error) {
 	if len(key) != 32 {
-		return nil, errors.New("key must be 32 bytes for AES-256")
+		return nil, ErrInvalidKeyLength
 	}
 
 	if iv == nil {
@@ -92,7 +88,7 @@ func SymmetricEncrypt(input, key, iv []byte) ([]byte, error) {
 			return nil, err
 		}
 	} else if len(iv) != aes.BlockSize {
-		return nil, errors.New("IV must be 16 bytes")
+		return nil, ErrInvalidIVLength
 	}
 
 	block, _ := aes.NewCipher(key)
@@ -107,15 +103,10 @@ func SymmetricEncrypt(input, key, iv []byte) ([]byte, error) {
 	return append(ecbIV, cbcBytes...), nil
 }
 
-// SymmetricEncryptWithHmacIv encrypts the input payload using a derived initialization vector.
-// It constructs the IV from an HMAC-SHA1 of a random 3-byte prefix and the plaintext,
-// using the first 16 bytes of the key as the HMAC secret.
-//
-// It returns an error if the key is not exactly 32 bytes, if the system random
-// generator fails, or if the underlying [SymmetricEncrypt] fails.
+// SymmetricEncryptWithHmacIv encrypts payload using AES-256-CBC with a derived IV constructed from HMAC-SHA1 of a random 3-byte prefix and input plaintext.
 func SymmetricEncryptWithHmacIv(input, key []byte) ([]byte, error) {
 	if len(key) != 32 {
-		return nil, errors.New("key must be 32 bytes")
+		return nil, ErrInvalidKeyLength
 	}
 
 	var random [3]byte
@@ -134,26 +125,20 @@ func SymmetricEncryptWithHmacIv(input, key []byte) ([]byte, error) {
 	return SymmetricEncrypt(input, key, ivBuf[:])
 }
 
-// SymmetricDecrypt decrypts ciphertext produced by [SymmetricEncrypt] or [SymmetricEncryptWithHmacIv].
-//
-// If checkHmac is true, the function verifies the integrity of the decrypted payload
-// against the HMAC signature embedded within the initialization vector.
-//
-// It returns an error if the key is not exactly 32 bytes, if the input ciphertext is
-// shorter than the block size, if the ciphertext length is not a multiple of the
-// block size, if padding removal fails, or if HMAC verification fails.
+// SymmetricDecrypt decrypts AES-256-CBC ciphertext produced by SymmetricEncrypt or SymmetricEncryptWithHmacIv.
+// If checkHmac is true, validates payload integrity against the HMAC signature embedded within the IV.
 func SymmetricDecrypt(input, key []byte, checkHmac bool) ([]byte, error) {
 	if len(key) != 32 {
-		return nil, errors.New("key must be 32 bytes")
+		return nil, ErrInvalidKeyLength
 	}
 
 	if len(input) < aes.BlockSize {
-		return nil, errors.New("input too short")
+		return nil, ErrInputTooShort
 	}
 
 	cbcBytes := input[aes.BlockSize:]
 	if len(cbcBytes)%aes.BlockSize != 0 {
-		return nil, errors.New("ciphertext length is not a multiple of block size")
+		return nil, ErrInvalidBlockSize
 	}
 
 	iv := make([]byte, aes.BlockSize)
@@ -174,24 +159,21 @@ func SymmetricDecrypt(input, key []byte, checkHmac bool) ([]byte, error) {
 		h.Write(plaintext)
 
 		if !hmac.Equal(iv[:13], h.Sum(nil)[:13]) {
-			return nil, errors.New("received invalid HMAC")
+			return nil, ErrInvalidHMAC
 		}
 	}
 
 	return plaintext, nil
 }
 
-// SymmetricDecryptECB decrypts data encrypted with AES-256-ECB using PKCS7 padding.
-//
-// It returns an error if the key is not exactly 32 bytes, if the input ciphertext is
-// not a multiple of the block size, or if padding removal fails.
+// SymmetricDecryptECB decrypts AES-256-ECB encrypted data with PKCS7 padding removal.
 func SymmetricDecryptECB(input, key []byte) ([]byte, error) {
 	if len(key) != 32 {
-		return nil, errors.New("key must be 32 bytes")
+		return nil, ErrInvalidKeyLength
 	}
 
 	if len(input)%aes.BlockSize != 0 {
-		return nil, errors.New("input length is not a multiple of block size")
+		return nil, ErrInvalidBlockSize
 	}
 
 	block, _ := aes.NewCipher(key)
@@ -204,9 +186,7 @@ func SymmetricDecryptECB(input, key []byte) ([]byte, error) {
 	return pkcs7Unpad(plaintext, aes.BlockSize)
 }
 
-// GenerateAccountMachineID creates a deterministic machine identifier based on the Steam account name.
-// It uses predefined formatting strings and hashing algorithms to produce a consistent ID
-// for recognized device identification.
+// GenerateAccountMachineID generates a deterministic Valve VDF Machine ID bound to the specified account name.
 func GenerateAccountMachineID(accountName string) []byte {
 	val1 := "SteamUser Hash BB3 " + accountName
 	val2 := "SteamUser Hash FF2 " + accountName
@@ -215,9 +195,7 @@ func GenerateAccountMachineID(accountName string) []byte {
 	return CreateVDFMachineID(val1, val2, val3)
 }
 
-// CreateVDFMachineID packs three string hashes into the Valve VDF binary format.
-// It serializes the identifiers into a structured, null-terminated VDF map structure
-// that matches the Steam client hardware registration format.
+// CreateVDFMachineID packs three SHA1 string hashes into Valve's binary VDF map format for hardware registration.
 func CreateVDFMachineID(v1, v2, v3 string) []byte {
 	sha1Hex := func(s string) string {
 		h := sha1.New()
@@ -227,7 +205,7 @@ func CreateVDFMachineID(v1, v2, v3 string) []byte {
 	}
 
 	buf := new(bytes.Buffer)
-	buf.WriteByte(0x00) // Type Map
+	buf.WriteByte(0x00)
 	buf.WriteString("MessageObject")
 	buf.WriteByte(0x00)
 
@@ -235,19 +213,19 @@ func CreateVDFMachineID(v1, v2, v3 string) []byte {
 	vals := []string{v1, v2, v3}
 
 	for i, field := range fields {
-		buf.WriteByte(0x01) // Type String
+		buf.WriteByte(0x01)
 		buf.WriteString(field)
 		buf.WriteByte(0x00)
 		buf.WriteString(sha1Hex(vals[i]))
 		buf.WriteByte(0x00)
 	}
 
-	buf.Write([]byte{0x08, 0x08}) // End of maps
+	buf.Write([]byte{0x08, 0x08})
 
 	return buf.Bytes()
 }
 
-// Wipe overwrites the given byte slice with zero bytes to clear sensitive data from memory.
+// Wipe overwrites sensitive byte slices with zeros in memory.
 func Wipe(b []byte) {
 	for i := range b {
 		b[i] = 0
@@ -269,21 +247,21 @@ func pkcs7Pad(data []byte, blockSize int) []byte {
 
 func pkcs7Unpad(data []byte, blockSize int) ([]byte, error) {
 	if len(data) == 0 {
-		return nil, errors.New("empty data")
+		return nil, ErrEmptyData
 	}
 
 	if len(data)%blockSize != 0 {
-		return nil, errors.New("data length is not a multiple of block size")
+		return nil, ErrInvalidBlockSize
 	}
 
 	padding := int(data[len(data)-1])
 	if padding == 0 || padding > blockSize {
-		return nil, errors.New("invalid padding")
+		return nil, ErrInvalidPadding
 	}
 
 	for i := range padding {
 		if data[len(data)-1-i] != byte(padding) {
-			return nil, errors.New("invalid padding")
+			return nil, ErrInvalidPadding
 		}
 	}
 
@@ -293,12 +271,12 @@ func pkcs7Unpad(data []byte, blockSize int) ([]byte, error) {
 func mustParsePublicKey(data []byte) {
 	block, _ := pem.Decode(data)
 	if block == nil || block.Type != "PUBLIC KEY" {
-		panic("failed to decode PEM block containing public key")
+		panic("crypto: failed to decode PEM block containing public key")
 	}
 
 	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
-		panic(fmt.Errorf("failed to parse public key: %w", err))
+		panic(fmt.Errorf("crypto: failed to parse public key: %w", err))
 	}
 
 	pubKeySystem = pub.(*rsa.PublicKey)

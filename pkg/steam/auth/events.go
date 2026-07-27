@@ -10,43 +10,28 @@ import (
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 )
 
-// StateEvent is emitted whenever the authenticator transitions between states.
+// StateEvent is emitted when the authenticator transitions between lifecycle states.
 type StateEvent struct {
 	bus.BaseEvent
-	// Old is the previous authentication state.
 	Old State
-	// New is the updated authentication state.
 	New State
 }
 
-// LoggedOnEvent is emitted after successful authentication with Steam.
-// This indicates that the client is fully logged on and ready to use.
-// It contains details about the logged-in session provided by the server.
+// LoggedOnEvent is emitted after successful authentication with a Connection Manager.
 type LoggedOnEvent struct {
 	bus.BaseEvent
-	// ClientInstanceID is the unique instance identifier for this client session.
 	ClientInstanceID uint32
-	// CellID is the content delivery region identifier assigned by Steam.
-	CellID uint32
-	// PublicIP is the client's public IP address as seen by Steam.
-	PublicIP uint32
-	// SteamID is the unique 64-bit identifier of the authenticated user.
-	SteamID uint64
-	// Body is the complete underlying logon response packet from Steam.
-	Body *pb.CMsgClientLogonResponse
+	CellID           uint32
+	PublicIP         uint32
+	SteamID          uint64
+	Body             *pb.CMsgClientLogonResponse
 }
 
-// SteamGuardRequiredEvent is emitted during password-based authentication
-// when Steam Guard verification is required. The user must provide a code
-// from email or mobile authenticator and call the Callback function.
+// SteamGuardRequiredEvent is emitted when password logon requires mobile or email Steam Guard verification codes.
 type SteamGuardRequiredEvent struct {
 	bus.BaseEvent
-	// IsAppConfirm is true if the confirmation must be completed via the mobile app.
 	IsAppConfirm bool
-	// Is2FA is true if the code is a mobile authenticator code, false if it is an email code.
-	Is2FA bool
-	// EmailDomain is the target domain name where the email confirmation was sent.
-	EmailDomain string
-	// Callback is the handler function that must be called with the user-provided code to continue login.
-	Callback func(code string)
+	Is2FA        bool
+	EmailDomain  string
+	Callback     func(code string)
 }

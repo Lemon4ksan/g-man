@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package engine evaluates trade offers using a composable, short-circuiting middleware pipeline.
 package engine
 
 import (
@@ -10,57 +11,36 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/trading"
 )
 
-// Handler represents a function that processes a TradeContext.
 type Handler func(ctx *TradeContext) error
 
-// Middleware represents a component in the processing chain.
-// It takes the *next* handler in the chain and returns a *new* handler
-// that wraps its own logic around the next one.
 type Middleware func(next Handler) Handler
 
-// Engine orchestrates the execution of trade middlewares.
-//
-// Middlewares are executed sequentially from the outermost layer to the innermost layer.
-// Callers can register middlewares using the [Engine.Use] method.
-// Create new instances of the engine using the [New] constructor.
+// Engine manages registration and sequential execution of trade offer evaluation middlewares.
 type Engine struct {
 	middlewares []Middleware
 }
 
-// New creates a new Trade Middleware Engine.
 func New() *Engine {
 	return &Engine{
 		middlewares: make([]Middleware, 0),
 	}
 }
 
-// Use appends one or more middlewares to the execution chain.
-//
-// Order is respected: middlewares added first execute first.
 func (e *Engine) Use(mws ...Middleware) {
 	e.middlewares = append(e.middlewares, mws...)
 }
 
-// Process passes the TradeOffer through the entire middleware chain.
-//
-// It returns the final [Verdict] reached by the chain.
-// It returns an error if any of the registered middlewares return an error during execution.
 func (e *Engine) Process(ctx context.Context, offer *trading.TradeOffer) (*Verdict, error) {
 	tCtx := NewTradeContext(ctx, offer)
 
-	// The innermost handler: reached only if no middleware sets a definitive verdict
-	// and stops the chain.
 	handler := func(c *TradeContext) error {
 		return nil
 	}
 
-	// Build the chain from the inside out.
-	// This ensures the first middleware added is the first one executed.
 	for i := len(e.middlewares) - 1; i >= 0; i-- {
 		handler = e.middlewares[i](handler)
 	}
 
-	// Execute the chain
 	err := handler(tCtx)
 
 	return &tCtx.Verdict, err

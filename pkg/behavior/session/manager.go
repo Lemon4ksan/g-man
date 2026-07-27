@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package session implements a modular behavior for maintaining and keeping a Steam session alive.
+// Package session implements automated keep-alive polling and verification loops for Steam web sessions.
 package session
 
 import (
@@ -17,31 +17,27 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam"
 )
 
-// BehaviorName is the unique identifier for the session keep-alive behavior.
+// BehaviorName is the identifier for the keep-alive behavior.
 const BehaviorName = "session_keepalive"
 
-// KeepAlive registers the session keep-alive behavior with the orchestrator.
+// KeepAlive registers the session keep-alive behavior with the client behavior runner.
 func KeepAlive(client *steam.Client, cfg Config) {
 	behavior.From(client).Register(New(client.Session(), client.Logger(), client.Bus(), cfg))
 }
 
-// Provider defines the contract needed to verify and refresh a Steam session.
+// Provider defines methods required to verify authentication status and trigger session renewals.
 type Provider interface {
-	// IsAuthenticated returns whether the session is currently authenticated.
 	IsAuthenticated() bool
-	// Verify checks if the current web session is still valid.
 	Verify(ctx context.Context) (bool, error)
-	// Refresh executes an atomic token refresh.
 	Refresh(ctx context.Context) error
 }
 
-// Config defines the scheduling policy for the session keepalive manager.
+// Config configures keep-alive health check intervals.
 type Config struct {
-	// Interval specifies how frequently to check session health (defaults to 5 minutes).
 	Interval time.Duration
 }
 
-// Verifier orchestrates session verification and automatic refreshing.
+// Verifier periodically checks session cookies and triggers automated token updates when invalid.
 type Verifier struct {
 	provider Provider
 	logger   log.Logger
@@ -49,7 +45,7 @@ type Verifier struct {
 	bus      *bus.Bus
 }
 
-// New creates a new session keep-alive manager behavior.
+// New constructs a session keep-alive Verifier instance.
 func New(provider Provider, logger log.Logger, bus *bus.Bus, cfg Config) *Verifier {
 	cfg.Interval = generic.Coalesce(cfg.Interval, 5*time.Minute)
 
@@ -61,13 +57,12 @@ func New(provider Provider, logger log.Logger, bus *bus.Bus, cfg Config) *Verifi
 	}
 }
 
-// Name returns the unique behavior identifier.
+// Name returns behavior identifier "session_keepalive".
 func (m *Verifier) Name() string {
 	return BehaviorName
 }
 
-// Run executes the keep-alive loop, verifying the session at the specified interval
-// and performing an automatic refresh if the session has expired.
+// Run starts periodic session health checks.
 func (m *Verifier) Run(ctx context.Context) error {
 	m.logger.Info("Session Keep-Alive behavior started", log.Duration("interval", m.config.Interval))
 
@@ -78,6 +73,7 @@ func (m *Verifier) Run(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
+
 		case <-ticker.C:
 			if !m.provider.IsAuthenticated() {
 				m.logger.Debug("Session is not authenticated, skipping verification")

@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package dispatcher handles incoming Steam packets and dispatches them to registered handlers.
+// Package dispatcher routes incoming Steam packets to registered EMsg handlers, service methods, and job callbacks.
 package dispatcher
 
 import (
@@ -26,49 +26,46 @@ import (
 )
 
 var (
-	// ErrDecompressionLimit is returned when a Multi-message payload
-	// exceeds the safety threshold (default 100MB) to prevent OOM attacks.
+	// ErrDecompressionLimit is returned when an unzipped Multi-message payload exceeds safe memory limits.
 	ErrDecompressionLimit = errors.New("dispatcher: decompression limit exceeded")
-	// ErrDestJobFailed is returned when the Steam CM indicates a job failure.
+	// ErrDestJobFailed is returned when Steam CM reports a destination job failure.
 	ErrDestJobFailed = errors.New("dispatcher: destination job failed on steam side")
 )
 
-// Handler defines a callback function for processing a fully-parsed Steam packet.
+// Handler processes a fully parsed Steam packet.
 type Handler func(p *protocol.Packet)
 
-// Writer defines an interface for sending data through socket.
+// Writer writes raw binary bytes to the network socket.
 type Writer interface {
 	Send(ctx context.Context, data []byte) error
 }
 
-// SessionReader is an interface for accessing fresh steam and session ids
+// SessionReader reads SteamID and SessionID values.
 type SessionReader interface {
 	SteamID() uint64
 	SessionID() int32
 }
 
-// SendConfig contains parameters for sending a message.
+// SendConfig specifies parameters for sending outbound socket messages.
 type SendConfig struct {
-	// Callback is invoked asynchronously when a response to this message is received.
 	Callback jobs.Callback[*protocol.Packet]
-	// Token is an optional WebAPI access token for service method routing.
-	Token string
+	Token    string
 }
 
-// SendOption defines a functional option for configuring a Send operation.
+// SendOption configures a Send operation.
 type SendOption func(*SendConfig)
 
-// WithCallback adds a callback to asynchronously wait for a response to the sent packet.
+// WithCallback assigns an asynchronous job response callback.
 func WithCallback(cb jobs.Callback[*protocol.Packet]) SendOption {
 	return func(c *SendConfig) { c.Callback = cb }
 }
 
-// WithToken sets an access token for service method calls via the socket.
+// WithToken configures an access token for service call routing.
 func WithToken(token string) SendOption {
 	return func(c *SendConfig) { c.Token = token }
 }
 
-// PayloadBuilder defines how to assemble a binary packet.
+// PayloadBuilder serializes a binary packet into a destination buffer.
 type PayloadBuilder func(sess SessionReader, buf *bytes.Buffer, sourceJobID uint64, token string) error
 
 // Proto builds a standard Protobuf-wrapped packet.
@@ -101,22 +98,20 @@ func Unified(method string, req proto.Message) PayloadBuilder {
 	}
 }
 
-// Raw builds a packet using Extended headers (non-protobuf).
+// Raw builds a packet with Extended headers.
 func Raw(eMsg enums.EMsg, payload []byte) PayloadBuilder {
 	return func(sess SessionReader, buf *bytes.Buffer, sourceJobID uint64, _ string) error {
 		pkt := newPacket(sess, eMsg, sourceJobID, false, "", "", 0)
 		pkt.Payload = payload
+
 		return pkt.SerializeTo(buf)
 	}
 }
 
-// DynamicRaw creates a PayloadBuilder that decides between Protobuf and Extended
-// headers based on whether a targetName (Unified Service method) is provided.
-// targetName == "" implies a standard (non-unified) message.
+// DynamicRaw builds a packet selecting Protobuf or Extended headers based on targetName presence.
 func DynamicRaw(eMsg enums.EMsg, targetName string, payload []byte, routingAppID uint32) PayloadBuilder {
 	return func(sess SessionReader, buf *bytes.Buffer, sourceJobID uint64, token string) error {
 		isProto := targetName != ""
-
 		pkt := newPacket(sess, eMsg, sourceJobID, isProto, targetName, token, routingAppID)
 		pkt.Payload = payload
 
@@ -124,12 +119,12 @@ func DynamicRaw(eMsg enums.EMsg, targetName string, payload []byte, routingAppID
 	}
 }
 
-// DynamicRawProto creates a PayloadBuilder that always uses a Protobuf header.
-// Use this for EMsg-based proto messages that are not Unified Service methods.
+// DynamicRawProto builds a packet using Protobuf headers for non-unified EMsg messages.
 func DynamicRawProto(eMsg enums.EMsg, payload []byte, routingAppID uint32) PayloadBuilder {
 	return func(sess SessionReader, buf *bytes.Buffer, sourceJobID uint64, token string) error {
 		pkt := newPacket(sess, eMsg, sourceJobID, true, "", token, routingAppID)
 		pkt.Payload = payload
+
 		return pkt.SerializeTo(buf)
 	}
 }
@@ -145,10 +140,9 @@ type serviceEntry struct {
 	handler atomic.Pointer[Handler]
 }
 
-// fastHashString computes a fast hash of a string using the FNV-1a algorithm.
 func fastHashString(s string) uint64 {
 	var h uint64 = 14695981039346656037
-	for i := 0; i < len(s); i++ {
+	for i := range len(s) {
 		h ^= uint64(s[i])
 		h *= 1099511628211
 	}
@@ -156,7 +150,7 @@ func fastHashString(s string) uint64 {
 	return h
 }
 
-// Dispatcher coordinates the routing of Steam packets to handlers and job callbacks.
+// Dispatcher manages packet handlers, service method tables, and job callbacks.
 type Dispatcher struct {
 	mu sync.RWMutex
 
@@ -170,18 +164,17 @@ type Dispatcher struct {
 	denseServiceTable [serviceTableSize]serviceEntry
 	bufferPool        *sync.Pool
 
-	// DecompressionLimit defines the maximum size allowed for unzipped Multi-messages.
 	DecompressionLimit int64
 }
 
-// New initializes a new packet dispatcher.
+// New initializes a Dispatcher.
 func New(
 	jm *jobs.Manager[uint64, *protocol.Packet],
 	writer Writer,
 	session SessionReader,
 	logger log.Logger,
 ) *Dispatcher {
-	d := &Dispatcher{
+	return &Dispatcher{
 		writer:             writer,
 		session:            session,
 		logger:             logger.With(log.Component("dispatch")),
@@ -194,11 +187,9 @@ func New(
 			},
 		},
 	}
-
-	return d
 }
 
-// UpdateLogger updates the logger used by the dispatcher.
+// UpdateLogger updates the logger instance.
 func (d *Dispatcher) UpdateLogger(logger log.Logger) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -206,7 +197,7 @@ func (d *Dispatcher) UpdateLogger(logger log.Logger) {
 	d.logger = logger.With(log.Component("dispatch"))
 }
 
-// RegisterMsgHandler registers a callback for a specific EMsg.
+// RegisterMsgHandler registers a callback handler for an EMsg.
 func (d *Dispatcher) RegisterMsgHandler(eMsg enums.EMsg, handler Handler) {
 	if uint32(eMsg) < maxDenseEMsg {
 		if handler == nil {
@@ -231,8 +222,7 @@ func (d *Dispatcher) RegisterMsgHandler(eMsg enums.EMsg, handler Handler) {
 	}
 }
 
-// RegisterServiceHandler registers a callback for a specific Unified Service Method.
-// Example method: "Player.GetGameBadgeLevels#1".
+// RegisterServiceHandler registers a callback handler for a Unified Service Method.
 func (d *Dispatcher) RegisterServiceHandler(method string, handler Handler) {
 	hash := fastHashString(method)
 	idx := hash & (serviceTableSize - 1)
@@ -270,10 +260,7 @@ func (d *Dispatcher) ClearHandlers() {
 	}
 }
 
-// Send is the primary method for transmitting data. It handles job registration,
-// buffer pooling, and builder execution.
-//
-// It returns an error if packet serialization fails or the underlying socket transmission fails.
+// Send serializes and transmits a packet, registering a response job if requested.
 func (d *Dispatcher) Send(ctx context.Context, build PayloadBuilder, opts ...SendOption) error {
 	cfg := &SendConfig{}
 	for _, opt := range opts {
@@ -293,8 +280,7 @@ func (d *Dispatcher) Send(ctx context.Context, build PayloadBuilder, opts ...Sen
 	return d.writer.Send(ctx, buf.Bytes())
 }
 
-// Dispatch routes a single packet. If the packet is an EMsg_Multi, it will be
-// unpacked and each sub-packet will be dispatched recursively.
+// Dispatch routes an incoming packet to matching jobs, EMsg handlers, or service handlers.
 func (d *Dispatcher) Dispatch(packet *protocol.Packet) bool {
 	if packet == nil {
 		return false
@@ -308,6 +294,7 @@ func (d *Dispatcher) Dispatch(packet *protocol.Packet) bool {
 	case enums.EMsg_Multi:
 		d.handleMulti(packet)
 		return false
+
 	case enums.EMsg_ServiceMethod:
 		d.handleService(packet)
 		return false
@@ -336,7 +323,7 @@ func (d *Dispatcher) Dispatch(packet *protocol.Packet) bool {
 	return false
 }
 
-// Close closes the dispatcher and its job manager.
+// Close closes the dispatcher and job manager.
 func (d *Dispatcher) Close() error {
 	return d.jobManager.Close()
 }
@@ -423,7 +410,6 @@ func releaseCMsgMulti(msg *pb.CMsgMulti) {
 	cmsgMultiPool.Put(msg)
 }
 
-// handleMulti processes batched Multi-messages without reflection or LimitedReader allocations.
 func (d *Dispatcher) handleMulti(packet *protocol.Packet) {
 	msg := acquireCMsgMulti()
 	defer releaseCMsgMulti(msg)
@@ -477,6 +463,7 @@ var gzipReaderPool = sync.Pool{
 var decompressedPool = sync.Pool{
 	New: func() any {
 		b := make([]byte, 64*1024)
+
 		return &b
 	},
 }
@@ -613,5 +600,6 @@ func newPacket(
 func (d *Dispatcher) getLogger() log.Logger {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
+
 	return d.logger
 }

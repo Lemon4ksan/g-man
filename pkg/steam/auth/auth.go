@@ -2,8 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package auth implements the complex, multi-stage authentication logic
-// required to establish a secure session with Steam.
+// Package auth implements the multi-stage authentication state machine for establishing secure Steam Connection Manager and web sessions.
 package auth
 
 import (
@@ -36,29 +35,31 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/storage"
 )
 
-// ErrInvalidJWT is returned by [ExtractSteamIDFromJWT] when jwt is not make up of 3 parts.
-var ErrInvalidJWT = errors.New("auth: invalid jwt segment count")
+var (
+	// ErrInvalidJWT indicates a JWT token string does not contain exactly three dot-separated segments.
+	ErrInvalidJWT = errors.New("auth: invalid jwt segment count")
+	// ErrAuthInProgress indicates an authentication attempt is already actively running.
+	ErrAuthInProgress = errors.New("auth: authentication already in progress")
+	// ErrNilDetails indicates an authentication attempt was initiated with nil logon parameters.
+	ErrNilDetails = errors.New("auth: nil details provided")
+	// ErrPollingTimeout indicates mobile or email confirmation polling exceeded the maximum 5-minute timeout.
+	ErrPollingTimeout = errors.New("auth: polling session timed out after 5 minutes")
+)
 
-// ProtocolVersion is the current version of the Steam client protocol used for logon.
+// ProtocolVersion is the Steam client network protocol version passed during logon.
 const ProtocolVersion = 65580
 
-// State represents the current lifecycle stage of the authentication process.
+// State represents authentication lifecycle stages.
 type State int32
 
 const (
-	// StateDisconnected indicates the authenticator is idle.
 	StateDisconnected State = iota
-	// StateAuthenticating indicates WebAPI tokens are being fetched.
 	StateAuthenticating
-	// StateLoggingOn indicates the token is being exchanged with the CM via Socket.
 	StateLoggingOn
-	// StateLoggedOn indicates the authentication is fully complete.
 	StateLoggedOn
-	// StateFailed indicates a terminal failure in the logon process.
 	StateFailed
 )
 
-// String returns a human-readable representation of the authentication state.
 func (s State) String() string {
 	switch s {
 	case StateDisconnected:
@@ -76,23 +77,18 @@ func (s State) String() string {
 	}
 }
 
-// Event represents a trigger that drives a state transition.
+// Event triggers state machine transitions.
 type Event int32
 
 const (
-	// EventBegin initiates a new login attempt.
 	EventBegin Event = iota
-	// EventLoggingOn transitions from authenticating to logging on.
 	EventLoggingOn
-	// EventSuccess completes the login process.
 	EventSuccess
-	// EventFail indicates a failure during authentication.
 	EventFail
-	// EventDisconnect returns to disconnected state.
 	EventDisconnect
 )
 
-// SocketProvider defines the minimal socket capabilities required by the Authenticator.
+// SocketProvider defines minimal socket capabilities required by the Authenticator.
 type SocketProvider interface {
 	SetEncryptionKey(key []byte) bool
 	RegisterMsgHandler(eMsg enums.EMsg, handler dispatcher.Handler)
@@ -103,7 +99,7 @@ type SocketProvider interface {
 	StartHeartbeat(time.Duration) error
 }
 
-// WebAuthenticator defines the interface for interacting with Steam's mobile confirmation endpoints.
+// WebAuthenticator manages web-based authentication endpoints and mobile Guard confirmation updates.
 type WebAuthenticator interface {
 	BeginAuthSessionViaCredentials(
 		ctx context.Context,
@@ -127,7 +123,7 @@ type WebAuthenticator interface {
 	) (*pb.CAuthentication_AccessToken_GenerateForApp_Response, error)
 }
 
-// Store handles persisting the Steam authentication state, such as tokens and machine IDs.
+// Store persists refresh tokens and machine IDs across sessions.
 type Store interface {
 	SaveRefreshToken(ctx context.Context, accountName, token string) error
 	GetRefreshToken(ctx context.Context, accountName string) (string, error)
@@ -136,22 +132,20 @@ type Store interface {
 	Clear(ctx context.Context, accountName string) error
 }
 
-// KVStore wraps a KV store to satisfy the Store interface.
+// KVStore wraps storage.KV to fulfill Store.
 type KVStore struct {
 	kv storage.KV
 }
 
-// NewKVStore creates a new Store backed by a generic KV store.
+// NewKVStore constructs a KVStore wrapper.
 func NewKVStore(kv storage.KV) Store {
 	return &KVStore{kv: kv}
 }
 
-// SaveRefreshToken saves the refresh token for the given account.
 func (s *KVStore) SaveRefreshToken(ctx context.Context, accountName, token string) error {
 	return s.kv.Set(ctx, "refresh_token:"+accountName, []byte(token))
 }
 
-// GetRefreshToken retrieves the refresh token for the given account.
 func (s *KVStore) GetRefreshToken(ctx context.Context, accountName string) (string, error) {
 	tokenBytes, err := s.kv.Get(ctx, "refresh_token:"+accountName)
 	if err != nil {
@@ -161,35 +155,32 @@ func (s *KVStore) GetRefreshToken(ctx context.Context, accountName string) (stri
 	return string(tokenBytes), nil
 }
 
-// SaveMachineID saves the machine ID for the given account.
 func (s *KVStore) SaveMachineID(ctx context.Context, accountName string, machineID []byte) error {
 	return s.kv.Set(ctx, "machine_id:"+accountName, machineID)
 }
 
-// GetMachineID retrieves the machine ID for the given account.
 func (s *KVStore) GetMachineID(ctx context.Context, accountName string) ([]byte, error) {
 	return s.kv.Get(ctx, "machine_id:"+accountName)
 }
 
-// Clear removes all stored credentials for the given account.
 func (s *KVStore) Clear(ctx context.Context, accountName string) error {
 	return s.kv.Delete(ctx, "refresh_token:"+accountName)
 }
 
-// Option defines a functional configuration option for Authenticator.
+// Option configures Authenticator instance parameters.
 type Option func(*Authenticator)
 
-// WithLogger sets a custom logger for the Authenticator.
+// WithLogger assigns a custom logger.
 func WithLogger(l log.Logger) Option {
 	return func(a *Authenticator) { a.setLogger(l.With(log.Module("auth"))) }
 }
 
-// WithStorage sets a persistent storage provider for authentication data.
+// WithStorage assigns a credential storage provider.
 func WithStorage(store Store) Option {
 	return func(a *Authenticator) { a.store = store }
 }
 
-// ExtractSteamIDFromJWT parses a Steam JWT and returns the embedded SteamID.
+// ExtractSteamIDFromJWT extracts the 64-bit Steam ID encoded inside a Steam JWT refresh or access token payload.
 func ExtractSteamIDFromJWT(token string) id.ID {
 	payload, err := decodeJWTPayload(token)
 	if err != nil {
@@ -217,7 +208,10 @@ func decodeJWTPayload(token string) ([]byte, error) {
 	return base64.RawURLEncoding.DecodeString(parts[1])
 }
 
-// Authenticator orchestrates the process of logging into Steam.
+// Authenticator orchestrates password, token, and Steam Guard login sequences against Connection Managers.
+//
+// Thread Safety:
+//   - Safe for concurrent operations. State transitions are controlled via kata.FSM.
 type Authenticator struct {
 	fsm *kata.FSM[State, Event]
 
@@ -235,7 +229,7 @@ type Authenticator struct {
 	store       Store
 }
 
-// NewAuthenticator creates a new instance of Authenticator.
+// NewAuthenticator constructs an Authenticator instance.
 func NewAuthenticator(s SocketProvider, svc WebAuthenticator, bus *bus.Bus, opts ...Option) *Authenticator {
 	fsm := kata.NewFSM[State, Event](StateDisconnected)
 	fsm.AddRules(
@@ -280,10 +274,10 @@ func NewAuthenticator(s SocketProvider, svc WebAuthenticator, bus *bus.Bus, opts
 // State returns the current authentication state.
 func (a *Authenticator) State() State { return a.fsm.CurrentState() }
 
-// LogOn initiates the login sequence.
+// LogOn performs full authentication, exchanging credentials or cached refresh tokens with the Connection Manager.
 func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server connector.CMServer) error {
 	if err := a.fsm.Transition(ctx, EventBegin); err != nil {
-		return errors.New("auth: authentication already in progress")
+		return ErrAuthInProgress
 	}
 
 	defer a.ensureTerminalState()
@@ -318,10 +312,10 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 	return a.waitForLogOn(loginCtx, resultChan, details.AccountName)
 }
 
-// LogOnAnonymous performs a login without user credentials.
+// LogOnAnonymous performs an anonymous login without user credentials.
 func (a *Authenticator) LogOnAnonymous(ctx context.Context, server connector.CMServer) error {
 	if err := a.fsm.Transition(ctx, EventBegin); err != nil {
-		return errors.New("auth: authentication already in progress")
+		return ErrAuthInProgress
 	}
 
 	defer a.ensureTerminalState()
@@ -431,7 +425,7 @@ func (a *Authenticator) waitForLogOn(ctx context.Context, resultChan chan error,
 
 func (a *Authenticator) validate(details *LogOnDetails) error {
 	if details == nil {
-		return errors.New("auth: nil details provided")
+		return ErrNilDetails
 	}
 
 	return details.Validate()
@@ -536,7 +530,7 @@ func (a *Authenticator) pollAuthStatus(
 		case <-ctx.Done():
 			return "", "", 0, context.Cause(ctx)
 		case <-timeout.C:
-			return "", "", 0, errors.New("auth: polling session timed out after 5 minutes")
+			return "", "", 0, ErrPollingTimeout
 		case <-ticker.C:
 			pollRes, err := a.service.PollAuthSessionStatus(ctx, clientID, requestID)
 			if err != nil {

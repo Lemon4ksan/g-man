@@ -12,13 +12,11 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/trading"
 )
 
-// BotHandler connects an Engine to the automated trade processor.
 type BotHandler struct {
 	engine *Engine
 	logger log.Logger
 }
 
-// NewBotHandler creates a new BotHandler for the given engine.
 func NewBotHandler(e *Engine, l log.Logger) *BotHandler {
 	return &BotHandler{
 		engine: e,
@@ -26,7 +24,6 @@ func NewBotHandler(e *Engine, l log.Logger) *BotHandler {
 	}
 }
 
-// ProcessOffer fulfills the processor.OfferHandler interface.
 func (h *BotHandler) ProcessOffer(ctx context.Context, offer *trading.TradeOffer) (trading.ActionDecision, error) {
 	verdict, err := h.engine.Process(ctx, offer)
 	if err != nil {
@@ -36,7 +33,6 @@ func (h *BotHandler) ProcessOffer(ctx context.Context, offer *trading.TradeOffer
 	return verdict.Decision(), nil
 }
 
-// OnActionFailed fulfills the processor.OfferHandler interface.
 func (h *BotHandler) OnActionFailed(
 	ctx context.Context,
 	offer *trading.TradeOffer,

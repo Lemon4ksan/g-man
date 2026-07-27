@@ -2,22 +2,22 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// test/mock/module.go
 package mock
 
 import (
 	"bytes"
 	"context"
-	json "github.com/goccy/go-json"
 	"io"
 	"net/http"
 	"strings"
 	"sync"
 	"testing"
 
+	json "github.com/goccy/go-json"
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/request"
 	"github.com/lemon4ksan/miyako/bus"
+	"github.com/lemon4ksan/miyako/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/protobuf/proto"
@@ -32,10 +32,8 @@ import (
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
 	"github.com/lemon4ksan/g-man/pkg/storage"
 	"github.com/lemon4ksan/g-man/pkg/storage/memory"
-	"github.com/lemon4ksan/miyako/log"
 )
 
-// Module is a Testify mock for module.Module.
 type Module struct {
 	mock.Mock
 }
@@ -55,7 +53,6 @@ func (m *Module) Start(ctx context.Context) error {
 	return args.Error(0)
 }
 
-// AuthModule is a Testify mock for module.Auth.
 type AuthModule struct {
 	Module
 }
@@ -74,12 +71,11 @@ func (d *requesterDoer) Do(req *http.Request) (*http.Response, error) {
 		for k, v := range req.Header {
 			r.SetHeader(k, strings.Join(v, ","))
 		}
+
 		r.SetBodyStream(req.Body, req.ContentLength)
 	})
 }
 
-// InitContext is a lightweight, fully-featured manual mock for module.InitContext.
-// It provides convenient helpers for emitting packets and asserting registrations in tests.
 type InitContext struct {
 	mu              sync.RWMutex
 	eventBus        *bus.Bus
@@ -92,7 +88,6 @@ type InitContext struct {
 	rest            request.Requester
 }
 
-// NewInitContext creates a new InitContext with safe defaults (e.g. memory storage).
 func NewInitContext() *InitContext {
 	return &InitContext{
 		eventBus:        bus.New(),
@@ -105,23 +100,22 @@ func NewInitContext() *InitContext {
 	}
 }
 
-func (m *InitContext) MockService() *ServiceMock {
-	return m.service
-}
-
-func (m *InitContext) Bus() *bus.Bus         { return m.eventBus }
-func (m *InitContext) Logger() log.Logger    { return m.logger }
-func (m *InitContext) Service() service.Doer { return m.service }
+func (m *InitContext) MockService() *ServiceMock { return m.service }
+func (m *InitContext) Bus() *bus.Bus             { return m.eventBus }
+func (m *InitContext) Logger() log.Logger        { return m.logger }
+func (m *InitContext) Service() service.Doer     { return m.service }
 
 func (m *InitContext) Storage() storage.Provider {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
 	return m.storage
 }
 
 func (m *InitContext) Rest() request.Requester {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
 	return m.rest
 }
 
@@ -170,6 +164,7 @@ func (m *InitContext) UnregisterServiceHandler(method string) {
 func (m *InitContext) Module(name string) module.Module {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
 	return m.modules[name]
 }
 
@@ -183,6 +178,7 @@ func (m *InitContext) AssertPacketHandlerRegistered(t *testing.T, e enums.EMsg) 
 	t.Helper()
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
 	_, ok := m.packetHandlers[e]
 	assert.True(t, ok, "Expected packet handler for %v to be registered", e)
 }
@@ -191,6 +187,7 @@ func (m *InitContext) AssertPacketHandlerUnregistered(t *testing.T, e enums.EMsg
 	t.Helper()
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
 	_, ok := m.packetHandlers[e]
 	assert.False(t, ok, "Expected packet handler for %v to be unregistered", e)
 }
@@ -199,6 +196,7 @@ func (m *InitContext) AssertServiceHandlerRegistered(t *testing.T, method string
 	t.Helper()
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
 	_, ok := m.serviceHandlers[method]
 	assert.True(t, ok, "Expected service handler %q to be registered", method)
 }
@@ -207,6 +205,7 @@ func (m *InitContext) AssertServiceHandlerUnregistered(t *testing.T, method stri
 	t.Helper()
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
 	_, ok := m.serviceHandlers[method]
 	assert.False(t, ok, "Expected service handler %q to be unregistered", method)
 }
@@ -232,31 +231,29 @@ func (m *InitContext) EmitPacket(t *testing.T, e enums.EMsg, msg proto.Message) 
 	})
 }
 
-// GetPacketHandler returns the registered packet handler for the given EMsg, if one exists.
 func (m *InitContext) GetPacketHandler(e enums.EMsg) (socket.Handler, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
 	h, ok := m.packetHandlers[e]
+
 	return h, ok
 }
 
-// GetServiceHandler returns the registered service handler for the given method, if one exists.
 func (m *InitContext) GetServiceHandler(method string) (socket.Handler, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
 	h, ok := m.serviceHandlers[method]
+
 	return h, ok
 }
 
-// AuthContext is a lightweight manual mock for module.AuthContext.
 type AuthContext struct {
 	MockCommunity *HTTPStub
 	MockSteamID   id.ID
 }
 
-// NewAuthContext creates a new AuthContext with a clean HTTPStub.
 func NewAuthContext(steamID id.ID) *AuthContext {
 	return &AuthContext{
 		MockCommunity: NewHTTPStub(),
@@ -272,6 +269,7 @@ func ProtoResponse(msg proto.Message) (*tr.Response, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return tr.NewResponse(io.NopCloser(bytes.NewReader(b)), tr.SocketMetadata{Result: enums.EResult_OK}), nil
 }
 
@@ -280,5 +278,6 @@ func JSONResponse(msg any) (*tr.Response, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return tr.NewResponse(io.NopCloser(bytes.NewReader(b)), tr.HTTPMetadata{StatusCode: 200}), nil
 }

@@ -10,97 +10,68 @@ import (
 	"github.com/lemon4ksan/miyako/bus"
 )
 
-// Chat message types.
 const (
 	ChatEntryTypeChatMsg          = 1
 	ChatEntryTypeTyping           = 2
 	ChatEntryTypeLeftConversation = 6
-	ChatEntryTypeEmote            = 8  // e.g. :steamhappy:
-	ChatEntryTypeSticker          = 10 // Animated sticker
+	ChatEntryTypeEmote            = 8
+	ChatEntryTypeSticker          = 10
 )
 
-// MessageEvent represents a standard text message from a friend.
+// MessageEvent is published when a private text message arrives from a friend.
 type MessageEvent struct {
 	bus.BaseEvent
-	// SenderID is the 64-bit Steam ID of the user who sent the message.
-	SenderID uint64
-	// Message is the plain-text content of the message.
-	Message string
-	// Timestamp is the server time when the message was received.
+	SenderID  uint64
+	Message   string
 	Timestamp time.Time
-	// Ordinal helps correctly sequence messages that arrive out of order.
-	Ordinal uint32
+	Ordinal   uint32
 }
 
-// StickerEvent represents an animated sticker message from a friend.
+// StickerEvent is published when an animated sticker message arrives.
 type StickerEvent struct {
 	bus.BaseEvent
-	// SenderID is the 64-bit Steam ID of the user who sent the sticker.
-	SenderID uint64
-	// StickerID is the unique identifier or URL of the sticker.
+	SenderID  uint64
 	StickerID string
-	// Timestamp is the server time when the sticker was received.
 	Timestamp time.Time
 }
 
-// TypingEvent is fired when a friend starts typing a message.
+// TypingEvent is published when a friend sends a typing signal.
 type TypingEvent struct {
 	bus.BaseEvent
-	// SenderID is the 64-bit Steam ID of the friend who is typing.
 	SenderID uint64
 }
 
-// GroupMessageEvent represents a text message in a group chat.
+// GroupMessageEvent is published when a message arrives in a group chat room.
 type GroupMessageEvent struct {
 	bus.BaseEvent
-	// ChatGroupID is the unique identifier of the chat group.
 	ChatGroupID uint64
-	// ChatID is the unique identifier of the active channel inside the group.
-	ChatID uint64
-	// SenderID is the 64-bit Steam ID of the user who sent the message.
-	SenderID uint64
-	// Message is the plain-text content of the message.
-	Message string
-	// Timestamp is the server time when the message was received.
-	Timestamp time.Time
+	ChatID      uint64
+	SenderID    uint64
+	Message     string
+	Timestamp   time.Time
 }
 
-// ReactionEvent represents a reaction to a friend message.
+// ReactionEvent is published when an emoji reaction is updated on a private message.
 type ReactionEvent struct {
 	bus.BaseEvent
-	// FriendSteamID is the 64-bit Steam ID of the friend whose message was reacted to.
-	FriendSteamID uint64
-	// ReactorSteamID is the 64-bit Steam ID of the user who reacted to the message.
-	ReactorSteamID uint64
-	// ServerTimestamp is the server time when the reaction occurred.
+	FriendSteamID   uint64
+	ReactorSteamID  uint64
 	ServerTimestamp uint32
-	// Ordinal helps correctly sequence reactions that arrive out of order.
-	Ordinal uint32
-	// Reaction is the string or emoji representing the reaction.
-	Reaction string
-	// ReactionType is the numeric type identifier of the reaction.
-	ReactionType int32
-	// IsAdd is true if the reaction was added, false if it was removed.
-	IsAdd bool
+	Ordinal         uint32
+	Reaction        string
+	ReactionType    int32
+	IsAdd           bool
 }
 
-// GroupReactionEvent represents a reaction to a message in a group chat room.
+// GroupReactionEvent is published when an emoji reaction is updated in a group chat channel.
 type GroupReactionEvent struct {
 	bus.BaseEvent
-	// ChatGroupID is the unique identifier of the chat group.
-	ChatGroupID uint64
-	// ChatID is the unique identifier of the active channel inside the group.
-	ChatID uint64
-	// ReactorSteamID is the 64-bit Steam ID of the user who reacted to the message.
-	ReactorSteamID uint64
-	// ServerTimestamp is the server time when the reaction occurred.
+	ChatGroupID     uint64
+	ChatID          uint64
+	ReactorSteamID  uint64
 	ServerTimestamp uint32
-	// Ordinal helps correctly sequence reactions that arrive out of order.
-	Ordinal uint32
-	// Reaction is the string or emoji representing the reaction.
-	Reaction string
-	// ReactionType is the numeric type identifier of the reaction.
-	ReactionType int32
-	// IsAdd is true if the reaction was added, false if it was removed.
-	IsAdd bool
+	Ordinal         uint32
+	Reaction        string
+	ReactionType    int32
+	IsAdd           bool
 }

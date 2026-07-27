@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package transport unifies communication over different network protocols behind a single interface.
+// Package transport provides protocol-agnostic Request and Response structures unifying HTTP WebAPI and Socket messaging.
 package transport
 
 import (
@@ -16,23 +16,15 @@ import (
 	"github.com/lemon4ksan/aoni/codec/decode"
 )
 
-// Transport is the core interface that unifies different network implementations.
-// It allows higher-level services to execute requests without knowing the underlying protocol.
 type Transport interface {
-	// Do executes the given request and returns a protocol-agnostic response.
 	Do(ctx context.Context, req *Request) (*Response, error)
 }
 
-// Target represents the logical destination of a Steam request.
-// It is a marker interface implemented by protocol-specific targets (e.g., Unified, WebAPI).
 type Target interface {
-	// String returns a human-readable identifier for the target.
 	String() string
 }
 
-// Request is a protocol-agnostic container for a Steam API call.
-// It holds all the information necessary for either HTTP or socket transports
-// to build and send a message.
+// Request holds parameters, query values, headers, and payload readers for Steam requests.
 type Request struct {
 	target       Target
 	Body         io.Reader
@@ -45,7 +37,7 @@ type Request struct {
 	decoder      decode.Decoder
 }
 
-// NewRequest creates a new Request with a target and payload.
+// NewRequest constructs a Request.
 func NewRequest(target Target, body io.Reader) *Request {
 	return &Request{
 		target:  target,
@@ -55,24 +47,22 @@ func NewRequest(target Target, body io.Reader) *Request {
 	}
 }
 
-// SetDecoder sets the decoder for this Request.
 func (r *Request) SetDecoder(d decode.Decoder) {
 	r.decoder = d
 }
 
-// WithModifier adds a request modifier to the Request.
 func (r *Request) WithModifier(mods ...aoni.RequestModifier) *Request {
 	r.mods = append(r.mods, mods...)
+
 	return r
 }
 
-// WithParam adds a key-value parameter (e.g., a URL query string).
 func (r *Request) WithParam(key, value string) *Request {
 	r.params.Set(key, value)
+
 	return r
 }
 
-// WithParams merges multiple parameters into the Request.
 func (r *Request) WithParams(params url.Values) *Request {
 	for k, vs := range params {
 		for _, v := range vs {
@@ -83,18 +73,14 @@ func (r *Request) WithParams(params url.Values) *Request {
 	return r
 }
 
-// WithHeader adds metadata to the request (e.g., HTTP headers).
 func (r *Request) WithHeader(key, value string) *Request {
 	r.headers.Add(key, value)
+
 	return r
 }
 
-// Modifiers returns the list of request modifiers for this Request.
-func (r *Request) Modifiers() []aoni.RequestModifier {
-	return r.mods
-}
+func (r *Request) Modifiers() []aoni.RequestModifier { return r.mods }
 
-// Decoder returns the decoder for this Request, or the default if not set.
 func (r *Request) Decoder(def decode.Decoder) decode.Decoder {
 	if r.decoder == nil {
 		return def
@@ -103,47 +89,34 @@ func (r *Request) Decoder(def decode.Decoder) decode.Decoder {
 	return r.decoder
 }
 
-// Target returns the request destination.
-func (r *Request) Target() Target { return r.target }
-
-// Params returns the query parameters or arguments for the request.
-func (r *Request) Params() url.Values { return r.params }
-
-// Header returns the transport-level headers.
+func (r *Request) Target() Target      { return r.target }
+func (r *Request) Params() url.Values  { return r.params }
 func (r *Request) Header() http.Header { return r.headers }
+func (r *Request) Token() string       { return r.params.Get("access_token") }
 
-// Token retrieves the access token from the request parameters, if present.
-func (r *Request) Token() string { return r.params.Get("access_token") }
-
-// WithRoutingAppID specifies the target AppID for routing this request (used for Rich Presence).
 func (r *Request) WithRoutingAppID(appID uint32) *Request {
 	r.routingAppID = appID
+
 	return r
 }
 
-// RoutingAppID returns the target AppID for routing this request.
 func (r *Request) RoutingAppID() uint32 { return r.routingAppID }
 
-// WithForceProto marks the request to use a Protobuf packet header even when no
-// Unified Service method name is present. Required for EMsg-based proto messages.
 func (r *Request) WithForceProto() *Request {
 	r.forceProto = true
+
 	return r
 }
 
-// IsForceProto reports whether the request must use a Protobuf packet header.
 func (r *Request) IsForceProto() bool { return r.forceProto }
 
-// Response represents the result of a Steam API call. It is a protocol-agnostic
-// container for the body and transport-specific metadata.
+// Response encapsulates response streams and protocol metadata.
 type Response struct {
-	// Body is the raw response payload from the server.
-	Body io.ReadCloser
-	// metadata holds transport-specific information (e.g., HTTP status, EResult).
+	Body     io.ReadCloser
 	metadata any
 }
 
-// NewResponse creates a new Response with a body and associated metadata.
+// NewResponse constructs a Response instance.
 func NewResponse(body io.ReadCloser, meta any) *Response {
 	return &Response{
 		Body:     body,
@@ -151,11 +124,10 @@ func NewResponse(body io.ReadCloser, meta any) *Response {
 	}
 }
 
-// As provides a type-safe way to extract protocol-specific metadata from a [Response].
-// It functions similarly to [errors.As], populating the target if the types match.
+// As populates target with protocol-specific metadata if types match.
 //
-// The target argument must be a non-nil pointer. If target is nil or not a pointer,
-// As panics with an invalid target description.
+// Preconditions:
+//   - target MUST be a non-nil pointer.
 func (r *Response) As(target any) bool {
 	if r.metadata == nil {
 		return false
@@ -171,20 +143,21 @@ func (r *Response) As(target any) bool {
 
 	if metaVal.Type().AssignableTo(targetVal.Type()) {
 		targetVal.Set(metaVal)
+
 		return true
 	}
 
 	return false
 }
 
-// HTTP is a convenient helper to extract HTTPMetadata from the response.
 func (r *Response) HTTP() (HTTPMetadata, bool) {
 	meta, ok := r.metadata.(HTTPMetadata)
+
 	return meta, ok
 }
 
-// Socket is a convenient helper to extract SocketMetadata from the response.
 func (r *Response) Socket() (SocketMetadata, bool) {
 	meta, ok := r.metadata.(SocketMetadata)
+
 	return meta, ok
 }

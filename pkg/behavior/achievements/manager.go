@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package achievements provides the universal achievement manager behavior for the orchestrator.
+// Package achievements implements a behavior for automated achievement farming and play session simulation.
 package achievements
 
 import (
@@ -16,22 +16,22 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/behavior"
 )
 
-// BehaviorName is the name of the behavior.
+// BehaviorName is the identifier for the achievement behavior.
 const BehaviorName = "achievements"
 
-// Simulate registers the achievement manager behavior with the orchestrator.
+// Simulate registers an achievement simulation Manager instance with the orchestrator.
 func Simulate(orch *behavior.Orchestrator, provider Provider, cfg Config) {
 	orch.Register(New(provider, cfg, orch.Logger()))
 }
 
-// Provider describes the interface for interaction with the game for the manager.
+// Provider defines the interface required to award achievements and query progress.
 type Provider interface {
 	AwardAchievement(ctx context.Context, id uint32) error
 	GetCurrentAchievements(ctx context.Context) (map[uint32]bool, error)
 	PlayGames(ctx context.Context, appIDs []uint32) error
 }
 
-// Config defines strategy config for achievement manager.
+// Config configures achievement target percentages, unlock probabilities, and simulation intervals.
 type Config struct {
 	AppID            uint32
 	TotalCount       int
@@ -41,10 +41,10 @@ type Config struct {
 	BreakChance      float32
 	CheckInterval    time.Duration
 	InitialDelay     time.Duration
-	AchievementPool  [][]uint32 // Ranges of achievement IDs [start, end].
+	AchievementPool  [][]uint32
 }
 
-// Manager implements the universal strategy for obtaining achievements.
+// Manager executes probabilistic achievement unlocking and gameplay break patterns.
 type Manager struct {
 	provider Provider
 	config   Config
@@ -52,22 +52,22 @@ type Manager struct {
 	logger   log.Logger
 }
 
-// New creates a new achievement behavior.
+// New constructs an achievement Manager instance.
 func New(provider Provider, config Config, logger log.Logger) *Manager {
 	return &Manager{
 		provider: provider,
 		config:   config,
-		rng:      rand.New(rand.NewSource(time.Now().UnixNano())), // #nosec G404
+		rng:      rand.New(rand.NewSource(time.Now().UnixNano())),
 		logger:   logger,
 	}
 }
 
-// Name returns the name of the behavior.
+// Name returns behavior identifier "achievements".
 func (m *Manager) Name() string {
 	return BehaviorName
 }
 
-// Run implements the universal strategy for obtaining achievements.
+// Run executes the achievement simulation loop.
 func (m *Manager) Run(ctx context.Context) error {
 	logger := m.logger.With(log.Uint32("app_id", m.config.AppID))
 	logger.Info("Achievement Manager started")
@@ -77,7 +77,6 @@ func (m *Manager) Run(ctx context.Context) error {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	// Wait a brief moment for games played status to propagate to Steam CM if configured
 	if m.config.InitialDelay > 0 {
 		select {
 		case <-ctx.Done():
@@ -96,7 +95,7 @@ func (m *Manager) Run(ctx context.Context) error {
 		unlocked, err := m.provider.GetCurrentAchievements(ctx)
 		if err != nil {
 			logger.Error("Failed to fetch progress", log.Err(err))
-			// Retry in 1 minute on failure instead of waiting for the full ticker
+
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
@@ -132,7 +131,6 @@ func (m *Manager) unlockRandom(ctx context.Context, unlocked map[uint32]bool) {
 	}
 
 	r := m.config.AchievementPool[m.rng.Intn(len(m.config.AchievementPool))]
-
 	if len(r) < 2 {
 		return
 	}
@@ -151,11 +149,11 @@ func (m *Manager) simulateBreak(ctx context.Context) {
 	duration := time.Duration(2+m.rng.Intn(4)) * time.Hour
 	m.logger.Info("Strategy: Taking a break", log.Duration("duration", duration))
 
-	_ = m.provider.PlayGames(ctx, []uint32{}) // Stop playing
+	_ = m.provider.PlayGames(ctx, []uint32{})
 
 	select {
 	case <-ctx.Done():
 	case <-time.After(duration):
-		_ = m.provider.PlayGames(ctx, []uint32{m.config.AppID}) // Resume
+		_ = m.provider.PlayGames(ctx, []uint32{m.config.AppID})
 	}
 }

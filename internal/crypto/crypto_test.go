@@ -50,23 +50,23 @@ func TestPKCS7UnpadErrors(t *testing.T) {
 
 	t.Run("EmptyData", func(t *testing.T) {
 		_, err := pkcs7Unpad([]byte{}, blockSize)
-		assert.EqualError(t, err, "empty data")
+		assert.ErrorIs(t, err, ErrEmptyData)
 	})
 
 	t.Run("InvalidBlockSize", func(t *testing.T) {
 		_, err := pkcs7Unpad([]byte{1, 2, 3}, blockSize)
-		assert.ErrorContains(t, err, "multiple of block size")
+		assert.ErrorIs(t, err, ErrInvalidBlockSize)
 	})
 
 	t.Run("InvalidPaddingValue", func(t *testing.T) {
 		data := make([]byte, blockSize)
 		data[blockSize-1] = 0
 		_, err := pkcs7Unpad(data, blockSize)
-		assert.EqualError(t, err, "invalid padding")
+		assert.ErrorIs(t, err, ErrInvalidPadding)
 
 		data[blockSize-1] = byte(blockSize + 1)
 		_, err = pkcs7Unpad(data, blockSize)
-		assert.Error(t, err, "expected error for padding > blockSize")
+		assert.ErrorIs(t, err, ErrInvalidPadding)
 	})
 
 	t.Run("InconsistentPadding", func(t *testing.T) {
@@ -76,7 +76,7 @@ func TestPKCS7UnpadErrors(t *testing.T) {
 		data[len(data)-3] = 0x01 // inconsistent
 
 		_, err := pkcs7Unpad(data, blockSize)
-		assert.EqualError(t, err, "invalid padding")
+		assert.ErrorIs(t, err, ErrInvalidPadding)
 	})
 }
 
@@ -205,13 +205,13 @@ func TestSymmetricDecryptErrors(t *testing.T) {
 
 	t.Run("InputTooShort", func(t *testing.T) {
 		_, err := SymmetricDecrypt([]byte{1, 2, 3}, key32, false)
-		assert.ErrorContains(t, err, "input too short")
+		assert.ErrorIs(t, err, ErrInputTooShort)
 	})
 
 	t.Run("BadCiphertextLength", func(t *testing.T) {
 		badLenInput := make([]byte, aes.BlockSize+5)
 		_, err := SymmetricDecrypt(badLenInput, key32, false)
-		assert.ErrorContains(t, err, "not a multiple of block size")
+		assert.ErrorIs(t, err, ErrInvalidBlockSize)
 	})
 }
 
@@ -238,12 +238,12 @@ func TestSymmetricDecryptECBErrors(t *testing.T) {
 
 	t.Run("BadKeyLength", func(t *testing.T) {
 		_, err := SymmetricDecryptECB(make([]byte, aes.BlockSize), key16)
-		assert.ErrorContains(t, err, "key must be 32 bytes")
+		assert.ErrorIs(t, err, ErrInvalidKeyLength)
 	})
 
 	t.Run("BadInputLength", func(t *testing.T) {
 		_, err := SymmetricDecryptECB([]byte{1, 2, 3, 4, 5}, key32)
-		assert.ErrorContains(t, err, "not a multiple of block size")
+		assert.ErrorIs(t, err, ErrInvalidBlockSize)
 	})
 }
 

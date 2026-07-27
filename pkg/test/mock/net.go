@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// test/mock/net.go
 package mock
 
 import (
@@ -10,9 +9,10 @@ import (
 	"net/http"
 
 	"github.com/lemon4ksan/aoni"
+	"github.com/stretchr/testify/mock"
+
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
-	"github.com/stretchr/testify/mock"
 )
 
 type Authenticator struct {
@@ -36,6 +36,7 @@ func (m *Community) SessionID(baseURL string) string {
 func (m *Community) Request(ctx context.Context, method, path string, mods ...aoni.RequestModifier) (*http.Response, error) {
 	args := m.Called(ctx, method, path, mods)
 	resp, _ := args.Get(0).(*http.Response)
+
 	return resp, args.Error(1)
 }
 
@@ -51,5 +52,6 @@ type HTTPDoer struct {
 func (m *HTTPDoer) Do(req *http.Request) (*http.Response, error) {
 	args := m.Called(req)
 	resp, _ := args.Get(0).(*http.Response)
+
 	return resp, args.Error(1)
 }

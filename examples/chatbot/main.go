@@ -21,12 +21,15 @@ import (
 	trading "github.com/lemon4ksan/g-man/pkg/trading/web"
 )
 
-// ChatBot links Steam chat events with the command engine
+var ErrNegativeAmount = errors.New("chatbot: withdrawal amount must be a positive number")
+
+// ChatBot links Steam friend and chat events with the command engine.
 type ChatBot struct {
 	client *steam.Client
 	logger log.Logger
 }
 
+// NewChatBot constructs a ChatBot instance.
 func NewChatBot(client *steam.Client, logger log.Logger) *ChatBot {
 	return &ChatBot{
 		client: client,
@@ -34,26 +37,24 @@ func NewChatBot(client *steam.Client, logger log.Logger) *ChatBot {
 	}
 }
 
-// RegisterCommands declares the syntax and validation rules for chat commands
+// RegisterCommands registers builtin and admin commands on the client command engine.
 func (bot *ChatBot) RegisterCommands() {
-	// Register built-in commands (!status, !steamid, !profile)
 	friendsMgr := friends.From(bot.client)
 	cmdManager := commands.From(bot.client)
+
 	commands.RegisterBuiltinCommands(cmdManager, friendsMgr, time.Now())
 
-	// Command with typed arguments and validation (Withdrawal)
 	cmdManager.Register("withdraw", bot.handleWithdraw,
-		commands.WithDescription("Requests a transfer of a specific amount of funds to the specified SteamID"),
+		commands.WithDescription("Requests a transfer of funds to the specified SteamID"),
 		commands.WithArgsSchema(
 			commands.Required[id.ID]("target_id"),
 			commands.Required[float64]("amount"),
 		),
-		commands.WithAdmin(), // Command is available to administrators only
+		commands.WithAdmin(),
 	)
 
-	// Command for manual trade confirmation
 	cmdManager.Register("approve", bot.handleApprove,
-		commands.WithDescription("Forcibly confirms an incoming trade by its ID"),
+		commands.WithDescription("Forcibly approves an active trade offer by ID"),
 		commands.WithArgsSchema(
 			commands.Required[uint64]("offer_id"),
 		),
@@ -61,9 +62,8 @@ func (bot *ChatBot) RegisterCommands() {
 	)
 }
 
-// ListenEvents subscribes to the event bus to handle incoming requests
+// ListenEvents subscribes to relationship events and handles incoming friend requests.
 func (bot *ChatBot) ListenEvents(ctx context.Context) {
-	// Subscribe to relationship changes (friend requests) and messages
 	sub := bot.client.Bus().Subscribe(
 		&friends.RelationshipChangedEvent{},
 	)
@@ -75,6 +75,7 @@ func (bot *ChatBot) ListenEvents(ctx context.Context) {
 			select {
 			case <-ctx.Done():
 				return
+
 			case ev, ok := <-sub.C():
 				if !ok {
 					return
@@ -88,20 +89,18 @@ func (bot *ChatBot) ListenEvents(ctx context.Context) {
 	}()
 }
 
-// handleFriendRequest automatically approves incoming friend requests
 func (bot *ChatBot) handleFriendRequest(ctx context.Context, e *friends.RelationshipChangedEvent) {
 	friendsMgr := friends.From(bot.client)
+
 	if e.New == enums.EFriendRelationship_RequestInitiator {
 		bot.logger.Info("Received incoming friend request", log.String("steam_id", e.SteamID.String()))
 
-		// Approve request via Web API method of the friends module
 		err := friendsMgr.AcceptFriendRequestWeb(ctx, e.SteamID)
 		if err != nil {
 			bot.logger.Error("Failed to accept friend request", log.Err(err))
 			return
 		}
 
-		// Send a welcome message
 		_ = chat.From(bot.client).SendMessage(
 			ctx, e.SteamID.Uint64(),
 			"Hello! I am a trading bot. Type !help for a list of commands.",
@@ -109,13 +108,12 @@ func (bot *ChatBot) handleFriendRequest(ctx context.Context, e *friends.Relation
 	}
 }
 
-// Handler for the !withdraw command with type validation (SteamID and float64)
-func (bot *ChatBot) handleWithdraw(ctx context.Context, senderID uint64, args []any) (string, error) {
+func (bot *ChatBot) handleWithdraw(_ context.Context, senderID uint64, args []any) (string, error) {
 	targetID := args[0].(id.ID)
 	amount := args[1].(float64)
 
 	if amount <= 0 {
-		return "", errors.New("withdrawal amount must be a positive number")
+		return "", ErrNegativeAmount
 	}
 
 	bot.logger.Warn("Withdraw executed by admin",
@@ -130,11 +128,9 @@ func (bot *ChatBot) handleWithdraw(ctx context.Context, senderID uint64, args []
 	), nil
 }
 
-// Handler for the !approve command to approve trades by ID via the web trading module
 func (bot *ChatBot) handleApprove(ctx context.Context, senderID uint64, args []any) (string, error) {
 	offerID := args[0].(uint64)
 
-	// Accept the offer directly via the web manager
 	err := trading.From(bot.client).AcceptOffer(ctx, offerID)
 	if err != nil {
 		return "", fmt.Errorf("failed to approve trade #%d: %w", offerID, err)

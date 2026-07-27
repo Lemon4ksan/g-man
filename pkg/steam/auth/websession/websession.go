@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package websession provides a high-level interface for managing Steam web sessions.
+// Package websession manages cookie jars and OIDC authentication routines across Steam web domains.
 package websession
 
 import (
@@ -31,7 +31,16 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 )
 
-// DefaultDomains is the list of domains that will have authenticated cookies.
+var (
+	// ErrRefreshTokenRequired indicates authentication failed due to an empty refresh token.
+	ErrRefreshTokenRequired = errors.New("websession: refresh token is required")
+	// ErrTooManyRedirects indicates HTTP redirect iteration exceeded limits.
+	ErrTooManyRedirects = errors.New("websession: stopped after 10 redirects (redirect loop)")
+	// ErrSessionExpiredRedirect indicates the request was redirected to the login page.
+	ErrSessionExpiredRedirect = errors.New("websession: session expired (redirected to login)")
+)
+
+// DefaultDomains contains standard Steam web domain URLs synchronized by WebSession.
 var DefaultDomains = []string{
 	"https://steamcommunity.com",
 	"https://store.steampowered.com",
@@ -47,15 +56,10 @@ const (
 	cookieSteamLoginSecure = "steamLoginSecure"
 )
 
-// WebSession handles HTTP-based interactions with Steam Community and Store.
-// It manages a shared cookie jar and provides a thread-safe way to authenticate.
+// WebSession maintains cookie jars across Steam web domains and provides authenticated HTTP Doer capabilities.
 //
-// It implements the [aoni.HTTPDoer] interface, allowing it to be used
-// as a transport for REST clients that require session-aware cookies.
-//
-// By default, cookies are synchronized across standard Steam domains. To add
-// additional custom domains, use [WebSession.AddDomains].
-// Use [New] to create new instances of WebSession.
+// Thread Safety:
+//   - Safe for concurrent use across all methods.
 type WebSession struct {
 	mu sync.RWMutex
 
@@ -78,8 +82,7 @@ func (d *doerRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) 
 	return d.doer.Do(req)
 }
 
-// New creates a new, unauthenticated web session for the provided SteamID.
-// Accepts any supported execution engine (*fast.Client, *aoni.Client, aoni.HTTPDoer, or nil).
+// New constructs an unauthenticated WebSession.
 func New(steamID id.ID, logger log.Logger, doer any) *WebSession {
 	var httpDoer aoni.HTTPDoer
 
@@ -116,8 +119,7 @@ func New(steamID id.ID, logger log.Logger, doer any) *WebSession {
 	return ws
 }
 
-// Do implements [aoni.HTTPDoer]. It executes the request using the session's
-// internal cookie-aware HTTP client.
+// Do executes an HTTP request using the active cookie jar.
 func (s *WebSession) Do(req *http.Request) (*http.Response, error) {
 	s.mu.RLock()
 	client := s.httpClient
@@ -126,7 +128,7 @@ func (s *WebSession) Do(req *http.Request) (*http.Response, error) {
 	return client.Do(req) //nolint:gosec
 }
 
-// REST returns a new [aoni.Client] instance configured to use this session.
+// REST returns an aoni.Client wrapping the web session with exponential backoff retries.
 func (s *WebSession) REST() *aoni.Client {
 	s.mu.RLock()
 	backoff := s.retryBackoff
@@ -143,14 +145,15 @@ func (s *WebSession) REST() *aoni.Client {
 	return aoni.NewClient(middleware.Chain(s, retrier))
 }
 
-// HTTP returns the raw cookie-aware [http.Client].
+// HTTP returns the underlying http.Client instance.
 func (s *WebSession) HTTP() *http.Client {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+
 	return s.httpClient
 }
 
-// AddDomains appends additional URLs to the session's synchronization list.
+// AddDomains registers additional web URLs for cookie synchronization.
 func (s *WebSession) AddDomains(domains ...string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -162,21 +165,14 @@ func (s *WebSession) AddDomains(domains ...string) {
 	}
 }
 
-// Authenticate synchronizes the web session with Steam's OIDC providers.
-//
-// If the platform type is a client or mobile app and a non-empty accessToken is provided,
-// Authenticate performs a fast-path direct cookie injection. Otherwise, it executes
-// the slow-path OIDC finalization flow, resolving TransferInfo redirects.
-//
-// It returns an error if the refreshToken is empty, if the network request fails,
-// or if Steam returns an EResult failure.
+// Authenticate performs OIDC web finalization or fast-path cookie injection.
 func (s *WebSession) Authenticate(
 	ctx context.Context,
 	platform pb.EAuthTokenPlatformType,
 	refreshToken, accessToken string,
 ) error {
 	if refreshToken == "" {
-		return errors.New("websession: refresh token is required")
+		return ErrRefreshTokenRequired
 	}
 
 	s.Clear()
@@ -191,11 +187,7 @@ func (s *WebSession) Authenticate(
 	return s.authSlowPath(ctx, refreshToken, sessionID)
 }
 
-// Verify proactively checks if the current web session is still valid.
-//
-// It performs a GET request to the Steam chat client interfaces endpoint.
-// If the session is invalid, expired, or redirected to the login page, Verify
-// automatically clears the internal cookie jar and returns false.
+// Verify checks session validity by requesting Steam chat interface endpoints.
 func (s *WebSession) Verify(ctx context.Context) (bool, error) {
 	if !s.IsAuthenticated() {
 		return false, nil
@@ -210,7 +202,7 @@ func (s *WebSession) Verify(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
-// IsAuthenticated returns true if the session has successfully obtained login cookies.
+// IsAuthenticated reports whether authenticated cookies are active.
 func (s *WebSession) IsAuthenticated() bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -218,9 +210,7 @@ func (s *WebSession) IsAuthenticated() bool {
 	return s.isAuth
 }
 
-// SessionID retrieves the value of the 'sessionid' cookie for a specific target URL.
-//
-// It returns an empty string if the targetURL is empty or cannot be parsed as a valid URL.
+// SessionID retrieves the 'sessionid' cookie value for a target URL string.
 func (s *WebSession) SessionID(targetURL string) string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -239,7 +229,7 @@ func (s *WebSession) SessionID(targetURL string) string {
 	return ""
 }
 
-// Clear completely resets the web session state by instantiating a fresh cookie jar.
+// Clear resets the internal cookie jar.
 func (s *WebSession) Clear() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -253,11 +243,11 @@ func (s *WebSession) Clear() {
 		Timeout:   30 * time.Second,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) >= 10 {
-				return errors.New("steam: stopped after 10 redirects (redirect loop)")
+				return ErrTooManyRedirects
 			}
 
 			if strings.Contains(req.URL.Path, "/login/home") {
-				return errors.New("websession: session expired (redirected to login)")
+				return ErrSessionExpiredRedirect
 			}
 
 			return nil

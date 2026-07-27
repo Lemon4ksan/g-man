@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package account manages and caches account-related Steam data.
+// Package account tracks account limitations, VAC status, wallet balances, and guest pass lists.
 package account
 
 import (
@@ -19,23 +19,22 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 )
 
-// ModuleName is the unique string identifier of the account module.
 const ModuleName string = "account"
 
-// WithModule returns a [steam.Option] that registers the [Account] module into the client.
+// WithModule registers the Account module in the client.
 func WithModule() steam.Option {
 	return steam.WithModule(New())
 }
 
-// From retrieves the registered [Account] module instance from the specified [steam.Client].
-// It returns nil if the module is not registered or if the client is nil.
+// From retrieves the Account module instance from the client.
 func From(c *steam.Client) *Account {
 	return steam.GetModule[*Account](c)
 }
 
-// Account manages account-related data, limits, bans, wallet state, and guest passes.
-// It listens to network events from Steam, maintains a thread-safe cache, and triggers state events.
-// Initialize an account manager using [New] or register it directly via [WithModule].
+// Account caches account info, wallet state, and VAC ban status updates sent by Steam.
+//
+// Thread Safety:
+//   - Safe for concurrent use across all getter methods.
 type Account struct {
 	module.Base
 
@@ -51,16 +50,13 @@ type Account struct {
 	unregFuncs []func()
 }
 
-// New creates an initialized [Account] module instance.
+// New constructs an Account module instance.
 func New() *Account {
 	return &Account{
 		Base: module.New(ModuleName),
 	}
 }
 
-// Init registers packet handlers for tracking the account state changes.
-// It configures callbacks for account info, email details, wallet updates, and VAC bans.
-// It will panic if the provided [module.InitContext] argument is nil.
 func (a *Account) Init(init module.InitContext) error {
 	if err := a.Base.Init(init); err != nil {
 		return err
@@ -87,9 +83,6 @@ func (a *Account) Init(init module.InitContext) error {
 	return nil
 }
 
-// Close unregisters all packet handlers and releases internal resources.
-// It returns an error if base module shutdown fails.
-// Subsequent calls to Close are safe and will be ignored.
 func (a *Account) Close() error {
 	a.mu.Lock()
 	for _, unreg := range a.unregFuncs {
@@ -102,52 +95,59 @@ func (a *Account) Close() error {
 	return a.Base.Close()
 }
 
-// GetAccountInfo returns the cached account details as an [InfoEvent].
+// GetAccountInfo returns cached account info details.
 func (a *Account) GetAccountInfo() InfoEvent {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
+
 	return a.info
 }
 
-// GetEmailInfo returns the cached email address details as an [EmailInfoEvent].
+// GetEmailInfo returns cached email address details.
 func (a *Account) GetEmailInfo() EmailInfoEvent {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
+
 	return a.email
 }
 
-// GetLimitations returns the cached limitations for the account as a [LimitationsEvent].
+// GetLimitations returns cached account limitation flags.
 func (a *Account) GetLimitations() LimitationsEvent {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
+
 	return a.limitations
 }
 
-// GetVACBans returns the cached VAC ban details as a [VACBansEvent].
+// GetVACBans returns cached VAC ban details.
 func (a *Account) GetVACBans() VACBansEvent {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
+
 	return a.vacBans
 }
 
-// GetWalletInfo returns the cached wallet configuration and balances as a [WalletInfoEvent].
+// GetWalletInfo returns cached wallet balance details.
 func (a *Account) GetWalletInfo() WalletInfoEvent {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
+
 	return a.wallet
 }
 
-// GetVanityURL returns the cached vanity URL of the account.
+// GetVanityURL returns cached vanity URL slug.
 func (a *Account) GetVanityURL() string {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
+
 	return a.vanityURL.VanityURL
 }
 
-// GetGifts returns the cached list of guest passes or gifts.
+// GetGifts returns cached guest passes/gifts list.
 func (a *Account) GetGifts() []map[string]any {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
+
 	return a.gifts
 }
 
@@ -221,7 +221,6 @@ func (a *Account) handleVACBanStatus(packet *protocol.Packet) {
 	}
 
 	numBans := binary.LittleEndian.Uint32(packet.Payload[0:4])
-
 	offset := 4
 	appIDs := make([]uint32, 0)
 	ranges := make([][2]uint32, 0)

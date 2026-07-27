@@ -24,8 +24,11 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 )
 
-// handleChannelEncryptRequest processes the initial TCP handshake from Steam CM.
-// It generates a symmetric session key and sends it back encrypted with Steam's public key.
+var (
+	ErrNoTempSessionKey = errors.New("encrypt_result: no temporary session key found to activate")
+	ErrMissingDetails   = errors.New("encrypt_result: login context or details are missing")
+)
+
 func (a *Authenticator) handleChannelEncryptRequest(packet *protocol.Packet) {
 	a.getLogger().Debug("Received ChannelEncryptRequest", log.Int("size", len(packet.Payload)))
 
@@ -48,17 +51,14 @@ func (a *Authenticator) handleChannelEncryptRequest(packet *protocol.Packet) {
 		return
 	}
 
-	// Generate symmetric key for this session
 	plainKey, encryptedKey, err := crypto.GenerateSessionKey(nonce[:])
 	if err != nil {
 		a.failLogin(fmt.Errorf("encrypt_request: failed to generate session key: %w", err))
 		return
 	}
 
-	// Store temporarily until CM confirms it
 	a.tempKey.Store(&plainKey)
 
-	// Structure: [ProtocolVersion] [KeySize] [EncryptedKey] [CRC32] [Trailer(0)]
 	resp := new(bytes.Buffer)
 	_ = binary.Write(resp, binary.LittleEndian, protocolVer)
 	_ = binary.Write(resp, binary.LittleEndian, uint32(len(encryptedKey)))
@@ -68,14 +68,11 @@ func (a *Authenticator) handleChannelEncryptRequest(packet *protocol.Packet) {
 
 	a.getLogger().Debug("Sending ChannelEncryptResponse", log.Int("key_size", len(encryptedKey)))
 
-	// This is a network-level response, independent of the user's LogOn context.
 	if err := a.socket.SendRaw(context.Background(), enums.EMsg_ChannelEncryptResponse, resp.Bytes()); err != nil {
 		a.failLogin(fmt.Errorf("encrypt_request: failed to send response: %w", err))
 	}
 }
 
-// handleChannelEncryptResult confirms the secure channel is established.
-// If successful, it triggers the token exchange and sends ClientLogon.
 func (a *Authenticator) handleChannelEncryptResult(packet *protocol.Packet) {
 	r := bytes.NewReader(packet.Payload)
 
@@ -90,29 +87,24 @@ func (a *Authenticator) handleChannelEncryptResult(packet *protocol.Packet) {
 		return
 	}
 
-	// Atomically swap the temp key to prevent reuse/race conditions
 	keyPtr := a.tempKey.Swap(nil)
 	if keyPtr == nil || *keyPtr == nil {
-		a.failLogin(errors.New("encrypt_result: no temporary session key found to activate"))
+		a.failLogin(ErrNoTempSessionKey)
 		return
 	}
 
 	a.socket.SetEncryptionKey(*keyPtr)
 	a.getLogger().Info("TCP Encryption established")
 
-	// Get the context and details for the current login attempt
 	details := a.activeDetails.Load()
-
 	if details == nil {
-		a.failLogin(errors.New("encrypt_result: login context or details are missing"))
+		a.failLogin(ErrMissingDetails)
 		return
 	}
 
-	// Proceed to send logon credentials over the encrypted channel
 	a.sendLogOn(context.Background(), details)
 }
 
-// handleLogOnResponse handles the final authentication verdict from Steam.
 func (a *Authenticator) handleLogOnResponse(packet *protocol.Packet) {
 	msg := &pb.CMsgClientLogonResponse{}
 	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
@@ -122,7 +114,6 @@ func (a *Authenticator) handleLogOnResponse(packet *protocol.Packet) {
 
 	if res := enums.EResult(msg.GetEresult()); res != enums.EResult_OK {
 		a.getLogger().Error("Logon denied by CM", log.Int32("eresult", int32(res)))
-
 		a.failLogin(service.NewEResultError(res, nil))
 
 		return
@@ -137,7 +128,6 @@ func (a *Authenticator) handleLogOnResponse(packet *protocol.Packet) {
 		sess.SetSessionID(sessionID)
 	}
 
-	// Start Heartbeat
 	interval := time.Duration(msg.GetHeartbeatSeconds()) * time.Second
 	if interval <= 0 {
 		interval = 10 * time.Second
@@ -146,6 +136,7 @@ func (a *Authenticator) handleLogOnResponse(packet *protocol.Packet) {
 	if err := a.socket.StartHeartbeat(interval); err != nil {
 		a.getLogger().Error("Failed to start heartbeat", log.Err(err))
 		a.failLogin(fmt.Errorf("logon_response: failed to start heartbeat: %w", err))
+
 		return
 	}
 
@@ -161,7 +152,6 @@ func (a *Authenticator) handleLogOnResponse(packet *protocol.Packet) {
 	)
 }
 
-// handleLoggedOff handles server-side disconnections (e.g., "Logged in elsewhere").
 func (a *Authenticator) handleLoggedOff(packet *protocol.Packet) {
 	resp := &pb.CMsgClientLoggedOff{}
 	if err := protocol.UnmarshalProto(packet.Payload, resp); err != nil {
@@ -179,7 +169,6 @@ func (a *Authenticator) handleLoggedOff(packet *protocol.Packet) {
 	a.setState(StateDisconnected)
 }
 
-// sendLogOn constructs and sends the ClientLogon message.
 func (a *Authenticator) sendLogOn(ctx context.Context, details *LogOnDetails) {
 	logon := &pb.CMsgClientLogon{
 		ProtocolVersion:           proto.Uint32(details.ProtocolVersion),

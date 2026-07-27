@@ -19,17 +19,22 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 )
 
-// AuthenticationService acts as a gateway for Steam's Unified WebAPI authentication endpoints.
-// It handles password encryption and JWT token lifecycle management.
-//
-// Create new instances of the service using the [NewAuthenticationService] constructor.
+var (
+	// ErrEmptyRSAParameters indicates Steam returned empty RSA key parameters.
+	ErrEmptyRSAParameters = errors.New("auth: steam returned empty rsa parameters")
+	// ErrInvalidRSAModulus indicates the RSA modulus hex string was malformed.
+	ErrInvalidRSAModulus = errors.New("auth: invalid rsa modulus hex string")
+	// ErrInvalidRSAExponent indicates the RSA exponent hex string was malformed.
+	ErrInvalidRSAExponent = errors.New("auth: invalid rsa exponent hex string")
+)
+
+// AuthenticationService wraps Steam WebAPI unified authentication methods.
 type AuthenticationService struct {
 	client service.Doer
 	conf   DeviceConfig
 }
 
-// NewAuthenticationService creates a new service wrapper around a Unified API client.
-// If deviceConf is nil, standard defaults are applied.
+// NewAuthenticationService constructs an AuthenticationService.
 func NewAuthenticationService(c service.Doer, cfg *DeviceConfig) *AuthenticationService {
 	conf := DefaultDeviceConfig()
 	if cfg != nil {
@@ -42,12 +47,12 @@ func NewAuthenticationService(c service.Doer, cfg *DeviceConfig) *Authentication
 	}
 }
 
-// DeviceConf returns a copy of the current device configuration used during auth.
+// DeviceConf returns current device details.
 func (s *AuthenticationService) DeviceConf() DeviceConfig {
 	return s.conf
 }
 
-// GetPasswordRSAPublicKey retrieves the RSA public key parameters specific to the account.
+// GetPasswordRSAPublicKey fetches account RSA public key parameters.
 func (s *AuthenticationService) GetPasswordRSAPublicKey(
 	ctx context.Context,
 	accountName string,
@@ -55,15 +60,13 @@ func (s *AuthenticationService) GetPasswordRSAPublicKey(
 	req := &pb.CAuthentication_GetPasswordRSAPublicKey_Request{
 		AccountName: proto.String(accountName),
 	}
-	resp, err := service.Unified[pb.CAuthentication_GetPasswordRSAPublicKey_Response](
+
+	return service.Unified[pb.CAuthentication_GetPasswordRSAPublicKey_Response](
 		ctx, s.client, req, service.WithHTTPMethod("GET"),
 	)
-
-	return resp, err
 }
 
-// EncryptPassword securely encrypts the plaintext password using Steam's provided RSA public key.
-// It returns the base64-encoded encrypted password and the timestamp of the key used.
+// EncryptPassword encrypts plain password strings using Steam's RSA public key.
 func (s *AuthenticationService) EncryptPassword(
 	ctx context.Context,
 	accountName, password string,
@@ -77,17 +80,17 @@ func (s *AuthenticationService) EncryptPassword(
 	expHex := rsaInfo.GetPublickeyExp()
 
 	if modHex == "" || expHex == "" {
-		return "", 0, errors.New("steam returned empty rsa parameters")
+		return "", 0, ErrEmptyRSAParameters
 	}
 
 	mod := new(big.Int)
 	if _, ok := mod.SetString(modHex, 16); !ok {
-		return "", 0, errors.New("invalid rsa modulus hex string")
+		return "", 0, ErrInvalidRSAModulus
 	}
 
 	exp := new(big.Int)
 	if _, ok := exp.SetString(expHex, 16); !ok {
-		return "", 0, errors.New("invalid rsa exponent hex string")
+		return "", 0, ErrInvalidRSAExponent
 	}
 
 	pubKey := &rsa.PublicKey{
@@ -103,7 +106,7 @@ func (s *AuthenticationService) EncryptPassword(
 	return base64.StdEncoding.EncodeToString(encrypted), rsaInfo.GetTimestamp(), nil
 }
 
-// BeginAuthSessionViaCredentials initiates the login flow with Steam.
+// BeginAuthSessionViaCredentials initiates a login session.
 func (s *AuthenticationService) BeginAuthSessionViaCredentials(
 	ctx context.Context,
 	accountName, password, authCode string,
@@ -132,7 +135,7 @@ func (s *AuthenticationService) BeginAuthSessionViaCredentials(
 	)
 }
 
-// PollAuthSessionStatus repeatedly checks the status of a pending login (e.g., waiting for Mobile confirmation).
+// PollAuthSessionStatus queries status for a pending auth session.
 func (s *AuthenticationService) PollAuthSessionStatus(
 	ctx context.Context,
 	clientID uint64,
@@ -148,7 +151,7 @@ func (s *AuthenticationService) PollAuthSessionStatus(
 	)
 }
 
-// UpdateAuthSessionWithSteamGuardCode submits a 2FA or Email code for an ongoing session.
+// UpdateAuthSessionWithSteamGuardCode submits a 2FA or email code.
 func (s *AuthenticationService) UpdateAuthSessionWithSteamGuardCode(
 	ctx context.Context,
 	clientID, steamID uint64,
@@ -161,14 +164,13 @@ func (s *AuthenticationService) UpdateAuthSessionWithSteamGuardCode(
 		Code:     proto.String(code),
 		CodeType: codeType.Enum(),
 	}
-	_, err := service.Unified[service.NoResponse](
-		ctx, s.client, req,
-	)
+
+	_, err := service.Unified[service.NoResponse](ctx, s.client, req)
 
 	return err
 }
 
-// GenerateAccessTokenForApp exchanges a RefreshToken for a short-lived AccessToken.
+// GenerateAccessTokenForApp exchanges a refresh token for an access token.
 func (s *AuthenticationService) GenerateAccessTokenForApp(
 	ctx context.Context,
 	refreshToken string,
@@ -177,8 +179,7 @@ func (s *AuthenticationService) GenerateAccessTokenForApp(
 	req := &pb.CAuthentication_AccessToken_GenerateForApp_Request{
 		RefreshToken: proto.String(refreshToken),
 		Steamid:      proto.Uint64(steamID),
-		// Since ETokenRenewalType is defined on pb package, we use it directly.
-		RenewalType: pb.ETokenRenewalType_k_ETokenRenewalType_None.Enum(),
+		RenewalType:  pb.ETokenRenewalType_k_ETokenRenewalType_None.Enum(),
 	}
 
 	return service.UnifiedExplicit[pb.CAuthentication_AccessToken_GenerateForApp_Response](
@@ -186,7 +187,6 @@ func (s *AuthenticationService) GenerateAccessTokenForApp(
 	)
 }
 
-// getDeviceDetails returns the structured device profile.
 func (s *AuthenticationService) getDeviceDetails() *pb.CAuthentication_DeviceDetails {
 	return &pb.CAuthentication_DeviceDetails{
 		DeviceFriendlyName: proto.String(s.conf.DeviceFriendlyName),

@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package market interacts with the Steam Community Market.
+// Package market implements interactions with the Steam Community Market, including buy/sell orders, item pricing, and gem crafting.
 package market
 
 import (
@@ -33,30 +33,37 @@ var (
 	rxMarketApps     = regexp.MustCompile(`https?://steamcommunity.com/market/search\?appid=(\d+)`)
 )
 
-// ModuleName is the unique identifier for the market module.
+var (
+	// ErrCancelBuyOrderFailed indicates the cancel buy order request was rejected by Steam.
+	ErrCancelBuyOrderFailed = errors.New("market: cancel buy order request unsuccessful")
+	// ErrCancelSellOrderFailed indicates the remove listing request was rejected by Steam.
+	ErrCancelSellOrderFailed = errors.New("market: cancel sell order request unsuccessful")
+	// ErrParseAppsFailed indicates no valid game apps could be parsed from the market HTML page.
+	ErrParseAppsFailed = errors.New("market: failed to parse any market apps")
+	// ErrBoosterCatalogJS indicates booster creator JS data could not be parsed from HTML.
+	ErrBoosterCatalogJS = errors.New("market: failed to parse booster creator catalog from JS")
+)
+
 const ModuleName string = "market"
 
-// WithModule returns a steam.Option that registers the market module in the client.
+// WithModule registers the Market module in the client.
 func WithModule(cfg Config) steam.Option {
 	return steam.WithModule(New(cfg))
 }
 
-// From returns the market module from the client.
+// From retrieves the Market module instance from the client.
 func From(c *steam.Client) *Market {
 	return steam.GetModule[*Market](c)
 }
 
-// Config contains settings for requests to the Trading Platform.
+// Config configures default market request parameters.
 type Config struct {
-	// Currency is the standard currency code used for pricing.
 	Currency CurrencyCode
-	// Country is the ISO two-letter country code (for example, "US").
-	Country string
-	// Language is the localization language name (for example, "english").
+	Country  string
 	Language string
 }
 
-// DefaultConfig returns the default settings (USD, US, english).
+// DefaultConfig builds default Market settings (USD, US, english).
 func DefaultConfig() Config {
 	return Config{
 		Currency: CurrencyCodeUSD,
@@ -65,8 +72,10 @@ func DefaultConfig() Config {
 	}
 }
 
-// Market manages interactions with the Steam Community Market.
-// Create new instances of Market using the [New] constructor.
+// Market manages market interactions, buy/sell orders, and inventory conversion.
+//
+// Thread Safety:
+//   - Safe for concurrent use across goroutines.
 type Market struct {
 	module.Base
 
@@ -75,7 +84,7 @@ type Market struct {
 	client community.Requester
 }
 
-// New creates a new Market module instance.
+// New constructs a Market module.
 func New(cfg Config) *Market {
 	return &Market{
 		Base:   module.New(ModuleName),
@@ -83,7 +92,7 @@ func New(cfg Config) *Market {
 	}
 }
 
-// NewWithClient creates a new Market module with existing community client and steam id.
+// NewWithClient constructs a Market module with an explicit community requester.
 func NewWithClient(cfg Config, client community.Requester) *Market {
 	return &Market{
 		Base:   module.New(ModuleName),
@@ -92,7 +101,7 @@ func NewWithClient(cfg Config, client community.Requester) *Market {
 	}
 }
 
-// StartAuthed is called when a community session is established.
+// StartAuthed configures community client headers upon successful session authorization.
 func (m *Market) StartAuthed(ctx context.Context, auth module.AuthContext) error {
 	m.mu.Lock()
 	m.client = community.Decorate(auth.Community(),
@@ -101,16 +110,12 @@ func (m *Market) StartAuthed(ctx context.Context, auth module.AuthContext) error
 	)
 	m.mu.Unlock()
 
-	m.Logger.Info("Market module ready",
-		log.Int("currency", int(m.config.Currency)),
-	)
+	m.Logger.Info("Market module ready", log.Int("currency", int(m.config.Currency)))
 
 	return nil
 }
 
-// CreateSellOrder places an item from the user's inventory onto the market.
-// The price should be in the smallest currency unit (e.g., cents/kopecks)
-// and represents the amount the seller receives.
+// CreateSellOrder places an inventory item on sale on the Community Market.
 func (m *Market) CreateSellOrder(
 	ctx context.Context,
 	opts CreateSellOrderOptions,
@@ -146,7 +151,7 @@ func (m *Market) CreateSellOrder(
 	}, nil
 }
 
-// CreateBuyOrder creates a buy order (buy order) for a specific item.
+// CreateBuyOrder creates an automated buy order.
 func (m *Market) CreateBuyOrder(ctx context.Context, opts CreateBuyOrderOptions) (*CreateBuyOrderResponse, error) {
 	client, err := m.ensureAuthenticated()
 	if err != nil {
@@ -180,7 +185,7 @@ func (m *Market) CreateBuyOrder(ctx context.Context, opts CreateBuyOrderOptions)
 	return resp, nil
 }
 
-// CancelBuyOrder cancels an existing active buy order.
+// CancelBuyOrder cancels an active buy order.
 func (m *Market) CancelBuyOrder(ctx context.Context, buyOrderID uint64) error {
 	client, err := m.ensureAuthenticated()
 	if err != nil {
@@ -201,13 +206,13 @@ func (m *Market) CancelBuyOrder(ctx context.Context, buyOrderID uint64) error {
 	}
 
 	if !resp.Success {
-		return errors.New("market: cancel buy order request unsuccessful")
+		return ErrCancelBuyOrderFailed
 	}
 
 	return nil
 }
 
-// CancelSellOrder removes an item from sale on the market.
+// CancelSellOrder removes a sell listing from the market.
 func (m *Market) CancelSellOrder(ctx context.Context, listingID uint64) error {
 	client, err := m.ensureAuthenticated()
 	if err != nil {
@@ -227,13 +232,13 @@ func (m *Market) CancelSellOrder(ctx context.Context, listingID uint64) error {
 	}
 
 	if !resp.Success {
-		return errors.New("market: cancel sell order request unsuccessful")
+		return ErrCancelSellOrderFailed
 	}
 
 	return nil
 }
 
-// Search searches for items on the marketplace.
+// Search executes a query against market item listings.
 func (m *Market) Search(ctx context.Context, appID uint32, opts SearchOptions) (*SearchResponse, error) {
 	return community.GetTo[SearchResponse](
 		ctx, m.client, "market/search/render",
@@ -242,7 +247,7 @@ func (m *Market) Search(ctx context.Context, appID uint32, opts SearchOptions) (
 	)
 }
 
-// GetPriceOverview gets a quick summary of the item's price.
+// GetPriceOverview fetches lowest price, median price, and 24h volume summaries for an item.
 func (m *Market) GetPriceOverview(
 	ctx context.Context,
 	appID uint32,
@@ -260,7 +265,7 @@ func (m *Market) GetPriceOverview(
 	)
 }
 
-// GetItemOrdersHistogram gets a histogram of active buy and sell orders.
+// GetItemOrdersHistogram fetches market buy and sell order histograms for an item.
 func (m *Market) GetItemOrdersHistogram(
 	ctx context.Context,
 	appID uint32,
@@ -304,7 +309,7 @@ func (m *Market) GetItemOrdersHistogram(
 	}, nil
 }
 
-// GetMyListings gets the active lots and orders of an account.
+// GetMyListings fetches active listings and buy orders for the authenticated user.
 func (m *Market) GetMyListings(ctx context.Context, start, count int) (*MyListingsResponse, error) {
 	params := struct {
 		Start    int `url:"start"`
@@ -318,7 +323,7 @@ func (m *Market) GetMyListings(ctx context.Context, start, count int) (*MyListin
 	)
 }
 
-// GetMarketApps retrieves all apps listed on the Steam Community Market.
+// GetMarketApps parses game titles and AppIDs listed on the market navigation menu.
 func (m *Market) GetMarketApps(ctx context.Context) (map[uint32]string, error) {
 	client, err := m.ensureAuthenticated()
 	if err != nil {
@@ -329,6 +334,7 @@ func (m *Market) GetMarketApps(ctx context.Context) (map[uint32]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("market: failed to fetch market page: %w", err)
 	}
+
 	defer html.Close()
 
 	doc, err := goquery.NewDocumentFromReader(html)
@@ -353,13 +359,13 @@ func (m *Market) GetMarketApps(ctx context.Context) (map[uint32]string, error) {
 	})
 
 	if len(apps) == 0 {
-		return nil, errors.New("market: failed to parse any market apps")
+		return nil, ErrParseAppsFailed
 	}
 
 	return apps, nil
 }
 
-// GetGemValue checks if an item is eligible to be turned into gems and gets its gem value.
+// GetGemValue checks if an item can be converted into gems and calculates its gem yield.
 func (m *Market) GetGemValue(ctx context.Context, appID uint32, assetID uint64) (*GemValue, error) {
 	client, err := m.ensureAuthenticated()
 	if err != nil {
@@ -387,7 +393,7 @@ func (m *Market) GetGemValue(ctx context.Context, appID uint32, assetID uint64) 
 	}, nil
 }
 
-// TurnItemIntoGems converts an eligible item into gems.
+// TurnItemIntoGems converts an eligible inventory item into Steam gems.
 func (m *Market) TurnItemIntoGems(
 	ctx context.Context,
 	appID uint32,
@@ -421,7 +427,7 @@ func (m *Market) TurnItemIntoGems(
 	}, nil
 }
 
-// OpenBoosterPack unpacks a game booster pack into trading cards.
+// OpenBoosterPack unpacks a trading card booster pack into cards.
 func (m *Market) OpenBoosterPack(ctx context.Context, appID uint32, assetID uint64) ([]any, error) {
 	client, err := m.ensureAuthenticated()
 	if err != nil {
@@ -445,7 +451,7 @@ func (m *Market) OpenBoosterPack(ctx context.Context, appID uint32, assetID uint
 	return resp.RgItems, nil
 }
 
-// GetBoosterPackCatalog retrieves the user's gem count and booster pack creator list.
+// GetBoosterPackCatalog fetches the user's gem inventory balance and available booster pack creator options.
 func (m *Market) GetBoosterPackCatalog(ctx context.Context) (*BoosterCatalog, error) {
 	client, err := m.ensureAuthenticated()
 	if err != nil {
@@ -456,6 +462,7 @@ func (m *Market) GetBoosterPackCatalog(ctx context.Context) (*BoosterCatalog, er
 	if err != nil {
 		return nil, fmt.Errorf("market: failed to fetch booster creator page: %w", err)
 	}
+
 	defer html.Close()
 
 	bodyBytes, err := io.ReadAll(html)
@@ -466,7 +473,7 @@ func (m *Market) GetBoosterPackCatalog(ctx context.Context) (*BoosterCatalog, er
 	return parseBoosterCatalog(bodyBytes)
 }
 
-// CreateBoosterPack crafts a booster pack using gems.
+// CreateBoosterPack crafts a trading card booster pack using gems.
 func (m *Market) CreateBoosterPack(ctx context.Context, appID uint32, useUntradableGems bool) (*BoosterResult, error) {
 	client, err := m.ensureAuthenticated()
 	if err != nil {
@@ -496,7 +503,7 @@ func (m *Market) CreateBoosterPack(ctx context.Context, appID uint32, useUntrada
 	}, nil
 }
 
-// GetGiftDetails gets information about a gift package in inventory.
+// GetGiftDetails inspects gift package contents in inventory.
 func (m *Market) GetGiftDetails(ctx context.Context, giftID uint64) (*GiftDetails, error) {
 	client, err := m.ensureAuthenticated()
 	if err != nil {
@@ -522,7 +529,7 @@ func (m *Market) GetGiftDetails(ctx context.Context, giftID uint64) (*GiftDetail
 	}, nil
 }
 
-// RedeemGift unpacks a gift in inventory to the user's library.
+// RedeemGift unpacks an inventory gift directly to the account library.
 func (m *Market) RedeemGift(ctx context.Context, giftID uint64) error {
 	client, err := m.ensureAuthenticated()
 	if err != nil {
@@ -544,7 +551,7 @@ func (m *Market) RedeemGift(ctx context.Context, giftID uint64) error {
 	return nil
 }
 
-// GemExchange exchanges or packs/unpacks gems.
+// GemExchange packs or unpacks gem sacks.
 func (m *Market) GemExchange(ctx context.Context, assetID uint64, denomIn, denomOut, qtyIn, qtyOutExpected int) error {
 	client, err := m.ensureAuthenticated()
 	if err != nil {
@@ -572,12 +579,12 @@ func (m *Market) GemExchange(ctx context.Context, assetID uint64, denomIn, denom
 	return nil
 }
 
-// PackGemSacks packs raw gems into sacks of gems (1 sack = 1000 gems).
+// PackGemSacks compresses 1000 raw gems into sacks of gems.
 func (m *Market) PackGemSacks(ctx context.Context, assetID uint64, sackCount int) error {
 	return m.GemExchange(ctx, assetID, 1, 1000, sackCount*1000, sackCount)
 }
 
-// UnpackGemSacks unpacks sacks of gems into raw gems (1 sack = 1000 gems).
+// UnpackGemSacks decompresses sacks of gems into 1000 raw gems per sack.
 func (m *Market) UnpackGemSacks(ctx context.Context, assetID uint64, sackCount int) error {
 	return m.GemExchange(ctx, assetID, 1000, 1, sackCount, sackCount*1000)
 }
@@ -610,7 +617,7 @@ func parseAppIDFromHref(href string) (uint32, bool) {
 func parseBoosterCatalog(bodyBytes []byte) (*BoosterCatalog, error) {
 	match := rxBoosterCreator.FindSubmatch(bodyBytes)
 	if len(match) != 5 {
-		return nil, errors.New("market: failed to parse booster creator catalog from JS")
+		return nil, ErrBoosterCatalogJS
 	}
 
 	var catalogList []*BoosterPackInfo

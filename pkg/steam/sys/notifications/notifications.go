@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package notifications receives, processes, and routes incoming Steam notification messages.
+// Package notifications processes incoming Steam notifications, comments, trade offer signals, and item announcements.
 package notifications
 
 import (
@@ -25,23 +25,22 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 )
 
-// ModuleName is the unique string identifier of the notifications coordinator module.
 const ModuleName string = "notifications"
 
-// WithModule returns a [steam.Option] that registers the [Notifications] module in the client.
+// WithModule registers the Notifications module in the client.
 func WithModule() steam.Option {
 	return steam.WithModule(New())
 }
 
-// From retrieves the registered [Notifications] module instance from the specified [steam.Client].
-// It returns nil if the module is not registered or if the client is nil.
+// From retrieves the Notifications module instance from the client.
 func From(c *steam.Client) *Notifications {
 	return steam.GetModule[*Notifications](c)
 }
 
-// Notifications manages incoming Steam notification messages and routes them to the event bus.
-// It tracks notification counts and publishes events when changes are detected.
-// Register the notifications manager as a client module using [WithModule] or retrieve it via [From].
+// Notifications tracks unread notification counts and publishes events when changes are detected.
+//
+// Thread Safety:
+//   - Safe for concurrent use across all methods.
 type Notifications struct {
 	module.Base
 
@@ -53,7 +52,7 @@ type Notifications struct {
 	unregFuncs []func()
 }
 
-// New creates a new [Notifications] module instance.
+// New constructs a Notifications module instance.
 func New() *Notifications {
 	return &Notifications{
 		Base:                   module.New(ModuleName),
@@ -61,9 +60,6 @@ func New() *Notifications {
 	}
 }
 
-// Init registers packet handlers for all notification-related network messages.
-// It configures callbacks for item announcements, comment notifications, and offline messages.
-// It will panic if the provided [module.InitContext] argument is nil.
 func (n *Notifications) Init(init module.InitContext) error {
 	if err := n.Base.Init(init); err != nil {
 		return err
@@ -90,8 +86,6 @@ func (n *Notifications) Init(init module.InitContext) error {
 	return nil
 }
 
-// Close unregisters all packet handlers and releases internal resources.
-// Subsequent calls to Close are safe and will be ignored.
 func (n *Notifications) Close() error {
 	n.mu.Lock()
 	for _, unreg := range n.unregFuncs {
@@ -104,9 +98,7 @@ func (n *Notifications) Close() error {
 	return n.Base.Close()
 }
 
-// RequestNotifications requests current notification counts from Steam.
-// It returns an error if sending the request fails or if the context is cancelled.
-// It will panic if the provided [context.Context] argument is nil.
+// RequestNotifications explicitly requests notification count updates from Steam.
 func (n *Notifications) RequestNotifications(ctx context.Context) error {
 	_ = n.sendProto(ctx, enums.EMsg_ClientRequestItemAnnouncements, &pb.CMsgClientRequestItemAnnouncements{})
 	_ = n.sendProto(ctx, enums.EMsg_ClientRequestCommentNotifications, &pb.CMsgClientRequestCommentNotifications{})
@@ -115,10 +107,7 @@ func (n *Notifications) RequestNotifications(ctx context.Context) error {
 	return nil
 }
 
-// MarkNotificationsRead marks specific notifications as read using their IDs.
-// It sends a unified request to Steam and ignores empty slices of notification IDs.
-// It returns an error if the request fails or if the context is cancelled.
-// It will panic if the provided [context.Context] argument is nil.
+// MarkNotificationsRead marks specified notifications as read via SteamNotification/MarkNotificationsRead.
 func (n *Notifications) MarkNotificationsRead(ctx context.Context, notificationIds []uint64) error {
 	ids := make([]any, 0, len(notificationIds))
 	for _, id := range notificationIds {
@@ -149,8 +138,6 @@ func (n *Notifications) MarkNotificationsRead(ctx context.Context, notificationI
 }
 
 // MarkAllNotificationsRead marks all active notifications as read.
-// It returns an error if the request fails or if the context is cancelled.
-// It will panic if the provided [context.Context] argument is nil.
 func (n *Notifications) MarkAllNotificationsRead(ctx context.Context) error {
 	body, err := structpb.NewStruct(map[string]any{
 		"mark_all_read": true,
@@ -209,9 +196,7 @@ func (n *Notifications) handleCommentNotifications(packet *protocol.Packet) {
 		return
 	}
 
-	n.Logger.Debug("Comment notifications received",
-		log.Uint32("count", msg.GetCountNewComments()),
-	)
+	n.Logger.Debug("Comment notifications received", log.Uint32("count", msg.GetCountNewComments()))
 
 	n.Bus.Publish(&CommentNotificationsEvent{
 		CountNewComments:              msg.GetCountNewComments(),
@@ -233,8 +218,8 @@ func (n *Notifications) handleUserNotifications(packet *protocol.Packet) {
 	}
 
 	n.mu.Lock()
-
 	changed := false
+
 	for notifType, count := range notifications {
 		prev, exists := n.lastNotificationCounts[notifType]
 		if !exists && count == 0 {
@@ -272,9 +257,7 @@ func (n *Notifications) handleOfflineMessages(packet *protocol.Packet) {
 		friends = append(friends, sid)
 	}
 
-	n.Logger.Debug("Offline messages received",
-		log.Uint32("count", msg.GetOfflineMessages()),
-	)
+	n.Logger.Debug("Offline messages received", log.Uint32("count", msg.GetOfflineMessages()))
 
 	n.Bus.Publish(&OfflineMessagesEvent{
 		OfflineMessages:            msg.GetOfflineMessages(),
@@ -316,9 +299,7 @@ func (n *Notifications) handleMarketingMessages(packet *protocol.Packet) {
 		offset += int(subLen)
 	}
 
-	n.Logger.Debug("Marketing messages received",
-		log.Uint32("count", uint32(len(messages))),
-	)
+	n.Logger.Debug("Marketing messages received", log.Uint32("count", uint32(len(messages))))
 
 	n.Bus.Publish(&MarketingMessagesEvent{
 		Timestamp: int64(timestamp),
@@ -327,25 +308,18 @@ func (n *Notifications) handleMarketingMessages(packet *protocol.Packet) {
 }
 
 func parseMarketingMessage(payload []byte) *MarketingMessage {
-	if len(payload) < 4 {
-		return nil
-	}
-
-	// Skip the 8-byte message ID (uint64)
 	if len(payload) < 12 {
 		return nil
 	}
 
-	// Read 8-byte ID
 	msgID := strconv.FormatUint(uint64(payload[0])|uint64(payload[1])<<8|
 		uint64(payload[2])<<16|uint64(payload[3])<<24|
 		uint64(payload[4])<<32|uint64(payload[5])<<40|
 		uint64(payload[6])<<48|uint64(payload[7])<<56, 10)
 
 	offset := 8
-
-	// Read null-terminated URL string
 	urlEnd := -1
+
 	for i := offset; i < len(payload); i++ {
 		if payload[i] == 0 {
 			urlEnd = i
@@ -384,9 +358,7 @@ func (n *Notifications) handleNotificationsReceived(packet *protocol.Packet) {
 		return
 	}
 
-	n.Logger.Debug("Notifications received",
-		log.Int("count", len(msg.GetNotifications())),
-	)
+	n.Logger.Debug("Notifications received", log.Int("count", len(msg.GetNotifications())))
 
 	n.Bus.Publish(&ReceivedEvent{
 		Notifications:            msg.GetNotifications(),

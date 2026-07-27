@@ -16,59 +16,51 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
 )
 
-// SocketMetadata holds context-specific information from a socket-based response.
+var (
+	// ErrTargetNotSocket indicates target does not implement SocketTarget.
+	ErrTargetNotSocket = errors.New("socket_transport: target does not support socket protocol")
+	// ErrSocketDisconnected indicates socket transport call failed because session is missing or offline.
+	ErrSocketDisconnected = errors.New("socket_transport: socket is disconnected")
+)
+
 type SocketMetadata struct {
-	// Result is the Steam EResult code extracted from the packet header.
-	Result enums.EResult
-	// SourceJobID is the original Job ID that this message is a response to.
+	Result      enums.EResult
 	SourceJobID uint64
 }
 
-// SocketTarget is an extension of the Target interface for destinations that can be
-// reached via a persistent socket connection.
 type SocketTarget interface {
 	Target
 	EMsg(isAuth bool) enums.EMsg
 	ObjectName() string
 }
 
-// SocketCaller defines the minimum interface required by the transport to interact
-// with the underlying socket.
 type SocketCaller interface {
 	Send(ctx context.Context, build socket.PayloadBuilder, opts ...socket.SendOption) error
 	SendSync(ctx context.Context, build socket.PayloadBuilder, opts ...socket.SendOption) (*protocol.Packet, error)
 	Session() socket.Session
 }
 
-// SocketTransport implements the [Transport] interface for socket-based communication.
-// It translates abstract [Request] structures into concrete [protocol.Packet] messages.
-//
-// Create new instances of SocketTransport using [NewSocketTransport].
+// SocketTransport executes transport requests over persistent socket connections.
 type SocketTransport struct {
 	caller SocketCaller
 }
 
-// NewSocketTransport creates a new socket transport layer.
+// NewSocketTransport constructs a SocketTransport instance.
 func NewSocketTransport(caller SocketCaller) *SocketTransport {
 	return &SocketTransport{
 		caller: caller,
 	}
 }
 
-// Do executes a [Request] over a persistent socket connection.
-//
-// It returns an error if the request's [Target] does not implement [SocketTarget],
-// if the connection session is missing, or if the synchronous write/read fails.
-// Do executes a [Request] over a persistent socket connection.
 func (t *SocketTransport) Do(ctx context.Context, req *Request) (*Response, error) {
 	target, ok := req.Target().(SocketTarget)
 	if !ok {
-		return nil, fmt.Errorf("socket_transport: target %T does not support socket protocol", req.Target())
+		return nil, fmt.Errorf("%w: %T", ErrTargetNotSocket, req.Target())
 	}
 
 	sess := t.caller.Session()
 	if sess == nil {
-		return nil, errors.New("socket is disconnected")
+		return nil, ErrSocketDisconnected
 	}
 
 	isAuth := sess.IsAuthenticated()
@@ -100,6 +92,7 @@ func (t *SocketTransport) Do(ctx context.Context, req *Request) (*Response, erro
 	if err != nil {
 		return nil, fmt.Errorf("socket_transport call failed: %w", err)
 	}
+
 	defer protocol.ReleasePacket(resp)
 
 	result := resp.GetEResult()
