@@ -1087,3 +1087,74 @@ func TestRegisterBuiltinCommands(t *testing.T) {
 		assert.Contains(t, res, "SteamID: 76561198000000001")
 	})
 }
+
+func TestCommandManager_StickerReactionFSM(t *testing.T) {
+	t.Parallel()
+
+	_, cmdMgr, ictx := setupTest(t, t.Context())
+	eb := ictx.Bus()
+
+	var (
+		mu              sync.Mutex
+		receivedSticker string
+		receivedReact   string
+	)
+
+	cmdMgr.OnSticker(func(ctx context.Context, ev *chat.StickerEvent) error {
+		mu.Lock()
+		receivedSticker = ev.StickerID
+		mu.Unlock()
+
+		return nil
+	})
+
+	cmdMgr.OnReaction(func(ctx context.Context, ev *chat.ReactionEvent) error {
+		mu.Lock()
+		receivedReact = ev.Reaction
+		mu.Unlock()
+
+		return nil
+	})
+
+	eb.Publish(&chat.StickerEvent{
+		SenderID:  UserSteamID,
+		StickerID: "sticker_123",
+	})
+
+	require.Eventually(t, func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return receivedSticker == "sticker_123"
+	}, 2*time.Second, 5*time.Millisecond)
+
+	eb.Publish(&chat.ReactionEvent{
+		FriendSteamID: UserSteamID,
+		Reaction:      "👍",
+	})
+
+	require.Eventually(t, func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return receivedReact == "👍"
+	}, 2*time.Second, 5*time.Millisecond)
+
+	// Test FSM integration
+	userIDStr := strconv.FormatUint(UserSteamID, 10)
+
+	cmdMgr.Conversations().
+		RegisterState("STEP1", func(ctx context.Context, input string, session *command.Session) (string, string, error) {
+			return "", "Dialog finished with: " + input, nil
+		})
+	cmdMgr.Conversations().SetState(userIDStr, "STEP1", nil)
+
+	eb.Publish(&chat.MessageEvent{
+		SenderID: UserSteamID,
+		Message:  "Hello from dialog",
+	})
+
+	waitForCalls(t, ictx, 1)
+
+	req := &pb.CFriendMessages_SendMessage_Request{}
+	require.True(t, ictx.MockService().GetLastCall(req) != nil)
+	assert.Equal(t, "Dialog finished with: Hello from dialog", req.GetMessage())
+}

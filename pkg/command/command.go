@@ -92,6 +92,9 @@ type Handler func(ctx context.Context, args []string) (string, error)
 // TypedHandler processes parsed interface argument slices.
 type TypedHandler func(ctx context.Context, args []any) (string, error)
 
+// Middleware wraps a Handler to execute pre- and post-processing logic.
+type Middleware func(next Handler) Handler
+
 // ArgType alias for reflect.Type.
 type ArgType = reflect.Type
 
@@ -122,6 +125,7 @@ type Command struct {
 	Validate     func(args []string) error
 	Aliases      []string
 	IsAlias      bool
+	Middlewares  []Middleware
 }
 
 // Option configures a Command structure.
@@ -150,6 +154,11 @@ func WithValidation(valFn func(args []string) error) Option {
 // WithAlias registers alternative command trigger aliases.
 func WithAlias(aliases ...string) Option {
 	return func(c *Command) { c.Aliases = aliases }
+}
+
+// WithMiddleware appends custom middlewares to a command execution pipeline.
+func WithMiddleware(mw ...Middleware) Option {
+	return func(c *Command) { c.Middlewares = append(c.Middlewares, mw...) }
 }
 
 // TypeParser parses raw argument strings into custom Go types.
@@ -214,6 +223,9 @@ type Engine struct {
 
 	parsersMu sync.RWMutex
 	parsers   map[reflect.Type]TypeParser
+
+	middlewaresMu sync.RWMutex
+	middlewares   []Middleware
 }
 
 // NewEngine constructs a thread-safe Engine.
@@ -222,6 +234,14 @@ func NewEngine() *Engine {
 		commands: make(map[string]Command),
 		parsers:  make(map[reflect.Type]TypeParser),
 	}
+}
+
+// Use appends global middlewares executed for every command.
+func (e *Engine) Use(mw ...Middleware) {
+	e.middlewaresMu.Lock()
+	defer e.middlewaresMu.Unlock()
+
+	e.middlewares = append(e.middlewares, mw...)
 }
 
 // RegisterTypeParser registers custom parsing logic for reflect.Type.
@@ -363,25 +383,50 @@ func (e *Engine) Execute(ctx context.Context, cmdLine string) (string, error) {
 		}
 	}
 
-	var parsedArgs []any
-	if len(cmd.ArgsSchema) > 0 {
-		var err error
+	var coreHandler Handler
+	switch {
+	case cmd.TypedHandler != nil:
+		coreHandler = func(ctx context.Context, args []string) (string, error) {
+			var parsedArgs []any
+			if len(cmd.ArgsSchema) > 0 {
+				var err error
 
-		parsedArgs, err = e.ParseSchemaArgs(args, cmd.ArgsSchema)
-		if err != nil {
-			return "", err
+				parsedArgs, err = e.ParseSchemaArgs(args, cmd.ArgsSchema)
+				if err != nil {
+					return "", err
+				}
+			}
+
+			return cmd.TypedHandler(ctx, parsedArgs)
 		}
+	case cmd.Handler != nil:
+		coreHandler = func(ctx context.Context, args []string) (string, error) {
+			if len(cmd.ArgsSchema) > 0 {
+				if _, err := e.ParseSchemaArgs(args, cmd.ArgsSchema); err != nil {
+					return "", err
+				}
+			}
+
+			return cmd.Handler(ctx, args)
+		}
+	default:
+		return "", ErrMissingHandler
 	}
 
-	if cmd.TypedHandler != nil {
-		return cmd.TypedHandler(ctx, parsedArgs)
+	exec := coreHandler
+	for i := len(cmd.Middlewares) - 1; i >= 0; i-- {
+		exec = cmd.Middlewares[i](exec)
 	}
 
-	if cmd.Handler != nil {
-		return cmd.Handler(ctx, args)
+	e.middlewaresMu.RLock()
+	globalMW := slices.Clone(e.middlewares)
+	e.middlewaresMu.RUnlock()
+
+	for i := len(globalMW) - 1; i >= 0; i-- {
+		exec = globalMW[i](exec)
 	}
 
-	return "", ErrMissingHandler
+	return exec(ctx, args)
 }
 
 // ParseSchemaArgs parses raw string arguments against schema type expectations.

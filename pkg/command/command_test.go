@@ -605,3 +605,58 @@ func TestParseCommandLine(t *testing.T) {
 		})
 	}
 }
+
+func TestEngine_Middlewares(t *testing.T) {
+	t.Parallel()
+
+	e := NewEngine()
+
+	var order []string
+
+	globalMW1 := func(next Handler) Handler {
+		return func(ctx context.Context, args []string) (string, error) {
+			order = append(order, "g1_pre")
+			res, err := next(ctx, args)
+
+			order = append(order, "g1_post")
+
+			return res, err
+		}
+	}
+
+	globalMW2 := func(next Handler) Handler {
+		return func(ctx context.Context, args []string) (string, error) {
+			order = append(order, "g2_pre")
+			res, err := next(ctx, args)
+
+			order = append(order, "g2_post")
+
+			return res, err
+		}
+	}
+
+	cmdMW := func(next Handler) Handler {
+		return func(ctx context.Context, args []string) (string, error) {
+			order = append(order, "cmd_pre")
+			res, err := next(ctx, args)
+
+			order = append(order, "cmd_post")
+
+			return res, err
+		}
+	}
+
+	e.Use(globalMW1, globalMW2)
+
+	e.Register("ping", func(ctx context.Context, args []string) (string, error) {
+		order = append(order, "handler")
+		return "pong", nil
+	}, WithMiddleware(cmdMW))
+
+	res, err := e.Execute(context.Background(), "ping")
+	require.NoError(t, err)
+	assert.Equal(t, "pong", res)
+
+	expectedOrder := []string{"g1_pre", "g2_pre", "cmd_pre", "handler", "cmd_post", "g2_post", "g1_post"}
+	assert.Equal(t, expectedOrder, order)
+}

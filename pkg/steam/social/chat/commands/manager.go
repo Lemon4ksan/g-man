@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -42,6 +43,10 @@ type (
 	CommandHandler func(ctx context.Context, senderID uint64, args []string) (string, error)
 
 	TypedHandler func(ctx context.Context, senderID uint64, args []any) (string, error)
+
+	StickerHandler func(ctx context.Context, ev *chat.StickerEvent) error
+
+	ReactionHandler func(ctx context.Context, ev *chat.ReactionEvent) error
 )
 
 type (
@@ -126,16 +131,21 @@ var (
 type Manager struct {
 	module.Base
 
-	engine *command.Engine
-	chat   ChatSender
+	engine        *command.Engine
+	chat          ChatSender
+	conversations *command.ConversationManager
 
 	trustedMu sync.RWMutex
 	trusted   map[uint64]bool
 
 	limiter *limiter.KeyedLimiter[uint64]
+
+	eventsMu         sync.RWMutex
+	stickerHandlers  []StickerHandler
+	reactionHandlers []ReactionHandler
 }
 
-// NewManager constructs a Manager instance with custom id.ID parsers and rate limiters.
+// NewManager constructs a Manager instance with custom id.ID parsers, rate limiters, and FSM.
 func NewManager() *Manager {
 	engine := command.NewEngine()
 
@@ -149,10 +159,11 @@ func NewManager() *Manager {
 	})
 
 	return &Manager{
-		Base:    module.New(ModuleName),
-		engine:  engine,
-		trusted: make(map[uint64]bool),
-		limiter: limiter.NewKeyedLimiter[uint64](rate.Limit(2), 5, 1*time.Hour),
+		Base:          module.New(ModuleName),
+		engine:        engine,
+		conversations: command.NewConversationManager(15 * time.Minute),
+		trusted:       make(map[uint64]bool),
+		limiter:       limiter.NewKeyedLimiter[uint64](rate.Limit(2), 5, 1*time.Hour),
 	}
 }
 
@@ -340,26 +351,120 @@ func (m *Manager) GetCommand(cmd string) (Command, bool) {
 	}, true
 }
 
+// Engine returns the underlying command Engine instance.
+func (m *Manager) Engine() *command.Engine {
+	return m.engine
+}
+
+// Use appends global command middlewares to the engine execution pipeline.
+func (m *Manager) Use(mw ...command.Middleware) {
+	m.engine.Use(mw...)
+}
+
+// Conversations returns the Manager's ConversationManager (FSM) instance.
+func (m *Manager) Conversations() *command.ConversationManager {
+	return m.conversations
+}
+
+// OnSticker registers a callback for incoming sticker events.
+func (m *Manager) OnSticker(handler StickerHandler) {
+	m.eventsMu.Lock()
+	defer m.eventsMu.Unlock()
+
+	m.stickerHandlers = append(m.stickerHandlers, handler)
+}
+
+// OnReaction registers a callback for incoming emoji reaction events.
+func (m *Manager) OnReaction(handler ReactionHandler) {
+	m.eventsMu.Lock()
+	defer m.eventsMu.Unlock()
+
+	m.reactionHandlers = append(m.reactionHandlers, handler)
+}
+
 func (m *Manager) Close() error {
 	return m.limiter.Close()
 }
 
 func (m *Manager) eventLoop(ctx context.Context) {
-	sub := m.Bus.Subscribe(&chat.MessageEvent{})
-	defer sub.Unsubscribe()
+	subMsg := m.Bus.Subscribe(&chat.MessageEvent{})
+	defer subMsg.Unsubscribe()
+
+	subSticker := m.Bus.Subscribe(&chat.StickerEvent{})
+	defer subSticker.Unsubscribe()
+
+	subReaction := m.Bus.Subscribe(&chat.ReactionEvent{})
+	defer subReaction.Unsubscribe()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
 
-		case ev := <-sub.C():
+		case ev := <-subSticker.C():
+			sev, ok := ev.(*chat.StickerEvent)
+			if !ok {
+				continue
+			}
+
+			m.eventsMu.RLock()
+			handlers := slices.Clone(m.stickerHandlers)
+			m.eventsMu.RUnlock()
+
+			for _, h := range handlers {
+				if err := h(ctx, sev); err != nil {
+					m.Logger.ErrorContext(ctx, "Sticker handler failed", log.Err(err))
+				}
+			}
+
+		case ev := <-subReaction.C():
+			rev, ok := ev.(*chat.ReactionEvent)
+			if !ok {
+				continue
+			}
+
+			m.eventsMu.RLock()
+			handlers := slices.Clone(m.reactionHandlers)
+			m.eventsMu.RUnlock()
+
+			for _, h := range handlers {
+				if err := h(ctx, rev); err != nil {
+					m.Logger.ErrorContext(ctx, "Reaction handler failed", log.Err(err))
+				}
+			}
+
+		case ev := <-subMsg.C():
 			mev, ok := ev.(*chat.MessageEvent)
 			if !ok {
 				continue
 			}
 
 			msgText := mev.Message
+
+			if m.conversations != nil {
+				senderIDStr := strconv.FormatUint(mev.SenderID, 10)
+
+				handled, response, err := m.conversations.HandleInput(ctx, senderIDStr, msgText)
+				if handled {
+					if err != nil {
+						m.Logger.ErrorContext(
+							ctx,
+							"FSM conversation error",
+							log.Uint64("sender", mev.SenderID),
+							log.Err(err),
+						)
+
+						if m.chat != nil && response != "" {
+							_ = m.chat.SendMessage(ctx, mev.SenderID, response)
+						}
+					} else if response != "" && m.chat != nil {
+						_ = m.chat.SendMessage(ctx, mev.SenderID, response)
+					}
+
+					continue
+				}
+			}
+
 			if len(msgText) == 0 || (msgText[0] != '!' && msgText[0] != '/') {
 				continue
 			}
