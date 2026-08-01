@@ -153,13 +153,19 @@ func (a *Authenticator) handleLogOnResponse(packet *protocol.Packet) {
 }
 
 func (a *Authenticator) handleLoggedOff(packet *protocol.Packet) {
-	resp := &pb.CMsgClientLoggedOff{}
-	if err := protocol.UnmarshalProto(packet.Payload, resp); err != nil {
-		a.getLogger().Error("Unmarshal failed in handleLoggedOff", log.Err(err))
-		return
+	res := enums.EResult_OK
+
+	if packet.IsProto {
+		resp := &pb.CMsgClientLoggedOff{}
+		if err := protocol.UnmarshalProto(packet.Payload, resp); err != nil {
+			a.getLogger().Error("Unmarshal failed in handleLoggedOff", log.Err(err))
+		} else {
+			res = enums.EResult(resp.GetEresult())
+		}
+	} else if len(packet.Payload) >= 4 {
+		res = enums.EResult(binary.LittleEndian.Uint32(packet.Payload[:4]))
 	}
 
-	res := enums.EResult(resp.GetEresult())
 	a.getLogger().Warn("Logged off by server", log.Int32("eresult", int32(res)))
 
 	if service.IsAuthError(res) {

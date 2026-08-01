@@ -159,6 +159,7 @@ type Connector struct {
 	reconnectCancel context.CancelFunc
 	lastServer      CMServer
 	servers         []CMServer
+	onReconnect     func(ctx context.Context)
 }
 
 // New constructs a Connector instance tied to background lifecycle context.
@@ -203,6 +204,14 @@ func (c *Connector) IsConnected() bool {
 
 // Connect dials a specific Connection Manager server.
 func (c *Connector) Connect(ctx context.Context, server CMServer) error {
+	c.mu.RLock()
+	alreadyConnected := c.conn != nil && c.lastServer.Endpoint == server.Endpoint
+	c.mu.RUnlock()
+
+	if alreadyConnected {
+		return nil
+	}
+
 	if ctx.Value(reconnectKey) == nil {
 		c.cancelReconnect()
 	}
@@ -266,6 +275,14 @@ func (c *Connector) Send(ctx context.Context, data []byte) error {
 	}
 
 	return conn.Send(ctx, data)
+}
+
+// SetOnReconnect registers a callback function executed after a successful auto-reconnection cycle.
+func (c *Connector) SetOnReconnect(fn func(ctx context.Context)) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.onReconnect = fn
 }
 
 // UpdateServers updates the pool of candidate Connection Manager servers used during reconnect cycles.
@@ -410,6 +427,15 @@ func (c *Connector) reconnectLoop(ctx context.Context) {
 
 		if err == nil {
 			c.getLogger().Info("Reconnection successful", log.Int("attempts", att))
+
+			c.mu.RLock()
+			onRecon := c.onReconnect
+			c.mu.RUnlock()
+
+			if onRecon != nil {
+				go onRecon(c.ctx)
+			}
+
 			return
 		}
 

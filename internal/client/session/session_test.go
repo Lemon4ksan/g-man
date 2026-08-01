@@ -85,6 +85,7 @@ func (m *mockCommunity) GetOrRegisterAPIKey(ctx context.Context, domain string) 
 
 type mockSocket struct {
 	mock.Mock
+	onReconnect func(ctx context.Context)
 }
 
 func (m *mockSocket) IsConnected() bool {
@@ -98,6 +99,10 @@ func (m *mockSocket) UpdateLogger(logger log.Logger) {
 
 func (m *mockSocket) UpdateServers(servers []socket.CMServer) {
 	m.Called(servers)
+}
+
+func (m *mockSocket) SetOnReconnect(fn func(ctx context.Context)) {
+	m.onReconnect = fn
 }
 
 func (m *mockSocket) SetEncryptionKey(key []byte) bool {

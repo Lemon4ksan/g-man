@@ -352,7 +352,7 @@ func (d *Dispatcher) handleService(packet *protocol.Packet) {
 	idx := hash & (serviceTableSize - 1)
 
 	var handler Handler
-	for i := range 8 {
+	for i := range serviceTableSize {
 		slotIdx := (idx + uint64(i)) & (serviceTableSize - 1)
 		entry := &d.denseServiceTable[slotIdx]
 

@@ -19,6 +19,7 @@ import (
 type Socket struct {
 	session.SocketProvider
 	mock.Mock
+	onReconnect func(ctx context.Context)
 }
 
 func (m *Socket) OnDefault() *Socket {
@@ -31,6 +32,10 @@ func (m *Socket) OnDefault() *Socket {
 	m.On("IsConnected").Return(false).Maybe()
 
 	return m
+}
+
+func (m *Socket) SetOnReconnect(fn func(ctx context.Context)) {
+	m.onReconnect = fn
 }
 
 func (m *Socket) IsConnected() bool {

@@ -399,6 +399,7 @@ func (e *Engine) Execute(ctx context.Context, cmdLine string) (string, error) {
 
 			return cmd.TypedHandler(ctx, parsedArgs)
 		}
+
 	case cmd.Handler != nil:
 		coreHandler = func(ctx context.Context, args []string) (string, error) {
 			if len(cmd.ArgsSchema) > 0 {
@@ -409,6 +410,7 @@ func (e *Engine) Execute(ctx context.Context, cmdLine string) (string, error) {
 
 			return cmd.Handler(ctx, args)
 		}
+
 	default:
 		return "", ErrMissingHandler
 	}

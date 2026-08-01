@@ -67,6 +67,7 @@ type SocketProvider interface {
 	Send(ctx context.Context, build socket.PayloadBuilder, opts ...socket.SendOption) error
 	SendSync(ctx context.Context, build socket.PayloadBuilder, opts ...socket.SendOption) (*protocol.Packet, error)
 	RegisterServiceHandler(method string, handler socket.Handler)
+	SetOnReconnect(fn func(ctx context.Context))
 	Disconnect() error
 	Close() error
 }
@@ -187,7 +188,7 @@ func New(socket SocketProvider, cfg Config) *Session {
 		)
 	}
 
-	return &Session{
+	sess := &Session{
 		auth:               cfg.Authenticator,
 		socket:             socket,
 		logger:             cfg.Logger.With(log.Module("session_manager")),
@@ -202,6 +203,18 @@ func New(socket SocketProvider, cfg Config) *Session {
 		refreshSF:          generic.NewSingleFlight[struct{}](),
 		refreshJobInterval: cfg.RefreshJobInterval,
 	}
+
+	if socket != nil {
+		socket.SetOnReconnect(func(reconCtx context.Context) {
+			sess.Logger().Info("L4 transport reconnected, re-authenticating L7 Steam session...")
+
+			if err := sess.Reconnect(reconCtx); err != nil {
+				sess.Logger().Error("Re-authentication failed after transport reconnect", log.Err(err))
+			}
+		})
+	}
+
+	return sess
 }
 
 // Storage returns the configured persistent storage provider.
@@ -336,10 +349,16 @@ func (c *Session) SetLogonServer(s socket.CMServer) {
 
 // SetAPIKey configures WebAPI service clients with the specified Steam WebAPI key.
 func (c *Session) SetAPIKey(key string) {
-	c.mu.Lock()
-	c.unified = c.unified.WithAPIKey(key)
-	c.socketAPI = c.socketAPI.WithAPIKey(key)
-	c.mu.Unlock()
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if c.unified != nil {
+		c.unified.SetAPIKey(key)
+	}
+
+	if c.socketAPI != nil {
+		c.socketAPI.SetAPIKey(key)
+	}
 }
 
 // SetAccessToken updates the OAuth2 access token across active socket and API clients.
@@ -354,10 +373,16 @@ func (c *Session) SetAccessToken(token string) error {
 
 	sess.SetAccessToken(token)
 
-	c.mu.Lock()
-	c.unified = c.unified.WithAccessToken(token)
-	c.socketAPI = c.socketAPI.WithAccessToken(token)
-	c.mu.Unlock()
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if c.unified != nil {
+		c.unified.SetAccessToken(token)
+	}
+
+	if c.socketAPI != nil {
+		c.socketAPI.SetAccessToken(token)
+	}
 
 	return nil
 }
@@ -457,7 +482,7 @@ func (c *Session) doRefresh(ctx context.Context) error {
 		return nil
 	}
 
-	c.Logger().Info("Refreshing Steam session tokens...")
+	c.Logger().Debug("Refreshing Steam session tokens...")
 
 	refreshToken := c.RefreshToken()
 	steamID := c.SteamID().Uint64()

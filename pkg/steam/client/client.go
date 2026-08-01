@@ -669,10 +669,11 @@ func (noopSocketProvider) StartHeartbeat(time.Duration) error {
 	return ErrSocketDisabled
 }
 
-func (noopSocketProvider) Disconnect() error               { return nil }
-func (noopSocketProvider) Close() error                    { return nil }
-func (noopSocketProvider) UpdateLogger(log.Logger)         {}
-func (noopSocketProvider) UpdateServers([]socket.CMServer) {}
+func (noopSocketProvider) Disconnect() error                    { return nil }
+func (noopSocketProvider) Close() error                         { return nil }
+func (noopSocketProvider) UpdateLogger(log.Logger)              {}
+func (noopSocketProvider) UpdateServers([]socket.CMServer)      {}
+func (noopSocketProvider) SetOnReconnect(func(context.Context)) {}
 
 type initContext struct {
 	Client *Client

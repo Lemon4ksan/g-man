@@ -11,7 +11,6 @@ import (
 	"io"
 	"math"
 	"sync"
-	"unsafe"
 
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
@@ -153,48 +152,20 @@ func (h *MsgHdrExtended) Deserialize(r io.Reader) error {
 	return nil
 }
 
-type pooledProtoHeader struct {
-	hdr       pb.CMsgProtoBufHeader
-	steamID   uint64
-	sessionID int32
-	jobSource uint64
-	jobTarget uint64
-	eResult   int32
-}
-
 var protoHeaderPool = sync.Pool{
 	New: func() any {
-		ph := &pooledProtoHeader{}
-		ph.hdr.Steamid = &ph.steamID
-		ph.hdr.ClientSessionid = &ph.sessionID
-		ph.hdr.JobidSource = &ph.jobSource
-		ph.hdr.JobidTarget = &ph.jobTarget
-		ph.hdr.Eresult = &ph.eResult
-
-		return ph
+		return &pb.CMsgProtoBufHeader{}
 	},
 }
 
 // AcquireProtoHeader fetches a pooled CMsgProtoBufHeader instance.
 func AcquireProtoHeader() *pb.CMsgProtoBufHeader {
-	ph := protoHeaderPool.Get().(*pooledProtoHeader)
-	ph.steamID = 0
-	ph.sessionID = 0
-	ph.jobSource = NoJob
-	ph.jobTarget = NoJob
-	ph.eResult = 0
+	h := protoHeaderPool.Get().(*pb.CMsgProtoBufHeader)
+	h.Reset()
+	h.JobidSource = proto.Uint64(NoJob)
+	h.JobidTarget = proto.Uint64(NoJob)
 
-	ph.hdr.TargetJobName = nil
-	ph.hdr.WgToken = nil
-	ph.hdr.RoutingAppid = nil
-	ph.hdr.ForwardToSysid = ph.hdr.GetForwardToSysid()[:0]
-	ph.hdr.ExcludeClientSessionids = ph.hdr.GetExcludeClientSessionids()[:0]
-
-	if ph.hdr.GetRoutingGc() != nil {
-		ph.hdr.GetRoutingGc().Reset()
-	}
-
-	return &ph.hdr
+	return h
 }
 
 // ReleaseProtoHeader recycles a CMsgProtoBufHeader instance back to the memory pool.
@@ -203,8 +174,8 @@ func ReleaseProtoHeader(h *pb.CMsgProtoBufHeader) {
 		return
 	}
 
-	ph := (*pooledProtoHeader)(unsafe.Pointer(h))
-	protoHeaderPool.Put(ph)
+	h.Reset()
+	protoHeaderPool.Put(h)
 }
 
 var msgHdrProtoBufPool = sync.Pool{

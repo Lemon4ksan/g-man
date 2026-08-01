@@ -160,6 +160,11 @@ func (s *Socket) UpdateServers(servers []CMServer) {
 	s.conn.UpdateServers(servers)
 }
 
+// SetOnReconnect registers a callback function executed after a successful socket reconnect cycle.
+func (s *Socket) SetOnReconnect(fn func(ctx context.Context)) {
+	s.conn.SetOnReconnect(fn)
+}
+
 func (s *Socket) Connector() *connector.Connector { return s.conn }
 
 func (s *Socket) Connect(ctx context.Context, server CMServer) error {

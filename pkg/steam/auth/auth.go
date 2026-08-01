@@ -235,12 +235,15 @@ func NewAuthenticator(s SocketProvider, svc WebAuthenticator, bus *bus.Bus, opts
 	fsm.AddRules(
 		kata.TransitionRule[State, Event]{From: StateDisconnected, Event: EventBegin, To: StateAuthenticating},
 		kata.TransitionRule[State, Event]{From: StateFailed, Event: EventBegin, To: StateAuthenticating},
+		kata.TransitionRule[State, Event]{From: StateLoggedOn, Event: EventBegin, To: StateAuthenticating},
 		kata.TransitionRule[State, Event]{From: StateAuthenticating, Event: EventLoggingOn, To: StateLoggingOn},
 		kata.TransitionRule[State, Event]{From: StateLoggingOn, Event: EventSuccess, To: StateLoggedOn},
 		kata.TransitionRule[State, Event]{From: StateAuthenticating, Event: EventFail, To: StateFailed},
 		kata.TransitionRule[State, Event]{From: StateLoggingOn, Event: EventFail, To: StateFailed},
+		kata.TransitionRule[State, Event]{From: StateLoggedOn, Event: EventFail, To: StateFailed},
 		kata.TransitionRule[State, Event]{From: StateLoggedOn, Event: EventDisconnect, To: StateDisconnected},
 		kata.TransitionRule[State, Event]{From: StateFailed, Event: EventDisconnect, To: StateDisconnected},
+		kata.TransitionRule[State, Event]{From: StateAuthenticating, Event: EventDisconnect, To: StateDisconnected},
 	)
 
 	auth := &Authenticator{

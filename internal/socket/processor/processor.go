@@ -14,7 +14,6 @@ import (
 	"github.com/lemon4ksan/miyako/log"
 
 	"github.com/lemon4ksan/g-man/internal/framer"
-	"github.com/lemon4ksan/g-man/internal/ringbuffer"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 )
 
@@ -47,9 +46,7 @@ type Processor struct {
 	logger log.Logger
 	dist   Dispatcher
 
-	input      <-chan *protocol.InboundMessage
-	ringBuffer *ringbuffer.MPMCRingBuffer
-
+	input  <-chan *protocol.InboundMessage
 	ctx    context.Context
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
@@ -67,13 +64,12 @@ func New(cfg Config, input <-chan *protocol.InboundMessage, dist Dispatcher, log
 	}
 
 	return &Processor{
-		ctx:        ctx,
-		cancel:     cancel,
-		cfg:        cfg,
-		ringBuffer: ringbuffer.New(cfg.RingBufferCap),
-		logger:     logger.With(log.Component("proc")),
-		input:      input,
-		dist:       dist,
+		ctx:    ctx,
+		cancel: cancel,
+		cfg:    cfg,
+		logger: logger.With(log.Component("proc")),
+		input:  input,
+		dist:   dist,
 	}
 }
 

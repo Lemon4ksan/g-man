@@ -29,7 +29,7 @@ func main() {
 	}
 	defer jsonStorage.Close()
 
-	logger := log.New(log.DefaultConfig(log.LevelDebug))
+	logger := log.New(log.DefaultConfig(log.LevelInfo))
 	defer logger.Close()
 
 	client, err := steam.NewClient(
@@ -101,11 +101,13 @@ func main() {
 		return
 	}
 
+	logger.Info("Spotify music streaming started!")
+
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 	<-stop
 
-	logger.Info("Shutting down G-man generic bot...")
+	logger.Info("Shutting down G-man spotify bot...")
 
 	if err := client.Close(); err != nil {
 		logger.Error("Failed to close client", log.Err(err))

@@ -13,6 +13,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/codec/decode"
@@ -106,39 +107,57 @@ func WithRoutingAppID(appID uint32) CallOption {
 // Client wraps a transport layer and injects configured WebAPI keys and OAuth access tokens.
 type Client struct {
 	transport   tr.Transport
-	apiKey      string
-	accessToken string
+	apiKey      atomic.Pointer[string]
+	accessToken atomic.Pointer[string]
 }
 
-func (c *Client) APIKey() string { return c.apiKey }
+func (c *Client) APIKey() string {
+	ptr := c.apiKey.Load()
+	if ptr == nil {
+		return ""
+	}
 
-func (c *Client) AccessToken() string { return c.accessToken }
+	return *ptr
+}
+
+func (c *Client) AccessToken() string {
+	ptr := c.accessToken.Load()
+	if ptr == nil {
+		return ""
+	}
+
+	return *ptr
+}
+
+func (c *Client) SetAPIKey(key string) {
+	c.apiKey.Store(&key)
+}
+
+func (c *Client) SetAccessToken(token string) {
+	c.accessToken.Store(&token)
+}
 
 func New(tr tr.Transport) *Client {
 	return &Client{transport: tr}
 }
 
 func (c *Client) WithAPIKey(key string) *Client {
-	clone := *c
-	clone.apiKey = key
-
-	return &clone
+	c.SetAPIKey(key)
+	return c
 }
 
 func (c *Client) WithAccessToken(token string) *Client {
-	clone := *c
-	clone.accessToken = token
-
-	return &clone
+	c.SetAccessToken(token)
+	return c
 }
 
 func (c *Client) Do(ctx context.Context, req *tr.Request) (*tr.Response, error) {
-	if c.apiKey != "" {
-		req.WithParam("key", c.apiKey)
+	if key := c.APIKey(); key != "" {
+		req.WithParam("key", key)
 	}
 
-	if c.accessToken != "" {
-		req.WithParam("access_token", c.accessToken)
+	if token := c.AccessToken(); token != "" {
+		req.WithParam("access_token", token)
 	}
 
 	resp, err := c.transport.Do(ctx, req)

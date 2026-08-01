@@ -48,10 +48,10 @@ func TestClient_Initialization(t *testing.T) {
 	c := New(trans)
 
 	c1 := c.WithAPIKey("key")
-	assert.Equal(t, "key", c1.apiKey)
+	assert.Equal(t, "key", c1.APIKey())
 
 	c2 := c.WithAccessToken("token")
-	assert.Equal(t, "token", c2.accessToken)
+	assert.Equal(t, "token", c2.AccessToken())
 }
 
 func TestClient_Do(t *testing.T) {
