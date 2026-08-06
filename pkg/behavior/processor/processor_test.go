@@ -229,7 +229,6 @@ func TestHandleOffer_ItemsAlreadyLocked_SkipsProcessing(t *testing.T) {
 	}
 
 	f.proc.itemLocks.Lock(500)
-	f.proc.busyItems[500] = 10
 
 	f.proc.handleOffer(t.Context(), offer)
 
