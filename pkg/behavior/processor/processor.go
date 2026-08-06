@@ -49,7 +49,7 @@ type Processor struct {
 
 	queue chan *trading.TradeOffer
 
-	itemLocks   *keylock.KeyMutex[uint64]
+	itemLocks *keylock.KeyMutex[uint64]
 
 	processing sync.Map
 }
