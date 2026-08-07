@@ -342,6 +342,7 @@ func (s *WebSession) seedCookies(sessionID, secureValue string) {
 			},
 		}
 		if secureValue != "" {
+			// #nosec G124: steamLoginSecure requires SameSite=None for Steam cross-site auth
 			cookies = append(cookies, &http.Cookie{
 				Name:     cookieSteamLoginSecure,
 				Value:    secureValue,

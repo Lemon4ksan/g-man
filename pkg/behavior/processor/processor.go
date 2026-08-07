@@ -49,9 +49,7 @@ type Processor struct {
 
 	queue chan *trading.TradeOffer
 
-	itemLocks   *keylock.KeyMutex[uint64]
-	busyItemsMu sync.RWMutex
-	busyItems   map[uint64]uint64
+	itemLocks *keylock.KeyMutex[uint64]
 
 	processing sync.Map
 }
@@ -82,7 +80,6 @@ func New(
 		logger:    l.With(log.Module("processor")),
 		queue:     make(chan *trading.TradeOffer, 100),
 		itemLocks: keylock.New[uint64](),
-		busyItems: make(map[uint64]uint64),
 	}
 }
 
@@ -292,13 +289,6 @@ func (p *Processor) lockItems(offer *trading.TradeOffer) {
 	for _, id := range ids {
 		p.itemLocks.Lock(id)
 	}
-
-	p.busyItemsMu.Lock()
-	for _, id := range ids {
-		p.busyItems[id] = offer.ID
-	}
-
-	p.busyItemsMu.Unlock()
 }
 
 func (p *Processor) unlockItems(offer *trading.TradeOffer) {
@@ -327,13 +317,6 @@ func (p *Processor) unlockItems(offer *trading.TradeOffer) {
 	}
 
 	slices.Sort(ids)
-
-	p.busyItemsMu.Lock()
-	for _, id := range ids {
-		delete(p.busyItems, id)
-	}
-
-	p.busyItemsMu.Unlock()
 
 	for _, id := range ids {
 		p.itemLocks.Unlock(id)
