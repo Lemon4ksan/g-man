@@ -202,9 +202,11 @@ func TestStart_QueueWithOffers_ProcessesOffersSequentially(t *testing.T) {
 	assert.ElementsMatch(t, []uint64{1, 2}, f.executor.acceptedIDs)
 	f.executor.mu.Unlock()
 
-	f.reviewChat.mu.Lock()
-	assert.Len(t, f.reviewChat.messages, 2)
-	f.reviewChat.mu.Unlock()
+	assert.Eventually(t, func() bool {
+		f.reviewChat.mu.Lock()
+		defer f.reviewChat.mu.Unlock()
+		return len(f.reviewChat.messages) == 2
+	}, time.Second, 10*time.Millisecond)
 }
 
 func TestHandleOffer_ItemsAlreadyLocked_SkipsProcessing(t *testing.T) {

@@ -72,6 +72,10 @@ type WebSession struct {
 	domains    []*url.URL
 
 	retryBackoff time.Duration
+
+	lastRefreshToken string
+	lastPlatform     pb.EAuthTokenPlatformType
+	refreshCancel    context.CancelFunc
 }
 
 type doerRoundTripper struct {
@@ -165,6 +169,9 @@ func (s *WebSession) AddDomains(domains ...string) {
 	}
 }
 
+// DefaultRefreshInterval is the default period for updating WebSession cookies (every 12 hours).
+const DefaultRefreshInterval = 12 * time.Hour
+
 // Authenticate performs OIDC web finalization or fast-path cookie injection.
 func (s *WebSession) Authenticate(
 	ctx context.Context,
@@ -174,6 +181,11 @@ func (s *WebSession) Authenticate(
 	if refreshToken == "" {
 		return ErrRefreshTokenRequired
 	}
+
+	s.mu.Lock()
+	s.lastRefreshToken = refreshToken
+	s.lastPlatform = platform
+	s.mu.Unlock()
 
 	s.Clear()
 
@@ -185,6 +197,74 @@ func (s *WebSession) Authenticate(
 	}
 
 	return s.authSlowPath(ctx, refreshToken, sessionID)
+}
+
+// Refresh re-authenticates the WebSession using stored credentials.
+func (s *WebSession) Refresh(ctx context.Context) error {
+	s.mu.RLock()
+	refreshToken := s.lastRefreshToken
+	platform := s.lastPlatform
+	s.mu.RUnlock()
+
+	if refreshToken == "" {
+		return ErrRefreshTokenRequired
+	}
+
+	s.logger.Info("Refreshing WebSession cookies...")
+
+	if err := s.Authenticate(ctx, platform, refreshToken, ""); err != nil {
+		s.logger.Error("Failed to refresh WebSession cookies", log.Err(err))
+		return err
+	}
+
+	s.logger.Info("Successfully refreshed WebSession cookies")
+
+	return nil
+}
+
+// StartAutoRefresh begins a background loop that periodically re-authenticates the WebSession before cookies expire.
+func (s *WebSession) StartAutoRefresh(ctx context.Context, interval time.Duration) {
+	s.StopAutoRefresh()
+
+	if interval <= 0 {
+		interval = DefaultRefreshInterval
+	}
+
+	refreshCtx, cancel := context.WithCancel(ctx)
+
+	s.mu.Lock()
+	s.refreshCancel = cancel
+	s.mu.Unlock()
+
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
+		s.logger.Info("Started automatic WebSession refresh loop", log.Duration("interval", interval))
+
+		for {
+			select {
+			case <-refreshCtx.Done():
+				s.logger.Debug("Auto WebSession refresh loop stopped")
+				return
+			case <-ticker.C:
+				if err := s.Refresh(refreshCtx); err != nil {
+					s.logger.Warn("Periodic WebSession refresh attempt failed", log.Err(err))
+				}
+			}
+		}
+	}()
+}
+
+// StopAutoRefresh halts any active automatic refresh loop.
+func (s *WebSession) StopAutoRefresh() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.refreshCancel != nil {
+		s.refreshCancel()
+		s.refreshCancel = nil
+	}
 }
 
 // Verify checks session validity by requesting Steam chat interface endpoints.

@@ -425,3 +425,51 @@ func TestAuthenticate_SlowPath_Errors(t *testing.T) {
 		assert.ErrorContains(t, err, "steam error: Fail")
 	})
 }
+
+func TestRefreshAndAutoRefresh(t *testing.T) {
+	t.Parallel()
+
+	t.Run("refresh_without_prior_authenticate", func(t *testing.T) {
+		t.Parallel()
+
+		ws := newMockedSession(setupMockTransport())
+		err := ws.Refresh(t.Context())
+		assert.ErrorIs(t, err, ErrRefreshTokenRequired)
+	})
+
+	t.Run("refresh_success_fast_path", func(t *testing.T) {
+		t.Parallel()
+
+		ws := newMockedSession(setupMockTransport())
+		err := ws.Authenticate(
+			t.Context(),
+			pb.EAuthTokenPlatformType_k_EAuthTokenPlatformType_SteamClient,
+			"my_refresh_token",
+			"access_token",
+		)
+		require.NoError(t, err)
+		assert.True(t, ws.IsAuthenticated())
+
+		err = ws.Refresh(t.Context())
+		assert.NoError(t, err)
+		assert.True(t, ws.IsAuthenticated())
+	})
+
+	t.Run("auto_refresh_lifecycle", func(t *testing.T) {
+		t.Parallel()
+
+		ws := newMockedSession(setupMockTransport())
+		err := ws.Authenticate(
+			t.Context(),
+			pb.EAuthTokenPlatformType_k_EAuthTokenPlatformType_SteamClient,
+			"my_refresh_token",
+			"access_token",
+		)
+		require.NoError(t, err)
+
+		ws.StartAutoRefresh(t.Context(), 50*time.Millisecond)
+		time.Sleep(120 * time.Millisecond)
+		assert.True(t, ws.IsAuthenticated())
+		ws.StopAutoRefresh()
+	})
+}

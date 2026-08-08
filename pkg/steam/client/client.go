@@ -701,3 +701,13 @@ func (ctx *initContext) RegisterServiceHandler(method string, h socket.Handler) 
 func (ctx *initContext) UnregisterServiceHandler(method string) {
 	ctx.Client.socket.RegisterServiceHandler(method, nil)
 }
+
+// String implements fmt.Stringer to prevent reflection-based data races when formatting Client in mocks or logs.
+func (c *Client) String() string {
+	return fmt.Sprintf("client.Client{%p}", c)
+}
+
+// GoString implements fmt.GoStringer to prevent reflection-based data races when formatting Client in mocks or logs.
+func (c *Client) GoString() string {
+	return c.String()
+}

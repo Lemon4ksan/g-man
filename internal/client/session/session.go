@@ -95,7 +95,7 @@ type Config struct {
 // ResolveDefaults populates zero-value fields in Config with defaults.
 func (cfg *Config) ResolveDefaults() {
 	if cfg.RefreshJobInterval == 0 {
-		cfg.RefreshJobInterval = 5 * time.Minute
+		cfg.RefreshJobInterval = 12 * time.Hour
 	}
 
 	if cfg.Logger == nil {
@@ -165,6 +165,9 @@ type Session struct {
 
 	closed atomic.Bool
 
+	ctx    context.Context
+	cancel context.CancelFunc
+
 	logonDetails *auth.LogOnDetails
 	logonServer  socket.CMServer
 
@@ -188,7 +191,10 @@ func New(socket SocketProvider, cfg Config) *Session {
 		)
 	}
 
+	sessCtx, cancel := context.WithCancel(context.Background())
 	sess := &Session{
+		ctx:                sessCtx,
+		cancel:             cancel,
 		auth:               cfg.Authenticator,
 		socket:             socket,
 		logger:             cfg.Logger.With(log.Module("session_manager")),
@@ -421,6 +427,8 @@ func (c *Session) LogOn(ctx context.Context, server socket.CMServer, details *au
 		c.SetAPIKey(key)
 	}
 
+	go c.StartRefreshLoop(c.ctx) //nolint:gosec
+
 	return nil
 }
 
@@ -460,6 +468,19 @@ func (c *Session) Verify(ctx context.Context) (bool, error) {
 	return c.Web().Verify(ctx)
 }
 
+// ForceRefresh unconditionally generates a new OAuth access token and updates WebSession cookies.
+func (c *Session) ForceRefresh(ctx context.Context) error {
+	if c.closed.Load() {
+		return module.ErrClosed
+	}
+
+	_, err := c.refreshSF.Do("force_refresh", func() (struct{}, error) {
+		return struct{}{}, c.doRefreshInternal(ctx, true)
+	})
+
+	return err
+}
+
 // Refresh performs single-flight deduplicated OAuth2 token generation and web session re-authentication.
 //
 // Returns:
@@ -471,18 +492,20 @@ func (c *Session) Refresh(ctx context.Context) error {
 	}
 
 	_, err := c.refreshSF.Do("refresh", func() (struct{}, error) {
-		return struct{}{}, c.doRefresh(ctx)
+		return struct{}{}, c.doRefreshInternal(ctx, false)
 	})
 
 	return err
 }
 
-func (c *Session) doRefresh(ctx context.Context) error {
-	if isAlive, _ := c.Verify(ctx); isAlive {
-		return nil
+func (c *Session) doRefreshInternal(ctx context.Context, force bool) error {
+	if !force {
+		if isAlive, _ := c.Verify(ctx); isAlive {
+			return nil
+		}
 	}
 
-	c.Logger().Debug("Refreshing Steam session tokens...")
+	c.Logger().Debug("Refreshing Steam session tokens...", log.Bool("force", force))
 
 	refreshToken := c.RefreshToken()
 	steamID := c.SteamID().Uint64()
@@ -512,7 +535,7 @@ func (c *Session) doRefresh(ctx context.Context) error {
 	return nil
 }
 
-// StartRefreshLoop starts a periodic background worker verifying web session health and performing automated renewals.
+// StartRefreshLoop starts a periodic background worker performing proactive automated token renewals every 12 hours.
 func (c *Session) StartRefreshLoop(ctx context.Context) {
 	c.refreshLoopOnce.Do(func() {
 		ticker := time.NewTicker(c.refreshJobInterval)
@@ -524,11 +547,27 @@ func (c *Session) StartRefreshLoop(ctx context.Context) {
 				c.Logger().Debug("Session refresh loop stopped")
 				return
 			case <-ticker.C:
+				if c.closed.Load() {
+					return
+				}
+
 				if web := c.Web(); web != nil && web.IsAuthenticated() {
 					if isAlive, _ := web.Verify(ctx); !isAlive {
-						if err := c.Refresh(ctx); err != nil {
+						c.Logger().Info("Web session verification failed, forcing token renewal")
+
+						if err := c.ForceRefresh(ctx); err != nil {
 							c.Logger().Warn("Periodic session refresh failed", log.Err(err))
 						}
+					} else {
+						c.Logger().Info("Executing periodic 12-hour session token renewal")
+
+						if err := c.ForceRefresh(ctx); err != nil {
+							c.Logger().Warn("Periodic session refresh failed", log.Err(err))
+						}
+					}
+				} else {
+					if err := c.ForceRefresh(ctx); err != nil {
+						c.Logger().Warn("Periodic session refresh failed", log.Err(err))
 					}
 				}
 			}
@@ -544,6 +583,11 @@ func (c *Session) Disconnect() error {
 // Close permanently shuts down the session manager and socket connection.
 func (c *Session) Close() error {
 	c.closed.Store(true)
+
+	if c.cancel != nil {
+		c.cancel()
+	}
+
 	return c.socket.Close()
 }
 
@@ -574,4 +618,14 @@ func (c *Session) EnrichLogger(account string, steamID id.ID) {
 	if len(logFields) > 0 {
 		c.logger = c.logger.With(logFields...)
 	}
+}
+
+// String implements fmt.Stringer to prevent reflection-based data races when formatting Session in mocks or logs.
+func (c *Session) String() string {
+	return fmt.Sprintf("session.Session{%p}", c)
+}
+
+// GoString implements fmt.GoStringer to prevent reflection-based data races when formatting Session in mocks or logs.
+func (c *Session) GoString() string {
+	return c.String()
 }

@@ -264,6 +264,14 @@ func NewAuthContext(steamID id.ID) *AuthContext {
 func (m *AuthContext) Community() community.Requester { return m.MockCommunity }
 func (m *AuthContext) SteamID() id.ID                 { return m.MockSteamID }
 
+func (m *AuthContext) String() string {
+	return "mock.AuthContext{...}"
+}
+
+func (m *AuthContext) GoString() string {
+	return m.String()
+}
+
 func ProtoResponse(msg proto.Message) (*tr.Response, error) {
 	b, err := proto.Marshal(msg)
 	if err != nil {
