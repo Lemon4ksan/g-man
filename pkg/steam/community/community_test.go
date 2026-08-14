@@ -83,7 +83,7 @@ func TestDecorate(t *testing.T) {
 			defaultModCalled = true
 		}
 
-		dec := community.Decorate(mockSvc, defaultMod)
+		dec := community.Decorate(mockSvc, mod.Custom(defaultMod))
 
 		var runtimeModCalled bool
 
@@ -95,7 +95,7 @@ func TestDecorate(t *testing.T) {
 			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("{}"))}, nil
 		}
 
-		_, err := dec.Request(t.Context(), "GET", "/test/decorate", runtimeMod)
+		_, err := dec.Request(t.Context(), "GET", "/test/decorate", mod.Custom(runtimeMod))
 		require.NoError(t, err)
 		assert.True(t, defaultModCalled)
 		assert.True(t, runtimeModCalled)
@@ -439,7 +439,6 @@ func TestPerformRequest(t *testing.T) {
 			t.Context(),
 			client,
 			"/test",
-			nil,
 			mod.WithHeader("X-Test-Header", "Value123"),
 		)
 		require.NoError(t, err)

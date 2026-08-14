@@ -139,8 +139,9 @@ func (s *WebSession) REST() *aoni.Client {
 	s.mu.RUnlock()
 
 	retrier := middleware.Retry(middleware.RetryOptions{
-		MaxRetries: 3,
-		Backoff:    backoff,
+		MaxRetries:     3,
+		Backoff:        backoff,
+		AllowedMethods: []string{"GET", "POST", "HEAD", "PUT", "DELETE"},
 	}, middleware.RetryOnErr())
 
 	s.mu.RLock()

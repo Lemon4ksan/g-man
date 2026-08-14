@@ -120,8 +120,8 @@ func (m *ServiceMock) Request(
 	dummyReq, _ := http.NewRequestWithContext(ctx, method, path, nil)
 	stdReq := aoni.NewStdRequest(dummyReq)
 
-	for _, mod := range mods {
-		mod(stdReq)
+	for _, m := range mods {
+		m.Apply(stdReq)
 	}
 
 	if dummyReq.Body != nil {
@@ -163,8 +163,8 @@ func (m *ServiceMock) Request(
 	dummyReq2, _ := http.NewRequestWithContext(ctx, method, path, bytes.NewReader(bodyBytes))
 	stdReq2 := aoni.NewStdRequest(dummyReq2)
 
-	for _, mod := range mods {
-		mod(stdReq2)
+	for _, m := range mods {
+		m.Apply(stdReq2)
 	}
 
 	return &http.Response{

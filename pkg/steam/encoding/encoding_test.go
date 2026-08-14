@@ -264,7 +264,7 @@ func TestRequestModifiers(t *testing.T) {
 
 		modifier := AsJSON()
 		assert.NotNil(t, modifier)
-		modifier(req)
+		modifier.Apply(req)
 	})
 
 	t.Run("as_protobuf", func(t *testing.T) {
@@ -275,7 +275,7 @@ func TestRequestModifiers(t *testing.T) {
 
 		modifier := AsProtobuf()
 		assert.NotNil(t, modifier)
-		modifier(req)
+		modifier.Apply(req)
 	})
 
 	t.Run("as_vdf", func(t *testing.T) {
@@ -286,7 +286,7 @@ func TestRequestModifiers(t *testing.T) {
 
 		modifier := AsVDF()
 		assert.NotNil(t, modifier)
-		modifier(req)
+		modifier.Apply(req)
 	})
 
 	t.Run("as_binary_vdf", func(t *testing.T) {
@@ -297,7 +297,7 @@ func TestRequestModifiers(t *testing.T) {
 
 		modifier := AsBinaryVDF()
 		assert.NotNil(t, modifier)
-		modifier(req)
+		modifier.Apply(req)
 	})
 }
 

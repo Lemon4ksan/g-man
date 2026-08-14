@@ -15,6 +15,7 @@ import (
 
 	json "github.com/goccy/go-json"
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/request"
 	"github.com/lemon4ksan/miyako/bus"
 	"github.com/lemon4ksan/miyako/log"
@@ -67,13 +68,13 @@ type requesterDoer struct {
 }
 
 func (d *requesterDoer) Do(req *http.Request) (*http.Response, error) {
-	return d.r.Request(req.Context(), req.Method, req.URL.String(), func(r aoni.Request) {
+	return d.r.Request(req.Context(), req.Method, req.URL.String(), mod.Custom(func(r aoni.Request) {
 		for k, v := range req.Header {
 			r.SetHeader(k, strings.Join(v, ","))
 		}
 
 		r.SetBodyStream(req.Body, req.ContentLength)
-	})
+	}))
 }
 
 type InitContext struct {

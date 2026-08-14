@@ -140,9 +140,7 @@ func (t *HTTPTransport) Do(ctx context.Context, req *Request) (*Response, error)
 		fastReq.SetHeader("Accept", "text/html,*/*;q=0.9")
 
 		for _, m := range req.Modifiers() {
-			if m != nil {
-				m(fastReq)
-			}
+			m.Apply(fastReq)
 		}
 
 		resp, err := t.fastClient.Do(fastReq)
@@ -169,7 +167,7 @@ func (t *HTTPTransport) Do(ctx context.Context, req *Request) (*Response, error)
 
 	mods := append([]aoni.RequestModifier{
 		mod.WithQuery(params),
-		func(r aoni.Request) {
+		mod.Custom(func(r aoni.Request) {
 			for key, values := range req.Header() {
 				for _, val := range values {
 					r.AddHeader(key, val)
@@ -177,7 +175,7 @@ func (t *HTTPTransport) Do(ctx context.Context, req *Request) (*Response, error)
 			}
 
 			r.SetHeader("Accept", "text/html,*/*;q=0.9")
-		},
+		}),
 	}, req.Modifiers()...)
 
 	resp, err := t.client.Request(ctx, target.HTTPMethod(), target.HTTPPath(), mods...) //nolint:bodyclose

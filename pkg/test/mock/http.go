@@ -78,12 +78,26 @@ func (s *HTTPStub) Do(req *http.Request) (*http.Response, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	key, _ := url.PathUnescape(req.URL.String())
+	rawURL := req.URL.String()
+	rawPlus := strings.ReplaceAll(rawURL, "%20", "+")
+	rawPercent := strings.ReplaceAll(rawURL, "+", "%20")
+	key, _ := url.PathUnescape(rawURL)
+	keyPlus := strings.ReplaceAll(key, "%20", "+")
 	path, _ := url.PathUnescape(strings.TrimPrefix(req.URL.Path, "/"))
 
 	matchErrKey := key
 	if _, exists := s.ResponseErrs[matchErrKey]; !exists {
-		if _, exists := s.ResponseErrs[path]; exists {
+		if _, exists := s.ResponseErrs[rawURL]; exists {
+			matchErrKey = rawURL
+		} else if _, exists := s.ResponseErrs[rawPlus]; exists {
+			matchErrKey = rawPlus
+		} else if _, exists := s.ResponseErrs[rawPercent]; exists {
+			matchErrKey = rawPercent
+		} else if _, exists := s.ResponseErrs[keyPlus]; exists {
+			matchErrKey = keyPlus
+		} else if qUnescaped, err := url.QueryUnescape(rawURL); err == nil && s.ResponseErrs[qUnescaped] != nil {
+			matchErrKey = qUnescaped
+		} else if _, exists := s.ResponseErrs[path]; exists {
 			matchErrKey = path
 		} else if _, exists := s.ResponseErrs[""]; exists {
 			matchErrKey = ""
@@ -96,7 +110,17 @@ func (s *HTTPStub) Do(req *http.Request) (*http.Response, error) {
 
 	matchKey := key
 	if _, exists := s.responses[matchKey]; !exists {
-		if _, exists := s.responses[path]; exists {
+		if _, exists := s.responses[rawURL]; exists {
+			matchKey = rawURL
+		} else if _, exists := s.responses[rawPlus]; exists {
+			matchKey = rawPlus
+		} else if _, exists := s.responses[rawPercent]; exists {
+			matchKey = rawPercent
+		} else if _, exists := s.responses[keyPlus]; exists {
+			matchKey = keyPlus
+		} else if qUnescaped, err := url.QueryUnescape(rawURL); err == nil && s.responses[qUnescaped] != nil {
+			matchKey = qUnescaped
+		} else if _, exists := s.responses[path]; exists {
 			matchKey = path
 		} else if _, exists := s.responses[""]; exists {
 			matchKey = ""
@@ -125,8 +149,8 @@ func (s *HTTPStub) Request(
 	req, _ := http.NewRequestWithContext(ctx, method, urlStr, nil)
 	stdReq := aoni.NewStdRequest(req)
 
-	for _, mod := range mods {
-		mod(stdReq)
+	for _, m := range mods {
+		m.Apply(stdReq)
 	}
 
 	resolvedURL, _ := url.PathUnescape(req.URL.String())
@@ -141,12 +165,22 @@ func (s *HTTPStub) Request(
 			s.headers[resolvedURL] = s.headers[urlStr]
 		}
 	}
+	if _, exists := s.ResponseErrs[resolvedURL]; !exists {
+		if err, ok := s.ResponseErrs[urlStr]; ok {
+			s.ResponseErrs[resolvedURL] = err
+		}
+	}
 
 	if _, exists := s.responses[resolvedPath]; !exists {
 		if data, ok := s.responses[path]; ok {
 			s.responses[resolvedPath] = data
 			s.statusCodes[resolvedPath] = s.statusCodes[path]
 			s.headers[resolvedPath] = s.headers[path]
+		}
+	}
+	if _, exists := s.ResponseErrs[resolvedPath]; !exists {
+		if err, ok := s.ResponseErrs[path]; ok {
+			s.ResponseErrs[resolvedPath] = err
 		}
 	}
 

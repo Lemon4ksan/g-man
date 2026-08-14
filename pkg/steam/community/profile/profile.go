@@ -6,20 +6,12 @@
 package profile
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"mime/multipart"
 	"strconv"
 	"strings"
 
-	"github.com/PuerkitoBio/goquery"
-	json "github.com/goccy/go-json"
-	"github.com/lemon4ksan/aoni"
-	"github.com/lemon4ksan/aoni/mod"
-	"github.com/lemon4ksan/aoni/request"
 	"github.com/lemon4ksan/miyako/generic"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
@@ -34,40 +26,6 @@ var (
 	// ErrMissingDataAttr indicates data-profile-edit HTML attribute was missing.
 	ErrMissingDataAttr = errors.New("profile: missing data-profile-edit attribute")
 )
-
-// WithAvatarUpload constructs a multipart avatar upload form.
-func WithAvatarUpload(fields map[string]string, filename string, image []byte) aoni.RequestModifier {
-	return func(req aoni.Request) {
-		body := &bytes.Buffer{}
-		writer := multipart.NewWriter(body)
-
-		for name, val := range fields {
-			if err := writer.WriteField(name, val); err != nil {
-				aoni.MarkModifierError(req, fmt.Errorf("field %s: %w", name, err))
-				return
-			}
-		}
-
-		part, err := writer.CreateFormFile("avatar", filename)
-		if err != nil {
-			aoni.MarkModifierError(req, err)
-			return
-		}
-
-		if _, err := part.Write(image); err != nil {
-			aoni.MarkModifierError(req, err)
-			return
-		}
-
-		if err := writer.Close(); err != nil {
-			aoni.MarkModifierError(req, err)
-			return
-		}
-
-		req.SetBodyBytes(body.Bytes())
-		req.SetHeader("Content-Type", writer.FormDataContentType())
-	}
-}
 
 // Settings represents customizable profile bio fields.
 type Settings struct {
@@ -124,32 +82,28 @@ type PrivacySettings struct {
 
 // EditProfile updates profile display details.
 func EditProfile(ctx context.Context, client community.Requester, steamID id.ID, settings Settings) error {
-	html, err := community.GetHTML(
-		ctx, client, "profiles/{steamID}/edit/info",
-		mod.WithVar("steamID", steamID),
-	)
+	api := MustNewSteamProfileAPI(client)
+
+	currentConfig, err := api.GetEditConfig(ctx, uint64(steamID))
 	if err != nil {
+		if strings.Contains(err.Error(), "target element not found") {
+			return ErrConfigNotFound
+		}
+		if strings.Contains(err.Error(), "attribute not found") {
+			return ErrMissingDataAttr
+		}
+		if strings.Contains(err.Error(), "failed to unmarshal") {
+			return fmt.Errorf("profile: failed to unmarshal config: %w", err)
+		}
+		if strings.Contains(err.Error(), "read error") {
+			return fmt.Errorf("profile: failed to parse HTML: %w", err)
+		}
 		return fmt.Errorf("profile: failed to fetch edit page: %w", err)
-	}
-
-	defer html.Close()
-
-	currentConfig, err := parseSteamConfig[rawProfileEditConfig](html)
-	if err != nil {
-		return err
 	}
 
 	reqPayload := buildProfileSaveRequest(currentConfig, settings)
 
-	type saveResponse struct {
-		Success int    `json:"success"`
-		ErrMsg  string `json:"errmsg"`
-	}
-
-	resp, err := community.PostFormTo[saveResponse](
-		ctx, client, "profiles/{steamID}/edit", reqPayload,
-		mod.WithVar("steamID", steamID),
-	)
+	resp, err := api.SaveProfile(ctx, uint64(steamID), &reqPayload)
 	if err != nil {
 		return fmt.Errorf("profile: failed to post profile save: %w", err)
 	}
@@ -168,34 +122,30 @@ func UpdatePrivacySettings(
 	steamID id.ID,
 	settings PrivacySettings,
 ) error {
-	html, err := community.GetHTML(
-		ctx, client, "profiles/{steamID}/edit/settings",
-		mod.WithVar("steamID", steamID),
-	)
+	api := MustNewSteamProfileAPI(client)
+
+	currentConfig, err := api.GetPrivacyConfig(ctx, uint64(steamID))
 	if err != nil {
+		if strings.Contains(err.Error(), "target element not found") {
+			return ErrConfigNotFound
+		}
+		if strings.Contains(err.Error(), "attribute not found") {
+			return ErrMissingDataAttr
+		}
+		if strings.Contains(err.Error(), "failed to unmarshal") {
+			return fmt.Errorf("profile: failed to unmarshal config: %w", err)
+		}
+		if strings.Contains(err.Error(), "read error") {
+			return fmt.Errorf("profile: failed to parse HTML: %w", err)
+		}
 		return fmt.Errorf("profile: failed to fetch settings page: %w", err)
 	}
 
-	defer html.Close()
+	privacy, commentPermission := buildPrivacySettings(currentConfig, settings)
 
-	currentConfig, err := parseSteamConfig[rawPrivacyConfig](html)
-	if err != nil {
-		return err
-	}
+	sessionID := client.SessionID(community.BaseURL)
 
-	reqPayload, err := buildPrivacySaveRequest(currentConfig, settings)
-	if err != nil {
-		return err
-	}
-
-	type privacyResponse struct {
-		Success int `json:"success"`
-	}
-
-	resp, err := community.PostFormTo[privacyResponse](
-		ctx, client, "profiles/{steamID}/ajaxsetprivacy", reqPayload,
-		mod.WithVar("steamID", steamID),
-	)
+	resp, err := api.SavePrivacy(ctx, uint64(steamID), sessionID, privacy, commentPermission)
 	if err != nil {
 		return fmt.Errorf("profile: failed to post privacy settings: %w", err)
 	}
@@ -224,25 +174,18 @@ func UploadAvatar(
 		return "", err
 	}
 
-	fields := map[string]string{
-		"MAX_FILE_SIZE": strconv.Itoa(len(image)),
-		"type":          "player_avatar_image",
-		"sId":           strconv.FormatUint(uint64(steamID), 10),
-		"sessionid":     client.SessionID(community.BaseURL),
-		"doSub":         "1",
-		"json":          "1",
-	}
+	api := MustNewSteamProfileAPI(client)
 
-	type upload struct {
-		Success bool   `json:"success"`
-		Message string `json:"message"`
-		Hash    string `json:"hash"`
-	}
-
-	resp, err := request.PostTo[upload](
-		ctx, client, "actions/FileUploader", nil,
-		WithAvatarUpload(fields, filename, image),
-		mod.WithHeader("Accept", "application/json, text/javascript; q=0.01"),
+	resp, err := api.UploadAvatarFile(
+		ctx,
+		"player_avatar_image",
+		strconv.FormatUint(uint64(steamID), 10),
+		client.SessionID(community.BaseURL),
+		"1",
+		"1",
+		image,
+		filename,
+		contentType,
 	)
 	if err != nil {
 		return "", fmt.Errorf("profile: upload request failed: %w", err)
@@ -253,48 +196,6 @@ func UploadAvatar(
 	}
 
 	return resp.Hash, nil
-}
-
-func parseSteamConfig[T any](html io.Reader) (*T, error) {
-	doc, err := goquery.NewDocumentFromReader(html)
-	if err != nil {
-		return nil, fmt.Errorf("profile: failed to parse HTML: %w", err)
-	}
-
-	configEl := doc.Find("#profile_edit_config")
-	if configEl.Length() == 0 {
-		return nil, ErrConfigNotFound
-	}
-
-	dataVal, exists := configEl.Attr("data-profile-edit")
-	if !exists {
-		return nil, ErrMissingDataAttr
-	}
-
-	var config T
-	if err := json.Unmarshal([]byte(dataVal), &config); err != nil {
-		return nil, fmt.Errorf("profile: failed to unmarshal config: %w", err)
-	}
-
-	return &config, nil
-}
-
-type profileSaveRequest struct {
-	Type          string `url:"type"`
-	Weblink1Title string `url:"weblink_1_title"`
-	Weblink1URL   string `url:"weblink_1_url"`
-	Weblink2Title string `url:"weblink_2_title"`
-	Weblink2URL   string `url:"weblink_2_url"`
-	Weblink3Title string `url:"weblink_3_title"`
-	Weblink3URL   string `url:"weblink_3_url"`
-	PersonaName   string `url:"personaName"`
-	RealName      string `url:"real_name"`
-	Summary       string `url:"summary"`
-	Country       string `url:"country"`
-	State         string `url:"state"`
-	City          string `url:"city"`
-	CustomURL     string `url:"customURL"`
-	JSON          int    `url:"json"`
 }
 
 func buildProfileSaveRequest(current *rawProfileEditConfig, settings Settings) profileSaveRequest {
@@ -341,12 +242,7 @@ func buildProfileSaveRequest(current *rawProfileEditConfig, settings Settings) p
 	return req
 }
 
-type privacySaveRequest struct {
-	Privacy            string `url:"Privacy"`
-	ECommentPermission int    `url:"eCommentPermission"`
-}
-
-func buildPrivacySaveRequest(current *rawPrivacyConfig, settings PrivacySettings) (privacySaveRequest, error) {
+func buildPrivacySettings(current *rawPrivacyConfig, settings PrivacySettings) (rawPrivacySettings, int) {
 	commentMapping := map[CommentPermission]int{
 		CommentFriendsOnly: 0,
 		CommentAnyone:      1,
@@ -359,8 +255,9 @@ func buildPrivacySaveRequest(current *rawPrivacyConfig, settings PrivacySettings
 		privacy.PrivacyProfile = int(*settings.Profile)
 	}
 
+	commentPermission := current.Privacy.ECommentPermission
 	if settings.Comments != nil {
-		current.Privacy.ECommentPermission = commentMapping[*settings.Comments]
+		commentPermission = commentMapping[*settings.Comments]
 	}
 
 	if settings.Inventory != nil {
@@ -391,15 +288,7 @@ func buildPrivacySaveRequest(current *rawPrivacyConfig, settings PrivacySettings
 		privacy.PrivacyFriendsList = int(*settings.FriendsList)
 	}
 
-	privacyJSON, err := json.Marshal(privacy)
-	if err != nil {
-		return privacySaveRequest{}, fmt.Errorf("profile: failed to marshal privacy settings: %w", err)
-	}
-
-	return privacySaveRequest{
-		Privacy:            string(privacyJSON),
-		ECommentPermission: current.Privacy.ECommentPermission,
-	}, nil
+	return privacy, commentPermission
 }
 
 func resolveAvatarFilename(contentType string) (string, error) {

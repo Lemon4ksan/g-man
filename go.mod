@@ -15,6 +15,8 @@ require (
 	google.golang.org/protobuf v1.36.11
 )
 
+replace github.com/lemon4ksan/aoni => ../aoni
+
 require github.com/goccy/go-json v0.10.6
 
 require (
