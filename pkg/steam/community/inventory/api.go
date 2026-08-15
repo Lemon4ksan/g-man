@@ -11,7 +11,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 )
 
-// @aoni:service
+// @aoni:service casing=snake_case
 // @base_url "https://steamcommunity.com/"
 // @header "Origin: https://steamcommunity.com"
 type InventoryAPI interface {

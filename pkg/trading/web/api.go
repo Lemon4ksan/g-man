@@ -11,7 +11,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/trading"
 )
 
-// @aoni:service
+// @aoni:service casing=snake_case
 // @base_url "https://api.steampowered.com/"
 type EconServiceAPI interface {
 	// @get "IEconService/GetTradeOffers/v1"
@@ -24,25 +24,25 @@ type EconServiceAPI interface {
 	GetTradeStatus(ctx context.Context, req TradeStatusParams, mods ...aoni.RequestModifier) (*TradeStatusResponse, error)
 
 	// @post "IEconService/DeclineTradeOffer/v1"
-	// @form
-	DeclineTradeOffer(ctx context.Context, req TradeOfferActionParams, mods ...aoni.RequestModifier) error
+	// @form casing=flatcase
+	DeclineTradeOffer(ctx context.Context, tradeOfferID uint64, mods ...aoni.RequestModifier) error
 
 	// @post "IEconService/CancelTradeOffer/v1"
-	// @form
-	CancelTradeOffer(ctx context.Context, req TradeOfferActionParams, mods ...aoni.RequestModifier) error
+	// @form casing=flatcase
+	CancelTradeOffer(ctx context.Context, tradeOfferID uint64, mods ...aoni.RequestModifier) error
 }
 
-// @aoni:service
+// @aoni:service casing=flatcase
 // @base_url "https://steamcommunity.com/"
 // @header "Origin: https://steamcommunity.com"
 type TradeCommunityAPI interface {
 	// @post "tradeoffer/new/send"
-	// @form
+	// @form casing=flatcase
 	// @header "Referer: https://steamcommunity.com/tradeoffer/new/?partner={partnerID}"
 	SendOffer(ctx context.Context, partnerID uint32, req SendNewTradeOfferRequest, mods ...aoni.RequestModifier) (*SendNewTradeOfferResponse, error)
 
 	// @post "tradeoffer/{offerID}/accept"
-	// @form
+	// @form casing=flatcase
 	// @header "Referer: https://steamcommunity.com/tradeoffer/{offerID}/"
 	AcceptOffer(ctx context.Context, offerID uint64, req AcceptTradeOfferRequest, mods ...aoni.RequestModifier) (*AcceptTradeOfferResponse, error)
 }

@@ -108,13 +108,15 @@ func (c *econServiceAPIClient) GetTradeStatus(ctx context.Context, req TradeStat
 	return resp, nil
 }
 
-func (c *econServiceAPIClient) DeclineTradeOffer(ctx context.Context, req TradeOfferActionParams, mods ...aoni.RequestModifier) error {
+func (c *econServiceAPIClient) DeclineTradeOffer(ctx context.Context, tradeOfferID uint64, mods ...aoni.RequestModifier) error {
 	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
 	var formBuf [64]byte
-	formBytes := req.AppendFormData(formBuf[:0])
+	formBytes := formBuf[:0]
+	formBytes = append(formBytes, "tradeofferid="...)
+	formBytes = strconv.AppendUint(formBytes, uint64(tradeOfferID), 10)
 	allMods = append(allMods, mod.WithBodyBytes(formBytes))
 
 	if len(mods) > 0 {
@@ -125,13 +127,15 @@ func (c *econServiceAPIClient) DeclineTradeOffer(ctx context.Context, req TradeO
 	return err
 }
 
-func (c *econServiceAPIClient) CancelTradeOffer(ctx context.Context, req TradeOfferActionParams, mods ...aoni.RequestModifier) error {
+func (c *econServiceAPIClient) CancelTradeOffer(ctx context.Context, tradeOfferID uint64, mods ...aoni.RequestModifier) error {
 	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
 	var formBuf [64]byte
-	formBytes := req.AppendFormData(formBuf[:0])
+	formBytes := formBuf[:0]
+	formBytes = append(formBytes, "tradeofferid="...)
+	formBytes = strconv.AppendUint(formBytes, uint64(tradeOfferID), 10)
 	allMods = append(allMods, mod.WithBodyBytes(formBytes))
 
 	if len(mods) > 0 {
@@ -184,7 +188,7 @@ func (c *tradeCommunityAPIClient) SendOffer(ctx context.Context, partnerID uint3
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
 	var formBuf [128]byte
 	formBytes := formBuf[:0]
-	formBytes = append(formBytes, "partner_id="...)
+	formBytes = append(formBytes, "partnerid="...)
 	formBytes = strconv.AppendUint(formBytes, uint64(partnerID), 10)
 	formBytes = append(formBytes, "&req="...)
 	formBytes = append(formBytes, url.QueryEscape(fmt.Sprint(req))...)
