@@ -514,7 +514,7 @@ func (c *Session) doRefreshInternal(ctx context.Context, force bool) error {
 		return fmt.Errorf("%w: refresh token: %q, steamID: %d", ErrMissingCredentials, refreshToken, steamID)
 	}
 
-	socketAuthSvc := auth.NewAuthenticationService(c.Socket(), c.device)
+	socketAuthSvc := auth.NewAuthenticationService(c.socketAPI, c.device)
 
 	resp, err := socketAuthSvc.GenerateAccessTokenForApp(ctx, refreshToken, steamID)
 	if err != nil {

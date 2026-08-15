@@ -10,7 +10,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"regexp"
 	"strconv"
 	"strings"
@@ -18,7 +17,6 @@ import (
 	"time"
 
 	json "github.com/goccy/go-json"
-	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/miyako/generic"
 
 	"github.com/lemon4ksan/g-man/internal/bytesconv"
@@ -309,27 +307,25 @@ func GetInventoryHistory(
 	steamID id.ID,
 	opts HistoryOptions,
 ) (*TradeHistoryResult, error) {
-	params := struct {
-		Language   string     `json:"l"`
-		AfterTime  *time.Time `json:"after_time,omitempty"`
-		AfterTrade *uint64    `json:"after_trade,omitempty"`
-		Direction  int        `json:"prev"`
-	}{"english", opts.StartTime, opts.StartTrade, generic.Ternary(opts.Direction == DirectionFuture, 1, 0)}
-
-	html, err := community.GetHTML(
-		ctx, client, "profiles/{steamID}/inventoryhistory",
-		mod.WithVar("steamID", steamID),
-		mod.WithQuery(params),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("history: failed to fetch inventory history page: %w", err)
+	var afterTime int64
+	if opts.StartTime != nil {
+		afterTime = opts.StartTime.Unix()
 	}
 
-	defer html.Close()
+	var afterTrade uint64
+	if opts.StartTrade != nil {
+		afterTrade = *opts.StartTrade
+	}
 
-	bodyBytes, err := io.ReadAll(html)
+	api := NewInventoryAPI(client)
+	bodyBytes, err := api.GetInventoryHistoryHTML(ctx, steamID, InventoryHistoryParams{
+		Language:   "english",
+		AfterTime:  afterTime,
+		AfterTrade: afterTrade,
+		Direction:  generic.Ternary(opts.Direction == DirectionFuture, 1, 0),
+	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("history: failed to fetch inventory history page: %w", err)
 	}
 
 	parser, err := NewHistoryParser(bodyBytes)
@@ -349,18 +345,12 @@ func fetchInventoryPage(
 	startAssetID string,
 	language string,
 ) (*inventoryResponse, error) {
-	params := struct {
-		Language     string `url:"l"`
-		Count        int    `url:"count"`
-		StartAssetID string `url:"start_assetid,omitempty"`
-	}{language, 1000, startAssetID}
-
-	resp, err := community.GetTo[inventoryResponse](
-		ctx, client, "inventory/{steamID}/{appID}/{contextID}",
-		mod.WithQuery(params),
-		mod.WithVars("steamID", steamID, "appID", appID, "contextID", contextID),
-		mod.WithHeader("Referer", fmt.Sprintf(community.BaseURL+"profiles/%d/inventory", steamID)),
-	)
+	api := NewInventoryAPI(client)
+	resp, err := api.GetInventoryPage(ctx, steamID, appID, contextID, GetInventoryPageRequest{
+		Language:     language,
+		Count:        1000,
+		StartAssetID: startAssetID,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -373,17 +363,13 @@ func fetchInventoryPage(
 }
 
 func fetchInventoryPageHTML(ctx context.Context, client community.Requester, userID uint64) ([]byte, error) {
-	html, err := community.GetHTML(
-		ctx, client, "profiles/{userID}/inventory",
-		mod.WithVar("userID", userID),
-	)
+	api := NewInventoryAPI(client)
+	bodyBytes, err := api.GetInventoryHTML(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("inventory: failed to fetch inventory page: %w", err)
 	}
 
-	defer html.Close()
-
-	return io.ReadAll(html)
+	return bodyBytes, nil
 }
 
 func verifyInventoryPrivacy(bodyBytes []byte) error {
