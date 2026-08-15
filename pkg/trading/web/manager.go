@@ -15,8 +15,8 @@ import (
 	"github.com/lemon4ksan/miyako/log"
 	"golang.org/x/time/rate"
 
-	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
+	"github.com/lemon4ksan/g-man/pkg/steam/client"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
@@ -46,13 +46,13 @@ var (
 )
 
 // WithModule registers the Manager module in the client.
-func WithModule(cfg Config) steam.Option {
-	return steam.WithModule(New(cfg))
+func WithModule(cfg Config) client.Option {
+	return client.WithModule(New(cfg))
 }
 
 // From retrieves the Manager module instance from the client.
-func From(c *steam.Client) *Manager {
-	return steam.GetModule[*Manager](c)
+func From(c *client.Client) *Manager {
+	return client.GetModule[*Manager](c)
 }
 
 // State represents the lifecycle state of the trade polling engine.

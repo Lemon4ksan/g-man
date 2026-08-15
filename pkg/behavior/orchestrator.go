@@ -12,18 +12,18 @@ import (
 	"github.com/lemon4ksan/miyako/lifecycle"
 	"github.com/lemon4ksan/miyako/log"
 
-	"github.com/lemon4ksan/g-man/pkg/steam"
+	"github.com/lemon4ksan/g-man/pkg/steam/client"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 )
 
 // WithModule registers the behavior orchestrator module in the Steam client.
-func WithModule() steam.Option {
-	return steam.WithModule(NewModule())
+func WithModule() client.Option {
+	return client.WithModule(NewModule())
 }
 
 // From retrieves the behavior Orchestrator from the Steam client.
-func From(c *steam.Client) *Orchestrator {
-	return steam.GetModule[*Orchestrator](c)
+func From(c *client.Client) *Orchestrator {
+	return client.GetModule[*Orchestrator](c)
 }
 
 // Orchestrator wraps a miyako BehaviorRunner and adapts it to the Steam client module interface.

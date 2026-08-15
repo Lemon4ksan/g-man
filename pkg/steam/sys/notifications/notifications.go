@@ -15,7 +15,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
-	"github.com/lemon4ksan/g-man/pkg/steam"
+	"github.com/lemon4ksan/g-man/pkg/steam/client"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
@@ -24,13 +24,13 @@ import (
 const ModuleName string = "notifications"
 
 // WithModule registers the Notifications module in the client.
-func WithModule() steam.Option {
-	return steam.WithModule(New())
+func WithModule() client.Option {
+	return client.WithModule(New())
 }
 
 // From retrieves the Notifications module instance from the client.
-func From(c *steam.Client) *Notifications {
-	return steam.GetModule[*Notifications](c)
+func From(c *client.Client) *Notifications {
+	return client.GetModule[*Notifications](c)
 }
 
 // Snapshot is an immutable point-in-time state of notifications.

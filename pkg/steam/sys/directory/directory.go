@@ -39,13 +39,13 @@ type CMCfg struct {
 
 // Service executes queries against the ISteamDirectory WebAPI.
 type Service struct {
-	api DirectoryClient
+	api API
 }
 
 // New constructs a Service instance backed by a service.Doer.
 func New(client service.Doer) *Service {
 	return &Service{
-		api: MustNewDirectoryClient(client),
+		api: MustNewAPI(client),
 	}
 }
 

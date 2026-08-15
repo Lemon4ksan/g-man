@@ -26,6 +26,7 @@ import (
 	"github.com/lemon4ksan/g-man/internal/client/session"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
+	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
@@ -374,6 +375,21 @@ func (c *Client) Module(name string) module.Module { return c.modules.Get(name) 
 // Modules returns a snapshot of all registered modules.
 func (c *Client) Modules() []module.Module { return c.modules.All() }
 
+// GetModule returns the first registered module matching type T.
+func GetModule[T any](c *Client) T {
+	if c == nil {
+		return generic.Zero[T]()
+	}
+
+	for _, m := range c.Modules() {
+		if typed, ok := m.(T); ok {
+			return typed
+		}
+	}
+
+	return generic.Zero[T]()
+}
+
 // RegisterModule dynamically registers and initializes a module.
 func (c *Client) RegisterModule(m module.Module) {
 	if m == nil {
@@ -401,6 +417,22 @@ func (c *Client) Logger() log.Logger {
 
 // Rest returns the low-level REST requester.
 func (c *Client) Rest() request.Requester { return c.rest }
+
+// Community returns the active community requester.
+func (c *Client) Community() community.Requester {
+	if c.session != nil {
+		return c.session.Community()
+	}
+	return nil
+}
+
+// Web returns the active web session provider.
+func (c *Client) Web() session.WebSessionProvider {
+	if c.session != nil {
+		return c.session.Web()
+	}
+	return nil
+}
 
 // Run initializes modules, starts session refresh routines, and transitions to StateRunning.
 func (c *Client) Run() error {
@@ -502,6 +534,11 @@ func (c *Client) ConnectAndLogin(ctx context.Context, server socket.CMServer, de
 	}
 
 	return nil
+}
+
+// LogOn connects to a Connection Manager server and executes authentication.
+func (c *Client) LogOn(ctx context.Context, details *auth.LogOnDetails, server socket.CMServer) error {
+	return c.ConnectAndLogin(ctx, server, details)
 }
 
 // Reconnect re-discovers optimal Connection Managers and re-authenticates using cached credentials.

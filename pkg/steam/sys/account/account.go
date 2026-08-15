@@ -10,20 +10,20 @@ import (
 	"sync/atomic"
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
-	"github.com/lemon4ksan/g-man/pkg/steam"
+	"github.com/lemon4ksan/g-man/pkg/steam/client"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 )
 
 const ModuleName string = "account"
 
 // WithModule registers the Account module in the client.
-func WithModule() steam.Option {
-	return steam.WithModule(New())
+func WithModule() client.Option {
+	return client.WithModule(New())
 }
 
 // From retrieves the Account module instance from the client.
-func From(c *steam.Client) *Account {
-	return steam.GetModule[*Account](c)
+func From(c *client.Client) *Account {
+	return client.GetModule[*Account](c)
 }
 
 // Snapshot is an immutable point-in-time state of the Steam account.

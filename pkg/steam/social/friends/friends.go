@@ -27,7 +27,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
-	"github.com/lemon4ksan/g-man/pkg/steam"
+	"github.com/lemon4ksan/g-man/pkg/steam/client"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
@@ -38,13 +38,13 @@ import (
 const ModuleName string = "friends"
 
 // WithModule registers the Friends module in the client.
-func WithModule() steam.Option {
-	return steam.WithModule(New())
+func WithModule() client.Option {
+	return client.WithModule(New())
 }
 
 // From retrieves the Friends module instance from the client.
-func From(c *steam.Client) *Manager {
-	return steam.GetModule[*Manager](c)
+func From(c *client.Client) *Manager {
+	return client.GetModule[*Manager](c)
 }
 
 var (

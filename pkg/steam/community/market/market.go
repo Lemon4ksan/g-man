@@ -20,7 +20,7 @@ import (
 	"github.com/lemon4ksan/miyako/generic"
 	"github.com/lemon4ksan/miyako/log"
 
-	"github.com/lemon4ksan/g-man/pkg/steam"
+	"github.com/lemon4ksan/g-man/pkg/steam/client"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
@@ -50,13 +50,13 @@ var (
 const ModuleName string = "market"
 
 // WithModule registers the Market module in the client.
-func WithModule(cfg Config) steam.Option {
-	return steam.WithModule(New(cfg))
+func WithModule(cfg Config) client.Option {
+	return client.WithModule(New(cfg))
 }
 
 // From retrieves the Market module instance from the client.
-func From(c *steam.Client) *Market {
-	return steam.GetModule[*Market](c)
+func From(c *client.Client) *Market {
+	return client.GetModule[*Market](c)
 }
 
 // Config configures default market request parameters.

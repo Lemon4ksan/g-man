@@ -17,7 +17,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
-	"github.com/lemon4ksan/g-man/pkg/steam"
+	"github.com/lemon4ksan/g-man/pkg/steam/client"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 )
@@ -27,13 +27,13 @@ const ModuleName string = "apps"
 const NonSteamGameID uint64 = 15190414816125648896
 
 // WithModule registers the Apps module in the client.
-func WithModule() steam.Option {
-	return steam.WithModule(New())
+func WithModule() client.Option {
+	return client.WithModule(New())
 }
 
 // From retrieves the Apps module instance from the client.
-func From(c *steam.Client) *Apps {
-	return steam.GetModule[*Apps](c)
+func From(c *client.Client) *Apps {
+	return client.GetModule[*Apps](c)
 }
 
 // Snapshot is an immutable point-in-time state of apps and game sessions.

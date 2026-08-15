@@ -14,12 +14,12 @@ import (
 
 var _ = service.Doer(nil)
 
-// DirectoryClient defines declarative RPC operations for discovering Steam Connection Managers.
+// API defines declarative RPC operations for discovering Steam Connection Managers.
 //
 // @aoni:service
 // @base_url "https://api.steampowered.com/ISteamDirectory"
 // @requester "service.Doer"
-type DirectoryClient interface {
+type API interface {
 	// GetCMList fetches TCP and WebSocket server address strings.
 	//
 	// @get "GetCMList/v1/"

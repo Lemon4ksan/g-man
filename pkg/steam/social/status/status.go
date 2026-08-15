@@ -18,8 +18,8 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
-	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
+	"github.com/lemon4ksan/g-man/pkg/steam/client"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/sys/apps"
 	"github.com/lemon4ksan/g-man/pkg/trading/web"
@@ -37,13 +37,13 @@ const (
 )
 
 // WithModule registers the Status manager module in the Steam client orchestrator.
-func WithModule(opts ...Option) steam.Option {
-	return steam.WithModule(NewManager(opts...))
+func WithModule(opts ...Option) client.Option {
+	return client.WithModule(NewManager(opts...))
 }
 
 // From retrieves the Status manager module instance from the Steam client.
-func From(c *steam.Client) *Manager {
-	return steam.GetModule[*Manager](c)
+func From(c *client.Client) *Manager {
+	return client.GetModule[*Manager](c)
 }
 
 // Config configures status update intervals, marquee parameters, and event triggers.

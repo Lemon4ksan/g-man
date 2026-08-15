@@ -26,7 +26,7 @@ import (
 	"github.com/lemon4ksan/g-man/internal/clock"
 	"github.com/lemon4ksan/g-man/internal/crypto"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
-	"github.com/lemon4ksan/g-man/pkg/steam"
+	"github.com/lemon4ksan/g-man/pkg/steam/client"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 )
@@ -34,20 +34,20 @@ import (
 const ModuleName string = "guard"
 
 // WithModule registers the Guardian module in the client.
-func WithModule(config Config) steam.Option {
+func WithModule(config Config) client.Option {
 	m, err := New(config)
 	if err != nil {
-		return func(client *steam.Client) {
-			client.Logger().Error("Failed to register guardian", log.Err(err))
+		return func(c *client.Client) {
+			c.Logger().Error("Failed to register guardian", log.Err(err))
 		}
 	}
 
-	return steam.WithModule(m)
+	return client.WithModule(m)
 }
 
 // From retrieves the Guardian module from the client.
-func From(client *steam.Client) *Guardian {
-	return steam.GetModule[*Guardian](client)
+func From(c *client.Client) *Guardian {
+	return client.GetModule[*Guardian](c)
 }
 
 var (

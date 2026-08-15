@@ -44,7 +44,7 @@ type API interface {
 		steamID uint64,
 		sessionID string,
 		privacy rawPrivacySettings, // @field "Privacy" = json | url_escape
-		commentPermission int,      // @field "eCommentPermission"
+		commentPermission int, // @field "eCommentPermission"
 		mods ...aoni.RequestModifier,
 	) (*privacyResponse, error)
 
@@ -53,11 +53,11 @@ type API interface {
 	UploadAvatarFile(
 		ctx context.Context,
 		uploadType string, // @part "type"
-		steamID string,    // @part "sId"
-		sessionID string,  // @part "sessionid"
-		doSub string,      // @part "doSub"
-		jsonFlag string,   // @part "json"
-		image []byte,      // @file name="avatar" filename="{filename}" content_type="{contentType}"
+		steamID string, // @part "sId"
+		sessionID string, // @part "sessionid"
+		doSub string, // @part "doSub"
+		jsonFlag string, // @part "json"
+		image []byte, // @file name="avatar" filename="{filename}" content_type="{contentType}"
 		filename string,
 		contentType string,
 		mods ...aoni.RequestModifier,

@@ -13,8 +13,8 @@ import (
 	"github.com/lemon4ksan/miyako/log"
 
 	"github.com/lemon4ksan/g-man/pkg/behavior"
-	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
+	"github.com/lemon4ksan/g-man/pkg/steam/client"
 	"github.com/lemon4ksan/g-man/pkg/steam/guard"
 )
 
@@ -47,8 +47,8 @@ func DefaultConfig(sharedSecret, identitySecret, deviceID string) guard.Config {
 const BehaviorName = "guard_manager"
 
 // AutoAccept registers a guard manager behavior with the client orchestrator.
-func AutoAccept(client *steam.Client, cfg Config) {
-	behavior.From(client).Register(New(guard.From(client), client.Logger(), client.Bus(), cfg))
+func AutoAccept(c *client.Client, cfg Config) {
+	behavior.From(c).Register(New(guard.From(c), c.Logger(), c.Bus(), cfg))
 }
 
 // Provider defines methods required to query and accept pending mobile confirmations.

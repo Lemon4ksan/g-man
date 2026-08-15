@@ -18,7 +18,7 @@ import (
 	"github.com/lemon4ksan/miyako/sync/keylock"
 
 	"github.com/lemon4ksan/g-man/pkg/behavior"
-	"github.com/lemon4ksan/g-man/pkg/steam"
+	"github.com/lemon4ksan/g-man/pkg/steam/client"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/trading"
 	"github.com/lemon4ksan/g-man/pkg/trading/engine"
@@ -28,8 +28,8 @@ import (
 )
 
 // ProcessTrades registers trade processing behavior with the client orchestrator.
-func ProcessTrades(client *steam.Client, eng *engine.Engine, n *notifications.Manager, r *review.Reviewer) {
-	behavior.From(client).Register(New(web.From(client), eng, n, r, client.Bus(), client.Logger()))
+func ProcessTrades(c *client.Client, eng *engine.Engine, n *notifications.Manager, r *review.Reviewer) {
+	behavior.From(c).Register(New(web.From(c), eng, n, r, c.Bus(), c.Logger()))
 }
 
 // TradeExecutor executes accepting and declining operations against Steam.

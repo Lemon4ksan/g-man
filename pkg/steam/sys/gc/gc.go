@@ -16,7 +16,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
-	"github.com/lemon4ksan/g-man/pkg/steam"
+	"github.com/lemon4ksan/g-man/pkg/steam/client"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 )
@@ -35,13 +35,13 @@ const ModuleName string = "gc"
 var ErrCallbackRequired = errors.New("gc: callback is required for Call")
 
 // WithModule registers the Coordinator module in the client.
-func WithModule() steam.Option {
-	return steam.WithModule(New())
+func WithModule() client.Option {
+	return client.WithModule(New())
 }
 
 // From retrieves the Coordinator module instance from the client.
-func From(c *steam.Client) *Coordinator {
-	return steam.GetModule[*Coordinator](c)
+func From(c *client.Client) *Coordinator {
+	return client.GetModule[*Coordinator](c)
 }
 
 // Handler processes parsed Game Coordinator messages.

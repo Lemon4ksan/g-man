@@ -14,15 +14,15 @@ import (
 	"github.com/lemon4ksan/miyako/log"
 
 	"github.com/lemon4ksan/g-man/pkg/behavior"
-	"github.com/lemon4ksan/g-man/pkg/steam"
+	"github.com/lemon4ksan/g-man/pkg/steam/client"
 )
 
 // BehaviorName is the identifier for the keep-alive behavior.
 const BehaviorName = "session_keepalive"
 
 // KeepAlive registers the session keep-alive behavior with the client behavior runner.
-func KeepAlive(client *steam.Client, cfg Config) {
-	behavior.From(client).Register(New(client.Session(), client.Logger(), client.Bus(), cfg))
+func KeepAlive(c *client.Client, cfg Config) {
+	behavior.From(c).Register(New(c.Session(), c.Logger(), c.Bus(), cfg))
 }
 
 // Provider defines methods required to verify authentication status and trigger session renewals.

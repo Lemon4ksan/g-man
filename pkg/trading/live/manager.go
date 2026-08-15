@@ -13,7 +13,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
-	"github.com/lemon4ksan/g-man/pkg/steam"
+	"github.com/lemon4ksan/g-man/pkg/steam/client"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 )
@@ -21,13 +21,13 @@ import (
 const ModuleName string = "offers"
 
 // WithModule registers the Manager module in the client.
-func WithModule() steam.Option {
-	return steam.WithModule(New())
+func WithModule() client.Option {
+	return client.WithModule(New())
 }
 
 // From retrieves the Manager module instance from the client.
-func From(c *steam.Client) *Manager {
-	return steam.GetModule[*Manager](c)
+func From(c *client.Client) *Manager {
+	return client.GetModule[*Manager](c)
 }
 
 type Manager struct {
