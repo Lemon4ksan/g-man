@@ -406,3 +406,7 @@ type gemExchangeResponse struct {
 	Success int    `json:"success"`
 	Message string `json:"message"`
 }
+
+type basicMarketResponse struct {
+	Success bool `json:"success"`
+}
