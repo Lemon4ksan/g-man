@@ -702,6 +702,80 @@ func (ctx *initContext) UnregisterServiceHandler(method string) {
 	ctx.Client.socket.RegisterServiceHandler(method, nil)
 }
 
+func (ctx *initContext) Subscribe(eventID any, handler func(raw []byte)) (unsubscribe func()) {
+	var emsg enums.EMsg
+	switch v := eventID.(type) {
+	case enums.EMsg:
+		emsg = v
+	case int:
+		emsg = enums.EMsg(v)
+	case uint32:
+		emsg = enums.EMsg(v)
+	}
+
+	ctx.RegisterPacketHandler(emsg, func(p *protocol.Packet) {
+		handler(p.Payload)
+	})
+
+	return func() {
+		ctx.UnregisterPacketHandler(emsg)
+	}
+}
+
+func (ctx *initContext) Invoke(c context.Context, op any, payload []byte) ([]byte, error) {
+	switch v := op.(type) {
+	case string:
+		pkt, err := ctx.Client.socket.SendSync(c, socket.Unified(v, nil))
+		if err != nil {
+			return nil, err
+		}
+
+		return pkt.Payload, nil
+
+	case enums.EMsg:
+		pkt, err := ctx.Client.socket.SendSync(c, socket.Raw(v, payload))
+		if err != nil {
+			return nil, err
+		}
+
+		return pkt.Payload, nil
+
+	case int:
+		emsg := enums.EMsg(v)
+		pkt, err := ctx.Client.socket.SendSync(c, socket.Raw(emsg, payload))
+		if err != nil {
+			return nil, err
+		}
+
+		return pkt.Payload, nil
+
+	case uint32:
+		emsg := enums.EMsg(v)
+		pkt, err := ctx.Client.socket.SendSync(c, socket.Raw(emsg, payload))
+		if err != nil {
+			return nil, err
+		}
+
+		return pkt.Payload, nil
+
+	default:
+		return nil, fmt.Errorf("client: unsupported op type %T", op)
+	}
+}
+
+func (ctx *initContext) Notify(c context.Context, op any, payload []byte) error {
+	switch v := op.(type) {
+	case enums.EMsg:
+		return ctx.Client.socket.SendRaw(c, v, payload)
+	case int:
+		return ctx.Client.socket.SendRaw(c, enums.EMsg(v), payload)
+	case uint32:
+		return ctx.Client.socket.SendRaw(c, enums.EMsg(v), payload)
+	default:
+		return fmt.Errorf("client: unsupported notify op type %T", op)
+	}
+}
+
 // String implements fmt.Stringer to prevent reflection-based data races when formatting Client in mocks or logs.
 func (c *Client) String() string {
 	return fmt.Sprintf("client.Client{%p}", c)

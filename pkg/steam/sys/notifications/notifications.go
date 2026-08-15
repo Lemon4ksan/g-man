@@ -7,21 +7,17 @@ package notifications
 
 import (
 	"context"
-	"encoding/binary"
 	"fmt"
-	"strconv"
-	"sync"
+	"maps"
+	"sync/atomic"
 
 	"github.com/lemon4ksan/miyako/log"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 )
 
@@ -37,27 +33,34 @@ func From(c *steam.Client) *Notifications {
 	return steam.GetModule[*Notifications](c)
 }
 
+// Snapshot is an immutable point-in-time state of notifications.
+type Snapshot struct {
+	LastNotificationCounts map[NotificationType]uint32
+}
+
 // Notifications tracks unread notification counts and publishes events when changes are detected.
 //
 // Thread Safety:
+//   - Lock-free for all reads (0 mutexes, atomic pointer load).
 //   - Safe for concurrent use across all methods.
 type Notifications struct {
 	module.Base
 
 	client service.Doer
-
-	mu                     sync.RWMutex
-	lastNotificationCounts map[NotificationType]uint32
-
-	unregFuncs []func()
+	events Events
+	state  atomic.Pointer[Snapshot]
 }
 
 // New constructs a Notifications module instance.
 func New() *Notifications {
-	return &Notifications{
-		Base:                   module.New(ModuleName),
-		lastNotificationCounts: make(map[NotificationType]uint32),
+	n := &Notifications{
+		Base: module.New(ModuleName),
 	}
+	n.state.Store(&Snapshot{
+		LastNotificationCounts: make(map[NotificationType]uint32),
+	})
+
+	return n
 }
 
 func (n *Notifications) Init(init module.InitContext) error {
@@ -66,43 +69,45 @@ func (n *Notifications) Init(init module.InitContext) error {
 	}
 
 	n.client = init.Service()
+	n.events = NewEvents(init)
 
-	init.RegisterPacketHandler(enums.EMsg_ClientItemAnnouncements, n.handleItemAnnouncements)
-	init.RegisterPacketHandler(enums.EMsg_ClientCommentNotifications, n.handleCommentNotifications)
-	init.RegisterPacketHandler(enums.EMsg_ClientUserNotifications, n.handleUserNotifications)
-	init.RegisterPacketHandler(enums.EMsg_ClientChatOfflineMessageNotification, n.handleOfflineMessages)
-	init.RegisterPacketHandler(enums.EMsg_ClientMarketingMessageUpdate2, n.handleMarketingMessages)
-	init.RegisterServiceHandler("SteamNotificationClient.NotificationsReceived#1", n.handleNotificationsReceived)
-
-	n.unregFuncs = append(n.unregFuncs, func() {
-		init.UnregisterPacketHandler(enums.EMsg_ClientItemAnnouncements)
-		init.UnregisterPacketHandler(enums.EMsg_ClientCommentNotifications)
-		init.UnregisterPacketHandler(enums.EMsg_ClientUserNotifications)
-		init.UnregisterPacketHandler(enums.EMsg_ClientChatOfflineMessageNotification)
-		init.UnregisterPacketHandler(enums.EMsg_ClientMarketingMessageUpdate2)
-		init.UnregisterServiceHandler("SteamNotificationClient.NotificationsReceived#1")
-	})
+	n.events.OnItemAnnouncements(n.handleItemAnnouncements)
+	n.events.OnCommentNotifications(n.handleCommentNotifications)
+	n.events.OnUserNotifications(n.handleUserNotifications)
+	n.events.OnOfflineMessages(n.handleOfflineMessages)
+	n.events.OnMarketingMessages(n.handleMarketingMessages)
+	n.events.OnNotificationsReceived(n.handleNotificationsReceived)
 
 	return nil
 }
 
 func (n *Notifications) Close() error {
-	n.mu.Lock()
-	for _, unreg := range n.unregFuncs {
-		unreg()
+	if n.events != nil {
+		_ = n.events.Close()
 	}
-
-	n.unregFuncs = nil
-	n.mu.Unlock()
 
 	return n.Base.Close()
 }
 
+// --- Lock-Free State Readers (1 CPU instruction) ---
+
+// Snapshot returns an immutable point-in-time state snapshot.
+func (n *Notifications) Snapshot() Snapshot {
+	return *n.state.Load()
+}
+
+// LastNotificationCounts returns a clone of the last recorded notification counts.
+func (n *Notifications) LastNotificationCounts() map[NotificationType]uint32 {
+	return maps.Clone(n.state.Load().LastNotificationCounts)
+}
+
+// --- Outbound Notifications & Commands ---
+
 // RequestNotifications explicitly requests notification count updates from Steam.
 func (n *Notifications) RequestNotifications(ctx context.Context) error {
-	_ = n.sendProto(ctx, enums.EMsg_ClientRequestItemAnnouncements, &pb.CMsgClientRequestItemAnnouncements{})
-	_ = n.sendProto(ctx, enums.EMsg_ClientRequestCommentNotifications, &pb.CMsgClientRequestCommentNotifications{})
-	_ = n.sendProto(ctx, enums.EMsg_ClientChatRequestOfflineMessageCount, &pb.CMsgClientRequestOfflineMessageCount{})
+	_ = n.events.RequestItemAnnouncements(ctx, &pb.CMsgClientRequestItemAnnouncements{})
+	_ = n.events.RequestCommentNotifications(ctx, &pb.CMsgClientRequestCommentNotifications{})
+	_ = n.events.RequestOfflineMessageCount(ctx, &pb.CMsgClientRequestOfflineMessageCount{})
 
 	return nil
 }
@@ -162,25 +167,21 @@ func (n *Notifications) MarkAllNotificationsRead(ctx context.Context) error {
 	return err
 }
 
-func (n *Notifications) sendProto(ctx context.Context, eMsg enums.EMsg, msg proto.Message) error {
-	_, err := service.LegacyProto[service.NoResponse](ctx, n.client, eMsg, msg)
-	if err != nil {
-		n.Logger.Debug("Failed to send notification request",
-			log.String("emsg", eMsg.String()),
-			log.Err(err),
-		)
-	}
+// --- Copy-On-Write State Updates ---
 
-	return err
+func (n *Notifications) updateState(fn func(next *Snapshot)) {
+	for {
+		current := n.state.Load()
+		next := *current
+		fn(&next)
+
+		if n.state.CompareAndSwap(current, &next) {
+			return
+		}
+	}
 }
 
-func (n *Notifications) handleItemAnnouncements(packet *protocol.Packet) {
-	msg := &pb.CMsgClientItemAnnouncements{}
-	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
-		n.Logger.Error("Failed to unmarshal item announcements", log.Err(err))
-		return
-	}
-
+func (n *Notifications) handleItemAnnouncements(msg *pb.CMsgClientItemAnnouncements) {
 	n.Logger.Debug("Item announcements received", log.Uint32("count", msg.GetCountNewItems()))
 
 	n.Bus.Publish(&ItemAnnouncementsEvent{
@@ -189,13 +190,7 @@ func (n *Notifications) handleItemAnnouncements(packet *protocol.Packet) {
 	})
 }
 
-func (n *Notifications) handleCommentNotifications(packet *protocol.Packet) {
-	msg := &pb.CMsgClientCommentNotifications{}
-	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
-		n.Logger.Error("Failed to unmarshal comment notifications", log.Err(err))
-		return
-	}
-
+func (n *Notifications) handleCommentNotifications(msg *pb.CMsgClientCommentNotifications) {
 	n.Logger.Debug("Comment notifications received", log.Uint32("count", msg.GetCountNewComments()))
 
 	n.Bus.Publish(&CommentNotificationsEvent{
@@ -205,37 +200,35 @@ func (n *Notifications) handleCommentNotifications(packet *protocol.Packet) {
 	})
 }
 
-func (n *Notifications) handleUserNotifications(packet *protocol.Packet) {
-	msg := &pb.CMsgClientUserNotifications{}
-	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
-		n.Logger.Error("Failed to unmarshal user notifications", log.Err(err))
-		return
-	}
-
+func (n *Notifications) handleUserNotifications(msg *pb.CMsgClientUserNotifications) {
 	notifications := make(map[NotificationType]uint32)
 	for _, notif := range msg.GetNotifications() {
 		notifications[NotificationType(notif.GetUserNotificationType())] = notif.GetCount()
 	}
 
-	n.mu.Lock()
 	changed := false
-
-	for notifType, count := range notifications {
-		prev, exists := n.lastNotificationCounts[notifType]
-		if !exists && count == 0 {
-			n.lastNotificationCounts[notifType] = 0
-			continue
+	n.updateState(func(s *Snapshot) {
+		counts := maps.Clone(s.LastNotificationCounts)
+		if counts == nil {
+			counts = make(map[NotificationType]uint32)
 		}
 
-		if prev == count {
-			continue
+		for notifType, count := range notifications {
+			prev, exists := counts[notifType]
+			if !exists && count == 0 {
+				counts[notifType] = 0
+				continue
+			}
+
+			if prev == count {
+				continue
+			}
+
+			counts[notifType] = count
+			changed = true
 		}
-
-		n.lastNotificationCounts[notifType] = count
-		changed = true
-	}
-
-	n.mu.Unlock()
+		s.LastNotificationCounts = counts
+	})
 
 	if changed {
 		n.Bus.Publish(&UserNotificationsEvent{
@@ -244,13 +237,7 @@ func (n *Notifications) handleUserNotifications(packet *protocol.Packet) {
 	}
 }
 
-func (n *Notifications) handleOfflineMessages(packet *protocol.Packet) {
-	msg := &pb.CMsgClientOfflineMessageNotification{}
-	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
-		n.Logger.Error("Failed to unmarshal offline messages", log.Err(err))
-		return
-	}
-
+func (n *Notifications) handleOfflineMessages(msg *pb.CMsgClientOfflineMessageNotification) {
 	friends := make([]id.ID, 0, len(msg.GetFriendsWithOfflineMessages()))
 	for _, accountID := range msg.GetFriendsWithOfflineMessages() {
 		sid := id.FromAccountID(accountID)
@@ -265,95 +252,16 @@ func (n *Notifications) handleOfflineMessages(packet *protocol.Packet) {
 	})
 }
 
-func (n *Notifications) handleMarketingMessages(packet *protocol.Packet) {
-	if len(packet.Payload) < 8 {
-		n.Logger.Warn("MarketingMessageUpdate2 payload too short")
+func (n *Notifications) handleMarketingMessages(ev *MarketingMessagesEvent) {
+	if ev == nil {
 		return
 	}
 
-	timestamp := binary.LittleEndian.Uint32(packet.Payload[0:4])
-	count := binary.LittleEndian.Uint32(packet.Payload[4:8])
-
-	offset := 8
-	messages := make([]MarketingMessage, 0, count)
-
-	for range count {
-		if offset+4 > len(packet.Payload) {
-			break
-		}
-
-		subLen := binary.LittleEndian.Uint32(packet.Payload[offset : offset+4])
-		offset += 4
-
-		if offset+int(subLen) > len(packet.Payload) {
-			break
-		}
-
-		subPayload := packet.Payload[offset : offset+int(subLen)]
-
-		msg := parseMarketingMessage(subPayload)
-		if msg != nil {
-			messages = append(messages, *msg)
-		}
-
-		offset += int(subLen)
-	}
-
-	n.Logger.Debug("Marketing messages received", log.Uint32("count", uint32(len(messages))))
-
-	n.Bus.Publish(&MarketingMessagesEvent{
-		Timestamp: int64(timestamp),
-		Messages:  messages,
-	})
+	n.Logger.Debug("Marketing messages received", log.Uint32("count", uint32(len(ev.Messages))))
+	n.Bus.Publish(ev)
 }
 
-func parseMarketingMessage(payload []byte) *MarketingMessage {
-	if len(payload) < 12 {
-		return nil
-	}
-
-	msgID := strconv.FormatUint(uint64(payload[0])|uint64(payload[1])<<8|
-		uint64(payload[2])<<16|uint64(payload[3])<<24|
-		uint64(payload[4])<<32|uint64(payload[5])<<40|
-		uint64(payload[6])<<48|uint64(payload[7])<<56, 10)
-
-	offset := 8
-	urlEnd := -1
-
-	for i := offset; i < len(payload); i++ {
-		if payload[i] == 0 {
-			urlEnd = i
-			break
-		}
-	}
-
-	if urlEnd == -1 {
-		return nil
-	}
-
-	url := string(payload[offset:urlEnd])
-	offset = urlEnd + 1
-
-	if offset+4 > len(payload) {
-		return nil
-	}
-
-	flags := binary.LittleEndian.Uint32(payload[offset : offset+4])
-
-	return &MarketingMessage{
-		ID:    msgID,
-		URL:   url,
-		Flags: flags,
-	}
-}
-
-func (n *Notifications) handleNotificationsReceived(packet *protocol.Packet) {
-	msg := &pb.CSteamNotification_NotificationsReceived_Notification{}
-	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
-		n.Logger.Error("Failed to unmarshal notifications received", log.Err(err))
-		return
-	}
-
+func (n *Notifications) handleNotificationsReceived(msg *pb.CSteamNotification_NotificationsReceived_Notification) {
 	if len(msg.GetNotifications()) == 0 {
 		return
 	}

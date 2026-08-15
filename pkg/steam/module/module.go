@@ -93,6 +93,8 @@ func Get[T any](init InitContext, name string) (T, error) {
 
 // InitContext provides client configuration, event bus, and packet registration handlers to initializing modules.
 type InitContext interface {
+	request.Transport
+
 	Storage() storage.Provider
 	Bus() *bus.Bus
 	Logger() log.Logger
@@ -139,9 +141,10 @@ type Base struct {
 	Ctx     context.Context
 	Cancel  context.CancelFunc
 	Wg      *sync.WaitGroup
-	Deps    []string
+	Deps   []string
 
-	mu *sync.Mutex
+	mu     *sync.Mutex
+	unregs []func()
 }
 
 // New constructs a Base module.
@@ -204,6 +207,21 @@ func (b *Base) Init(ctx InitContext) error {
 	return nil
 }
 
+// Track registers cleanup or unsubscription closures to be executed when the module is closed.
+func (b *Base) Track(unregs ...func()) {
+	if len(unregs) == 0 {
+		return
+	}
+
+	b.mu.Lock()
+	for _, u := range unregs {
+		if u != nil {
+			b.unregs = append(b.unregs, u)
+		}
+	}
+	b.mu.Unlock()
+}
+
 func (b *Base) Start(ctx context.Context) error {
 	b.mu.Lock()
 	b.Ctx, b.Cancel = context.WithCancel(ctx)
@@ -217,7 +235,13 @@ func (b *Base) Start(ctx context.Context) error {
 func (b *Base) Close() error {
 	b.mu.Lock()
 	cancel := b.Cancel
+	unregs := b.unregs
+	b.unregs = nil
 	b.mu.Unlock()
+
+	for _, u := range unregs {
+		u()
+	}
 
 	_ = b.Fsm.Transition(context.Background(), EventClose)
 
@@ -230,6 +254,44 @@ func (b *Base) Close() error {
 	}
 
 	return nil
+}
+
+// Bind subscribes an event listener, transforms the incoming payload, publishes it to the event bus, and automatically tracks unregistration on module close.
+func Bind[T any, E bus.Event](
+	b *Base,
+	subscribe func(handler func(msg T)) func(),
+	transform func(T) E,
+) {
+	if b == nil || subscribe == nil || transform == nil {
+		return
+	}
+
+	unreg := subscribe(func(msg T) {
+		if b.Bus != nil {
+			if ev := transform(msg); any(ev) != nil {
+				b.Bus.Publish(ev)
+			}
+		}
+	})
+
+	b.Track(unreg)
+}
+
+// BindDirect subscribes a direct action callback and automatically tracks unregistration on module close.
+func BindDirect[T any](
+	b *Base,
+	subscribe func(handler func(msg T)) func(),
+	action func(T),
+) {
+	if b == nil || subscribe == nil || action == nil {
+		return
+	}
+
+	unreg := subscribe(func(msg T) {
+		action(msg)
+	})
+
+	b.Track(unreg)
 }
 
 func (b *Base) State() State { return b.Fsm.CurrentState() }

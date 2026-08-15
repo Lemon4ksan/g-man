@@ -31,7 +31,6 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 )
@@ -74,6 +73,7 @@ type Manager struct {
 
 	client    service.Doer
 	community community.Requester
+	events    Events
 
 	relationships *generic.ShardedMap[id.ID, enums.EFriendRelationship]
 	users         *generic.ShardedMap[id.ID, *PersonaState]
@@ -83,8 +83,6 @@ type Manager struct {
 	friendGroups map[int32]FriendGroup
 	mySteamID    id.ID
 	maxFriends   int
-
-	unregFuncs []func()
 }
 
 // New constructs a Manager instance.
@@ -104,20 +102,13 @@ func (m *Manager) Init(init module.InitContext) error {
 	}
 
 	m.client = init.Service()
+	m.events = NewEvents(init)
 
-	init.RegisterPacketHandler(enums.EMsg_ClientFriendsList, m.handleFriendsList)
-	init.RegisterPacketHandler(enums.EMsg_ClientPersonaState, m.handlePersonaState)
-	init.RegisterPacketHandler(enums.EMsg_ClientFriendsGroupsList, m.handleFriendsGroupsList)
-	init.RegisterPacketHandler(enums.EMsg_ClientPlayerNicknameList, m.handlePlayerNicknameList)
-	init.RegisterServiceHandler("PlayerClient.NotifyFriendNicknameChanged#1", m.handleNotifyFriendNicknameChanged)
-
-	m.unregFuncs = append(m.unregFuncs, func() {
-		init.UnregisterPacketHandler(enums.EMsg_ClientFriendsList)
-		init.UnregisterPacketHandler(enums.EMsg_ClientPersonaState)
-		init.UnregisterPacketHandler(enums.EMsg_ClientFriendsGroupsList)
-		init.UnregisterPacketHandler(enums.EMsg_ClientPlayerNicknameList)
-		init.UnregisterServiceHandler("PlayerClient.NotifyFriendNicknameChanged#1")
-	})
+	m.events.OnFriendsList(m.handleFriendsList)
+	m.events.OnPersonaState(m.handlePersonaState)
+	m.events.OnFriendsGroupsList(m.handleFriendsGroupsList)
+	m.events.OnPlayerNicknameList(m.handlePlayerNicknameList)
+	m.events.OnNotifyFriendNicknameChanged(m.handleNotifyFriendNicknameChanged)
 
 	return nil
 }
@@ -132,8 +123,8 @@ func (m *Manager) StartAuthed(ctx context.Context, auth module.AuthContext) erro
 }
 
 func (m *Manager) Close() error {
-	for _, unreg := range m.unregFuncs {
-		unreg()
+	if m.events != nil {
+		_ = m.events.Close()
 	}
 
 	return m.Base.Close()
@@ -209,24 +200,16 @@ func (m *Manager) GetMaxFriends(ctx context.Context) (int, error) {
 
 // AddFriend sends a friend request or accepts an incoming invite.
 func (m *Manager) AddFriend(ctx context.Context, steamID uint64) error {
-	req := &pb.CMsgClientAddFriend{
+	return m.events.AddFriend(ctx, &pb.CMsgClientAddFriend{
 		SteamidToAdd: &steamID,
-	}
-
-	_, err := service.LegacyProto[service.NoResponse](ctx, m.client, enums.EMsg_ClientAddFriend, req)
-
-	return err
+	})
 }
 
 // RemoveFriend removes a friend or declines an invite.
 func (m *Manager) RemoveFriend(ctx context.Context, steamID uint64) error {
-	req := &pb.CMsgClientRemoveFriend{
+	return m.events.RemoveFriend(ctx, &pb.CMsgClientRemoveFriend{
 		Friendid: &steamID,
-	}
-
-	_, err := service.LegacyProto[service.NoResponse](ctx, m.client, enums.EMsg_ClientRemoveFriend, req)
-
-	return err
+	})
 }
 
 // SetPersona updates online status or profile display name.
@@ -239,9 +222,7 @@ func (m *Manager) SetPersona(ctx context.Context, state enums.EPersonaState, nam
 		req.PlayerName = proto.String(name)
 	}
 
-	_, err := service.LegacyProto[service.NoResponse](ctx, m.client, enums.EMsg_ClientChangeStatus, req)
-
-	return err
+	return m.events.ChangeStatus(ctx, req)
 }
 
 // InviteToGroups sends group invites to a friend.
@@ -588,13 +569,9 @@ const (
 
 // SetUIMode sets active client interface mode.
 func (m *Manager) SetUIMode(ctx context.Context, mode uint32) error {
-	req := &pb.CMsgClientUIMode{
+	return m.events.SetUIMode(ctx, &pb.CMsgClientUIMode{
 		Uimode: &mode,
-	}
-
-	_, err := service.LegacyProto[service.NoResponse](ctx, m.client, enums.EMsg_ClientCurrentUIMode, req)
-
-	return err
+	})
 }
 
 // UploadRichPresence uploads custom rich presence KeyValues data.
@@ -613,13 +590,9 @@ func (m *Manager) UploadRichPresence(ctx context.Context, appID uint32, richPres
 	buf.WriteByte(8)
 	buf.WriteByte(8)
 
-	req := &pb.CMsgClientRichPresenceUpload{
+	return m.events.UploadRichPresence(ctx, &pb.CMsgClientRichPresenceUpload{
 		RichPresenceKv: buf.Bytes(),
-	}
-
-	_, err := service.LegacyProto[service.NoResponse](ctx, m.client, enums.EMsg_ClientRichPresenceUpload, req)
-
-	return err
+	})
 }
 
 // CreateFriendInviteToken generates a shareable quick-invite link token.
@@ -713,10 +686,8 @@ func (m *Manager) SetFriendNickname(ctx context.Context, steamID uint64, nicknam
 	return nil
 }
 
-func (m *Manager) handleFriendsGroupsList(packet *protocol.Packet) {
-	list := &pb.CMsgClientFriendsGroupsList{}
-	if err := protocol.UnmarshalProto(packet.Payload, list); err != nil {
-		m.Logger.Error("Failed to unmarshal friends groups list", log.Err(err))
+func (m *Manager) handleFriendsGroupsList(list *pb.CMsgClientFriendsGroupsList) {
+	if list == nil {
 		return
 	}
 
@@ -761,10 +732,8 @@ func (m *Manager) handleFriendsGroupsList(packet *protocol.Packet) {
 	}
 }
 
-func (m *Manager) handlePlayerNicknameList(packet *protocol.Packet) {
-	list := &pb.CMsgClientPlayerNicknameList{}
-	if err := protocol.UnmarshalProto(packet.Payload, list); err != nil {
-		m.Logger.Error("Failed to unmarshal player nickname list", log.Err(err))
+func (m *Manager) handlePlayerNicknameList(list *pb.CMsgClientPlayerNicknameList) {
+	if list == nil {
 		return
 	}
 
@@ -787,10 +756,8 @@ func (m *Manager) handlePlayerNicknameList(packet *protocol.Packet) {
 	}
 }
 
-func (m *Manager) handleNotifyFriendNicknameChanged(packet *protocol.Packet) {
-	msg := &pb.CPlayer_FriendNicknameChanged_Notification{}
-	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
-		m.Logger.Error("Failed to unmarshal friend nickname changed notification", log.Err(err))
+func (m *Manager) handleNotifyFriendNicknameChanged(msg *pb.CPlayer_FriendNicknameChanged_Notification) {
+	if msg == nil {
 		return
 	}
 
@@ -816,10 +783,8 @@ func (m *Manager) handleNotifyFriendNicknameChanged(packet *protocol.Packet) {
 	})
 }
 
-func (m *Manager) handleFriendsList(packet *protocol.Packet) {
-	list := &pb.CMsgClientFriendsList{}
-	if err := protocol.UnmarshalProto(packet.Payload, list); err != nil {
-		m.Logger.Error("Failed to unmarshal friends list", log.Err(err))
+func (m *Manager) handleFriendsList(list *pb.CMsgClientFriendsList) {
+	if list == nil {
 		return
 	}
 
@@ -848,10 +813,8 @@ func (m *Manager) handleFriendsList(packet *protocol.Packet) {
 	}
 }
 
-func (m *Manager) handlePersonaState(packet *protocol.Packet) {
-	state := &pb.CMsgClientPersonaState{}
-	if err := protocol.UnmarshalProto(packet.Payload, state); err != nil {
-		m.Logger.Error("Failed to unmarshal persona state", log.Err(err))
+func (m *Manager) handlePersonaState(state *pb.CMsgClientPersonaState) {
+	if state == nil {
 		return
 	}
 

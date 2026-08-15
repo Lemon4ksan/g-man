@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/lemon4ksan/aoni/codec/decode"
 	"github.com/lemon4ksan/miyako/generic"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
@@ -86,13 +87,13 @@ func EditProfile(ctx context.Context, client community.Requester, steamID id.ID,
 
 	currentConfig, err := api.GetEditConfig(ctx, uint64(steamID))
 	if err != nil {
-		if strings.Contains(err.Error(), "target element not found") {
+		if errors.Is(err, decode.ErrElementNotFound) || strings.Contains(err.Error(), "element not found") {
 			return ErrConfigNotFound
 		}
-		if strings.Contains(err.Error(), "attribute not found") {
+		if errors.Is(err, decode.ErrAttrNotFound) || strings.Contains(err.Error(), "attribute not found") {
 			return ErrMissingDataAttr
 		}
-		if strings.Contains(err.Error(), "failed to unmarshal") {
+		if strings.Contains(err.Error(), "json unmarshal") || strings.Contains(err.Error(), "failed to unmarshal") {
 			return fmt.Errorf("profile: failed to unmarshal config: %w", err)
 		}
 		if strings.Contains(err.Error(), "read error") {
@@ -126,13 +127,13 @@ func UpdatePrivacySettings(
 
 	currentConfig, err := api.GetPrivacyConfig(ctx, uint64(steamID))
 	if err != nil {
-		if strings.Contains(err.Error(), "target element not found") {
+		if errors.Is(err, decode.ErrElementNotFound) || strings.Contains(err.Error(), "element not found") {
 			return ErrConfigNotFound
 		}
-		if strings.Contains(err.Error(), "attribute not found") {
+		if errors.Is(err, decode.ErrAttrNotFound) || strings.Contains(err.Error(), "attribute not found") {
 			return ErrMissingDataAttr
 		}
-		if strings.Contains(err.Error(), "failed to unmarshal") {
+		if strings.Contains(err.Error(), "json unmarshal") || strings.Contains(err.Error(), "failed to unmarshal") {
 			return fmt.Errorf("profile: failed to unmarshal config: %w", err)
 		}
 		if strings.Contains(err.Error(), "read error") {

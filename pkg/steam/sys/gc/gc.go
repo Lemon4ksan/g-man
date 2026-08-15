@@ -19,8 +19,6 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
-	"github.com/lemon4ksan/g-man/pkg/steam/service"
 )
 
 var gcBufferPool = sync.Pool{
@@ -62,11 +60,8 @@ type MessageEvent struct {
 type Coordinator struct {
 	module.Base
 
-	client     service.Doer
+	events     Events
 	jobManager *jobs.Manager[uint64, *protocol.GCPacket]
-
-	mu         sync.Mutex
-	unregFuncs []func()
 
 	handlersMu sync.RWMutex
 	gcHandlers map[uint32]map[uint32]Handler
@@ -86,25 +81,16 @@ func (c *Coordinator) Init(init module.InitContext) error {
 		return err
 	}
 
-	c.client = init.Service()
-
-	init.RegisterPacketHandler(enums.EMsg_ClientFromGC, c.handleClientFromGC)
-
-	c.unregFuncs = append(c.unregFuncs, func() {
-		init.UnregisterPacketHandler(enums.EMsg_ClientFromGC)
-	})
+	c.events = NewEvents(init)
+	c.events.OnClientFromGC(c.handleClientFromGC)
 
 	return nil
 }
 
 func (c *Coordinator) Close() error {
-	c.mu.Lock()
-	for _, unreg := range c.unregFuncs {
-		unreg()
+	if c.events != nil {
+		_ = c.events.Close()
 	}
-
-	c.unregFuncs = nil
-	c.mu.Unlock()
 
 	_ = c.jobManager.Close()
 
@@ -223,10 +209,7 @@ func (c *Coordinator) send(
 		log.Uint64("job_id", sourceJobID),
 	)
 
-	_, err = service.LegacyProto[service.NoResponse](
-		ctx, c.client, enums.EMsg_ClientToGC, wrapper,
-		service.WithRoutingAppID(appID),
-	)
+	err = c.events.SendToGC(ctx, wrapper)
 	if err != nil {
 		if cb != nil {
 			c.jobManager.Resolve(sourceJobID, nil, err)
@@ -264,10 +247,8 @@ func (c *Coordinator) UnregisterGCHandler(appID, msgType uint32) {
 	}
 }
 
-func (c *Coordinator) handleClientFromGC(packet *protocol.Packet) {
-	wrapper := &pb.CMsgGCClient{}
-	if err := protocol.UnmarshalProto(packet.Payload, wrapper); err != nil {
-		c.Logger.Error("Failed to unmarshal ClientFromGC envelope", log.Err(err))
+func (c *Coordinator) handleClientFromGC(wrapper *pb.CMsgGCClient) {
+	if wrapper == nil {
 		return
 	}
 

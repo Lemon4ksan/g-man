@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 
 	json "github.com/goccy/go-json"
@@ -150,14 +151,25 @@ func (m *ServiceMock) Request(
 		return resp, err
 	}
 
-	key := fmt.Sprintf("%s:%s", method, path)
-	if err, ok := m.ResponseErrs[key]; ok {
+	if err := m.findError(method, path); err != nil {
 		return nil, err
 	}
 
-	respData, ok := m.restResponses[key]
-	if !ok {
-		respData = restResponse{Status: http.StatusOK, Body: []byte("{}")}
+	var respBody []byte
+	var respStatus = http.StatusOK
+	var respHeader http.Header
+
+	if body, ok := m.findJSONResponse(method, path); ok {
+		respBody = body
+	} else {
+		key := fmt.Sprintf("%s:%s", method, path)
+		if respData, ok := m.restResponses[key]; ok {
+			respBody = respData.Body
+			respStatus = respData.Status
+			respHeader = respData.Header
+		} else {
+			respBody = []byte("{}")
+		}
 	}
 
 	dummyReq2, _ := http.NewRequestWithContext(ctx, method, path, bytes.NewReader(bodyBytes))
@@ -168,11 +180,59 @@ func (m *ServiceMock) Request(
 	}
 
 	return &http.Response{
-		StatusCode: respData.Status,
-		Body:       io.NopCloser(bytes.NewReader(respData.Body)),
-		Header:     respData.Header,
+		StatusCode: respStatus,
+		Body:       io.NopCloser(bytes.NewReader(respBody)),
+		Header:     respHeader,
 		Request:    dummyReq2,
 	}, nil
+}
+
+func (m *ServiceMock) findError(method, path string) error {
+	key := fmt.Sprintf("%s:%s", method, path)
+	if err, ok := m.ResponseErrs[key]; ok && err != nil {
+		return err
+	}
+	if err, ok := m.ResponseErrs[path]; ok && err != nil {
+		return err
+	}
+
+	cleanPath := strings.Trim(path, "/")
+	parts := strings.Split(cleanPath, "/")
+	if len(parts) > 0 {
+		mName := parts[0]
+		for k, err := range m.ResponseErrs {
+			if (k == mName || strings.HasSuffix(k, "/"+mName)) && err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (m *ServiceMock) findJSONResponse(method, path string) ([]byte, bool) {
+	key := fmt.Sprintf("%s:%s", method, path)
+	if respData, ok := m.restResponses[key]; ok {
+		return respData.Body, true
+	}
+	if data, ok := m.jsonResponses[path]; ok {
+		body, _ := json.Marshal(data)
+		return body, true
+	}
+
+	cleanPath := strings.Trim(path, "/")
+	parts := strings.Split(cleanPath, "/")
+	if len(parts) > 0 {
+		mName := parts[0]
+		for k, data := range m.jsonResponses {
+			if k == mName || strings.HasSuffix(k, "/"+mName) {
+				body, _ := json.Marshal(data)
+				return body, true
+			}
+		}
+	}
+
+	return nil, false
 }
 
 func (m *ServiceMock) GetOrRegisterAPIKey(ctx context.Context, domain string) (string, error) {

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/lemon4ksan/miyako/log"
@@ -18,9 +19,7 @@ import (
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
-	"github.com/lemon4ksan/g-man/pkg/steam/service"
 )
 
 const ModuleName string = "apps"
@@ -37,31 +36,37 @@ func From(c *steam.Client) *Apps {
 	return steam.GetModule[*Apps](c)
 }
 
-// Apps tracks active playing states and license holdings.
+// Snapshot is an immutable point-in-time state of apps and game sessions.
+type Snapshot struct {
+	PlayingAppIDs  []uint32
+	PlayingBlocked bool
+	Licenses       []*pb.CMsgClientLicenseList_License
+	ConnectTokens  [][]byte
+}
+
+// Apps tracks active playing states and license holdings via lock-free atomic snapshots.
 //
 // Thread Safety:
 //   - Safe for concurrent use across all methods.
 type Apps struct {
 	module.Base
 
-	client service.Doer
-
-	mu             sync.RWMutex
-	playingAppIDs  []uint32
-	playingBlocked bool
-	licenses       []*pb.CMsgClientLicenseList_License
-	connectTokens  [][]byte
-
-	unregFuncs []func()
+	events Events
+	state  atomic.Pointer[Snapshot]
+	mu     sync.Mutex
 }
 
 // New constructs an Apps module instance.
 func New() *Apps {
-	return &Apps{
-		Base:          module.New(ModuleName),
-		playingAppIDs: make([]uint32, 0),
-		connectTokens: make([][]byte, 0),
+	a := &Apps{
+		Base: module.New(ModuleName),
 	}
+	a.state.Store(&Snapshot{
+		PlayingAppIDs: make([]uint32, 0),
+		ConnectTokens: make([][]byte, 0),
+	})
+
+	return a
 }
 
 func (a *Apps) Init(init module.InitContext) error {
@@ -69,32 +74,78 @@ func (a *Apps) Init(init module.InitContext) error {
 		return err
 	}
 
-	a.client = init.Service()
-
-	init.RegisterPacketHandler(enums.EMsg_ClientPlayingSessionState, a.handlePlayingSessionState)
-	init.RegisterPacketHandler(enums.EMsg_ClientLicenseList, a.handleLicenseList)
-	init.RegisterPacketHandler(enums.EMsg_ClientGameConnectTokens, a.handleGameConnectTokens)
-
-	a.unregFuncs = append(a.unregFuncs, func() {
-		init.UnregisterPacketHandler(enums.EMsg_ClientPlayingSessionState)
-		init.UnregisterPacketHandler(enums.EMsg_ClientLicenseList)
-		init.UnregisterPacketHandler(enums.EMsg_ClientGameConnectTokens)
-	})
+	a.events = NewEvents(init)
+	a.events.OnPlayingSessionState(a.handlePlayingSessionState)
+	a.events.OnLicenseList(a.handleLicenseList)
+	a.events.OnGameConnectTokens(a.handleGameConnectTokens)
 
 	return nil
 }
 
 func (a *Apps) Close() error {
-	a.mu.Lock()
-	for _, unreg := range a.unregFuncs {
-		unreg()
+	if a.events != nil {
+		_ = a.events.Close()
 	}
-
-	a.unregFuncs = nil
-	a.mu.Unlock()
 
 	return a.Base.Close()
 }
+
+// --- Lock-Free State Readers (1 CPU instruction) ---
+
+// Snapshot returns an immutable point-in-time state snapshot.
+func (a *Apps) Snapshot() Snapshot {
+	return *a.state.Load()
+}
+
+// Licenses returns cached user license records.
+func (a *Apps) Licenses() []*pb.CMsgClientLicenseList_License {
+	return a.state.Load().Licenses
+}
+
+// GetLicenses returns cached user license records.
+func (a *Apps) GetLicenses() []*pb.CMsgClientLicenseList_License {
+	return a.Licenses()
+}
+
+// ConnectTokens returns all cached game connect tokens.
+func (a *Apps) ConnectTokens() [][]byte {
+	return slices.Clone(a.state.Load().ConnectTokens)
+}
+
+// GetConnectTokens returns all cached game connect tokens.
+func (a *Apps) GetConnectTokens() [][]byte {
+	return a.ConnectTokens()
+}
+
+// PlayingAppIDs returns the list of currently playing AppIDs.
+func (a *Apps) PlayingAppIDs() []uint32 {
+	return slices.Clone(a.state.Load().PlayingAppIDs)
+}
+
+// IsPlayingBlocked reports whether playing is blocked by another session.
+func (a *Apps) IsPlayingBlocked() bool {
+	return a.state.Load().PlayingBlocked
+}
+
+// PopConnectToken retrieves and pops the first available game connect token.
+func (a *Apps) PopConnectToken() []byte {
+	for {
+		current := a.state.Load()
+		if len(current.ConnectTokens) == 0 {
+			return nil
+		}
+
+		token := current.ConnectTokens[0]
+		next := *current
+		next.ConnectTokens = next.ConnectTokens[1:]
+
+		if a.state.CompareAndSwap(current, &next) {
+			return token
+		}
+	}
+}
+
+// --- Outbound RPC & Playing Methods ---
 
 // GetPlayerCount queries current online player count for an appID via Steam Data Publisher.
 func (a *Apps) GetPlayerCount(ctx context.Context, appID uint32) (int32, error) {
@@ -102,12 +153,7 @@ func (a *Apps) GetPlayerCount(ctx context.Context, appID uint32) (int32, error) 
 		Appid: proto.Uint32(appID),
 	}
 
-	resp, err := service.LegacyProto[pb.CMsgDPGetNumberOfCurrentPlayersResponse](
-		ctx,
-		a.client,
-		enums.EMsg_ClientGetNumberOfCurrentPlayersDP,
-		req,
-	)
+	resp, err := a.events.GetPlayerCount(ctx, req)
 	if err != nil {
 		return 0, fmt.Errorf("apps: failed to get player count: %w", err)
 	}
@@ -122,11 +168,7 @@ func (a *Apps) GetPlayerCount(ctx context.Context, appID uint32) (int32, error) 
 
 // PlayGames sets account presence to "In-Game" for specified AppIDs.
 func (a *Apps) PlayGames(ctx context.Context, appIDs []uint32, forceKick bool) error {
-	a.mu.RLock()
-	blocked := a.playingBlocked
-	a.mu.RUnlock()
-
-	if blocked && forceKick {
+	if a.state.Load().PlayingBlocked && forceKick {
 		a.Logger.Info("Playing session is blocked by another client. Attempting to kick...")
 
 		if err := a.KickPlayingSession(ctx); err != nil {
@@ -166,14 +208,7 @@ func (a *Apps) StopPlaying(ctx context.Context) error {
 
 // KickPlayingSession disconnects active playing sessions on other devices.
 func (a *Apps) KickPlayingSession(ctx context.Context) error {
-	_, err := service.LegacyProto[service.NoResponse](
-		ctx,
-		a.client,
-		enums.EMsg_ClientKickPlayingSession,
-		&pb.CMsgClientKickPlayingSession{},
-	)
-
-	return err
+	return a.events.KickPlayingSession(ctx, &pb.CMsgClientKickPlayingSession{})
 }
 
 func (a *Apps) sendGamesPlayed(
@@ -185,46 +220,57 @@ func (a *Apps) sendGamesPlayed(
 		GamesPlayed: games,
 	}
 
-	_, err := service.LegacyProto[service.NoResponse](ctx, a.client, enums.EMsg_ClientGamesPlayedWithDataBlob, req)
-	if err != nil {
+	if err := a.events.GamesPlayed(ctx, req); err != nil {
 		return fmt.Errorf("apps: failed to update playing status: %w", err)
 	}
 
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
+	oldAppIDs := a.state.Load().PlayingAppIDs
+
 	for _, newID := range newAppIDs {
-		if !slices.Contains(a.playingAppIDs, newID) {
+		if !slices.Contains(oldAppIDs, newID) {
 			a.Logger.Debug("App launched", log.Uint32("appid", newID))
 			a.Bus.Publish(&AppLaunchedEvent{AppID: newID})
 		}
 	}
 
-	for _, oldID := range a.playingAppIDs {
+	for _, oldID := range oldAppIDs {
 		if !slices.Contains(newAppIDs, oldID) {
 			a.Logger.Debug("App quit", log.Uint32("appid", oldID))
 			a.Bus.Publish(&AppQuitEvent{AppID: oldID})
 		}
 	}
 
-	a.playingAppIDs = newAppIDs
+	a.updateState(func(s *Snapshot) {
+		s.PlayingAppIDs = newAppIDs
+	})
 
 	return nil
 }
 
-func (a *Apps) handlePlayingSessionState(packet *protocol.Packet) {
-	msg := &pb.CMsgClientPlayingSessionState{}
-	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
-		a.Logger.Error("Failed to unmarshal playing session state", log.Err(err))
-		return
-	}
+// --- Copy-On-Write State Updates ---
 
+func (a *Apps) updateState(fn func(next *Snapshot)) {
+	for {
+		current := a.state.Load()
+		next := *current
+		fn(&next)
+
+		if a.state.CompareAndSwap(current, &next) {
+			return
+		}
+	}
+}
+
+func (a *Apps) handlePlayingSessionState(msg *pb.CMsgClientPlayingSessionState) {
 	blocked := msg.GetPlayingBlocked()
 	playingApp := msg.GetPlayingApp()
 
-	a.mu.Lock()
-	a.playingBlocked = blocked
-	a.mu.Unlock()
+	a.updateState(func(s *Snapshot) {
+		s.PlayingBlocked = blocked
+	})
 
 	if blocked {
 		a.Logger.Warn("In-game status blocked by another session", log.Uint32("active_app", playingApp))
@@ -236,74 +282,31 @@ func (a *Apps) handlePlayingSessionState(packet *protocol.Packet) {
 	})
 }
 
-// GetLicenses returns cached user license records.
-func (a *Apps) GetLicenses() []*pb.CMsgClientLicenseList_License {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
+func (a *Apps) handleLicenseList(msg *pb.CMsgClientLicenseList) {
+	licenses := msg.GetLicenses()
 
-	return a.licenses
-}
-
-// GetConnectTokens returns all cached game connect tokens.
-func (a *Apps) GetConnectTokens() [][]byte {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
-
-	tokens := make([][]byte, len(a.connectTokens))
-	copy(tokens, a.connectTokens)
-
-	return tokens
-}
-
-// PopConnectToken retrieves and pops the first available game connect token.
-func (a *Apps) PopConnectToken() []byte {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-
-	if len(a.connectTokens) == 0 {
-		return nil
-	}
-
-	token := a.connectTokens[0]
-	a.connectTokens = a.connectTokens[1:]
-
-	return token
-}
-
-func (a *Apps) handleLicenseList(packet *protocol.Packet) {
-	msg := &pb.CMsgClientLicenseList{}
-	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
-		a.Logger.Error("Failed to unmarshal license list", log.Err(err))
-		return
-	}
-
-	a.mu.Lock()
-	a.licenses = msg.GetLicenses()
-	a.mu.Unlock()
+	a.updateState(func(s *Snapshot) {
+		s.Licenses = licenses
+	})
 
 	a.Bus.Publish(&LicensesEvent{
-		Licenses: msg.GetLicenses(),
+		Licenses: licenses,
 	})
 }
 
-func (a *Apps) handleGameConnectTokens(packet *protocol.Packet) {
-	msg := &pb.CMsgClientGameConnectTokens{}
-	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
-		a.Logger.Error("Failed to unmarshal game connect tokens", log.Err(err))
-		return
-	}
-
-	a.mu.Lock()
-	a.connectTokens = append(a.connectTokens, msg.GetTokens()...)
-
+func (a *Apps) handleGameConnectTokens(msg *pb.CMsgClientGameConnectTokens) {
 	maxKeep := int(msg.GetMaxTokensToKeep())
-	if maxKeep > 0 && len(a.connectTokens) > maxKeep {
-		a.connectTokens = a.connectTokens[len(a.connectTokens)-maxKeep:]
-	}
+	newTokens := msg.GetTokens()
 
-	a.mu.Unlock()
+	a.updateState(func(s *Snapshot) {
+		combined := append(s.ConnectTokens, newTokens...)
+		if maxKeep > 0 && len(combined) > maxKeep {
+			combined = combined[len(combined)-maxKeep:]
+		}
+		s.ConnectTokens = combined
+	})
 
 	a.Bus.Publish(&GameConnectTokensEvent{
-		Tokens: msg.GetTokens(),
+		Tokens: newTokens,
 	})
 }

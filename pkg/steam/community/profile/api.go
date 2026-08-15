@@ -20,11 +20,11 @@ var _ = community.BaseURL
 // @base_url "https://steamcommunity.com"
 type SteamProfileAPI interface {
 	// @get "profiles/{steamID}/edit/info"
-	// @extract css="#profile_edit_config" attr="data-profile-edit"
+	// @return body | attr(css="#profile_edit_config", name="data-profile-edit") | html_unescape | json
 	GetEditConfig(ctx context.Context, steamID uint64, mods ...aoni.RequestModifier) (*rawProfileEditConfig, error)
 
 	// @get "profiles/{steamID}/edit/settings"
-	// @extract css="#profile_edit_config" attr="data-profile-edit"
+	// @return body | attr(css="#profile_edit_config", name="data-profile-edit") | html_unescape | json
 	GetPrivacyConfig(ctx context.Context, steamID uint64, mods ...aoni.RequestModifier) (*rawPrivacyConfig, error)
 
 	// @post "profiles/{steamID}/edit"
@@ -38,8 +38,7 @@ type SteamProfileAPI interface {
 		steamID uint64,
 		// @field "sessionid"
 		sessionID string,
-		// @field "Privacy"
-		// @format json_string
+		// @field "Privacy" = json | url_escape
 		privacy rawPrivacySettings,
 		// @field "eCommentPermission"
 		commentPermission int,

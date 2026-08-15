@@ -19,7 +19,6 @@ import (
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/test/mock"
 )
 
@@ -249,7 +248,7 @@ func TestChat_GroupMessaging(t *testing.T) {
 		m, _ := setupChat(t)
 
 		assert.NotPanics(t, func() {
-			m.handleGroupMessage(&protocol.Packet{Payload: []byte{0xFF, 0xFF}})
+			m.handleGroupMessage(nil)
 		})
 
 		m.stateMu.RLock()
@@ -274,10 +273,8 @@ func TestChat_GroupMessaging(t *testing.T) {
 			Message:       proto.String("hello group"),
 			Timestamp:     proto.Uint32(ts),
 		}
-		b, err := proto.Marshal(msg)
-		require.NoError(t, err)
 
-		m.handleGroupMessage(&protocol.Packet{Payload: b})
+		m.handleGroupMessage(msg)
 
 		m.stateMu.RLock()
 		assert.Equal(t, ChatID, m.activeGroupChats[ChatGroupID])
@@ -313,8 +310,7 @@ func TestChat_HandleIncomingMessage(t *testing.T) {
 			ChatEntryType: proto.Int32(ChatEntryTypeChatMsg),
 			Message:       proto.String("hello"),
 		}
-		b, _ := proto.Marshal(msg)
-		m.handleIncomingMessage(&protocol.Packet{Payload: b})
+		m.handleIncomingMessage(msg)
 
 		select {
 		case ev := <-subMsg.C():
@@ -336,8 +332,7 @@ func TestChat_HandleIncomingMessage(t *testing.T) {
 			ChatEntryType: proto.Int32(ChatEntryTypeEmote),
 			Message:       proto.String("emote_text"),
 		}
-		b, _ := proto.Marshal(msg)
-		m.handleIncomingMessage(&protocol.Packet{Payload: b})
+		m.handleIncomingMessage(msg)
 
 		select {
 		case ev := <-subMsg.C():
@@ -358,8 +353,7 @@ func TestChat_HandleIncomingMessage(t *testing.T) {
 			ChatEntryType: proto.Int32(ChatEntryTypeSticker),
 			Message:       proto.String("sticker_123"),
 		}
-		b, _ := proto.Marshal(msg)
-		m.handleIncomingMessage(&protocol.Packet{Payload: b})
+		m.handleIncomingMessage(msg)
 
 		select {
 		case ev := <-subSticker.C():
@@ -379,8 +373,7 @@ func TestChat_HandleIncomingMessage(t *testing.T) {
 		msg := &pb.CFriendMessages_IncomingMessage_Notification{
 			ChatEntryType: proto.Int32(ChatEntryTypeTyping),
 		}
-		b, _ := proto.Marshal(msg)
-		m.handleIncomingMessage(&protocol.Packet{Payload: b})
+		m.handleIncomingMessage(msg)
 
 		select {
 		case <-subTyping.C():
@@ -401,8 +394,7 @@ func TestChat_HandleIncomingMessage(t *testing.T) {
 			ChatEntryType: proto.Int32(ChatEntryTypeChatMsg),
 			Message:       proto.String("should ignore echo"),
 		}
-		b, _ := proto.Marshal(msg)
-		m.handleIncomingMessage(&protocol.Packet{Payload: b})
+		m.handleIncomingMessage(msg)
 
 		select {
 		case <-subMsg.C():
@@ -422,9 +414,8 @@ func TestChat_HandleIncomingMessage(t *testing.T) {
 		msg := &pb.CFriendMessages_IncomingMessage_Notification{
 			ChatEntryType: proto.Int32(99),
 		}
-		b, _ := proto.Marshal(msg)
 		assert.NotPanics(t, func() {
-			m.handleIncomingMessage(&protocol.Packet{Payload: b})
+			m.handleIncomingMessage(msg)
 		})
 
 		select {
@@ -443,7 +434,7 @@ func TestChat_HandleIncomingMessage(t *testing.T) {
 		defer subMsg.Unsubscribe()
 
 		assert.NotPanics(t, func() {
-			m.handleIncomingMessage(&protocol.Packet{Payload: []byte{0xFF, 0xFF}})
+			m.handleIncomingMessage(nil)
 		})
 
 		select {
@@ -471,8 +462,7 @@ func TestChat_HandleLegacyFriendMsg(t *testing.T) {
 			Message:                []byte("hello legacy\x00"),
 			Rtime32ServerTimestamp: proto.Uint32(111),
 		}
-		b, _ := proto.Marshal(msg)
-		m.handleLegacyFriendMsg(&protocol.Packet{Payload: b})
+		m.handleLegacyFriendMsg(msg)
 
 		select {
 		case ev := <-sub.C():
@@ -493,8 +483,7 @@ func TestChat_HandleLegacyFriendMsg(t *testing.T) {
 			SteamidFrom:   proto.Uint64(FriendSteamID),
 			ChatEntryType: proto.Int32(ChatEntryTypeTyping),
 		}
-		b, _ := proto.Marshal(msg)
-		m.handleLegacyFriendMsg(&protocol.Packet{Payload: b})
+		m.handleLegacyFriendMsg(msg)
 
 		select {
 		case <-sub.C():
@@ -510,9 +499,8 @@ func TestChat_HandleLegacyFriendMsg(t *testing.T) {
 		msg := &pb.CMsgClientFriendMsgIncoming{
 			ChatEntryType: proto.Int32(99),
 		}
-		b, _ := proto.Marshal(msg)
 		assert.NotPanics(t, func() {
-			m.handleLegacyFriendMsg(&protocol.Packet{Payload: b})
+			m.handleLegacyFriendMsg(msg)
 		})
 	})
 
@@ -520,7 +508,7 @@ func TestChat_HandleLegacyFriendMsg(t *testing.T) {
 		t.Parallel()
 		m, _ := setupChat(t)
 		assert.NotPanics(t, func() {
-			m.handleLegacyFriendMsg(&protocol.Packet{Payload: []byte{0xFF, 0xFF}})
+			m.handleLegacyFriendMsg(nil)
 		})
 	})
 }
@@ -1235,8 +1223,7 @@ func TestChat_ReactionEvents(t *testing.T) {
 			ReactionType:    pb.EMessageReactionType_k_EMessageReactionType_Emoticon.Enum(),
 			IsAdd:           proto.Bool(true),
 		}
-		b, _ := proto.Marshal(msg)
-		m.handleFriendReaction(&protocol.Packet{Payload: b})
+		m.handleFriendReaction(msg)
 
 		select {
 		case ev := <-sub.C():
@@ -1258,7 +1245,7 @@ func TestChat_ReactionEvents(t *testing.T) {
 		t.Parallel()
 		m, _ := setupChat(t)
 		assert.NotPanics(t, func() {
-			m.handleFriendReaction(&protocol.Packet{Payload: []byte{0xFF, 0xFF}})
+			m.handleFriendReaction(nil)
 		})
 	})
 
@@ -1279,8 +1266,7 @@ func TestChat_ReactionEvents(t *testing.T) {
 			ReactionType:    pb.EChatRoomMessageReactionType_k_EChatRoomMessageReactionType_Emoticon.Enum(),
 			IsAdd:           proto.Bool(false),
 		}
-		b, _ := proto.Marshal(msg)
-		m.handleGroupReaction(&protocol.Packet{Payload: b})
+		m.handleGroupReaction(msg)
 
 		select {
 		case ev := <-sub.C():
@@ -1307,7 +1293,7 @@ func TestChat_ReactionEvents(t *testing.T) {
 		t.Parallel()
 		m, _ := setupChat(t)
 		assert.NotPanics(t, func() {
-			m.handleGroupReaction(&protocol.Packet{Payload: []byte{0xFF, 0xFF}})
+			m.handleGroupReaction(nil)
 		})
 	})
 }

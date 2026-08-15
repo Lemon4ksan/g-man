@@ -8,7 +8,6 @@ package live
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"github.com/lemon4ksan/miyako/log"
 	"google.golang.org/protobuf/proto"
@@ -16,9 +15,7 @@ import (
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
-	"github.com/lemon4ksan/g-man/pkg/steam/service"
 )
 
 const ModuleName string = "offers"
@@ -36,10 +33,7 @@ func From(c *steam.Client) *Manager {
 type Manager struct {
 	module.Base
 
-	client service.Doer
-
-	mu         sync.Mutex
-	unregFuncs []func()
+	events Events
 }
 
 func New() *Manager {
@@ -53,29 +47,19 @@ func (m *Manager) Init(init module.InitContext) error {
 		return err
 	}
 
-	m.client = init.Service()
+	m.events = NewEvents(init)
 
-	init.RegisterPacketHandler(enums.EMsg_EconTrading_InitiateTradeProposed, m.handleTradeRequest)
-	init.RegisterPacketHandler(enums.EMsg_EconTrading_InitiateTradeResult, m.handleTradeResult)
-	init.RegisterPacketHandler(enums.EMsg_EconTrading_StartSession, m.handleTradeStarted)
-
-	m.unregFuncs = append(m.unregFuncs, func() {
-		init.UnregisterPacketHandler(enums.EMsg_EconTrading_InitiateTradeProposed)
-		init.UnregisterPacketHandler(enums.EMsg_EconTrading_InitiateTradeResult)
-		init.UnregisterPacketHandler(enums.EMsg_EconTrading_StartSession)
-	})
+	m.events.OnInitiateTradeProposed(m.handleTradeRequest)
+	m.events.OnInitiateTradeResult(m.handleTradeResult)
+	m.events.OnStartSession(m.handleTradeStarted)
 
 	return nil
 }
 
 func (m *Manager) Close() error {
-	m.mu.Lock()
-	for _, unreg := range m.unregFuncs {
-		unreg()
+	if m.events != nil {
+		_ = m.events.Close()
 	}
-
-	m.unregFuncs = nil
-	m.mu.Unlock()
 
 	return m.Base.Close()
 }
@@ -88,7 +72,7 @@ func (m *Manager) Invite(ctx context.Context, otherSteamID uint64) error {
 
 	m.Logger.Info("Sending trade invitation", log.Uint64("target_steam_id", otherSteamID))
 
-	_, err := service.LegacyProto[service.NoResponse](ctx, m.client, enums.EMsg_EconTrading_InitiateTradeRequest, req)
+	err := m.events.SendTradeRequest(ctx, req)
 	if err != nil {
 		return fmt.Errorf("offers: failed to send invitation: %w", err)
 	}
@@ -104,9 +88,7 @@ func (m *Manager) CancelInvitation(ctx context.Context, otherSteamID uint64) err
 
 	m.Logger.Debug("Canceling trade invitation", log.Uint64("target_steam_id", otherSteamID))
 
-	_, err := service.LegacyProto[service.NoResponse](ctx, m.client, enums.EMsg_EconTrading_CancelTradeRequest, req)
-
-	return err
+	return m.events.CancelTradeRequest(ctx, req)
 }
 
 // RespondToInvite approves or declines an incoming live trade invitation.
@@ -126,15 +108,11 @@ func (m *Manager) RespondToInvite(ctx context.Context, tradeID uint32, accept bo
 		log.Bool("accept", accept),
 	)
 
-	_, err := service.LegacyProto[service.NoResponse](ctx, m.client, enums.EMsg_EconTrading_InitiateTradeResponse, req)
-
-	return err
+	return m.events.SendTradeResponse(ctx, req)
 }
 
-func (m *Manager) handleTradeRequest(p *protocol.Packet) {
-	msg := &pb.CMsgTrading_InitiateTradeRequest{}
-	if err := protocol.UnmarshalProto(p.Payload, msg); err != nil {
-		m.Logger.Error("Failed to unmarshal trade request", log.Err(err))
+func (m *Manager) handleTradeRequest(msg *pb.CMsgTrading_InitiateTradeRequest) {
+	if msg == nil {
 		return
 	}
 
@@ -150,10 +128,8 @@ func (m *Manager) handleTradeRequest(p *protocol.Packet) {
 	})
 }
 
-func (m *Manager) handleTradeResult(p *protocol.Packet) {
-	msg := &pb.CMsgTrading_InitiateTradeResponse{}
-	if err := protocol.UnmarshalProto(p.Payload, msg); err != nil {
-		m.Logger.Error("Failed to unmarshal trade result", log.Err(err))
+func (m *Manager) handleTradeResult(msg *pb.CMsgTrading_InitiateTradeResponse) {
+	if msg == nil {
 		return
 	}
 
@@ -172,10 +148,8 @@ func (m *Manager) handleTradeResult(p *protocol.Packet) {
 	})
 }
 
-func (m *Manager) handleTradeStarted(p *protocol.Packet) {
-	msg := &pb.CMsgTrading_StartSession{}
-	if err := protocol.UnmarshalProto(p.Payload, msg); err != nil {
-		m.Logger.Error("Failed to unmarshal trade session start", log.Err(err))
+func (m *Manager) handleTradeStarted(msg *pb.CMsgTrading_StartSession) {
+	if msg == nil {
 		return
 	}
 

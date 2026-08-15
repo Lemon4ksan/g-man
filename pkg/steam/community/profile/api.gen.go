@@ -16,6 +16,7 @@ import (
 	"strconv"
 
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/aoni/codec/decode"
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/option"
 	"github.com/lemon4ksan/aoni/request"
@@ -84,31 +85,19 @@ func (c *steamProfileAPIClient) GetEditConfig(ctx context.Context, steamID uint6
 		return nil, err
 	}
 
-	start := bytes.Index(bodyBytes, []byte("profile_edit_config"))
-	if start == -1 {
-		return nil, errors.New("extract: target element not found")
+	stageIn := bodyBytes
+	stageOut0, err := decode.ExtractAttr(stageIn, "#profile_edit_config", "data-profile-edit")
+	if err != nil {
+		return nil, err
 	}
-	attrIdx := bytes.Index(bodyBytes[start:], []byte("data-profile-edit="))
-	if attrIdx == -1 {
-		return nil, errors.New("extract: attribute not found")
-	}
-	start = start + attrIdx + len("data-profile-edit=")
-	if start >= len(bodyBytes) {
-		return nil, errors.New("extract: unexpected EOF")
-	}
-	quote := bodyBytes[start]
-	start++
-	end := bytes.IndexByte(bodyBytes[start:], quote)
-	if end == -1 {
-		return nil, errors.New("extract: attribute boundary not found")
-	}
+	stageIn = stageOut0
+
+	stageIn = decode.HTMLUnescape(stageIn)
 
 	var result rawProfileEditConfig
-	unescaped := bytes.ReplaceAll(bodyBytes[start:start+end], []byte("&quot;"), []byte("\""))
-	if err := json.Unmarshal(unescaped, &result); err != nil {
-		return nil, fmt.Errorf("extract: failed to unmarshal payload: %w", err)
+	if err := decode.UnmarshalJSON(stageIn, &result); err != nil {
+		return nil, fmt.Errorf("pipeline json unmarshal: %w", err)
 	}
-
 	return &result, nil
 }
 
@@ -132,31 +121,19 @@ func (c *steamProfileAPIClient) GetPrivacyConfig(ctx context.Context, steamID ui
 		return nil, err
 	}
 
-	start := bytes.Index(bodyBytes, []byte("profile_edit_config"))
-	if start == -1 {
-		return nil, errors.New("extract: target element not found")
+	stageIn := bodyBytes
+	stageOut0, err := decode.ExtractAttr(stageIn, "#profile_edit_config", "data-profile-edit")
+	if err != nil {
+		return nil, err
 	}
-	attrIdx := bytes.Index(bodyBytes[start:], []byte("data-profile-edit="))
-	if attrIdx == -1 {
-		return nil, errors.New("extract: attribute not found")
-	}
-	start = start + attrIdx + len("data-profile-edit=")
-	if start >= len(bodyBytes) {
-		return nil, errors.New("extract: unexpected EOF")
-	}
-	quote := bodyBytes[start]
-	start++
-	end := bytes.IndexByte(bodyBytes[start:], quote)
-	if end == -1 {
-		return nil, errors.New("extract: attribute boundary not found")
-	}
+	stageIn = stageOut0
+
+	stageIn = decode.HTMLUnescape(stageIn)
 
 	var result rawPrivacyConfig
-	unescaped := bytes.ReplaceAll(bodyBytes[start:start+end], []byte("&quot;"), []byte("\""))
-	if err := json.Unmarshal(unescaped, &result); err != nil {
-		return nil, fmt.Errorf("extract: failed to unmarshal payload: %w", err)
+	if err := decode.UnmarshalJSON(stageIn, &result); err != nil {
+		return nil, fmt.Errorf("pipeline json unmarshal: %w", err)
 	}
-
 	return &result, nil
 }
 
@@ -191,11 +168,11 @@ func (c *steamProfileAPIClient) SavePrivacy(ctx context.Context, steamID uint64,
 	formBytes = append(formBytes, "sessionid="...)
 	formBytes = append(formBytes, url.QueryEscape(sessionID)...)
 	formBytes = append(formBytes, "&Privacy="...)
-	privacyJSON, err := json.Marshal(privacy)
+	privacyBytes, err := json.Marshal(privacy)
 	if err != nil {
 		return nil, err
 	}
-	formBytes = append(formBytes, url.QueryEscape(string(privacyJSON))...)
+	formBytes = append(formBytes, url.QueryEscape(string(privacyBytes))...)
 	formBytes = append(formBytes, "&eCommentPermission="...)
 	formBytes = strconv.AppendInt(formBytes, int64(commentPermission), 10)
 	allMods = append(allMods, mod.WithBodyBytes(formBytes))

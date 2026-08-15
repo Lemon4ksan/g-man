@@ -84,7 +84,6 @@ func TestInit_SuccessLifecycle_RegistersAndUnregistersEMsg(t *testing.T) {
 		err := c.Close()
 		require.NoError(t, err)
 		ictx.AssertPacketHandlerUnregistered(t, enums.EMsg_ClientFromGC)
-		assert.Nil(t, c.unregFuncs)
 	})
 }
 
@@ -272,14 +271,8 @@ func TestHandleClientFromGC_ErrorConditions_HandlesGracefully(t *testing.T) {
 
 	t.Run("envelope_unmarshal_error", func(t *testing.T) {
 		t.Parallel()
-		c, _ := setupCoordinator(t)
-
-		assert.NotPanics(t, func() {
-			c.handleClientFromGC(&protocol.Packet{
-				EMsg:    enums.EMsg_ClientFromGC,
-				Payload: []byte{0xFF, 0xFF},
-			})
-		})
+		_, ictx := setupCoordinator(t)
+		ictx.EmitRawPacket(t, enums.EMsg_ClientFromGC, []byte{0xFF, 0xFF})
 	})
 }
 

@@ -232,6 +232,150 @@ func (m *InitContext) EmitPacket(t *testing.T, e enums.EMsg, msg proto.Message) 
 	})
 }
 
+func (m *InitContext) EmitRawPacket(t *testing.T, e enums.EMsg, payload []byte) {
+	t.Helper()
+	m.mu.RLock()
+	handler, ok := m.packetHandlers[e]
+	m.mu.RUnlock()
+
+	if !ok {
+		t.Fatalf("no handler registered for packet %v", e)
+	}
+
+	handler(&protocol.Packet{
+		EMsg:    e,
+		Payload: payload,
+	})
+}
+
+func (m *InitContext) Subscribe(eventID any, handler func(raw []byte)) (unsubscribe func()) {
+	switch v := eventID.(type) {
+	case string:
+		m.RegisterServiceHandler(v, func(p *protocol.Packet) {
+			handler(p.Payload)
+		})
+
+		return func() {
+			m.UnregisterServiceHandler(v)
+		}
+
+	case enums.EMsg:
+		m.RegisterPacketHandler(v, func(p *protocol.Packet) {
+			handler(p.Payload)
+		})
+
+		return func() {
+			m.UnregisterPacketHandler(v)
+		}
+
+	case int:
+		emsg := enums.EMsg(v)
+		m.RegisterPacketHandler(emsg, func(p *protocol.Packet) {
+			handler(p.Payload)
+		})
+
+		return func() {
+			m.UnregisterPacketHandler(emsg)
+		}
+
+	case uint32:
+		emsg := enums.EMsg(v)
+		m.RegisterPacketHandler(emsg, func(p *protocol.Packet) {
+			handler(p.Payload)
+		})
+
+		return func() {
+			m.UnregisterPacketHandler(emsg)
+		}
+
+	default:
+		return func() {}
+	}
+}
+
+func (m *InitContext) Invoke(ctx context.Context, op any, payload []byte) ([]byte, error) {
+	if m.service != nil {
+		var req *tr.Request
+		switch v := op.(type) {
+		case string:
+			cleanOp := strings.TrimSuffix(v, "#1")
+			parts := strings.Split(cleanOp, ".")
+			if len(parts) == 2 {
+				req = tr.NewRequest(&service.UnifiedTarget{
+					Interface: parts[0],
+					Method:    parts[1],
+					Version:   1,
+					IsService: true,
+				}, bytes.NewReader(payload))
+			} else {
+				req = tr.NewRequest(&service.UnifiedTarget{
+					Interface: v,
+					Method:    "",
+					Version:   1,
+					IsService: true,
+				}, bytes.NewReader(payload))
+			}
+		case enums.EMsg:
+			req = tr.NewRequest(v, bytes.NewReader(payload))
+		case int:
+			req = tr.NewRequest(enums.EMsg(v), bytes.NewReader(payload))
+		case uint32:
+			req = tr.NewRequest(enums.EMsg(v), bytes.NewReader(payload))
+		}
+
+		if req != nil {
+			resp, err := m.service.Do(ctx, req)
+			if err != nil {
+				return nil, err
+			}
+			defer resp.Body.Close()
+
+			return io.ReadAll(resp.Body)
+		}
+	}
+
+	return nil, nil
+}
+
+func (m *InitContext) Notify(ctx context.Context, op any, payload []byte) error {
+	if m.service != nil {
+		var req *tr.Request
+		switch v := op.(type) {
+		case string:
+			cleanOp := strings.TrimSuffix(v, "#1")
+			parts := strings.Split(cleanOp, ".")
+			if len(parts) == 2 {
+				req = tr.NewRequest(&service.UnifiedTarget{
+					Interface: parts[0],
+					Method:    parts[1],
+					Version:   1,
+					IsService: true,
+				}, bytes.NewReader(payload))
+			} else {
+				req = tr.NewRequest(&service.UnifiedTarget{
+					Interface: v,
+					Method:    "",
+					Version:   1,
+					IsService: true,
+				}, bytes.NewReader(payload))
+			}
+		case enums.EMsg:
+			req = tr.NewRequest(v, bytes.NewReader(payload))
+		case int:
+			req = tr.NewRequest(enums.EMsg(v), bytes.NewReader(payload))
+		case uint32:
+			req = tr.NewRequest(enums.EMsg(v), bytes.NewReader(payload))
+		}
+
+		if req != nil {
+			_, err := m.service.Do(ctx, req)
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (m *InitContext) GetPacketHandler(e enums.EMsg) (socket.Handler, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()

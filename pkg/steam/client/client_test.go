@@ -10,6 +10,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/lemon4ksan/miyako/log"
@@ -399,10 +400,7 @@ func TestClient_Reconnect_SuccessfulDiscovery_ReconnectsSuccessfully(t *testing.
 	m.Sock.On("Disconnect").Return(nil).Once()
 
 	m.Doer.On("Do", mock.MatchedBy(func(r *http.Request) bool {
-		return r.URL.Path == "/ISteamDirectory/GetCMListForConnect/v1" ||
-			r.URL.Path == "/ISteamDirectory/GetCMListForConnect/v1/" ||
-			r.URL.Path == "/ISteamDirectory/GetCMList/v1" ||
-			r.URL.Path == "/ISteamDirectory/GetCMList/v1/"
+		return strings.Contains(r.URL.Path, "GetCMList") || strings.Contains(r.URL.String(), "GetCMList")
 	})).Return(&http.Response{
 		StatusCode: 200,
 		Body: io.NopCloser(

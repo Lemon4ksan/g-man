@@ -71,7 +71,6 @@ func TestInit_SuccessLifecycle_RegistersAndUnregistersEMsg(t *testing.T) {
 		ictx.AssertPacketHandlerUnregistered(t, enums.EMsg_ClientChatOfflineMessageNotification)
 		ictx.AssertPacketHandlerUnregistered(t, enums.EMsg_ClientMarketingMessageUpdate2)
 		ictx.AssertServiceHandlerUnregistered(t, "SteamNotificationClient.NotificationsReceived#1")
-		assert.Nil(t, n.unregFuncs)
 	})
 }
 
@@ -152,13 +151,8 @@ func TestHandleItemAnnouncements_VariousPayloads_PublishesEvents(t *testing.T) {
 
 	t.Run("error_unmarshal", func(t *testing.T) {
 		t.Parallel()
-		n, _ := setupNotifications(t)
-		assert.NotPanics(t, func() {
-			n.handleItemAnnouncements(&protocol.Packet{
-				EMsg:    enums.EMsg_ClientItemAnnouncements,
-				Payload: []byte{0xFF},
-			})
-		})
+		_, ictx := setupNotifications(t)
+		ictx.EmitRawPacket(t, enums.EMsg_ClientItemAnnouncements, []byte{0xFF})
 	})
 }
 
@@ -194,13 +188,8 @@ func TestHandleCommentNotifications_VariousPayloads_PublishesEvents(t *testing.T
 
 	t.Run("error_unmarshal", func(t *testing.T) {
 		t.Parallel()
-		n, _ := setupNotifications(t)
-		assert.NotPanics(t, func() {
-			n.handleCommentNotifications(&protocol.Packet{
-				EMsg:    enums.EMsg_ClientCommentNotifications,
-				Payload: []byte{0xFF},
-			})
-		})
+		_, ictx := setupNotifications(t)
+		ictx.EmitRawPacket(t, enums.EMsg_ClientCommentNotifications, []byte{0xFF})
 	})
 }
 
@@ -318,13 +307,8 @@ func TestHandleUserNotifications_VariousPayloads_TracksAndPublishesEvents(t *tes
 
 	t.Run("error_unmarshal", func(t *testing.T) {
 		t.Parallel()
-		n, _ := setupNotifications(t)
-		assert.NotPanics(t, func() {
-			n.handleUserNotifications(&protocol.Packet{
-				EMsg:    enums.EMsg_ClientUserNotifications,
-				Payload: []byte{0xFF},
-			})
-		})
+		_, ictx := setupNotifications(t)
+		ictx.EmitRawPacket(t, enums.EMsg_ClientUserNotifications, []byte{0xFF})
 	})
 }
 
@@ -358,13 +342,8 @@ func TestHandleOfflineMessages_VariousPayloads_PublishesEvents(t *testing.T) {
 
 	t.Run("error_unmarshal", func(t *testing.T) {
 		t.Parallel()
-		n, _ := setupNotifications(t)
-		assert.NotPanics(t, func() {
-			n.handleOfflineMessages(&protocol.Packet{
-				EMsg:    enums.EMsg_ClientChatOfflineMessageNotification,
-				Payload: []byte{0xFF},
-			})
-		})
+		_, ictx := setupNotifications(t)
+		ictx.EmitRawPacket(t, enums.EMsg_ClientChatOfflineMessageNotification, []byte{0xFF})
 	})
 }
 
@@ -418,46 +397,31 @@ func TestHandleMarketingMessages_VariousPayloads_ParsesAndPublishesEvents(t *tes
 
 	t.Run("short_payload", func(t *testing.T) {
 		t.Parallel()
-		n, _ := setupNotifications(t)
-		assert.NotPanics(t, func() {
-			n.handleMarketingMessages(&protocol.Packet{
-				EMsg:    enums.EMsg_ClientMarketingMessageUpdate2,
-				Payload: []byte{1, 2, 3},
-			})
-		})
+		_, ictx := setupNotifications(t)
+		ictx.EmitRawPacket(t, enums.EMsg_ClientMarketingMessageUpdate2, []byte{1, 2, 3})
 	})
 
 	t.Run("truncated_loop_len", func(t *testing.T) {
 		t.Parallel()
-		n, _ := setupNotifications(t)
+		_, ictx := setupNotifications(t)
 		payload := make([]byte, 10)
 		payload[0] = 0xE8
 		payload[1] = 0x03
 		payload[4] = 0x01
 
-		assert.NotPanics(t, func() {
-			n.handleMarketingMessages(&protocol.Packet{
-				EMsg:    enums.EMsg_ClientMarketingMessageUpdate2,
-				Payload: payload,
-			})
-		})
+		ictx.EmitRawPacket(t, enums.EMsg_ClientMarketingMessageUpdate2, payload)
 	})
 
 	t.Run("truncated_loop_subpayload", func(t *testing.T) {
 		t.Parallel()
-		n, _ := setupNotifications(t)
+		_, ictx := setupNotifications(t)
 		payload := make([]byte, 14)
 		payload[0] = 0xE8
 		payload[1] = 0x03
 		payload[4] = 0x01
 		payload[8] = 50
 
-		assert.NotPanics(t, func() {
-			n.handleMarketingMessages(&protocol.Packet{
-				EMsg:    enums.EMsg_ClientMarketingMessageUpdate2,
-				Payload: payload,
-			})
-		})
+		ictx.EmitRawPacket(t, enums.EMsg_ClientMarketingMessageUpdate2, payload)
 	})
 
 	t.Run("parse_payload_short_4", func(t *testing.T) {
@@ -577,12 +541,12 @@ func TestHandleNotificationsReceived_VariousPayloads_PublishesEvents(t *testing.
 
 	t.Run("error_unmarshal", func(t *testing.T) {
 		t.Parallel()
-		n, _ := setupNotifications(t)
-		assert.NotPanics(t, func() {
-			n.handleNotificationsReceived(&protocol.Packet{
-				EMsg:    enums.EMsg_ServiceMethod,
-				Payload: []byte{0xFF},
-			})
+		_, ictx := setupNotifications(t)
+		serviceHandler, ok := ictx.GetServiceHandler("SteamNotificationClient.NotificationsReceived#1")
+		require.True(t, ok)
+
+		serviceHandler(&protocol.Packet{
+			Payload: []byte{0xFF},
 		})
 	})
 }

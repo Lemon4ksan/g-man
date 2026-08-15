@@ -21,8 +21,6 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
-	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"github.com/lemon4ksan/g-man/pkg/steam/sys/apps"
 	"github.com/lemon4ksan/g-man/pkg/trading/web"
 )
@@ -109,9 +107,9 @@ func WithAutoFlashOnOffers(enabled bool) Option {
 type Manager struct {
 	module.AuthBase
 
-	config  Config
-	apps    *apps.Apps
-	service service.Doer
+	config Config
+	apps   *apps.Apps
+	events Events
 
 	stateMu          sync.RWMutex
 	flashText        string
@@ -142,7 +140,7 @@ func (m *Manager) Init(init module.InitContext) error {
 		return err
 	}
 
-	m.service = init.Service()
+	m.events = NewEvents(init)
 
 	appsMod, err := module.Get[*apps.Apps](init, apps.ModuleName)
 	if err != nil {
@@ -152,6 +150,15 @@ func (m *Manager) Init(init module.InitContext) error {
 	m.apps = appsMod
 
 	return nil
+}
+
+// Close unsubscribes and cleans up status resources.
+func (m *Manager) Close() error {
+	if m.events != nil {
+		_ = m.events.Close()
+	}
+
+	return m.Base.Close()
 }
 
 // StartAuthed subscribes to system event channels and launches background status workers.
@@ -343,11 +350,7 @@ func (m *Manager) playCombined(ctx context.Context, appIDs []uint32, customText 
 		GamesPlayed: games,
 	}
 
-	_, err := service.LegacyProto[service.NoResponse](
-		ctx, m.service, enums.EMsg_ClientGamesPlayedWithDataBlob, req,
-	)
-
-	return err
+	return m.events.SendGamesPlayed(ctx, req)
 }
 
 func (m *Manager) listenEvents(ctx context.Context, sub *bus.Subscription) {

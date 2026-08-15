@@ -15,7 +15,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/test/mock"
 )
@@ -290,9 +289,7 @@ func TestHandleTradeProposed_InvalidProto_HandlesGracefully(t *testing.T) {
 	defer sub.Unsubscribe()
 
 	assert.NotPanics(t, func() {
-		m.handleTradeRequest(&protocol.Packet{
-			Payload: []byte{0xFF, 0xFF},
-		})
+		m.handleTradeRequest(nil)
 	})
 
 	ctx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
@@ -347,9 +344,7 @@ func TestHandleTradeResult_InvalidProto_HandlesGracefully(t *testing.T) {
 	defer sub.Unsubscribe()
 
 	assert.NotPanics(t, func() {
-		m.handleTradeResult(&protocol.Packet{
-			Payload: []byte{0xFF, 0xFF},
-		})
+		m.handleTradeResult(nil)
 	})
 
 	ctx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
@@ -389,9 +384,7 @@ func TestHandleTradeStarted_InvalidProto_HandlesGracefully(t *testing.T) {
 	defer sub.Unsubscribe()
 
 	assert.NotPanics(t, func() {
-		m.handleTradeStarted(&protocol.Packet{
-			Payload: []byte{0xFF, 0xFF},
-		})
+		m.handleTradeStarted(nil)
 	})
 
 	ctx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)

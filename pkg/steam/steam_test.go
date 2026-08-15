@@ -9,6 +9,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/lemon4ksan/aoni"
@@ -120,10 +121,7 @@ func TestNewReadyClient_VariousScenarios_HandlesExpectedly(t *testing.T) {
 		m.commMock.On("GetOrRegisterAPIKey", mock.Anything, mock.Anything).Return("key_123", nil).Once()
 
 		m.httpMock.On("Do", mock.MatchedBy(func(r *http.Request) bool {
-			return r.URL.Path == "/ISteamDirectory/GetCMListForConnect/v1" ||
-				r.URL.Path == "/ISteamDirectory/GetCMListForConnect/v1/" ||
-				r.URL.Path == "/ISteamDirectory/GetCMList/v1" ||
-				r.URL.Path == "/ISteamDirectory/GetCMList/v1/"
+			return strings.Contains(r.URL.Path, "GetCMList") || strings.Contains(r.URL.String(), "GetCMList")
 		})).Return(&http.Response{
 			StatusCode: 200,
 			Body: io.NopCloser(
@@ -165,10 +163,7 @@ func TestNewReadyClient_VariousScenarios_HandlesExpectedly(t *testing.T) {
 		m.authenticator.On("LogOn", mock.Anything, m.details, mock.Anything).Return(errors.New("login rejected")).Once()
 
 		m.httpMock.On("Do", mock.MatchedBy(func(r *http.Request) bool {
-			return r.URL.Path == "/ISteamDirectory/GetCMListForConnect/v1" ||
-				r.URL.Path == "/ISteamDirectory/GetCMListForConnect/v1/" ||
-				r.URL.Path == "/ISteamDirectory/GetCMList/v1" ||
-				r.URL.Path == "/ISteamDirectory/GetCMList/v1/"
+			return strings.Contains(r.URL.Path, "GetCMList") || strings.Contains(r.URL.String(), "GetCMList")
 		})).Return(&http.Response{
 			StatusCode: 200,
 			Body: io.NopCloser(

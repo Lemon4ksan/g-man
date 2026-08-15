@@ -40,6 +40,9 @@ func (m *mockInitContext) RegisterPacketHandler(enums.EMsg, socket.Handler) {}
 func (m *mockInitContext) RegisterServiceHandler(string, socket.Handler)    {}
 func (m *mockInitContext) UnregisterPacketHandler(enums.EMsg)               {}
 func (m *mockInitContext) UnregisterServiceHandler(string)                  {}
+func (m *mockInitContext) Subscribe(any, func([]byte)) func()                          { return func() {} }
+func (m *mockInitContext) Invoke(context.Context, any, []byte) ([]byte, error) { return nil, nil }
+func (m *mockInitContext) Notify(context.Context, any, []byte) error            { return nil }
 func (m *mockInitContext) Module(name string) module.Module {
 	if m.mods == nil {
 		return nil
@@ -404,3 +407,73 @@ type nilCommunityAuthContext struct {
 
 func (nilCommunityAuthContext) Community() community.Requester { return nil }
 func (nilCommunityAuthContext) SteamID() id.ID                 { return 0 }
+
+type testEvent struct {
+	bus.BaseEvent
+	Value string
+}
+
+func TestBase_TrackAndBind(t *testing.T) {
+	t.Parallel()
+
+	t.Run("bind_publishes_and_tracks", func(t *testing.T) {
+		t.Parallel()
+
+		b := module.New("test")
+		ictx := mock.NewInitContext()
+		require.NoError(t, b.Init(ictx))
+
+		sub := ictx.Bus().Subscribe(&testEvent{})
+		defer sub.Unsubscribe()
+
+		unregCalled := false
+		fakeSubscribe := func(handler func(msg string)) func() {
+			go func() {
+				time.Sleep(10 * time.Millisecond)
+				handler("hello world")
+			}()
+			return func() {
+				unregCalled = true
+			}
+		}
+
+		module.Bind(&b, fakeSubscribe, func(msg string) *testEvent {
+			return &testEvent{Value: msg}
+		})
+
+		select {
+		case ev := <-sub.C():
+			assert.Equal(t, "hello world", ev.(*testEvent).Value)
+		case <-time.After(500 * time.Millisecond):
+			t.Fatal("event was not published")
+		}
+
+		require.NoError(t, b.Close())
+		assert.True(t, unregCalled)
+	})
+
+	t.Run("bind_direct_invokes_and_tracks", func(t *testing.T) {
+		t.Parallel()
+
+		b := module.New("test_direct")
+		ictx := mock.NewInitContext()
+		require.NoError(t, b.Init(ictx))
+
+		received := ""
+		unregCalled := false
+		fakeSubscribe := func(handler func(msg string)) func() {
+			handler("direct data")
+			return func() {
+				unregCalled = true
+			}
+		}
+
+		module.BindDirect(&b, fakeSubscribe, func(msg string) {
+			received = msg
+		})
+
+		assert.Equal(t, "direct data", received)
+		require.NoError(t, b.Close())
+		assert.True(t, unregCalled)
+	})
+}

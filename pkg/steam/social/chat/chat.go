@@ -8,7 +8,6 @@ package chat
 import (
 	"context"
 	"errors"
-	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -21,9 +20,6 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
-	"github.com/lemon4ksan/g-man/pkg/steam/service"
 )
 
 const ModuleName string = "chat"
@@ -79,13 +75,12 @@ func ReleaseMessageEvent(e *MessageEvent) {
 type Chat struct {
 	module.Base
 
-	service service.Doer
+	events Events
 
 	stateMu          sync.RWMutex
 	steamID          id.ID
 	botAccountID     uint32
 	activeGroupChats map[uint64]uint64
-	unregFuncs       []func()
 
 	rateLimitMu     sync.Mutex
 	lastMessageTime time.Time
@@ -104,26 +99,13 @@ func (c *Chat) Init(init module.InitContext) error {
 		return err
 	}
 
-	c.service = init.Service()
+	c.events = NewEvents(init)
 
-	friendHandler := "FriendMessagesClient.IncomingMessage#1"
-	groupHandler := "ChatRoomClient.NotifyIncomingChatMessage#1"
-	friendReactionHandler := "FriendMessagesClient.MessageReaction#1"
-	groupReactionHandler := "ChatRoomClient.NotifyMessageReaction#1"
-
-	init.RegisterServiceHandler(friendHandler, c.handleIncomingMessage)
-	init.RegisterServiceHandler(groupHandler, c.handleGroupMessage)
-	init.RegisterServiceHandler(friendReactionHandler, c.handleFriendReaction)
-	init.RegisterServiceHandler(groupReactionHandler, c.handleGroupReaction)
-	init.RegisterPacketHandler(enums.EMsg_ClientFriendMsgIncoming, c.handleLegacyFriendMsg)
-
-	c.unregFuncs = append(c.unregFuncs, func() {
-		init.UnregisterServiceHandler(friendHandler)
-		init.UnregisterServiceHandler(groupHandler)
-		init.UnregisterServiceHandler(friendReactionHandler)
-		init.UnregisterServiceHandler(groupReactionHandler)
-		init.UnregisterPacketHandler(enums.EMsg_ClientFriendMsgIncoming)
-	})
+	c.events.OnIncomingMessage(c.handleIncomingMessage)
+	c.events.OnIncomingGroupMessage(c.handleGroupMessage)
+	c.events.OnFriendReaction(c.handleFriendReaction)
+	c.events.OnGroupReaction(c.handleGroupReaction)
+	c.events.OnLegacyFriendMsg(c.handleLegacyFriendMsg)
 
 	return nil
 }
@@ -142,13 +124,9 @@ func (c *Chat) StartAuthed(ctx context.Context, auth module.AuthContext) error {
 }
 
 func (c *Chat) Close() error {
-	c.stateMu.Lock()
-	for _, unreg := range c.unregFuncs {
-		unreg()
+	if c.events != nil {
+		_ = c.events.Close()
 	}
-
-	c.unregFuncs = nil
-	c.stateMu.Unlock()
 
 	return c.Base.Close()
 }
@@ -167,7 +145,7 @@ func (c *Chat) SendMessage(ctx context.Context, steamID uint64, text string) err
 		ContainsBbcode: generic.Ptr[bool](true),
 	}
 
-	_, err := service.Unified[service.NoResponse](ctx, c.service, req)
+	_, err := c.events.SendMessage(ctx, req)
 
 	return err
 }
@@ -179,7 +157,7 @@ func (c *Chat) SendTyping(ctx context.Context, steamID uint64) error {
 		ChatEntryType: proto.Int32(ChatEntryTypeTyping),
 	}
 
-	_, err := service.Unified[service.NoResponse](ctx, c.service, req)
+	_, err := c.events.SendMessage(ctx, req)
 
 	return err
 }
@@ -191,9 +169,7 @@ func (c *Chat) AckFriendMessage(ctx context.Context, steamID uint64, timestamp u
 		Timestamp:      proto.Uint32(timestamp),
 	}
 
-	_, err := service.Unified[service.NoResponse](ctx, c.service, req)
-
-	return err
+	return c.events.AckFriendMessage(ctx, req)
 }
 
 // GetRecentMessages fetches chat history logs with a friend.
@@ -211,7 +187,7 @@ func (c *Chat) GetRecentMessages(
 		BbcodeFormat: proto.Bool(true),
 	}
 
-	resp, err := service.Unified[pb.CFriendMessages_GetRecentMessages_Response](ctx, c.service, req)
+	resp, err := c.events.GetRecentMessages(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +207,7 @@ func (c *Chat) SendChatMessage(ctx context.Context, chatGroupID, chatID uint64, 
 		Message:     proto.String(message),
 	}
 
-	_, err := service.Unified[pb.CChatRoom_SendChatMessage_Response](ctx, c.service, req)
+	_, err := c.events.SendChatMessage(ctx, req)
 
 	return err
 }
@@ -255,7 +231,7 @@ func (c *Chat) SendChatReaction(
 		IsAdd:           proto.Bool(isAdd),
 	}
 
-	_, err := service.Unified[pb.CChatRoom_UpdateMessageReaction_Response](ctx, c.service, req)
+	_, err := c.events.UpdateMessageReaction(ctx, req)
 
 	return err
 }
@@ -274,7 +250,7 @@ func (c *Chat) GetChatHistory(
 		MaxCount:     proto.Uint32(maxCount),
 	}
 
-	resp, err := service.Unified[pb.CChatRoom_GetMessageHistory_Response](ctx, c.service, req)
+	resp, err := c.events.GetMessageHistory(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -286,7 +262,7 @@ func (c *Chat) GetChatHistory(
 func (c *Chat) JoinGroupChat(ctx context.Context, groupID uint64) error {
 	req := &pb.CChatRoom_JoinChatRoomGroup_Request{ChatGroupId: proto.Uint64(groupID)}
 
-	resp, err := service.Unified[pb.CChatRoom_JoinChatRoomGroup_Response](ctx, c.service, req)
+	resp, err := c.events.JoinChatRoomGroup(ctx, req)
 	if err != nil {
 		return err
 	}
@@ -312,7 +288,7 @@ func (c *Chat) LeaveGroupChat(ctx context.Context, groupID uint64) error {
 		ChatGroupId: proto.Uint64(groupID),
 	}
 
-	_, err := service.Unified[service.NoResponse](ctx, c.service, req)
+	_, err := c.events.LeaveChatRoomGroup(ctx, req)
 	if err == nil {
 		c.stateMu.Lock()
 		delete(c.activeGroupChats, groupID)
@@ -342,7 +318,7 @@ func (c *Chat) SendGroupMessage(ctx context.Context, groupID uint64, text string
 		Message:     proto.String(text),
 	}
 
-	_, err := service.Unified[service.NoResponse](ctx, c.service, req)
+	_, err := c.events.SendChatMessage(ctx, req)
 
 	return err
 }
@@ -371,7 +347,7 @@ func (c *Chat) DeleteGroupMessages(
 		Messages:    messages,
 	}
 
-	_, err := service.Unified[pb.CChatRoom_DeleteChatMessages_Response](ctx, c.service, req)
+	_, err := c.events.DeleteChatMessages(ctx, req)
 
 	return err
 }
@@ -384,9 +360,7 @@ func (c *Chat) AckGroupMessage(ctx context.Context, groupID, chatID uint64, time
 		Timestamp:   proto.Uint32(timestamp),
 	}
 
-	_, err := service.Unified[service.NoResponse](ctx, c.service, req)
-
-	return err
+	return c.events.AckChatMessage(ctx, req)
 }
 
 // GetGroupMessageHistory fetches message history for a group chat room.
@@ -409,7 +383,7 @@ func (c *Chat) GetGroupMessageHistory(
 		MaxCount:    proto.Uint32(maxCount),
 	}
 
-	resp, err := service.Unified[pb.CChatRoom_GetMessageHistory_Response](ctx, c.service, req)
+	resp, err := c.events.GetMessageHistory(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -433,7 +407,7 @@ func (c *Chat) InviteFriendToGroupChat(ctx context.Context, groupID, friendSteam
 		Steamid:     proto.Uint64(friendSteamID),
 	}
 
-	_, err := service.Unified[pb.CChatRoom_InviteFriendToChatRoomGroup_Response](ctx, c.service, req)
+	_, err := c.events.InviteFriendToChatRoomGroup(ctx, req)
 
 	return err
 }
@@ -458,7 +432,7 @@ func (c *Chat) KickUserFromGroupChat(
 		Expiration:  proto.Int32(expirationSeconds),
 	}
 
-	_, err := service.Unified[pb.CChatRoom_KickUser_Response](ctx, c.service, req)
+	_, err := c.events.KickUser(ctx, req)
 
 	return err
 }
@@ -479,7 +453,7 @@ func (c *Chat) MuteUserInGroupChat(ctx context.Context, groupID, targetSteamID u
 		Expiration:  proto.Int32(expirationSeconds),
 	}
 
-	_, err := service.Unified[pb.CChatRoom_MuteUser_Response](ctx, c.service, req)
+	_, err := c.events.MuteUser(ctx, req)
 
 	return err
 }
@@ -500,7 +474,7 @@ func (c *Chat) SetUserBanStateInGroupChat(ctx context.Context, groupID, targetSt
 		BanState:    proto.Bool(ban),
 	}
 
-	_, err := service.Unified[pb.CChatRoom_SetUserBanState_Response](ctx, c.service, req)
+	_, err := c.events.SetUserBanState(ctx, req)
 
 	return err
 }
@@ -516,7 +490,7 @@ func (c *Chat) CreateChatRoomGroup(
 		SteamidInvitees: inviteeSteamIDs,
 	}
 
-	return service.Unified[pb.CChatRoom_CreateChatRoomGroup_Response](ctx, c.service, req)
+	return c.events.CreateChatRoomGroup(ctx, req)
 }
 
 // SaveChatRoomGroup converts an ad-hoc group chat into a saved named group chat.
@@ -526,7 +500,7 @@ func (c *Chat) SaveChatRoomGroup(ctx context.Context, groupID uint64, name strin
 		Name:        proto.String(name),
 	}
 
-	_, err := service.Unified[service.NoResponse](ctx, c.service, req)
+	_, err := c.events.SaveChatRoomGroup(ctx, req)
 
 	return err
 }
@@ -538,7 +512,7 @@ func (c *Chat) RenameChatRoomGroup(ctx context.Context, groupID uint64, newName 
 		Name:        proto.String(newName),
 	}
 
-	resp, err := service.Unified[pb.CChatRoom_RenameChatRoomGroup_Response](ctx, c.service, req)
+	resp, err := c.events.RenameChatRoomGroup(ctx, req)
 	if err != nil {
 		return "", err
 	}
@@ -550,7 +524,7 @@ func (c *Chat) RenameChatRoomGroup(ctx context.Context, groupID uint64, newName 
 func (c *Chat) GetMyChatRoomGroups(ctx context.Context) (*pb.CChatRoom_GetMyChatRoomGroups_Response, error) {
 	req := &pb.CChatRoom_GetMyChatRoomGroups_Request{}
 
-	return service.Unified[pb.CChatRoom_GetMyChatRoomGroups_Response](ctx, c.service, req)
+	return c.events.GetMyChatRoomGroups(ctx, req)
 }
 
 // GetChatRoomGroupState fetches detailed state metrics for a group chat room.
@@ -562,7 +536,7 @@ func (c *Chat) GetChatRoomGroupState(
 		ChatGroupId: proto.Uint64(groupID),
 	}
 
-	return service.Unified[pb.CChatRoom_GetChatRoomGroupState_Response](ctx, c.service, req)
+	return c.events.GetChatRoomGroupState(ctx, req)
 }
 
 // CreateInviteLink generates a shareable invite link for a group chat room.
@@ -581,7 +555,7 @@ func (c *Chat) CreateInviteLink(
 		req.ChatId = proto.Uint64(voiceChatID)
 	}
 
-	return service.Unified[pb.CChatRoom_CreateInviteLink_Response](ctx, c.service, req)
+	return c.events.CreateInviteLink(ctx, req)
 }
 
 // GetInviteLinksForGroup lists active invite links for a group chat room.
@@ -593,7 +567,7 @@ func (c *Chat) GetInviteLinksForGroup(
 		ChatGroupId: proto.Uint64(groupID),
 	}
 
-	resp, err := service.Unified[pb.CChatRoom_GetInviteLinksForGroup_Response](ctx, c.service, req)
+	resp, err := c.events.GetInviteLinksForGroup(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -608,19 +582,13 @@ func (c *Chat) DeleteInviteLink(ctx context.Context, groupID uint64, inviteCode 
 		InviteCode:  proto.String(inviteCode),
 	}
 
-	_, err := service.Unified[service.NoResponse](ctx, c.service, req)
+	_, err := c.events.DeleteInviteLink(ctx, req)
 
 	return err
 }
 
-func (c *Chat) handleIncomingMessage(packet *protocol.Packet) {
-	msg := &pb.CFriendMessages_IncomingMessage_Notification{}
-	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
-		c.Logger.Error("Failed to unmarshal incoming friend message", log.Err(err))
-		return
-	}
-
-	if msg.GetLocalEcho() {
+func (c *Chat) handleIncomingMessage(msg *pb.CFriendMessages_IncomingMessage_Notification) {
+	if msg == nil || msg.GetLocalEcho() {
 		return
 	}
 
@@ -630,7 +598,6 @@ func (c *Chat) handleIncomingMessage(packet *protocol.Packet) {
 	switch msg.GetChatEntryType() {
 	case ChatEntryTypeChatMsg, ChatEntryTypeEmote:
 		evt := AcquireMessageEvent(senderID, msg.GetMessage(), timestamp, msg.GetOrdinal())
-		evt.SetContext(packet.Context())
 		c.Bus.Publish(evt)
 
 	case ChatEntryTypeSticker:
@@ -639,27 +606,22 @@ func (c *Chat) handleIncomingMessage(packet *protocol.Packet) {
 			StickerID: msg.GetMessage(),
 			Timestamp: timestamp,
 		}
-		evt.SetContext(packet.Context())
 		c.Bus.Publish(evt)
 
 	case ChatEntryTypeTyping:
 		evt := &TypingEvent{SenderID: senderID}
-		evt.SetContext(packet.Context())
 		c.Bus.Publish(evt)
 
 	default:
-		c.Logger.DebugContext(
-			packet.Context(),
+		c.Logger.Debug(
 			"Received unhandled chat entry type",
 			log.Int32("type", msg.GetChatEntryType()),
 		)
 	}
 }
 
-func (c *Chat) handleGroupMessage(packet *protocol.Packet) {
-	msg := &pb.CChatRoom_IncomingChatMessage_Notification{}
-	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
-		c.Logger.ErrorContext(packet.Context(), "Failed to unmarshal incoming group message", log.Err(err))
+func (c *Chat) handleGroupMessage(msg *pb.CChatRoom_IncomingChatMessage_Notification) {
+	if msg == nil {
 		return
 	}
 
@@ -675,14 +637,11 @@ func (c *Chat) handleGroupMessage(packet *protocol.Packet) {
 		Timestamp:   time.Unix(int64(msg.GetTimestamp()), 0),
 	}
 
-	evt.SetContext(packet.Context())
 	c.Bus.Publish(evt)
 }
 
-func (c *Chat) handleFriendReaction(packet *protocol.Packet) {
-	msg := &pb.CFriendMessages_MessageReaction_Notification{}
-	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
-		c.Logger.Error("Failed to unmarshal friend reaction notification", log.Err(err))
+func (c *Chat) handleFriendReaction(msg *pb.CFriendMessages_MessageReaction_Notification) {
+	if msg == nil {
 		return
 	}
 
@@ -697,10 +656,8 @@ func (c *Chat) handleFriendReaction(packet *protocol.Packet) {
 	})
 }
 
-func (c *Chat) handleGroupReaction(packet *protocol.Packet) {
-	msg := &pb.CChatRoom_MessageReaction_Notification{}
-	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
-		c.Logger.Error("Failed to unmarshal group reaction notification", log.Err(err))
+func (c *Chat) handleGroupReaction(msg *pb.CChatRoom_MessageReaction_Notification) {
+	if msg == nil {
 		return
 	}
 
@@ -727,15 +684,7 @@ func (c *Chat) synchronizeOfflineMessages(ctx context.Context) {
 	)
 
 	for attempt := range 3 {
-		sessionsResp, err = service.UnifiedExplicit[pb.CFriendsMessages_GetActiveMessageSessions_Response](
-			ctx,
-			c.service,
-			http.MethodPost,
-			"FriendMessages",
-			"GetActiveMessageSessions",
-			1,
-			req,
-		)
+		sessionsResp, err = c.events.GetActiveMessageSessions(ctx, req)
 		if err == nil {
 			break
 		}
@@ -807,10 +756,8 @@ func (c *Chat) synchronizeOfflineMessages(ctx context.Context) {
 	}
 }
 
-func (c *Chat) handleLegacyFriendMsg(packet *protocol.Packet) {
-	msg := &pb.CMsgClientFriendMsgIncoming{}
-	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
-		c.Logger.Error("Failed to unmarshal legacy friend message", log.Err(err))
+func (c *Chat) handleLegacyFriendMsg(msg *pb.CMsgClientFriendMsgIncoming) {
+	if msg == nil {
 		return
 	}
 
@@ -826,17 +773,14 @@ func (c *Chat) handleLegacyFriendMsg(packet *protocol.Packet) {
 			Timestamp: timestamp,
 			Ordinal:   0,
 		}
-		evt.SetContext(packet.Context())
 		c.Bus.Publish(evt)
 
 	case ChatEntryTypeTyping:
 		evt := &TypingEvent{SenderID: senderID}
-		evt.SetContext(packet.Context())
 		c.Bus.Publish(evt)
 
 	default:
-		c.Logger.DebugContext(
-			packet.Context(),
+		c.Logger.Debug(
 			"Received unhandled legacy chat entry type",
 			log.Int32("type", msg.GetChatEntryType()),
 		)

@@ -244,8 +244,8 @@ func TestManager_HandleFriendsList(t *testing.T) {
 
 	t.Run("unmarshal_error", func(t *testing.T) {
 		t.Parallel()
-		m, _ := setupFriends(t)
-		m.handleFriendsList(&protocol.Packet{Payload: []byte{0xFF, 0xEE}})
+		_, ictx := setupFriends(t)
+		ictx.EmitRawPacket(t, enums.EMsg_ClientFriendsList, []byte{0xFF, 0xEE})
 	})
 
 	t.Run("relationship_changes", func(t *testing.T) {
@@ -286,8 +286,8 @@ func TestManager_HandlePersonaState(t *testing.T) {
 
 	t.Run("unmarshal_error", func(t *testing.T) {
 		t.Parallel()
-		m, _ := setupFriends(t)
-		m.handlePersonaState(&protocol.Packet{Payload: []byte{0xFF}})
+		_, ictx := setupFriends(t)
+		ictx.EmitRawPacket(t, enums.EMsg_ClientPersonaState, []byte{0xFF})
 	})
 
 	t.Run("state_updates", func(t *testing.T) {

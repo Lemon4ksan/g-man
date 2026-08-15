@@ -15,7 +15,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	module "github.com/lemon4ksan/g-man/pkg/test/mock"
 )
@@ -132,11 +131,7 @@ func TestApps_HandlePlayingSessionState(t *testing.T) {
 			PlayingApp:     proto.Uint32(AppidCs2),
 		})
 
-		a.mu.RLock()
-		isBlocked := a.playingBlocked
-		a.mu.RUnlock()
-
-		assert.True(t, isBlocked)
+		assert.True(t, a.IsPlayingBlocked())
 
 		select {
 		case ev := <-subState.C():
@@ -150,12 +145,9 @@ func TestApps_HandlePlayingSessionState(t *testing.T) {
 
 	t.Run("invalid_packet", func(t *testing.T) {
 		t.Parallel()
-		a, _ := setup(t)
+		_, ictx := setup(t)
 
-		a.handlePlayingSessionState(&protocol.Packet{
-			EMsg:    enums.EMsg_ClientPlayingSessionState,
-			Payload: []byte{0xFF, 0xFF, 0xFF}, // Invalid protobuf
-		})
+		ictx.EmitRawPacket(t, enums.EMsg_ClientPlayingSessionState, []byte{0xFF, 0xFF, 0xFF})
 	})
 }
 
@@ -211,9 +203,7 @@ func TestApps_PlayGames_BlockedAndForceKick(t *testing.T) {
 		a, ictx := setup(t)
 		ctx := t.Context()
 
-		a.mu.Lock()
-		a.playingBlocked = true
-		a.mu.Unlock()
+		a.updateState(func(s *Snapshot) { s.PlayingBlocked = true })
 
 		err := a.PlayGames(ctx, []uint32{AppidTf2}, false)
 		require.NoError(t, err)
@@ -231,9 +221,7 @@ func TestApps_PlayGames_BlockedAndForceKick(t *testing.T) {
 		a, ictx := setup(t)
 		ctx := t.Context()
 
-		a.mu.Lock()
-		a.playingBlocked = true
-		a.mu.Unlock()
+		a.updateState(func(s *Snapshot) { s.PlayingBlocked = true })
 
 		err := a.PlayGames(ctx, []uint32{AppidTf2}, true)
 		require.NoError(t, err)
@@ -256,9 +244,7 @@ func TestApps_PlayGames_BlockedAndForceKick(t *testing.T) {
 		a, ictx := setup(t)
 		ctx := t.Context()
 
-		a.mu.Lock()
-		a.playingBlocked = true
-		a.mu.Unlock()
+		a.updateState(func(s *Snapshot) { s.PlayingBlocked = true })
 
 		ictx.MockService().ResponseErrs[enums.EMsg_ClientKickPlayingSession.String()] = errors.New("kick failed")
 		err := a.PlayGames(ctx, []uint32{AppidTf2}, true)
@@ -355,11 +341,8 @@ func TestApps_HandleLicenseList(t *testing.T) {
 
 	t.Run("error_unmarshal", func(t *testing.T) {
 		t.Parallel()
-		a, _ := setup(t)
-		a.handleLicenseList(&protocol.Packet{
-			EMsg:    enums.EMsg_ClientLicenseList,
-			Payload: []byte{0xFF}, // invalid proto
-		})
+		_, ictx := setup(t)
+		ictx.EmitRawPacket(t, enums.EMsg_ClientLicenseList, []byte{0xFF})
 	})
 }
 
@@ -414,10 +397,7 @@ func TestApps_HandleGameConnectTokens(t *testing.T) {
 
 	t.Run("error_unmarshal", func(t *testing.T) {
 		t.Parallel()
-		a, _ := setup(t)
-		a.handleGameConnectTokens(&protocol.Packet{
-			EMsg:    enums.EMsg_ClientGameConnectTokens,
-			Payload: []byte{0xFF}, // invalid proto
-		})
+		_, ictx := setup(t)
+		ictx.EmitRawPacket(t, enums.EMsg_ClientGameConnectTokens, []byte{0xFF})
 	})
 }

@@ -15,7 +15,6 @@ import (
 	proto "google.golang.org/protobuf/proto"
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/test/mock"
 )
@@ -82,7 +81,7 @@ func TestAccount_HandleAccountInfo(t *testing.T) {
 			AccountFlags:         proto.Uint32(1337),
 		})
 
-		info := a.GetAccountInfo()
+		info := a.Info()
 		assert.Equal(t, "Arseny", info.PersonaName)
 		assert.Equal(t, "RU", info.IPCountry)
 		assert.Equal(t, int32(2), info.CountAuthedComputers)
@@ -99,13 +98,10 @@ func TestAccount_HandleAccountInfo(t *testing.T) {
 
 	t.Run("error_unmarshal", func(t *testing.T) {
 		t.Parallel()
-		a, _ := setup(t)
+		_, ictx := setup(t)
 
 		assert.NotPanics(t, func() {
-			a.handleAccountInfo(&protocol.Packet{
-				EMsg:    enums.EMsg_ClientAccountInfo,
-				Payload: []byte{0xFF}, // invalid proto
-			})
+			ictx.EmitRawPacket(t, enums.EMsg_ClientAccountInfo, []byte{0xFF})
 		})
 	})
 }
@@ -125,7 +121,7 @@ func TestAccount_HandleEmailAddrInfo(t *testing.T) {
 			EmailIsValidated: proto.Bool(true),
 		})
 
-		email := a.GetEmailInfo()
+		email := a.Email()
 		assert.Equal(t, "test@test.com", email.EmailAddress)
 		assert.True(t, email.EmailIsValidated)
 
@@ -140,13 +136,10 @@ func TestAccount_HandleEmailAddrInfo(t *testing.T) {
 
 	t.Run("error_unmarshal", func(t *testing.T) {
 		t.Parallel()
-		a, _ := setup(t)
+		_, ictx := setup(t)
 
 		assert.NotPanics(t, func() {
-			a.handleEmailAddrInfo(&protocol.Packet{
-				EMsg:    enums.EMsg_ClientEmailAddrInfo,
-				Payload: []byte{0xFF}, // invalid proto
-			})
+			ictx.EmitRawPacket(t, enums.EMsg_ClientEmailAddrInfo, []byte{0xFF})
 		})
 	})
 }
@@ -165,7 +158,7 @@ func TestAccount_HandleIsLimitedAccount(t *testing.T) {
 			BisLimitedAccount: proto.Bool(true),
 		})
 
-		limits := a.GetLimitations()
+		limits := a.Limitations()
 		assert.True(t, limits.IsLimitedAccount)
 
 		select {
@@ -179,13 +172,10 @@ func TestAccount_HandleIsLimitedAccount(t *testing.T) {
 
 	t.Run("error_unmarshal", func(t *testing.T) {
 		t.Parallel()
-		a, _ := setup(t)
+		_, ictx := setup(t)
 
 		assert.NotPanics(t, func() {
-			a.handleIsLimitedAccount(&protocol.Packet{
-				EMsg:    enums.EMsg_ClientIsLimitedAccount,
-				Payload: []byte{0xFF}, // invalid proto
-			})
+			ictx.EmitRawPacket(t, enums.EMsg_ClientIsLimitedAccount, []byte{0xFF})
 		})
 	})
 }
@@ -206,12 +196,9 @@ func TestAccount_HandleVACBanStatus(t *testing.T) {
 		binary.LittleEndian.PutUint32(payload[8:12], 440)
 		binary.LittleEndian.PutUint32(payload[12:16], 0)
 
-		a.handleVACBanStatus(&protocol.Packet{
-			EMsg:    enums.EMsg_ClientVACBanStatus,
-			Payload: payload,
-		})
+		ictx.EmitRawPacket(t, enums.EMsg_ClientVACBanStatus, payload)
 
-		vac := a.GetVACBans()
+		vac := a.VACBans()
 		assert.Equal(t, uint32(1), vac.NumBans)
 		assert.Contains(t, vac.AppIDs, uint32(440))
 
@@ -226,33 +213,26 @@ func TestAccount_HandleVACBanStatus(t *testing.T) {
 
 	t.Run("short_payload", func(t *testing.T) {
 		t.Parallel()
-		a, _ := setup(t)
+		_, ictx := setup(t)
 
 		assert.NotPanics(t, func() {
-			a.handleVACBanStatus(&protocol.Packet{
-				EMsg:    enums.EMsg_ClientVACBanStatus,
-				Payload: []byte{1, 2}, // < 4 bytes
-			})
+			ictx.EmitRawPacket(t, enums.EMsg_ClientVACBanStatus, []byte{1, 2})
 		})
 	})
 
 	t.Run("inverted_ranges", func(t *testing.T) {
 		t.Parallel()
-		a, _ := setup(t)
+		a, ictx := setup(t)
 
 		payload := make([]byte, 16)
 		binary.LittleEndian.PutUint32(payload[0:4], 1)
-		// rangeStart = 500, rangeEnd = 400 (inverted)
 		binary.LittleEndian.PutUint32(payload[4:8], 500)
 		binary.LittleEndian.PutUint32(payload[8:12], 400)
 		binary.LittleEndian.PutUint32(payload[12:16], 0)
 
-		a.handleVACBanStatus(&protocol.Packet{
-			EMsg:    enums.EMsg_ClientVACBanStatus,
-			Payload: payload,
-		})
+		ictx.EmitRawPacket(t, enums.EMsg_ClientVACBanStatus, payload)
 
-		vac := a.GetVACBans()
+		vac := a.VACBans()
 		assert.Equal(t, uint32(1), vac.NumBans)
 		assert.Contains(t, vac.AppIDs, uint32(400))
 		assert.Contains(t, vac.AppIDs, uint32(500))
@@ -262,17 +242,14 @@ func TestAccount_HandleVACBanStatus(t *testing.T) {
 
 	t.Run("payload_boundary_break", func(t *testing.T) {
 		t.Parallel()
-		a, _ := setup(t)
+		_, ictx := setup(t)
 
 		payload := make([]byte, 8)
-		binary.LittleEndian.PutUint32(payload[0:4], 2) // claims 2, but payload only has space for 0.3 bans
+		binary.LittleEndian.PutUint32(payload[0:4], 2)
 		binary.LittleEndian.PutUint32(payload[4:8], 100)
 
 		assert.NotPanics(t, func() {
-			a.handleVACBanStatus(&protocol.Packet{
-				EMsg:    enums.EMsg_ClientVACBanStatus,
-				Payload: payload,
-			})
+			ictx.EmitRawPacket(t, enums.EMsg_ClientVACBanStatus, payload)
 		})
 	})
 }
@@ -293,7 +270,7 @@ func TestAccount_HandleWalletInfoUpdate(t *testing.T) {
 			Currency:  proto.Int32(1),
 		})
 
-		wallet := a.GetWalletInfo()
+		wallet := a.Wallet()
 		assert.True(t, wallet.HasWallet)
 		assert.Equal(t, int64(1050), wallet.Balance)
 
@@ -316,25 +293,22 @@ func TestAccount_HandleWalletInfoUpdate(t *testing.T) {
 		ictx.EmitPacket(t, enums.EMsg_ClientWalletInfoUpdate, &pb.CMsgClientWalletInfoUpdate{
 			HasWallet:        proto.Bool(true),
 			Balance:          proto.Int32(100),
-			Balance64:        proto.Int64(100000000), // should override Balance
+			Balance64:        proto.Int64(100000000),
 			BalanceDelayed:   proto.Int32(50),
-			Balance64Delayed: proto.Int64(50000000), // should override BalanceDelayed
+			Balance64Delayed: proto.Int64(50000000),
 		})
 
-		wallet := a.GetWalletInfo()
+		wallet := a.Wallet()
 		assert.Equal(t, int64(100000000), wallet.Balance)
 		assert.Equal(t, int64(50000000), wallet.BalanceDelayed)
 	})
 
 	t.Run("error_unmarshal", func(t *testing.T) {
 		t.Parallel()
-		a, _ := setup(t)
+		_, ictx := setup(t)
 
 		assert.NotPanics(t, func() {
-			a.handleWalletInfoUpdate(&protocol.Packet{
-				EMsg:    enums.EMsg_ClientWalletInfoUpdate,
-				Payload: []byte{0xFF}, // invalid proto
-			})
+			ictx.EmitRawPacket(t, enums.EMsg_ClientWalletInfoUpdate, []byte{0xFF})
 		})
 	})
 }
@@ -353,7 +327,7 @@ func TestAccount_HandleVanityURLChangedNotification(t *testing.T) {
 			VanityUrl: proto.String("custom_vanity"),
 		})
 
-		assert.Equal(t, "custom_vanity", a.GetVanityURL())
+		assert.Equal(t, "custom_vanity", a.VanityURL())
 
 		select {
 		case ev := <-sub.C():
@@ -366,13 +340,10 @@ func TestAccount_HandleVanityURLChangedNotification(t *testing.T) {
 
 	t.Run("error_unmarshal", func(t *testing.T) {
 		t.Parallel()
-		a, _ := setup(t)
+		_, ictx := setup(t)
 
 		assert.NotPanics(t, func() {
-			a.handleVanityURLChangedNotification(&protocol.Packet{
-				EMsg:    enums.EMsg_ClientVanityURLChangedNotification,
-				Payload: []byte{0xFF}, // invalid proto
-			})
+			ictx.EmitRawPacket(t, enums.EMsg_ClientVanityURLChangedNotification, []byte{0xFF})
 		})
 	})
 }
@@ -389,33 +360,28 @@ func TestAccount_HandleUpdateGuestPassesList(t *testing.T) {
 
 		buf := new(bytes.Buffer)
 		_ = binary.Write(buf, binary.LittleEndian, uint32(enums.EResult_OK))
-		_ = binary.Write(buf, binary.LittleEndian, uint32(1)) // countToGive
-		_ = binary.Write(buf, binary.LittleEndian, uint32(1)) // countToRedeem
+		_ = binary.Write(buf, binary.LittleEndian, uint32(1))
+		_ = binary.Write(buf, binary.LittleEndian, uint32(1))
 
-		// First BVDF (discarded):
-		buf.WriteByte(0) // kvTypeNone
+		buf.WriteByte(0)
 		encodeCString(buf, "gift")
-		buf.WriteByte(1) // kvTypeString
+		buf.WriteByte(1)
 		encodeCString(buf, "key")
 		encodeCString(buf, "val")
-		buf.WriteByte(8) // kvTypeEnd
-		buf.WriteByte(8) // kvTypeEnd
+		buf.WriteByte(8)
+		buf.WriteByte(8)
 
-		// Second BVDF (redeem) with MessageObject:
-		buf.WriteByte(0) // kvTypeNone
+		buf.WriteByte(0)
 		encodeCString(buf, "MessageObject")
-		buf.WriteByte(1) // kvTypeString
+		buf.WriteByte(1)
 		encodeCString(buf, "name")
 		encodeCString(buf, "my_gift")
-		buf.WriteByte(8) // kvTypeEnd
-		buf.WriteByte(8) // kvTypeEnd
+		buf.WriteByte(8)
+		buf.WriteByte(8)
 
-		a.handleUpdateGuestPassesList(&protocol.Packet{
-			EMsg:    enums.EMsg_ClientUpdateGuestPassesList,
-			Payload: buf.Bytes(),
-		})
+		ictx.EmitRawPacket(t, enums.EMsg_ClientUpdateGuestPassesList, buf.Bytes())
 
-		gifts := a.GetGifts()
+		gifts := a.Gifts()
 		require.Len(t, gifts, 1)
 		assert.Equal(t, "my_gift", gifts[0]["name"])
 
@@ -431,19 +397,16 @@ func TestAccount_HandleUpdateGuestPassesList(t *testing.T) {
 
 	t.Run("short_payload", func(t *testing.T) {
 		t.Parallel()
-		a, _ := setup(t)
+		_, ictx := setup(t)
 
 		assert.NotPanics(t, func() {
-			a.handleUpdateGuestPassesList(&protocol.Packet{
-				EMsg:    enums.EMsg_ClientUpdateGuestPassesList,
-				Payload: []byte{1, 2, 3}, // < 12 bytes
-			})
+			ictx.EmitRawPacket(t, enums.EMsg_ClientUpdateGuestPassesList, []byte{1, 2, 3})
 		})
 	})
 
 	t.Run("non_ok_eresult", func(t *testing.T) {
 		t.Parallel()
-		a, _ := setup(t)
+		a, ictx := setup(t)
 
 		buf := new(bytes.Buffer)
 		_ = binary.Write(buf, binary.LittleEndian, uint32(enums.EResult_Fail))
@@ -451,47 +414,38 @@ func TestAccount_HandleUpdateGuestPassesList(t *testing.T) {
 		_ = binary.Write(buf, binary.LittleEndian, uint32(0))
 
 		assert.NotPanics(t, func() {
-			a.handleUpdateGuestPassesList(&protocol.Packet{
-				EMsg:    enums.EMsg_ClientUpdateGuestPassesList,
-				Payload: buf.Bytes(),
-			})
+			ictx.EmitRawPacket(t, enums.EMsg_ClientUpdateGuestPassesList, buf.Bytes())
 		})
-		assert.Empty(t, a.GetGifts())
+		assert.Empty(t, a.Gifts())
 	})
 
 	t.Run("parse_discard_error", func(t *testing.T) {
 		t.Parallel()
-		a, _ := setup(t)
+		_, ictx := setup(t)
 
 		buf := new(bytes.Buffer)
 		_ = binary.Write(buf, binary.LittleEndian, uint32(enums.EResult_OK))
-		_ = binary.Write(buf, binary.LittleEndian, uint32(1)) // countToGive
-		_ = binary.Write(buf, binary.LittleEndian, uint32(0)) // countToRedeem
-		buf.Write([]byte{0xFF, 0xFF})                         // invalid BVDF bytes
+		_ = binary.Write(buf, binary.LittleEndian, uint32(1))
+		_ = binary.Write(buf, binary.LittleEndian, uint32(0))
+		buf.Write([]byte{0xFF, 0xFF})
 
 		assert.NotPanics(t, func() {
-			a.handleUpdateGuestPassesList(&protocol.Packet{
-				EMsg:    enums.EMsg_ClientUpdateGuestPassesList,
-				Payload: buf.Bytes(),
-			})
+			ictx.EmitRawPacket(t, enums.EMsg_ClientUpdateGuestPassesList, buf.Bytes())
 		})
 	})
 
 	t.Run("parse_redeem_error", func(t *testing.T) {
 		t.Parallel()
-		a, _ := setup(t)
+		_, ictx := setup(t)
 
 		buf := new(bytes.Buffer)
 		_ = binary.Write(buf, binary.LittleEndian, uint32(enums.EResult_OK))
-		_ = binary.Write(buf, binary.LittleEndian, uint32(0)) // countToGive
-		_ = binary.Write(buf, binary.LittleEndian, uint32(1)) // countToRedeem
-		buf.Write([]byte{0xFF, 0xFF})                         // invalid BVDF bytes
+		_ = binary.Write(buf, binary.LittleEndian, uint32(0))
+		_ = binary.Write(buf, binary.LittleEndian, uint32(1))
+		buf.Write([]byte{0xFF, 0xFF})
 
 		assert.NotPanics(t, func() {
-			a.handleUpdateGuestPassesList(&protocol.Packet{
-				EMsg:    enums.EMsg_ClientUpdateGuestPassesList,
-				Payload: buf.Bytes(),
-			})
+			ictx.EmitRawPacket(t, enums.EMsg_ClientUpdateGuestPassesList, buf.Bytes())
 		})
 	})
 }

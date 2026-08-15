@@ -20,7 +20,7 @@ const (
 	moduleRoot = "github.com/lemon4ksan/g-man"
 
 	protoRawDir     = "./protobufs/"
-	webApiJsonInput = "./api.steampowered.com.json"
+	webAPIJsonInput = "./api.steampowered.com.json"
 
 	steamLangOutput = pkgRoot + "/steam/protocol/enums/enums.go"
 
@@ -28,7 +28,7 @@ const (
 	tf2Import   = moduleRoot + "/pkg/protobuf/tf2"
 
 	pkgRoot      = "../../pkg"
-	webApiOutput = pkgRoot + "/steam/webapi/generated.go"
+	webAPIOutput = pkgRoot + "/steam/webapi/generated.go"
 	steamOut     = pkgRoot + "/protobuf/steam"
 	tf2Out       = pkgRoot + "/protobuf/tf2"
 )
@@ -65,8 +65,8 @@ func main() {
 
 func buildWebApi(ctx context.Context) {
 	fmt.Println("🚀 Building WebAPI interfaces...")
-	ensureDir(filepath.Dir(webApiOutput))
-	execute(ctx, "go", []string{"run", "./webapi/main.go", webApiJsonInput, webApiOutput})
+	ensureDir(filepath.Dir(webAPIOutput))
+	execute(ctx, "go", []string{"run", "./webapi/main.go", webAPIJsonInput, webAPIOutput})
 }
 
 func buildProto(ctx context.Context) {
