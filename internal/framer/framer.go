@@ -6,13 +6,13 @@
 package framer
 
 import (
-	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
 	"net"
-	"sync"
+
+	"github.com/lemon4ksan/aoni/realtime/socket"
 
 	"github.com/lemon4ksan/g-man/internal/crypto"
 )
@@ -20,8 +20,6 @@ import (
 const (
 	magic              = "VT01"
 	magicUint32 uint32 = 0x31305456
-
-	maxPooledCapacity = 128 * 1024
 )
 
 var (
@@ -34,60 +32,14 @@ var (
 )
 
 // FrameBuffer encapsulates pooled memory buffers used during packet framing.
-type FrameBuffer struct {
-	B []byte
-}
+type FrameBuffer = socket.FrameBuffer
 
-// Equal checks equality against raw byte slices or another FrameBuffer.
-func (fb *FrameBuffer) Equal(other any) bool {
-	if fb == nil {
-		return other == nil
-	}
-
-	switch v := other.(type) {
-	case *FrameBuffer:
-		if v == nil {
-			return false
-		}
-
-		return bytes.Equal(fb.B, v.B)
-
-	case []byte:
-		return bytes.Equal(fb.B, v)
-	}
-
-	return false
-}
-
-var frameBufferPool = sync.Pool{
-	New: func() any {
-		return &FrameBuffer{
-			B: make([]byte, 0, 64*1024),
-		}
-	},
-}
-
-// AcquireFrameBuffer fetches a FrameBuffer from the global pool, resizing if necessary.
-func AcquireFrameBuffer(length int) *FrameBuffer {
-	fb := frameBufferPool.Get().(*FrameBuffer)
-	if cap(fb.B) < length {
-		fb.B = make([]byte, length)
-	} else {
-		fb.B = fb.B[:length]
-	}
-
-	return fb
-}
-
-// ReleaseFrameBuffer recycles a FrameBuffer back to the pool if its capacity is within safe memory limits.
-func ReleaseFrameBuffer(fb *FrameBuffer) {
-	if fb == nil || cap(fb.B) > maxPooledCapacity {
-		return
-	}
-
-	fb.B = fb.B[:0]
-	frameBufferPool.Put(fb)
-}
+var (
+	// AcquireFrameBuffer fetches a FrameBuffer from the global pool, resizing if necessary.
+	AcquireFrameBuffer = socket.AcquireFrameBuffer
+	// ReleaseFrameBuffer recycles a FrameBuffer back to the pool if its capacity is within safe memory limits.
+	ReleaseFrameBuffer = socket.ReleaseFrameBuffer
+)
 
 // SteamFramer handles length-prefixed packet framing over raw TCP streams.
 type SteamFramer struct{}
@@ -160,8 +112,25 @@ func NewSteamCipher(key []byte) *SteamCipher {
 	return &SteamCipher{sessionKey: key}
 }
 
-// Encrypt encrypts data using AES-256-CBC with derived HMAC IV.
-func (c *SteamCipher) Encrypt(data []byte) ([]byte, error) {
+// Encrypt encrypts data inside fb using AES-256-CBC with derived HMAC IV.
+func (c *SteamCipher) Encrypt(fb *FrameBuffer) (*FrameBuffer, error) {
+	if fb == nil || len(fb.B) == 0 {
+		return nil, ErrEmptyFrameBuffer
+	}
+
+	ciphertext, err := crypto.SymmetricEncryptWithHmacIv(fb.B, c.sessionKey)
+	if err != nil {
+		return nil, err
+	}
+
+	encryptedFB := AcquireFrameBuffer(len(ciphertext))
+	copy(encryptedFB.B, ciphertext)
+
+	return encryptedFB, nil
+}
+
+// EncryptBytes encrypts raw byte slice using AES-256-CBC with derived HMAC IV.
+func (c *SteamCipher) EncryptBytes(data []byte) ([]byte, error) {
 	return crypto.SymmetricEncryptWithHmacIv(data, c.sessionKey)
 }
 

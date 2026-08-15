@@ -43,11 +43,11 @@ func (m mockFramer) WriteFrame(w io.Writer, data []byte) error {
 }
 
 type mockCipher struct {
-	encFunc func(data []byte) ([]byte, error)
+	encFunc func(data *framer.FrameBuffer) (*framer.FrameBuffer, error)
 	decFunc func(data *framer.FrameBuffer) (*framer.FrameBuffer, error)
 }
 
-func (m mockCipher) Encrypt(data []byte) ([]byte, error) {
+func (m mockCipher) Encrypt(data *framer.FrameBuffer) (*framer.FrameBuffer, error) {
 	if m.encFunc != nil {
 		return m.encFunc(data)
 	}
@@ -468,8 +468,10 @@ func TestTCP_Send_Deadline(t *testing.T) {
 		}
 
 		cipher := mockCipher{
-			encFunc: func(data []byte) ([]byte, error) {
-				return []byte("encrypted"), nil
+			encFunc: func(_ *framer.FrameBuffer) (*framer.FrameBuffer, error) {
+				fb := framer.AcquireFrameBuffer(len("encrypted"))
+				copy(fb.B, []byte("encrypted"))
+				return fb, nil
 			},
 		}
 		tcp.SetCipher(cipher)
@@ -491,7 +493,7 @@ func TestTCP_Send_Errors(t *testing.T) {
 			framer:         mockFramer{},
 		}
 		badCipher := mockCipher{
-			encFunc: func(data []byte) ([]byte, error) {
+			encFunc: func(_ *framer.FrameBuffer) (*framer.FrameBuffer, error) {
 				return nil, errors.New("encrypt fail")
 			},
 		}

@@ -167,12 +167,18 @@ func (t *TCP) Send(ctx context.Context, data []byte) error {
 	cipher := t.cipher
 	t.keyMu.RUnlock()
 
-	var err error
 	if cipher != nil {
-		data, err = cipher.Encrypt(data)
+		fb := framer.AcquireFrameBuffer(len(data))
+		copy(fb.B, data)
+		enc, err := cipher.Encrypt(fb)
+		framer.ReleaseFrameBuffer(fb)
 		if err != nil {
 			return NewError(OpEncrypt, ConnTypeTCP, err)
 		}
+
+		data = make([]byte, len(enc.B))
+		copy(data, enc.B)
+		framer.ReleaseFrameBuffer(enc)
 	}
 
 	t.writeMu.Lock()

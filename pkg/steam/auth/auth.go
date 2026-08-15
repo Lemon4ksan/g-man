@@ -25,8 +25,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/lemon4ksan/g-man/internal/crypto"
-	"github.com/lemon4ksan/g-man/internal/socket/connector"
-	"github.com/lemon4ksan/g-man/internal/socket/dispatcher"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
@@ -91,8 +89,8 @@ const (
 // SocketProvider defines minimal socket capabilities required by the Authenticator.
 type SocketProvider interface {
 	SetEncryptionKey(key []byte) bool
-	RegisterMsgHandler(eMsg enums.EMsg, handler dispatcher.Handler)
-	Connect(ctx context.Context, server connector.CMServer) error
+	RegisterMsgHandler(eMsg enums.EMsg, handler socket.MsgHandler)
+	Connect(ctx context.Context, server socket.CMServer) error
 	SendProto(ctx context.Context, eMsg enums.EMsg, req proto.Message, opts ...socket.SendOption) error
 	SendRaw(ctx context.Context, eMsg enums.EMsg, payload []byte, opts ...socket.SendOption) error
 	Session() socket.Session
@@ -278,7 +276,7 @@ func NewAuthenticator(s SocketProvider, svc WebAuthenticator, bus *bus.Bus, opts
 func (a *Authenticator) State() State { return a.fsm.CurrentState() }
 
 // LogOn performs full authentication, exchanging credentials or cached refresh tokens with the Connection Manager.
-func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server connector.CMServer) error {
+func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server socket.CMServer) error {
 	if err := a.fsm.Transition(ctx, EventBegin); err != nil {
 		return ErrAuthInProgress
 	}
@@ -316,7 +314,7 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 }
 
 // LogOnAnonymous performs an anonymous login without user credentials.
-func (a *Authenticator) LogOnAnonymous(ctx context.Context, server connector.CMServer) error {
+func (a *Authenticator) LogOnAnonymous(ctx context.Context, server socket.CMServer) error {
 	if err := a.fsm.Transition(ctx, EventBegin); err != nil {
 		return ErrAuthInProgress
 	}

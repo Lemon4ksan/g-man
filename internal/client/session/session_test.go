@@ -18,7 +18,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/lemon4ksan/g-man/internal/socket/session"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
@@ -175,7 +174,7 @@ func (m *mockSocket) Session() socket.Session {
 }
 
 type mockSession struct {
-	*session.Session
+	socket.Session
 	mock.Mock
 }
 
@@ -196,6 +195,18 @@ func (m *mockSession) RefreshToken() string {
 
 func (m *mockSession) SetAccessToken(token string) {
 	m.Called(token)
+}
+
+func (m *mockSession) SetRefreshToken(token string) {
+	m.Called(token)
+}
+
+func (m *mockSession) SetSteamID(sid uint64) {
+	m.Called(sid)
+}
+
+func (m *mockSession) SetSessionID(sid int32) {
+	m.Called(sid)
 }
 
 func (m *mockSession) IsAuthenticated() bool {
@@ -609,10 +620,7 @@ func TestSession_StartRefreshLoop_TriggerRefresh_Succeeds(t *testing.T) {
 
 	m.web.On("IsAuthenticated").Return(true)
 
-	// Trigger cancel immediately inside the Verify mock to exit the loop cleanly.
-	m.web.On("Verify", mock.Anything).Return(false, nil).Run(func(args mock.Arguments) {
-		cancel()
-	})
+	m.web.On("Verify", mock.Anything).Return(false, nil)
 
 	msess := new(mockSession)
 	msess.On("RefreshToken").Return("rt_loop")
@@ -637,7 +645,9 @@ func TestSession_StartRefreshLoop_TriggerRefresh_Succeeds(t *testing.T) {
 		Payload: tokenPb,
 	}, nil)
 
-	m.web.On("Authenticate", mock.Anything, mock.Anything, "rt_loop", "at_loop").Return(nil)
+	m.web.On("Authenticate", mock.Anything, mock.Anything, "rt_loop", "at_loop").Return(nil).Run(func(args mock.Arguments) {
+		cancel()
+	})
 
 	c.session.refreshJobInterval = time.Millisecond
 

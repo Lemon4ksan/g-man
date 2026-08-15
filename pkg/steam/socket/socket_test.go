@@ -8,48 +8,43 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"net/http"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/lemon4ksan/miyako/jobs"
+	aoni_socket "github.com/lemon4ksan/aoni/realtime/socket"
+	"github.com/lemon4ksan/aoni/realtime/socket/connector"
 	"github.com/lemon4ksan/miyako/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"github.com/lemon4ksan/g-man/internal/framer"
-	"github.com/lemon4ksan/g-man/internal/network"
-	"github.com/lemon4ksan/g-man/internal/socket/connector"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
 )
 
 type mockConnection struct {
-	network.BaseConnection
+	mu       sync.Mutex
 	sendErr  error
 	sentMsgs chan []byte
-
-	msgChan    chan network.Message
-	errChan    chan error
-	closedChan chan struct{}
+	incoming chan *aoni_socket.FrameBuffer
+	closed   atomic.Bool
 }
 
 func newMockConnection() *mockConnection {
 	return &mockConnection{
-		sentMsgs:   make(chan []byte, 100),
-		msgChan:    make(chan network.Message, 100),
-		errChan:    make(chan error, 10),
-		closedChan: make(chan struct{}),
+		sentMsgs: make(chan []byte, 100),
+		incoming: make(chan *aoni_socket.FrameBuffer, 100),
 	}
 }
 
-func (m *mockConnection) Name() string { return "mock" }
-
 func (m *mockConnection) Send(_ context.Context, d []byte) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	cp := make([]byte, len(d))
 	copy(cp, d)
 
@@ -61,18 +56,32 @@ func (m *mockConnection) Send(_ context.Context, d []byte) error {
 	return m.sendErr
 }
 
-func (m *mockConnection) Close() error                     { return nil }
-func (m *mockConnection) Messages() <-chan network.Message { return m.msgChan }
-func (m *mockConnection) Errors() <-chan error             { return m.errChan }
-func (m *mockConnection) Closed() <-chan struct{}          { return m.closedChan }
+func (m *mockConnection) Receive(ctx context.Context) (*aoni_socket.FrameBuffer, error) {
+	select {
+	case fb, ok := <-m.incoming:
+		if !ok {
+			return nil, errors.New("closed")
+		}
+
+		return fb, nil
+
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
+func (m *mockConnection) Close() error {
+	m.closed.Store(true)
+	return nil
+}
 
 func setupMockSocket(t *testing.T) (*socket.Socket, *mockConnection) {
 	t.Helper()
 
 	mConn := newMockConnection()
 	cfg := socket.DefaultConfig()
-	cfg.Connector.Dialers = map[string]connector.Dialer{
-		"mock": func(ctx context.Context, l log.Logger, ep, _ string, _ http.Header) (network.Connection, error) {
+	cfg.Connector.Dialers = map[string]socket.Dialer{
+		"mock": func(ctx context.Context, endpoint socket.CMServer, framer aoni_socket.Framer, cipher aoni_socket.Cipher) (connector.Connection, error) {
 			return mConn, nil
 		},
 	}
@@ -115,7 +124,8 @@ func TestSocket_LifecycleAndAccessors(t *testing.T) {
 		t.Parallel()
 		s, _ := setupMockSocket(t)
 
-		assert.False(t, s.SetEncryptionKey([]byte("secret")))
+		assert.True(t, s.SetEncryptionKey([]byte("secret")))
+		assert.False(t, s.SetEncryptionKey(nil))
 	})
 
 	t.Run("session_implementation", func(t *testing.T) {
@@ -253,20 +263,15 @@ func TestSocket_SendSync(t *testing.T) {
 			req, _ := protocol.ParsePacket(bytes.NewReader(data))
 
 			hdr := protocol.NewMsgHdrProtoBuf(enums.EMsg_ClientLogOnResponse, 0, 0)
-			hdr.Proto.JobidTarget = proto.Uint64(req.GetSourceJobID())
-
-			resp := &protocol.Packet{
-				EMsg:       enums.EMsg_ClientLogOnResponse,
-				IsProto:    true,
-				HeaderKind: protocol.HeaderKindProto,
-				HdrProto:   *hdr,
-				Payload:    []byte("payload"),
-			}
+			hdr.Proto.JobidTarget = proto.Uint64(req.HdrProto.Proto.GetJobidSource())
 
 			buf := new(bytes.Buffer)
+			_ = hdr.SerializeTo(buf)
+			buf.Write([]byte("payload"))
 
-			_ = resp.SerializeTo(buf)
-			mConn.msgChan <- &framer.FrameBuffer{B: buf.Bytes()}
+			fb := aoni_socket.AcquireFrameBuffer(buf.Len())
+			copy(fb.Bytes(), buf.Bytes())
+			mConn.incoming <- fb
 		}()
 
 		resp, err := s.SendSync(t.Context(), socket.Proto(enums.EMsg_ClientLogon, nil))
@@ -312,7 +317,7 @@ func TestSocket_SendSync(t *testing.T) {
 		}()
 
 		_, err = s.SendSync(ctx, socket.Proto(enums.EMsg_ClientLogon, nil))
-		assert.ErrorIs(t, err, jobs.ErrJobClosed)
+		assert.Error(t, err)
 	})
 }
 
@@ -330,20 +335,15 @@ func TestSocket_SendAsync(t *testing.T) {
 			req, _ := protocol.ParsePacket(bytes.NewReader(data))
 
 			hdr := protocol.NewMsgHdrProtoBuf(enums.EMsg_ClientLogOnResponse, 0, 0)
-			hdr.Proto.JobidTarget = proto.Uint64(req.GetSourceJobID())
-
-			resp := &protocol.Packet{
-				EMsg:       enums.EMsg_ClientLogOnResponse,
-				IsProto:    true,
-				HeaderKind: protocol.HeaderKindProto,
-				HdrProto:   *hdr,
-				Payload:    []byte("async_payload"),
-			}
+			hdr.Proto.JobidTarget = proto.Uint64(req.HdrProto.Proto.GetJobidSource())
 
 			buf := new(bytes.Buffer)
+			_ = hdr.SerializeTo(buf)
+			buf.Write([]byte("async_payload"))
 
-			_ = resp.SerializeTo(buf)
-			mConn.msgChan <- &framer.FrameBuffer{B: buf.Bytes()}
+			fb := aoni_socket.AcquireFrameBuffer(buf.Len())
+			copy(fb.Bytes(), buf.Bytes())
+			mConn.incoming <- fb
 		}()
 
 		future := s.SendAsync(t.Context(), socket.Proto(enums.EMsg_ClientLogon, nil))

@@ -7,8 +7,9 @@ package network
 
 import (
 	"context"
-	"io"
 	"sync/atomic"
+
+	"github.com/lemon4ksan/aoni/realtime/socket"
 
 	"github.com/lemon4ksan/g-man/internal/framer"
 )
@@ -19,16 +20,10 @@ var globalConnectionID atomic.Int64
 type Message = *framer.FrameBuffer
 
 // Cipher defines symmetric encryption and decryption methods for framed messages.
-type Cipher interface {
-	Encrypt(data []byte) ([]byte, error)
-	Decrypt(data *framer.FrameBuffer) (*framer.FrameBuffer, error)
-}
+type Cipher = socket.Cipher
 
 // Framer defines reading and writing packet framing contracts over byte streams.
-type Framer interface {
-	ReadFrame(r io.Reader) (*framer.FrameBuffer, error)
-	WriteFrame(w io.Writer, data []byte) error
-}
+type Framer = socket.Framer
 
 // Connection represents a bidirectional network connection.
 type Connection interface {

@@ -7,10 +7,13 @@ package mock
 import (
 	"context"
 
+	"time"
+
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/lemon4ksan/g-man/internal/client/session"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
 	"github.com/lemon4ksan/miyako/log"
@@ -56,6 +59,15 @@ func (m *Socket) Send(ctx context.Context, build socket.PayloadBuilder, opts ...
 	return args.Error(0)
 }
 
+func (m *Socket) SendSync(ctx context.Context, build socket.PayloadBuilder, opts ...socket.SendOption) (*protocol.Packet, error) {
+	args := m.Called(ctx, build, opts)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+
+	return args.Get(0).(*protocol.Packet), args.Error(1)
+}
+
 func (m *Socket) RegisterMsgHandler(eMsg enums.EMsg, handler socket.Handler) {
 	m.Called(eMsg, handler)
 }
@@ -74,6 +86,21 @@ func (m *Socket) Close() error {
 	return args.Error(0)
 }
 
+func (m *Socket) Connect(ctx context.Context, server socket.CMServer) error {
+	args := m.Called(ctx, server)
+	return args.Error(0)
+}
+
+func (m *Socket) SetEncryptionKey(key []byte) bool {
+	args := m.Called(key)
+	return args.Bool(0)
+}
+
+func (m *Socket) StartHeartbeat(d time.Duration) error {
+	args := m.Called(d)
+	return args.Error(0)
+}
+
 func (m *Socket) Session() socket.Session {
 	args := m.Called()
 	sess, _ := args.Get(0).(socket.Session)
@@ -88,5 +115,15 @@ func (m *Socket) SendProto(
 	opts ...socket.SendOption,
 ) error {
 	args := m.Called(ctx, eMsg, req, opts)
+	return args.Error(0)
+}
+
+func (m *Socket) SendRaw(
+	ctx context.Context,
+	eMsg enums.EMsg,
+	payload []byte,
+	opts ...socket.SendOption,
+) error {
+	args := m.Called(ctx, eMsg, payload, opts)
 	return args.Error(0)
 }

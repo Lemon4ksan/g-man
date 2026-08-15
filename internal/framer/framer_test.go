@@ -252,11 +252,17 @@ func TestSteamCipher_Custom(t *testing.T) {
 		require.NotNil(t, cipher)
 
 		data := []byte("hello_world_12345")
-		encrypted, err := cipher.Encrypt(data)
-		require.NoError(t, err)
+		fb := framer.AcquireFrameBuffer(len(data))
+		copy(fb.B, data)
 
-		decrypted, err := cipher.Decrypt(&framer.FrameBuffer{B: encrypted})
+		encrypted, err := cipher.Encrypt(fb)
 		require.NoError(t, err)
+		defer framer.ReleaseFrameBuffer(encrypted)
+
+		decrypted, err := cipher.Decrypt(encrypted)
+		require.NoError(t, err)
+		defer framer.ReleaseFrameBuffer(decrypted)
+
 		assert.Equal(t, data, decrypted.B)
 	})
 }
