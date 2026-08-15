@@ -742,6 +742,7 @@ func (ctx *initContext) Invoke(c context.Context, op any, payload []byte) ([]byt
 
 	case int:
 		emsg := enums.EMsg(v)
+
 		pkt, err := ctx.Client.socket.SendSync(c, socket.Raw(emsg, payload))
 		if err != nil {
 			return nil, err
@@ -751,6 +752,7 @@ func (ctx *initContext) Invoke(c context.Context, op any, payload []byte) ([]byt
 
 	case uint32:
 		emsg := enums.EMsg(v)
+
 		pkt, err := ctx.Client.socket.SendSync(c, socket.Raw(emsg, payload))
 		if err != nil {
 			return nil, err

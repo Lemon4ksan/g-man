@@ -303,6 +303,7 @@ func (a *Apps) handleGameConnectTokens(msg *pb.CMsgClientGameConnectTokens) {
 		if maxKeep > 0 && len(combined) > maxKeep {
 			combined = combined[len(combined)-maxKeep:]
 		}
+
 		s.ConnectTokens = combined
 	})
 

@@ -25,7 +25,6 @@ var (
 // @protocol rpc
 // @requester "module.InitContext"
 type Events interface {
-
 	// @event enums.EMsg_ClientItemAnnouncements
 	OnItemAnnouncements(handler func(msg *pb.CMsgClientItemAnnouncements)) (unsubscribe func())
 
@@ -43,7 +42,9 @@ type Events interface {
 	OnMarketingMessages(handler func(msg *MarketingMessagesEvent)) (unsubscribe func())
 
 	// @event "SteamNotificationClient.NotificationsReceived#1"
-	OnNotificationsReceived(handler func(msg *pb.CSteamNotification_NotificationsReceived_Notification)) (unsubscribe func())
+	OnNotificationsReceived(
+		handler func(msg *pb.CSteamNotification_NotificationsReceived_Notification),
+	) (unsubscribe func())
 
 	// --- Outbound Notifications (One-Way) ---
 

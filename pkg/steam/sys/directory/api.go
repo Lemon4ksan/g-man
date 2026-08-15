@@ -47,7 +47,6 @@ type CMListRequest struct {
 	MaxCount uint32 `url:"maxcount,omitempty"`
 }
 
-// CMListResponse response for GetCMList.
 type CMListResponse struct {
 	ServerList           []string `json:"serverlist"`
 	ServerListWebsockets []string `json:"serverlist_websockets"`
@@ -63,12 +62,10 @@ type CMListForConnectRequest struct {
 	Realm    string `url:"realm,omitempty"`
 }
 
-// CMListForConnectResponse response for GetCMListForConnect.
 type CMListForConnectResponse struct {
 	ServerList []CMServer `json:"serverlist"`
 }
 
-// SteamPipeDomainsResponse response for GetSteamPipeDomains.
 type SteamPipeDomainsResponse struct {
 	DomainList []string `json:"domainlist"`
 }

@@ -141,7 +141,7 @@ type Base struct {
 	Ctx     context.Context
 	Cancel  context.CancelFunc
 	Wg      *sync.WaitGroup
-	Deps   []string
+	Deps    []string
 
 	mu     *sync.Mutex
 	unregs []func()
@@ -219,6 +219,7 @@ func (b *Base) Track(unregs ...func()) {
 			b.unregs = append(b.unregs, u)
 		}
 	}
+
 	b.mu.Unlock()
 }
 

@@ -25,7 +25,6 @@ var (
 // @protocol rpc
 // @requester "module.InitContext"
 type Events interface {
-
 	// @event enums.EMsg_ClientFriendsList
 	OnFriendsList(handler func(msg *pb.CMsgClientFriendsList)) (unsubscribe func())
 

@@ -98,6 +98,7 @@ func DefaultDialers() map[string]Dialer {
 	return map[string]Dialer{
 		"tcp": func(ctx context.Context, endpoint CMServer, framer socket.Framer, cipher socket.Cipher) (connector.Connection, error) {
 			var d net.Dialer
+
 			conn, err := d.DialContext(ctx, "tcp", endpoint.Endpoint)
 			if err != nil {
 				return nil, fmt.Errorf("tcp dial: %w", err)

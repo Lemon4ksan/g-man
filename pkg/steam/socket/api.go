@@ -12,7 +12,7 @@ import (
 )
 
 // SteamSocket is the interface for the Steam socket unified API.
-// 
+//
 // @aoni:socket
 // @endpoint CMServer
 // @packet *protocol.Packet

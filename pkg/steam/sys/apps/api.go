@@ -25,7 +25,6 @@ var (
 // @protocol rpc
 // @requester "module.InitContext"
 type Events interface {
-
 	// @event enums.EMsg_ClientPlayingSessionState
 	OnPlayingSessionState(handler func(msg *pb.CMsgClientPlayingSessionState)) (unsubscribe func())
 
@@ -38,7 +37,10 @@ type Events interface {
 	// --- Outbound RPCs ---
 
 	// @op enums.EMsg_ClientGetNumberOfCurrentPlayersDP
-	GetPlayerCount(ctx context.Context, req *pb.CMsgDPGetNumberOfCurrentPlayers) (*pb.CMsgDPGetNumberOfCurrentPlayersResponse, error)
+	GetPlayerCount(
+		ctx context.Context,
+		req *pb.CMsgDPGetNumberOfCurrentPlayers,
+	) (*pb.CMsgDPGetNumberOfCurrentPlayersResponse, error)
 
 	// --- Outbound Notifications (One-Way) ---
 

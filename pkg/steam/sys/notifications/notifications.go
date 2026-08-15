@@ -227,6 +227,7 @@ func (n *Notifications) handleUserNotifications(msg *pb.CMsgClientUserNotificati
 			counts[notifType] = count
 			changed = true
 		}
+
 		s.LastNotificationCounts = counts
 	})
 

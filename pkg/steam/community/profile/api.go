@@ -8,17 +8,18 @@ import (
 	"context"
 
 	"github.com/lemon4ksan/aoni"
+
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 )
 
 var _ = community.BaseURL
 
-// SteamProfileAPI is an interface for the Steam profile API.
-// 
-// @aoni:service
+// API is an interface for the Steam profile API.
+//
+// @aoni:service casing=snake_case
 // @engine custom type="community.Requester" required
 // @base_url "https://steamcommunity.com"
-type SteamProfileAPI interface {
+type API interface {
 	// @get "profiles/{steamID}/edit/info"
 	// @return body | attr(css="#profile_edit_config", name="data-profile-edit") | html_unescape | json
 	GetEditConfig(ctx context.Context, steamID uint64, mods ...aoni.RequestModifier) (*rawProfileEditConfig, error)
@@ -29,19 +30,21 @@ type SteamProfileAPI interface {
 
 	// @post "profiles/{steamID}/edit"
 	// @form
-	SaveProfile(ctx context.Context, steamID uint64, req *profileSaveRequest, mods ...aoni.RequestModifier) (*saveResponse, error)
+	SaveProfile(
+		ctx context.Context,
+		steamID uint64,
+		req *profileSaveRequest,
+		mods ...aoni.RequestModifier,
+	) (*saveResponse, error)
 
 	// @post "profiles/{steamID}/ajaxsetprivacy"
-	// @form
+	// @form casing=flatcase
 	SavePrivacy(
 		ctx context.Context,
 		steamID uint64,
-		// @field "sessionid"
 		sessionID string,
-		// @field "Privacy" = json | url_escape
-		privacy rawPrivacySettings,
-		// @field "eCommentPermission"
-		commentPermission int,
+		privacy rawPrivacySettings, // @field "Privacy" = json | url_escape
+		commentPermission int,      // @field "eCommentPermission"
 		mods ...aoni.RequestModifier,
 	) (*privacyResponse, error)
 
@@ -49,18 +52,12 @@ type SteamProfileAPI interface {
 	// @multipart
 	UploadAvatarFile(
 		ctx context.Context,
-		// @part "type"
-		uploadType string,
-		// @part "sId"
-		steamID string,
-		// @part "sessionid"
-		sessionID string,
-		// @part "doSub"
-		doSub string,
-		// @part "json"
-		jsonFlag string,
-		// @file name="avatar" filename="{filename}" content_type="{contentType}"
-		image []byte,
+		uploadType string, // @part "type"
+		steamID string,    // @part "sId"
+		sessionID string,  // @part "sessionid"
+		doSub string,      // @part "doSub"
+		jsonFlag string,   // @part "json"
+		image []byte,      // @file name="avatar" filename="{filename}" content_type="{contentType}"
 		filename string,
 		contentType string,
 		mods ...aoni.RequestModifier,

@@ -275,10 +275,6 @@ func (m *Manager) StopPolling() {
 	}
 }
 
-func (m *Manager) enrichOfferDescriptions(ctx context.Context, offer *trading.TradeOffer) error {
-	return m.enricher.EnrichOffer(ctx, m.web, m.config.AppID, m.config.Language, offer)
-}
-
 func (m *Manager) enrichItemsDescriptions(ctx context.Context, items []*trading.Item) error {
 	return m.enricher.EnrichItems(ctx, m.web, m.config.AppID, m.config.Language, items)
 }

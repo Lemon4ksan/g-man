@@ -188,6 +188,9 @@ func (m *ServiceMock) Request(
 }
 
 func (m *ServiceMock) findError(method, path string) error {
+	pathOnly := strings.Split(path, "?")[0]
+	cleanPath := strings.Trim(pathOnly, "/")
+
 	key := fmt.Sprintf("%s:%s", method, path)
 	if err, ok := m.ResponseErrs[key]; ok && err != nil {
 		return err
@@ -195,8 +198,19 @@ func (m *ServiceMock) findError(method, path string) error {
 	if err, ok := m.ResponseErrs[path]; ok && err != nil {
 		return err
 	}
+	if err, ok := m.ResponseErrs[cleanPath]; ok && err != nil {
+		return err
+	}
 
-	cleanPath := strings.Trim(path, "/")
+	for k, err := range m.ResponseErrs {
+		if err == nil {
+			continue
+		}
+		if strings.Contains(cleanPath, k) || strings.Contains(k, cleanPath) {
+			return err
+		}
+	}
+
 	parts := strings.Split(cleanPath, "/")
 	if len(parts) > 0 {
 		mName := parts[0]
@@ -211,6 +225,9 @@ func (m *ServiceMock) findError(method, path string) error {
 }
 
 func (m *ServiceMock) findJSONResponse(method, path string) ([]byte, bool) {
+	pathOnly := strings.Split(path, "?")[0]
+	cleanPath := strings.Trim(pathOnly, "/")
+
 	key := fmt.Sprintf("%s:%s", method, path)
 	if respData, ok := m.restResponses[key]; ok {
 		return respData.Body, true
@@ -219,8 +236,18 @@ func (m *ServiceMock) findJSONResponse(method, path string) ([]byte, bool) {
 		body, _ := json.Marshal(data)
 		return body, true
 	}
+	if data, ok := m.jsonResponses[cleanPath]; ok {
+		body, _ := json.Marshal(data)
+		return body, true
+	}
 
-	cleanPath := strings.Trim(path, "/")
+	for k, data := range m.jsonResponses {
+		if strings.Contains(cleanPath, k) || strings.Contains(k, cleanPath) {
+			body, _ := json.Marshal(data)
+			return body, true
+		}
+	}
+
 	parts := strings.Split(cleanPath, "/")
 	if len(parts) > 0 {
 		mName := parts[0]

@@ -31,7 +31,9 @@ var (
 	rxMarketApps     = regexp.MustCompile(`https?://steamcommunity.com/market/search\?appid=(\d+)`)
 	rxGameAnchor     = regexp.MustCompile(`(?s)<a\s+([^>]*class="[^"]*game_button[^"]*"[^>]*)>(.*?)</a>`)
 	rxHref           = regexp.MustCompile(`href="([^"]*)"`)
-	rxGameName       = regexp.MustCompile(`(?s)<span[^>]*class="[^"]*game_button_game_name[^"]*"[^>]*>\s*(.*?)\s*</span>`)
+	rxGameName       = regexp.MustCompile(
+		`(?s)<span[^>]*class="[^"]*game_button_game_name[^"]*"[^>]*>\s*(.*?)\s*</span>`,
+	)
 )
 
 var (
@@ -83,7 +85,7 @@ type Market struct {
 	mu     sync.RWMutex
 	config Config
 	client community.Requester
-	api    SteamMarketAPI
+	api    API
 }
 
 // New constructs a Market module.
@@ -96,9 +98,9 @@ func New(cfg Config) *Market {
 
 // NewWithClient constructs a Market module with an explicit community requester.
 func NewWithClient(cfg Config, client community.Requester) *Market {
-	var api SteamMarketAPI
+	var api API
 	if client != nil {
-		api = MustNewSteamMarketAPI(client)
+		api = MustNewAPI(client)
 	}
 
 	return &Market{
@@ -115,7 +117,7 @@ func (m *Market) StartAuthed(ctx context.Context, auth module.AuthContext) error
 		mod.WithHeader("X-Requested-With", "XMLHttpRequest"),
 		mod.WithHeader("X-Prototype-Version", "1.7"),
 	)
-	api := MustNewSteamMarketAPI(decorated)
+	api := MustNewAPI(decorated)
 
 	m.mu.Lock()
 	m.client = decorated
@@ -302,6 +304,7 @@ func (m *Market) GetMarketApps(ctx context.Context) (map[uint32]string, error) {
 	}
 
 	apps := make(map[uint32]string)
+
 	anchors := rxGameAnchor.FindAllSubmatch(bodyBytes, -1)
 	for _, anchor := range anchors {
 		attrs := anchor[1]
@@ -517,7 +520,7 @@ func (m *Market) UnpackGemSacks(ctx context.Context, assetID uint64, sackCount i
 	return m.GemExchange(ctx, assetID, 1000, 1, sackCount, sackCount*1000)
 }
 
-func (m *Market) ensureAuthenticated() (SteamMarketAPI, error) {
+func (m *Market) ensureAuthenticated() (API, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 

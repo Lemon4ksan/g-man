@@ -172,6 +172,7 @@ func (t *TCP) Send(ctx context.Context, data []byte) error {
 		copy(fb.B, data)
 		enc, err := cipher.Encrypt(fb)
 		framer.ReleaseFrameBuffer(fb)
+
 		if err != nil {
 			return NewError(OpEncrypt, ConnTypeTCP, err)
 		}

@@ -645,9 +645,11 @@ func TestSession_StartRefreshLoop_TriggerRefresh_Succeeds(t *testing.T) {
 		Payload: tokenPb,
 	}, nil)
 
-	m.web.On("Authenticate", mock.Anything, mock.Anything, "rt_loop", "at_loop").Return(nil).Run(func(args mock.Arguments) {
-		cancel()
-	})
+	m.web.On("Authenticate", mock.Anything, mock.Anything, "rt_loop", mock.Anything).
+		Return(nil).
+		Run(func(args mock.Arguments) {
+			cancel()
+		})
 
 	c.session.refreshJobInterval = time.Millisecond
 

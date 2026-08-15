@@ -8,35 +8,58 @@ import (
 	"context"
 
 	"github.com/lemon4ksan/aoni"
+
+	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 )
 
+var _ = community.BaseURL
+
+// API defines the Steam inventory API.
+//
 // @aoni:service casing=snake_case
+// @engine custom type="community.Requester" required
 // @base_url "https://steamcommunity.com/"
 // @header "Origin: https://steamcommunity.com"
-type InventoryAPI interface {
+type API interface {
 	// @get "inventory/{steamID}/{appID}/{contextID}"
 	// @header "Referer: https://steamcommunity.com/profiles/{steamID}/inventory"
-	GetInventoryPage(ctx context.Context, steamID uint64, appID uint32, contextID int64, req GetInventoryPageRequest, mods ...aoni.RequestModifier) (*inventoryResponse, error)
+	GetInventoryPage(
+		ctx context.Context,
+		steamID uint64,
+		appID uint32,
+		contextID int64,
+		req GetInventoryPageRequest,
+		mods ...aoni.RequestModifier,
+	) (*inventoryResponse, error)
 
 	// @get "profiles/{userID}/inventory"
 	GetInventoryHTML(ctx context.Context, userID uint64, mods ...aoni.RequestModifier) ([]byte, error)
 
 	// @get "profiles/{steamID}/inventoryhistory"
-	GetInventoryHistoryHTML(ctx context.Context, steamID id.ID, req InventoryHistoryParams, mods ...aoni.RequestModifier) ([]byte, error)
+	GetInventoryHistoryHTML(
+		ctx context.Context,
+		steamID id.ID,
+		req InventoryHistoryParams,
+		mods ...aoni.RequestModifier,
+	) ([]byte, error)
 }
 
+// GetInventoryPageRequest defines the request for getting an inventory page.
+//
 // @aoni:dto casing=snake_case
 type GetInventoryPageRequest struct {
-	Language     string `json:"l" url:"l"`
-	Count        int    `json:"count" url:"count"`
+	Language     string `json:"l"                       url:"l"`
+	Count        int    `json:"count"                   url:"count"`
 	StartAssetID string `json:"start_assetid,omitempty" url:"start_assetid,omitempty"`
 }
 
+// InventoryHistoryParams defines the parameters for getting inventory history.
+//
 // @aoni:dto casing=snake_case
 type InventoryHistoryParams struct {
-	Language   string `json:"l" url:"l"`
-	AfterTime  int64  `json:"after_time,omitempty" url:"after_time,omitempty"`
+	Language   string `json:"l"                     url:"l"`
+	AfterTime  int64  `json:"after_time,omitempty"  url:"after_time,omitempty"`
 	AfterTrade uint64 `json:"after_trade,omitempty" url:"after_trade,omitempty"`
-	Direction  int    `json:"prev" url:"prev"`
+	Direction  int    `json:"prev"                  url:"prev"`
 }

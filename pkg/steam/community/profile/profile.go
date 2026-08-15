@@ -83,22 +83,26 @@ type PrivacySettings struct {
 
 // EditProfile updates profile display details.
 func EditProfile(ctx context.Context, client community.Requester, steamID id.ID, settings Settings) error {
-	api := MustNewSteamProfileAPI(client)
+	api := MustNewAPI(client)
 
 	currentConfig, err := api.GetEditConfig(ctx, uint64(steamID))
 	if err != nil {
 		if errors.Is(err, decode.ErrElementNotFound) || strings.Contains(err.Error(), "element not found") {
 			return ErrConfigNotFound
 		}
+
 		if errors.Is(err, decode.ErrAttrNotFound) || strings.Contains(err.Error(), "attribute not found") {
 			return ErrMissingDataAttr
 		}
+
 		if strings.Contains(err.Error(), "json unmarshal") || strings.Contains(err.Error(), "failed to unmarshal") {
 			return fmt.Errorf("profile: failed to unmarshal config: %w", err)
 		}
+
 		if strings.Contains(err.Error(), "read error") {
 			return fmt.Errorf("profile: failed to parse HTML: %w", err)
 		}
+
 		return fmt.Errorf("profile: failed to fetch edit page: %w", err)
 	}
 
@@ -123,22 +127,26 @@ func UpdatePrivacySettings(
 	steamID id.ID,
 	settings PrivacySettings,
 ) error {
-	api := MustNewSteamProfileAPI(client)
+	api := MustNewAPI(client)
 
 	currentConfig, err := api.GetPrivacyConfig(ctx, uint64(steamID))
 	if err != nil {
 		if errors.Is(err, decode.ErrElementNotFound) || strings.Contains(err.Error(), "element not found") {
 			return ErrConfigNotFound
 		}
+
 		if errors.Is(err, decode.ErrAttrNotFound) || strings.Contains(err.Error(), "attribute not found") {
 			return ErrMissingDataAttr
 		}
+
 		if strings.Contains(err.Error(), "json unmarshal") || strings.Contains(err.Error(), "failed to unmarshal") {
 			return fmt.Errorf("profile: failed to unmarshal config: %w", err)
 		}
+
 		if strings.Contains(err.Error(), "read error") {
 			return fmt.Errorf("profile: failed to parse HTML: %w", err)
 		}
+
 		return fmt.Errorf("profile: failed to fetch settings page: %w", err)
 	}
 
@@ -175,7 +183,7 @@ func UploadAvatar(
 		return "", err
 	}
 
-	api := MustNewSteamProfileAPI(client)
+	api := MustNewAPI(client)
 
 	resp, err := api.UploadAvatarFile(
 		ctx,

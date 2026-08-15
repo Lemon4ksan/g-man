@@ -9,59 +9,47 @@ import (
 	"io"
 
 	"github.com/lemon4ksan/aoni"
+
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 )
 
 var _ = community.BaseURL
 
-// SteamMarketAPI is an interface for the Steam Community Market endpoints.
+// API is an interface for the Steam Community Market endpoints.
 //
-// @aoni:service
+// @aoni:service casing=snake_case
 // @engine custom type="community.Requester" required
 // @base_url "https://steamcommunity.com"
-type SteamMarketAPI interface {
+type API interface {
 	// @post "market/sellitem"
-	// @form
+	// @form casing=flatcase
 	// @preset :xhr
 	// @inject field="sessionid" from="SessionID"
 	// @referer "profiles/{steamID}/inventory?modal=1&market=1"
 	SellItem(
 		ctx context.Context,
-		// @field "appid"
 		appID uint32,
-		// @field "contextid"
 		contextID int64,
-		// @field "assetid"
 		assetID uint64,
-		// @field "amount"
-		amount int,
-		// @field "price"
-		price int,
+		amount, price int,
 		steamID id.ID,
 		mods ...aoni.RequestModifier,
 	) (*CreateSellOrderResponse, error)
 
 	// @post "market/createbuyorder"
-	// @form
+	// @form casing=snake_case
 	// @preset :xhr
 	// @inject field="sessionid" from="SessionID"
 	// @referer "market/listings/{appID}/{marketHashName:escape}"
 	CreateBuyOrder(
 		ctx context.Context,
-		// @field "appid"
-		appID uint32,
-		// @field "currency"
+		appID uint32, // @field "appid"
 		currency CurrencyCode,
-		// @field "market_hash_name"
 		marketHashName string,
-		// @field "price_total"
 		priceTotal string,
-		// @field "quantity"
 		quantity int,
-		// @field "billing_state"
 		billingState string,
-		// @field "save_my_address"
 		saveMyAddress string,
 		mods ...aoni.RequestModifier,
 	) (*CreateBuyOrderResponse, error)
@@ -73,8 +61,7 @@ type SteamMarketAPI interface {
 	// @referer :origin
 	CancelBuyOrder(
 		ctx context.Context,
-		// @field "buy_orderid"
-		buyOrderID uint64,
+		buyOrderID uint64, // @field "buy_orderid"
 		mods ...aoni.RequestModifier,
 	) (*basicMarketResponse, error)
 
@@ -83,137 +70,96 @@ type SteamMarketAPI interface {
 	// @preset :xhr
 	// @inject field="sessionid" from="SessionID"
 	// @referer :origin
-	RemoveListing(
-		ctx context.Context,
-		listingID uint64,
-		mods ...aoni.RequestModifier,
-	) (*basicMarketResponse, error)
+	RemoveListing(ctx context.Context, listingID uint64, mods ...aoni.RequestModifier) (*basicMarketResponse, error)
 
 	// @get "market/search/render"
 	// @preset :xhr
 	// @referer "market/search?appid={appID}"
 	Search(
 		ctx context.Context,
-		// @query "appid"
-		appID uint32,
+		appID uint32, // @query "appid"
 		opts SearchOptions,
 		mods ...aoni.RequestModifier,
 	) (*SearchResponse, error)
 
 	// @get "market/priceoverview"
+	// @query casing=flatcase
 	// @preset :xhr
 	// @referer "market/listings/{appID}/{marketHashName:escape}"
 	GetPriceOverview(
 		ctx context.Context,
-		// @query "appid"
 		appID uint32,
-		// @query "currency"
 		currency CurrencyCode,
-		// @query "market_hash_name"
-		marketHashName string,
+		marketHashName string, // @query "market_hash_name"
 		mods ...aoni.RequestModifier,
 	) (*PriceOverviewResponse, error)
 
 	// @get "market/itemordershistogram"
+	// @query casing=snake_case
 	// @preset :xhr
 	// @referer "market/listings/{appID}/{marketHashName:escape}"
 	GetItemOrdersHistogram(
 		ctx context.Context,
-		appID uint32,
-		marketHashName string,
-		// @query "country"
+		appID uint32, // @query "appid"
+		marketHashName string, // @var
 		country string,
-		// @query "language"
 		language string,
-		// @query "currency"
 		currency CurrencyCode,
-		// @query "item_nameid"
-		itemNameID uint64,
-		// @query "two_factor"
+		itemNameID uint64, // @query "item_nameid"
 		twoFactor int,
 		mods ...aoni.RequestModifier,
 	) (*ItemOrdersHistogramResponse, error)
 
 	// @get "market/mylistings"
+	// @query casing=snake_case
 	// @preset :xhr
 	// @referer :origin
-	GetMyListings(
-		ctx context.Context,
-		// @query "start"
-		start int,
-		// @query "count"
-		count int,
-		// @query "norender"
-		norender int,
-		mods ...aoni.RequestModifier,
-	) (*MyListingsResponse, error)
+	GetMyListings(ctx context.Context, start, count, norender int, mods ...aoni.RequestModifier) (*MyListingsResponse, error)
 
 	// @get "market"
 	// @referer :origin
 	GetMarketPage(ctx context.Context, mods ...aoni.RequestModifier) (io.ReadCloser, error)
 
 	// @get "ajaxgetgoovalue"
+	// @query casing=flatcase
 	// @preset :xhr
 	// @referer :origin
-	GetGooValue(
-		ctx context.Context,
-		// @query "appid"
-		appID uint32,
-		// @query "contextid"
-		contextID int64,
-		// @query "assetid"
-		assetID uint64,
-		mods ...aoni.RequestModifier,
-	) (*gemValueResponse, error)
+	GetGooValue(ctx context.Context, appID uint32, contextID int64, assetID uint64, mods ...aoni.RequestModifier) (*gemValueResponse, error)
 
 	// @post "ajaxgrindintogoo"
-	// @form
+	// @form casing=flatcase
 	// @preset :xhr
 	// @inject field="sessionid" from="SessionID"
 	// @referer :origin
 	GrindIntoGoo(
 		ctx context.Context,
-		// @field "appid"
 		appID uint32,
-		// @field "contextid"
 		contextID int64,
-		// @field "assetid"
 		assetID uint64,
-		// @field "goo_value_expected"
-		gooValueExpected int,
+		gooValueExpected int, // @field "goo_value_expected"
 		mods ...aoni.RequestModifier,
 	) (*grindGooResponse, error)
 
 	// @post "ajaxunpackbooster"
-	// @form
+	// @form casing=flatcase
 	// @preset :xhr
 	// @inject field="sessionid" from="SessionID"
 	// @referer :origin
-	UnpackBooster(
-		ctx context.Context,
-		// @field "appid"
-		appID uint32,
-		// @field "communityitemid"
-		communityItemID uint64,
-		mods ...aoni.RequestModifier,
-	) (*unpackBoosterResponse, error)
+	UnpackBooster(ctx context.Context, appID uint32, communityItemID uint64, mods ...aoni.RequestModifier) (*unpackBoosterResponse, error)
 
 	// @get "tradingcards/boostercreator"
 	// @referer :origin
 	GetBoosterCreatorPage(ctx context.Context, mods ...aoni.RequestModifier) (io.ReadCloser, error)
 
 	// @post "tradingcards/ajaxcreatebooster"
-	// @form
+	// @form casing=snake_case
 	// @preset :xhr
 	// @inject field="sessionid" from="SessionID"
 	// @referer "tradingcards/boostercreator"
 	CreateBooster(
 		ctx context.Context,
-		// @field "appid"
-		appID uint32,
-		// @field "series"
+		appID uint32, // @field "appid"
 		series int,
-		// @field "tradability_preference"
 		tradabilityPreference int,
 		mods ...aoni.RequestModifier,
 	) (*createBoosterResponse, error)
@@ -223,42 +169,28 @@ type SteamMarketAPI interface {
 	// @preset :xhr
 	// @inject field="sessionid" from="SessionID"
 	// @referer :origin
-	ValidateUnpackGift(
-		ctx context.Context,
-		giftID uint64,
-		mods ...aoni.RequestModifier,
-	) (*giftDetailsResponse, error)
+	ValidateUnpackGift(ctx context.Context, giftID uint64, mods ...aoni.RequestModifier) (*giftDetailsResponse, error)
 
 	// @post "gifts/{giftID}/unpack"
 	// @form
 	// @preset :xhr
 	// @inject field="sessionid" from="SessionID"
 	// @referer :origin
-	UnpackGift(
-		ctx context.Context,
-		giftID uint64,
-		mods ...aoni.RequestModifier,
-	) (*redeemGiftResponse, error)
+	UnpackGift(ctx context.Context, giftID uint64, mods ...aoni.RequestModifier) (*redeemGiftResponse, error)
 
 	// @post "ajaxexchangegoo"
-	// @form
+	// @form casing=flatcase
 	// @preset :xhr
 	// @inject field="sessionid" from="SessionID"
 	// @referer :origin
 	ExchangeGoo(
 		ctx context.Context,
-		// @field "appid"
 		appID uint32,
-		// @field "assetid"
 		assetID uint64,
-		// @field "goo_denomination_in"
-		gooDenomIn int,
-		// @field "goo_amount_in"
-		gooAmountIn int,
-		// @field "goo_denomination_out"
-		gooDenomOut int,
-		// @field "goo_amount_out_expected"
-		gooAmountOutExpected int,
+		gooDenomIn int, // @field "goo_denomination_in"
+		gooAmountIn int, // @field "goo_amount_in"
+		gooDenomOut int, // @field "goo_denomination_out"
+		gooAmountOutExpected int, // @field "goo_amount_out_expected"
 		mods ...aoni.RequestModifier,
 	) (*gemExchangeResponse, error)
 }

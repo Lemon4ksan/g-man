@@ -445,5 +445,6 @@ func (s *Socket) SetEncryptionKey(key []byte) bool {
 	}
 
 	s.conn.SetCipher(framer.NewSteamCipher(key))
+
 	return true
 }

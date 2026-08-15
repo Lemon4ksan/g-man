@@ -114,14 +114,19 @@ func main() {
 	outFlag := flag.String("out", "pkg/steam/webapi/api.go", "Path to output declarative aoni Go file")
 	fetchFlag := flag.Bool("fetch", false, "Fetch latest schema from Valve Steam WebAPI")
 	runAoniGen := flag.Bool("run-aoni-gen", true, "Automatically run aoni-gen after creating api.go")
+
 	flag.Parse()
 
-	var data []byte
-	var err error
+	var (
+		data []byte
+		err  error
+	)
 
 	if *fetchFlag {
 		log.Println("Fetching latest Steam WebAPI schema from Valve...")
+
 		url := "https://api.steampowered.com/ISteamWebAPIUtil/GetSupportedAPIList/v1/"
+
 		resp, httpErr := http.Get(url) //nolint:gosec,noctx
 		if httpErr != nil {
 			log.Fatalf("Failed to fetch WebAPI schema: %v", httpErr)
@@ -134,6 +139,7 @@ func main() {
 		}
 	} else {
 		inputPath := filepath.Clean(*inFlag)
+
 		data, err = os.ReadFile(inputPath)
 		if err != nil {
 			log.Fatalf("Failed to read schema file %s: %v", inputPath, err)
@@ -186,6 +192,7 @@ func main() {
 	formatted, err := format.Source(buf.Bytes())
 	if err != nil {
 		log.Printf("Warning: failed to gofmt generated code: %v", err)
+
 		formatted = buf.Bytes()
 	}
 
@@ -203,13 +210,15 @@ func main() {
 
 	if *runAoniGen {
 		log.Printf("Running aoni-gen on %s...\n", outPath)
-		cmd := exec.Command("aoni-gen", "-file="+filepath.Base(outPath))
+		cmd := exec.Command("vortex", "-file="+filepath.Base(outPath))
 		cmd.Dir = filepath.Dir(outPath)
 		cmd.Stdout = os.Stdout
+
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
 			log.Fatalf("aoni-gen failed: %v", err)
 		}
+
 		log.Println("✔ WebAPI compilation completed successfully!")
 	}
 }

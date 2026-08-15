@@ -8,9 +8,12 @@ import (
 	"context"
 
 	"github.com/lemon4ksan/aoni"
+
 	"github.com/lemon4ksan/g-man/pkg/trading"
 )
 
+// EconServiceAPI defines the Steam econ service API.
+//
 // @aoni:service casing=snake_case
 // @base_url "https://api.steampowered.com/"
 type EconServiceAPI interface {
@@ -21,7 +24,11 @@ type EconServiceAPI interface {
 	GetTradeOffer(ctx context.Context, req GetOfferParams, mods ...aoni.RequestModifier) (*GetOfferResponse, error)
 
 	// @get "IEconService/GetTradeStatus/v1"
-	GetTradeStatus(ctx context.Context, req TradeStatusParams, mods ...aoni.RequestModifier) (*TradeStatusResponse, error)
+	GetTradeStatus(
+		ctx context.Context,
+		req TradeStatusParams,
+		mods ...aoni.RequestModifier,
+	) (*TradeStatusResponse, error)
 
 	// @post "IEconService/DeclineTradeOffer/v1"
 	// @form casing=flatcase
@@ -32,6 +39,8 @@ type EconServiceAPI interface {
 	CancelTradeOffer(ctx context.Context, tradeOfferID uint64, mods ...aoni.RequestModifier) error
 }
 
+// TradeCommunityAPI defines the Steam trade community API.
+//
 // @aoni:service casing=flatcase
 // @base_url "https://steamcommunity.com/"
 // @header "Origin: https://steamcommunity.com"
@@ -39,55 +48,77 @@ type TradeCommunityAPI interface {
 	// @post "tradeoffer/new/send"
 	// @form casing=flatcase
 	// @header "Referer: https://steamcommunity.com/tradeoffer/new/?partner={partnerID}"
-	SendOffer(ctx context.Context, partnerID uint32, req SendNewTradeOfferRequest, mods ...aoni.RequestModifier) (*SendNewTradeOfferResponse, error)
+	SendOffer(
+		ctx context.Context,
+		partnerID uint32,
+		req SendNewTradeOfferRequest,
+		mods ...aoni.RequestModifier,
+	) (*SendNewTradeOfferResponse, error)
 
 	// @post "tradeoffer/{offerID}/accept"
 	// @form casing=flatcase
 	// @header "Referer: https://steamcommunity.com/tradeoffer/{offerID}/"
-	AcceptOffer(ctx context.Context, offerID uint64, req AcceptTradeOfferRequest, mods ...aoni.RequestModifier) (*AcceptTradeOfferResponse, error)
+	AcceptOffer(
+		ctx context.Context,
+		offerID uint64,
+		req AcceptTradeOfferRequest,
+		mods ...aoni.RequestModifier,
+	) (*AcceptTradeOfferResponse, error)
 }
 
+// GetOffersParams defines the parameters for getting trade offers.
+//
 // @aoni:dto casing=snake_case
 type GetOffersParams struct {
-	GetReceivedOffers    int   `json:"get_received_offers" url:"get_received_offers"`
-	GetSentOffers        int   `json:"get_sent_offers" url:"get_sent_offers"`
-	ActiveOnly           int   `json:"active_only" url:"active_only"`
-	GetDescriptions      int   `json:"get_descriptions" url:"get_descriptions"`
+	GetReceivedOffers    int   `json:"get_received_offers"    url:"get_received_offers"`
+	GetSentOffers        int   `json:"get_sent_offers"        url:"get_sent_offers"`
+	ActiveOnly           int   `json:"active_only"            url:"active_only"`
+	GetDescriptions      int   `json:"get_descriptions"       url:"get_descriptions"`
 	TimeHistoricalCutoff int64 `json:"time_historical_cutoff" url:"time_historical_cutoff"`
 }
 
+// GetOfferParams defines the parameters for getting a trade offer.
+//
 // @aoni:dto casing=snake_case
 type GetOfferParams struct {
-	TradeOfferID    uint64 `json:"tradeofferid" url:"tradeofferid"`
+	TradeOfferID    uint64 `json:"tradeofferid"     url:"tradeofferid"`
 	GetDescriptions bool   `json:"get_descriptions" url:"get_descriptions"`
-	Language        string `json:"language" url:"language"`
+	Language        string `json:"language"         url:"language"`
 }
 
+// TradeStatusParams defines the parameters for getting the status of a trade.
+//
 // @aoni:dto casing=snake_case
 type TradeStatusParams struct {
-	TradeID         uint64 `json:"tradeid" url:"tradeid"`
+	TradeID         uint64 `json:"tradeid"          url:"tradeid"`
 	GetDescriptions bool   `json:"get_descriptions" url:"get_descriptions"`
-	Language        string `json:"language" url:"language"`
+	Language        string `json:"language"         url:"language"`
 }
 
+// TradeOfferActionParams defines the parameters for trading offer actions.
+//
 // @aoni:dto casing=snake_case
 type TradeOfferActionParams struct {
 	TradeOfferID uint64 `json:"tradeofferid" url:"tradeofferid"`
 }
 
+// SendNewTradeOfferRequest defines the request for sending a new trade offer.
+//
 // @aoni:dto casing=snake_case
 type SendNewTradeOfferRequest struct {
-	ServerID               int    `json:"serverid" url:"serverid"`
-	Partner                uint64 `json:"partner" url:"partner"`
-	TradeOfferMessage      string `json:"tradeoffermessage" url:"tradeoffermessage"`
-	JSONTradeOffer         string `json:"json_tradeoffer" url:"json_tradeoffer"`
+	ServerID               int    `json:"serverid"                            url:"serverid"`
+	Partner                uint64 `json:"partner"                             url:"partner"`
+	TradeOfferMessage      string `json:"tradeoffermessage"                   url:"tradeoffermessage"`
+	JSONTradeOffer         string `json:"json_tradeoffer"                     url:"json_tradeoffer"`
 	TradeOfferCreateParams string `json:"trade_offer_create_params,omitempty" url:"trade_offer_create_params,omitempty"`
-	TradeOfferIDCountered  uint64 `json:"tradeofferid_countered,omitempty" url:"tradeofferid_countered,omitempty"`
+	TradeOfferIDCountered  uint64 `json:"tradeofferid_countered,omitempty"    url:"tradeofferid_countered,omitempty"`
 }
 
+// AcceptTradeOfferRequest defines the request for accepting a trade offer.
+//
 // @aoni:dto casing=snake_case
 type AcceptTradeOfferRequest struct {
-	ServerID     int    `json:"serverid" url:"serverid"`
+	ServerID     int    `json:"serverid"     url:"serverid"`
 	TradeOfferID uint64 `json:"tradeofferid" url:"tradeofferid"`
 }
 

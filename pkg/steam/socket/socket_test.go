@@ -271,6 +271,7 @@ func TestSocket_SendSync(t *testing.T) {
 
 			fb := aoni_socket.AcquireFrameBuffer(buf.Len())
 			copy(fb.Bytes(), buf.Bytes())
+
 			mConn.incoming <- fb
 		}()
 
@@ -343,6 +344,7 @@ func TestSocket_SendAsync(t *testing.T) {
 
 			fb := aoni_socket.AcquireFrameBuffer(buf.Len())
 			copy(fb.Bytes(), buf.Bytes())
+
 			mConn.incoming <- fb
 		}()
 

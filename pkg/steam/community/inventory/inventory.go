@@ -317,7 +317,8 @@ func GetInventoryHistory(
 		afterTrade = *opts.StartTrade
 	}
 
-	api := NewInventoryAPI(client)
+	api := MustNewAPI(client)
+
 	bodyBytes, err := api.GetInventoryHistoryHTML(ctx, steamID, InventoryHistoryParams{
 		Language:   "english",
 		AfterTime:  afterTime,
@@ -345,7 +346,8 @@ func fetchInventoryPage(
 	startAssetID string,
 	language string,
 ) (*inventoryResponse, error) {
-	api := NewInventoryAPI(client)
+	api := MustNewAPI(client)
+
 	resp, err := api.GetInventoryPage(ctx, steamID, appID, contextID, GetInventoryPageRequest{
 		Language:     language,
 		Count:        1000,
@@ -363,7 +365,8 @@ func fetchInventoryPage(
 }
 
 func fetchInventoryPageHTML(ctx context.Context, client community.Requester, userID uint64) ([]byte, error) {
-	api := NewInventoryAPI(client)
+	api := MustNewAPI(client)
+
 	bodyBytes, err := api.GetInventoryHTML(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("inventory: failed to fetch inventory page: %w", err)

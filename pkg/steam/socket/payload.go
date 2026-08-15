@@ -55,8 +55,11 @@ type PayloadBuilder func(sess SessionReader, buf *bytes.Buffer, sourceJobID uint
 // Proto builds a standard Protobuf-wrapped packet.
 func Proto(eMsg enums.EMsg, req proto.Message) PayloadBuilder {
 	return func(sess SessionReader, buf *bytes.Buffer, sourceJobID uint64, _ string) (err error) {
-		var steamID uint64
-		var sessionID int32
+		var (
+			steamID   uint64
+			sessionID int32
+		)
+
 		if sess != nil {
 			steamID = sess.SteamID()
 			sessionID = sess.SessionID()
@@ -85,8 +88,11 @@ func Proto(eMsg enums.EMsg, req proto.Message) PayloadBuilder {
 // Unified builds a Protobuf packet for Unified Service methods.
 func Unified(method string, req proto.Message) PayloadBuilder {
 	return func(sess SessionReader, buf *bytes.Buffer, sourceJobID uint64, _ string) (err error) {
-		var steamID uint64
-		var sessionID int32
+		var (
+			steamID   uint64
+			sessionID int32
+		)
+
 		if sess != nil {
 			steamID = sess.SteamID()
 			sessionID = sess.SessionID()
@@ -116,8 +122,11 @@ func Unified(method string, req proto.Message) PayloadBuilder {
 // Raw builds a packet with Extended headers.
 func Raw(eMsg enums.EMsg, payload []byte) PayloadBuilder {
 	return func(sess SessionReader, buf *bytes.Buffer, sourceJobID uint64, _ string) error {
-		var steamID uint64
-		var sessionID int32
+		var (
+			steamID   uint64
+			sessionID int32
+		)
+
 		if sess != nil {
 			steamID = sess.SteamID()
 			sessionID = sess.SessionID()
@@ -139,8 +148,11 @@ func Raw(eMsg enums.EMsg, payload []byte) PayloadBuilder {
 // DynamicRaw builds a packet selecting Protobuf or Extended headers based on targetName presence.
 func DynamicRaw(eMsg enums.EMsg, targetName string, payload []byte, routingAppID uint32) PayloadBuilder {
 	return func(sess SessionReader, buf *bytes.Buffer, sourceJobID uint64, _ string) error {
-		var steamID uint64
-		var sessionID int32
+		var (
+			steamID   uint64
+			sessionID int32
+		)
+
 		if sess != nil {
 			steamID = sess.SteamID()
 			sessionID = sess.SessionID()
@@ -160,6 +172,7 @@ func DynamicRaw(eMsg enums.EMsg, targetName string, payload []byte, routingAppID
 			}
 		} else {
 			hdr := protocol.NewMsgHdrExtended(eMsg, steamID, sessionID)
+
 			hdr.SourceJobID = sourceJobID
 			if err := hdr.SerializeTo(buf); err != nil {
 				return fmt.Errorf("serialize dynamic extended header: %w", err)
@@ -175,8 +188,11 @@ func DynamicRaw(eMsg enums.EMsg, targetName string, payload []byte, routingAppID
 // DynamicRawProto builds a packet using Protobuf headers for non-unified EMsg messages.
 func DynamicRawProto(eMsg enums.EMsg, payload []byte, routingAppID uint32) PayloadBuilder {
 	return func(sess SessionReader, buf *bytes.Buffer, sourceJobID uint64, _ string) error {
-		var steamID uint64
-		var sessionID int32
+		var (
+			steamID   uint64
+			sessionID int32
+		)
+
 		if sess != nil {
 			steamID = sess.SteamID()
 			sessionID = sess.SessionID()

@@ -86,10 +86,12 @@ func (m *Manager) doPoll(ctx context.Context) {
 	m.Logger.Debug("Polling trade offers...")
 
 	m.mu.RLock()
+
 	cutoff := time.Now().Add(-24 * time.Hour).Unix()
 	if m.offersSince > 0 {
 		cutoff = m.offersSince - 1800
 	}
+
 	m.mu.RUnlock()
 
 	req := getOffersReq{

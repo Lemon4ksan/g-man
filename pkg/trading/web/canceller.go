@@ -110,7 +110,9 @@ func (c *Canceller) cancelOverLimit(
 
 	oldest := c.priorityQueue.Peek(func(off *trading.TradeOffer) bool {
 		mu.RLock()
+
 		st, ok := sentOffers[off.ID]
+
 		mu.RUnlock()
 
 		if !ok || st != trading.OfferStateActive {

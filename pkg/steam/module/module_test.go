@@ -31,18 +31,18 @@ type mockInitContext struct {
 	mods   map[string]module.Module
 }
 
-func (m *mockInitContext) Storage() storage.Provider                        { return nil }
-func (m *mockInitContext) Bus() *bus.Bus                                    { return m.bus }
-func (m *mockInitContext) Logger() log.Logger                               { return m.logger }
-func (m *mockInitContext) Service() service.Doer                            { return nil }
-func (m *mockInitContext) Rest() request.Requester                          { return nil }
-func (m *mockInitContext) RegisterPacketHandler(enums.EMsg, socket.Handler) {}
-func (m *mockInitContext) RegisterServiceHandler(string, socket.Handler)    {}
-func (m *mockInitContext) UnregisterPacketHandler(enums.EMsg)               {}
-func (m *mockInitContext) UnregisterServiceHandler(string)                  {}
-func (m *mockInitContext) Subscribe(any, func([]byte)) func()                          { return func() {} }
+func (m *mockInitContext) Storage() storage.Provider                           { return nil }
+func (m *mockInitContext) Bus() *bus.Bus                                       { return m.bus }
+func (m *mockInitContext) Logger() log.Logger                                  { return m.logger }
+func (m *mockInitContext) Service() service.Doer                               { return nil }
+func (m *mockInitContext) Rest() request.Requester                             { return nil }
+func (m *mockInitContext) RegisterPacketHandler(enums.EMsg, socket.Handler)    {}
+func (m *mockInitContext) RegisterServiceHandler(string, socket.Handler)       {}
+func (m *mockInitContext) UnregisterPacketHandler(enums.EMsg)                  {}
+func (m *mockInitContext) UnregisterServiceHandler(string)                     {}
+func (m *mockInitContext) Subscribe(any, func([]byte)) func()                  { return func() {} }
 func (m *mockInitContext) Invoke(context.Context, any, []byte) ([]byte, error) { return nil, nil }
-func (m *mockInitContext) Notify(context.Context, any, []byte) error            { return nil }
+func (m *mockInitContext) Notify(context.Context, any, []byte) error           { return nil }
 func (m *mockInitContext) Module(name string) module.Module {
 	if m.mods == nil {
 		return nil
@@ -432,6 +432,7 @@ func TestBase_TrackAndBind(t *testing.T) {
 				time.Sleep(10 * time.Millisecond)
 				handler("hello world")
 			}()
+
 			return func() {
 				unregCalled = true
 			}
@@ -463,6 +464,7 @@ func TestBase_TrackAndBind(t *testing.T) {
 		unregCalled := false
 		fakeSubscribe := func(handler func(msg string)) func() {
 			handler("direct data")
+
 			return func() {
 				unregCalled = true
 			}

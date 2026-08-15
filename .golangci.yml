@@ -107,6 +107,10 @@ linters:
         text: "G703:|G706:"
         path: "cmd/.*"
 
+      - linters: [staticcheck]
+        text: "ST1021"
+        path: "api.go"
+
     paths:
       - pkg/protobuf/.*
       - pkg/steam/webapi/.*
