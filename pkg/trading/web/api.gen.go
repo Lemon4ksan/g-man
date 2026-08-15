@@ -184,7 +184,7 @@ func (c *tradeCommunityAPIClient) SendOffer(ctx context.Context, partnerID uint3
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
 	var formBuf [128]byte
 	formBytes := formBuf[:0]
-	formBytes = append(formBytes, "partnerID="...)
+	formBytes = append(formBytes, "partner_id="...)
 	formBytes = strconv.AppendUint(formBytes, uint64(partnerID), 10)
 	formBytes = append(formBytes, "&req="...)
 	formBytes = append(formBytes, url.QueryEscape(fmt.Sprint(req))...)
