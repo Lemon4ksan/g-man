@@ -25,8 +25,8 @@ var (
 // @protocol rpc
 // @requester "module.InitContext"
 type Events interface {
-	// @op enums.EMsg_ClientGamesPlayedWithDataBlob
 	// @notify
+	// @op enums.EMsg_ClientGamesPlayedWithDataBlob
 	SendGamesPlayed(ctx context.Context, req *pb.CMsgClientGamesPlayed) error
 
 	// Close unsubscribes all active event listeners.

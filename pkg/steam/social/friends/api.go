@@ -42,28 +42,28 @@ type Events interface {
 
 	// --- Outbound Notifications (One-Way) ---
 
-	// @op enums.EMsg_ClientAddFriend
 	// @notify
+	// @op enums.EMsg_ClientAddFriend
 	AddFriend(ctx context.Context, req *pb.CMsgClientAddFriend) error
 
-	// @op enums.EMsg_ClientRemoveFriend
 	// @notify
+	// @op enums.EMsg_ClientRemoveFriend
 	RemoveFriend(ctx context.Context, req *pb.CMsgClientRemoveFriend) error
 
-	// @op enums.EMsg_ClientChangeStatus
 	// @notify
+	// @op enums.EMsg_ClientChangeStatus
 	ChangeStatus(ctx context.Context, req *pb.CMsgClientChangeStatus) error
 
-	// @op enums.EMsg_ClientCurrentUIMode
 	// @notify
+	// @op enums.EMsg_ClientCurrentUIMode
 	SetUIMode(ctx context.Context, req *pb.CMsgClientUIMode) error
 
-	// @op enums.EMsg_ClientRichPresenceUpload
 	// @notify
+	// @op enums.EMsg_ClientRichPresenceUpload
 	UploadRichPresence(ctx context.Context, req *pb.CMsgClientRichPresenceUpload) error
 
-	// @op enums.EMsg_ClientRequestFriendData
 	// @notify
+	// @op enums.EMsg_ClientRequestFriendData
 	RequestFriendData(ctx context.Context, req *pb.CMsgClientRequestFriendData) error
 
 	// Close unsubscribes all active event listeners.

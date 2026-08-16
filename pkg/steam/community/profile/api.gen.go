@@ -18,12 +18,13 @@ import (
 	"net/url"
 	"strconv"
 
+	"github.com/lemon4ksan/g-man/pkg/steam/community"
+
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/codec/decode"
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/option"
 	"github.com/lemon4ksan/aoni/request"
-	"github.com/lemon4ksan/g-man/pkg/steam/community"
 )
 
 type apiClient struct {

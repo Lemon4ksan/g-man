@@ -44,12 +44,12 @@ type Events interface {
 
 	// --- Outbound Notifications (One-Way) ---
 
-	// @op enums.EMsg_ClientGamesPlayedWithDataBlob
 	// @notify
+	// @op enums.EMsg_ClientGamesPlayedWithDataBlob
 	GamesPlayed(ctx context.Context, req *pb.CMsgClientGamesPlayed) error
 
-	// @op enums.EMsg_ClientKickPlayingSession
 	// @notify
+	// @op enums.EMsg_ClientKickPlayingSession
 	KickPlayingSession(ctx context.Context, req *pb.CMsgClientKickPlayingSession) error
 
 	// Close unsubscribes all active event listeners.

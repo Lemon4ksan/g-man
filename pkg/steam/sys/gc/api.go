@@ -28,8 +28,8 @@ type Events interface {
 	// @event enums.EMsg_ClientFromGC
 	OnClientFromGC(handler func(msg *pb.CMsgGCClient)) (unsubscribe func())
 
-	// @op enums.EMsg_ClientToGC
 	// @notify
+	// @op enums.EMsg_ClientToGC
 	SendToGC(ctx context.Context, req *pb.CMsgGCClient) error
 
 	// Close unsubscribes all active event listeners.

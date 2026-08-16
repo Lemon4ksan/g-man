@@ -14,12 +14,13 @@ import (
 	"net/url"
 	"strconv"
 
+	"github.com/lemon4ksan/g-man/pkg/steam/community"
+	"github.com/lemon4ksan/g-man/pkg/steam/id"
+
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/option"
 	"github.com/lemon4ksan/aoni/request"
-	"github.com/lemon4ksan/g-man/pkg/steam/community"
-	"github.com/lemon4ksan/g-man/pkg/steam/id"
 )
 
 type apiClient struct {
@@ -150,7 +151,7 @@ func (c *apiClient) CreateBuyOrder(ctx context.Context, appID uint32, currency C
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
 	var formBuf [512]byte
 	formBytes := formBuf[:0]
-	formBytes = append(formBytes, "appid="...)
+	formBytes = append(formBytes, "app_id="...)
 	formBytes = strconv.AppendUint(formBytes, uint64(appID), 10)
 	formBytes = append(formBytes, "&currency="...)
 	formBytes = append(formBytes, url.QueryEscape(fmt.Sprint(currency))...)
@@ -297,7 +298,7 @@ func (c *apiClient) Search(ctx context.Context, appID uint32, opts SearchOptions
 
 	var qBuf [128]byte
 	qBytes := qBuf[:0]
-	qBytes = append(qBytes, "appid="...)
+	qBytes = append(qBytes, "app_id="...)
 	qBytes = strconv.AppendUint(qBytes, uint64(appID), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
 
@@ -365,7 +366,7 @@ func (c *apiClient) GetItemOrdersHistogram(ctx context.Context, appID uint32, ma
 
 	var qBuf [512]byte
 	qBytes := qBuf[:0]
-	qBytes = append(qBytes, "appid="...)
+	qBytes = append(qBytes, "app_id="...)
 	qBytes = strconv.AppendUint(qBytes, uint64(appID), 10)
 	qBytes = append(qBytes, "&country="...)
 	qBytes = append(qBytes, url.QueryEscape(country)...)
@@ -585,7 +586,7 @@ func (c *apiClient) CreateBooster(ctx context.Context, appID uint32, series int,
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
 	var formBuf [256]byte
 	formBytes := formBuf[:0]
-	formBytes = append(formBytes, "appid="...)
+	formBytes = append(formBytes, "app_id="...)
 	formBytes = strconv.AppendUint(formBytes, uint64(appID), 10)
 	formBytes = append(formBytes, "&series="...)
 	formBytes = strconv.AppendInt(formBytes, int64(series), 10)

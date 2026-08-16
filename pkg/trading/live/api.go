@@ -38,16 +38,16 @@ type Events interface {
 
 	// --- Outbound Notifications ---
 
-	// @op enums.EMsg_EconTrading_InitiateTradeRequest
 	// @notify
+	// @op enums.EMsg_EconTrading_InitiateTradeRequest
 	SendTradeRequest(ctx context.Context, req *pb.CMsgTrading_InitiateTradeRequest) error
 
-	// @op enums.EMsg_EconTrading_CancelTradeRequest
 	// @notify
+	// @op enums.EMsg_EconTrading_CancelTradeRequest
 	CancelTradeRequest(ctx context.Context, req *pb.CMsgTrading_CancelTradeRequest) error
 
-	// @op enums.EMsg_EconTrading_InitiateTradeResponse
 	// @notify
+	// @op enums.EMsg_EconTrading_InitiateTradeResponse
 	SendTradeResponse(ctx context.Context, req *pb.CMsgTrading_InitiateTradeResponse) error
 
 	// Close unsubscribes all active event listeners.

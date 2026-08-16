@@ -22,8 +22,8 @@ var _ = community.BaseURL
 // @base_url "https://steamcommunity.com/"
 // @header "Origin: https://steamcommunity.com"
 type API interface {
-	// @get "inventory/{steamID}/{appID}/{contextID}"
 	// @header "Referer: https://steamcommunity.com/profiles/{steamID}/inventory"
+	// @get "inventory/{steamID}/{appID}/{contextID}"
 	GetInventoryPage(
 		ctx context.Context,
 		steamID uint64,

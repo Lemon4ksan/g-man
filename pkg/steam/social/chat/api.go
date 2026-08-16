@@ -50,8 +50,8 @@ type Events interface {
 		req *pb.CFriendMessages_SendMessage_Request,
 	) (*pb.CFriendMessages_SendMessage_Response, error)
 
-	// @op "FriendMessages.AckMessage#1"
 	// @notify
+	// @op "FriendMessages.AckMessage#1"
 	AckFriendMessage(ctx context.Context, req *pb.CFriendMessages_AckMessage_Notification) error
 
 	// @op "FriendMessages.GetRecentMessages#1"
@@ -104,8 +104,8 @@ type Events interface {
 		req *pb.CChatRoom_DeleteChatMessages_Request,
 	) (*pb.CChatRoom_DeleteChatMessages_Response, error)
 
-	// @op "ChatRoom.AckChatMessage#1"
 	// @notify
+	// @op "ChatRoom.AckChatMessage#1"
 	AckChatMessage(ctx context.Context, req *pb.CChatRoom_AckChatMessage_Notification) error
 
 	// @op "ChatRoom.InviteFriendToChatRoomGroup#1"

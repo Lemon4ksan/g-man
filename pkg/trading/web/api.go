@@ -45,9 +45,9 @@ type EconServiceAPI interface {
 // @base_url "https://steamcommunity.com/"
 // @header "Origin: https://steamcommunity.com"
 type TradeCommunityAPI interface {
+	// @header "Referer: https://steamcommunity.com/tradeoffer/new/?partner={partnerID}"
 	// @post "tradeoffer/new/send"
 	// @form casing=flatcase
-	// @header "Referer: https://steamcommunity.com/tradeoffer/new/?partner={partnerID}"
 	SendOffer(
 		ctx context.Context,
 		partnerID uint32,
@@ -55,9 +55,9 @@ type TradeCommunityAPI interface {
 		mods ...aoni.RequestModifier,
 	) (*SendNewTradeOfferResponse, error)
 
+	// @header "Referer: https://steamcommunity.com/tradeoffer/{offerID}/"
 	// @post "tradeoffer/{offerID}/accept"
 	// @form casing=flatcase
-	// @header "Referer: https://steamcommunity.com/tradeoffer/{offerID}/"
 	AcceptOffer(
 		ctx context.Context,
 		offerID uint64,

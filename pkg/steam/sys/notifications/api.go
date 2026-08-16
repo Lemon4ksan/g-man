@@ -48,16 +48,16 @@ type Events interface {
 
 	// --- Outbound Notifications (One-Way) ---
 
-	// @op enums.EMsg_ClientRequestItemAnnouncements
 	// @notify
+	// @op enums.EMsg_ClientRequestItemAnnouncements
 	RequestItemAnnouncements(ctx context.Context, req *pb.CMsgClientRequestItemAnnouncements) error
 
-	// @op enums.EMsg_ClientRequestCommentNotifications
 	// @notify
+	// @op enums.EMsg_ClientRequestCommentNotifications
 	RequestCommentNotifications(ctx context.Context, req *pb.CMsgClientRequestCommentNotifications) error
 
-	// @op enums.EMsg_ClientChatRequestOfflineMessageCount
 	// @notify
+	// @op enums.EMsg_ClientChatRequestOfflineMessageCount
 	RequestOfflineMessageCount(ctx context.Context, req *pb.CMsgClientRequestOfflineMessageCount) error
 
 	// Close unsubscribes all active event listeners.

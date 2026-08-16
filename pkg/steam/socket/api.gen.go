@@ -12,12 +12,13 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
+
 	"github.com/lemon4ksan/aoni/realtime/socket"
 	"github.com/lemon4ksan/aoni/realtime/socket/connector"
 	"github.com/lemon4ksan/aoni/realtime/socket/dispatcher"
 	"github.com/lemon4ksan/aoni/realtime/socket/processor"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 )
 
 // SteamSocketConfig configures the SteamSocket socket subsystem.
