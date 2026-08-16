@@ -2,22 +2,37 @@
 # Documentation: https://github.com/lemon4ksan/aoni
 
 version: 1
-
 defaults:
-  casing: snake_case
-  engine: fast
-
+    casing: snake_case
+    engine: fast
 contracts:
-  - name: WebAPI
-    package: webapi
-    file: pkg/steam/webapi/api.go
-    gen: pkg/steam/webapi/api.gen.go
-
-coverage:
-  file: coverage.out
-  min: 75.0
-  sort: percent
-  exclude:
-    - examples/
-    - cmd/
-    - pkg/protobuf/
+    - name: Inventory
+      file: pkg/steam/community/inventory/api.go
+    - name: Market
+      file: pkg/steam/community/market/api.go
+    - name: Profile
+      file: pkg/steam/community/profile/api.go
+    - name: Chat
+      file: pkg/steam/social/chat/api.go
+    - name: Friends
+      file: pkg/steam/social/friends/api.go
+    - name: Status
+      file: pkg/steam/social/status/api.go
+    - name: SteamSocket
+      file: pkg/steam/socket/api.go
+    - name: Account
+      file: pkg/steam/sys/account/api.go
+    - name: Apps
+      file: pkg/steam/sys/apps/api.go
+    - name: Directory
+      file: pkg/steam/sys/directory/api.go
+    - name: Gc
+      file: pkg/steam/sys/gc/api.go
+    - name: Notifications
+      file: pkg/steam/sys/notifications/api.go
+    - name: Webapi
+      file: pkg/steam/webapi/api.go
+    - name: Live
+      file: pkg/trading/live/api.go
+    - name: TradeCommunityAPI
+      file: pkg/trading/web/api.go

@@ -1,1 +1,13 @@
 * text=auto eol=lf
+
+# Go & Protocol Buffers LF Normalization
+* text=auto eol=lf
+*.go text eol=lf
+*.proto text eol=lf
+
+# GitHub Linguist — Collapse generated code in PR diffs and exclude from stats
+*.gen.go linguist-generated=true
+*_mock.gen.go linguist-generated=true
+*_harness.gen.go linguist-generated=true
+*.pb.go linguist-generated=true
+*_aoni.pb.go linguist-generated=true

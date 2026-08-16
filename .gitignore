@@ -25,3 +25,11 @@ cmd/**/*.json
 pkg/protobuf/tf2/tf2_gc
 **/cache/**
 storage.json
+
+# Vortex Test Artifacts & Diagnostics
+*_mock.gen.go
+*_harness.gen.go
+*_harness_test.go
+*.prof
+*.sarif
+.vortex/
