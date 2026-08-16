@@ -8,71 +8,64 @@ package webapi
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/url"
 	"strconv"
 
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/aoni/fast"
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/option"
 	"github.com/lemon4ksan/aoni/request"
 )
 
-type iClientStats_1046930Client struct {
+type clientStats1046930Client struct {
 	r request.Requester
 }
 
-// NewIClientStats_1046930 creates a new IClientStats_1046930 client instance backed by an authenticated request.Requester.
-func NewIClientStats_1046930(client request.Requester, opts ...aoni.ClientOption) (IClientStats_1046930, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize IClientStats_1046930")
+func newClientStats1046930(doer any, opts ...aoni.ClientOption) *clientStats1046930Client {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &iClientStats_1046930Client{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IClientStats_1046930")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IClientStats_1046930")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IClientStats_1046930")}, baseOpts...)...))
 	}
 
-	return &iClientStats_1046930Client{
+	return &clientStats1046930Client{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewIClientStats_1046930 initializes IClientStats_1046930 and panics if an error occurs.
-func MustNewIClientStats_1046930(client request.Requester, opts ...aoni.ClientOption) IClientStats_1046930 {
-	api, err := NewIClientStats_1046930(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewClientStats1046930 creates a new ClientStats1046930 client instance with preconfigured execution pipelines.
+func NewClientStats1046930(doer any, opts ...aoni.ClientOption) ClientStats1046930 {
+	return newClientStats1046930(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *iClientStats_1046930Client) R() request.Requester {
+func (c *clientStats1046930Client) R() request.Requester {
 	return c.r
 }
 
-func (c *iClientStats_1046930Client) ReportEvent(ctx context.Context) (*json.RawMessage, error) {
+func (c *clientStats1046930Client) ReportEvent(ctx context.Context, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/ReportEvent/v1/", nil, allMods...)
 	if err != nil {
@@ -81,65 +74,63 @@ func (c *iClientStats_1046930Client) ReportEvent(ctx context.Context) (*json.Raw
 	return resp, nil
 }
 
-type icsgoPlayers_730Client struct {
+type csgoPlayers730Client struct {
 	r request.Requester
 }
 
-// NewICSGOPlayers_730 creates a new ICSGOPlayers_730 client instance backed by an authenticated request.Requester.
-func NewICSGOPlayers_730(client request.Requester, opts ...aoni.ClientOption) (ICSGOPlayers_730, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize ICSGOPlayers_730")
+func newCSGOPlayers730(doer any, opts ...aoni.ClientOption) *csgoPlayers730Client {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &icsgoPlayers_730Client{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ICSGOPlayers_730")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ICSGOPlayers_730")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ICSGOPlayers_730")}, baseOpts...)...))
 	}
 
-	return &icsgoPlayers_730Client{
+	return &csgoPlayers730Client{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewICSGOPlayers_730 initializes ICSGOPlayers_730 and panics if an error occurs.
-func MustNewICSGOPlayers_730(client request.Requester, opts ...aoni.ClientOption) ICSGOPlayers_730 {
-	api, err := NewICSGOPlayers_730(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewCSGOPlayers730 creates a new CSGOPlayers730 client instance with preconfigured execution pipelines.
+func NewCSGOPlayers730(doer any, opts ...aoni.ClientOption) CSGOPlayers730 {
+	return newCSGOPlayers730(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *icsgoPlayers_730Client) R() request.Requester {
+func (c *csgoPlayers730Client) R() request.Requester {
 	return c.r
 }
 
-func (c *icsgoPlayers_730Client) GetNextMatchSharingCode(ctx context.Context, req *ICSGOPlayers_730_GetNextMatchSharingCode_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *csgoPlayers730Client) GetNextMatchSharingCode(ctx context.Context, steamID uint64, steamIDKey string, knowncode string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [64]byte
+	var qBuf [128]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "steam_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(steamID), 10)
+	qBytes = append(qBytes, "&steam_id_key="...)
+	qBytes = append(qBytes, url.QueryEscape(steamIDKey)...)
+	qBytes = append(qBytes, "&knowncode="...)
+	qBytes = append(qBytes, url.QueryEscape(knowncode)...)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetNextMatchSharingCode/v1/", allMods...)
 	if err != nil {
@@ -148,65 +139,63 @@ func (c *icsgoPlayers_730Client) GetNextMatchSharingCode(ctx context.Context, re
 	return resp, nil
 }
 
-type icsgoServers_730Client struct {
+type csgoServers730Client struct {
 	r request.Requester
 }
 
-// NewICSGOServers_730 creates a new ICSGOServers_730 client instance backed by an authenticated request.Requester.
-func NewICSGOServers_730(client request.Requester, opts ...aoni.ClientOption) (ICSGOServers_730, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize ICSGOServers_730")
+func newCSGOServers730(doer any, opts ...aoni.ClientOption) *csgoServers730Client {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &icsgoServers_730Client{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ICSGOServers_730")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ICSGOServers_730")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ICSGOServers_730")}, baseOpts...)...))
 	}
 
-	return &icsgoServers_730Client{
+	return &csgoServers730Client{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewICSGOServers_730 initializes ICSGOServers_730 and panics if an error occurs.
-func MustNewICSGOServers_730(client request.Requester, opts ...aoni.ClientOption) ICSGOServers_730 {
-	api, err := NewICSGOServers_730(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewCSGOServers730 creates a new CSGOServers730 client instance with preconfigured execution pipelines.
+func NewCSGOServers730(doer any, opts ...aoni.ClientOption) CSGOServers730 {
+	return newCSGOServers730(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *icsgoServers_730Client) R() request.Requester {
+func (c *csgoServers730Client) R() request.Requester {
 	return c.r
 }
 
-func (c *icsgoServers_730Client) GetGameMapsPlaytime(ctx context.Context, req *ICSGOServers_730_GetGameMapsPlaytime_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *csgoServers730Client) GetGameMapsPlaytime(ctx context.Context, interval string, gamemode string, mapgroup string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [64]byte
+	var qBuf [128]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "interval="...)
+	qBytes = append(qBytes, url.QueryEscape(interval)...)
+	qBytes = append(qBytes, "&gamemode="...)
+	qBytes = append(qBytes, url.QueryEscape(gamemode)...)
+	qBytes = append(qBytes, "&mapgroup="...)
+	qBytes = append(qBytes, url.QueryEscape(mapgroup)...)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetGameMapsPlaytime/v1/", allMods...)
 	if err != nil {
@@ -215,9 +204,13 @@ func (c *icsgoServers_730Client) GetGameMapsPlaytime(ctx context.Context, req *I
 	return resp, nil
 }
 
-func (c *icsgoServers_730Client) GetGameServersStatus(ctx context.Context) (*json.RawMessage, error) {
+func (c *csgoServers730Client) GetGameServersStatus(ctx context.Context, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetGameServersStatus/v1/", allMods...)
 	if err != nil {
@@ -226,65 +219,63 @@ func (c *icsgoServers_730Client) GetGameServersStatus(ctx context.Context) (*jso
 	return resp, nil
 }
 
-type icsgoTournaments_730Client struct {
+type csgoTournaments730Client struct {
 	r request.Requester
 }
 
-// NewICSGOTournaments_730 creates a new ICSGOTournaments_730 client instance backed by an authenticated request.Requester.
-func NewICSGOTournaments_730(client request.Requester, opts ...aoni.ClientOption) (ICSGOTournaments_730, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize ICSGOTournaments_730")
+func newCSGOTournaments730(doer any, opts ...aoni.ClientOption) *csgoTournaments730Client {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &icsgoTournaments_730Client{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ICSGOTournaments_730")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ICSGOTournaments_730")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ICSGOTournaments_730")}, baseOpts...)...))
 	}
 
-	return &icsgoTournaments_730Client{
+	return &csgoTournaments730Client{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewICSGOTournaments_730 initializes ICSGOTournaments_730 and panics if an error occurs.
-func MustNewICSGOTournaments_730(client request.Requester, opts ...aoni.ClientOption) ICSGOTournaments_730 {
-	api, err := NewICSGOTournaments_730(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewCSGOTournaments730 creates a new CSGOTournaments730 client instance with preconfigured execution pipelines.
+func NewCSGOTournaments730(doer any, opts ...aoni.ClientOption) CSGOTournaments730 {
+	return newCSGOTournaments730(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *icsgoTournaments_730Client) R() request.Requester {
+func (c *csgoTournaments730Client) R() request.Requester {
 	return c.r
 }
 
-func (c *icsgoTournaments_730Client) GetTournamentFantasyLineup(ctx context.Context, req *ICSGOTournaments_730_GetTournamentFantasyLineup_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *csgoTournaments730Client) GetTournamentFantasyLineup(ctx context.Context, event uint32, steamID uint64, steamIDKey string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [64]byte
+	var qBuf [128]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "event="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(event), 10)
+	qBytes = append(qBytes, "&steam_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(steamID), 10)
+	qBytes = append(qBytes, "&steam_id_key="...)
+	qBytes = append(qBytes, url.QueryEscape(steamIDKey)...)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetTournamentFantasyLineup/v1/", allMods...)
 	if err != nil {
@@ -293,14 +284,23 @@ func (c *icsgoTournaments_730Client) GetTournamentFantasyLineup(ctx context.Cont
 	return resp, nil
 }
 
-func (c *icsgoTournaments_730Client) GetTournamentItems(ctx context.Context, req *ICSGOTournaments_730_GetTournamentItems_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *csgoTournaments730Client) GetTournamentItems(ctx context.Context, event uint32, steamID uint64, steamIDKey string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [64]byte
+	var qBuf [128]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "event="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(event), 10)
+	qBytes = append(qBytes, "&steam_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(steamID), 10)
+	qBytes = append(qBytes, "&steam_id_key="...)
+	qBytes = append(qBytes, url.QueryEscape(steamIDKey)...)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetTournamentItems/v1/", allMods...)
 	if err != nil {
@@ -309,14 +309,19 @@ func (c *icsgoTournaments_730Client) GetTournamentItems(ctx context.Context, req
 	return resp, nil
 }
 
-func (c *icsgoTournaments_730Client) GetTournamentLayout(ctx context.Context, req *ICSGOTournaments_730_GetTournamentLayout_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *csgoTournaments730Client) GetTournamentLayout(ctx context.Context, event uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "event="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(event), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetTournamentLayout/v1/", allMods...)
 	if err != nil {
@@ -325,14 +330,23 @@ func (c *icsgoTournaments_730Client) GetTournamentLayout(ctx context.Context, re
 	return resp, nil
 }
 
-func (c *icsgoTournaments_730Client) GetTournamentPredictions(ctx context.Context, req *ICSGOTournaments_730_GetTournamentPredictions_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *csgoTournaments730Client) GetTournamentPredictions(ctx context.Context, event uint32, steamID uint64, steamIDKey string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [64]byte
+	var qBuf [128]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "event="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(event), 10)
+	qBytes = append(qBytes, "&steam_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(steamID), 10)
+	qBytes = append(qBytes, "&steam_id_key="...)
+	qBytes = append(qBytes, url.QueryEscape(steamIDKey)...)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetTournamentPredictions/v1/", allMods...)
 	if err != nil {
@@ -341,7 +355,7 @@ func (c *icsgoTournaments_730Client) GetTournamentPredictions(ctx context.Contex
 	return resp, nil
 }
 
-func (c *icsgoTournaments_730Client) UploadTournamentFantasyLineup(ctx context.Context, req *ICSGOTournaments_730_UploadTournamentFantasyLineup_Request) (*json.RawMessage, error) {
+func (c *csgoTournaments730Client) UploadTournamentFantasyLineup(ctx context.Context, req *UploadTournamentFantasyLineupRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -349,6 +363,10 @@ func (c *icsgoTournaments_730Client) UploadTournamentFantasyLineup(ctx context.C
 	var formBuf [64]byte
 	formBytes := req.AppendFormData(formBuf[:0])
 	allMods = append(allMods, mod.WithBodyBytes(formBytes))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/UploadTournamentFantasyLineup/v1/", nil, allMods...)
 	if err != nil {
@@ -357,7 +375,7 @@ func (c *icsgoTournaments_730Client) UploadTournamentFantasyLineup(ctx context.C
 	return resp, nil
 }
 
-func (c *icsgoTournaments_730Client) UploadTournamentPredictions(ctx context.Context, req *ICSGOTournaments_730_UploadTournamentPredictions_Request) (*json.RawMessage, error) {
+func (c *csgoTournaments730Client) UploadTournamentPredictions(ctx context.Context, req *UploadTournamentPredictionsRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -365,6 +383,10 @@ func (c *icsgoTournaments_730Client) UploadTournamentPredictions(ctx context.Con
 	var formBuf [64]byte
 	formBytes := req.AppendFormData(formBuf[:0])
 	allMods = append(allMods, mod.WithBodyBytes(formBytes))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/UploadTournamentPredictions/v1/", nil, allMods...)
 	if err != nil {
@@ -373,65 +395,59 @@ func (c *icsgoTournaments_730Client) UploadTournamentPredictions(ctx context.Con
 	return resp, nil
 }
 
-type idotA2MatchStats_570Client struct {
+type dotA2MatchStats570Client struct {
 	r request.Requester
 }
 
-// NewIDOTA2MatchStats_570 creates a new IDOTA2MatchStats_570 client instance backed by an authenticated request.Requester.
-func NewIDOTA2MatchStats_570(client request.Requester, opts ...aoni.ClientOption) (IDOTA2MatchStats_570, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize IDOTA2MatchStats_570")
+func newDOTA2MatchStats570(doer any, opts ...aoni.ClientOption) *dotA2MatchStats570Client {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &idotA2MatchStats_570Client{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IDOTA2MatchStats_570")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IDOTA2MatchStats_570")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IDOTA2MatchStats_570")}, baseOpts...)...))
 	}
 
-	return &idotA2MatchStats_570Client{
+	return &dotA2MatchStats570Client{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewIDOTA2MatchStats_570 initializes IDOTA2MatchStats_570 and panics if an error occurs.
-func MustNewIDOTA2MatchStats_570(client request.Requester, opts ...aoni.ClientOption) IDOTA2MatchStats_570 {
-	api, err := NewIDOTA2MatchStats_570(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewDOTA2MatchStats570 creates a new DOTA2MatchStats570 client instance with preconfigured execution pipelines.
+func NewDOTA2MatchStats570(doer any, opts ...aoni.ClientOption) DOTA2MatchStats570 {
+	return newDOTA2MatchStats570(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *idotA2MatchStats_570Client) R() request.Requester {
+func (c *dotA2MatchStats570Client) R() request.Requester {
 	return c.r
 }
 
-func (c *idotA2MatchStats_570Client) GetRealtimeStats(ctx context.Context, req *IDOTA2MatchStats_570_GetRealtimeStats_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *dotA2MatchStats570Client) GetRealtimeStats(ctx context.Context, serverSteamID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "server_steam_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(serverSteamID), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetRealtimeStats/v1/", allMods...)
 	if err != nil {
@@ -440,65 +456,63 @@ func (c *idotA2MatchStats_570Client) GetRealtimeStats(ctx context.Context, req *
 	return resp, nil
 }
 
-type idotA2Match_570Client struct {
+type dotA2Match570Client struct {
 	r request.Requester
 }
 
-// NewIDOTA2Match_570 creates a new IDOTA2Match_570 client instance backed by an authenticated request.Requester.
-func NewIDOTA2Match_570(client request.Requester, opts ...aoni.ClientOption) (IDOTA2Match_570, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize IDOTA2Match_570")
+func newDOTA2Match570(doer any, opts ...aoni.ClientOption) *dotA2Match570Client {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &idotA2Match_570Client{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IDOTA2Match_570")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IDOTA2Match_570")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IDOTA2Match_570")}, baseOpts...)...))
 	}
 
-	return &idotA2Match_570Client{
+	return &dotA2Match570Client{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewIDOTA2Match_570 initializes IDOTA2Match_570 and panics if an error occurs.
-func MustNewIDOTA2Match_570(client request.Requester, opts ...aoni.ClientOption) IDOTA2Match_570 {
-	api, err := NewIDOTA2Match_570(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewDOTA2Match570 creates a new DOTA2Match570 client instance with preconfigured execution pipelines.
+func NewDOTA2Match570(doer any, opts ...aoni.ClientOption) DOTA2Match570 {
+	return newDOTA2Match570(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *idotA2Match_570Client) R() request.Requester {
+func (c *dotA2Match570Client) R() request.Requester {
 	return c.r
 }
 
-func (c *idotA2Match_570Client) GetLiveLeagueGames(ctx context.Context, req *IDOTA2Match_570_GetLiveLeagueGames_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *dotA2Match570Client) GetLiveLeagueGames(ctx context.Context, leagueID uint32, matchID uint64, dPC bool, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [64]byte
+	var qBuf [128]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "league_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(leagueID), 10)
+	qBytes = append(qBytes, "&match_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(matchID), 10)
+	qBytes = append(qBytes, "&d_pc="...)
+	qBytes = strconv.AppendBool(qBytes, dPC)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetLiveLeagueGames/v1/", allMods...)
 	if err != nil {
@@ -507,14 +521,21 @@ func (c *idotA2Match_570Client) GetLiveLeagueGames(ctx context.Context, req *IDO
 	return resp, nil
 }
 
-func (c *idotA2Match_570Client) GetMatchDetails(ctx context.Context, req *IDOTA2Match_570_GetMatchDetails_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *dotA2Match570Client) GetMatchDetails(ctx context.Context, matchID uint64, includePersonaNames bool, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [64]byte
+	var qBuf [128]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "match_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(matchID), 10)
+	qBytes = append(qBytes, "&include_persona_names="...)
+	qBytes = strconv.AppendBool(qBytes, includePersonaNames)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetMatchDetails/v1/", allMods...)
 	if err != nil {
@@ -523,7 +544,7 @@ func (c *idotA2Match_570Client) GetMatchDetails(ctx context.Context, req *IDOTA2
 	return resp, nil
 }
 
-func (c *idotA2Match_570Client) GetMatchHistory(ctx context.Context, req *IDOTA2Match_570_GetMatchHistory_Request) (*json.RawMessage, error) {
+func (c *dotA2Match570Client) GetMatchHistory(ctx context.Context, req *GetMatchHistoryRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -531,6 +552,10 @@ func (c *idotA2Match_570Client) GetMatchHistory(ctx context.Context, req *IDOTA2
 	qBytes := qBuf[:0]
 	qBytes = req.AppendQuery(qBytes)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetMatchHistory/v1/", allMods...)
 	if err != nil {
@@ -539,14 +564,21 @@ func (c *idotA2Match_570Client) GetMatchHistory(ctx context.Context, req *IDOTA2
 	return resp, nil
 }
 
-func (c *idotA2Match_570Client) GetMatchHistoryBySequenceNum(ctx context.Context, req *IDOTA2Match_570_GetMatchHistoryBySequenceNum_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *dotA2Match570Client) GetMatchHistoryBySequenceNum(ctx context.Context, startAtMatchSeqNum uint64, matchesRequested uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [64]byte
+	var qBuf [128]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "start_at_match_seq_num="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(startAtMatchSeqNum), 10)
+	qBytes = append(qBytes, "&matches_requested="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(matchesRequested), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetMatchHistoryBySequenceNum/v1/", allMods...)
 	if err != nil {
@@ -555,14 +587,21 @@ func (c *idotA2Match_570Client) GetMatchHistoryBySequenceNum(ctx context.Context
 	return resp, nil
 }
 
-func (c *idotA2Match_570Client) GetTeamInfoByTeamID(ctx context.Context, req *IDOTA2Match_570_GetTeamInfoByTeamID_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *dotA2Match570Client) GetTeamInfoByTeamID(ctx context.Context, startAtTeamID uint64, teamsRequested uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [64]byte
+	var qBuf [128]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "start_at_team_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(startAtTeamID), 10)
+	qBytes = append(qBytes, "&teams_requested="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(teamsRequested), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetTeamInfoByTeamID/v1/", allMods...)
 	if err != nil {
@@ -571,14 +610,19 @@ func (c *idotA2Match_570Client) GetTeamInfoByTeamID(ctx context.Context, req *ID
 	return resp, nil
 }
 
-func (c *idotA2Match_570Client) GetTopLiveEventGame(ctx context.Context, req *IDOTA2Match_570_GetTopLiveEventGame_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *dotA2Match570Client) GetTopLiveEventGame(ctx context.Context, partner int32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "partner="...)
+	qBytes = strconv.AppendInt(qBytes, int64(partner), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetTopLiveEventGame/v1/", allMods...)
 	if err != nil {
@@ -587,14 +631,19 @@ func (c *idotA2Match_570Client) GetTopLiveEventGame(ctx context.Context, req *ID
 	return resp, nil
 }
 
-func (c *idotA2Match_570Client) GetTopLiveGame(ctx context.Context, req *IDOTA2Match_570_GetTopLiveGame_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *dotA2Match570Client) GetTopLiveGame(ctx context.Context, partner int32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "partner="...)
+	qBytes = strconv.AppendInt(qBytes, int64(partner), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetTopLiveGame/v1/", allMods...)
 	if err != nil {
@@ -603,14 +652,21 @@ func (c *idotA2Match_570Client) GetTopLiveGame(ctx context.Context, req *IDOTA2M
 	return resp, nil
 }
 
-func (c *idotA2Match_570Client) GetTopWeekendTourneyGames(ctx context.Context, req *IDOTA2Match_570_GetTopWeekendTourneyGames_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *dotA2Match570Client) GetTopWeekendTourneyGames(ctx context.Context, partner int32, homeDivision int32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [64]byte
+	var qBuf [128]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "partner="...)
+	qBytes = strconv.AppendInt(qBytes, int64(partner), 10)
+	qBytes = append(qBytes, "&home_division="...)
+	qBytes = strconv.AppendInt(qBytes, int64(homeDivision), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetTopWeekendTourneyGames/v1/", allMods...)
 	if err != nil {
@@ -619,7 +675,7 @@ func (c *idotA2Match_570Client) GetTopWeekendTourneyGames(ctx context.Context, r
 	return resp, nil
 }
 
-func (c *idotA2Match_570Client) GetTournamentPlayerStatsV1(ctx context.Context, req *IDOTA2Match_570_GetTournamentPlayerStatsV1_Request) (*json.RawMessage, error) {
+func (c *dotA2Match570Client) GetTournamentPlayerStatsV1(ctx context.Context, req *GetTournamentPlayerStatsV1Request, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -627,6 +683,10 @@ func (c *idotA2Match_570Client) GetTournamentPlayerStatsV1(ctx context.Context, 
 	qBytes := qBuf[:0]
 	qBytes = req.AppendQuery(qBytes)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetTournamentPlayerStats/v1/", allMods...)
 	if err != nil {
@@ -635,7 +695,7 @@ func (c *idotA2Match_570Client) GetTournamentPlayerStatsV1(ctx context.Context, 
 	return resp, nil
 }
 
-func (c *idotA2Match_570Client) GetTournamentPlayerStatsV2(ctx context.Context, req *IDOTA2Match_570_GetTournamentPlayerStatsV2_Request) (*json.RawMessage, error) {
+func (c *dotA2Match570Client) GetTournamentPlayerStatsV2(ctx context.Context, req *GetTournamentPlayerStatsV2Request, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -643,6 +703,10 @@ func (c *idotA2Match_570Client) GetTournamentPlayerStatsV2(ctx context.Context, 
 	qBytes := qBuf[:0]
 	qBytes = req.AppendQuery(qBytes)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetTournamentPlayerStats/v2/", allMods...)
 	if err != nil {
@@ -651,65 +715,61 @@ func (c *idotA2Match_570Client) GetTournamentPlayerStatsV2(ctx context.Context, 
 	return resp, nil
 }
 
-type idotA2StreamSystem_570Client struct {
+type dotA2StreamSystem570Client struct {
 	r request.Requester
 }
 
-// NewIDOTA2StreamSystem_570 creates a new IDOTA2StreamSystem_570 client instance backed by an authenticated request.Requester.
-func NewIDOTA2StreamSystem_570(client request.Requester, opts ...aoni.ClientOption) (IDOTA2StreamSystem_570, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize IDOTA2StreamSystem_570")
+func newDOTA2StreamSystem570(doer any, opts ...aoni.ClientOption) *dotA2StreamSystem570Client {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &idotA2StreamSystem_570Client{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IDOTA2StreamSystem_570")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IDOTA2StreamSystem_570")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IDOTA2StreamSystem_570")}, baseOpts...)...))
 	}
 
-	return &idotA2StreamSystem_570Client{
+	return &dotA2StreamSystem570Client{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewIDOTA2StreamSystem_570 initializes IDOTA2StreamSystem_570 and panics if an error occurs.
-func MustNewIDOTA2StreamSystem_570(client request.Requester, opts ...aoni.ClientOption) IDOTA2StreamSystem_570 {
-	api, err := NewIDOTA2StreamSystem_570(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewDOTA2StreamSystem570 creates a new DOTA2StreamSystem570 client instance with preconfigured execution pipelines.
+func NewDOTA2StreamSystem570(doer any, opts ...aoni.ClientOption) DOTA2StreamSystem570 {
+	return newDOTA2StreamSystem570(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *idotA2StreamSystem_570Client) R() request.Requester {
+func (c *dotA2StreamSystem570Client) R() request.Requester {
 	return c.r
 }
 
-func (c *idotA2StreamSystem_570Client) GetBroadcasterInfo(ctx context.Context, req *IDOTA2StreamSystem_570_GetBroadcasterInfo_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *dotA2StreamSystem570Client) GetBroadcasterInfo(ctx context.Context, broadcasterSteamID uint64, leagueID uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [64]byte
+	var qBuf [128]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "broadcaster_steam_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(broadcasterSteamID), 10)
+	qBytes = append(qBytes, "&league_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(leagueID), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetBroadcasterInfo/v1/", allMods...)
 	if err != nil {
@@ -718,65 +778,59 @@ func (c *idotA2StreamSystem_570Client) GetBroadcasterInfo(ctx context.Context, r
 	return resp, nil
 }
 
-type idotA2Ticket_570Client struct {
+type dotA2Ticket570Client struct {
 	r request.Requester
 }
 
-// NewIDOTA2Ticket_570 creates a new IDOTA2Ticket_570 client instance backed by an authenticated request.Requester.
-func NewIDOTA2Ticket_570(client request.Requester, opts ...aoni.ClientOption) (IDOTA2Ticket_570, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize IDOTA2Ticket_570")
+func newDOTA2Ticket570(doer any, opts ...aoni.ClientOption) *dotA2Ticket570Client {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &idotA2Ticket_570Client{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IDOTA2Ticket_570")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IDOTA2Ticket_570")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IDOTA2Ticket_570")}, baseOpts...)...))
 	}
 
-	return &idotA2Ticket_570Client{
+	return &dotA2Ticket570Client{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewIDOTA2Ticket_570 initializes IDOTA2Ticket_570 and panics if an error occurs.
-func MustNewIDOTA2Ticket_570(client request.Requester, opts ...aoni.ClientOption) IDOTA2Ticket_570 {
-	api, err := NewIDOTA2Ticket_570(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewDOTA2Ticket570 creates a new DOTA2Ticket570 client instance with preconfigured execution pipelines.
+func NewDOTA2Ticket570(doer any, opts ...aoni.ClientOption) DOTA2Ticket570 {
+	return newDOTA2Ticket570(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *idotA2Ticket_570Client) R() request.Requester {
+func (c *dotA2Ticket570Client) R() request.Requester {
 	return c.r
 }
 
-func (c *idotA2Ticket_570Client) GetSteamIDForBadgeID(ctx context.Context, req *IDOTA2Ticket_570_GetSteamIDForBadgeID_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *dotA2Ticket570Client) GetSteamIDForBadgeID(ctx context.Context, badgeID string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "badge_id="...)
+	qBytes = append(qBytes, url.QueryEscape(badgeID)...)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetSteamIDForBadgeID/v1/", allMods...)
 	if err != nil {
@@ -785,14 +839,22 @@ func (c *idotA2Ticket_570Client) GetSteamIDForBadgeID(ctx context.Context, req *
 	return resp, nil
 }
 
-func (c *idotA2Ticket_570Client) SetSteamAccountPurchased(ctx context.Context, req *IDOTA2Ticket_570_SetSteamAccountPurchased_Request) (*json.RawMessage, error) {
+func (c *dotA2Ticket570Client) SetSteamAccountPurchased(ctx context.Context, steamID uint64, badgeType uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
-	var formBuf [64]byte
-	formBytes := req.AppendFormData(formBuf[:0])
+	var formBuf [128]byte
+	formBytes := formBuf[:0]
+	formBytes = append(formBytes, "steam_id="...)
+	formBytes = strconv.AppendUint(formBytes, uint64(steamID), 10)
+	formBytes = append(formBytes, "&badge_type="...)
+	formBytes = strconv.AppendUint(formBytes, uint64(badgeType), 10)
 	allMods = append(allMods, mod.WithBodyBytes(formBytes))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/SetSteamAccountPurchased/v1/", nil, allMods...)
 	if err != nil {
@@ -801,7 +863,7 @@ func (c *idotA2Ticket_570Client) SetSteamAccountPurchased(ctx context.Context, r
 	return resp, nil
 }
 
-func (c *idotA2Ticket_570Client) SteamAccountValidForBadgeType(ctx context.Context, req *IDOTA2Ticket_570_SteamAccountValidForBadgeType_Request) (*json.RawMessage, error) {
+func (c *dotA2Ticket570Client) SteamAccountValidForBadgeType(ctx context.Context, req *SteamAccountValidForBadgeTypeRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -809,6 +871,10 @@ func (c *idotA2Ticket_570Client) SteamAccountValidForBadgeType(ctx context.Conte
 	qBytes := qBuf[:0]
 	qBytes = req.AppendQuery(qBytes)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/SteamAccountValidForBadgeType/v1/", allMods...)
 	if err != nil {
@@ -817,65 +883,63 @@ func (c *idotA2Ticket_570Client) SteamAccountValidForBadgeType(ctx context.Conte
 	return resp, nil
 }
 
-type iEconDOTA2_570Client struct {
+type econDOTA2570Client struct {
 	r request.Requester
 }
 
-// NewIEconDOTA2_570 creates a new IEconDOTA2_570 client instance backed by an authenticated request.Requester.
-func NewIEconDOTA2_570(client request.Requester, opts ...aoni.ClientOption) (IEconDOTA2_570, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize IEconDOTA2_570")
+func newEconDOTA2570(doer any, opts ...aoni.ClientOption) *econDOTA2570Client {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &iEconDOTA2_570Client{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconDOTA2_570")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconDOTA2_570")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconDOTA2_570")}, baseOpts...)...))
 	}
 
-	return &iEconDOTA2_570Client{
+	return &econDOTA2570Client{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewIEconDOTA2_570 initializes IEconDOTA2_570 and panics if an error occurs.
-func MustNewIEconDOTA2_570(client request.Requester, opts ...aoni.ClientOption) IEconDOTA2_570 {
-	api, err := NewIEconDOTA2_570(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewEconDOTA2570 creates a new EconDOTA2570 client instance with preconfigured execution pipelines.
+func NewEconDOTA2570(doer any, opts ...aoni.ClientOption) EconDOTA2570 {
+	return newEconDOTA2570(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *iEconDOTA2_570Client) R() request.Requester {
+func (c *econDOTA2570Client) R() request.Requester {
 	return c.r
 }
 
-func (c *iEconDOTA2_570Client) GetEventStatsForAccount(ctx context.Context, req *IEconDOTA2_570_GetEventStatsForAccount_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *econDOTA2570Client) GetEventStatsForAccount(ctx context.Context, eventID uint32, accountID uint32, language string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [64]byte
+	var qBuf [128]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "event_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(eventID), 10)
+	qBytes = append(qBytes, "&account_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(accountID), 10)
+	qBytes = append(qBytes, "&language="...)
+	qBytes = append(qBytes, url.QueryEscape(language)...)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetEventStatsForAccount/v1/", allMods...)
 	if err != nil {
@@ -884,14 +948,21 @@ func (c *iEconDOTA2_570Client) GetEventStatsForAccount(ctx context.Context, req 
 	return resp, nil
 }
 
-func (c *iEconDOTA2_570Client) GetHeroes(ctx context.Context, req *IEconDOTA2_570_GetHeroes_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *econDOTA2570Client) GetHeroes(ctx context.Context, language string, itemizedonly bool, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [64]byte
+	var qBuf [128]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "language="...)
+	qBytes = append(qBytes, url.QueryEscape(language)...)
+	qBytes = append(qBytes, "&itemizedonly="...)
+	qBytes = strconv.AppendBool(qBytes, itemizedonly)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetHeroes/v1/", allMods...)
 	if err != nil {
@@ -900,14 +971,19 @@ func (c *iEconDOTA2_570Client) GetHeroes(ctx context.Context, req *IEconDOTA2_57
 	return resp, nil
 }
 
-func (c *iEconDOTA2_570Client) GetItemCreators(ctx context.Context, req *IEconDOTA2_570_GetItemCreators_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *econDOTA2570Client) GetItemCreators(ctx context.Context, itemdef uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "itemdef="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(itemdef), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetItemCreators/v1/", allMods...)
 	if err != nil {
@@ -916,14 +992,19 @@ func (c *iEconDOTA2_570Client) GetItemCreators(ctx context.Context, req *IEconDO
 	return resp, nil
 }
 
-func (c *iEconDOTA2_570Client) GetItemWorkshopPublishedFileIDs(ctx context.Context, req *IEconDOTA2_570_GetItemWorkshopPublishedFileIDs_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *econDOTA2570Client) GetItemWorkshopPublishedFileIDs(ctx context.Context, itemdef uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "itemdef="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(itemdef), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetItemWorkshopPublishedFileIDs/v1/", allMods...)
 	if err != nil {
@@ -932,14 +1013,19 @@ func (c *iEconDOTA2_570Client) GetItemWorkshopPublishedFileIDs(ctx context.Conte
 	return resp, nil
 }
 
-func (c *iEconDOTA2_570Client) GetRarities(ctx context.Context, req *IEconDOTA2_570_GetRarities_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *econDOTA2570Client) GetRarities(ctx context.Context, language string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "language="...)
+	qBytes = append(qBytes, url.QueryEscape(language)...)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetRarities/v1/", allMods...)
 	if err != nil {
@@ -948,14 +1034,19 @@ func (c *iEconDOTA2_570Client) GetRarities(ctx context.Context, req *IEconDOTA2_
 	return resp, nil
 }
 
-func (c *iEconDOTA2_570Client) GetTournamentPrizePool(ctx context.Context, req *IEconDOTA2_570_GetTournamentPrizePool_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *econDOTA2570Client) GetTournamentPrizePool(ctx context.Context, leagueID uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "league_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(leagueID), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetTournamentPrizePool/v1/", allMods...)
 	if err != nil {
@@ -964,65 +1055,59 @@ func (c *iEconDOTA2_570Client) GetTournamentPrizePool(ctx context.Context, req *
 	return resp, nil
 }
 
-type iEconItems_1046930Client struct {
+type econItems1046930Client struct {
 	r request.Requester
 }
 
-// NewIEconItems_1046930 creates a new IEconItems_1046930 client instance backed by an authenticated request.Requester.
-func NewIEconItems_1046930(client request.Requester, opts ...aoni.ClientOption) (IEconItems_1046930, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize IEconItems_1046930")
+func newEconItems1046930(doer any, opts ...aoni.ClientOption) *econItems1046930Client {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &iEconItems_1046930Client{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_1046930")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_1046930")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_1046930")}, baseOpts...)...))
 	}
 
-	return &iEconItems_1046930Client{
+	return &econItems1046930Client{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewIEconItems_1046930 initializes IEconItems_1046930 and panics if an error occurs.
-func MustNewIEconItems_1046930(client request.Requester, opts ...aoni.ClientOption) IEconItems_1046930 {
-	api, err := NewIEconItems_1046930(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewEconItems1046930 creates a new EconItems1046930 client instance with preconfigured execution pipelines.
+func NewEconItems1046930(doer any, opts ...aoni.ClientOption) EconItems1046930 {
+	return newEconItems1046930(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *iEconItems_1046930Client) R() request.Requester {
+func (c *econItems1046930Client) R() request.Requester {
 	return c.r
 }
 
-func (c *iEconItems_1046930Client) GetPlayerItems(ctx context.Context, req *IEconItems_1046930_GetPlayerItems_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *econItems1046930Client) GetPlayerItems(ctx context.Context, steamID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "steam_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(steamID), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetPlayerItems/v1/", allMods...)
 	if err != nil {
@@ -1031,65 +1116,61 @@ func (c *iEconItems_1046930Client) GetPlayerItems(ctx context.Context, req *IEco
 	return resp, nil
 }
 
-type iEconItems_1269260Client struct {
+type econItems1269260Client struct {
 	r request.Requester
 }
 
-// NewIEconItems_1269260 creates a new IEconItems_1269260 client instance backed by an authenticated request.Requester.
-func NewIEconItems_1269260(client request.Requester, opts ...aoni.ClientOption) (IEconItems_1269260, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize IEconItems_1269260")
+func newEconItems1269260(doer any, opts ...aoni.ClientOption) *econItems1269260Client {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &iEconItems_1269260Client{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_1269260")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_1269260")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_1269260")}, baseOpts...)...))
 	}
 
-	return &iEconItems_1269260Client{
+	return &econItems1269260Client{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewIEconItems_1269260 initializes IEconItems_1269260 and panics if an error occurs.
-func MustNewIEconItems_1269260(client request.Requester, opts ...aoni.ClientOption) IEconItems_1269260 {
-	api, err := NewIEconItems_1269260(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewEconItems1269260 creates a new EconItems1269260 client instance with preconfigured execution pipelines.
+func NewEconItems1269260(doer any, opts ...aoni.ClientOption) EconItems1269260 {
+	return newEconItems1269260(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *iEconItems_1269260Client) R() request.Requester {
+func (c *econItems1269260Client) R() request.Requester {
 	return c.r
 }
 
-func (c *iEconItems_1269260Client) GetEquippedPlayerItems(ctx context.Context, req *IEconItems_1269260_GetEquippedPlayerItems_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *econItems1269260Client) GetEquippedPlayerItems(ctx context.Context, steamID uint64, classID uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "steam_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(steamID), 10)
+	qBytes = append(qBytes, "&class_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(classID), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetEquippedPlayerItems/v1/", allMods...)
 	if err != nil {
@@ -1098,65 +1179,59 @@ func (c *iEconItems_1269260Client) GetEquippedPlayerItems(ctx context.Context, r
 	return resp, nil
 }
 
-type iEconItems_440Client struct {
+type econItems440Client struct {
 	r request.Requester
 }
 
-// NewIEconItems_440 creates a new IEconItems_440 client instance backed by an authenticated request.Requester.
-func NewIEconItems_440(client request.Requester, opts ...aoni.ClientOption) (IEconItems_440, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize IEconItems_440")
+func newEconItems440(doer any, opts ...aoni.ClientOption) *econItems440Client {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &iEconItems_440Client{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_440")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_440")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_440")}, baseOpts...)...))
 	}
 
-	return &iEconItems_440Client{
+	return &econItems440Client{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewIEconItems_440 initializes IEconItems_440 and panics if an error occurs.
-func MustNewIEconItems_440(client request.Requester, opts ...aoni.ClientOption) IEconItems_440 {
-	api, err := NewIEconItems_440(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewEconItems440 creates a new EconItems440 client instance with preconfigured execution pipelines.
+func NewEconItems440(doer any, opts ...aoni.ClientOption) EconItems440 {
+	return newEconItems440(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *iEconItems_440Client) R() request.Requester {
+func (c *econItems440Client) R() request.Requester {
 	return c.r
 }
 
-func (c *iEconItems_440Client) GetPlayerItems(ctx context.Context, req *IEconItems_440_GetPlayerItems_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *econItems440Client) GetPlayerItems(ctx context.Context, steamID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "steam_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(steamID), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetPlayerItems/v1/", allMods...)
 	if err != nil {
@@ -1165,14 +1240,19 @@ func (c *iEconItems_440Client) GetPlayerItems(ctx context.Context, req *IEconIte
 	return resp, nil
 }
 
-func (c *iEconItems_440Client) GetSchema(ctx context.Context, req *IEconItems_440_GetSchema_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *econItems440Client) GetSchema(ctx context.Context, language string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "language="...)
+	qBytes = append(qBytes, url.QueryEscape(language)...)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetSchema/v1/", allMods...)
 	if err != nil {
@@ -1181,14 +1261,21 @@ func (c *iEconItems_440Client) GetSchema(ctx context.Context, req *IEconItems_44
 	return resp, nil
 }
 
-func (c *iEconItems_440Client) GetSchemaItems(ctx context.Context, req *IEconItems_440_GetSchemaItems_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *econItems440Client) GetSchemaItems(ctx context.Context, language string, start int32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "language="...)
+	qBytes = append(qBytes, url.QueryEscape(language)...)
+	qBytes = append(qBytes, "&start="...)
+	qBytes = strconv.AppendInt(qBytes, int64(start), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetSchemaItems/v1/", allMods...)
 	if err != nil {
@@ -1197,14 +1284,19 @@ func (c *iEconItems_440Client) GetSchemaItems(ctx context.Context, req *IEconIte
 	return resp, nil
 }
 
-func (c *iEconItems_440Client) GetSchemaOverview(ctx context.Context, req *IEconItems_440_GetSchemaOverview_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *econItems440Client) GetSchemaOverview(ctx context.Context, language string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "language="...)
+	qBytes = append(qBytes, url.QueryEscape(language)...)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetSchemaOverview/v1/", allMods...)
 	if err != nil {
@@ -1213,9 +1305,13 @@ func (c *iEconItems_440Client) GetSchemaOverview(ctx context.Context, req *IEcon
 	return resp, nil
 }
 
-func (c *iEconItems_440Client) GetSchemaURL(ctx context.Context) (*json.RawMessage, error) {
+func (c *econItems440Client) GetSchemaURL(ctx context.Context, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetSchemaURL/v1/", allMods...)
 	if err != nil {
@@ -1224,14 +1320,19 @@ func (c *iEconItems_440Client) GetSchemaURL(ctx context.Context) (*json.RawMessa
 	return resp, nil
 }
 
-func (c *iEconItems_440Client) GetStoreMetaData(ctx context.Context, req *IEconItems_440_GetStoreMetaData_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *econItems440Client) GetStoreMetaData(ctx context.Context, language string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "language="...)
+	qBytes = append(qBytes, url.QueryEscape(language)...)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetStoreMetaData/v1/", allMods...)
 	if err != nil {
@@ -1240,9 +1341,13 @@ func (c *iEconItems_440Client) GetStoreMetaData(ctx context.Context, req *IEconI
 	return resp, nil
 }
 
-func (c *iEconItems_440Client) GetStoreStatus(ctx context.Context) (*json.RawMessage, error) {
+func (c *econItems440Client) GetStoreStatus(ctx context.Context, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetStoreStatus/v1/", allMods...)
 	if err != nil {
@@ -1251,65 +1356,59 @@ func (c *iEconItems_440Client) GetStoreStatus(ctx context.Context) (*json.RawMes
 	return resp, nil
 }
 
-type iEconItems_570Client struct {
+type econItems570Client struct {
 	r request.Requester
 }
 
-// NewIEconItems_570 creates a new IEconItems_570 client instance backed by an authenticated request.Requester.
-func NewIEconItems_570(client request.Requester, opts ...aoni.ClientOption) (IEconItems_570, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize IEconItems_570")
+func newEconItems570(doer any, opts ...aoni.ClientOption) *econItems570Client {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &iEconItems_570Client{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_570")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_570")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_570")}, baseOpts...)...))
 	}
 
-	return &iEconItems_570Client{
+	return &econItems570Client{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewIEconItems_570 initializes IEconItems_570 and panics if an error occurs.
-func MustNewIEconItems_570(client request.Requester, opts ...aoni.ClientOption) IEconItems_570 {
-	api, err := NewIEconItems_570(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewEconItems570 creates a new EconItems570 client instance with preconfigured execution pipelines.
+func NewEconItems570(doer any, opts ...aoni.ClientOption) EconItems570 {
+	return newEconItems570(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *iEconItems_570Client) R() request.Requester {
+func (c *econItems570Client) R() request.Requester {
 	return c.r
 }
 
-func (c *iEconItems_570Client) GetPlayerItems(ctx context.Context, req *IEconItems_570_GetPlayerItems_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *econItems570Client) GetPlayerItems(ctx context.Context, steamID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "steam_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(steamID), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetPlayerItems/v1/", allMods...)
 	if err != nil {
@@ -1318,14 +1417,19 @@ func (c *iEconItems_570Client) GetPlayerItems(ctx context.Context, req *IEconIte
 	return resp, nil
 }
 
-func (c *iEconItems_570Client) GetStoreMetaData(ctx context.Context, req *IEconItems_570_GetStoreMetaData_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *econItems570Client) GetStoreMetaData(ctx context.Context, language string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "language="...)
+	qBytes = append(qBytes, url.QueryEscape(language)...)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetStoreMetaData/v1/", allMods...)
 	if err != nil {
@@ -1334,65 +1438,61 @@ func (c *iEconItems_570Client) GetStoreMetaData(ctx context.Context, req *IEconI
 	return resp, nil
 }
 
-type iEconItems_583950Client struct {
+type econItems583950Client struct {
 	r request.Requester
 }
 
-// NewIEconItems_583950 creates a new IEconItems_583950 client instance backed by an authenticated request.Requester.
-func NewIEconItems_583950(client request.Requester, opts ...aoni.ClientOption) (IEconItems_583950, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize IEconItems_583950")
+func newEconItems583950(doer any, opts ...aoni.ClientOption) *econItems583950Client {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &iEconItems_583950Client{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_583950")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_583950")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_583950")}, baseOpts...)...))
 	}
 
-	return &iEconItems_583950Client{
+	return &econItems583950Client{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewIEconItems_583950 initializes IEconItems_583950 and panics if an error occurs.
-func MustNewIEconItems_583950(client request.Requester, opts ...aoni.ClientOption) IEconItems_583950 {
-	api, err := NewIEconItems_583950(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewEconItems583950 creates a new EconItems583950 client instance with preconfigured execution pipelines.
+func NewEconItems583950(doer any, opts ...aoni.ClientOption) EconItems583950 {
+	return newEconItems583950(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *iEconItems_583950Client) R() request.Requester {
+func (c *econItems583950Client) R() request.Requester {
 	return c.r
 }
 
-func (c *iEconItems_583950Client) GetEquippedPlayerItems(ctx context.Context, req *IEconItems_583950_GetEquippedPlayerItems_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *econItems583950Client) GetEquippedPlayerItems(ctx context.Context, steamID uint64, classID uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "steam_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(steamID), 10)
+	qBytes = append(qBytes, "&class_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(classID), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetEquippedPlayerItems/v1/", allMods...)
 	if err != nil {
@@ -1401,65 +1501,59 @@ func (c *iEconItems_583950Client) GetEquippedPlayerItems(ctx context.Context, re
 	return resp, nil
 }
 
-type iEconItems_620Client struct {
+type econItems620Client struct {
 	r request.Requester
 }
 
-// NewIEconItems_620 creates a new IEconItems_620 client instance backed by an authenticated request.Requester.
-func NewIEconItems_620(client request.Requester, opts ...aoni.ClientOption) (IEconItems_620, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize IEconItems_620")
+func newEconItems620(doer any, opts ...aoni.ClientOption) *econItems620Client {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &iEconItems_620Client{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_620")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_620")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_620")}, baseOpts...)...))
 	}
 
-	return &iEconItems_620Client{
+	return &econItems620Client{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewIEconItems_620 initializes IEconItems_620 and panics if an error occurs.
-func MustNewIEconItems_620(client request.Requester, opts ...aoni.ClientOption) IEconItems_620 {
-	api, err := NewIEconItems_620(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewEconItems620 creates a new EconItems620 client instance with preconfigured execution pipelines.
+func NewEconItems620(doer any, opts ...aoni.ClientOption) EconItems620 {
+	return newEconItems620(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *iEconItems_620Client) R() request.Requester {
+func (c *econItems620Client) R() request.Requester {
 	return c.r
 }
 
-func (c *iEconItems_620Client) GetPlayerItems(ctx context.Context, req *IEconItems_620_GetPlayerItems_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *econItems620Client) GetPlayerItems(ctx context.Context, steamID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "steam_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(steamID), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetPlayerItems/v1/", allMods...)
 	if err != nil {
@@ -1468,14 +1562,19 @@ func (c *iEconItems_620Client) GetPlayerItems(ctx context.Context, req *IEconIte
 	return resp, nil
 }
 
-func (c *iEconItems_620Client) GetSchema(ctx context.Context, req *IEconItems_620_GetSchema_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *econItems620Client) GetSchema(ctx context.Context, language string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "language="...)
+	qBytes = append(qBytes, url.QueryEscape(language)...)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetSchema/v1/", allMods...)
 	if err != nil {
@@ -1484,65 +1583,59 @@ func (c *iEconItems_620Client) GetSchema(ctx context.Context, req *IEconItems_62
 	return resp, nil
 }
 
-type iEconItems_730Client struct {
+type econItems730Client struct {
 	r request.Requester
 }
 
-// NewIEconItems_730 creates a new IEconItems_730 client instance backed by an authenticated request.Requester.
-func NewIEconItems_730(client request.Requester, opts ...aoni.ClientOption) (IEconItems_730, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize IEconItems_730")
+func newEconItems730(doer any, opts ...aoni.ClientOption) *econItems730Client {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &iEconItems_730Client{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_730")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_730")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_730")}, baseOpts...)...))
 	}
 
-	return &iEconItems_730Client{
+	return &econItems730Client{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewIEconItems_730 initializes IEconItems_730 and panics if an error occurs.
-func MustNewIEconItems_730(client request.Requester, opts ...aoni.ClientOption) IEconItems_730 {
-	api, err := NewIEconItems_730(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewEconItems730 creates a new EconItems730 client instance with preconfigured execution pipelines.
+func NewEconItems730(doer any, opts ...aoni.ClientOption) EconItems730 {
+	return newEconItems730(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *iEconItems_730Client) R() request.Requester {
+func (c *econItems730Client) R() request.Requester {
 	return c.r
 }
 
-func (c *iEconItems_730Client) GetPlayerItems(ctx context.Context, req *IEconItems_730_GetPlayerItems_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *econItems730Client) GetPlayerItems(ctx context.Context, steamID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "steam_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(steamID), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetPlayerItems/v1/", allMods...)
 	if err != nil {
@@ -1551,14 +1644,19 @@ func (c *iEconItems_730Client) GetPlayerItems(ctx context.Context, req *IEconIte
 	return resp, nil
 }
 
-func (c *iEconItems_730Client) GetSchema(ctx context.Context, req *IEconItems_730_GetSchema_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *econItems730Client) GetSchema(ctx context.Context, language string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "language="...)
+	qBytes = append(qBytes, url.QueryEscape(language)...)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetSchema/v2/", allMods...)
 	if err != nil {
@@ -1567,9 +1665,13 @@ func (c *iEconItems_730Client) GetSchema(ctx context.Context, req *IEconItems_73
 	return resp, nil
 }
 
-func (c *iEconItems_730Client) GetSchemaURL(ctx context.Context) (*json.RawMessage, error) {
+func (c *econItems730Client) GetSchemaURL(ctx context.Context, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetSchemaURL/v2/", allMods...)
 	if err != nil {
@@ -1578,14 +1680,19 @@ func (c *iEconItems_730Client) GetSchemaURL(ctx context.Context) (*json.RawMessa
 	return resp, nil
 }
 
-func (c *iEconItems_730Client) GetStoreMetaData(ctx context.Context, req *IEconItems_730_GetStoreMetaData_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *econItems730Client) GetStoreMetaData(ctx context.Context, language string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "language="...)
+	qBytes = append(qBytes, url.QueryEscape(language)...)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetStoreMetaData/v1/", allMods...)
 	if err != nil {
@@ -1594,60 +1701,53 @@ func (c *iEconItems_730Client) GetStoreMetaData(ctx context.Context, req *IEconI
 	return resp, nil
 }
 
-type igcVersion_1046930Client struct {
+type gcVersion1046930Client struct {
 	r request.Requester
 }
 
-// NewIGCVersion_1046930 creates a new IGCVersion_1046930 client instance backed by an authenticated request.Requester.
-func NewIGCVersion_1046930(client request.Requester, opts ...aoni.ClientOption) (IGCVersion_1046930, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize IGCVersion_1046930")
+func newGCVersion1046930(doer any, opts ...aoni.ClientOption) *gcVersion1046930Client {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &igcVersion_1046930Client{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_1046930")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_1046930")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_1046930")}, baseOpts...)...))
 	}
 
-	return &igcVersion_1046930Client{
+	return &gcVersion1046930Client{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewIGCVersion_1046930 initializes IGCVersion_1046930 and panics if an error occurs.
-func MustNewIGCVersion_1046930(client request.Requester, opts ...aoni.ClientOption) IGCVersion_1046930 {
-	api, err := NewIGCVersion_1046930(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewGCVersion1046930 creates a new GCVersion1046930 client instance with preconfigured execution pipelines.
+func NewGCVersion1046930(doer any, opts ...aoni.ClientOption) GCVersion1046930 {
+	return newGCVersion1046930(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *igcVersion_1046930Client) R() request.Requester {
+func (c *gcVersion1046930Client) R() request.Requester {
 	return c.r
 }
 
-func (c *igcVersion_1046930Client) GetClientVersion(ctx context.Context) (*json.RawMessage, error) {
+func (c *gcVersion1046930Client) GetClientVersion(ctx context.Context, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetClientVersion/v1/", allMods...)
 	if err != nil {
@@ -1656,9 +1756,13 @@ func (c *igcVersion_1046930Client) GetClientVersion(ctx context.Context) (*json.
 	return resp, nil
 }
 
-func (c *igcVersion_1046930Client) GetServerVersion(ctx context.Context) (*json.RawMessage, error) {
+func (c *gcVersion1046930Client) GetServerVersion(ctx context.Context, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetServerVersion/v1/", allMods...)
 	if err != nil {
@@ -1667,60 +1771,53 @@ func (c *igcVersion_1046930Client) GetServerVersion(ctx context.Context) (*json.
 	return resp, nil
 }
 
-type igcVersion_1269260Client struct {
+type gcVersion1269260Client struct {
 	r request.Requester
 }
 
-// NewIGCVersion_1269260 creates a new IGCVersion_1269260 client instance backed by an authenticated request.Requester.
-func NewIGCVersion_1269260(client request.Requester, opts ...aoni.ClientOption) (IGCVersion_1269260, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize IGCVersion_1269260")
+func newGCVersion1269260(doer any, opts ...aoni.ClientOption) *gcVersion1269260Client {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &igcVersion_1269260Client{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_1269260")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_1269260")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_1269260")}, baseOpts...)...))
 	}
 
-	return &igcVersion_1269260Client{
+	return &gcVersion1269260Client{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewIGCVersion_1269260 initializes IGCVersion_1269260 and panics if an error occurs.
-func MustNewIGCVersion_1269260(client request.Requester, opts ...aoni.ClientOption) IGCVersion_1269260 {
-	api, err := NewIGCVersion_1269260(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewGCVersion1269260 creates a new GCVersion1269260 client instance with preconfigured execution pipelines.
+func NewGCVersion1269260(doer any, opts ...aoni.ClientOption) GCVersion1269260 {
+	return newGCVersion1269260(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *igcVersion_1269260Client) R() request.Requester {
+func (c *gcVersion1269260Client) R() request.Requester {
 	return c.r
 }
 
-func (c *igcVersion_1269260Client) GetClientVersion(ctx context.Context) (*json.RawMessage, error) {
+func (c *gcVersion1269260Client) GetClientVersion(ctx context.Context, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetClientVersion/v1/", allMods...)
 	if err != nil {
@@ -1729,9 +1826,13 @@ func (c *igcVersion_1269260Client) GetClientVersion(ctx context.Context) (*json.
 	return resp, nil
 }
 
-func (c *igcVersion_1269260Client) GetServerVersion(ctx context.Context) (*json.RawMessage, error) {
+func (c *gcVersion1269260Client) GetServerVersion(ctx context.Context, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetServerVersion/v1/", allMods...)
 	if err != nil {
@@ -1740,60 +1841,53 @@ func (c *igcVersion_1269260Client) GetServerVersion(ctx context.Context) (*json.
 	return resp, nil
 }
 
-type igcVersion_1422450Client struct {
+type gcVersion1422450Client struct {
 	r request.Requester
 }
 
-// NewIGCVersion_1422450 creates a new IGCVersion_1422450 client instance backed by an authenticated request.Requester.
-func NewIGCVersion_1422450(client request.Requester, opts ...aoni.ClientOption) (IGCVersion_1422450, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize IGCVersion_1422450")
+func newGCVersion1422450(doer any, opts ...aoni.ClientOption) *gcVersion1422450Client {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &igcVersion_1422450Client{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_1422450")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_1422450")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_1422450")}, baseOpts...)...))
 	}
 
-	return &igcVersion_1422450Client{
+	return &gcVersion1422450Client{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewIGCVersion_1422450 initializes IGCVersion_1422450 and panics if an error occurs.
-func MustNewIGCVersion_1422450(client request.Requester, opts ...aoni.ClientOption) IGCVersion_1422450 {
-	api, err := NewIGCVersion_1422450(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewGCVersion1422450 creates a new GCVersion1422450 client instance with preconfigured execution pipelines.
+func NewGCVersion1422450(doer any, opts ...aoni.ClientOption) GCVersion1422450 {
+	return newGCVersion1422450(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *igcVersion_1422450Client) R() request.Requester {
+func (c *gcVersion1422450Client) R() request.Requester {
 	return c.r
 }
 
-func (c *igcVersion_1422450Client) GetClientVersion(ctx context.Context) (*json.RawMessage, error) {
+func (c *gcVersion1422450Client) GetClientVersion(ctx context.Context, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetClientVersion/v1/", allMods...)
 	if err != nil {
@@ -1802,9 +1896,13 @@ func (c *igcVersion_1422450Client) GetClientVersion(ctx context.Context) (*json.
 	return resp, nil
 }
 
-func (c *igcVersion_1422450Client) GetServerVersion(ctx context.Context) (*json.RawMessage, error) {
+func (c *gcVersion1422450Client) GetServerVersion(ctx context.Context, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetServerVersion/v1/", allMods...)
 	if err != nil {
@@ -1813,60 +1911,53 @@ func (c *igcVersion_1422450Client) GetServerVersion(ctx context.Context) (*json.
 	return resp, nil
 }
 
-type igcVersion_440Client struct {
+type gcVersion440Client struct {
 	r request.Requester
 }
 
-// NewIGCVersion_440 creates a new IGCVersion_440 client instance backed by an authenticated request.Requester.
-func NewIGCVersion_440(client request.Requester, opts ...aoni.ClientOption) (IGCVersion_440, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize IGCVersion_440")
+func newGCVersion440(doer any, opts ...aoni.ClientOption) *gcVersion440Client {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &igcVersion_440Client{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_440")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_440")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_440")}, baseOpts...)...))
 	}
 
-	return &igcVersion_440Client{
+	return &gcVersion440Client{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewIGCVersion_440 initializes IGCVersion_440 and panics if an error occurs.
-func MustNewIGCVersion_440(client request.Requester, opts ...aoni.ClientOption) IGCVersion_440 {
-	api, err := NewIGCVersion_440(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewGCVersion440 creates a new GCVersion440 client instance with preconfigured execution pipelines.
+func NewGCVersion440(doer any, opts ...aoni.ClientOption) GCVersion440 {
+	return newGCVersion440(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *igcVersion_440Client) R() request.Requester {
+func (c *gcVersion440Client) R() request.Requester {
 	return c.r
 }
 
-func (c *igcVersion_440Client) GetClientVersion(ctx context.Context) (*json.RawMessage, error) {
+func (c *gcVersion440Client) GetClientVersion(ctx context.Context, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetClientVersion/v1/", allMods...)
 	if err != nil {
@@ -1875,9 +1966,13 @@ func (c *igcVersion_440Client) GetClientVersion(ctx context.Context) (*json.RawM
 	return resp, nil
 }
 
-func (c *igcVersion_440Client) GetServerVersion(ctx context.Context) (*json.RawMessage, error) {
+func (c *gcVersion440Client) GetServerVersion(ctx context.Context, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetServerVersion/v1/", allMods...)
 	if err != nil {
@@ -1886,60 +1981,53 @@ func (c *igcVersion_440Client) GetServerVersion(ctx context.Context) (*json.RawM
 	return resp, nil
 }
 
-type igcVersion_570Client struct {
+type gcVersion570Client struct {
 	r request.Requester
 }
 
-// NewIGCVersion_570 creates a new IGCVersion_570 client instance backed by an authenticated request.Requester.
-func NewIGCVersion_570(client request.Requester, opts ...aoni.ClientOption) (IGCVersion_570, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize IGCVersion_570")
+func newGCVersion570(doer any, opts ...aoni.ClientOption) *gcVersion570Client {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &igcVersion_570Client{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_570")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_570")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_570")}, baseOpts...)...))
 	}
 
-	return &igcVersion_570Client{
+	return &gcVersion570Client{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewIGCVersion_570 initializes IGCVersion_570 and panics if an error occurs.
-func MustNewIGCVersion_570(client request.Requester, opts ...aoni.ClientOption) IGCVersion_570 {
-	api, err := NewIGCVersion_570(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewGCVersion570 creates a new GCVersion570 client instance with preconfigured execution pipelines.
+func NewGCVersion570(doer any, opts ...aoni.ClientOption) GCVersion570 {
+	return newGCVersion570(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *igcVersion_570Client) R() request.Requester {
+func (c *gcVersion570Client) R() request.Requester {
 	return c.r
 }
 
-func (c *igcVersion_570Client) GetClientVersion(ctx context.Context) (*json.RawMessage, error) {
+func (c *gcVersion570Client) GetClientVersion(ctx context.Context, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetClientVersion/v1/", allMods...)
 	if err != nil {
@@ -1948,9 +2036,13 @@ func (c *igcVersion_570Client) GetClientVersion(ctx context.Context) (*json.RawM
 	return resp, nil
 }
 
-func (c *igcVersion_570Client) GetServerVersion(ctx context.Context) (*json.RawMessage, error) {
+func (c *gcVersion570Client) GetServerVersion(ctx context.Context, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetServerVersion/v1/", allMods...)
 	if err != nil {
@@ -1959,60 +2051,53 @@ func (c *igcVersion_570Client) GetServerVersion(ctx context.Context) (*json.RawM
 	return resp, nil
 }
 
-type igcVersion_583950Client struct {
+type gcVersion583950Client struct {
 	r request.Requester
 }
 
-// NewIGCVersion_583950 creates a new IGCVersion_583950 client instance backed by an authenticated request.Requester.
-func NewIGCVersion_583950(client request.Requester, opts ...aoni.ClientOption) (IGCVersion_583950, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize IGCVersion_583950")
+func newGCVersion583950(doer any, opts ...aoni.ClientOption) *gcVersion583950Client {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &igcVersion_583950Client{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_583950")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_583950")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_583950")}, baseOpts...)...))
 	}
 
-	return &igcVersion_583950Client{
+	return &gcVersion583950Client{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewIGCVersion_583950 initializes IGCVersion_583950 and panics if an error occurs.
-func MustNewIGCVersion_583950(client request.Requester, opts ...aoni.ClientOption) IGCVersion_583950 {
-	api, err := NewIGCVersion_583950(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewGCVersion583950 creates a new GCVersion583950 client instance with preconfigured execution pipelines.
+func NewGCVersion583950(doer any, opts ...aoni.ClientOption) GCVersion583950 {
+	return newGCVersion583950(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *igcVersion_583950Client) R() request.Requester {
+func (c *gcVersion583950Client) R() request.Requester {
 	return c.r
 }
 
-func (c *igcVersion_583950Client) GetClientVersion(ctx context.Context) (*json.RawMessage, error) {
+func (c *gcVersion583950Client) GetClientVersion(ctx context.Context, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetClientVersion/v1/", allMods...)
 	if err != nil {
@@ -2021,9 +2106,13 @@ func (c *igcVersion_583950Client) GetClientVersion(ctx context.Context) (*json.R
 	return resp, nil
 }
 
-func (c *igcVersion_583950Client) GetServerVersion(ctx context.Context) (*json.RawMessage, error) {
+func (c *gcVersion583950Client) GetServerVersion(ctx context.Context, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetServerVersion/v1/", allMods...)
 	if err != nil {
@@ -2032,60 +2121,53 @@ func (c *igcVersion_583950Client) GetServerVersion(ctx context.Context) (*json.R
 	return resp, nil
 }
 
-type igcVersion_730Client struct {
+type gcVersion730Client struct {
 	r request.Requester
 }
 
-// NewIGCVersion_730 creates a new IGCVersion_730 client instance backed by an authenticated request.Requester.
-func NewIGCVersion_730(client request.Requester, opts ...aoni.ClientOption) (IGCVersion_730, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize IGCVersion_730")
+func newGCVersion730(doer any, opts ...aoni.ClientOption) *gcVersion730Client {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &igcVersion_730Client{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_730")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_730")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_730")}, baseOpts...)...))
 	}
 
-	return &igcVersion_730Client{
+	return &gcVersion730Client{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewIGCVersion_730 initializes IGCVersion_730 and panics if an error occurs.
-func MustNewIGCVersion_730(client request.Requester, opts ...aoni.ClientOption) IGCVersion_730 {
-	api, err := NewIGCVersion_730(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewGCVersion730 creates a new GCVersion730 client instance with preconfigured execution pipelines.
+func NewGCVersion730(doer any, opts ...aoni.ClientOption) GCVersion730 {
+	return newGCVersion730(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *igcVersion_730Client) R() request.Requester {
+func (c *gcVersion730Client) R() request.Requester {
 	return c.r
 }
 
-func (c *igcVersion_730Client) GetServerVersion(ctx context.Context) (*json.RawMessage, error) {
+func (c *gcVersion730Client) GetServerVersion(ctx context.Context, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetServerVersion/v1/", allMods...)
 	if err != nil {
@@ -2094,65 +2176,59 @@ func (c *igcVersion_730Client) GetServerVersion(ctx context.Context) (*json.RawM
 	return resp, nil
 }
 
-type iPortal2Leaderboards_620Client struct {
+type portal2Leaderboards620Client struct {
 	r request.Requester
 }
 
-// NewIPortal2Leaderboards_620 creates a new IPortal2Leaderboards_620 client instance backed by an authenticated request.Requester.
-func NewIPortal2Leaderboards_620(client request.Requester, opts ...aoni.ClientOption) (IPortal2Leaderboards_620, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize IPortal2Leaderboards_620")
+func newPortal2Leaderboards620(doer any, opts ...aoni.ClientOption) *portal2Leaderboards620Client {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &iPortal2Leaderboards_620Client{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IPortal2Leaderboards_620")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IPortal2Leaderboards_620")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IPortal2Leaderboards_620")}, baseOpts...)...))
 	}
 
-	return &iPortal2Leaderboards_620Client{
+	return &portal2Leaderboards620Client{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewIPortal2Leaderboards_620 initializes IPortal2Leaderboards_620 and panics if an error occurs.
-func MustNewIPortal2Leaderboards_620(client request.Requester, opts ...aoni.ClientOption) IPortal2Leaderboards_620 {
-	api, err := NewIPortal2Leaderboards_620(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewPortal2Leaderboards620 creates a new Portal2Leaderboards620 client instance with preconfigured execution pipelines.
+func NewPortal2Leaderboards620(doer any, opts ...aoni.ClientOption) Portal2Leaderboards620 {
+	return newPortal2Leaderboards620(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *iPortal2Leaderboards_620Client) R() request.Requester {
+func (c *portal2Leaderboards620Client) R() request.Requester {
 	return c.r
 }
 
-func (c *iPortal2Leaderboards_620Client) GetBucketizedData(ctx context.Context, req *IPortal2Leaderboards_620_GetBucketizedData_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *portal2Leaderboards620Client) GetBucketizedData(ctx context.Context, leaderboardName string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "leaderboard_name="...)
+	qBytes = append(qBytes, url.QueryEscape(leaderboardName)...)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetBucketizedData/v1/", allMods...)
 	if err != nil {
@@ -2161,65 +2237,59 @@ func (c *iPortal2Leaderboards_620Client) GetBucketizedData(ctx context.Context, 
 	return resp, nil
 }
 
-type iSteamAppsClient struct {
+type steamAppsClient struct {
 	r request.Requester
 }
 
-// NewISteamApps creates a new ISteamApps client instance backed by an authenticated request.Requester.
-func NewISteamApps(client request.Requester, opts ...aoni.ClientOption) (ISteamApps, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize ISteamApps")
+func newSteamApps(doer any, opts ...aoni.ClientOption) *steamAppsClient {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &iSteamAppsClient{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamApps")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamApps")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamApps")}, baseOpts...)...))
 	}
 
-	return &iSteamAppsClient{
+	return &steamAppsClient{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewISteamApps initializes ISteamApps and panics if an error occurs.
-func MustNewISteamApps(client request.Requester, opts ...aoni.ClientOption) ISteamApps {
-	api, err := NewISteamApps(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewSteamApps creates a new SteamApps client instance with preconfigured execution pipelines.
+func NewSteamApps(doer any, opts ...aoni.ClientOption) SteamApps {
+	return newSteamApps(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *iSteamAppsClient) R() request.Requester {
+func (c *steamAppsClient) R() request.Requester {
 	return c.r
 }
 
-func (c *iSteamAppsClient) GetSDRConfig(ctx context.Context, req *ISteamApps_GetSDRConfig_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *steamAppsClient) GetSDRConfig(ctx context.Context, appID uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "app_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(appID), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetSDRConfig/v1/", allMods...)
 	if err != nil {
@@ -2228,14 +2298,19 @@ func (c *iSteamAppsClient) GetSDRConfig(ctx context.Context, req *ISteamApps_Get
 	return resp, nil
 }
 
-func (c *iSteamAppsClient) GetServersAtAddress(ctx context.Context, req *ISteamApps_GetServersAtAddress_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *steamAppsClient) GetServersAtAddress(ctx context.Context, addr string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "addr="...)
+	qBytes = append(qBytes, url.QueryEscape(addr)...)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetServersAtAddress/v1/", allMods...)
 	if err != nil {
@@ -2244,14 +2319,21 @@ func (c *iSteamAppsClient) GetServersAtAddress(ctx context.Context, req *ISteamA
 	return resp, nil
 }
 
-func (c *iSteamAppsClient) UpToDateCheck(ctx context.Context, req *ISteamApps_UpToDateCheck_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *steamAppsClient) UpToDateCheck(ctx context.Context, appID uint32, version uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "app_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(appID), 10)
+	qBytes = append(qBytes, "&version="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(version), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/UpToDateCheck/v1/", allMods...)
 	if err != nil {
@@ -2260,60 +2342,53 @@ func (c *iSteamAppsClient) UpToDateCheck(ctx context.Context, req *ISteamApps_Up
 	return resp, nil
 }
 
-type iSteamBroadcastClient struct {
+type steamBroadcastClient struct {
 	r request.Requester
 }
 
-// NewISteamBroadcast creates a new ISteamBroadcast client instance backed by an authenticated request.Requester.
-func NewISteamBroadcast(client request.Requester, opts ...aoni.ClientOption) (ISteamBroadcast, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize ISteamBroadcast")
+func newSteamBroadcast(doer any, opts ...aoni.ClientOption) *steamBroadcastClient {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &iSteamBroadcastClient{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamBroadcast")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamBroadcast")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamBroadcast")}, baseOpts...)...))
 	}
 
-	return &iSteamBroadcastClient{
+	return &steamBroadcastClient{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewISteamBroadcast initializes ISteamBroadcast and panics if an error occurs.
-func MustNewISteamBroadcast(client request.Requester, opts ...aoni.ClientOption) ISteamBroadcast {
-	api, err := NewISteamBroadcast(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewSteamBroadcast creates a new SteamBroadcast client instance with preconfigured execution pipelines.
+func NewSteamBroadcast(doer any, opts ...aoni.ClientOption) SteamBroadcast {
+	return newSteamBroadcast(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *iSteamBroadcastClient) R() request.Requester {
+func (c *steamBroadcastClient) R() request.Requester {
 	return c.r
 }
 
-func (c *iSteamBroadcastClient) PlayerStats(ctx context.Context) (*json.RawMessage, error) {
+func (c *steamBroadcastClient) PlayerStats(ctx context.Context, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/PlayerStats/v1/", nil, allMods...)
 	if err != nil {
@@ -2322,7 +2397,7 @@ func (c *iSteamBroadcastClient) PlayerStats(ctx context.Context) (*json.RawMessa
 	return resp, nil
 }
 
-func (c *iSteamBroadcastClient) ViewerHeartbeat(ctx context.Context, req *ISteamBroadcast_ViewerHeartbeat_Request) (*json.RawMessage, error) {
+func (c *steamBroadcastClient) ViewerHeartbeat(ctx context.Context, req *ViewerHeartbeatRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -2330,6 +2405,10 @@ func (c *iSteamBroadcastClient) ViewerHeartbeat(ctx context.Context, req *ISteam
 	qBytes := qBuf[:0]
 	qBytes = req.AppendQuery(qBytes)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/ViewerHeartbeat/v1/", allMods...)
 	if err != nil {
@@ -2338,58 +2417,47 @@ func (c *iSteamBroadcastClient) ViewerHeartbeat(ctx context.Context, req *ISteam
 	return resp, nil
 }
 
-type iSteamCDNClient struct {
+type steamCDNClient struct {
 	r request.Requester
 }
 
-// NewISteamCDN creates a new ISteamCDN client instance backed by an authenticated request.Requester.
-func NewISteamCDN(client request.Requester, opts ...aoni.ClientOption) (ISteamCDN, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize ISteamCDN")
+func newSteamCDN(doer any, opts ...aoni.ClientOption) *steamCDNClient {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &iSteamCDNClient{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamCDN")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamCDN")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamCDN")}, baseOpts...)...))
 	}
 
-	return &iSteamCDNClient{
+	return &steamCDNClient{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewISteamCDN initializes ISteamCDN and panics if an error occurs.
-func MustNewISteamCDN(client request.Requester, opts ...aoni.ClientOption) ISteamCDN {
-	api, err := NewISteamCDN(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewSteamCDN creates a new SteamCDN client instance with preconfigured execution pipelines.
+func NewSteamCDN(doer any, opts ...aoni.ClientOption) SteamCDN {
+	return newSteamCDN(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *iSteamCDNClient) R() request.Requester {
+func (c *steamCDNClient) R() request.Requester {
 	return c.r
 }
 
-func (c *iSteamCDNClient) SetClientFilters(ctx context.Context, req *ISteamCDN_SetClientFilters_Request) (*json.RawMessage, error) {
+func (c *steamCDNClient) SetClientFilters(ctx context.Context, req *SetClientFiltersRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -2397,6 +2465,10 @@ func (c *iSteamCDNClient) SetClientFilters(ctx context.Context, req *ISteamCDN_S
 	var formBuf [64]byte
 	formBytes := req.AppendFormData(formBuf[:0])
 	allMods = append(allMods, mod.WithBodyBytes(formBytes))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/SetClientFilters/v1/", nil, allMods...)
 	if err != nil {
@@ -2405,7 +2477,7 @@ func (c *iSteamCDNClient) SetClientFilters(ctx context.Context, req *ISteamCDN_S
 	return resp, nil
 }
 
-func (c *iSteamCDNClient) SetPerformanceStats(ctx context.Context, req *ISteamCDN_SetPerformanceStats_Request) (*json.RawMessage, error) {
+func (c *steamCDNClient) SetPerformanceStats(ctx context.Context, req *SetPerformanceStatsRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -2413,6 +2485,10 @@ func (c *iSteamCDNClient) SetPerformanceStats(ctx context.Context, req *ISteamCD
 	var formBuf [64]byte
 	formBytes := req.AppendFormData(formBuf[:0])
 	allMods = append(allMods, mod.WithBodyBytes(formBytes))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/SetPerformanceStats/v1/", nil, allMods...)
 	if err != nil {
@@ -2421,65 +2497,61 @@ func (c *iSteamCDNClient) SetPerformanceStats(ctx context.Context, req *ISteamCD
 	return resp, nil
 }
 
-type iSteamDirectoryClient struct {
+type steamDirectoryClient struct {
 	r request.Requester
 }
 
-// NewISteamDirectory creates a new ISteamDirectory client instance backed by an authenticated request.Requester.
-func NewISteamDirectory(client request.Requester, opts ...aoni.ClientOption) (ISteamDirectory, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize ISteamDirectory")
+func newSteamDirectory(doer any, opts ...aoni.ClientOption) *steamDirectoryClient {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &iSteamDirectoryClient{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamDirectory")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamDirectory")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamDirectory")}, baseOpts...)...))
 	}
 
-	return &iSteamDirectoryClient{
+	return &steamDirectoryClient{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewISteamDirectory initializes ISteamDirectory and panics if an error occurs.
-func MustNewISteamDirectory(client request.Requester, opts ...aoni.ClientOption) ISteamDirectory {
-	api, err := NewISteamDirectory(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewSteamDirectory creates a new SteamDirectory client instance with preconfigured execution pipelines.
+func NewSteamDirectory(doer any, opts ...aoni.ClientOption) SteamDirectory {
+	return newSteamDirectory(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *iSteamDirectoryClient) R() request.Requester {
+func (c *steamDirectoryClient) R() request.Requester {
 	return c.r
 }
 
-func (c *iSteamDirectoryClient) GetCMList(ctx context.Context, req *ISteamDirectory_GetCMList_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *steamDirectoryClient) GetCMList(ctx context.Context, cellID uint32, maxCount uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "cell_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(cellID), 10)
+	qBytes = append(qBytes, "&max_count="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(maxCount), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetCMList/v1/", allMods...)
 	if err != nil {
@@ -2488,7 +2560,7 @@ func (c *iSteamDirectoryClient) GetCMList(ctx context.Context, req *ISteamDirect
 	return resp, nil
 }
 
-func (c *iSteamDirectoryClient) GetCMListForConnect(ctx context.Context, req *ISteamDirectory_GetCMListForConnect_Request) (*json.RawMessage, error) {
+func (c *steamDirectoryClient) GetCMListForConnect(ctx context.Context, req *GetCMListForConnectRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -2496,6 +2568,10 @@ func (c *iSteamDirectoryClient) GetCMListForConnect(ctx context.Context, req *IS
 	qBytes := qBuf[:0]
 	qBytes = req.AppendQuery(qBytes)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetCMListForConnect/v1/", allMods...)
 	if err != nil {
@@ -2504,9 +2580,13 @@ func (c *iSteamDirectoryClient) GetCMListForConnect(ctx context.Context, req *IS
 	return resp, nil
 }
 
-func (c *iSteamDirectoryClient) GetSteamPipeDomains(ctx context.Context) (*json.RawMessage, error) {
+func (c *steamDirectoryClient) GetSteamPipeDomains(ctx context.Context, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetSteamPipeDomains/v1/", allMods...)
 	if err != nil {
@@ -2515,58 +2595,47 @@ func (c *iSteamDirectoryClient) GetSteamPipeDomains(ctx context.Context) (*json.
 	return resp, nil
 }
 
-type iSteamEconomyClient struct {
+type steamEconomyClient struct {
 	r request.Requester
 }
 
-// NewISteamEconomy creates a new ISteamEconomy client instance backed by an authenticated request.Requester.
-func NewISteamEconomy(client request.Requester, opts ...aoni.ClientOption) (ISteamEconomy, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize ISteamEconomy")
+func newSteamEconomy(doer any, opts ...aoni.ClientOption) *steamEconomyClient {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &iSteamEconomyClient{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamEconomy")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamEconomy")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamEconomy")}, baseOpts...)...))
 	}
 
-	return &iSteamEconomyClient{
+	return &steamEconomyClient{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewISteamEconomy initializes ISteamEconomy and panics if an error occurs.
-func MustNewISteamEconomy(client request.Requester, opts ...aoni.ClientOption) ISteamEconomy {
-	api, err := NewISteamEconomy(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewSteamEconomy creates a new SteamEconomy client instance with preconfigured execution pipelines.
+func NewSteamEconomy(doer any, opts ...aoni.ClientOption) SteamEconomy {
+	return newSteamEconomy(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *iSteamEconomyClient) R() request.Requester {
+func (c *steamEconomyClient) R() request.Requester {
 	return c.r
 }
 
-func (c *iSteamEconomyClient) GetAssetClassInfo(ctx context.Context, req *ISteamEconomy_GetAssetClassInfo_Request) (*json.RawMessage, error) {
+func (c *steamEconomyClient) GetAssetClassInfo(ctx context.Context, req *GetAssetClassInfoRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -2574,6 +2643,10 @@ func (c *iSteamEconomyClient) GetAssetClassInfo(ctx context.Context, req *ISteam
 	qBytes := qBuf[:0]
 	qBytes = req.AppendQuery(qBytes)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetAssetClassInfo/v1/", allMods...)
 	if err != nil {
@@ -2582,14 +2655,23 @@ func (c *iSteamEconomyClient) GetAssetClassInfo(ctx context.Context, req *ISteam
 	return resp, nil
 }
 
-func (c *iSteamEconomyClient) GetAssetPrices(ctx context.Context, req *ISteamEconomy_GetAssetPrices_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *steamEconomyClient) GetAssetPrices(ctx context.Context, appID uint32, currency string, language string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [64]byte
+	var qBuf [128]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "app_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(appID), 10)
+	qBytes = append(qBytes, "&currency="...)
+	qBytes = append(qBytes, url.QueryEscape(currency)...)
+	qBytes = append(qBytes, "&language="...)
+	qBytes = append(qBytes, url.QueryEscape(language)...)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetAssetPrices/v1/", allMods...)
 	if err != nil {
@@ -2598,58 +2680,47 @@ func (c *iSteamEconomyClient) GetAssetPrices(ctx context.Context, req *ISteamEco
 	return resp, nil
 }
 
-type iSteamNewsClient struct {
+type steamNewsClient struct {
 	r request.Requester
 }
 
-// NewISteamNews creates a new ISteamNews client instance backed by an authenticated request.Requester.
-func NewISteamNews(client request.Requester, opts ...aoni.ClientOption) (ISteamNews, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize ISteamNews")
+func newSteamNews(doer any, opts ...aoni.ClientOption) *steamNewsClient {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &iSteamNewsClient{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamNews")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamNews")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamNews")}, baseOpts...)...))
 	}
 
-	return &iSteamNewsClient{
+	return &steamNewsClient{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewISteamNews initializes ISteamNews and panics if an error occurs.
-func MustNewISteamNews(client request.Requester, opts ...aoni.ClientOption) ISteamNews {
-	api, err := NewISteamNews(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewSteamNews creates a new SteamNews client instance with preconfigured execution pipelines.
+func NewSteamNews(doer any, opts ...aoni.ClientOption) SteamNews {
+	return newSteamNews(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *iSteamNewsClient) R() request.Requester {
+func (c *steamNewsClient) R() request.Requester {
 	return c.r
 }
 
-func (c *iSteamNewsClient) GetNewsForAppV1(ctx context.Context, req *ISteamNews_GetNewsForAppV1_Request) (*json.RawMessage, error) {
+func (c *steamNewsClient) GetNewsForAppV1(ctx context.Context, req *GetNewsForAppV1Request, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -2657,6 +2728,10 @@ func (c *iSteamNewsClient) GetNewsForAppV1(ctx context.Context, req *ISteamNews_
 	qBytes := qBuf[:0]
 	qBytes = req.AppendQuery(qBytes)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetNewsForApp/v1/", allMods...)
 	if err != nil {
@@ -2665,7 +2740,7 @@ func (c *iSteamNewsClient) GetNewsForAppV1(ctx context.Context, req *ISteamNews_
 	return resp, nil
 }
 
-func (c *iSteamNewsClient) GetNewsForAppV2(ctx context.Context, req *ISteamNews_GetNewsForAppV2_Request) (*json.RawMessage, error) {
+func (c *steamNewsClient) GetNewsForAppV2(ctx context.Context, req *GetNewsForAppV2Request, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -2673,6 +2748,10 @@ func (c *iSteamNewsClient) GetNewsForAppV2(ctx context.Context, req *ISteamNews_
 	qBytes := qBuf[:0]
 	qBytes = req.AppendQuery(qBytes)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetNewsForApp/v2/", allMods...)
 	if err != nil {
@@ -2681,65 +2760,62 @@ func (c *iSteamNewsClient) GetNewsForAppV2(ctx context.Context, req *ISteamNews_
 	return resp, nil
 }
 
-type iSteamRemoteStorageClient struct {
+type steamRemoteStorageClient struct {
 	r request.Requester
 }
 
-// NewISteamRemoteStorage creates a new ISteamRemoteStorage client instance backed by an authenticated request.Requester.
-func NewISteamRemoteStorage(client request.Requester, opts ...aoni.ClientOption) (ISteamRemoteStorage, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize ISteamRemoteStorage")
+func newSteamRemoteStorage(doer any, opts ...aoni.ClientOption) *steamRemoteStorageClient {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &iSteamRemoteStorageClient{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamRemoteStorage")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamRemoteStorage")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamRemoteStorage")}, baseOpts...)...))
 	}
 
-	return &iSteamRemoteStorageClient{
+	return &steamRemoteStorageClient{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewISteamRemoteStorage initializes ISteamRemoteStorage and panics if an error occurs.
-func MustNewISteamRemoteStorage(client request.Requester, opts ...aoni.ClientOption) ISteamRemoteStorage {
-	api, err := NewISteamRemoteStorage(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewSteamRemoteStorage creates a new SteamRemoteStorage client instance with preconfigured execution pipelines.
+func NewSteamRemoteStorage(doer any, opts ...aoni.ClientOption) SteamRemoteStorage {
+	return newSteamRemoteStorage(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *iSteamRemoteStorageClient) R() request.Requester {
+func (c *steamRemoteStorageClient) R() request.Requester {
 	return c.r
 }
 
-func (c *iSteamRemoteStorageClient) GetCollectionDetails(ctx context.Context, req *ISteamRemoteStorage_GetCollectionDetails_Request) (*json.RawMessage, error) {
+func (c *steamRemoteStorageClient) GetCollectionDetails(ctx context.Context, collectioncount uint32, publishedfileids uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
-	var formBuf [64]byte
-	formBytes := req.AppendFormData(formBuf[:0])
+	var formBuf [128]byte
+	formBytes := formBuf[:0]
+	formBytes = append(formBytes, "collectioncount="...)
+	formBytes = strconv.AppendUint(formBytes, uint64(collectioncount), 10)
+	formBytes = append(formBytes, "&publishedfileids="...)
+	formBytes = strconv.AppendUint(formBytes, uint64(publishedfileids), 10)
 	allMods = append(allMods, mod.WithBodyBytes(formBytes))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/GetCollectionDetails/v1/", nil, allMods...)
 	if err != nil {
@@ -2748,14 +2824,22 @@ func (c *iSteamRemoteStorageClient) GetCollectionDetails(ctx context.Context, re
 	return resp, nil
 }
 
-func (c *iSteamRemoteStorageClient) GetPublishedFileDetails(ctx context.Context, req *ISteamRemoteStorage_GetPublishedFileDetails_Request) (*json.RawMessage, error) {
+func (c *steamRemoteStorageClient) GetPublishedFileDetails(ctx context.Context, itemcount uint32, publishedfileids uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
-	var formBuf [64]byte
-	formBytes := req.AppendFormData(formBuf[:0])
+	var formBuf [128]byte
+	formBytes := formBuf[:0]
+	formBytes = append(formBytes, "itemcount="...)
+	formBytes = strconv.AppendUint(formBytes, uint64(itemcount), 10)
+	formBytes = append(formBytes, "&publishedfileids="...)
+	formBytes = strconv.AppendUint(formBytes, uint64(publishedfileids), 10)
 	allMods = append(allMods, mod.WithBodyBytes(formBytes))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/GetPublishedFileDetails/v1/", nil, allMods...)
 	if err != nil {
@@ -2764,14 +2848,23 @@ func (c *iSteamRemoteStorageClient) GetPublishedFileDetails(ctx context.Context,
 	return resp, nil
 }
 
-func (c *iSteamRemoteStorageClient) GetUGCFileDetails(ctx context.Context, req *ISteamRemoteStorage_GetUGCFileDetails_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *steamRemoteStorageClient) GetUGCFileDetails(ctx context.Context, steamID uint64, uGCID uint64, appID uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [64]byte
+	var qBuf [128]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "steam_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(steamID), 10)
+	qBytes = append(qBytes, "&u_gcid="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(uGCID), 10)
+	qBytes = append(qBytes, "&app_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(appID), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetUGCFileDetails/v1/", allMods...)
 	if err != nil {
@@ -2780,65 +2873,63 @@ func (c *iSteamRemoteStorageClient) GetUGCFileDetails(ctx context.Context, req *
 	return resp, nil
 }
 
-type iSteamUserClient struct {
+type steamUserClient struct {
 	r request.Requester
 }
 
-// NewISteamUser creates a new ISteamUser client instance backed by an authenticated request.Requester.
-func NewISteamUser(client request.Requester, opts ...aoni.ClientOption) (ISteamUser, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize ISteamUser")
+func newSteamUser(doer any, opts ...aoni.ClientOption) *steamUserClient {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &iSteamUserClient{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamUser")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamUser")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamUser")}, baseOpts...)...))
 	}
 
-	return &iSteamUserClient{
+	return &steamUserClient{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewISteamUser initializes ISteamUser and panics if an error occurs.
-func MustNewISteamUser(client request.Requester, opts ...aoni.ClientOption) ISteamUser {
-	api, err := NewISteamUser(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewSteamUser creates a new SteamUser client instance with preconfigured execution pipelines.
+func NewSteamUser(doer any, opts ...aoni.ClientOption) SteamUser {
+	return newSteamUser(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *iSteamUserClient) R() request.Requester {
+func (c *steamUserClient) R() request.Requester {
 	return c.r
 }
 
-func (c *iSteamUserClient) GetFriendList(ctx context.Context, req *ISteamUser_GetFriendList_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *steamUserClient) GetFriendList(ctx context.Context, key string, steamID uint64, relationship string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [64]byte
+	var qBuf [128]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "key="...)
+	qBytes = append(qBytes, url.QueryEscape(key)...)
+	qBytes = append(qBytes, "&steam_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(steamID), 10)
+	qBytes = append(qBytes, "&relationship="...)
+	qBytes = append(qBytes, url.QueryEscape(relationship)...)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetFriendList/v1/", allMods...)
 	if err != nil {
@@ -2847,14 +2938,21 @@ func (c *iSteamUserClient) GetFriendList(ctx context.Context, req *ISteamUser_Ge
 	return resp, nil
 }
 
-func (c *iSteamUserClient) GetPlayerBans(ctx context.Context, req *ISteamUser_GetPlayerBans_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *steamUserClient) GetPlayerBans(ctx context.Context, key string, steamids string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "key="...)
+	qBytes = append(qBytes, url.QueryEscape(key)...)
+	qBytes = append(qBytes, "&steamids="...)
+	qBytes = append(qBytes, url.QueryEscape(steamids)...)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetPlayerBans/v1/", allMods...)
 	if err != nil {
@@ -2863,14 +2961,21 @@ func (c *iSteamUserClient) GetPlayerBans(ctx context.Context, req *ISteamUser_Ge
 	return resp, nil
 }
 
-func (c *iSteamUserClient) GetPlayerSummariesV1(ctx context.Context, req *ISteamUser_GetPlayerSummariesV1_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *steamUserClient) GetPlayerSummariesV1(ctx context.Context, key string, steamids string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "key="...)
+	qBytes = append(qBytes, url.QueryEscape(key)...)
+	qBytes = append(qBytes, "&steamids="...)
+	qBytes = append(qBytes, url.QueryEscape(steamids)...)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetPlayerSummaries/v1/", allMods...)
 	if err != nil {
@@ -2879,14 +2984,21 @@ func (c *iSteamUserClient) GetPlayerSummariesV1(ctx context.Context, req *ISteam
 	return resp, nil
 }
 
-func (c *iSteamUserClient) GetPlayerSummariesV2(ctx context.Context, req *ISteamUser_GetPlayerSummariesV2_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *steamUserClient) GetPlayerSummariesV2(ctx context.Context, key string, steamids string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "key="...)
+	qBytes = append(qBytes, url.QueryEscape(key)...)
+	qBytes = append(qBytes, "&steamids="...)
+	qBytes = append(qBytes, url.QueryEscape(steamids)...)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetPlayerSummaries/v2/", allMods...)
 	if err != nil {
@@ -2895,14 +3007,21 @@ func (c *iSteamUserClient) GetPlayerSummariesV2(ctx context.Context, req *ISteam
 	return resp, nil
 }
 
-func (c *iSteamUserClient) GetUserGroupList(ctx context.Context, req *ISteamUser_GetUserGroupList_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *steamUserClient) GetUserGroupList(ctx context.Context, key string, steamID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "key="...)
+	qBytes = append(qBytes, url.QueryEscape(key)...)
+	qBytes = append(qBytes, "&steam_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(steamID), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetUserGroupList/v1/", allMods...)
 	if err != nil {
@@ -2911,14 +3030,23 @@ func (c *iSteamUserClient) GetUserGroupList(ctx context.Context, req *ISteamUser
 	return resp, nil
 }
 
-func (c *iSteamUserClient) ResolveVanityURL(ctx context.Context, req *ISteamUser_ResolveVanityURL_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *steamUserClient) ResolveVanityURL(ctx context.Context, key string, vanityurl string, uRLType int32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [64]byte
+	var qBuf [128]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "key="...)
+	qBytes = append(qBytes, url.QueryEscape(key)...)
+	qBytes = append(qBytes, "&vanityurl="...)
+	qBytes = append(qBytes, url.QueryEscape(vanityurl)...)
+	qBytes = append(qBytes, "&u_rl_type="...)
+	qBytes = strconv.AppendInt(qBytes, int64(uRLType), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/ResolveVanityURL/v1/", allMods...)
 	if err != nil {
@@ -2927,65 +3055,63 @@ func (c *iSteamUserClient) ResolveVanityURL(ctx context.Context, req *ISteamUser
 	return resp, nil
 }
 
-type iSteamUserAuthClient struct {
+type steamUserAuthClient struct {
 	r request.Requester
 }
 
-// NewISteamUserAuth creates a new ISteamUserAuth client instance backed by an authenticated request.Requester.
-func NewISteamUserAuth(client request.Requester, opts ...aoni.ClientOption) (ISteamUserAuth, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize ISteamUserAuth")
+func newSteamUserAuth(doer any, opts ...aoni.ClientOption) *steamUserAuthClient {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &iSteamUserAuthClient{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamUserAuth")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamUserAuth")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamUserAuth")}, baseOpts...)...))
 	}
 
-	return &iSteamUserAuthClient{
+	return &steamUserAuthClient{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewISteamUserAuth initializes ISteamUserAuth and panics if an error occurs.
-func MustNewISteamUserAuth(client request.Requester, opts ...aoni.ClientOption) ISteamUserAuth {
-	api, err := NewISteamUserAuth(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewSteamUserAuth creates a new SteamUserAuth client instance with preconfigured execution pipelines.
+func NewSteamUserAuth(doer any, opts ...aoni.ClientOption) SteamUserAuth {
+	return newSteamUserAuth(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *iSteamUserAuthClient) R() request.Requester {
+func (c *steamUserAuthClient) R() request.Requester {
 	return c.r
 }
 
-func (c *iSteamUserAuthClient) AuthenticateUserTicket(ctx context.Context, req *ISteamUserAuth_AuthenticateUserTicket_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *steamUserAuthClient) AuthenticateUserTicket(ctx context.Context, key string, appID uint32, ticket string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [64]byte
+	var qBuf [128]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "key="...)
+	qBytes = append(qBytes, url.QueryEscape(key)...)
+	qBytes = append(qBytes, "&app_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(appID), 10)
+	qBytes = append(qBytes, "&ticket="...)
+	qBytes = append(qBytes, url.QueryEscape(ticket)...)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/AuthenticateUserTicket/v1/", allMods...)
 	if err != nil {
@@ -2994,65 +3120,59 @@ func (c *iSteamUserAuthClient) AuthenticateUserTicket(ctx context.Context, req *
 	return resp, nil
 }
 
-type iSteamUserOAuthClient struct {
+type steamUserOAuthClient struct {
 	r request.Requester
 }
 
-// NewISteamUserOAuth creates a new ISteamUserOAuth client instance backed by an authenticated request.Requester.
-func NewISteamUserOAuth(client request.Requester, opts ...aoni.ClientOption) (ISteamUserOAuth, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize ISteamUserOAuth")
+func newSteamUserOAuth(doer any, opts ...aoni.ClientOption) *steamUserOAuthClient {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &iSteamUserOAuthClient{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamUserOAuth")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamUserOAuth")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamUserOAuth")}, baseOpts...)...))
 	}
 
-	return &iSteamUserOAuthClient{
+	return &steamUserOAuthClient{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewISteamUserOAuth initializes ISteamUserOAuth and panics if an error occurs.
-func MustNewISteamUserOAuth(client request.Requester, opts ...aoni.ClientOption) ISteamUserOAuth {
-	api, err := NewISteamUserOAuth(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewSteamUserOAuth creates a new SteamUserOAuth client instance with preconfigured execution pipelines.
+func NewSteamUserOAuth(doer any, opts ...aoni.ClientOption) SteamUserOAuth {
+	return newSteamUserOAuth(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *iSteamUserOAuthClient) R() request.Requester {
+func (c *steamUserOAuthClient) R() request.Requester {
 	return c.r
 }
 
-func (c *iSteamUserOAuthClient) GetTokenDetails(ctx context.Context, req *ISteamUserOAuth_GetTokenDetails_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *steamUserOAuthClient) GetTokenDetails(ctx context.Context, accessToken string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "access_token="...)
+	qBytes = append(qBytes, url.QueryEscape(accessToken)...)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetTokenDetails/v1/", allMods...)
 	if err != nil {
@@ -3061,65 +3181,59 @@ func (c *iSteamUserOAuthClient) GetTokenDetails(ctx context.Context, req *ISteam
 	return resp, nil
 }
 
-type iSteamUserStatsClient struct {
+type steamUserStatsClient struct {
 	r request.Requester
 }
 
-// NewISteamUserStats creates a new ISteamUserStats client instance backed by an authenticated request.Requester.
-func NewISteamUserStats(client request.Requester, opts ...aoni.ClientOption) (ISteamUserStats, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize ISteamUserStats")
+func newSteamUserStats(doer any, opts ...aoni.ClientOption) *steamUserStatsClient {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &iSteamUserStatsClient{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamUserStats")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamUserStats")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamUserStats")}, baseOpts...)...))
 	}
 
-	return &iSteamUserStatsClient{
+	return &steamUserStatsClient{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewISteamUserStats initializes ISteamUserStats and panics if an error occurs.
-func MustNewISteamUserStats(client request.Requester, opts ...aoni.ClientOption) ISteamUserStats {
-	api, err := NewISteamUserStats(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewSteamUserStats creates a new SteamUserStats client instance with preconfigured execution pipelines.
+func NewSteamUserStats(doer any, opts ...aoni.ClientOption) SteamUserStats {
+	return newSteamUserStats(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *iSteamUserStatsClient) R() request.Requester {
+func (c *steamUserStatsClient) R() request.Requester {
 	return c.r
 }
 
-func (c *iSteamUserStatsClient) GetGlobalAchievementPercentagesForAppV1(ctx context.Context, req *ISteamUserStats_GetGlobalAchievementPercentagesForAppV1_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *steamUserStatsClient) GetGlobalAchievementPercentagesForAppV1(ctx context.Context, gameID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "game_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(gameID), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetGlobalAchievementPercentagesForApp/v1/", allMods...)
 	if err != nil {
@@ -3128,14 +3242,19 @@ func (c *iSteamUserStatsClient) GetGlobalAchievementPercentagesForAppV1(ctx cont
 	return resp, nil
 }
 
-func (c *iSteamUserStatsClient) GetGlobalAchievementPercentagesForAppV2(ctx context.Context, req *ISteamUserStats_GetGlobalAchievementPercentagesForAppV2_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *steamUserStatsClient) GetGlobalAchievementPercentagesForAppV2(ctx context.Context, gameID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "game_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(gameID), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetGlobalAchievementPercentagesForApp/v2/", allMods...)
 	if err != nil {
@@ -3144,7 +3263,7 @@ func (c *iSteamUserStatsClient) GetGlobalAchievementPercentagesForAppV2(ctx cont
 	return resp, nil
 }
 
-func (c *iSteamUserStatsClient) GetGlobalStatsForGame(ctx context.Context, req *ISteamUserStats_GetGlobalStatsForGame_Request) (*json.RawMessage, error) {
+func (c *steamUserStatsClient) GetGlobalStatsForGame(ctx context.Context, req *GetGlobalStatsForGameRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -3152,6 +3271,10 @@ func (c *iSteamUserStatsClient) GetGlobalStatsForGame(ctx context.Context, req *
 	qBytes := qBuf[:0]
 	qBytes = req.AppendQuery(qBytes)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetGlobalStatsForGame/v1/", allMods...)
 	if err != nil {
@@ -3160,14 +3283,19 @@ func (c *iSteamUserStatsClient) GetGlobalStatsForGame(ctx context.Context, req *
 	return resp, nil
 }
 
-func (c *iSteamUserStatsClient) GetNumberOfCurrentPlayers(ctx context.Context, req *ISteamUserStats_GetNumberOfCurrentPlayers_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *steamUserStatsClient) GetNumberOfCurrentPlayers(ctx context.Context, appID uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "app_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(appID), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetNumberOfCurrentPlayers/v1/", allMods...)
 	if err != nil {
@@ -3176,7 +3304,7 @@ func (c *iSteamUserStatsClient) GetNumberOfCurrentPlayers(ctx context.Context, r
 	return resp, nil
 }
 
-func (c *iSteamUserStatsClient) GetPlayerAchievements(ctx context.Context, req *ISteamUserStats_GetPlayerAchievements_Request) (*json.RawMessage, error) {
+func (c *steamUserStatsClient) GetPlayerAchievements(ctx context.Context, req *GetPlayerAchievementsRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -3184,6 +3312,10 @@ func (c *iSteamUserStatsClient) GetPlayerAchievements(ctx context.Context, req *
 	qBytes := qBuf[:0]
 	qBytes = req.AppendQuery(qBytes)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetPlayerAchievements/v1/", allMods...)
 	if err != nil {
@@ -3192,14 +3324,23 @@ func (c *iSteamUserStatsClient) GetPlayerAchievements(ctx context.Context, req *
 	return resp, nil
 }
 
-func (c *iSteamUserStatsClient) GetSchemaForGameV1(ctx context.Context, req *ISteamUserStats_GetSchemaForGameV1_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *steamUserStatsClient) GetSchemaForGameV1(ctx context.Context, key string, appID uint32, l string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [64]byte
+	var qBuf [128]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "key="...)
+	qBytes = append(qBytes, url.QueryEscape(key)...)
+	qBytes = append(qBytes, "&app_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(appID), 10)
+	qBytes = append(qBytes, "&l="...)
+	qBytes = append(qBytes, url.QueryEscape(l)...)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetSchemaForGame/v1/", allMods...)
 	if err != nil {
@@ -3208,14 +3349,23 @@ func (c *iSteamUserStatsClient) GetSchemaForGameV1(ctx context.Context, req *ISt
 	return resp, nil
 }
 
-func (c *iSteamUserStatsClient) GetSchemaForGameV2(ctx context.Context, req *ISteamUserStats_GetSchemaForGameV2_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *steamUserStatsClient) GetSchemaForGameV2(ctx context.Context, key string, appID uint32, l string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [64]byte
+	var qBuf [128]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "key="...)
+	qBytes = append(qBytes, url.QueryEscape(key)...)
+	qBytes = append(qBytes, "&app_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(appID), 10)
+	qBytes = append(qBytes, "&l="...)
+	qBytes = append(qBytes, url.QueryEscape(l)...)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetSchemaForGame/v2/", allMods...)
 	if err != nil {
@@ -3224,14 +3374,23 @@ func (c *iSteamUserStatsClient) GetSchemaForGameV2(ctx context.Context, req *ISt
 	return resp, nil
 }
 
-func (c *iSteamUserStatsClient) GetUserStatsForGameV1(ctx context.Context, req *ISteamUserStats_GetUserStatsForGameV1_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *steamUserStatsClient) GetUserStatsForGameV1(ctx context.Context, key string, steamID uint64, appID uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [64]byte
+	var qBuf [128]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "key="...)
+	qBytes = append(qBytes, url.QueryEscape(key)...)
+	qBytes = append(qBytes, "&steam_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(steamID), 10)
+	qBytes = append(qBytes, "&app_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(appID), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetUserStatsForGame/v1/", allMods...)
 	if err != nil {
@@ -3240,14 +3399,23 @@ func (c *iSteamUserStatsClient) GetUserStatsForGameV1(ctx context.Context, req *
 	return resp, nil
 }
 
-func (c *iSteamUserStatsClient) GetUserStatsForGameV2(ctx context.Context, req *ISteamUserStats_GetUserStatsForGameV2_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *steamUserStatsClient) GetUserStatsForGameV2(ctx context.Context, key string, steamID uint64, appID uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [64]byte
+	var qBuf [128]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "key="...)
+	qBytes = append(qBytes, url.QueryEscape(key)...)
+	qBytes = append(qBytes, "&steam_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(steamID), 10)
+	qBytes = append(qBytes, "&app_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(appID), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetUserStatsForGame/v2/", allMods...)
 	if err != nil {
@@ -3256,60 +3424,53 @@ func (c *iSteamUserStatsClient) GetUserStatsForGameV2(ctx context.Context, req *
 	return resp, nil
 }
 
-type iSteamWebAPIUtilClient struct {
+type steamWebAPIUtilClient struct {
 	r request.Requester
 }
 
-// NewISteamWebAPIUtil creates a new ISteamWebAPIUtil client instance backed by an authenticated request.Requester.
-func NewISteamWebAPIUtil(client request.Requester, opts ...aoni.ClientOption) (ISteamWebAPIUtil, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize ISteamWebAPIUtil")
+func newSteamWebAPIUtil(doer any, opts ...aoni.ClientOption) *steamWebAPIUtilClient {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &iSteamWebAPIUtilClient{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamWebAPIUtil")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamWebAPIUtil")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamWebAPIUtil")}, baseOpts...)...))
 	}
 
-	return &iSteamWebAPIUtilClient{
+	return &steamWebAPIUtilClient{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewISteamWebAPIUtil initializes ISteamWebAPIUtil and panics if an error occurs.
-func MustNewISteamWebAPIUtil(client request.Requester, opts ...aoni.ClientOption) ISteamWebAPIUtil {
-	api, err := NewISteamWebAPIUtil(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewSteamWebAPIUtil creates a new SteamWebAPIUtil client instance with preconfigured execution pipelines.
+func NewSteamWebAPIUtil(doer any, opts ...aoni.ClientOption) SteamWebAPIUtil {
+	return newSteamWebAPIUtil(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *iSteamWebAPIUtilClient) R() request.Requester {
+func (c *steamWebAPIUtilClient) R() request.Requester {
 	return c.r
 }
 
-func (c *iSteamWebAPIUtilClient) GetServerInfo(ctx context.Context) (*json.RawMessage, error) {
+func (c *steamWebAPIUtilClient) GetServerInfo(ctx context.Context, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetServerInfo/v1/", allMods...)
 	if err != nil {
@@ -3318,14 +3479,19 @@ func (c *iSteamWebAPIUtilClient) GetServerInfo(ctx context.Context) (*json.RawMe
 	return resp, nil
 }
 
-func (c *iSteamWebAPIUtilClient) GetSupportedAPIList(ctx context.Context, req *ISteamWebAPIUtil_GetSupportedAPIList_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *steamWebAPIUtilClient) GetSupportedAPIList(ctx context.Context, key string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "key="...)
+	qBytes = append(qBytes, url.QueryEscape(key)...)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetSupportedAPIList/v1/", allMods...)
 	if err != nil {
@@ -3334,60 +3500,53 @@ func (c *iSteamWebAPIUtilClient) GetSupportedAPIList(ctx context.Context, req *I
 	return resp, nil
 }
 
-type itfItems_440Client struct {
+type tfItems440Client struct {
 	r request.Requester
 }
 
-// NewITFItems_440 creates a new ITFItems_440 client instance backed by an authenticated request.Requester.
-func NewITFItems_440(client request.Requester, opts ...aoni.ClientOption) (ITFItems_440, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize ITFItems_440")
+func newTFItems440(doer any, opts ...aoni.ClientOption) *tfItems440Client {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &itfItems_440Client{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ITFItems_440")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ITFItems_440")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ITFItems_440")}, baseOpts...)...))
 	}
 
-	return &itfItems_440Client{
+	return &tfItems440Client{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewITFItems_440 initializes ITFItems_440 and panics if an error occurs.
-func MustNewITFItems_440(client request.Requester, opts ...aoni.ClientOption) ITFItems_440 {
-	api, err := NewITFItems_440(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewTFItems440 creates a new TFItems440 client instance with preconfigured execution pipelines.
+func NewTFItems440(doer any, opts ...aoni.ClientOption) TFItems440 {
+	return newTFItems440(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *itfItems_440Client) R() request.Requester {
+func (c *tfItems440Client) R() request.Requester {
 	return c.r
 }
 
-func (c *itfItems_440Client) GetGoldenWrenchesV1(ctx context.Context) (*json.RawMessage, error) {
+func (c *tfItems440Client) GetGoldenWrenchesV1(ctx context.Context, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetGoldenWrenches/v1/", allMods...)
 	if err != nil {
@@ -3396,9 +3555,13 @@ func (c *itfItems_440Client) GetGoldenWrenchesV1(ctx context.Context) (*json.Raw
 	return resp, nil
 }
 
-func (c *itfItems_440Client) GetGoldenWrenchesV2(ctx context.Context) (*json.RawMessage, error) {
+func (c *tfItems440Client) GetGoldenWrenchesV2(ctx context.Context, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetGoldenWrenches/v2/", allMods...)
 	if err != nil {
@@ -3407,65 +3570,61 @@ func (c *itfItems_440Client) GetGoldenWrenchesV2(ctx context.Context) (*json.Raw
 	return resp, nil
 }
 
-type itfPromos_440Client struct {
+type tfPromos440Client struct {
 	r request.Requester
 }
 
-// NewITFPromos_440 creates a new ITFPromos_440 client instance backed by an authenticated request.Requester.
-func NewITFPromos_440(client request.Requester, opts ...aoni.ClientOption) (ITFPromos_440, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize ITFPromos_440")
+func newTFPromos440(doer any, opts ...aoni.ClientOption) *tfPromos440Client {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &itfPromos_440Client{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ITFPromos_440")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ITFPromos_440")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ITFPromos_440")}, baseOpts...)...))
 	}
 
-	return &itfPromos_440Client{
+	return &tfPromos440Client{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewITFPromos_440 initializes ITFPromos_440 and panics if an error occurs.
-func MustNewITFPromos_440(client request.Requester, opts ...aoni.ClientOption) ITFPromos_440 {
-	api, err := NewITFPromos_440(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewTFPromos440 creates a new TFPromos440 client instance with preconfigured execution pipelines.
+func NewTFPromos440(doer any, opts ...aoni.ClientOption) TFPromos440 {
+	return newTFPromos440(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *itfPromos_440Client) R() request.Requester {
+func (c *tfPromos440Client) R() request.Requester {
 	return c.r
 }
 
-func (c *itfPromos_440Client) GetItemID(ctx context.Context, req *ITFPromos_440_GetItemID_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *tfPromos440Client) GetItemID(ctx context.Context, steamID uint64, promoid uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "steam_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(steamID), 10)
+	qBytes = append(qBytes, "&promoid="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(promoid), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetItemID/v1/", allMods...)
 	if err != nil {
@@ -3474,14 +3633,22 @@ func (c *itfPromos_440Client) GetItemID(ctx context.Context, req *ITFPromos_440_
 	return resp, nil
 }
 
-func (c *itfPromos_440Client) GrantItem(ctx context.Context, req *ITFPromos_440_GrantItem_Request) (*json.RawMessage, error) {
+func (c *tfPromos440Client) GrantItem(ctx context.Context, steamID uint64, promoid uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
-	var formBuf [64]byte
-	formBytes := req.AppendFormData(formBuf[:0])
+	var formBuf [128]byte
+	formBytes := formBuf[:0]
+	formBytes = append(formBytes, "steam_id="...)
+	formBytes = strconv.AppendUint(formBytes, uint64(steamID), 10)
+	formBytes = append(formBytes, "&promoid="...)
+	formBytes = strconv.AppendUint(formBytes, uint64(promoid), 10)
 	allMods = append(allMods, mod.WithBodyBytes(formBytes))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/GrantItem/v1/", nil, allMods...)
 	if err != nil {
@@ -3490,65 +3657,61 @@ func (c *itfPromos_440Client) GrantItem(ctx context.Context, req *ITFPromos_440_
 	return resp, nil
 }
 
-type itfPromos_620Client struct {
+type tfPromos620Client struct {
 	r request.Requester
 }
 
-// NewITFPromos_620 creates a new ITFPromos_620 client instance backed by an authenticated request.Requester.
-func NewITFPromos_620(client request.Requester, opts ...aoni.ClientOption) (ITFPromos_620, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize ITFPromos_620")
+func newTFPromos620(doer any, opts ...aoni.ClientOption) *tfPromos620Client {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &itfPromos_620Client{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ITFPromos_620")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ITFPromos_620")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ITFPromos_620")}, baseOpts...)...))
 	}
 
-	return &itfPromos_620Client{
+	return &tfPromos620Client{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewITFPromos_620 initializes ITFPromos_620 and panics if an error occurs.
-func MustNewITFPromos_620(client request.Requester, opts ...aoni.ClientOption) ITFPromos_620 {
-	api, err := NewITFPromos_620(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewTFPromos620 creates a new TFPromos620 client instance with preconfigured execution pipelines.
+func NewTFPromos620(doer any, opts ...aoni.ClientOption) TFPromos620 {
+	return newTFPromos620(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *itfPromos_620Client) R() request.Requester {
+func (c *tfPromos620Client) R() request.Requester {
 	return c.r
 }
 
-func (c *itfPromos_620Client) GetItemID(ctx context.Context, req *ITFPromos_620_GetItemID_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *tfPromos620Client) GetItemID(ctx context.Context, steamID uint64, promoID uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "steam_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(steamID), 10)
+	qBytes = append(qBytes, "&promo_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(promoID), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetItemID/v1/", allMods...)
 	if err != nil {
@@ -3557,14 +3720,22 @@ func (c *itfPromos_620Client) GetItemID(ctx context.Context, req *ITFPromos_620_
 	return resp, nil
 }
 
-func (c *itfPromos_620Client) GrantItem(ctx context.Context, req *ITFPromos_620_GrantItem_Request) (*json.RawMessage, error) {
+func (c *tfPromos620Client) GrantItem(ctx context.Context, steamID uint64, promoID uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
-	var formBuf [64]byte
-	formBytes := req.AppendFormData(formBuf[:0])
+	var formBuf [128]byte
+	formBytes := formBuf[:0]
+	formBytes = append(formBytes, "steam_id="...)
+	formBytes = strconv.AppendUint(formBytes, uint64(steamID), 10)
+	formBytes = append(formBytes, "&promo_id="...)
+	formBytes = strconv.AppendUint(formBytes, uint64(promoID), 10)
 	allMods = append(allMods, mod.WithBodyBytes(formBytes))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/GrantItem/v1/", nil, allMods...)
 	if err != nil {
@@ -3573,60 +3744,53 @@ func (c *itfPromos_620Client) GrantItem(ctx context.Context, req *ITFPromos_620_
 	return resp, nil
 }
 
-type itfSystem_440Client struct {
+type tfSystem440Client struct {
 	r request.Requester
 }
 
-// NewITFSystem_440 creates a new ITFSystem_440 client instance backed by an authenticated request.Requester.
-func NewITFSystem_440(client request.Requester, opts ...aoni.ClientOption) (ITFSystem_440, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize ITFSystem_440")
+func newTFSystem440(doer any, opts ...aoni.ClientOption) *tfSystem440Client {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &itfSystem_440Client{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ITFSystem_440")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ITFSystem_440")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ITFSystem_440")}, baseOpts...)...))
 	}
 
-	return &itfSystem_440Client{
+	return &tfSystem440Client{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewITFSystem_440 initializes ITFSystem_440 and panics if an error occurs.
-func MustNewITFSystem_440(client request.Requester, opts ...aoni.ClientOption) ITFSystem_440 {
-	api, err := NewITFSystem_440(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewTFSystem440 creates a new TFSystem440 client instance with preconfigured execution pipelines.
+func NewTFSystem440(doer any, opts ...aoni.ClientOption) TFSystem440 {
+	return newTFSystem440(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *itfSystem_440Client) R() request.Requester {
+func (c *tfSystem440Client) R() request.Requester {
 	return c.r
 }
 
-func (c *itfSystem_440Client) GetWorldStatus(ctx context.Context) (*json.RawMessage, error) {
+func (c *tfSystem440Client) GetWorldStatus(ctx context.Context, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetWorldStatus/v1/", allMods...)
 	if err != nil {
@@ -3635,65 +3799,59 @@ func (c *itfSystem_440Client) GetWorldStatus(ctx context.Context) (*json.RawMess
 	return resp, nil
 }
 
-type iGameServersServiceClient struct {
+type gameServersServiceClient struct {
 	r request.Requester
 }
 
-// NewIGameServersService creates a new IGameServersService client instance backed by an authenticated request.Requester.
-func NewIGameServersService(client request.Requester, opts ...aoni.ClientOption) (IGameServersService, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize IGameServersService")
+func newGameServersService(doer any, opts ...aoni.ClientOption) *gameServersServiceClient {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &iGameServersServiceClient{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGameServersService")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGameServersService")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGameServersService")}, baseOpts...)...))
 	}
 
-	return &iGameServersServiceClient{
+	return &gameServersServiceClient{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewIGameServersService initializes IGameServersService and panics if an error occurs.
-func MustNewIGameServersService(client request.Requester, opts ...aoni.ClientOption) IGameServersService {
-	api, err := NewIGameServersService(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewGameServersService creates a new GameServersService client instance with preconfigured execution pipelines.
+func NewGameServersService(doer any, opts ...aoni.ClientOption) GameServersService {
+	return newGameServersService(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *iGameServersServiceClient) R() request.Requester {
+func (c *gameServersServiceClient) R() request.Requester {
 	return c.r
 }
 
-func (c *iGameServersServiceClient) GetAccountList(ctx context.Context, req *IGameServersService_GetAccountList_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *gameServersServiceClient) GetAccountList(ctx context.Context, key string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "key="...)
+	qBytes = append(qBytes, url.QueryEscape(key)...)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetAccountList/v1/", allMods...)
 	if err != nil {
@@ -3702,14 +3860,24 @@ func (c *iGameServersServiceClient) GetAccountList(ctx context.Context, req *IGa
 	return resp, nil
 }
 
-func (c *iGameServersServiceClient) CreateAccount(ctx context.Context, req *IGameServersService_CreateAccount_Request) (*json.RawMessage, error) {
+func (c *gameServersServiceClient) CreateAccount(ctx context.Context, key string, appID uint32, memo string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
-	var formBuf [64]byte
-	formBytes := req.AppendFormData(formBuf[:0])
+	var formBuf [256]byte
+	formBytes := formBuf[:0]
+	formBytes = append(formBytes, "key="...)
+	formBytes = append(formBytes, url.QueryEscape(key)...)
+	formBytes = append(formBytes, "&app_id="...)
+	formBytes = strconv.AppendUint(formBytes, uint64(appID), 10)
+	formBytes = append(formBytes, "&memo="...)
+	formBytes = append(formBytes, url.QueryEscape(memo)...)
 	allMods = append(allMods, mod.WithBodyBytes(formBytes))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/CreateAccount/v1/", nil, allMods...)
 	if err != nil {
@@ -3718,14 +3886,24 @@ func (c *iGameServersServiceClient) CreateAccount(ctx context.Context, req *IGam
 	return resp, nil
 }
 
-func (c *iGameServersServiceClient) SetMemo(ctx context.Context, req *IGameServersService_SetMemo_Request) (*json.RawMessage, error) {
+func (c *gameServersServiceClient) SetMemo(ctx context.Context, key string, steamID uint64, memo string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
-	var formBuf [64]byte
-	formBytes := req.AppendFormData(formBuf[:0])
+	var formBuf [256]byte
+	formBytes := formBuf[:0]
+	formBytes = append(formBytes, "key="...)
+	formBytes = append(formBytes, url.QueryEscape(key)...)
+	formBytes = append(formBytes, "&steam_id="...)
+	formBytes = strconv.AppendUint(formBytes, uint64(steamID), 10)
+	formBytes = append(formBytes, "&memo="...)
+	formBytes = append(formBytes, url.QueryEscape(memo)...)
 	allMods = append(allMods, mod.WithBodyBytes(formBytes))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/SetMemo/v1/", nil, allMods...)
 	if err != nil {
@@ -3734,14 +3912,22 @@ func (c *iGameServersServiceClient) SetMemo(ctx context.Context, req *IGameServe
 	return resp, nil
 }
 
-func (c *iGameServersServiceClient) ResetLoginToken(ctx context.Context, req *IGameServersService_ResetLoginToken_Request) (*json.RawMessage, error) {
+func (c *gameServersServiceClient) ResetLoginToken(ctx context.Context, key string, steamID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
-	var formBuf [64]byte
-	formBytes := req.AppendFormData(formBuf[:0])
+	var formBuf [128]byte
+	formBytes := formBuf[:0]
+	formBytes = append(formBytes, "key="...)
+	formBytes = append(formBytes, url.QueryEscape(key)...)
+	formBytes = append(formBytes, "&steam_id="...)
+	formBytes = strconv.AppendUint(formBytes, uint64(steamID), 10)
 	allMods = append(allMods, mod.WithBodyBytes(formBytes))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/ResetLoginToken/v1/", nil, allMods...)
 	if err != nil {
@@ -3750,14 +3936,22 @@ func (c *iGameServersServiceClient) ResetLoginToken(ctx context.Context, req *IG
 	return resp, nil
 }
 
-func (c *iGameServersServiceClient) DeleteAccount(ctx context.Context, req *IGameServersService_DeleteAccount_Request) (*json.RawMessage, error) {
+func (c *gameServersServiceClient) DeleteAccount(ctx context.Context, key string, steamID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
-	var formBuf [64]byte
-	formBytes := req.AppendFormData(formBuf[:0])
+	var formBuf [128]byte
+	formBytes := formBuf[:0]
+	formBytes = append(formBytes, "key="...)
+	formBytes = append(formBytes, url.QueryEscape(key)...)
+	formBytes = append(formBytes, "&steam_id="...)
+	formBytes = strconv.AppendUint(formBytes, uint64(steamID), 10)
 	allMods = append(allMods, mod.WithBodyBytes(formBytes))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/DeleteAccount/v1/", nil, allMods...)
 	if err != nil {
@@ -3766,14 +3960,21 @@ func (c *iGameServersServiceClient) DeleteAccount(ctx context.Context, req *IGam
 	return resp, nil
 }
 
-func (c *iGameServersServiceClient) GetAccountPublicInfo(ctx context.Context, req *IGameServersService_GetAccountPublicInfo_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *gameServersServiceClient) GetAccountPublicInfo(ctx context.Context, key string, steamID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "key="...)
+	qBytes = append(qBytes, url.QueryEscape(key)...)
+	qBytes = append(qBytes, "&steam_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(steamID), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetAccountPublicInfo/v1/", allMods...)
 	if err != nil {
@@ -3782,14 +3983,21 @@ func (c *iGameServersServiceClient) GetAccountPublicInfo(ctx context.Context, re
 	return resp, nil
 }
 
-func (c *iGameServersServiceClient) QueryLoginToken(ctx context.Context, req *IGameServersService_QueryLoginToken_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *gameServersServiceClient) QueryLoginToken(ctx context.Context, key string, loginToken string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "key="...)
+	qBytes = append(qBytes, url.QueryEscape(key)...)
+	qBytes = append(qBytes, "&login_token="...)
+	qBytes = append(qBytes, url.QueryEscape(loginToken)...)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/QueryLoginToken/v1/", allMods...)
 	if err != nil {
@@ -3798,14 +4006,21 @@ func (c *iGameServersServiceClient) QueryLoginToken(ctx context.Context, req *IG
 	return resp, nil
 }
 
-func (c *iGameServersServiceClient) GetServerSteamIDsByIP(ctx context.Context, req *IGameServersService_GetServerSteamIDsByIP_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *gameServersServiceClient) GetServerSteamIDsByIP(ctx context.Context, key string, serverIps string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "key="...)
+	qBytes = append(qBytes, url.QueryEscape(key)...)
+	qBytes = append(qBytes, "&server_ips="...)
+	qBytes = append(qBytes, url.QueryEscape(serverIps)...)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetServerSteamIDsByIP/v1/", allMods...)
 	if err != nil {
@@ -3814,14 +4029,21 @@ func (c *iGameServersServiceClient) GetServerSteamIDsByIP(ctx context.Context, r
 	return resp, nil
 }
 
-func (c *iGameServersServiceClient) GetServerIPsBySteamID(ctx context.Context, req *IGameServersService_GetServerIPsBySteamID_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *gameServersServiceClient) GetServerIPsBySteamID(ctx context.Context, key string, serverSteamids uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [64]byte
+	var qBuf [128]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "key="...)
+	qBytes = append(qBytes, url.QueryEscape(key)...)
+	qBytes = append(qBytes, "&server_steamids="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(serverSteamids), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetServerIPsBySteamID/v1/", allMods...)
 	if err != nil {
@@ -3830,7 +4052,7 @@ func (c *iGameServersServiceClient) GetServerIPsBySteamID(ctx context.Context, r
 	return resp, nil
 }
 
-func (c *iGameServersServiceClient) QueryByFakeIP(ctx context.Context, req *IGameServersService_QueryByFakeIP_Request) (*json.RawMessage, error) {
+func (c *gameServersServiceClient) QueryByFakeIP(ctx context.Context, req *QueryByFakeIPRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -3838,6 +4060,10 @@ func (c *iGameServersServiceClient) QueryByFakeIP(ctx context.Context, req *IGam
 	qBytes := qBuf[:0]
 	qBytes = req.AppendQuery(qBytes)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/QueryByFakeIP/v1/", allMods...)
 	if err != nil {
@@ -3846,65 +4072,63 @@ func (c *iGameServersServiceClient) QueryByFakeIP(ctx context.Context, req *IGam
 	return resp, nil
 }
 
-type iPlayerServiceClient struct {
+type playerServiceClient struct {
 	r request.Requester
 }
 
-// NewIPlayerService creates a new IPlayerService client instance backed by an authenticated request.Requester.
-func NewIPlayerService(client request.Requester, opts ...aoni.ClientOption) (IPlayerService, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize IPlayerService")
+func newPlayerService(doer any, opts ...aoni.ClientOption) *playerServiceClient {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &iPlayerServiceClient{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IPlayerService")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IPlayerService")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IPlayerService")}, baseOpts...)...))
 	}
 
-	return &iPlayerServiceClient{
+	return &playerServiceClient{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewIPlayerService initializes IPlayerService and panics if an error occurs.
-func MustNewIPlayerService(client request.Requester, opts ...aoni.ClientOption) IPlayerService {
-	api, err := NewIPlayerService(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewPlayerService creates a new PlayerService client instance with preconfigured execution pipelines.
+func NewPlayerService(doer any, opts ...aoni.ClientOption) PlayerService {
+	return newPlayerService(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *iPlayerServiceClient) R() request.Requester {
+func (c *playerServiceClient) R() request.Requester {
 	return c.r
 }
 
-func (c *iPlayerServiceClient) IsPlayingSharedGame(ctx context.Context, req *IPlayerService_IsPlayingSharedGame_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *playerServiceClient) IsPlayingSharedGame(ctx context.Context, key string, steamID uint64, appIDPlaying uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [64]byte
+	var qBuf [128]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "key="...)
+	qBytes = append(qBytes, url.QueryEscape(key)...)
+	qBytes = append(qBytes, "&steam_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(steamID), 10)
+	qBytes = append(qBytes, "&app_id_playing="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(appIDPlaying), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/IsPlayingSharedGame/v1/", allMods...)
 	if err != nil {
@@ -3913,14 +4137,24 @@ func (c *iPlayerServiceClient) IsPlayingSharedGame(ctx context.Context, req *IPl
 	return resp, nil
 }
 
-func (c *iPlayerServiceClient) RecordOfflinePlaytime(ctx context.Context, req *IPlayerService_RecordOfflinePlaytime_Request) (*json.RawMessage, error) {
+func (c *playerServiceClient) RecordOfflinePlaytime(ctx context.Context, steamID uint64, ticket string, playSessions string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
-	var formBuf [64]byte
-	formBytes := req.AppendFormData(formBuf[:0])
+	var formBuf [256]byte
+	formBytes := formBuf[:0]
+	formBytes = append(formBytes, "steam_id="...)
+	formBytes = strconv.AppendUint(formBytes, uint64(steamID), 10)
+	formBytes = append(formBytes, "&ticket="...)
+	formBytes = append(formBytes, url.QueryEscape(ticket)...)
+	formBytes = append(formBytes, "&play_sessions="...)
+	formBytes = append(formBytes, url.QueryEscape(playSessions)...)
 	allMods = append(allMods, mod.WithBodyBytes(formBytes))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/RecordOfflinePlaytime/v1/", nil, allMods...)
 	if err != nil {
@@ -3929,14 +4163,23 @@ func (c *iPlayerServiceClient) RecordOfflinePlaytime(ctx context.Context, req *I
 	return resp, nil
 }
 
-func (c *iPlayerServiceClient) GetRecentlyPlayedGames(ctx context.Context, req *IPlayerService_GetRecentlyPlayedGames_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *playerServiceClient) GetRecentlyPlayedGames(ctx context.Context, key string, steamID uint64, count uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [64]byte
+	var qBuf [128]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "key="...)
+	qBytes = append(qBytes, url.QueryEscape(key)...)
+	qBytes = append(qBytes, "&steam_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(steamID), 10)
+	qBytes = append(qBytes, "&count="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(count), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetRecentlyPlayedGames/v1/", allMods...)
 	if err != nil {
@@ -3945,7 +4188,7 @@ func (c *iPlayerServiceClient) GetRecentlyPlayedGames(ctx context.Context, req *
 	return resp, nil
 }
 
-func (c *iPlayerServiceClient) GetOwnedGames(ctx context.Context, req *IPlayerService_GetOwnedGames_Request) (*json.RawMessage, error) {
+func (c *playerServiceClient) GetOwnedGames(ctx context.Context, req *GetOwnedGamesRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -3953,6 +4196,10 @@ func (c *iPlayerServiceClient) GetOwnedGames(ctx context.Context, req *IPlayerSe
 	qBytes := qBuf[:0]
 	qBytes = req.AppendQuery(qBytes)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetOwnedGames/v1/", allMods...)
 	if err != nil {
@@ -3961,14 +4208,21 @@ func (c *iPlayerServiceClient) GetOwnedGames(ctx context.Context, req *IPlayerSe
 	return resp, nil
 }
 
-func (c *iPlayerServiceClient) GetSteamLevel(ctx context.Context, req *IPlayerService_GetSteamLevel_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *playerServiceClient) GetSteamLevel(ctx context.Context, key string, steamID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "key="...)
+	qBytes = append(qBytes, url.QueryEscape(key)...)
+	qBytes = append(qBytes, "&steam_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(steamID), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetSteamLevel/v1/", allMods...)
 	if err != nil {
@@ -3977,14 +4231,21 @@ func (c *iPlayerServiceClient) GetSteamLevel(ctx context.Context, req *IPlayerSe
 	return resp, nil
 }
 
-func (c *iPlayerServiceClient) GetBadges(ctx context.Context, req *IPlayerService_GetBadges_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *playerServiceClient) GetBadges(ctx context.Context, key string, steamID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "key="...)
+	qBytes = append(qBytes, url.QueryEscape(key)...)
+	qBytes = append(qBytes, "&steam_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(steamID), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetBadges/v1/", allMods...)
 	if err != nil {
@@ -3993,14 +4254,23 @@ func (c *iPlayerServiceClient) GetBadges(ctx context.Context, req *IPlayerServic
 	return resp, nil
 }
 
-func (c *iPlayerServiceClient) GetCommunityBadgeProgress(ctx context.Context, req *IPlayerService_GetCommunityBadgeProgress_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *playerServiceClient) GetCommunityBadgeProgress(ctx context.Context, key string, steamID uint64, badgeID int32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [64]byte
+	var qBuf [128]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "key="...)
+	qBytes = append(qBytes, url.QueryEscape(key)...)
+	qBytes = append(qBytes, "&steam_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(steamID), 10)
+	qBytes = append(qBytes, "&badge_id="...)
+	qBytes = strconv.AppendInt(qBytes, int64(badgeID), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetCommunityBadgeProgress/v1/", allMods...)
 	if err != nil {
@@ -4009,65 +4279,64 @@ func (c *iPlayerServiceClient) GetCommunityBadgeProgress(ctx context.Context, re
 	return resp, nil
 }
 
-type iAuthenticationServiceClient struct {
+type authenticationServiceClient struct {
 	r request.Requester
 }
 
-// NewIAuthenticationService creates a new IAuthenticationService client instance backed by an authenticated request.Requester.
-func NewIAuthenticationService(client request.Requester, opts ...aoni.ClientOption) (IAuthenticationService, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize IAuthenticationService")
+func newAuthenticationService(doer any, opts ...aoni.ClientOption) *authenticationServiceClient {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &iAuthenticationServiceClient{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IAuthenticationService")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IAuthenticationService")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IAuthenticationService")}, baseOpts...)...))
 	}
 
-	return &iAuthenticationServiceClient{
+	return &authenticationServiceClient{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewIAuthenticationService initializes IAuthenticationService and panics if an error occurs.
-func MustNewIAuthenticationService(client request.Requester, opts ...aoni.ClientOption) IAuthenticationService {
-	api, err := NewIAuthenticationService(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewAuthenticationService creates a new AuthenticationService client instance with preconfigured execution pipelines.
+func NewAuthenticationService(doer any, opts ...aoni.ClientOption) AuthenticationService {
+	return newAuthenticationService(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *iAuthenticationServiceClient) R() request.Requester {
+func (c *authenticationServiceClient) R() request.Requester {
 	return c.r
 }
 
-func (c *iAuthenticationServiceClient) PollAuthSessionStatus(ctx context.Context, req *IAuthenticationService_PollAuthSessionStatus_Request) (*json.RawMessage, error) {
+func (c *authenticationServiceClient) PollAuthSessionStatus(ctx context.Context, clientID uint64, requestID string, tokenToRevoke uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
-	var formBuf [64]byte
-	formBytes := req.AppendFormData(formBuf[:0])
+	var formBuf [256]byte
+	formBytes := formBuf[:0]
+	formBytes = append(formBytes, "client_id="...)
+	formBytes = strconv.AppendUint(formBytes, uint64(clientID), 10)
+	formBytes = append(formBytes, "&request_id="...)
+	formBytes = append(formBytes, url.QueryEscape(requestID)...)
+	formBytes = append(formBytes, "&token_to_revoke="...)
+	formBytes = strconv.AppendUint(formBytes, uint64(tokenToRevoke), 10)
 	allMods = append(allMods, mod.WithBodyBytes(formBytes))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/PollAuthSessionStatus/v1/", nil, allMods...)
 	if err != nil {
@@ -4076,14 +4345,20 @@ func (c *iAuthenticationServiceClient) PollAuthSessionStatus(ctx context.Context
 	return resp, nil
 }
 
-func (c *iAuthenticationServiceClient) GetAuthSessionInfo(ctx context.Context, req *IAuthenticationService_GetAuthSessionInfo_Request) (*json.RawMessage, error) {
+func (c *authenticationServiceClient) GetAuthSessionInfo(ctx context.Context, clientID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
 	var formBuf [64]byte
-	formBytes := req.AppendFormData(formBuf[:0])
+	formBytes := formBuf[:0]
+	formBytes = append(formBytes, "client_id="...)
+	formBytes = strconv.AppendUint(formBytes, uint64(clientID), 10)
 	allMods = append(allMods, mod.WithBodyBytes(formBytes))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/GetAuthSessionInfo/v1/", nil, allMods...)
 	if err != nil {
@@ -4092,14 +4367,22 @@ func (c *iAuthenticationServiceClient) GetAuthSessionInfo(ctx context.Context, r
 	return resp, nil
 }
 
-func (c *iAuthenticationServiceClient) GetAuthSessionRiskInfo(ctx context.Context, req *IAuthenticationService_GetAuthSessionRiskInfo_Request) (*json.RawMessage, error) {
+func (c *authenticationServiceClient) GetAuthSessionRiskInfo(ctx context.Context, clientID uint64, language uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
-	var formBuf [64]byte
-	formBytes := req.AppendFormData(formBuf[:0])
+	var formBuf [128]byte
+	formBytes := formBuf[:0]
+	formBytes = append(formBytes, "client_id="...)
+	formBytes = strconv.AppendUint(formBytes, uint64(clientID), 10)
+	formBytes = append(formBytes, "&language="...)
+	formBytes = strconv.AppendUint(formBytes, uint64(language), 10)
 	allMods = append(allMods, mod.WithBodyBytes(formBytes))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/GetAuthSessionRiskInfo/v1/", nil, allMods...)
 	if err != nil {
@@ -4108,7 +4391,7 @@ func (c *iAuthenticationServiceClient) GetAuthSessionRiskInfo(ctx context.Contex
 	return resp, nil
 }
 
-func (c *iAuthenticationServiceClient) NotifyRiskQuizResults(ctx context.Context, req *IAuthenticationService_NotifyRiskQuizResults_Request) (*json.RawMessage, error) {
+func (c *authenticationServiceClient) NotifyRiskQuizResults(ctx context.Context, req *NotifyRiskQuizResultsRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -4116,6 +4399,10 @@ func (c *iAuthenticationServiceClient) NotifyRiskQuizResults(ctx context.Context
 	var formBuf [64]byte
 	formBytes := req.AppendFormData(formBuf[:0])
 	allMods = append(allMods, mod.WithBodyBytes(formBytes))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/NotifyRiskQuizResults/v1/", nil, allMods...)
 	if err != nil {
@@ -4124,14 +4411,19 @@ func (c *iAuthenticationServiceClient) NotifyRiskQuizResults(ctx context.Context
 	return resp, nil
 }
 
-func (c *iAuthenticationServiceClient) GetPasswordRSAPublicKey(ctx context.Context, req *IAuthenticationService_GetPasswordRSAPublicKey_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *authenticationServiceClient) GetPasswordRSAPublicKey(ctx context.Context, accountName string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "account_name="...)
+	qBytes = append(qBytes, url.QueryEscape(accountName)...)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetPasswordRSAPublicKey/v1/", allMods...)
 	if err != nil {
@@ -4140,7 +4432,7 @@ func (c *iAuthenticationServiceClient) GetPasswordRSAPublicKey(ctx context.Conte
 	return resp, nil
 }
 
-func (c *iAuthenticationServiceClient) BeginAuthSessionViaCredentials(ctx context.Context, req *IAuthenticationService_BeginAuthSessionViaCredentials_Request) (*json.RawMessage, error) {
+func (c *authenticationServiceClient) BeginAuthSessionViaCredentials(ctx context.Context, req *BeginAuthSessionViaCredentialsRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -4148,6 +4440,10 @@ func (c *iAuthenticationServiceClient) BeginAuthSessionViaCredentials(ctx contex
 	var formBuf [64]byte
 	formBytes := req.AppendFormData(formBuf[:0])
 	allMods = append(allMods, mod.WithBodyBytes(formBytes))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/BeginAuthSessionViaCredentials/v1/", nil, allMods...)
 	if err != nil {
@@ -4156,7 +4452,7 @@ func (c *iAuthenticationServiceClient) BeginAuthSessionViaCredentials(ctx contex
 	return resp, nil
 }
 
-func (c *iAuthenticationServiceClient) UpdateAuthSessionWithSteamGuardCode(ctx context.Context, req *IAuthenticationService_UpdateAuthSessionWithSteamGuardCode_Request) (*json.RawMessage, error) {
+func (c *authenticationServiceClient) UpdateAuthSessionWithSteamGuardCode(ctx context.Context, req *UpdateAuthSessionWithSteamGuardCodeRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -4164,6 +4460,10 @@ func (c *iAuthenticationServiceClient) UpdateAuthSessionWithSteamGuardCode(ctx c
 	var formBuf [64]byte
 	formBytes := req.AppendFormData(formBuf[:0])
 	allMods = append(allMods, mod.WithBodyBytes(formBytes))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/UpdateAuthSessionWithSteamGuardCode/v1/", nil, allMods...)
 	if err != nil {
@@ -4172,7 +4472,7 @@ func (c *iAuthenticationServiceClient) UpdateAuthSessionWithSteamGuardCode(ctx c
 	return resp, nil
 }
 
-func (c *iAuthenticationServiceClient) BeginAuthSessionViaQR(ctx context.Context, req *IAuthenticationService_BeginAuthSessionViaQR_Request) (*json.RawMessage, error) {
+func (c *authenticationServiceClient) BeginAuthSessionViaQR(ctx context.Context, req *BeginAuthSessionViaQRRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -4180,6 +4480,10 @@ func (c *iAuthenticationServiceClient) BeginAuthSessionViaQR(ctx context.Context
 	var formBuf [64]byte
 	formBytes := req.AppendFormData(formBuf[:0])
 	allMods = append(allMods, mod.WithBodyBytes(formBytes))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/BeginAuthSessionViaQR/v1/", nil, allMods...)
 	if err != nil {
@@ -4188,7 +4492,7 @@ func (c *iAuthenticationServiceClient) BeginAuthSessionViaQR(ctx context.Context
 	return resp, nil
 }
 
-func (c *iAuthenticationServiceClient) UpdateAuthSessionWithMobileConfirmation(ctx context.Context, req *IAuthenticationService_UpdateAuthSessionWithMobileConfirmation_Request) (*json.RawMessage, error) {
+func (c *authenticationServiceClient) UpdateAuthSessionWithMobileConfirmation(ctx context.Context, req *UpdateAuthSessionWithMobileConfirmationRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -4196,6 +4500,10 @@ func (c *iAuthenticationServiceClient) UpdateAuthSessionWithMobileConfirmation(c
 	var formBuf [64]byte
 	formBytes := req.AppendFormData(formBuf[:0])
 	allMods = append(allMods, mod.WithBodyBytes(formBytes))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/UpdateAuthSessionWithMobileConfirmation/v1/", nil, allMods...)
 	if err != nil {
@@ -4204,58 +4512,47 @@ func (c *iAuthenticationServiceClient) UpdateAuthSessionWithMobileConfirmation(c
 	return resp, nil
 }
 
-type iBroadcastServiceClient struct {
+type broadcastServiceClient struct {
 	r request.Requester
 }
 
-// NewIBroadcastService creates a new IBroadcastService client instance backed by an authenticated request.Requester.
-func NewIBroadcastService(client request.Requester, opts ...aoni.ClientOption) (IBroadcastService, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize IBroadcastService")
+func newBroadcastService(doer any, opts ...aoni.ClientOption) *broadcastServiceClient {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &iBroadcastServiceClient{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IBroadcastService")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IBroadcastService")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IBroadcastService")}, baseOpts...)...))
 	}
 
-	return &iBroadcastServiceClient{
+	return &broadcastServiceClient{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewIBroadcastService initializes IBroadcastService and panics if an error occurs.
-func MustNewIBroadcastService(client request.Requester, opts ...aoni.ClientOption) IBroadcastService {
-	api, err := NewIBroadcastService(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewBroadcastService creates a new BroadcastService client instance with preconfigured execution pipelines.
+func NewBroadcastService(doer any, opts ...aoni.ClientOption) BroadcastService {
+	return newBroadcastService(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *iBroadcastServiceClient) R() request.Requester {
+func (c *broadcastServiceClient) R() request.Requester {
 	return c.r
 }
 
-func (c *iBroadcastServiceClient) PostGameDataFrameRTMP(ctx context.Context, req *IBroadcastService_PostGameDataFrameRTMP_Request) (*json.RawMessage, error) {
+func (c *broadcastServiceClient) PostGameDataFrameRTMP(ctx context.Context, req *PostGameDataFrameRTMPRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -4263,6 +4560,10 @@ func (c *iBroadcastServiceClient) PostGameDataFrameRTMP(ctx context.Context, req
 	var formBuf [64]byte
 	formBytes := req.AppendFormData(formBuf[:0])
 	allMods = append(allMods, mod.WithBodyBytes(formBytes))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/PostGameDataFrameRTMP/v1/", nil, allMods...)
 	if err != nil {
@@ -4271,58 +4572,47 @@ func (c *iBroadcastServiceClient) PostGameDataFrameRTMP(ctx context.Context, req
 	return resp, nil
 }
 
-type iContentServerConfigServiceClient struct {
+type contentServerConfigServiceClient struct {
 	r request.Requester
 }
 
-// NewIContentServerConfigService creates a new IContentServerConfigService client instance backed by an authenticated request.Requester.
-func NewIContentServerConfigService(client request.Requester, opts ...aoni.ClientOption) (IContentServerConfigService, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize IContentServerConfigService")
+func newContentServerConfigService(doer any, opts ...aoni.ClientOption) *contentServerConfigServiceClient {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &iContentServerConfigServiceClient{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IContentServerConfigService")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IContentServerConfigService")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IContentServerConfigService")}, baseOpts...)...))
 	}
 
-	return &iContentServerConfigServiceClient{
+	return &contentServerConfigServiceClient{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewIContentServerConfigService initializes IContentServerConfigService and panics if an error occurs.
-func MustNewIContentServerConfigService(client request.Requester, opts ...aoni.ClientOption) IContentServerConfigService {
-	api, err := NewIContentServerConfigService(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewContentServerConfigService creates a new ContentServerConfigService client instance with preconfigured execution pipelines.
+func NewContentServerConfigService(doer any, opts ...aoni.ClientOption) ContentServerConfigService {
+	return newContentServerConfigService(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *iContentServerConfigServiceClient) R() request.Requester {
+func (c *contentServerConfigServiceClient) R() request.Requester {
 	return c.r
 }
 
-func (c *iContentServerConfigServiceClient) SetSteamCacheClientFilters(ctx context.Context, req *IContentServerConfigService_SetSteamCacheClientFilters_Request) (*json.RawMessage, error) {
+func (c *contentServerConfigServiceClient) SetSteamCacheClientFilters(ctx context.Context, req *SetSteamCacheClientFiltersRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -4330,6 +4620,10 @@ func (c *iContentServerConfigServiceClient) SetSteamCacheClientFilters(ctx conte
 	var formBuf [64]byte
 	formBytes := req.AppendFormData(formBuf[:0])
 	allMods = append(allMods, mod.WithBodyBytes(formBytes))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/SetSteamCacheClientFilters/v1/", nil, allMods...)
 	if err != nil {
@@ -4338,14 +4632,23 @@ func (c *iContentServerConfigServiceClient) SetSteamCacheClientFilters(ctx conte
 	return resp, nil
 }
 
-func (c *iContentServerConfigServiceClient) GetSteamCacheNodeParams(ctx context.Context, req *IContentServerConfigService_GetSteamCacheNodeParams_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *contentServerConfigServiceClient) GetSteamCacheNodeParams(ctx context.Context, key string, cacheID uint32, cacheKey string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [64]byte
+	var qBuf [128]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "key="...)
+	qBytes = append(qBytes, url.QueryEscape(key)...)
+	qBytes = append(qBytes, "&cache_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(cacheID), 10)
+	qBytes = append(qBytes, "&cache_key="...)
+	qBytes = append(qBytes, url.QueryEscape(cacheKey)...)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetSteamCacheNodeParams/v1/", allMods...)
 	if err != nil {
@@ -4354,7 +4657,7 @@ func (c *iContentServerConfigServiceClient) GetSteamCacheNodeParams(ctx context.
 	return resp, nil
 }
 
-func (c *iContentServerConfigServiceClient) SetSteamCachePerformanceStats(ctx context.Context, req *IContentServerConfigService_SetSteamCachePerformanceStats_Request) (*json.RawMessage, error) {
+func (c *contentServerConfigServiceClient) SetSteamCachePerformanceStats(ctx context.Context, req *SetSteamCachePerformanceStatsRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -4362,6 +4665,10 @@ func (c *iContentServerConfigServiceClient) SetSteamCachePerformanceStats(ctx co
 	var formBuf [64]byte
 	formBytes := req.AppendFormData(formBuf[:0])
 	allMods = append(allMods, mod.WithBodyBytes(formBytes))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/SetSteamCachePerformanceStats/v1/", nil, allMods...)
 	if err != nil {
@@ -4370,65 +4677,63 @@ func (c *iContentServerConfigServiceClient) SetSteamCachePerformanceStats(ctx co
 	return resp, nil
 }
 
-type iContentServerDirectoryServiceClient struct {
+type contentServerDirectoryServiceClient struct {
 	r request.Requester
 }
 
-// NewIContentServerDirectoryService creates a new IContentServerDirectoryService client instance backed by an authenticated request.Requester.
-func NewIContentServerDirectoryService(client request.Requester, opts ...aoni.ClientOption) (IContentServerDirectoryService, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize IContentServerDirectoryService")
+func newContentServerDirectoryService(doer any, opts ...aoni.ClientOption) *contentServerDirectoryServiceClient {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &iContentServerDirectoryServiceClient{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IContentServerDirectoryService")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IContentServerDirectoryService")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IContentServerDirectoryService")}, baseOpts...)...))
 	}
 
-	return &iContentServerDirectoryServiceClient{
+	return &contentServerDirectoryServiceClient{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewIContentServerDirectoryService initializes IContentServerDirectoryService and panics if an error occurs.
-func MustNewIContentServerDirectoryService(client request.Requester, opts ...aoni.ClientOption) IContentServerDirectoryService {
-	api, err := NewIContentServerDirectoryService(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewContentServerDirectoryService creates a new ContentServerDirectoryService client instance with preconfigured execution pipelines.
+func NewContentServerDirectoryService(doer any, opts ...aoni.ClientOption) ContentServerDirectoryService {
+	return newContentServerDirectoryService(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *iContentServerDirectoryServiceClient) R() request.Requester {
+func (c *contentServerDirectoryServiceClient) R() request.Requester {
 	return c.r
 }
 
-func (c *iContentServerDirectoryServiceClient) GetCDNForVideo(ctx context.Context, req *IContentServerDirectoryService_GetCDNForVideo_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *contentServerDirectoryServiceClient) GetCDNForVideo(ctx context.Context, propertyType int32, clientIP string, clientRegion string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [64]byte
+	var qBuf [128]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "property_type="...)
+	qBytes = strconv.AppendInt(qBytes, int64(propertyType), 10)
+	qBytes = append(qBytes, "&client_ip="...)
+	qBytes = append(qBytes, url.QueryEscape(clientIP)...)
+	qBytes = append(qBytes, "&client_region="...)
+	qBytes = append(qBytes, url.QueryEscape(clientRegion)...)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetCDNForVideo/v1/", allMods...)
 	if err != nil {
@@ -4437,14 +4742,23 @@ func (c *iContentServerDirectoryServiceClient) GetCDNForVideo(ctx context.Contex
 	return resp, nil
 }
 
-func (c *iContentServerDirectoryServiceClient) PickSingleContentServer(ctx context.Context, req *IContentServerDirectoryService_PickSingleContentServer_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *contentServerDirectoryServiceClient) PickSingleContentServer(ctx context.Context, propertyType int32, cellID uint32, clientIP string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [64]byte
+	var qBuf [128]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "property_type="...)
+	qBytes = strconv.AppendInt(qBytes, int64(propertyType), 10)
+	qBytes = append(qBytes, "&cell_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(cellID), 10)
+	qBytes = append(qBytes, "&client_ip="...)
+	qBytes = append(qBytes, url.QueryEscape(clientIP)...)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/PickSingleContentServer/v1/", allMods...)
 	if err != nil {
@@ -4453,7 +4767,7 @@ func (c *iContentServerDirectoryServiceClient) PickSingleContentServer(ctx conte
 	return resp, nil
 }
 
-func (c *iContentServerDirectoryServiceClient) GetServersForSteamPipe(ctx context.Context, req *IContentServerDirectoryService_GetServersForSteamPipe_Request) (*json.RawMessage, error) {
+func (c *contentServerDirectoryServiceClient) GetServersForSteamPipe(ctx context.Context, req *GetServersForSteamPipeRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -4461,6 +4775,10 @@ func (c *iContentServerDirectoryServiceClient) GetServersForSteamPipe(ctx contex
 	qBytes := qBuf[:0]
 	qBytes = req.AppendQuery(qBytes)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetServersForSteamPipe/v1/", allMods...)
 	if err != nil {
@@ -4469,14 +4787,19 @@ func (c *iContentServerDirectoryServiceClient) GetServersForSteamPipe(ctx contex
 	return resp, nil
 }
 
-func (c *iContentServerDirectoryServiceClient) GetClientUpdateHosts(ctx context.Context, req *IContentServerDirectoryService_GetClientUpdateHosts_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *contentServerDirectoryServiceClient) GetClientUpdateHosts(ctx context.Context, cachedSignature string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "cached_signature="...)
+	qBytes = append(qBytes, url.QueryEscape(cachedSignature)...)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetClientUpdateHosts/v1/", allMods...)
 	if err != nil {
@@ -4485,7 +4808,7 @@ func (c *iContentServerDirectoryServiceClient) GetClientUpdateHosts(ctx context.
 	return resp, nil
 }
 
-func (c *iContentServerDirectoryServiceClient) GetDepotPatchInfo(ctx context.Context, req *IContentServerDirectoryService_GetDepotPatchInfo_Request) (*json.RawMessage, error) {
+func (c *contentServerDirectoryServiceClient) GetDepotPatchInfo(ctx context.Context, req *GetDepotPatchInfoRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -4493,6 +4816,10 @@ func (c *iContentServerDirectoryServiceClient) GetDepotPatchInfo(ctx context.Con
 	qBytes := qBuf[:0]
 	qBytes = req.AppendQuery(qBytes)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetDepotPatchInfo/v1/", allMods...)
 	if err != nil {
@@ -4501,65 +4828,59 @@ func (c *iContentServerDirectoryServiceClient) GetDepotPatchInfo(ctx context.Con
 	return resp, nil
 }
 
-type iPublishedFileServiceClient struct {
+type publishedFileServiceClient struct {
 	r request.Requester
 }
 
-// NewIPublishedFileService creates a new IPublishedFileService client instance backed by an authenticated request.Requester.
-func NewIPublishedFileService(client request.Requester, opts ...aoni.ClientOption) (IPublishedFileService, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize IPublishedFileService")
+func newPublishedFileService(doer any, opts ...aoni.ClientOption) *publishedFileServiceClient {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &iPublishedFileServiceClient{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IPublishedFileService")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IPublishedFileService")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IPublishedFileService")}, baseOpts...)...))
 	}
 
-	return &iPublishedFileServiceClient{
+	return &publishedFileServiceClient{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewIPublishedFileService initializes IPublishedFileService and panics if an error occurs.
-func MustNewIPublishedFileService(client request.Requester, opts ...aoni.ClientOption) IPublishedFileService {
-	api, err := NewIPublishedFileService(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewPublishedFileService creates a new PublishedFileService client instance with preconfigured execution pipelines.
+func NewPublishedFileService(doer any, opts ...aoni.ClientOption) PublishedFileService {
+	return newPublishedFileService(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *iPublishedFileServiceClient) R() request.Requester {
+func (c *publishedFileServiceClient) R() request.Requester {
 	return c.r
 }
 
-func (c *iPublishedFileServiceClient) GetUserVoteSummary(ctx context.Context, req *IPublishedFileService_GetUserVoteSummary_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *publishedFileServiceClient) GetUserVoteSummary(ctx context.Context, publishedfileids uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "publishedfileids="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(publishedfileids), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetUserVoteSummary/v1/", allMods...)
 	if err != nil {
@@ -4568,7 +4889,7 @@ func (c *iPublishedFileServiceClient) GetUserVoteSummary(ctx context.Context, re
 	return resp, nil
 }
 
-func (c *iPublishedFileServiceClient) QueryFiles(ctx context.Context, req *IPublishedFileService_QueryFiles_Request) (*json.RawMessage, error) {
+func (c *publishedFileServiceClient) QueryFiles(ctx context.Context, req *QueryFilesRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -4576,6 +4897,10 @@ func (c *iPublishedFileServiceClient) QueryFiles(ctx context.Context, req *IPubl
 	qBytes := qBuf[:0]
 	qBytes = req.AppendQuery(qBytes)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/QueryFiles/v1/", allMods...)
 	if err != nil {
@@ -4584,7 +4909,7 @@ func (c *iPublishedFileServiceClient) QueryFiles(ctx context.Context, req *IPubl
 	return resp, nil
 }
 
-func (c *iPublishedFileServiceClient) GetSubSectionData(ctx context.Context, req *IPublishedFileService_GetSubSectionData_Request) (*json.RawMessage, error) {
+func (c *publishedFileServiceClient) GetSubSectionData(ctx context.Context, req *GetSubSectionDataRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -4592,6 +4917,10 @@ func (c *iPublishedFileServiceClient) GetSubSectionData(ctx context.Context, req
 	qBytes := qBuf[:0]
 	qBytes = req.AppendQuery(qBytes)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetSubSectionData/v1/", allMods...)
 	if err != nil {
@@ -4600,7 +4929,7 @@ func (c *iPublishedFileServiceClient) GetSubSectionData(ctx context.Context, req
 	return resp, nil
 }
 
-func (c *iPublishedFileServiceClient) GetDetails(ctx context.Context, req *IPublishedFileService_GetDetails_Request) (*json.RawMessage, error) {
+func (c *publishedFileServiceClient) GetDetails(ctx context.Context, req *GetDetailsRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -4608,6 +4937,10 @@ func (c *iPublishedFileServiceClient) GetDetails(ctx context.Context, req *IPubl
 	qBytes := qBuf[:0]
 	qBytes = req.AppendQuery(qBytes)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetDetails/v1/", allMods...)
 	if err != nil {
@@ -4616,7 +4949,7 @@ func (c *iPublishedFileServiceClient) GetDetails(ctx context.Context, req *IPubl
 	return resp, nil
 }
 
-func (c *iPublishedFileServiceClient) GetUserFiles(ctx context.Context, req *IPublishedFileService_GetUserFiles_Request) (*json.RawMessage, error) {
+func (c *publishedFileServiceClient) GetUserFiles(ctx context.Context, req *GetUserFilesRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -4624,6 +4957,10 @@ func (c *iPublishedFileServiceClient) GetUserFiles(ctx context.Context, req *IPu
 	qBytes := qBuf[:0]
 	qBytes = req.AppendQuery(qBytes)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetUserFiles/v1/", allMods...)
 	if err != nil {
@@ -4632,7 +4969,7 @@ func (c *iPublishedFileServiceClient) GetUserFiles(ctx context.Context, req *IPu
 	return resp, nil
 }
 
-func (c *iPublishedFileServiceClient) GetUserFileCount(ctx context.Context, req *IPublishedFileService_GetUserFileCount_Request) (*json.RawMessage, error) {
+func (c *publishedFileServiceClient) GetUserFileCount(ctx context.Context, req *GetUserFileCountRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -4640,6 +4977,10 @@ func (c *iPublishedFileServiceClient) GetUserFileCount(ctx context.Context, req 
 	qBytes := qBuf[:0]
 	qBytes = req.AppendQuery(qBytes)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetUserFileCount/v1/", allMods...)
 	if err != nil {
@@ -4648,58 +4989,47 @@ func (c *iPublishedFileServiceClient) GetUserFileCount(ctx context.Context, req 
 	return resp, nil
 }
 
-type iEconServiceClient struct {
+type econServiceClient struct {
 	r request.Requester
 }
 
-// NewIEconService creates a new IEconService client instance backed by an authenticated request.Requester.
-func NewIEconService(client request.Requester, opts ...aoni.ClientOption) (IEconService, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize IEconService")
+func newEconService(doer any, opts ...aoni.ClientOption) *econServiceClient {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &iEconServiceClient{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconService")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconService")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconService")}, baseOpts...)...))
 	}
 
-	return &iEconServiceClient{
+	return &econServiceClient{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewIEconService initializes IEconService and panics if an error occurs.
-func MustNewIEconService(client request.Requester, opts ...aoni.ClientOption) IEconService {
-	api, err := NewIEconService(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewEconService creates a new EconService client instance with preconfigured execution pipelines.
+func NewEconService(doer any, opts ...aoni.ClientOption) EconService {
+	return newEconService(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *iEconServiceClient) R() request.Requester {
+func (c *econServiceClient) R() request.Requester {
 	return c.r
 }
 
-func (c *iEconServiceClient) GetTradeHistory(ctx context.Context, req *IEconService_GetTradeHistory_Request) (*json.RawMessage, error) {
+func (c *econServiceClient) GetTradeHistory(ctx context.Context, req *GetTradeHistoryRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -4707,6 +5037,10 @@ func (c *iEconServiceClient) GetTradeHistory(ctx context.Context, req *IEconServ
 	qBytes := qBuf[:0]
 	qBytes = req.AppendQuery(qBytes)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetTradeHistory/v1/", allMods...)
 	if err != nil {
@@ -4715,7 +5049,7 @@ func (c *iEconServiceClient) GetTradeHistory(ctx context.Context, req *IEconServ
 	return resp, nil
 }
 
-func (c *iEconServiceClient) GetTradeStatus(ctx context.Context, req *IEconService_GetTradeStatus_Request) (*json.RawMessage, error) {
+func (c *econServiceClient) GetTradeStatus(ctx context.Context, req *GetTradeStatusRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -4723,6 +5057,10 @@ func (c *iEconServiceClient) GetTradeStatus(ctx context.Context, req *IEconServi
 	qBytes := qBuf[:0]
 	qBytes = req.AppendQuery(qBytes)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetTradeStatus/v1/", allMods...)
 	if err != nil {
@@ -4731,7 +5069,7 @@ func (c *iEconServiceClient) GetTradeStatus(ctx context.Context, req *IEconServi
 	return resp, nil
 }
 
-func (c *iEconServiceClient) GetTradeOffers(ctx context.Context, req *IEconService_GetTradeOffers_Request) (*json.RawMessage, error) {
+func (c *econServiceClient) GetTradeOffers(ctx context.Context, req *GetTradeOffersRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -4739,6 +5077,10 @@ func (c *iEconServiceClient) GetTradeOffers(ctx context.Context, req *IEconServi
 	qBytes := qBuf[:0]
 	qBytes = req.AppendQuery(qBytes)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetTradeOffers/v1/", allMods...)
 	if err != nil {
@@ -4747,7 +5089,7 @@ func (c *iEconServiceClient) GetTradeOffers(ctx context.Context, req *IEconServi
 	return resp, nil
 }
 
-func (c *iEconServiceClient) GetTradeOffer(ctx context.Context, req *IEconService_GetTradeOffer_Request) (*json.RawMessage, error) {
+func (c *econServiceClient) GetTradeOffer(ctx context.Context, req *GetTradeOfferRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -4755,6 +5097,10 @@ func (c *iEconServiceClient) GetTradeOffer(ctx context.Context, req *IEconServic
 	qBytes := qBuf[:0]
 	qBytes = req.AppendQuery(qBytes)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetTradeOffer/v1/", allMods...)
 	if err != nil {
@@ -4763,14 +5109,21 @@ func (c *iEconServiceClient) GetTradeOffer(ctx context.Context, req *IEconServic
 	return resp, nil
 }
 
-func (c *iEconServiceClient) GetTradeOffersSummary(ctx context.Context, req *IEconService_GetTradeOffersSummary_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *econServiceClient) GetTradeOffersSummary(ctx context.Context, key string, timeLastVisit uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [64]byte
+	var qBuf [128]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "key="...)
+	qBytes = append(qBytes, url.QueryEscape(key)...)
+	qBytes = append(qBytes, "&time_last_visit="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(timeLastVisit), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetTradeOffersSummary/v1/", allMods...)
 	if err != nil {
@@ -4779,14 +5132,23 @@ func (c *iEconServiceClient) GetTradeOffersSummary(ctx context.Context, req *IEc
 	return resp, nil
 }
 
-func (c *iEconServiceClient) GetTradeHoldDurations(ctx context.Context, req *IEconService_GetTradeHoldDurations_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *econServiceClient) GetTradeHoldDurations(ctx context.Context, key string, steamIDTarget uint64, tradeOfferAccessToken string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [64]byte
+	var qBuf [128]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "key="...)
+	qBytes = append(qBytes, url.QueryEscape(key)...)
+	qBytes = append(qBytes, "&steam_id_target="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(steamIDTarget), 10)
+	qBytes = append(qBytes, "&trade_offer_access_token="...)
+	qBytes = append(qBytes, url.QueryEscape(tradeOfferAccessToken)...)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetTradeHoldDurations/v1/", allMods...)
 	if err != nil {
@@ -4795,58 +5157,47 @@ func (c *iEconServiceClient) GetTradeHoldDurations(ctx context.Context, req *IEc
 	return resp, nil
 }
 
-type iGameNotificationsServiceClient struct {
+type gameNotificationsServiceClient struct {
 	r request.Requester
 }
 
-// NewIGameNotificationsService creates a new IGameNotificationsService client instance backed by an authenticated request.Requester.
-func NewIGameNotificationsService(client request.Requester, opts ...aoni.ClientOption) (IGameNotificationsService, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize IGameNotificationsService")
+func newGameNotificationsService(doer any, opts ...aoni.ClientOption) *gameNotificationsServiceClient {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &iGameNotificationsServiceClient{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGameNotificationsService")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGameNotificationsService")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGameNotificationsService")}, baseOpts...)...))
 	}
 
-	return &iGameNotificationsServiceClient{
+	return &gameNotificationsServiceClient{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewIGameNotificationsService initializes IGameNotificationsService and panics if an error occurs.
-func MustNewIGameNotificationsService(client request.Requester, opts ...aoni.ClientOption) IGameNotificationsService {
-	api, err := NewIGameNotificationsService(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewGameNotificationsService creates a new GameNotificationsService client instance with preconfigured execution pipelines.
+func NewGameNotificationsService(doer any, opts ...aoni.ClientOption) GameNotificationsService {
+	return newGameNotificationsService(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *iGameNotificationsServiceClient) R() request.Requester {
+func (c *gameNotificationsServiceClient) R() request.Requester {
 	return c.r
 }
 
-func (c *iGameNotificationsServiceClient) UserCreateSession(ctx context.Context, req *IGameNotificationsService_UserCreateSession_Request) (*json.RawMessage, error) {
+func (c *gameNotificationsServiceClient) UserCreateSession(ctx context.Context, req *UserCreateSessionRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -4854,6 +5205,10 @@ func (c *iGameNotificationsServiceClient) UserCreateSession(ctx context.Context,
 	var formBuf [64]byte
 	formBytes := req.AppendFormData(formBuf[:0])
 	allMods = append(allMods, mod.WithBodyBytes(formBytes))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/UserCreateSession/v1/", nil, allMods...)
 	if err != nil {
@@ -4862,7 +5217,7 @@ func (c *iGameNotificationsServiceClient) UserCreateSession(ctx context.Context,
 	return resp, nil
 }
 
-func (c *iGameNotificationsServiceClient) UserUpdateSession(ctx context.Context, req *IGameNotificationsService_UserUpdateSession_Request) (*json.RawMessage, error) {
+func (c *gameNotificationsServiceClient) UserUpdateSession(ctx context.Context, req *UserUpdateSessionRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -4870,6 +5225,10 @@ func (c *iGameNotificationsServiceClient) UserUpdateSession(ctx context.Context,
 	var formBuf [64]byte
 	formBytes := req.AppendFormData(formBuf[:0])
 	allMods = append(allMods, mod.WithBodyBytes(formBytes))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/UserUpdateSession/v1/", nil, allMods...)
 	if err != nil {
@@ -4878,14 +5237,24 @@ func (c *iGameNotificationsServiceClient) UserUpdateSession(ctx context.Context,
 	return resp, nil
 }
 
-func (c *iGameNotificationsServiceClient) UserDeleteSession(ctx context.Context, req *IGameNotificationsService_UserDeleteSession_Request) (*json.RawMessage, error) {
+func (c *gameNotificationsServiceClient) UserDeleteSession(ctx context.Context, sessionID uint64, appID uint32, steamID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
-	var formBuf [64]byte
-	formBytes := req.AppendFormData(formBuf[:0])
+	var formBuf [256]byte
+	formBytes := formBuf[:0]
+	formBytes = append(formBytes, "session_id="...)
+	formBytes = strconv.AppendUint(formBytes, uint64(sessionID), 10)
+	formBytes = append(formBytes, "&app_id="...)
+	formBytes = strconv.AppendUint(formBytes, uint64(appID), 10)
+	formBytes = append(formBytes, "&steam_id="...)
+	formBytes = strconv.AppendUint(formBytes, uint64(steamID), 10)
 	allMods = append(allMods, mod.WithBodyBytes(formBytes))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/UserDeleteSession/v1/", nil, allMods...)
 	if err != nil {
@@ -4894,58 +5263,47 @@ func (c *iGameNotificationsServiceClient) UserDeleteSession(ctx context.Context,
 	return resp, nil
 }
 
-type iInventoryServiceClient struct {
+type inventoryServiceClient struct {
 	r request.Requester
 }
 
-// NewIInventoryService creates a new IInventoryService client instance backed by an authenticated request.Requester.
-func NewIInventoryService(client request.Requester, opts ...aoni.ClientOption) (IInventoryService, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize IInventoryService")
+func newInventoryService(doer any, opts ...aoni.ClientOption) *inventoryServiceClient {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &iInventoryServiceClient{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IInventoryService")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IInventoryService")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IInventoryService")}, baseOpts...)...))
 	}
 
-	return &iInventoryServiceClient{
+	return &inventoryServiceClient{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewIInventoryService initializes IInventoryService and panics if an error occurs.
-func MustNewIInventoryService(client request.Requester, opts ...aoni.ClientOption) IInventoryService {
-	api, err := NewIInventoryService(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewInventoryService creates a new InventoryService client instance with preconfigured execution pipelines.
+func NewInventoryService(doer any, opts ...aoni.ClientOption) InventoryService {
+	return newInventoryService(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *iInventoryServiceClient) R() request.Requester {
+func (c *inventoryServiceClient) R() request.Requester {
 	return c.r
 }
 
-func (c *iInventoryServiceClient) SplitItemStack(ctx context.Context, req *IInventoryService_SplitItemStack_Request) (*json.RawMessage, error) {
+func (c *inventoryServiceClient) SplitItemStack(ctx context.Context, req *SplitItemStackRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -4953,6 +5311,10 @@ func (c *iInventoryServiceClient) SplitItemStack(ctx context.Context, req *IInve
 	var formBuf [64]byte
 	formBytes := req.AppendFormData(formBuf[:0])
 	allMods = append(allMods, mod.WithBodyBytes(formBytes))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/SplitItemStack/v1/", nil, allMods...)
 	if err != nil {
@@ -4961,7 +5323,7 @@ func (c *iInventoryServiceClient) SplitItemStack(ctx context.Context, req *IInve
 	return resp, nil
 }
 
-func (c *iInventoryServiceClient) CombineItemStacks(ctx context.Context, req *IInventoryService_CombineItemStacks_Request) (*json.RawMessage, error) {
+func (c *inventoryServiceClient) CombineItemStacks(ctx context.Context, req *CombineItemStacksRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -4969,6 +5331,10 @@ func (c *iInventoryServiceClient) CombineItemStacks(ctx context.Context, req *II
 	var formBuf [64]byte
 	formBytes := req.AppendFormData(formBuf[:0])
 	allMods = append(allMods, mod.WithBodyBytes(formBytes))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/CombineItemStacks/v1/", nil, allMods...)
 	if err != nil {
@@ -4977,14 +5343,23 @@ func (c *iInventoryServiceClient) CombineItemStacks(ctx context.Context, req *II
 	return resp, nil
 }
 
-func (c *iInventoryServiceClient) GetPriceSheet(ctx context.Context, req *IInventoryService_GetPriceSheet_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *inventoryServiceClient) GetPriceSheet(ctx context.Context, key string, ecurrency int32, currencyCode string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [64]byte
+	var qBuf [128]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "key="...)
+	qBytes = append(qBytes, url.QueryEscape(key)...)
+	qBytes = append(qBytes, "&ecurrency="...)
+	qBytes = strconv.AppendInt(qBytes, int64(ecurrency), 10)
+	qBytes = append(qBytes, "&currency_code="...)
+	qBytes = append(qBytes, url.QueryEscape(currencyCode)...)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetPriceSheet/v1/", allMods...)
 	if err != nil {
@@ -4993,65 +5368,59 @@ func (c *iInventoryServiceClient) GetPriceSheet(ctx context.Context, req *IInven
 	return resp, nil
 }
 
-type iStoreServiceClient struct {
+type storeServiceClient struct {
 	r request.Requester
 }
 
-// NewIStoreService creates a new IStoreService client instance backed by an authenticated request.Requester.
-func NewIStoreService(client request.Requester, opts ...aoni.ClientOption) (IStoreService, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize IStoreService")
+func newStoreService(doer any, opts ...aoni.ClientOption) *storeServiceClient {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &iStoreServiceClient{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IStoreService")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IStoreService")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IStoreService")}, baseOpts...)...))
 	}
 
-	return &iStoreServiceClient{
+	return &storeServiceClient{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewIStoreService initializes IStoreService and panics if an error occurs.
-func MustNewIStoreService(client request.Requester, opts ...aoni.ClientOption) IStoreService {
-	api, err := NewIStoreService(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewStoreService creates a new StoreService client instance with preconfigured execution pipelines.
+func NewStoreService(doer any, opts ...aoni.ClientOption) StoreService {
+	return newStoreService(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *iStoreServiceClient) R() request.Requester {
+func (c *storeServiceClient) R() request.Requester {
 	return c.r
 }
 
-func (c *iStoreServiceClient) GetGamesFollowed(ctx context.Context, req *IStoreService_GetGamesFollowed_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *storeServiceClient) GetGamesFollowed(ctx context.Context, steamID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "steam_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(steamID), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetGamesFollowed/v1/", allMods...)
 	if err != nil {
@@ -5060,14 +5429,19 @@ func (c *iStoreServiceClient) GetGamesFollowed(ctx context.Context, req *IStoreS
 	return resp, nil
 }
 
-func (c *iStoreServiceClient) GetGamesFollowedCount(ctx context.Context, req *IStoreService_GetGamesFollowedCount_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *storeServiceClient) GetGamesFollowedCount(ctx context.Context, steamID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "steam_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(steamID), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetGamesFollowedCount/v1/", allMods...)
 	if err != nil {
@@ -5076,7 +5450,7 @@ func (c *iStoreServiceClient) GetGamesFollowedCount(ctx context.Context, req *IS
 	return resp, nil
 }
 
-func (c *iStoreServiceClient) GetAppList(ctx context.Context, req *IStoreService_GetAppList_Request) (*json.RawMessage, error) {
+func (c *storeServiceClient) GetAppList(ctx context.Context, req *GetAppListRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -5084,6 +5458,10 @@ func (c *iStoreServiceClient) GetAppList(ctx context.Context, req *IStoreService
 	qBytes := qBuf[:0]
 	qBytes = req.AppendQuery(qBytes)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetAppList/v1/", allMods...)
 	if err != nil {
@@ -5092,14 +5470,23 @@ func (c *iStoreServiceClient) GetAppList(ctx context.Context, req *IStoreService
 	return resp, nil
 }
 
-func (c *iStoreServiceClient) GetRecommendedTagsForUser(ctx context.Context, req *IStoreService_GetRecommendedTagsForUser_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *storeServiceClient) GetRecommendedTagsForUser(ctx context.Context, language string, countryCode string, favorRarerTags bool, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [64]byte
+	var qBuf [128]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "language="...)
+	qBytes = append(qBytes, url.QueryEscape(language)...)
+	qBytes = append(qBytes, "&country_code="...)
+	qBytes = append(qBytes, url.QueryEscape(countryCode)...)
+	qBytes = append(qBytes, "&favor_rarer_tags="...)
+	qBytes = strconv.AppendBool(qBytes, favorRarerTags)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetRecommendedTagsForUser/v1/", allMods...)
 	if err != nil {
@@ -5108,58 +5495,47 @@ func (c *iStoreServiceClient) GetRecommendedTagsForUser(ctx context.Context, req
 	return resp, nil
 }
 
-type iHelpRequestLogsServiceClient struct {
+type helpRequestLogsServiceClient struct {
 	r request.Requester
 }
 
-// NewIHelpRequestLogsService creates a new IHelpRequestLogsService client instance backed by an authenticated request.Requester.
-func NewIHelpRequestLogsService(client request.Requester, opts ...aoni.ClientOption) (IHelpRequestLogsService, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize IHelpRequestLogsService")
+func newHelpRequestLogsService(doer any, opts ...aoni.ClientOption) *helpRequestLogsServiceClient {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &iHelpRequestLogsServiceClient{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IHelpRequestLogsService")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IHelpRequestLogsService")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IHelpRequestLogsService")}, baseOpts...)...))
 	}
 
-	return &iHelpRequestLogsServiceClient{
+	return &helpRequestLogsServiceClient{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewIHelpRequestLogsService initializes IHelpRequestLogsService and panics if an error occurs.
-func MustNewIHelpRequestLogsService(client request.Requester, opts ...aoni.ClientOption) IHelpRequestLogsService {
-	api, err := NewIHelpRequestLogsService(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewHelpRequestLogsService creates a new HelpRequestLogsService client instance with preconfigured execution pipelines.
+func NewHelpRequestLogsService(doer any, opts ...aoni.ClientOption) HelpRequestLogsService {
+	return newHelpRequestLogsService(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *iHelpRequestLogsServiceClient) R() request.Requester {
+func (c *helpRequestLogsServiceClient) R() request.Requester {
 	return c.r
 }
 
-func (c *iHelpRequestLogsServiceClient) UploadUserApplicationLog(ctx context.Context, req *IHelpRequestLogsService_UploadUserApplicationLog_Request) (*json.RawMessage, error) {
+func (c *helpRequestLogsServiceClient) UploadUserApplicationLog(ctx context.Context, req *UploadUserApplicationLogRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -5167,6 +5543,10 @@ func (c *iHelpRequestLogsServiceClient) UploadUserApplicationLog(ctx context.Con
 	var formBuf [64]byte
 	formBytes := req.AppendFormData(formBuf[:0])
 	allMods = append(allMods, mod.WithBodyBytes(formBytes))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/UploadUserApplicationLog/v1/", nil, allMods...)
 	if err != nil {
@@ -5175,14 +5555,20 @@ func (c *iHelpRequestLogsServiceClient) UploadUserApplicationLog(ctx context.Con
 	return resp, nil
 }
 
-func (c *iHelpRequestLogsServiceClient) GetApplicationLogDemand(ctx context.Context, req *IHelpRequestLogsService_GetApplicationLogDemand_Request) (*json.RawMessage, error) {
+func (c *helpRequestLogsServiceClient) GetApplicationLogDemand(ctx context.Context, appID uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
 	var formBuf [64]byte
-	formBytes := req.AppendFormData(formBuf[:0])
+	formBytes := formBuf[:0]
+	formBytes = append(formBytes, "app_id="...)
+	formBytes = strconv.AppendUint(formBytes, uint64(appID), 10)
 	allMods = append(allMods, mod.WithBodyBytes(formBytes))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/GetApplicationLogDemand/v1/", nil, allMods...)
 	if err != nil {
@@ -5191,58 +5577,47 @@ func (c *iHelpRequestLogsServiceClient) GetApplicationLogDemand(ctx context.Cont
 	return resp, nil
 }
 
-type iCheatReportingServiceClient struct {
+type cheatReportingServiceClient struct {
 	r request.Requester
 }
 
-// NewICheatReportingService creates a new ICheatReportingService client instance backed by an authenticated request.Requester.
-func NewICheatReportingService(client request.Requester, opts ...aoni.ClientOption) (ICheatReportingService, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize ICheatReportingService")
+func newCheatReportingService(doer any, opts ...aoni.ClientOption) *cheatReportingServiceClient {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &iCheatReportingServiceClient{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ICheatReportingService")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ICheatReportingService")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ICheatReportingService")}, baseOpts...)...))
 	}
 
-	return &iCheatReportingServiceClient{
+	return &cheatReportingServiceClient{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewICheatReportingService initializes ICheatReportingService and panics if an error occurs.
-func MustNewICheatReportingService(client request.Requester, opts ...aoni.ClientOption) ICheatReportingService {
-	api, err := NewICheatReportingService(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewCheatReportingService creates a new CheatReportingService client instance with preconfigured execution pipelines.
+func NewCheatReportingService(doer any, opts ...aoni.ClientOption) CheatReportingService {
+	return newCheatReportingService(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *iCheatReportingServiceClient) R() request.Requester {
+func (c *cheatReportingServiceClient) R() request.Requester {
 	return c.r
 }
 
-func (c *iCheatReportingServiceClient) ReportCheatData(ctx context.Context, req *ICheatReportingService_ReportCheatData_Request) (*json.RawMessage, error) {
+func (c *cheatReportingServiceClient) ReportCheatData(ctx context.Context, req *ReportCheatDataRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -5251,6 +5626,10 @@ func (c *iCheatReportingServiceClient) ReportCheatData(ctx context.Context, req 
 	formBytes := req.AppendFormData(formBuf[:0])
 	allMods = append(allMods, mod.WithBodyBytes(formBytes))
 
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
+
 	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/ReportCheatData/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
@@ -5258,58 +5637,47 @@ func (c *iCheatReportingServiceClient) ReportCheatData(ctx context.Context, req 
 	return resp, nil
 }
 
-type iWishlistServiceClient struct {
+type wishlistServiceClient struct {
 	r request.Requester
 }
 
-// NewIWishlistService creates a new IWishlistService client instance backed by an authenticated request.Requester.
-func NewIWishlistService(client request.Requester, opts ...aoni.ClientOption) (IWishlistService, error) {
-	if client == nil {
-		return nil, errors.New("aoni: client (request.Requester) is required to initialize IWishlistService")
+func newWishlistService(doer any, opts ...aoni.ClientOption) *wishlistServiceClient {
+	if doer == nil {
+		doer = fast.NewClient()
 	}
 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &iWishlistServiceClient{
-			r: req,
-		}, nil
-	}
-
 	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
+	if d, ok := doer.(aoni.RequestDoer); ok {
 		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IWishlistService")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
+	} else if req, ok := doer.(request.Requester); ok {
+		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IWishlistService")}, baseOpts...)...))
+	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
 		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
+	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
 		targetReq = rd.Requester()
 	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
+		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IWishlistService")}, baseOpts...)...))
 	}
 
-	return &iWishlistServiceClient{
+	return &wishlistServiceClient{
 		r: targetReq,
-	}, nil
+	}
 }
 
-// MustNewIWishlistService initializes IWishlistService and panics if an error occurs.
-func MustNewIWishlistService(client request.Requester, opts ...aoni.ClientOption) IWishlistService {
-	api, err := NewIWishlistService(client, opts...)
-	if err != nil {
-		panic(err)
-	}
-	return api
+// NewWishlistService creates a new WishlistService client instance with preconfigured execution pipelines.
+func NewWishlistService(doer any, opts ...aoni.ClientOption) WishlistService {
+	return newWishlistService(doer, opts...)
 }
 
 // R returns the underlying request.Requester used by the client.
-func (c *iWishlistServiceClient) R() request.Requester {
+func (c *wishlistServiceClient) R() request.Requester {
 	return c.r
 }
 
-func (c *iWishlistServiceClient) GetWishlistSortedFiltered(ctx context.Context, req *IWishlistService_GetWishlistSortedFiltered_Request) (*json.RawMessage, error) {
+func (c *wishlistServiceClient) GetWishlistSortedFiltered(ctx context.Context, req *GetWishlistSortedFilteredRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
 	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
@@ -5317,6 +5685,10 @@ func (c *iWishlistServiceClient) GetWishlistSortedFiltered(ctx context.Context, 
 	qBytes := qBuf[:0]
 	qBytes = req.AppendQuery(qBytes)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetWishlistSortedFiltered/v1/", allMods...)
 	if err != nil {
@@ -5325,14 +5697,19 @@ func (c *iWishlistServiceClient) GetWishlistSortedFiltered(ctx context.Context, 
 	return resp, nil
 }
 
-func (c *iWishlistServiceClient) GetWishlist(ctx context.Context, req *IWishlistService_GetWishlist_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *wishlistServiceClient) GetWishlist(ctx context.Context, steamID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "steam_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(steamID), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetWishlist/v1/", allMods...)
 	if err != nil {
@@ -5341,14 +5718,19 @@ func (c *iWishlistServiceClient) GetWishlist(ctx context.Context, req *IWishlist
 	return resp, nil
 }
 
-func (c *iWishlistServiceClient) GetWishlistItemCount(ctx context.Context, req *IWishlistService_GetWishlistItemCount_Request) (*json.RawMessage, error) {
-	var stackMods [4]aoni.RequestModifier
+func (c *wishlistServiceClient) GetWishlistItemCount(ctx context.Context, steamID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
 	qBytes := qBuf[:0]
-	qBytes = req.AppendQuery(qBytes)
+	qBytes = append(qBytes, "steam_id="...)
+	qBytes = strconv.AppendUint(qBytes, uint64(steamID), 10)
 	allMods = append(allMods, mod.WithQuery(string(qBytes)))
+
+	if len(mods) > 0 {
+		allMods = append(allMods, mods...)
+	}
 
 	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetWishlistItemCount/v1/", allMods...)
 	if err != nil {
@@ -5357,300 +5739,8 @@ func (c *iWishlistServiceClient) GetWishlistItemCount(ctx context.Context, req *
 	return resp, nil
 }
 
-// AppendFormData serializes ICSGOPlayers_730_GetNextMatchSharingCode_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ICSGOPlayers_730_GetNextMatchSharingCode_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.SteamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamid="...)
-		dst = strconv.AppendUint(dst, uint64(r.SteamID), 10)
-	}
-	if r.SteamIDKey != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamidkey="...)
-		dst = append(dst, url.QueryEscape(r.SteamIDKey)...)
-	}
-	if r.Knowncode != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "knowncode="...)
-		dst = append(dst, url.QueryEscape(r.Knowncode)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes ICSGOPlayers_730_GetNextMatchSharingCode_Request into query string bytes on dst buffer (0 B/op).
-func (r *ICSGOPlayers_730_GetNextMatchSharingCode_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes ICSGOPlayers_730_GetNextMatchSharingCode_Request into url.Values without reflection.
-func (r *ICSGOPlayers_730_GetNextMatchSharingCode_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.SteamID != 0 {
-		vals.Set("steamid", strconv.FormatUint(uint64(r.SteamID), 10))
-	}
-	if r.SteamIDKey != "" {
-		vals.Set("steamidkey", r.SteamIDKey)
-	}
-	if r.Knowncode != "" {
-		vals.Set("knowncode", r.Knowncode)
-	}
-}
-
-// AppendFormData serializes ICSGOServers_730_GetGameMapsPlaytime_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ICSGOServers_730_GetGameMapsPlaytime_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Interval != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "interval="...)
-		dst = append(dst, url.QueryEscape(r.Interval)...)
-	}
-	if r.Gamemode != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "gamemode="...)
-		dst = append(dst, url.QueryEscape(r.Gamemode)...)
-	}
-	if r.Mapgroup != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "mapgroup="...)
-		dst = append(dst, url.QueryEscape(r.Mapgroup)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes ICSGOServers_730_GetGameMapsPlaytime_Request into query string bytes on dst buffer (0 B/op).
-func (r *ICSGOServers_730_GetGameMapsPlaytime_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes ICSGOServers_730_GetGameMapsPlaytime_Request into url.Values without reflection.
-func (r *ICSGOServers_730_GetGameMapsPlaytime_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Interval != "" {
-		vals.Set("interval", r.Interval)
-	}
-	if r.Gamemode != "" {
-		vals.Set("gamemode", r.Gamemode)
-	}
-	if r.Mapgroup != "" {
-		vals.Set("mapgroup", r.Mapgroup)
-	}
-}
-
-// AppendFormData serializes ICSGOTournaments_730_GetTournamentFantasyLineup_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ICSGOTournaments_730_GetTournamentFantasyLineup_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Event != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "event="...)
-		dst = strconv.AppendUint(dst, uint64(r.Event), 10)
-	}
-	if r.SteamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamid="...)
-		dst = strconv.AppendUint(dst, uint64(r.SteamID), 10)
-	}
-	if r.SteamIDKey != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamidkey="...)
-		dst = append(dst, url.QueryEscape(r.SteamIDKey)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes ICSGOTournaments_730_GetTournamentFantasyLineup_Request into query string bytes on dst buffer (0 B/op).
-func (r *ICSGOTournaments_730_GetTournamentFantasyLineup_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes ICSGOTournaments_730_GetTournamentFantasyLineup_Request into url.Values without reflection.
-func (r *ICSGOTournaments_730_GetTournamentFantasyLineup_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Event != 0 {
-		vals.Set("event", strconv.FormatUint(uint64(r.Event), 10))
-	}
-	if r.SteamID != 0 {
-		vals.Set("steamid", strconv.FormatUint(uint64(r.SteamID), 10))
-	}
-	if r.SteamIDKey != "" {
-		vals.Set("steamidkey", r.SteamIDKey)
-	}
-}
-
-// AppendFormData serializes ICSGOTournaments_730_GetTournamentItems_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ICSGOTournaments_730_GetTournamentItems_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Event != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "event="...)
-		dst = strconv.AppendUint(dst, uint64(r.Event), 10)
-	}
-	if r.SteamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamid="...)
-		dst = strconv.AppendUint(dst, uint64(r.SteamID), 10)
-	}
-	if r.SteamIDKey != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamidkey="...)
-		dst = append(dst, url.QueryEscape(r.SteamIDKey)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes ICSGOTournaments_730_GetTournamentItems_Request into query string bytes on dst buffer (0 B/op).
-func (r *ICSGOTournaments_730_GetTournamentItems_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes ICSGOTournaments_730_GetTournamentItems_Request into url.Values without reflection.
-func (r *ICSGOTournaments_730_GetTournamentItems_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Event != 0 {
-		vals.Set("event", strconv.FormatUint(uint64(r.Event), 10))
-	}
-	if r.SteamID != 0 {
-		vals.Set("steamid", strconv.FormatUint(uint64(r.SteamID), 10))
-	}
-	if r.SteamIDKey != "" {
-		vals.Set("steamidkey", r.SteamIDKey)
-	}
-}
-
-// AppendFormData serializes ICSGOTournaments_730_GetTournamentLayout_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ICSGOTournaments_730_GetTournamentLayout_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Event != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "event="...)
-		dst = strconv.AppendUint(dst, uint64(r.Event), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes ICSGOTournaments_730_GetTournamentLayout_Request into query string bytes on dst buffer (0 B/op).
-func (r *ICSGOTournaments_730_GetTournamentLayout_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes ICSGOTournaments_730_GetTournamentLayout_Request into url.Values without reflection.
-func (r *ICSGOTournaments_730_GetTournamentLayout_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Event != 0 {
-		vals.Set("event", strconv.FormatUint(uint64(r.Event), 10))
-	}
-}
-
-// AppendFormData serializes ICSGOTournaments_730_GetTournamentPredictions_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ICSGOTournaments_730_GetTournamentPredictions_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Event != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "event="...)
-		dst = strconv.AppendUint(dst, uint64(r.Event), 10)
-	}
-	if r.SteamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamid="...)
-		dst = strconv.AppendUint(dst, uint64(r.SteamID), 10)
-	}
-	if r.SteamIDKey != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamidkey="...)
-		dst = append(dst, url.QueryEscape(r.SteamIDKey)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes ICSGOTournaments_730_GetTournamentPredictions_Request into query string bytes on dst buffer (0 B/op).
-func (r *ICSGOTournaments_730_GetTournamentPredictions_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes ICSGOTournaments_730_GetTournamentPredictions_Request into url.Values without reflection.
-func (r *ICSGOTournaments_730_GetTournamentPredictions_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Event != 0 {
-		vals.Set("event", strconv.FormatUint(uint64(r.Event), 10))
-	}
-	if r.SteamID != 0 {
-		vals.Set("steamid", strconv.FormatUint(uint64(r.SteamID), 10))
-	}
-	if r.SteamIDKey != "" {
-		vals.Set("steamidkey", r.SteamIDKey)
-	}
-}
-
-// AppendFormData serializes ICSGOTournaments_730_UploadTournamentFantasyLineup_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ICSGOTournaments_730_UploadTournamentFantasyLineup_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes UploadTournamentFantasyLineupRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *UploadTournamentFantasyLineupRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -5757,13 +5847,13 @@ func (r *ICSGOTournaments_730_UploadTournamentFantasyLineup_Request) AppendFormD
 	return dst
 }
 
-// AppendQuery serializes ICSGOTournaments_730_UploadTournamentFantasyLineup_Request into query string bytes on dst buffer (0 B/op).
-func (r *ICSGOTournaments_730_UploadTournamentFantasyLineup_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes UploadTournamentFantasyLineupRequest into query string bytes on dst buffer (0 B/op).
+func (r *UploadTournamentFantasyLineupRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes ICSGOTournaments_730_UploadTournamentFantasyLineup_Request into url.Values without reflection.
-func (r *ICSGOTournaments_730_UploadTournamentFantasyLineup_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes UploadTournamentFantasyLineupRequest into url.Values without reflection.
+func (r *UploadTournamentFantasyLineupRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -5811,8 +5901,8 @@ func (r *ICSGOTournaments_730_UploadTournamentFantasyLineup_Request) EncodeValue
 	}
 }
 
-// AppendFormData serializes ICSGOTournaments_730_UploadTournamentPredictions_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ICSGOTournaments_730_UploadTournamentPredictions_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes UploadTournamentPredictionsRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *UploadTournamentPredictionsRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -5877,13 +5967,13 @@ func (r *ICSGOTournaments_730_UploadTournamentPredictions_Request) AppendFormDat
 	return dst
 }
 
-// AppendQuery serializes ICSGOTournaments_730_UploadTournamentPredictions_Request into query string bytes on dst buffer (0 B/op).
-func (r *ICSGOTournaments_730_UploadTournamentPredictions_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes UploadTournamentPredictionsRequest into query string bytes on dst buffer (0 B/op).
+func (r *UploadTournamentPredictionsRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes ICSGOTournaments_730_UploadTournamentPredictions_Request into url.Values without reflection.
-func (r *ICSGOTournaments_730_UploadTournamentPredictions_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes UploadTournamentPredictionsRequest into url.Values without reflection.
+func (r *UploadTournamentPredictionsRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -5913,132 +6003,8 @@ func (r *ICSGOTournaments_730_UploadTournamentPredictions_Request) EncodeValues(
 	}
 }
 
-// AppendFormData serializes IDOTA2MatchStats_570_GetRealtimeStats_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IDOTA2MatchStats_570_GetRealtimeStats_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.ServerSteamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "server_steam_id="...)
-		dst = strconv.AppendUint(dst, uint64(r.ServerSteamID), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IDOTA2MatchStats_570_GetRealtimeStats_Request into query string bytes on dst buffer (0 B/op).
-func (r *IDOTA2MatchStats_570_GetRealtimeStats_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IDOTA2MatchStats_570_GetRealtimeStats_Request into url.Values without reflection.
-func (r *IDOTA2MatchStats_570_GetRealtimeStats_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.ServerSteamID != 0 {
-		vals.Set("server_steam_id", strconv.FormatUint(uint64(r.ServerSteamID), 10))
-	}
-}
-
-// AppendFormData serializes IDOTA2Match_570_GetLiveLeagueGames_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IDOTA2Match_570_GetLiveLeagueGames_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.LeagueID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "league_id="...)
-		dst = strconv.AppendUint(dst, uint64(r.LeagueID), 10)
-	}
-	if r.MatchID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "match_id="...)
-		dst = strconv.AppendUint(dst, uint64(r.MatchID), 10)
-	}
-	if r.DPC {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "dpc=true"...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IDOTA2Match_570_GetLiveLeagueGames_Request into query string bytes on dst buffer (0 B/op).
-func (r *IDOTA2Match_570_GetLiveLeagueGames_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IDOTA2Match_570_GetLiveLeagueGames_Request into url.Values without reflection.
-func (r *IDOTA2Match_570_GetLiveLeagueGames_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.LeagueID != 0 {
-		vals.Set("league_id", strconv.FormatUint(uint64(r.LeagueID), 10))
-	}
-	if r.MatchID != 0 {
-		vals.Set("match_id", strconv.FormatUint(uint64(r.MatchID), 10))
-	}
-	if r.DPC {
-		vals.Set("dpc", "true")
-	}
-}
-
-// AppendFormData serializes IDOTA2Match_570_GetMatchDetails_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IDOTA2Match_570_GetMatchDetails_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.MatchID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "match_id="...)
-		dst = strconv.AppendUint(dst, uint64(r.MatchID), 10)
-	}
-	if r.IncludePersonaNames {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "include_persona_names=true"...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IDOTA2Match_570_GetMatchDetails_Request into query string bytes on dst buffer (0 B/op).
-func (r *IDOTA2Match_570_GetMatchDetails_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IDOTA2Match_570_GetMatchDetails_Request into url.Values without reflection.
-func (r *IDOTA2Match_570_GetMatchDetails_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.MatchID != 0 {
-		vals.Set("match_id", strconv.FormatUint(uint64(r.MatchID), 10))
-	}
-	if r.IncludePersonaNames {
-		vals.Set("include_persona_names", "true")
-	}
-}
-
-// AppendFormData serializes IDOTA2Match_570_GetMatchHistory_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IDOTA2Match_570_GetMatchHistory_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes GetMatchHistoryRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *GetMatchHistoryRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -6103,13 +6069,13 @@ func (r *IDOTA2Match_570_GetMatchHistory_Request) AppendFormData(dst []byte) []b
 	return dst
 }
 
-// AppendQuery serializes IDOTA2Match_570_GetMatchHistory_Request into query string bytes on dst buffer (0 B/op).
-func (r *IDOTA2Match_570_GetMatchHistory_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes GetMatchHistoryRequest into query string bytes on dst buffer (0 B/op).
+func (r *GetMatchHistoryRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes IDOTA2Match_570_GetMatchHistory_Request into url.Values without reflection.
-func (r *IDOTA2Match_570_GetMatchHistory_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes GetMatchHistoryRequest into url.Values without reflection.
+func (r *GetMatchHistoryRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -6139,198 +6105,8 @@ func (r *IDOTA2Match_570_GetMatchHistory_Request) EncodeValues(vals url.Values) 
 	}
 }
 
-// AppendFormData serializes IDOTA2Match_570_GetMatchHistoryBySequenceNum_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IDOTA2Match_570_GetMatchHistoryBySequenceNum_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.StartAtMatchSeqNum != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "start_at_match_seq_num="...)
-		dst = strconv.AppendUint(dst, uint64(r.StartAtMatchSeqNum), 10)
-	}
-	if r.MatchesRequested != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "matches_requested="...)
-		dst = strconv.AppendUint(dst, uint64(r.MatchesRequested), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IDOTA2Match_570_GetMatchHistoryBySequenceNum_Request into query string bytes on dst buffer (0 B/op).
-func (r *IDOTA2Match_570_GetMatchHistoryBySequenceNum_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IDOTA2Match_570_GetMatchHistoryBySequenceNum_Request into url.Values without reflection.
-func (r *IDOTA2Match_570_GetMatchHistoryBySequenceNum_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.StartAtMatchSeqNum != 0 {
-		vals.Set("start_at_match_seq_num", strconv.FormatUint(uint64(r.StartAtMatchSeqNum), 10))
-	}
-	if r.MatchesRequested != 0 {
-		vals.Set("matches_requested", strconv.FormatUint(uint64(r.MatchesRequested), 10))
-	}
-}
-
-// AppendFormData serializes IDOTA2Match_570_GetTeamInfoByTeamID_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IDOTA2Match_570_GetTeamInfoByTeamID_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.StartAtTeamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "start_at_team_id="...)
-		dst = strconv.AppendUint(dst, uint64(r.StartAtTeamID), 10)
-	}
-	if r.TeamsRequested != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "teams_requested="...)
-		dst = strconv.AppendUint(dst, uint64(r.TeamsRequested), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IDOTA2Match_570_GetTeamInfoByTeamID_Request into query string bytes on dst buffer (0 B/op).
-func (r *IDOTA2Match_570_GetTeamInfoByTeamID_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IDOTA2Match_570_GetTeamInfoByTeamID_Request into url.Values without reflection.
-func (r *IDOTA2Match_570_GetTeamInfoByTeamID_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.StartAtTeamID != 0 {
-		vals.Set("start_at_team_id", strconv.FormatUint(uint64(r.StartAtTeamID), 10))
-	}
-	if r.TeamsRequested != 0 {
-		vals.Set("teams_requested", strconv.FormatUint(uint64(r.TeamsRequested), 10))
-	}
-}
-
-// AppendFormData serializes IDOTA2Match_570_GetTopLiveEventGame_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IDOTA2Match_570_GetTopLiveEventGame_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if strVal := fmt.Sprint(r.Partner); strVal != "" && strVal != "0" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "partner="...)
-		dst = append(dst, url.QueryEscape(strVal)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IDOTA2Match_570_GetTopLiveEventGame_Request into query string bytes on dst buffer (0 B/op).
-func (r *IDOTA2Match_570_GetTopLiveEventGame_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IDOTA2Match_570_GetTopLiveEventGame_Request into url.Values without reflection.
-func (r *IDOTA2Match_570_GetTopLiveEventGame_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if strVal := fmt.Sprint(r.Partner); strVal != "" && strVal != "0" {
-		vals.Set("partner", strVal)
-	}
-}
-
-// AppendFormData serializes IDOTA2Match_570_GetTopLiveGame_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IDOTA2Match_570_GetTopLiveGame_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if strVal := fmt.Sprint(r.Partner); strVal != "" && strVal != "0" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "partner="...)
-		dst = append(dst, url.QueryEscape(strVal)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IDOTA2Match_570_GetTopLiveGame_Request into query string bytes on dst buffer (0 B/op).
-func (r *IDOTA2Match_570_GetTopLiveGame_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IDOTA2Match_570_GetTopLiveGame_Request into url.Values without reflection.
-func (r *IDOTA2Match_570_GetTopLiveGame_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if strVal := fmt.Sprint(r.Partner); strVal != "" && strVal != "0" {
-		vals.Set("partner", strVal)
-	}
-}
-
-// AppendFormData serializes IDOTA2Match_570_GetTopWeekendTourneyGames_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IDOTA2Match_570_GetTopWeekendTourneyGames_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if strVal := fmt.Sprint(r.Partner); strVal != "" && strVal != "0" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "partner="...)
-		dst = append(dst, url.QueryEscape(strVal)...)
-	}
-	if strVal := fmt.Sprint(r.HomeDivision); strVal != "" && strVal != "0" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "home_division="...)
-		dst = append(dst, url.QueryEscape(strVal)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IDOTA2Match_570_GetTopWeekendTourneyGames_Request into query string bytes on dst buffer (0 B/op).
-func (r *IDOTA2Match_570_GetTopWeekendTourneyGames_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IDOTA2Match_570_GetTopWeekendTourneyGames_Request into url.Values without reflection.
-func (r *IDOTA2Match_570_GetTopWeekendTourneyGames_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if strVal := fmt.Sprint(r.Partner); strVal != "" && strVal != "0" {
-		vals.Set("partner", strVal)
-	}
-	if strVal := fmt.Sprint(r.HomeDivision); strVal != "" && strVal != "0" {
-		vals.Set("home_division", strVal)
-	}
-}
-
-// AppendFormData serializes IDOTA2Match_570_GetTournamentPlayerStatsV1_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IDOTA2Match_570_GetTournamentPlayerStatsV1_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes GetTournamentPlayerStatsV1Request into url-encoded form bytes on dst buffer (0 B/op).
+func (r *GetTournamentPlayerStatsV1Request) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -6374,13 +6150,13 @@ func (r *IDOTA2Match_570_GetTournamentPlayerStatsV1_Request) AppendFormData(dst 
 	return dst
 }
 
-// AppendQuery serializes IDOTA2Match_570_GetTournamentPlayerStatsV1_Request into query string bytes on dst buffer (0 B/op).
-func (r *IDOTA2Match_570_GetTournamentPlayerStatsV1_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes GetTournamentPlayerStatsV1Request into query string bytes on dst buffer (0 B/op).
+func (r *GetTournamentPlayerStatsV1Request) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes IDOTA2Match_570_GetTournamentPlayerStatsV1_Request into url.Values without reflection.
-func (r *IDOTA2Match_570_GetTournamentPlayerStatsV1_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes GetTournamentPlayerStatsV1Request into url.Values without reflection.
+func (r *GetTournamentPlayerStatsV1Request) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -6401,8 +6177,8 @@ func (r *IDOTA2Match_570_GetTournamentPlayerStatsV1_Request) EncodeValues(vals u
 	}
 }
 
-// AppendFormData serializes IDOTA2Match_570_GetTournamentPlayerStatsV2_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IDOTA2Match_570_GetTournamentPlayerStatsV2_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes GetTournamentPlayerStatsV2Request into url-encoded form bytes on dst buffer (0 B/op).
+func (r *GetTournamentPlayerStatsV2Request) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -6453,13 +6229,13 @@ func (r *IDOTA2Match_570_GetTournamentPlayerStatsV2_Request) AppendFormData(dst 
 	return dst
 }
 
-// AppendQuery serializes IDOTA2Match_570_GetTournamentPlayerStatsV2_Request into query string bytes on dst buffer (0 B/op).
-func (r *IDOTA2Match_570_GetTournamentPlayerStatsV2_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes GetTournamentPlayerStatsV2Request into query string bytes on dst buffer (0 B/op).
+func (r *GetTournamentPlayerStatsV2Request) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes IDOTA2Match_570_GetTournamentPlayerStatsV2_Request into url.Values without reflection.
-func (r *IDOTA2Match_570_GetTournamentPlayerStatsV2_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes GetTournamentPlayerStatsV2Request into url.Values without reflection.
+func (r *GetTournamentPlayerStatsV2Request) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -6483,124 +6259,8 @@ func (r *IDOTA2Match_570_GetTournamentPlayerStatsV2_Request) EncodeValues(vals u
 	}
 }
 
-// AppendFormData serializes IDOTA2StreamSystem_570_GetBroadcasterInfo_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IDOTA2StreamSystem_570_GetBroadcasterInfo_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.BroadcasterSteamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "broadcaster_steam_id="...)
-		dst = strconv.AppendUint(dst, uint64(r.BroadcasterSteamID), 10)
-	}
-	if r.LeagueID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "league_id="...)
-		dst = strconv.AppendUint(dst, uint64(r.LeagueID), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IDOTA2StreamSystem_570_GetBroadcasterInfo_Request into query string bytes on dst buffer (0 B/op).
-func (r *IDOTA2StreamSystem_570_GetBroadcasterInfo_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IDOTA2StreamSystem_570_GetBroadcasterInfo_Request into url.Values without reflection.
-func (r *IDOTA2StreamSystem_570_GetBroadcasterInfo_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.BroadcasterSteamID != 0 {
-		vals.Set("broadcaster_steam_id", strconv.FormatUint(uint64(r.BroadcasterSteamID), 10))
-	}
-	if r.LeagueID != 0 {
-		vals.Set("league_id", strconv.FormatUint(uint64(r.LeagueID), 10))
-	}
-}
-
-// AppendFormData serializes IDOTA2Ticket_570_GetSteamIDForBadgeID_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IDOTA2Ticket_570_GetSteamIDForBadgeID_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.BadgeID != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "BadgeID="...)
-		dst = append(dst, url.QueryEscape(r.BadgeID)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IDOTA2Ticket_570_GetSteamIDForBadgeID_Request into query string bytes on dst buffer (0 B/op).
-func (r *IDOTA2Ticket_570_GetSteamIDForBadgeID_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IDOTA2Ticket_570_GetSteamIDForBadgeID_Request into url.Values without reflection.
-func (r *IDOTA2Ticket_570_GetSteamIDForBadgeID_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.BadgeID != "" {
-		vals.Set("BadgeID", r.BadgeID)
-	}
-}
-
-// AppendFormData serializes IDOTA2Ticket_570_SetSteamAccountPurchased_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IDOTA2Ticket_570_SetSteamAccountPurchased_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.SteamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamid="...)
-		dst = strconv.AppendUint(dst, uint64(r.SteamID), 10)
-	}
-	if r.BadgeType != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "BadgeType="...)
-		dst = strconv.AppendUint(dst, uint64(r.BadgeType), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IDOTA2Ticket_570_SetSteamAccountPurchased_Request into query string bytes on dst buffer (0 B/op).
-func (r *IDOTA2Ticket_570_SetSteamAccountPurchased_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IDOTA2Ticket_570_SetSteamAccountPurchased_Request into url.Values without reflection.
-func (r *IDOTA2Ticket_570_SetSteamAccountPurchased_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.SteamID != 0 {
-		vals.Set("steamid", strconv.FormatUint(uint64(r.SteamID), 10))
-	}
-	if r.BadgeType != 0 {
-		vals.Set("BadgeType", strconv.FormatUint(uint64(r.BadgeType), 10))
-	}
-}
-
-// AppendFormData serializes IDOTA2Ticket_570_SteamAccountValidForBadgeType_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IDOTA2Ticket_570_SteamAccountValidForBadgeType_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes SteamAccountValidForBadgeTypeRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *SteamAccountValidForBadgeTypeRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -6644,13 +6304,13 @@ func (r *IDOTA2Ticket_570_SteamAccountValidForBadgeType_Request) AppendFormData(
 	return dst
 }
 
-// AppendQuery serializes IDOTA2Ticket_570_SteamAccountValidForBadgeType_Request into query string bytes on dst buffer (0 B/op).
-func (r *IDOTA2Ticket_570_SteamAccountValidForBadgeType_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes SteamAccountValidForBadgeTypeRequest into query string bytes on dst buffer (0 B/op).
+func (r *SteamAccountValidForBadgeTypeRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes IDOTA2Ticket_570_SteamAccountValidForBadgeType_Request into url.Values without reflection.
-func (r *IDOTA2Ticket_570_SteamAccountValidForBadgeType_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes SteamAccountValidForBadgeTypeRequest into url.Values without reflection.
+func (r *SteamAccountValidForBadgeTypeRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -6671,877 +6331,8 @@ func (r *IDOTA2Ticket_570_SteamAccountValidForBadgeType_Request) EncodeValues(va
 	}
 }
 
-// AppendFormData serializes IEconDOTA2_570_GetEventStatsForAccount_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IEconDOTA2_570_GetEventStatsForAccount_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.EventID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "eventid="...)
-		dst = strconv.AppendUint(dst, uint64(r.EventID), 10)
-	}
-	if r.AccountID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "accountid="...)
-		dst = strconv.AppendUint(dst, uint64(r.AccountID), 10)
-	}
-	if r.Language != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "language="...)
-		dst = append(dst, url.QueryEscape(r.Language)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IEconDOTA2_570_GetEventStatsForAccount_Request into query string bytes on dst buffer (0 B/op).
-func (r *IEconDOTA2_570_GetEventStatsForAccount_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IEconDOTA2_570_GetEventStatsForAccount_Request into url.Values without reflection.
-func (r *IEconDOTA2_570_GetEventStatsForAccount_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.EventID != 0 {
-		vals.Set("eventid", strconv.FormatUint(uint64(r.EventID), 10))
-	}
-	if r.AccountID != 0 {
-		vals.Set("accountid", strconv.FormatUint(uint64(r.AccountID), 10))
-	}
-	if r.Language != "" {
-		vals.Set("language", r.Language)
-	}
-}
-
-// AppendFormData serializes IEconDOTA2_570_GetHeroes_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IEconDOTA2_570_GetHeroes_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Language != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "language="...)
-		dst = append(dst, url.QueryEscape(r.Language)...)
-	}
-	if r.Itemizedonly {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "itemizedonly=true"...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IEconDOTA2_570_GetHeroes_Request into query string bytes on dst buffer (0 B/op).
-func (r *IEconDOTA2_570_GetHeroes_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IEconDOTA2_570_GetHeroes_Request into url.Values without reflection.
-func (r *IEconDOTA2_570_GetHeroes_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Language != "" {
-		vals.Set("language", r.Language)
-	}
-	if r.Itemizedonly {
-		vals.Set("itemizedonly", "true")
-	}
-}
-
-// AppendFormData serializes IEconDOTA2_570_GetItemCreators_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IEconDOTA2_570_GetItemCreators_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Itemdef != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "itemdef="...)
-		dst = strconv.AppendUint(dst, uint64(r.Itemdef), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IEconDOTA2_570_GetItemCreators_Request into query string bytes on dst buffer (0 B/op).
-func (r *IEconDOTA2_570_GetItemCreators_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IEconDOTA2_570_GetItemCreators_Request into url.Values without reflection.
-func (r *IEconDOTA2_570_GetItemCreators_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Itemdef != 0 {
-		vals.Set("itemdef", strconv.FormatUint(uint64(r.Itemdef), 10))
-	}
-}
-
-// AppendFormData serializes IEconDOTA2_570_GetItemWorkshopPublishedFileIDs_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IEconDOTA2_570_GetItemWorkshopPublishedFileIDs_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Itemdef != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "itemdef="...)
-		dst = strconv.AppendUint(dst, uint64(r.Itemdef), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IEconDOTA2_570_GetItemWorkshopPublishedFileIDs_Request into query string bytes on dst buffer (0 B/op).
-func (r *IEconDOTA2_570_GetItemWorkshopPublishedFileIDs_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IEconDOTA2_570_GetItemWorkshopPublishedFileIDs_Request into url.Values without reflection.
-func (r *IEconDOTA2_570_GetItemWorkshopPublishedFileIDs_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Itemdef != 0 {
-		vals.Set("itemdef", strconv.FormatUint(uint64(r.Itemdef), 10))
-	}
-}
-
-// AppendFormData serializes IEconDOTA2_570_GetRarities_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IEconDOTA2_570_GetRarities_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Language != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "language="...)
-		dst = append(dst, url.QueryEscape(r.Language)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IEconDOTA2_570_GetRarities_Request into query string bytes on dst buffer (0 B/op).
-func (r *IEconDOTA2_570_GetRarities_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IEconDOTA2_570_GetRarities_Request into url.Values without reflection.
-func (r *IEconDOTA2_570_GetRarities_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Language != "" {
-		vals.Set("language", r.Language)
-	}
-}
-
-// AppendFormData serializes IEconDOTA2_570_GetTournamentPrizePool_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IEconDOTA2_570_GetTournamentPrizePool_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.LeagueID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "leagueid="...)
-		dst = strconv.AppendUint(dst, uint64(r.LeagueID), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IEconDOTA2_570_GetTournamentPrizePool_Request into query string bytes on dst buffer (0 B/op).
-func (r *IEconDOTA2_570_GetTournamentPrizePool_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IEconDOTA2_570_GetTournamentPrizePool_Request into url.Values without reflection.
-func (r *IEconDOTA2_570_GetTournamentPrizePool_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.LeagueID != 0 {
-		vals.Set("leagueid", strconv.FormatUint(uint64(r.LeagueID), 10))
-	}
-}
-
-// AppendFormData serializes IEconItems_1046930_GetPlayerItems_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IEconItems_1046930_GetPlayerItems_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.SteamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamid="...)
-		dst = strconv.AppendUint(dst, uint64(r.SteamID), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IEconItems_1046930_GetPlayerItems_Request into query string bytes on dst buffer (0 B/op).
-func (r *IEconItems_1046930_GetPlayerItems_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IEconItems_1046930_GetPlayerItems_Request into url.Values without reflection.
-func (r *IEconItems_1046930_GetPlayerItems_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.SteamID != 0 {
-		vals.Set("steamid", strconv.FormatUint(uint64(r.SteamID), 10))
-	}
-}
-
-// AppendFormData serializes IEconItems_1269260_GetEquippedPlayerItems_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IEconItems_1269260_GetEquippedPlayerItems_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.SteamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamid="...)
-		dst = strconv.AppendUint(dst, uint64(r.SteamID), 10)
-	}
-	if r.ClassID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "class_id="...)
-		dst = strconv.AppendUint(dst, uint64(r.ClassID), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IEconItems_1269260_GetEquippedPlayerItems_Request into query string bytes on dst buffer (0 B/op).
-func (r *IEconItems_1269260_GetEquippedPlayerItems_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IEconItems_1269260_GetEquippedPlayerItems_Request into url.Values without reflection.
-func (r *IEconItems_1269260_GetEquippedPlayerItems_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.SteamID != 0 {
-		vals.Set("steamid", strconv.FormatUint(uint64(r.SteamID), 10))
-	}
-	if r.ClassID != 0 {
-		vals.Set("class_id", strconv.FormatUint(uint64(r.ClassID), 10))
-	}
-}
-
-// AppendFormData serializes IEconItems_440_GetPlayerItems_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IEconItems_440_GetPlayerItems_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.SteamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamid="...)
-		dst = strconv.AppendUint(dst, uint64(r.SteamID), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IEconItems_440_GetPlayerItems_Request into query string bytes on dst buffer (0 B/op).
-func (r *IEconItems_440_GetPlayerItems_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IEconItems_440_GetPlayerItems_Request into url.Values without reflection.
-func (r *IEconItems_440_GetPlayerItems_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.SteamID != 0 {
-		vals.Set("steamid", strconv.FormatUint(uint64(r.SteamID), 10))
-	}
-}
-
-// AppendFormData serializes IEconItems_440_GetSchema_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IEconItems_440_GetSchema_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Language != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "language="...)
-		dst = append(dst, url.QueryEscape(r.Language)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IEconItems_440_GetSchema_Request into query string bytes on dst buffer (0 B/op).
-func (r *IEconItems_440_GetSchema_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IEconItems_440_GetSchema_Request into url.Values without reflection.
-func (r *IEconItems_440_GetSchema_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Language != "" {
-		vals.Set("language", r.Language)
-	}
-}
-
-// AppendFormData serializes IEconItems_440_GetSchemaItems_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IEconItems_440_GetSchemaItems_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Language != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "language="...)
-		dst = append(dst, url.QueryEscape(r.Language)...)
-	}
-	if strVal := fmt.Sprint(r.Start); strVal != "" && strVal != "0" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "start="...)
-		dst = append(dst, url.QueryEscape(strVal)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IEconItems_440_GetSchemaItems_Request into query string bytes on dst buffer (0 B/op).
-func (r *IEconItems_440_GetSchemaItems_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IEconItems_440_GetSchemaItems_Request into url.Values without reflection.
-func (r *IEconItems_440_GetSchemaItems_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Language != "" {
-		vals.Set("language", r.Language)
-	}
-	if strVal := fmt.Sprint(r.Start); strVal != "" && strVal != "0" {
-		vals.Set("start", strVal)
-	}
-}
-
-// AppendFormData serializes IEconItems_440_GetSchemaOverview_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IEconItems_440_GetSchemaOverview_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Language != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "language="...)
-		dst = append(dst, url.QueryEscape(r.Language)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IEconItems_440_GetSchemaOverview_Request into query string bytes on dst buffer (0 B/op).
-func (r *IEconItems_440_GetSchemaOverview_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IEconItems_440_GetSchemaOverview_Request into url.Values without reflection.
-func (r *IEconItems_440_GetSchemaOverview_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Language != "" {
-		vals.Set("language", r.Language)
-	}
-}
-
-// AppendFormData serializes IEconItems_440_GetStoreMetaData_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IEconItems_440_GetStoreMetaData_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Language != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "language="...)
-		dst = append(dst, url.QueryEscape(r.Language)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IEconItems_440_GetStoreMetaData_Request into query string bytes on dst buffer (0 B/op).
-func (r *IEconItems_440_GetStoreMetaData_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IEconItems_440_GetStoreMetaData_Request into url.Values without reflection.
-func (r *IEconItems_440_GetStoreMetaData_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Language != "" {
-		vals.Set("language", r.Language)
-	}
-}
-
-// AppendFormData serializes IEconItems_570_GetPlayerItems_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IEconItems_570_GetPlayerItems_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.SteamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamid="...)
-		dst = strconv.AppendUint(dst, uint64(r.SteamID), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IEconItems_570_GetPlayerItems_Request into query string bytes on dst buffer (0 B/op).
-func (r *IEconItems_570_GetPlayerItems_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IEconItems_570_GetPlayerItems_Request into url.Values without reflection.
-func (r *IEconItems_570_GetPlayerItems_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.SteamID != 0 {
-		vals.Set("steamid", strconv.FormatUint(uint64(r.SteamID), 10))
-	}
-}
-
-// AppendFormData serializes IEconItems_570_GetStoreMetaData_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IEconItems_570_GetStoreMetaData_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Language != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "language="...)
-		dst = append(dst, url.QueryEscape(r.Language)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IEconItems_570_GetStoreMetaData_Request into query string bytes on dst buffer (0 B/op).
-func (r *IEconItems_570_GetStoreMetaData_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IEconItems_570_GetStoreMetaData_Request into url.Values without reflection.
-func (r *IEconItems_570_GetStoreMetaData_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Language != "" {
-		vals.Set("language", r.Language)
-	}
-}
-
-// AppendFormData serializes IEconItems_583950_GetEquippedPlayerItems_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IEconItems_583950_GetEquippedPlayerItems_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.SteamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamid="...)
-		dst = strconv.AppendUint(dst, uint64(r.SteamID), 10)
-	}
-	if r.ClassID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "class_id="...)
-		dst = strconv.AppendUint(dst, uint64(r.ClassID), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IEconItems_583950_GetEquippedPlayerItems_Request into query string bytes on dst buffer (0 B/op).
-func (r *IEconItems_583950_GetEquippedPlayerItems_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IEconItems_583950_GetEquippedPlayerItems_Request into url.Values without reflection.
-func (r *IEconItems_583950_GetEquippedPlayerItems_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.SteamID != 0 {
-		vals.Set("steamid", strconv.FormatUint(uint64(r.SteamID), 10))
-	}
-	if r.ClassID != 0 {
-		vals.Set("class_id", strconv.FormatUint(uint64(r.ClassID), 10))
-	}
-}
-
-// AppendFormData serializes IEconItems_620_GetPlayerItems_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IEconItems_620_GetPlayerItems_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.SteamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamid="...)
-		dst = strconv.AppendUint(dst, uint64(r.SteamID), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IEconItems_620_GetPlayerItems_Request into query string bytes on dst buffer (0 B/op).
-func (r *IEconItems_620_GetPlayerItems_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IEconItems_620_GetPlayerItems_Request into url.Values without reflection.
-func (r *IEconItems_620_GetPlayerItems_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.SteamID != 0 {
-		vals.Set("steamid", strconv.FormatUint(uint64(r.SteamID), 10))
-	}
-}
-
-// AppendFormData serializes IEconItems_620_GetSchema_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IEconItems_620_GetSchema_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Language != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "language="...)
-		dst = append(dst, url.QueryEscape(r.Language)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IEconItems_620_GetSchema_Request into query string bytes on dst buffer (0 B/op).
-func (r *IEconItems_620_GetSchema_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IEconItems_620_GetSchema_Request into url.Values without reflection.
-func (r *IEconItems_620_GetSchema_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Language != "" {
-		vals.Set("language", r.Language)
-	}
-}
-
-// AppendFormData serializes IEconItems_730_GetPlayerItems_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IEconItems_730_GetPlayerItems_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.SteamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamid="...)
-		dst = strconv.AppendUint(dst, uint64(r.SteamID), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IEconItems_730_GetPlayerItems_Request into query string bytes on dst buffer (0 B/op).
-func (r *IEconItems_730_GetPlayerItems_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IEconItems_730_GetPlayerItems_Request into url.Values without reflection.
-func (r *IEconItems_730_GetPlayerItems_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.SteamID != 0 {
-		vals.Set("steamid", strconv.FormatUint(uint64(r.SteamID), 10))
-	}
-}
-
-// AppendFormData serializes IEconItems_730_GetSchema_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IEconItems_730_GetSchema_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Language != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "language="...)
-		dst = append(dst, url.QueryEscape(r.Language)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IEconItems_730_GetSchema_Request into query string bytes on dst buffer (0 B/op).
-func (r *IEconItems_730_GetSchema_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IEconItems_730_GetSchema_Request into url.Values without reflection.
-func (r *IEconItems_730_GetSchema_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Language != "" {
-		vals.Set("language", r.Language)
-	}
-}
-
-// AppendFormData serializes IEconItems_730_GetStoreMetaData_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IEconItems_730_GetStoreMetaData_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Language != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "language="...)
-		dst = append(dst, url.QueryEscape(r.Language)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IEconItems_730_GetStoreMetaData_Request into query string bytes on dst buffer (0 B/op).
-func (r *IEconItems_730_GetStoreMetaData_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IEconItems_730_GetStoreMetaData_Request into url.Values without reflection.
-func (r *IEconItems_730_GetStoreMetaData_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Language != "" {
-		vals.Set("language", r.Language)
-	}
-}
-
-// AppendFormData serializes IPortal2Leaderboards_620_GetBucketizedData_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IPortal2Leaderboards_620_GetBucketizedData_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.LeaderboardName != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "leaderboardName="...)
-		dst = append(dst, url.QueryEscape(r.LeaderboardName)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IPortal2Leaderboards_620_GetBucketizedData_Request into query string bytes on dst buffer (0 B/op).
-func (r *IPortal2Leaderboards_620_GetBucketizedData_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IPortal2Leaderboards_620_GetBucketizedData_Request into url.Values without reflection.
-func (r *IPortal2Leaderboards_620_GetBucketizedData_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.LeaderboardName != "" {
-		vals.Set("leaderboardName", r.LeaderboardName)
-	}
-}
-
-// AppendFormData serializes ISteamApps_GetSDRConfig_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ISteamApps_GetSDRConfig_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.AppID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "appid="...)
-		dst = strconv.AppendUint(dst, uint64(r.AppID), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes ISteamApps_GetSDRConfig_Request into query string bytes on dst buffer (0 B/op).
-func (r *ISteamApps_GetSDRConfig_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes ISteamApps_GetSDRConfig_Request into url.Values without reflection.
-func (r *ISteamApps_GetSDRConfig_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.AppID != 0 {
-		vals.Set("appid", strconv.FormatUint(uint64(r.AppID), 10))
-	}
-}
-
-// AppendFormData serializes ISteamApps_GetServersAtAddress_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ISteamApps_GetServersAtAddress_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Addr != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "addr="...)
-		dst = append(dst, url.QueryEscape(r.Addr)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes ISteamApps_GetServersAtAddress_Request into query string bytes on dst buffer (0 B/op).
-func (r *ISteamApps_GetServersAtAddress_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes ISteamApps_GetServersAtAddress_Request into url.Values without reflection.
-func (r *ISteamApps_GetServersAtAddress_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Addr != "" {
-		vals.Set("addr", r.Addr)
-	}
-}
-
-// AppendFormData serializes ISteamApps_UpToDateCheck_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ISteamApps_UpToDateCheck_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.AppID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "appid="...)
-		dst = strconv.AppendUint(dst, uint64(r.AppID), 10)
-	}
-	if r.Version != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "version="...)
-		dst = strconv.AppendUint(dst, uint64(r.Version), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes ISteamApps_UpToDateCheck_Request into query string bytes on dst buffer (0 B/op).
-func (r *ISteamApps_UpToDateCheck_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes ISteamApps_UpToDateCheck_Request into url.Values without reflection.
-func (r *ISteamApps_UpToDateCheck_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.AppID != 0 {
-		vals.Set("appid", strconv.FormatUint(uint64(r.AppID), 10))
-	}
-	if r.Version != 0 {
-		vals.Set("version", strconv.FormatUint(uint64(r.Version), 10))
-	}
-}
-
-// AppendFormData serializes ISteamBroadcast_ViewerHeartbeat_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ISteamBroadcast_ViewerHeartbeat_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes ViewerHeartbeatRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *ViewerHeartbeatRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -7578,13 +6369,13 @@ func (r *ISteamBroadcast_ViewerHeartbeat_Request) AppendFormData(dst []byte) []b
 	return dst
 }
 
-// AppendQuery serializes ISteamBroadcast_ViewerHeartbeat_Request into query string bytes on dst buffer (0 B/op).
-func (r *ISteamBroadcast_ViewerHeartbeat_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes ViewerHeartbeatRequest into query string bytes on dst buffer (0 B/op).
+func (r *ViewerHeartbeatRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes ISteamBroadcast_ViewerHeartbeat_Request into url.Values without reflection.
-func (r *ISteamBroadcast_ViewerHeartbeat_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes ViewerHeartbeatRequest into url.Values without reflection.
+func (r *ViewerHeartbeatRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -7602,8 +6393,8 @@ func (r *ISteamBroadcast_ViewerHeartbeat_Request) EncodeValues(vals url.Values) 
 	}
 }
 
-// AppendFormData serializes ISteamCDN_SetClientFilters_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ISteamCDN_SetClientFilters_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes SetClientFiltersRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *SetClientFiltersRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -7647,13 +6438,13 @@ func (r *ISteamCDN_SetClientFilters_Request) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes ISteamCDN_SetClientFilters_Request into query string bytes on dst buffer (0 B/op).
-func (r *ISteamCDN_SetClientFilters_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes SetClientFiltersRequest into query string bytes on dst buffer (0 B/op).
+func (r *SetClientFiltersRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes ISteamCDN_SetClientFilters_Request into url.Values without reflection.
-func (r *ISteamCDN_SetClientFilters_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes SetClientFiltersRequest into url.Values without reflection.
+func (r *SetClientFiltersRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -7674,8 +6465,8 @@ func (r *ISteamCDN_SetClientFilters_Request) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes ISteamCDN_SetPerformanceStats_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ISteamCDN_SetPerformanceStats_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes SetPerformanceStatsRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *SetPerformanceStatsRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -7726,13 +6517,13 @@ func (r *ISteamCDN_SetPerformanceStats_Request) AppendFormData(dst []byte) []byt
 	return dst
 }
 
-// AppendQuery serializes ISteamCDN_SetPerformanceStats_Request into query string bytes on dst buffer (0 B/op).
-func (r *ISteamCDN_SetPerformanceStats_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes SetPerformanceStatsRequest into query string bytes on dst buffer (0 B/op).
+func (r *SetPerformanceStatsRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes ISteamCDN_SetPerformanceStats_Request into url.Values without reflection.
-func (r *ISteamCDN_SetPerformanceStats_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes SetPerformanceStatsRequest into url.Values without reflection.
+func (r *SetPerformanceStatsRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -7756,50 +6547,8 @@ func (r *ISteamCDN_SetPerformanceStats_Request) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes ISteamDirectory_GetCMList_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ISteamDirectory_GetCMList_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.CellID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "cellid="...)
-		dst = strconv.AppendUint(dst, uint64(r.CellID), 10)
-	}
-	if r.MaxCount != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "maxcount="...)
-		dst = strconv.AppendUint(dst, uint64(r.MaxCount), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes ISteamDirectory_GetCMList_Request into query string bytes on dst buffer (0 B/op).
-func (r *ISteamDirectory_GetCMList_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes ISteamDirectory_GetCMList_Request into url.Values without reflection.
-func (r *ISteamDirectory_GetCMList_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.CellID != 0 {
-		vals.Set("cellid", strconv.FormatUint(uint64(r.CellID), 10))
-	}
-	if r.MaxCount != 0 {
-		vals.Set("maxcount", strconv.FormatUint(uint64(r.MaxCount), 10))
-	}
-}
-
-// AppendFormData serializes ISteamDirectory_GetCMListForConnect_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ISteamDirectory_GetCMListForConnect_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes GetCMListForConnectRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *GetCMListForConnectRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -7843,13 +6592,13 @@ func (r *ISteamDirectory_GetCMListForConnect_Request) AppendFormData(dst []byte)
 	return dst
 }
 
-// AppendQuery serializes ISteamDirectory_GetCMListForConnect_Request into query string bytes on dst buffer (0 B/op).
-func (r *ISteamDirectory_GetCMListForConnect_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes GetCMListForConnectRequest into query string bytes on dst buffer (0 B/op).
+func (r *GetCMListForConnectRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes ISteamDirectory_GetCMListForConnect_Request into url.Values without reflection.
-func (r *ISteamDirectory_GetCMListForConnect_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes GetCMListForConnectRequest into url.Values without reflection.
+func (r *GetCMListForConnectRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -7870,8 +6619,8 @@ func (r *ISteamDirectory_GetCMListForConnect_Request) EncodeValues(vals url.Valu
 	}
 }
 
-// AppendFormData serializes ISteamEconomy_GetAssetClassInfo_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ISteamEconomy_GetAssetClassInfo_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes GetAssetClassInfoRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *GetAssetClassInfoRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -7915,13 +6664,13 @@ func (r *ISteamEconomy_GetAssetClassInfo_Request) AppendFormData(dst []byte) []b
 	return dst
 }
 
-// AppendQuery serializes ISteamEconomy_GetAssetClassInfo_Request into query string bytes on dst buffer (0 B/op).
-func (r *ISteamEconomy_GetAssetClassInfo_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes GetAssetClassInfoRequest into query string bytes on dst buffer (0 B/op).
+func (r *GetAssetClassInfoRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes ISteamEconomy_GetAssetClassInfo_Request into url.Values without reflection.
-func (r *ISteamEconomy_GetAssetClassInfo_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes GetAssetClassInfoRequest into url.Values without reflection.
+func (r *GetAssetClassInfoRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -7942,60 +6691,8 @@ func (r *ISteamEconomy_GetAssetClassInfo_Request) EncodeValues(vals url.Values) 
 	}
 }
 
-// AppendFormData serializes ISteamEconomy_GetAssetPrices_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ISteamEconomy_GetAssetPrices_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.AppID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "appid="...)
-		dst = strconv.AppendUint(dst, uint64(r.AppID), 10)
-	}
-	if r.Currency != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "currency="...)
-		dst = append(dst, url.QueryEscape(r.Currency)...)
-	}
-	if r.Language != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "language="...)
-		dst = append(dst, url.QueryEscape(r.Language)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes ISteamEconomy_GetAssetPrices_Request into query string bytes on dst buffer (0 B/op).
-func (r *ISteamEconomy_GetAssetPrices_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes ISteamEconomy_GetAssetPrices_Request into url.Values without reflection.
-func (r *ISteamEconomy_GetAssetPrices_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.AppID != 0 {
-		vals.Set("appid", strconv.FormatUint(uint64(r.AppID), 10))
-	}
-	if r.Currency != "" {
-		vals.Set("currency", r.Currency)
-	}
-	if r.Language != "" {
-		vals.Set("language", r.Language)
-	}
-}
-
-// AppendFormData serializes ISteamNews_GetNewsForAppV1_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ISteamNews_GetNewsForAppV1_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes GetNewsForAppV1Request into url-encoded form bytes on dst buffer (0 B/op).
+func (r *GetNewsForAppV1Request) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -8039,13 +6736,13 @@ func (r *ISteamNews_GetNewsForAppV1_Request) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes ISteamNews_GetNewsForAppV1_Request into query string bytes on dst buffer (0 B/op).
-func (r *ISteamNews_GetNewsForAppV1_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes GetNewsForAppV1Request into query string bytes on dst buffer (0 B/op).
+func (r *GetNewsForAppV1Request) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes ISteamNews_GetNewsForAppV1_Request into url.Values without reflection.
-func (r *ISteamNews_GetNewsForAppV1_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes GetNewsForAppV1Request into url.Values without reflection.
+func (r *GetNewsForAppV1Request) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -8066,8 +6763,8 @@ func (r *ISteamNews_GetNewsForAppV1_Request) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes ISteamNews_GetNewsForAppV2_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ISteamNews_GetNewsForAppV2_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes GetNewsForAppV2Request into url-encoded form bytes on dst buffer (0 B/op).
+func (r *GetNewsForAppV2Request) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -8118,13 +6815,13 @@ func (r *ISteamNews_GetNewsForAppV2_Request) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes ISteamNews_GetNewsForAppV2_Request into query string bytes on dst buffer (0 B/op).
-func (r *ISteamNews_GetNewsForAppV2_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes GetNewsForAppV2Request into query string bytes on dst buffer (0 B/op).
+func (r *GetNewsForAppV2Request) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes ISteamNews_GetNewsForAppV2_Request into url.Values without reflection.
-func (r *ISteamNews_GetNewsForAppV2_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes GetNewsForAppV2Request into url.Values without reflection.
+func (r *GetNewsForAppV2Request) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -8148,564 +6845,8 @@ func (r *ISteamNews_GetNewsForAppV2_Request) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes ISteamRemoteStorage_GetCollectionDetails_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ISteamRemoteStorage_GetCollectionDetails_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Collectioncount != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "collectioncount="...)
-		dst = strconv.AppendUint(dst, uint64(r.Collectioncount), 10)
-	}
-	if r.Publishedfileids != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "publishedfileids[0]="...)
-		dst = strconv.AppendUint(dst, uint64(r.Publishedfileids), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes ISteamRemoteStorage_GetCollectionDetails_Request into query string bytes on dst buffer (0 B/op).
-func (r *ISteamRemoteStorage_GetCollectionDetails_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes ISteamRemoteStorage_GetCollectionDetails_Request into url.Values without reflection.
-func (r *ISteamRemoteStorage_GetCollectionDetails_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Collectioncount != 0 {
-		vals.Set("collectioncount", strconv.FormatUint(uint64(r.Collectioncount), 10))
-	}
-	if r.Publishedfileids != 0 {
-		vals.Set("publishedfileids[0]", strconv.FormatUint(uint64(r.Publishedfileids), 10))
-	}
-}
-
-// AppendFormData serializes ISteamRemoteStorage_GetPublishedFileDetails_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ISteamRemoteStorage_GetPublishedFileDetails_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Itemcount != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "itemcount="...)
-		dst = strconv.AppendUint(dst, uint64(r.Itemcount), 10)
-	}
-	if r.Publishedfileids != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "publishedfileids[0]="...)
-		dst = strconv.AppendUint(dst, uint64(r.Publishedfileids), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes ISteamRemoteStorage_GetPublishedFileDetails_Request into query string bytes on dst buffer (0 B/op).
-func (r *ISteamRemoteStorage_GetPublishedFileDetails_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes ISteamRemoteStorage_GetPublishedFileDetails_Request into url.Values without reflection.
-func (r *ISteamRemoteStorage_GetPublishedFileDetails_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Itemcount != 0 {
-		vals.Set("itemcount", strconv.FormatUint(uint64(r.Itemcount), 10))
-	}
-	if r.Publishedfileids != 0 {
-		vals.Set("publishedfileids[0]", strconv.FormatUint(uint64(r.Publishedfileids), 10))
-	}
-}
-
-// AppendFormData serializes ISteamRemoteStorage_GetUGCFileDetails_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ISteamRemoteStorage_GetUGCFileDetails_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.SteamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamid="...)
-		dst = strconv.AppendUint(dst, uint64(r.SteamID), 10)
-	}
-	if r.UGCID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "ugcid="...)
-		dst = strconv.AppendUint(dst, uint64(r.UGCID), 10)
-	}
-	if r.AppID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "appid="...)
-		dst = strconv.AppendUint(dst, uint64(r.AppID), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes ISteamRemoteStorage_GetUGCFileDetails_Request into query string bytes on dst buffer (0 B/op).
-func (r *ISteamRemoteStorage_GetUGCFileDetails_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes ISteamRemoteStorage_GetUGCFileDetails_Request into url.Values without reflection.
-func (r *ISteamRemoteStorage_GetUGCFileDetails_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.SteamID != 0 {
-		vals.Set("steamid", strconv.FormatUint(uint64(r.SteamID), 10))
-	}
-	if r.UGCID != 0 {
-		vals.Set("ugcid", strconv.FormatUint(uint64(r.UGCID), 10))
-	}
-	if r.AppID != 0 {
-		vals.Set("appid", strconv.FormatUint(uint64(r.AppID), 10))
-	}
-}
-
-// AppendFormData serializes ISteamUser_GetFriendList_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ISteamUser_GetFriendList_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Key != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "key="...)
-		dst = append(dst, url.QueryEscape(r.Key)...)
-	}
-	if r.SteamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamid="...)
-		dst = strconv.AppendUint(dst, uint64(r.SteamID), 10)
-	}
-	if r.Relationship != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "relationship="...)
-		dst = append(dst, url.QueryEscape(r.Relationship)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes ISteamUser_GetFriendList_Request into query string bytes on dst buffer (0 B/op).
-func (r *ISteamUser_GetFriendList_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes ISteamUser_GetFriendList_Request into url.Values without reflection.
-func (r *ISteamUser_GetFriendList_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Key != "" {
-		vals.Set("key", r.Key)
-	}
-	if r.SteamID != 0 {
-		vals.Set("steamid", strconv.FormatUint(uint64(r.SteamID), 10))
-	}
-	if r.Relationship != "" {
-		vals.Set("relationship", r.Relationship)
-	}
-}
-
-// AppendFormData serializes ISteamUser_GetPlayerBans_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ISteamUser_GetPlayerBans_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Key != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "key="...)
-		dst = append(dst, url.QueryEscape(r.Key)...)
-	}
-	if r.Steamids != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamids="...)
-		dst = append(dst, url.QueryEscape(r.Steamids)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes ISteamUser_GetPlayerBans_Request into query string bytes on dst buffer (0 B/op).
-func (r *ISteamUser_GetPlayerBans_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes ISteamUser_GetPlayerBans_Request into url.Values without reflection.
-func (r *ISteamUser_GetPlayerBans_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Key != "" {
-		vals.Set("key", r.Key)
-	}
-	if r.Steamids != "" {
-		vals.Set("steamids", r.Steamids)
-	}
-}
-
-// AppendFormData serializes ISteamUser_GetPlayerSummariesV1_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ISteamUser_GetPlayerSummariesV1_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Key != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "key="...)
-		dst = append(dst, url.QueryEscape(r.Key)...)
-	}
-	if r.Steamids != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamids="...)
-		dst = append(dst, url.QueryEscape(r.Steamids)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes ISteamUser_GetPlayerSummariesV1_Request into query string bytes on dst buffer (0 B/op).
-func (r *ISteamUser_GetPlayerSummariesV1_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes ISteamUser_GetPlayerSummariesV1_Request into url.Values without reflection.
-func (r *ISteamUser_GetPlayerSummariesV1_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Key != "" {
-		vals.Set("key", r.Key)
-	}
-	if r.Steamids != "" {
-		vals.Set("steamids", r.Steamids)
-	}
-}
-
-// AppendFormData serializes ISteamUser_GetPlayerSummariesV2_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ISteamUser_GetPlayerSummariesV2_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Key != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "key="...)
-		dst = append(dst, url.QueryEscape(r.Key)...)
-	}
-	if r.Steamids != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamids="...)
-		dst = append(dst, url.QueryEscape(r.Steamids)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes ISteamUser_GetPlayerSummariesV2_Request into query string bytes on dst buffer (0 B/op).
-func (r *ISteamUser_GetPlayerSummariesV2_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes ISteamUser_GetPlayerSummariesV2_Request into url.Values without reflection.
-func (r *ISteamUser_GetPlayerSummariesV2_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Key != "" {
-		vals.Set("key", r.Key)
-	}
-	if r.Steamids != "" {
-		vals.Set("steamids", r.Steamids)
-	}
-}
-
-// AppendFormData serializes ISteamUser_GetUserGroupList_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ISteamUser_GetUserGroupList_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Key != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "key="...)
-		dst = append(dst, url.QueryEscape(r.Key)...)
-	}
-	if r.SteamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamid="...)
-		dst = strconv.AppendUint(dst, uint64(r.SteamID), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes ISteamUser_GetUserGroupList_Request into query string bytes on dst buffer (0 B/op).
-func (r *ISteamUser_GetUserGroupList_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes ISteamUser_GetUserGroupList_Request into url.Values without reflection.
-func (r *ISteamUser_GetUserGroupList_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Key != "" {
-		vals.Set("key", r.Key)
-	}
-	if r.SteamID != 0 {
-		vals.Set("steamid", strconv.FormatUint(uint64(r.SteamID), 10))
-	}
-}
-
-// AppendFormData serializes ISteamUser_ResolveVanityURL_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ISteamUser_ResolveVanityURL_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Key != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "key="...)
-		dst = append(dst, url.QueryEscape(r.Key)...)
-	}
-	if r.Vanityurl != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "vanityurl="...)
-		dst = append(dst, url.QueryEscape(r.Vanityurl)...)
-	}
-	if strVal := fmt.Sprint(r.URLType); strVal != "" && strVal != "0" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "url_type="...)
-		dst = append(dst, url.QueryEscape(strVal)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes ISteamUser_ResolveVanityURL_Request into query string bytes on dst buffer (0 B/op).
-func (r *ISteamUser_ResolveVanityURL_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes ISteamUser_ResolveVanityURL_Request into url.Values without reflection.
-func (r *ISteamUser_ResolveVanityURL_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Key != "" {
-		vals.Set("key", r.Key)
-	}
-	if r.Vanityurl != "" {
-		vals.Set("vanityurl", r.Vanityurl)
-	}
-	if strVal := fmt.Sprint(r.URLType); strVal != "" && strVal != "0" {
-		vals.Set("url_type", strVal)
-	}
-}
-
-// AppendFormData serializes ISteamUserAuth_AuthenticateUserTicket_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ISteamUserAuth_AuthenticateUserTicket_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Key != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "key="...)
-		dst = append(dst, url.QueryEscape(r.Key)...)
-	}
-	if r.AppID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "appid="...)
-		dst = strconv.AppendUint(dst, uint64(r.AppID), 10)
-	}
-	if r.Ticket != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "ticket="...)
-		dst = append(dst, url.QueryEscape(r.Ticket)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes ISteamUserAuth_AuthenticateUserTicket_Request into query string bytes on dst buffer (0 B/op).
-func (r *ISteamUserAuth_AuthenticateUserTicket_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes ISteamUserAuth_AuthenticateUserTicket_Request into url.Values without reflection.
-func (r *ISteamUserAuth_AuthenticateUserTicket_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Key != "" {
-		vals.Set("key", r.Key)
-	}
-	if r.AppID != 0 {
-		vals.Set("appid", strconv.FormatUint(uint64(r.AppID), 10))
-	}
-	if r.Ticket != "" {
-		vals.Set("ticket", r.Ticket)
-	}
-}
-
-// AppendFormData serializes ISteamUserOAuth_GetTokenDetails_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ISteamUserOAuth_GetTokenDetails_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.AccessToken != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "access_token="...)
-		dst = append(dst, url.QueryEscape(r.AccessToken)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes ISteamUserOAuth_GetTokenDetails_Request into query string bytes on dst buffer (0 B/op).
-func (r *ISteamUserOAuth_GetTokenDetails_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes ISteamUserOAuth_GetTokenDetails_Request into url.Values without reflection.
-func (r *ISteamUserOAuth_GetTokenDetails_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.AccessToken != "" {
-		vals.Set("access_token", r.AccessToken)
-	}
-}
-
-// AppendFormData serializes ISteamUserStats_GetGlobalAchievementPercentagesForAppV1_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ISteamUserStats_GetGlobalAchievementPercentagesForAppV1_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.GameID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "gameid="...)
-		dst = strconv.AppendUint(dst, uint64(r.GameID), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes ISteamUserStats_GetGlobalAchievementPercentagesForAppV1_Request into query string bytes on dst buffer (0 B/op).
-func (r *ISteamUserStats_GetGlobalAchievementPercentagesForAppV1_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes ISteamUserStats_GetGlobalAchievementPercentagesForAppV1_Request into url.Values without reflection.
-func (r *ISteamUserStats_GetGlobalAchievementPercentagesForAppV1_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.GameID != 0 {
-		vals.Set("gameid", strconv.FormatUint(uint64(r.GameID), 10))
-	}
-}
-
-// AppendFormData serializes ISteamUserStats_GetGlobalAchievementPercentagesForAppV2_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ISteamUserStats_GetGlobalAchievementPercentagesForAppV2_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.GameID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "gameid="...)
-		dst = strconv.AppendUint(dst, uint64(r.GameID), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes ISteamUserStats_GetGlobalAchievementPercentagesForAppV2_Request into query string bytes on dst buffer (0 B/op).
-func (r *ISteamUserStats_GetGlobalAchievementPercentagesForAppV2_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes ISteamUserStats_GetGlobalAchievementPercentagesForAppV2_Request into url.Values without reflection.
-func (r *ISteamUserStats_GetGlobalAchievementPercentagesForAppV2_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.GameID != 0 {
-		vals.Set("gameid", strconv.FormatUint(uint64(r.GameID), 10))
-	}
-}
-
-// AppendFormData serializes ISteamUserStats_GetGlobalStatsForGame_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ISteamUserStats_GetGlobalStatsForGame_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes GetGlobalStatsForGameRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *GetGlobalStatsForGameRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -8749,13 +6890,13 @@ func (r *ISteamUserStats_GetGlobalStatsForGame_Request) AppendFormData(dst []byt
 	return dst
 }
 
-// AppendQuery serializes ISteamUserStats_GetGlobalStatsForGame_Request into query string bytes on dst buffer (0 B/op).
-func (r *ISteamUserStats_GetGlobalStatsForGame_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes GetGlobalStatsForGameRequest into query string bytes on dst buffer (0 B/op).
+func (r *GetGlobalStatsForGameRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes ISteamUserStats_GetGlobalStatsForGame_Request into url.Values without reflection.
-func (r *ISteamUserStats_GetGlobalStatsForGame_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes GetGlobalStatsForGameRequest into url.Values without reflection.
+func (r *GetGlobalStatsForGameRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -8776,40 +6917,8 @@ func (r *ISteamUserStats_GetGlobalStatsForGame_Request) EncodeValues(vals url.Va
 	}
 }
 
-// AppendFormData serializes ISteamUserStats_GetNumberOfCurrentPlayers_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ISteamUserStats_GetNumberOfCurrentPlayers_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.AppID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "appid="...)
-		dst = strconv.AppendUint(dst, uint64(r.AppID), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes ISteamUserStats_GetNumberOfCurrentPlayers_Request into query string bytes on dst buffer (0 B/op).
-func (r *ISteamUserStats_GetNumberOfCurrentPlayers_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes ISteamUserStats_GetNumberOfCurrentPlayers_Request into url.Values without reflection.
-func (r *ISteamUserStats_GetNumberOfCurrentPlayers_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.AppID != 0 {
-		vals.Set("appid", strconv.FormatUint(uint64(r.AppID), 10))
-	}
-}
-
-// AppendFormData serializes ISteamUserStats_GetPlayerAchievements_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ISteamUserStats_GetPlayerAchievements_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes GetPlayerAchievementsRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *GetPlayerAchievementsRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -8846,13 +6955,13 @@ func (r *ISteamUserStats_GetPlayerAchievements_Request) AppendFormData(dst []byt
 	return dst
 }
 
-// AppendQuery serializes ISteamUserStats_GetPlayerAchievements_Request into query string bytes on dst buffer (0 B/op).
-func (r *ISteamUserStats_GetPlayerAchievements_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes GetPlayerAchievementsRequest into query string bytes on dst buffer (0 B/op).
+func (r *GetPlayerAchievementsRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes ISteamUserStats_GetPlayerAchievements_Request into url.Values without reflection.
-func (r *ISteamUserStats_GetPlayerAchievements_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes GetPlayerAchievementsRequest into url.Values without reflection.
+func (r *GetPlayerAchievementsRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -8870,804 +6979,8 @@ func (r *ISteamUserStats_GetPlayerAchievements_Request) EncodeValues(vals url.Va
 	}
 }
 
-// AppendFormData serializes ISteamUserStats_GetSchemaForGameV1_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ISteamUserStats_GetSchemaForGameV1_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Key != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "key="...)
-		dst = append(dst, url.QueryEscape(r.Key)...)
-	}
-	if r.AppID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "appid="...)
-		dst = strconv.AppendUint(dst, uint64(r.AppID), 10)
-	}
-	if r.L != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "l="...)
-		dst = append(dst, url.QueryEscape(r.L)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes ISteamUserStats_GetSchemaForGameV1_Request into query string bytes on dst buffer (0 B/op).
-func (r *ISteamUserStats_GetSchemaForGameV1_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes ISteamUserStats_GetSchemaForGameV1_Request into url.Values without reflection.
-func (r *ISteamUserStats_GetSchemaForGameV1_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Key != "" {
-		vals.Set("key", r.Key)
-	}
-	if r.AppID != 0 {
-		vals.Set("appid", strconv.FormatUint(uint64(r.AppID), 10))
-	}
-	if r.L != "" {
-		vals.Set("l", r.L)
-	}
-}
-
-// AppendFormData serializes ISteamUserStats_GetSchemaForGameV2_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ISteamUserStats_GetSchemaForGameV2_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Key != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "key="...)
-		dst = append(dst, url.QueryEscape(r.Key)...)
-	}
-	if r.AppID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "appid="...)
-		dst = strconv.AppendUint(dst, uint64(r.AppID), 10)
-	}
-	if r.L != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "l="...)
-		dst = append(dst, url.QueryEscape(r.L)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes ISteamUserStats_GetSchemaForGameV2_Request into query string bytes on dst buffer (0 B/op).
-func (r *ISteamUserStats_GetSchemaForGameV2_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes ISteamUserStats_GetSchemaForGameV2_Request into url.Values without reflection.
-func (r *ISteamUserStats_GetSchemaForGameV2_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Key != "" {
-		vals.Set("key", r.Key)
-	}
-	if r.AppID != 0 {
-		vals.Set("appid", strconv.FormatUint(uint64(r.AppID), 10))
-	}
-	if r.L != "" {
-		vals.Set("l", r.L)
-	}
-}
-
-// AppendFormData serializes ISteamUserStats_GetUserStatsForGameV1_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ISteamUserStats_GetUserStatsForGameV1_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Key != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "key="...)
-		dst = append(dst, url.QueryEscape(r.Key)...)
-	}
-	if r.SteamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamid="...)
-		dst = strconv.AppendUint(dst, uint64(r.SteamID), 10)
-	}
-	if r.AppID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "appid="...)
-		dst = strconv.AppendUint(dst, uint64(r.AppID), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes ISteamUserStats_GetUserStatsForGameV1_Request into query string bytes on dst buffer (0 B/op).
-func (r *ISteamUserStats_GetUserStatsForGameV1_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes ISteamUserStats_GetUserStatsForGameV1_Request into url.Values without reflection.
-func (r *ISteamUserStats_GetUserStatsForGameV1_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Key != "" {
-		vals.Set("key", r.Key)
-	}
-	if r.SteamID != 0 {
-		vals.Set("steamid", strconv.FormatUint(uint64(r.SteamID), 10))
-	}
-	if r.AppID != 0 {
-		vals.Set("appid", strconv.FormatUint(uint64(r.AppID), 10))
-	}
-}
-
-// AppendFormData serializes ISteamUserStats_GetUserStatsForGameV2_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ISteamUserStats_GetUserStatsForGameV2_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Key != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "key="...)
-		dst = append(dst, url.QueryEscape(r.Key)...)
-	}
-	if r.SteamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamid="...)
-		dst = strconv.AppendUint(dst, uint64(r.SteamID), 10)
-	}
-	if r.AppID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "appid="...)
-		dst = strconv.AppendUint(dst, uint64(r.AppID), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes ISteamUserStats_GetUserStatsForGameV2_Request into query string bytes on dst buffer (0 B/op).
-func (r *ISteamUserStats_GetUserStatsForGameV2_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes ISteamUserStats_GetUserStatsForGameV2_Request into url.Values without reflection.
-func (r *ISteamUserStats_GetUserStatsForGameV2_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Key != "" {
-		vals.Set("key", r.Key)
-	}
-	if r.SteamID != 0 {
-		vals.Set("steamid", strconv.FormatUint(uint64(r.SteamID), 10))
-	}
-	if r.AppID != 0 {
-		vals.Set("appid", strconv.FormatUint(uint64(r.AppID), 10))
-	}
-}
-
-// AppendFormData serializes ISteamWebAPIUtil_GetSupportedAPIList_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ISteamWebAPIUtil_GetSupportedAPIList_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Key != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "key="...)
-		dst = append(dst, url.QueryEscape(r.Key)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes ISteamWebAPIUtil_GetSupportedAPIList_Request into query string bytes on dst buffer (0 B/op).
-func (r *ISteamWebAPIUtil_GetSupportedAPIList_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes ISteamWebAPIUtil_GetSupportedAPIList_Request into url.Values without reflection.
-func (r *ISteamWebAPIUtil_GetSupportedAPIList_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Key != "" {
-		vals.Set("key", r.Key)
-	}
-}
-
-// AppendFormData serializes ITFPromos_440_GetItemID_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ITFPromos_440_GetItemID_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.SteamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamid="...)
-		dst = strconv.AppendUint(dst, uint64(r.SteamID), 10)
-	}
-	if r.Promoid != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "promoid="...)
-		dst = strconv.AppendUint(dst, uint64(r.Promoid), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes ITFPromos_440_GetItemID_Request into query string bytes on dst buffer (0 B/op).
-func (r *ITFPromos_440_GetItemID_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes ITFPromos_440_GetItemID_Request into url.Values without reflection.
-func (r *ITFPromos_440_GetItemID_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.SteamID != 0 {
-		vals.Set("steamid", strconv.FormatUint(uint64(r.SteamID), 10))
-	}
-	if r.Promoid != 0 {
-		vals.Set("promoid", strconv.FormatUint(uint64(r.Promoid), 10))
-	}
-}
-
-// AppendFormData serializes ITFPromos_440_GrantItem_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ITFPromos_440_GrantItem_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.SteamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamid="...)
-		dst = strconv.AppendUint(dst, uint64(r.SteamID), 10)
-	}
-	if r.Promoid != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "promoid="...)
-		dst = strconv.AppendUint(dst, uint64(r.Promoid), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes ITFPromos_440_GrantItem_Request into query string bytes on dst buffer (0 B/op).
-func (r *ITFPromos_440_GrantItem_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes ITFPromos_440_GrantItem_Request into url.Values without reflection.
-func (r *ITFPromos_440_GrantItem_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.SteamID != 0 {
-		vals.Set("steamid", strconv.FormatUint(uint64(r.SteamID), 10))
-	}
-	if r.Promoid != 0 {
-		vals.Set("promoid", strconv.FormatUint(uint64(r.Promoid), 10))
-	}
-}
-
-// AppendFormData serializes ITFPromos_620_GetItemID_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ITFPromos_620_GetItemID_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.SteamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamid="...)
-		dst = strconv.AppendUint(dst, uint64(r.SteamID), 10)
-	}
-	if r.PromoID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "PromoID="...)
-		dst = strconv.AppendUint(dst, uint64(r.PromoID), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes ITFPromos_620_GetItemID_Request into query string bytes on dst buffer (0 B/op).
-func (r *ITFPromos_620_GetItemID_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes ITFPromos_620_GetItemID_Request into url.Values without reflection.
-func (r *ITFPromos_620_GetItemID_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.SteamID != 0 {
-		vals.Set("steamid", strconv.FormatUint(uint64(r.SteamID), 10))
-	}
-	if r.PromoID != 0 {
-		vals.Set("PromoID", strconv.FormatUint(uint64(r.PromoID), 10))
-	}
-}
-
-// AppendFormData serializes ITFPromos_620_GrantItem_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ITFPromos_620_GrantItem_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.SteamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamid="...)
-		dst = strconv.AppendUint(dst, uint64(r.SteamID), 10)
-	}
-	if r.PromoID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "PromoID="...)
-		dst = strconv.AppendUint(dst, uint64(r.PromoID), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes ITFPromos_620_GrantItem_Request into query string bytes on dst buffer (0 B/op).
-func (r *ITFPromos_620_GrantItem_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes ITFPromos_620_GrantItem_Request into url.Values without reflection.
-func (r *ITFPromos_620_GrantItem_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.SteamID != 0 {
-		vals.Set("steamid", strconv.FormatUint(uint64(r.SteamID), 10))
-	}
-	if r.PromoID != 0 {
-		vals.Set("PromoID", strconv.FormatUint(uint64(r.PromoID), 10))
-	}
-}
-
-// AppendFormData serializes IGameServersService_GetAccountList_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IGameServersService_GetAccountList_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Key != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "key="...)
-		dst = append(dst, url.QueryEscape(r.Key)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IGameServersService_GetAccountList_Request into query string bytes on dst buffer (0 B/op).
-func (r *IGameServersService_GetAccountList_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IGameServersService_GetAccountList_Request into url.Values without reflection.
-func (r *IGameServersService_GetAccountList_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Key != "" {
-		vals.Set("key", r.Key)
-	}
-}
-
-// AppendFormData serializes IGameServersService_CreateAccount_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IGameServersService_CreateAccount_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Key != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "key="...)
-		dst = append(dst, url.QueryEscape(r.Key)...)
-	}
-	if r.AppID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "appid="...)
-		dst = strconv.AppendUint(dst, uint64(r.AppID), 10)
-	}
-	if r.Memo != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "memo="...)
-		dst = append(dst, url.QueryEscape(r.Memo)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IGameServersService_CreateAccount_Request into query string bytes on dst buffer (0 B/op).
-func (r *IGameServersService_CreateAccount_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IGameServersService_CreateAccount_Request into url.Values without reflection.
-func (r *IGameServersService_CreateAccount_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Key != "" {
-		vals.Set("key", r.Key)
-	}
-	if r.AppID != 0 {
-		vals.Set("appid", strconv.FormatUint(uint64(r.AppID), 10))
-	}
-	if r.Memo != "" {
-		vals.Set("memo", r.Memo)
-	}
-}
-
-// AppendFormData serializes IGameServersService_SetMemo_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IGameServersService_SetMemo_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Key != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "key="...)
-		dst = append(dst, url.QueryEscape(r.Key)...)
-	}
-	if r.SteamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamid="...)
-		dst = strconv.AppendUint(dst, uint64(r.SteamID), 10)
-	}
-	if r.Memo != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "memo="...)
-		dst = append(dst, url.QueryEscape(r.Memo)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IGameServersService_SetMemo_Request into query string bytes on dst buffer (0 B/op).
-func (r *IGameServersService_SetMemo_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IGameServersService_SetMemo_Request into url.Values without reflection.
-func (r *IGameServersService_SetMemo_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Key != "" {
-		vals.Set("key", r.Key)
-	}
-	if r.SteamID != 0 {
-		vals.Set("steamid", strconv.FormatUint(uint64(r.SteamID), 10))
-	}
-	if r.Memo != "" {
-		vals.Set("memo", r.Memo)
-	}
-}
-
-// AppendFormData serializes IGameServersService_ResetLoginToken_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IGameServersService_ResetLoginToken_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Key != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "key="...)
-		dst = append(dst, url.QueryEscape(r.Key)...)
-	}
-	if r.SteamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamid="...)
-		dst = strconv.AppendUint(dst, uint64(r.SteamID), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IGameServersService_ResetLoginToken_Request into query string bytes on dst buffer (0 B/op).
-func (r *IGameServersService_ResetLoginToken_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IGameServersService_ResetLoginToken_Request into url.Values without reflection.
-func (r *IGameServersService_ResetLoginToken_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Key != "" {
-		vals.Set("key", r.Key)
-	}
-	if r.SteamID != 0 {
-		vals.Set("steamid", strconv.FormatUint(uint64(r.SteamID), 10))
-	}
-}
-
-// AppendFormData serializes IGameServersService_DeleteAccount_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IGameServersService_DeleteAccount_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Key != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "key="...)
-		dst = append(dst, url.QueryEscape(r.Key)...)
-	}
-	if r.SteamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamid="...)
-		dst = strconv.AppendUint(dst, uint64(r.SteamID), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IGameServersService_DeleteAccount_Request into query string bytes on dst buffer (0 B/op).
-func (r *IGameServersService_DeleteAccount_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IGameServersService_DeleteAccount_Request into url.Values without reflection.
-func (r *IGameServersService_DeleteAccount_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Key != "" {
-		vals.Set("key", r.Key)
-	}
-	if r.SteamID != 0 {
-		vals.Set("steamid", strconv.FormatUint(uint64(r.SteamID), 10))
-	}
-}
-
-// AppendFormData serializes IGameServersService_GetAccountPublicInfo_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IGameServersService_GetAccountPublicInfo_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Key != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "key="...)
-		dst = append(dst, url.QueryEscape(r.Key)...)
-	}
-	if r.SteamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamid="...)
-		dst = strconv.AppendUint(dst, uint64(r.SteamID), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IGameServersService_GetAccountPublicInfo_Request into query string bytes on dst buffer (0 B/op).
-func (r *IGameServersService_GetAccountPublicInfo_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IGameServersService_GetAccountPublicInfo_Request into url.Values without reflection.
-func (r *IGameServersService_GetAccountPublicInfo_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Key != "" {
-		vals.Set("key", r.Key)
-	}
-	if r.SteamID != 0 {
-		vals.Set("steamid", strconv.FormatUint(uint64(r.SteamID), 10))
-	}
-}
-
-// AppendFormData serializes IGameServersService_QueryLoginToken_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IGameServersService_QueryLoginToken_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Key != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "key="...)
-		dst = append(dst, url.QueryEscape(r.Key)...)
-	}
-	if r.LoginToken != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "login_token="...)
-		dst = append(dst, url.QueryEscape(r.LoginToken)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IGameServersService_QueryLoginToken_Request into query string bytes on dst buffer (0 B/op).
-func (r *IGameServersService_QueryLoginToken_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IGameServersService_QueryLoginToken_Request into url.Values without reflection.
-func (r *IGameServersService_QueryLoginToken_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Key != "" {
-		vals.Set("key", r.Key)
-	}
-	if r.LoginToken != "" {
-		vals.Set("login_token", r.LoginToken)
-	}
-}
-
-// AppendFormData serializes IGameServersService_GetServerSteamIDsByIP_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IGameServersService_GetServerSteamIDsByIP_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Key != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "key="...)
-		dst = append(dst, url.QueryEscape(r.Key)...)
-	}
-	if r.ServerIps != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "server_ips="...)
-		dst = append(dst, url.QueryEscape(r.ServerIps)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IGameServersService_GetServerSteamIDsByIP_Request into query string bytes on dst buffer (0 B/op).
-func (r *IGameServersService_GetServerSteamIDsByIP_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IGameServersService_GetServerSteamIDsByIP_Request into url.Values without reflection.
-func (r *IGameServersService_GetServerSteamIDsByIP_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Key != "" {
-		vals.Set("key", r.Key)
-	}
-	if r.ServerIps != "" {
-		vals.Set("server_ips", r.ServerIps)
-	}
-}
-
-// AppendFormData serializes IGameServersService_GetServerIPsBySteamID_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IGameServersService_GetServerIPsBySteamID_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Key != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "key="...)
-		dst = append(dst, url.QueryEscape(r.Key)...)
-	}
-	if r.ServerSteamids != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "server_steamids="...)
-		dst = strconv.AppendUint(dst, uint64(r.ServerSteamids), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IGameServersService_GetServerIPsBySteamID_Request into query string bytes on dst buffer (0 B/op).
-func (r *IGameServersService_GetServerIPsBySteamID_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IGameServersService_GetServerIPsBySteamID_Request into url.Values without reflection.
-func (r *IGameServersService_GetServerIPsBySteamID_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Key != "" {
-		vals.Set("key", r.Key)
-	}
-	if r.ServerSteamids != 0 {
-		vals.Set("server_steamids", strconv.FormatUint(uint64(r.ServerSteamids), 10))
-	}
-}
-
-// AppendFormData serializes IGameServersService_QueryByFakeIP_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IGameServersService_QueryByFakeIP_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes QueryByFakeIPRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *QueryByFakeIPRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -9711,13 +7024,13 @@ func (r *IGameServersService_QueryByFakeIP_Request) AppendFormData(dst []byte) [
 	return dst
 }
 
-// AppendQuery serializes IGameServersService_QueryByFakeIP_Request into query string bytes on dst buffer (0 B/op).
-func (r *IGameServersService_QueryByFakeIP_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes QueryByFakeIPRequest into query string bytes on dst buffer (0 B/op).
+func (r *QueryByFakeIPRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes IGameServersService_QueryByFakeIP_Request into url.Values without reflection.
-func (r *IGameServersService_QueryByFakeIP_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes QueryByFakeIPRequest into url.Values without reflection.
+func (r *QueryByFakeIPRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -9738,164 +7051,8 @@ func (r *IGameServersService_QueryByFakeIP_Request) EncodeValues(vals url.Values
 	}
 }
 
-// AppendFormData serializes IPlayerService_IsPlayingSharedGame_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IPlayerService_IsPlayingSharedGame_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Key != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "key="...)
-		dst = append(dst, url.QueryEscape(r.Key)...)
-	}
-	if r.SteamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamid="...)
-		dst = strconv.AppendUint(dst, uint64(r.SteamID), 10)
-	}
-	if r.AppIDPlaying != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "appid_playing="...)
-		dst = strconv.AppendUint(dst, uint64(r.AppIDPlaying), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IPlayerService_IsPlayingSharedGame_Request into query string bytes on dst buffer (0 B/op).
-func (r *IPlayerService_IsPlayingSharedGame_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IPlayerService_IsPlayingSharedGame_Request into url.Values without reflection.
-func (r *IPlayerService_IsPlayingSharedGame_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Key != "" {
-		vals.Set("key", r.Key)
-	}
-	if r.SteamID != 0 {
-		vals.Set("steamid", strconv.FormatUint(uint64(r.SteamID), 10))
-	}
-	if r.AppIDPlaying != 0 {
-		vals.Set("appid_playing", strconv.FormatUint(uint64(r.AppIDPlaying), 10))
-	}
-}
-
-// AppendFormData serializes IPlayerService_RecordOfflinePlaytime_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IPlayerService_RecordOfflinePlaytime_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.SteamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamid="...)
-		dst = strconv.AppendUint(dst, uint64(r.SteamID), 10)
-	}
-	if r.Ticket != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "ticket="...)
-		dst = append(dst, url.QueryEscape(r.Ticket)...)
-	}
-	if r.PlaySessions != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "play_sessions="...)
-		dst = append(dst, url.QueryEscape(r.PlaySessions)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IPlayerService_RecordOfflinePlaytime_Request into query string bytes on dst buffer (0 B/op).
-func (r *IPlayerService_RecordOfflinePlaytime_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IPlayerService_RecordOfflinePlaytime_Request into url.Values without reflection.
-func (r *IPlayerService_RecordOfflinePlaytime_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.SteamID != 0 {
-		vals.Set("steamid", strconv.FormatUint(uint64(r.SteamID), 10))
-	}
-	if r.Ticket != "" {
-		vals.Set("ticket", r.Ticket)
-	}
-	if r.PlaySessions != "" {
-		vals.Set("play_sessions", r.PlaySessions)
-	}
-}
-
-// AppendFormData serializes IPlayerService_GetRecentlyPlayedGames_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IPlayerService_GetRecentlyPlayedGames_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Key != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "key="...)
-		dst = append(dst, url.QueryEscape(r.Key)...)
-	}
-	if r.SteamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamid="...)
-		dst = strconv.AppendUint(dst, uint64(r.SteamID), 10)
-	}
-	if r.Count != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "count="...)
-		dst = strconv.AppendUint(dst, uint64(r.Count), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IPlayerService_GetRecentlyPlayedGames_Request into query string bytes on dst buffer (0 B/op).
-func (r *IPlayerService_GetRecentlyPlayedGames_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IPlayerService_GetRecentlyPlayedGames_Request into url.Values without reflection.
-func (r *IPlayerService_GetRecentlyPlayedGames_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Key != "" {
-		vals.Set("key", r.Key)
-	}
-	if r.SteamID != 0 {
-		vals.Set("steamid", strconv.FormatUint(uint64(r.SteamID), 10))
-	}
-	if r.Count != 0 {
-		vals.Set("count", strconv.FormatUint(uint64(r.Count), 10))
-	}
-}
-
-// AppendFormData serializes IPlayerService_GetOwnedGames_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IPlayerService_GetOwnedGames_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes GetOwnedGamesRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *GetOwnedGamesRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -9962,13 +7119,13 @@ func (r *IPlayerService_GetOwnedGames_Request) AppendFormData(dst []byte) []byte
 	return dst
 }
 
-// AppendQuery serializes IPlayerService_GetOwnedGames_Request into query string bytes on dst buffer (0 B/op).
-func (r *IPlayerService_GetOwnedGames_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes GetOwnedGamesRequest into query string bytes on dst buffer (0 B/op).
+func (r *GetOwnedGamesRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes IPlayerService_GetOwnedGames_Request into url.Values without reflection.
-func (r *IPlayerService_GetOwnedGames_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes GetOwnedGamesRequest into url.Values without reflection.
+func (r *GetOwnedGamesRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -10001,270 +7158,8 @@ func (r *IPlayerService_GetOwnedGames_Request) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes IPlayerService_GetSteamLevel_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IPlayerService_GetSteamLevel_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Key != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "key="...)
-		dst = append(dst, url.QueryEscape(r.Key)...)
-	}
-	if r.SteamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamid="...)
-		dst = strconv.AppendUint(dst, uint64(r.SteamID), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IPlayerService_GetSteamLevel_Request into query string bytes on dst buffer (0 B/op).
-func (r *IPlayerService_GetSteamLevel_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IPlayerService_GetSteamLevel_Request into url.Values without reflection.
-func (r *IPlayerService_GetSteamLevel_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Key != "" {
-		vals.Set("key", r.Key)
-	}
-	if r.SteamID != 0 {
-		vals.Set("steamid", strconv.FormatUint(uint64(r.SteamID), 10))
-	}
-}
-
-// AppendFormData serializes IPlayerService_GetBadges_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IPlayerService_GetBadges_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Key != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "key="...)
-		dst = append(dst, url.QueryEscape(r.Key)...)
-	}
-	if r.SteamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamid="...)
-		dst = strconv.AppendUint(dst, uint64(r.SteamID), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IPlayerService_GetBadges_Request into query string bytes on dst buffer (0 B/op).
-func (r *IPlayerService_GetBadges_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IPlayerService_GetBadges_Request into url.Values without reflection.
-func (r *IPlayerService_GetBadges_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Key != "" {
-		vals.Set("key", r.Key)
-	}
-	if r.SteamID != 0 {
-		vals.Set("steamid", strconv.FormatUint(uint64(r.SteamID), 10))
-	}
-}
-
-// AppendFormData serializes IPlayerService_GetCommunityBadgeProgress_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IPlayerService_GetCommunityBadgeProgress_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Key != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "key="...)
-		dst = append(dst, url.QueryEscape(r.Key)...)
-	}
-	if r.SteamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamid="...)
-		dst = strconv.AppendUint(dst, uint64(r.SteamID), 10)
-	}
-	if strVal := fmt.Sprint(r.BadgeID); strVal != "" && strVal != "0" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "badgeid="...)
-		dst = append(dst, url.QueryEscape(strVal)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IPlayerService_GetCommunityBadgeProgress_Request into query string bytes on dst buffer (0 B/op).
-func (r *IPlayerService_GetCommunityBadgeProgress_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IPlayerService_GetCommunityBadgeProgress_Request into url.Values without reflection.
-func (r *IPlayerService_GetCommunityBadgeProgress_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Key != "" {
-		vals.Set("key", r.Key)
-	}
-	if r.SteamID != 0 {
-		vals.Set("steamid", strconv.FormatUint(uint64(r.SteamID), 10))
-	}
-	if strVal := fmt.Sprint(r.BadgeID); strVal != "" && strVal != "0" {
-		vals.Set("badgeid", strVal)
-	}
-}
-
-// AppendFormData serializes IAuthenticationService_PollAuthSessionStatus_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IAuthenticationService_PollAuthSessionStatus_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.ClientID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "client_id="...)
-		dst = strconv.AppendUint(dst, uint64(r.ClientID), 10)
-	}
-	if r.RequestID != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "request_id="...)
-		dst = append(dst, url.QueryEscape(r.RequestID)...)
-	}
-	if r.TokenToRevoke != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "token_to_revoke="...)
-		dst = strconv.AppendUint(dst, uint64(r.TokenToRevoke), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IAuthenticationService_PollAuthSessionStatus_Request into query string bytes on dst buffer (0 B/op).
-func (r *IAuthenticationService_PollAuthSessionStatus_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IAuthenticationService_PollAuthSessionStatus_Request into url.Values without reflection.
-func (r *IAuthenticationService_PollAuthSessionStatus_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.ClientID != 0 {
-		vals.Set("client_id", strconv.FormatUint(uint64(r.ClientID), 10))
-	}
-	if r.RequestID != "" {
-		vals.Set("request_id", r.RequestID)
-	}
-	if r.TokenToRevoke != 0 {
-		vals.Set("token_to_revoke", strconv.FormatUint(uint64(r.TokenToRevoke), 10))
-	}
-}
-
-// AppendFormData serializes IAuthenticationService_GetAuthSessionInfo_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IAuthenticationService_GetAuthSessionInfo_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.ClientID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "client_id="...)
-		dst = strconv.AppendUint(dst, uint64(r.ClientID), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IAuthenticationService_GetAuthSessionInfo_Request into query string bytes on dst buffer (0 B/op).
-func (r *IAuthenticationService_GetAuthSessionInfo_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IAuthenticationService_GetAuthSessionInfo_Request into url.Values without reflection.
-func (r *IAuthenticationService_GetAuthSessionInfo_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.ClientID != 0 {
-		vals.Set("client_id", strconv.FormatUint(uint64(r.ClientID), 10))
-	}
-}
-
-// AppendFormData serializes IAuthenticationService_GetAuthSessionRiskInfo_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IAuthenticationService_GetAuthSessionRiskInfo_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.ClientID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "client_id="...)
-		dst = strconv.AppendUint(dst, uint64(r.ClientID), 10)
-	}
-	if r.Language != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "language="...)
-		dst = strconv.AppendUint(dst, uint64(r.Language), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IAuthenticationService_GetAuthSessionRiskInfo_Request into query string bytes on dst buffer (0 B/op).
-func (r *IAuthenticationService_GetAuthSessionRiskInfo_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IAuthenticationService_GetAuthSessionRiskInfo_Request into url.Values without reflection.
-func (r *IAuthenticationService_GetAuthSessionRiskInfo_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.ClientID != 0 {
-		vals.Set("client_id", strconv.FormatUint(uint64(r.ClientID), 10))
-	}
-	if r.Language != 0 {
-		vals.Set("language", strconv.FormatUint(uint64(r.Language), 10))
-	}
-}
-
-// AppendFormData serializes IAuthenticationService_NotifyRiskQuizResults_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IAuthenticationService_NotifyRiskQuizResults_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes NotifyRiskQuizResultsRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *NotifyRiskQuizResultsRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -10300,13 +7195,13 @@ func (r *IAuthenticationService_NotifyRiskQuizResults_Request) AppendFormData(ds
 	return dst
 }
 
-// AppendQuery serializes IAuthenticationService_NotifyRiskQuizResults_Request into query string bytes on dst buffer (0 B/op).
-func (r *IAuthenticationService_NotifyRiskQuizResults_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes NotifyRiskQuizResultsRequest into query string bytes on dst buffer (0 B/op).
+func (r *NotifyRiskQuizResultsRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes IAuthenticationService_NotifyRiskQuizResults_Request into url.Values without reflection.
-func (r *IAuthenticationService_NotifyRiskQuizResults_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes NotifyRiskQuizResultsRequest into url.Values without reflection.
+func (r *NotifyRiskQuizResultsRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -10324,40 +7219,8 @@ func (r *IAuthenticationService_NotifyRiskQuizResults_Request) EncodeValues(vals
 	}
 }
 
-// AppendFormData serializes IAuthenticationService_GetPasswordRSAPublicKey_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IAuthenticationService_GetPasswordRSAPublicKey_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.AccountName != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "account_name="...)
-		dst = append(dst, url.QueryEscape(r.AccountName)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IAuthenticationService_GetPasswordRSAPublicKey_Request into query string bytes on dst buffer (0 B/op).
-func (r *IAuthenticationService_GetPasswordRSAPublicKey_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IAuthenticationService_GetPasswordRSAPublicKey_Request into url.Values without reflection.
-func (r *IAuthenticationService_GetPasswordRSAPublicKey_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.AccountName != "" {
-		vals.Set("account_name", r.AccountName)
-	}
-}
-
-// AppendFormData serializes IAuthenticationService_BeginAuthSessionViaCredentials_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IAuthenticationService_BeginAuthSessionViaCredentials_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes BeginAuthSessionViaCredentialsRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *BeginAuthSessionViaCredentialsRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -10449,13 +7312,13 @@ func (r *IAuthenticationService_BeginAuthSessionViaCredentials_Request) AppendFo
 	return dst
 }
 
-// AppendQuery serializes IAuthenticationService_BeginAuthSessionViaCredentials_Request into query string bytes on dst buffer (0 B/op).
-func (r *IAuthenticationService_BeginAuthSessionViaCredentials_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes BeginAuthSessionViaCredentialsRequest into query string bytes on dst buffer (0 B/op).
+func (r *BeginAuthSessionViaCredentialsRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes IAuthenticationService_BeginAuthSessionViaCredentials_Request into url.Values without reflection.
-func (r *IAuthenticationService_BeginAuthSessionViaCredentials_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes BeginAuthSessionViaCredentialsRequest into url.Values without reflection.
+func (r *BeginAuthSessionViaCredentialsRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -10497,8 +7360,8 @@ func (r *IAuthenticationService_BeginAuthSessionViaCredentials_Request) EncodeVa
 	}
 }
 
-// AppendFormData serializes IAuthenticationService_UpdateAuthSessionWithSteamGuardCode_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IAuthenticationService_UpdateAuthSessionWithSteamGuardCode_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes UpdateAuthSessionWithSteamGuardCodeRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *UpdateAuthSessionWithSteamGuardCodeRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -10535,13 +7398,13 @@ func (r *IAuthenticationService_UpdateAuthSessionWithSteamGuardCode_Request) App
 	return dst
 }
 
-// AppendQuery serializes IAuthenticationService_UpdateAuthSessionWithSteamGuardCode_Request into query string bytes on dst buffer (0 B/op).
-func (r *IAuthenticationService_UpdateAuthSessionWithSteamGuardCode_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes UpdateAuthSessionWithSteamGuardCodeRequest into query string bytes on dst buffer (0 B/op).
+func (r *UpdateAuthSessionWithSteamGuardCodeRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes IAuthenticationService_UpdateAuthSessionWithSteamGuardCode_Request into url.Values without reflection.
-func (r *IAuthenticationService_UpdateAuthSessionWithSteamGuardCode_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes UpdateAuthSessionWithSteamGuardCodeRequest into url.Values without reflection.
+func (r *UpdateAuthSessionWithSteamGuardCodeRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -10559,8 +7422,8 @@ func (r *IAuthenticationService_UpdateAuthSessionWithSteamGuardCode_Request) Enc
 	}
 }
 
-// AppendFormData serializes IAuthenticationService_BeginAuthSessionViaQR_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IAuthenticationService_BeginAuthSessionViaQR_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes BeginAuthSessionViaQRRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *BeginAuthSessionViaQRRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -10597,13 +7460,13 @@ func (r *IAuthenticationService_BeginAuthSessionViaQR_Request) AppendFormData(ds
 	return dst
 }
 
-// AppendQuery serializes IAuthenticationService_BeginAuthSessionViaQR_Request into query string bytes on dst buffer (0 B/op).
-func (r *IAuthenticationService_BeginAuthSessionViaQR_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes BeginAuthSessionViaQRRequest into query string bytes on dst buffer (0 B/op).
+func (r *BeginAuthSessionViaQRRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes IAuthenticationService_BeginAuthSessionViaQR_Request into url.Values without reflection.
-func (r *IAuthenticationService_BeginAuthSessionViaQR_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes BeginAuthSessionViaQRRequest into url.Values without reflection.
+func (r *BeginAuthSessionViaQRRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -10621,8 +7484,8 @@ func (r *IAuthenticationService_BeginAuthSessionViaQR_Request) EncodeValues(vals
 	}
 }
 
-// AppendFormData serializes IAuthenticationService_UpdateAuthSessionWithMobileConfirmation_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IAuthenticationService_UpdateAuthSessionWithMobileConfirmation_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes UpdateAuthSessionWithMobileConfirmationRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *UpdateAuthSessionWithMobileConfirmationRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -10672,13 +7535,13 @@ func (r *IAuthenticationService_UpdateAuthSessionWithMobileConfirmation_Request)
 	return dst
 }
 
-// AppendQuery serializes IAuthenticationService_UpdateAuthSessionWithMobileConfirmation_Request into query string bytes on dst buffer (0 B/op).
-func (r *IAuthenticationService_UpdateAuthSessionWithMobileConfirmation_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes UpdateAuthSessionWithMobileConfirmationRequest into query string bytes on dst buffer (0 B/op).
+func (r *UpdateAuthSessionWithMobileConfirmationRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes IAuthenticationService_UpdateAuthSessionWithMobileConfirmation_Request into url.Values without reflection.
-func (r *IAuthenticationService_UpdateAuthSessionWithMobileConfirmation_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes UpdateAuthSessionWithMobileConfirmationRequest into url.Values without reflection.
+func (r *UpdateAuthSessionWithMobileConfirmationRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -10702,8 +7565,8 @@ func (r *IAuthenticationService_UpdateAuthSessionWithMobileConfirmation_Request)
 	}
 }
 
-// AppendFormData serializes IBroadcastService_PostGameDataFrameRTMP_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IBroadcastService_PostGameDataFrameRTMP_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes PostGameDataFrameRTMPRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *PostGameDataFrameRTMPRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -10740,13 +7603,13 @@ func (r *IBroadcastService_PostGameDataFrameRTMP_Request) AppendFormData(dst []b
 	return dst
 }
 
-// AppendQuery serializes IBroadcastService_PostGameDataFrameRTMP_Request into query string bytes on dst buffer (0 B/op).
-func (r *IBroadcastService_PostGameDataFrameRTMP_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes PostGameDataFrameRTMPRequest into query string bytes on dst buffer (0 B/op).
+func (r *PostGameDataFrameRTMPRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes IBroadcastService_PostGameDataFrameRTMP_Request into url.Values without reflection.
-func (r *IBroadcastService_PostGameDataFrameRTMP_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes PostGameDataFrameRTMPRequest into url.Values without reflection.
+func (r *PostGameDataFrameRTMPRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -10764,8 +7627,8 @@ func (r *IBroadcastService_PostGameDataFrameRTMP_Request) EncodeValues(vals url.
 	}
 }
 
-// AppendFormData serializes IContentServerConfigService_SetSteamCacheClientFilters_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IContentServerConfigService_SetSteamCacheClientFilters_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes SetSteamCacheClientFiltersRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *SetSteamCacheClientFiltersRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -10809,13 +7672,13 @@ func (r *IContentServerConfigService_SetSteamCacheClientFilters_Request) AppendF
 	return dst
 }
 
-// AppendQuery serializes IContentServerConfigService_SetSteamCacheClientFilters_Request into query string bytes on dst buffer (0 B/op).
-func (r *IContentServerConfigService_SetSteamCacheClientFilters_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes SetSteamCacheClientFiltersRequest into query string bytes on dst buffer (0 B/op).
+func (r *SetSteamCacheClientFiltersRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes IContentServerConfigService_SetSteamCacheClientFilters_Request into url.Values without reflection.
-func (r *IContentServerConfigService_SetSteamCacheClientFilters_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes SetSteamCacheClientFiltersRequest into url.Values without reflection.
+func (r *SetSteamCacheClientFiltersRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -10836,60 +7699,8 @@ func (r *IContentServerConfigService_SetSteamCacheClientFilters_Request) EncodeV
 	}
 }
 
-// AppendFormData serializes IContentServerConfigService_GetSteamCacheNodeParams_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IContentServerConfigService_GetSteamCacheNodeParams_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Key != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "key="...)
-		dst = append(dst, url.QueryEscape(r.Key)...)
-	}
-	if r.CacheID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "cache_id="...)
-		dst = strconv.AppendUint(dst, uint64(r.CacheID), 10)
-	}
-	if r.CacheKey != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "cache_key="...)
-		dst = append(dst, url.QueryEscape(r.CacheKey)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IContentServerConfigService_GetSteamCacheNodeParams_Request into query string bytes on dst buffer (0 B/op).
-func (r *IContentServerConfigService_GetSteamCacheNodeParams_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IContentServerConfigService_GetSteamCacheNodeParams_Request into url.Values without reflection.
-func (r *IContentServerConfigService_GetSteamCacheNodeParams_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Key != "" {
-		vals.Set("key", r.Key)
-	}
-	if r.CacheID != 0 {
-		vals.Set("cache_id", strconv.FormatUint(uint64(r.CacheID), 10))
-	}
-	if r.CacheKey != "" {
-		vals.Set("cache_key", r.CacheKey)
-	}
-}
-
-// AppendFormData serializes IContentServerConfigService_SetSteamCachePerformanceStats_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IContentServerConfigService_SetSteamCachePerformanceStats_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes SetSteamCachePerformanceStatsRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *SetSteamCachePerformanceStatsRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -10975,13 +7786,13 @@ func (r *IContentServerConfigService_SetSteamCachePerformanceStats_Request) Appe
 	return dst
 }
 
-// AppendQuery serializes IContentServerConfigService_SetSteamCachePerformanceStats_Request into query string bytes on dst buffer (0 B/op).
-func (r *IContentServerConfigService_SetSteamCachePerformanceStats_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes SetSteamCachePerformanceStatsRequest into query string bytes on dst buffer (0 B/op).
+func (r *SetSteamCachePerformanceStatsRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes IContentServerConfigService_SetSteamCachePerformanceStats_Request into url.Values without reflection.
-func (r *IContentServerConfigService_SetSteamCachePerformanceStats_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes SetSteamCachePerformanceStatsRequest into url.Values without reflection.
+func (r *SetSteamCachePerformanceStatsRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -11020,112 +7831,8 @@ func (r *IContentServerConfigService_SetSteamCachePerformanceStats_Request) Enco
 	}
 }
 
-// AppendFormData serializes IContentServerDirectoryService_GetCDNForVideo_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IContentServerDirectoryService_GetCDNForVideo_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if strVal := fmt.Sprint(r.PropertyType); strVal != "" && strVal != "0" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "property_type="...)
-		dst = append(dst, url.QueryEscape(strVal)...)
-	}
-	if r.ClientIP != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "client_ip="...)
-		dst = append(dst, url.QueryEscape(r.ClientIP)...)
-	}
-	if r.ClientRegion != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "client_region="...)
-		dst = append(dst, url.QueryEscape(r.ClientRegion)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IContentServerDirectoryService_GetCDNForVideo_Request into query string bytes on dst buffer (0 B/op).
-func (r *IContentServerDirectoryService_GetCDNForVideo_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IContentServerDirectoryService_GetCDNForVideo_Request into url.Values without reflection.
-func (r *IContentServerDirectoryService_GetCDNForVideo_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if strVal := fmt.Sprint(r.PropertyType); strVal != "" && strVal != "0" {
-		vals.Set("property_type", strVal)
-	}
-	if r.ClientIP != "" {
-		vals.Set("client_ip", r.ClientIP)
-	}
-	if r.ClientRegion != "" {
-		vals.Set("client_region", r.ClientRegion)
-	}
-}
-
-// AppendFormData serializes IContentServerDirectoryService_PickSingleContentServer_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IContentServerDirectoryService_PickSingleContentServer_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if strVal := fmt.Sprint(r.PropertyType); strVal != "" && strVal != "0" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "property_type="...)
-		dst = append(dst, url.QueryEscape(strVal)...)
-	}
-	if r.CellID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "cell_id="...)
-		dst = strconv.AppendUint(dst, uint64(r.CellID), 10)
-	}
-	if r.ClientIP != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "client_ip="...)
-		dst = append(dst, url.QueryEscape(r.ClientIP)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IContentServerDirectoryService_PickSingleContentServer_Request into query string bytes on dst buffer (0 B/op).
-func (r *IContentServerDirectoryService_PickSingleContentServer_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IContentServerDirectoryService_PickSingleContentServer_Request into url.Values without reflection.
-func (r *IContentServerDirectoryService_PickSingleContentServer_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if strVal := fmt.Sprint(r.PropertyType); strVal != "" && strVal != "0" {
-		vals.Set("property_type", strVal)
-	}
-	if r.CellID != 0 {
-		vals.Set("cell_id", strconv.FormatUint(uint64(r.CellID), 10))
-	}
-	if r.ClientIP != "" {
-		vals.Set("client_ip", r.ClientIP)
-	}
-}
-
-// AppendFormData serializes IContentServerDirectoryService_GetServersForSteamPipe_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IContentServerDirectoryService_GetServersForSteamPipe_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes GetServersForSteamPipeRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *GetServersForSteamPipeRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -11176,13 +7883,13 @@ func (r *IContentServerDirectoryService_GetServersForSteamPipe_Request) AppendFo
 	return dst
 }
 
-// AppendQuery serializes IContentServerDirectoryService_GetServersForSteamPipe_Request into query string bytes on dst buffer (0 B/op).
-func (r *IContentServerDirectoryService_GetServersForSteamPipe_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes GetServersForSteamPipeRequest into query string bytes on dst buffer (0 B/op).
+func (r *GetServersForSteamPipeRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes IContentServerDirectoryService_GetServersForSteamPipe_Request into url.Values without reflection.
-func (r *IContentServerDirectoryService_GetServersForSteamPipe_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes GetServersForSteamPipeRequest into url.Values without reflection.
+func (r *GetServersForSteamPipeRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -11206,40 +7913,8 @@ func (r *IContentServerDirectoryService_GetServersForSteamPipe_Request) EncodeVa
 	}
 }
 
-// AppendFormData serializes IContentServerDirectoryService_GetClientUpdateHosts_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IContentServerDirectoryService_GetClientUpdateHosts_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.CachedSignature != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "cached_signature="...)
-		dst = append(dst, url.QueryEscape(r.CachedSignature)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IContentServerDirectoryService_GetClientUpdateHosts_Request into query string bytes on dst buffer (0 B/op).
-func (r *IContentServerDirectoryService_GetClientUpdateHosts_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IContentServerDirectoryService_GetClientUpdateHosts_Request into url.Values without reflection.
-func (r *IContentServerDirectoryService_GetClientUpdateHosts_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.CachedSignature != "" {
-		vals.Set("cached_signature", r.CachedSignature)
-	}
-}
-
-// AppendFormData serializes IContentServerDirectoryService_GetDepotPatchInfo_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IContentServerDirectoryService_GetDepotPatchInfo_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes GetDepotPatchInfoRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *GetDepotPatchInfoRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -11276,13 +7951,13 @@ func (r *IContentServerDirectoryService_GetDepotPatchInfo_Request) AppendFormDat
 	return dst
 }
 
-// AppendQuery serializes IContentServerDirectoryService_GetDepotPatchInfo_Request into query string bytes on dst buffer (0 B/op).
-func (r *IContentServerDirectoryService_GetDepotPatchInfo_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes GetDepotPatchInfoRequest into query string bytes on dst buffer (0 B/op).
+func (r *GetDepotPatchInfoRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes IContentServerDirectoryService_GetDepotPatchInfo_Request into url.Values without reflection.
-func (r *IContentServerDirectoryService_GetDepotPatchInfo_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes GetDepotPatchInfoRequest into url.Values without reflection.
+func (r *GetDepotPatchInfoRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -11300,40 +7975,8 @@ func (r *IContentServerDirectoryService_GetDepotPatchInfo_Request) EncodeValues(
 	}
 }
 
-// AppendFormData serializes IPublishedFileService_GetUserVoteSummary_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IPublishedFileService_GetUserVoteSummary_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Publishedfileids != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "publishedfileids="...)
-		dst = strconv.AppendUint(dst, uint64(r.Publishedfileids), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IPublishedFileService_GetUserVoteSummary_Request into query string bytes on dst buffer (0 B/op).
-func (r *IPublishedFileService_GetUserVoteSummary_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IPublishedFileService_GetUserVoteSummary_Request into url.Values without reflection.
-func (r *IPublishedFileService_GetUserVoteSummary_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Publishedfileids != 0 {
-		vals.Set("publishedfileids", strconv.FormatUint(uint64(r.Publishedfileids), 10))
-	}
-}
-
-// AppendFormData serializes IPublishedFileService_QueryFiles_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IPublishedFileService_QueryFiles_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes QueryFilesRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *QueryFilesRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -11613,13 +8256,13 @@ func (r *IPublishedFileService_QueryFiles_Request) AppendFormData(dst []byte) []
 	return dst
 }
 
-// AppendQuery serializes IPublishedFileService_QueryFiles_Request into query string bytes on dst buffer (0 B/op).
-func (r *IPublishedFileService_QueryFiles_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes QueryFilesRequest into query string bytes on dst buffer (0 B/op).
+func (r *QueryFilesRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes IPublishedFileService_QueryFiles_Request into url.Values without reflection.
-func (r *IPublishedFileService_QueryFiles_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes QueryFilesRequest into url.Values without reflection.
+func (r *QueryFilesRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -11748,8 +8391,8 @@ func (r *IPublishedFileService_QueryFiles_Request) EncodeValues(vals url.Values)
 	}
 }
 
-// AppendFormData serializes IPublishedFileService_GetSubSectionData_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IPublishedFileService_GetSubSectionData_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes GetSubSectionDataRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *GetSubSectionDataRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -11792,13 +8435,13 @@ func (r *IPublishedFileService_GetSubSectionData_Request) AppendFormData(dst []b
 	return dst
 }
 
-// AppendQuery serializes IPublishedFileService_GetSubSectionData_Request into query string bytes on dst buffer (0 B/op).
-func (r *IPublishedFileService_GetSubSectionData_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes GetSubSectionDataRequest into query string bytes on dst buffer (0 B/op).
+func (r *GetSubSectionDataRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes IPublishedFileService_GetSubSectionData_Request into url.Values without reflection.
-func (r *IPublishedFileService_GetSubSectionData_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes GetSubSectionDataRequest into url.Values without reflection.
+func (r *GetSubSectionDataRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -11819,8 +8462,8 @@ func (r *IPublishedFileService_GetSubSectionData_Request) EncodeValues(vals url.
 	}
 }
 
-// AppendFormData serializes IPublishedFileService_GetDetails_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IPublishedFileService_GetDetails_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes GetDetailsRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *GetDetailsRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -11937,13 +8580,13 @@ func (r *IPublishedFileService_GetDetails_Request) AppendFormData(dst []byte) []
 	return dst
 }
 
-// AppendQuery serializes IPublishedFileService_GetDetails_Request into query string bytes on dst buffer (0 B/op).
-func (r *IPublishedFileService_GetDetails_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes GetDetailsRequest into query string bytes on dst buffer (0 B/op).
+func (r *GetDetailsRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes IPublishedFileService_GetDetails_Request into url.Values without reflection.
-func (r *IPublishedFileService_GetDetails_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes GetDetailsRequest into url.Values without reflection.
+func (r *GetDetailsRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -12000,8 +8643,8 @@ func (r *IPublishedFileService_GetDetails_Request) EncodeValues(vals url.Values)
 	}
 }
 
-// AppendFormData serializes IPublishedFileService_GetUserFiles_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IPublishedFileService_GetUserFiles_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes GetUserFilesRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *GetUserFilesRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -12248,13 +8891,13 @@ func (r *IPublishedFileService_GetUserFiles_Request) AppendFormData(dst []byte) 
 	return dst
 }
 
-// AppendQuery serializes IPublishedFileService_GetUserFiles_Request into query string bytes on dst buffer (0 B/op).
-func (r *IPublishedFileService_GetUserFiles_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes GetUserFilesRequest into query string bytes on dst buffer (0 B/op).
+func (r *GetUserFilesRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes IPublishedFileService_GetUserFiles_Request into url.Values without reflection.
-func (r *IPublishedFileService_GetUserFiles_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes GetUserFilesRequest into url.Values without reflection.
+func (r *GetUserFilesRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -12368,8 +9011,8 @@ func (r *IPublishedFileService_GetUserFiles_Request) EncodeValues(vals url.Value
 	}
 }
 
-// AppendFormData serializes IPublishedFileService_GetUserFileCount_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IPublishedFileService_GetUserFileCount_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes GetUserFileCountRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *GetUserFileCountRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -12616,13 +9259,13 @@ func (r *IPublishedFileService_GetUserFileCount_Request) AppendFormData(dst []by
 	return dst
 }
 
-// AppendQuery serializes IPublishedFileService_GetUserFileCount_Request into query string bytes on dst buffer (0 B/op).
-func (r *IPublishedFileService_GetUserFileCount_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes GetUserFileCountRequest into query string bytes on dst buffer (0 B/op).
+func (r *GetUserFileCountRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes IPublishedFileService_GetUserFileCount_Request into url.Values without reflection.
-func (r *IPublishedFileService_GetUserFileCount_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes GetUserFileCountRequest into url.Values without reflection.
+func (r *GetUserFileCountRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -12736,8 +9379,8 @@ func (r *IPublishedFileService_GetUserFileCount_Request) EncodeValues(vals url.V
 	}
 }
 
-// AppendFormData serializes IEconService_GetTradeHistory_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IEconService_GetTradeHistory_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes GetTradeHistoryRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *GetTradeHistoryRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -12805,13 +9448,13 @@ func (r *IEconService_GetTradeHistory_Request) AppendFormData(dst []byte) []byte
 	return dst
 }
 
-// AppendQuery serializes IEconService_GetTradeHistory_Request into query string bytes on dst buffer (0 B/op).
-func (r *IEconService_GetTradeHistory_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes GetTradeHistoryRequest into query string bytes on dst buffer (0 B/op).
+func (r *GetTradeHistoryRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes IEconService_GetTradeHistory_Request into url.Values without reflection.
-func (r *IEconService_GetTradeHistory_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes GetTradeHistoryRequest into url.Values without reflection.
+func (r *GetTradeHistoryRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -12844,8 +9487,8 @@ func (r *IEconService_GetTradeHistory_Request) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes IEconService_GetTradeStatus_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IEconService_GetTradeStatus_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes GetTradeStatusRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *GetTradeStatusRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -12881,13 +9524,13 @@ func (r *IEconService_GetTradeStatus_Request) AppendFormData(dst []byte) []byte 
 	return dst
 }
 
-// AppendQuery serializes IEconService_GetTradeStatus_Request into query string bytes on dst buffer (0 B/op).
-func (r *IEconService_GetTradeStatus_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes GetTradeStatusRequest into query string bytes on dst buffer (0 B/op).
+func (r *GetTradeStatusRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes IEconService_GetTradeStatus_Request into url.Values without reflection.
-func (r *IEconService_GetTradeStatus_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes GetTradeStatusRequest into url.Values without reflection.
+func (r *GetTradeStatusRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -12905,8 +9548,8 @@ func (r *IEconService_GetTradeStatus_Request) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes IEconService_GetTradeOffers_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IEconService_GetTradeOffers_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes GetTradeOffersRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *GetTradeOffersRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -12973,13 +9616,13 @@ func (r *IEconService_GetTradeOffers_Request) AppendFormData(dst []byte) []byte 
 	return dst
 }
 
-// AppendQuery serializes IEconService_GetTradeOffers_Request into query string bytes on dst buffer (0 B/op).
-func (r *IEconService_GetTradeOffers_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes GetTradeOffersRequest into query string bytes on dst buffer (0 B/op).
+func (r *GetTradeOffersRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes IEconService_GetTradeOffers_Request into url.Values without reflection.
-func (r *IEconService_GetTradeOffers_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes GetTradeOffersRequest into url.Values without reflection.
+func (r *GetTradeOffersRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -13012,8 +9655,8 @@ func (r *IEconService_GetTradeOffers_Request) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes IEconService_GetTradeOffer_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IEconService_GetTradeOffer_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes GetTradeOfferRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *GetTradeOfferRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -13049,13 +9692,13 @@ func (r *IEconService_GetTradeOffer_Request) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes IEconService_GetTradeOffer_Request into query string bytes on dst buffer (0 B/op).
-func (r *IEconService_GetTradeOffer_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes GetTradeOfferRequest into query string bytes on dst buffer (0 B/op).
+func (r *GetTradeOfferRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes IEconService_GetTradeOffer_Request into url.Values without reflection.
-func (r *IEconService_GetTradeOffer_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes GetTradeOfferRequest into url.Values without reflection.
+func (r *GetTradeOfferRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -13073,102 +9716,8 @@ func (r *IEconService_GetTradeOffer_Request) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes IEconService_GetTradeOffersSummary_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IEconService_GetTradeOffersSummary_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Key != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "key="...)
-		dst = append(dst, url.QueryEscape(r.Key)...)
-	}
-	if r.TimeLastVisit != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "time_last_visit="...)
-		dst = strconv.AppendUint(dst, uint64(r.TimeLastVisit), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IEconService_GetTradeOffersSummary_Request into query string bytes on dst buffer (0 B/op).
-func (r *IEconService_GetTradeOffersSummary_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IEconService_GetTradeOffersSummary_Request into url.Values without reflection.
-func (r *IEconService_GetTradeOffersSummary_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Key != "" {
-		vals.Set("key", r.Key)
-	}
-	if r.TimeLastVisit != 0 {
-		vals.Set("time_last_visit", strconv.FormatUint(uint64(r.TimeLastVisit), 10))
-	}
-}
-
-// AppendFormData serializes IEconService_GetTradeHoldDurations_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IEconService_GetTradeHoldDurations_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Key != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "key="...)
-		dst = append(dst, url.QueryEscape(r.Key)...)
-	}
-	if r.SteamIDTarget != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamid_target="...)
-		dst = strconv.AppendUint(dst, uint64(r.SteamIDTarget), 10)
-	}
-	if r.TradeOfferAccessToken != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "trade_offer_access_token="...)
-		dst = append(dst, url.QueryEscape(r.TradeOfferAccessToken)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IEconService_GetTradeHoldDurations_Request into query string bytes on dst buffer (0 B/op).
-func (r *IEconService_GetTradeHoldDurations_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IEconService_GetTradeHoldDurations_Request into url.Values without reflection.
-func (r *IEconService_GetTradeHoldDurations_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Key != "" {
-		vals.Set("key", r.Key)
-	}
-	if r.SteamIDTarget != 0 {
-		vals.Set("steamid_target", strconv.FormatUint(uint64(r.SteamIDTarget), 10))
-	}
-	if r.TradeOfferAccessToken != "" {
-		vals.Set("trade_offer_access_token", r.TradeOfferAccessToken)
-	}
-}
-
-// AppendFormData serializes IGameNotificationsService_UserCreateSession_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IGameNotificationsService_UserCreateSession_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes UserCreateSessionRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *UserCreateSessionRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -13212,13 +9761,13 @@ func (r *IGameNotificationsService_UserCreateSession_Request) AppendFormData(dst
 	return dst
 }
 
-// AppendQuery serializes IGameNotificationsService_UserCreateSession_Request into query string bytes on dst buffer (0 B/op).
-func (r *IGameNotificationsService_UserCreateSession_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes UserCreateSessionRequest into query string bytes on dst buffer (0 B/op).
+func (r *UserCreateSessionRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes IGameNotificationsService_UserCreateSession_Request into url.Values without reflection.
-func (r *IGameNotificationsService_UserCreateSession_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes UserCreateSessionRequest into url.Values without reflection.
+func (r *UserCreateSessionRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -13239,8 +9788,8 @@ func (r *IGameNotificationsService_UserCreateSession_Request) EncodeValues(vals 
 	}
 }
 
-// AppendFormData serializes IGameNotificationsService_UserUpdateSession_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IGameNotificationsService_UserUpdateSession_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes UserUpdateSessionRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *UserUpdateSessionRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -13284,13 +9833,13 @@ func (r *IGameNotificationsService_UserUpdateSession_Request) AppendFormData(dst
 	return dst
 }
 
-// AppendQuery serializes IGameNotificationsService_UserUpdateSession_Request into query string bytes on dst buffer (0 B/op).
-func (r *IGameNotificationsService_UserUpdateSession_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes UserUpdateSessionRequest into query string bytes on dst buffer (0 B/op).
+func (r *UserUpdateSessionRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes IGameNotificationsService_UserUpdateSession_Request into url.Values without reflection.
-func (r *IGameNotificationsService_UserUpdateSession_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes UserUpdateSessionRequest into url.Values without reflection.
+func (r *UserUpdateSessionRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -13311,60 +9860,8 @@ func (r *IGameNotificationsService_UserUpdateSession_Request) EncodeValues(vals 
 	}
 }
 
-// AppendFormData serializes IGameNotificationsService_UserDeleteSession_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IGameNotificationsService_UserDeleteSession_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.SessionID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "sessionid="...)
-		dst = strconv.AppendUint(dst, uint64(r.SessionID), 10)
-	}
-	if r.AppID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "appid="...)
-		dst = strconv.AppendUint(dst, uint64(r.AppID), 10)
-	}
-	if r.SteamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamid="...)
-		dst = strconv.AppendUint(dst, uint64(r.SteamID), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IGameNotificationsService_UserDeleteSession_Request into query string bytes on dst buffer (0 B/op).
-func (r *IGameNotificationsService_UserDeleteSession_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IGameNotificationsService_UserDeleteSession_Request into url.Values without reflection.
-func (r *IGameNotificationsService_UserDeleteSession_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.SessionID != 0 {
-		vals.Set("sessionid", strconv.FormatUint(uint64(r.SessionID), 10))
-	}
-	if r.AppID != 0 {
-		vals.Set("appid", strconv.FormatUint(uint64(r.AppID), 10))
-	}
-	if r.SteamID != 0 {
-		vals.Set("steamid", strconv.FormatUint(uint64(r.SteamID), 10))
-	}
-}
-
-// AppendFormData serializes IInventoryService_SplitItemStack_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IInventoryService_SplitItemStack_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes SplitItemStackRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *SplitItemStackRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -13408,13 +9905,13 @@ func (r *IInventoryService_SplitItemStack_Request) AppendFormData(dst []byte) []
 	return dst
 }
 
-// AppendQuery serializes IInventoryService_SplitItemStack_Request into query string bytes on dst buffer (0 B/op).
-func (r *IInventoryService_SplitItemStack_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes SplitItemStackRequest into query string bytes on dst buffer (0 B/op).
+func (r *SplitItemStackRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes IInventoryService_SplitItemStack_Request into url.Values without reflection.
-func (r *IInventoryService_SplitItemStack_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes SplitItemStackRequest into url.Values without reflection.
+func (r *SplitItemStackRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -13435,8 +9932,8 @@ func (r *IInventoryService_SplitItemStack_Request) EncodeValues(vals url.Values)
 	}
 }
 
-// AppendFormData serializes IInventoryService_CombineItemStacks_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IInventoryService_CombineItemStacks_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes CombineItemStacksRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *CombineItemStacksRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -13487,13 +9984,13 @@ func (r *IInventoryService_CombineItemStacks_Request) AppendFormData(dst []byte)
 	return dst
 }
 
-// AppendQuery serializes IInventoryService_CombineItemStacks_Request into query string bytes on dst buffer (0 B/op).
-func (r *IInventoryService_CombineItemStacks_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes CombineItemStacksRequest into query string bytes on dst buffer (0 B/op).
+func (r *CombineItemStacksRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes IInventoryService_CombineItemStacks_Request into url.Values without reflection.
-func (r *IInventoryService_CombineItemStacks_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes CombineItemStacksRequest into url.Values without reflection.
+func (r *CombineItemStacksRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -13517,124 +10014,8 @@ func (r *IInventoryService_CombineItemStacks_Request) EncodeValues(vals url.Valu
 	}
 }
 
-// AppendFormData serializes IInventoryService_GetPriceSheet_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IInventoryService_GetPriceSheet_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Key != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "key="...)
-		dst = append(dst, url.QueryEscape(r.Key)...)
-	}
-	if strVal := fmt.Sprint(r.Ecurrency); strVal != "" && strVal != "0" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "ecurrency="...)
-		dst = append(dst, url.QueryEscape(strVal)...)
-	}
-	if r.CurrencyCode != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "currency_code="...)
-		dst = append(dst, url.QueryEscape(r.CurrencyCode)...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IInventoryService_GetPriceSheet_Request into query string bytes on dst buffer (0 B/op).
-func (r *IInventoryService_GetPriceSheet_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IInventoryService_GetPriceSheet_Request into url.Values without reflection.
-func (r *IInventoryService_GetPriceSheet_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Key != "" {
-		vals.Set("key", r.Key)
-	}
-	if strVal := fmt.Sprint(r.Ecurrency); strVal != "" && strVal != "0" {
-		vals.Set("ecurrency", strVal)
-	}
-	if r.CurrencyCode != "" {
-		vals.Set("currency_code", r.CurrencyCode)
-	}
-}
-
-// AppendFormData serializes IStoreService_GetGamesFollowed_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IStoreService_GetGamesFollowed_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.SteamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamid="...)
-		dst = strconv.AppendUint(dst, uint64(r.SteamID), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IStoreService_GetGamesFollowed_Request into query string bytes on dst buffer (0 B/op).
-func (r *IStoreService_GetGamesFollowed_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IStoreService_GetGamesFollowed_Request into url.Values without reflection.
-func (r *IStoreService_GetGamesFollowed_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.SteamID != 0 {
-		vals.Set("steamid", strconv.FormatUint(uint64(r.SteamID), 10))
-	}
-}
-
-// AppendFormData serializes IStoreService_GetGamesFollowedCount_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IStoreService_GetGamesFollowedCount_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.SteamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamid="...)
-		dst = strconv.AppendUint(dst, uint64(r.SteamID), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IStoreService_GetGamesFollowedCount_Request into query string bytes on dst buffer (0 B/op).
-func (r *IStoreService_GetGamesFollowedCount_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IStoreService_GetGamesFollowedCount_Request into url.Values without reflection.
-func (r *IStoreService_GetGamesFollowedCount_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.SteamID != 0 {
-		vals.Set("steamid", strconv.FormatUint(uint64(r.SteamID), 10))
-	}
-}
-
-// AppendFormData serializes IStoreService_GetAppList_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IStoreService_GetAppList_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes GetAppListRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *GetAppListRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -13708,13 +10089,13 @@ func (r *IStoreService_GetAppList_Request) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes IStoreService_GetAppList_Request into query string bytes on dst buffer (0 B/op).
-func (r *IStoreService_GetAppList_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes GetAppListRequest into query string bytes on dst buffer (0 B/op).
+func (r *GetAppListRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes IStoreService_GetAppList_Request into url.Values without reflection.
-func (r *IStoreService_GetAppList_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes GetAppListRequest into url.Values without reflection.
+func (r *GetAppListRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -13750,59 +10131,8 @@ func (r *IStoreService_GetAppList_Request) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes IStoreService_GetRecommendedTagsForUser_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IStoreService_GetRecommendedTagsForUser_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.Language != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "language="...)
-		dst = append(dst, url.QueryEscape(r.Language)...)
-	}
-	if r.CountryCode != "" {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "country_code="...)
-		dst = append(dst, url.QueryEscape(r.CountryCode)...)
-	}
-	if r.FavorRarerTags {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "favor_rarer_tags=true"...)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IStoreService_GetRecommendedTagsForUser_Request into query string bytes on dst buffer (0 B/op).
-func (r *IStoreService_GetRecommendedTagsForUser_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IStoreService_GetRecommendedTagsForUser_Request into url.Values without reflection.
-func (r *IStoreService_GetRecommendedTagsForUser_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.Language != "" {
-		vals.Set("language", r.Language)
-	}
-	if r.CountryCode != "" {
-		vals.Set("country_code", r.CountryCode)
-	}
-	if r.FavorRarerTags {
-		vals.Set("favor_rarer_tags", "true")
-	}
-}
-
-// AppendFormData serializes IHelpRequestLogsService_UploadUserApplicationLog_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IHelpRequestLogsService_UploadUserApplicationLog_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes UploadUserApplicationLogRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *UploadUserApplicationLogRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -13846,13 +10176,13 @@ func (r *IHelpRequestLogsService_UploadUserApplicationLog_Request) AppendFormDat
 	return dst
 }
 
-// AppendQuery serializes IHelpRequestLogsService_UploadUserApplicationLog_Request into query string bytes on dst buffer (0 B/op).
-func (r *IHelpRequestLogsService_UploadUserApplicationLog_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes UploadUserApplicationLogRequest into query string bytes on dst buffer (0 B/op).
+func (r *UploadUserApplicationLogRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes IHelpRequestLogsService_UploadUserApplicationLog_Request into url.Values without reflection.
-func (r *IHelpRequestLogsService_UploadUserApplicationLog_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes UploadUserApplicationLogRequest into url.Values without reflection.
+func (r *UploadUserApplicationLogRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -13873,40 +10203,8 @@ func (r *IHelpRequestLogsService_UploadUserApplicationLog_Request) EncodeValues(
 	}
 }
 
-// AppendFormData serializes IHelpRequestLogsService_GetApplicationLogDemand_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IHelpRequestLogsService_GetApplicationLogDemand_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.AppID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "appid="...)
-		dst = strconv.AppendUint(dst, uint64(r.AppID), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IHelpRequestLogsService_GetApplicationLogDemand_Request into query string bytes on dst buffer (0 B/op).
-func (r *IHelpRequestLogsService_GetApplicationLogDemand_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IHelpRequestLogsService_GetApplicationLogDemand_Request into url.Values without reflection.
-func (r *IHelpRequestLogsService_GetApplicationLogDemand_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.AppID != 0 {
-		vals.Set("appid", strconv.FormatUint(uint64(r.AppID), 10))
-	}
-}
-
-// AppendFormData serializes ICheatReportingService_ReportCheatData_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *ICheatReportingService_ReportCheatData_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes ReportCheatDataRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *ReportCheatDataRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -14013,13 +10311,13 @@ func (r *ICheatReportingService_ReportCheatData_Request) AppendFormData(dst []by
 	return dst
 }
 
-// AppendQuery serializes ICheatReportingService_ReportCheatData_Request into query string bytes on dst buffer (0 B/op).
-func (r *ICheatReportingService_ReportCheatData_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes ReportCheatDataRequest into query string bytes on dst buffer (0 B/op).
+func (r *ReportCheatDataRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes ICheatReportingService_ReportCheatData_Request into url.Values without reflection.
-func (r *ICheatReportingService_ReportCheatData_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes ReportCheatDataRequest into url.Values without reflection.
+func (r *ReportCheatDataRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -14067,8 +10365,8 @@ func (r *ICheatReportingService_ReportCheatData_Request) EncodeValues(vals url.V
 	}
 }
 
-// AppendFormData serializes IWishlistService_GetWishlistSortedFiltered_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IWishlistService_GetWishlistSortedFiltered_Request) AppendFormData(dst []byte) []byte {
+// AppendFormData serializes GetWishlistSortedFilteredRequest into url-encoded form bytes on dst buffer (0 B/op).
+func (r *GetWishlistSortedFilteredRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
 	}
@@ -14133,13 +10431,13 @@ func (r *IWishlistService_GetWishlistSortedFiltered_Request) AppendFormData(dst 
 	return dst
 }
 
-// AppendQuery serializes IWishlistService_GetWishlistSortedFiltered_Request into query string bytes on dst buffer (0 B/op).
-func (r *IWishlistService_GetWishlistSortedFiltered_Request) AppendQuery(dst []byte) []byte {
+// AppendQuery serializes GetWishlistSortedFilteredRequest into query string bytes on dst buffer (0 B/op).
+func (r *GetWishlistSortedFilteredRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes IWishlistService_GetWishlistSortedFiltered_Request into url.Values without reflection.
-func (r *IWishlistService_GetWishlistSortedFiltered_Request) EncodeValues(vals url.Values) {
+// EncodeValues serializes GetWishlistSortedFilteredRequest into url.Values without reflection.
+func (r *GetWishlistSortedFilteredRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
 	}
@@ -14166,69 +10464,5 @@ func (r *IWishlistService_GetWishlistSortedFiltered_Request) EncodeValues(vals u
 	}
 	if r.ShareToken != "" {
 		vals.Set("share_token", r.ShareToken)
-	}
-}
-
-// AppendFormData serializes IWishlistService_GetWishlist_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IWishlistService_GetWishlist_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.SteamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamid="...)
-		dst = strconv.AppendUint(dst, uint64(r.SteamID), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IWishlistService_GetWishlist_Request into query string bytes on dst buffer (0 B/op).
-func (r *IWishlistService_GetWishlist_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IWishlistService_GetWishlist_Request into url.Values without reflection.
-func (r *IWishlistService_GetWishlist_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.SteamID != 0 {
-		vals.Set("steamid", strconv.FormatUint(uint64(r.SteamID), 10))
-	}
-}
-
-// AppendFormData serializes IWishlistService_GetWishlistItemCount_Request into url-encoded form bytes on dst buffer (0 B/op).
-func (r *IWishlistService_GetWishlistItemCount_Request) AppendFormData(dst []byte) []byte {
-	if r == nil {
-		return dst
-	}
-
-	if r.SteamID != 0 {
-		if len(dst) > 0 {
-			dst = append(dst, '&')
-		}
-		dst = append(dst, "steamid="...)
-		dst = strconv.AppendUint(dst, uint64(r.SteamID), 10)
-	}
-
-	return dst
-}
-
-// AppendQuery serializes IWishlistService_GetWishlistItemCount_Request into query string bytes on dst buffer (0 B/op).
-func (r *IWishlistService_GetWishlistItemCount_Request) AppendQuery(dst []byte) []byte {
-	return r.AppendFormData(dst)
-}
-
-// EncodeValues serializes IWishlistService_GetWishlistItemCount_Request into url.Values without reflection.
-func (r *IWishlistService_GetWishlistItemCount_Request) EncodeValues(vals url.Values) {
-	if r == nil {
-		return
-	}
-	if r.SteamID != 0 {
-		vals.Set("steamid", strconv.FormatUint(uint64(r.SteamID), 10))
 	}
 }
