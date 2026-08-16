@@ -1,0 +1,23 @@
+# .vortex.yml — Vortex API Guardian Workspace Configuration
+# Documentation: https://github.com/lemon4ksan/aoni
+
+version: 1
+
+defaults:
+  casing: snake_case
+  engine: fast
+
+contracts:
+  - name: WebAPI
+    package: webapi
+    file: pkg/steam/webapi/api.go
+    gen: pkg/steam/webapi/api.gen.go
+
+coverage:
+  file: coverage.out
+  min: 75.0
+  sort: percent
+  exclude:
+    - examples/
+    - cmd/
+    - pkg/protobuf/

@@ -31,7 +31,7 @@ cover: ## Run tests and open the coverage report in a browser
 cover-clean: ## Display the clean coverage report in the terminal
 	@printf "$(CYAN)Generating clean coverage report...$(RESET)\n"
 	go test -coverprofile=$(COVER_OUT) $(PKG)
-	go run cmd/coverage/main.go --file=$(COVER_OUT) --sort=percent
+	vortex cover
 
 generate: ## Update all generated files (manual review required)
 	cd cmd/generator && go run main.go webapi proto steamlang format
