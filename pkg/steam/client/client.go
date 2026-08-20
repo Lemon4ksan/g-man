@@ -12,7 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/fast"
 	"github.com/lemon4ksan/aoni/request"
 	"github.com/lemon4ksan/foundation/async/event"
@@ -150,27 +149,11 @@ func WithREST(doer any) Option {
 
 		if fc, ok := doer.(*fast.Client); ok {
 			c.fastClient = fc
-			c.rest = request.AsRequester(fc)
 			c.cfg.Socket.FastClient = fc
 			c.cfg.Socket.Connector.FastClient = fc
-
-			return
 		}
 
-		if r, ok := doer.(request.Requester); ok {
-			c.rest = r
-			return
-		}
-
-		if rd, ok := doer.(aoni.RequestDoer); ok {
-			c.rest = request.AsRequester(rd)
-			return
-		}
-
-		if hd, ok := doer.(aoni.HTTPDoer); ok {
-			c.rest = request.AsRequester(aoni.NewHTTPDoerAdapter(hd))
-			return
-		}
+		c.rest = request.AsRequester(doer)
 	}
 }
 

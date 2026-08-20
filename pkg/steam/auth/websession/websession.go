@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/aoni"
-	"github.com/lemon4ksan/aoni/fast"
 	"github.com/lemon4ksan/aoni/middleware"
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/request"
@@ -90,26 +89,9 @@ func (d *doerRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) 
 
 // New constructs an unauthenticated WebSession.
 func New(steamID id.ID, logger log.Logger, doer any) *WebSession {
-	var httpDoer aoni.HTTPDoer
-
-	if doer == nil {
-		fastEngine := fast.NewClient()
-		httpDoer = fast.NewStdClient(fastEngine)
-	} else if fc, ok := doer.(*fast.Client); ok {
-		httpDoer = fast.NewStdClient(fc)
-	} else if ac, ok := doer.(*aoni.Client); ok {
-		httpDoer = ac.HTTP()
-	} else if hd, ok := doer.(aoni.HTTPDoer); ok {
-		httpDoer = hd
-	} else if rd, ok := doer.(aoni.RequestDoer); ok {
-		httpDoer = aoni.NewRequestDoerAdapter(rd)
-	} else {
-		httpDoer = network.NewClient(nil).HTTP()
-	}
-
 	ws := &WebSession{
 		steamID:      steamID,
-		baseDoer:     httpDoer,
+		baseDoer:     aoni.NewRequestDoerAdapter(aoni.Configure(doer, network.DefaultClientOptions()...)),
 		logger:       logger.With(log.Module("websession")),
 		retryBackoff: time.Second,
 	}

@@ -12,6 +12,7 @@ import (
 	json "github.com/goccy/go-json"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
 )
@@ -146,7 +147,7 @@ func marshalBody(msg any) ([]byte, error) {
 
 	switch v := msg.(type) {
 	case proto.Message:
-		return proto.Marshal(v)
+		return protocol.MarshalProto(v)
 	case []byte:
 		return v, nil
 	default:

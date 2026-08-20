@@ -19,6 +19,7 @@ import (
 	json "github.com/goccy/go-json"
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/codec/decode"
+	"github.com/lemon4ksan/aoni/codec/extract"
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/option"
 	"github.com/lemon4ksan/aoni/request"
@@ -36,9 +37,6 @@ var GoJSONDecoder decode.Decoder = decode.DecoderFunc(func(reader io.Reader, tar
 })
 
 var (
-	rxSorry      = regexp.MustCompile(`<h1>Sorry!</h1>[\s\S]*?<h3>(.+?)</h3>`)
-	rxTradeError = regexp.MustCompile(`<div id="error_msg">\s*([^<]+)\s*</div>`)
-
 	apiKeyRegexes = []*regexp.Regexp{
 		regexp.MustCompile(`(?i)Key:\s*([0-9A-F]{32})`),
 		regexp.MustCompile(`(?i)id=["']apiKey["']\s+value=["']([0-9A-F]{32})["']`),
@@ -355,16 +353,16 @@ func CheckSteamErrors(statusCode int, header http.Header, body []byte) error {
 	}
 
 	if bytes.Contains(body, []byte("<h1>Sorry!</h1>")) {
-		if matches := rxSorry.FindSubmatch(body); len(matches) > 1 {
-			return service.NewSteamAPIError(string(bytes.TrimSpace(matches[1])), statusCode, nil)
+		if msg, err := extract.Between(body, "<h3>", "</h3>"); err == nil {
+			return service.NewSteamAPIError(string(bytes.TrimSpace(msg)), statusCode, nil)
 		}
 
 		return service.NewSteamAPIError("unknown steam community error (Sorry page)", statusCode, nil)
 	}
 
 	if bytes.Contains(body, []byte("error_msg")) {
-		if matches := rxTradeError.FindSubmatch(body); len(matches) > 1 {
-			return service.NewSteamAPIError(string(bytes.TrimSpace(matches[1])), statusCode, nil)
+		if msg, err := extract.Between(body, `<div id="error_msg">`, "</div>"); err == nil {
+			return service.NewSteamAPIError(string(bytes.TrimSpace(msg)), statusCode, nil)
 		}
 	}
 
