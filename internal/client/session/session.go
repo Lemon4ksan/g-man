@@ -19,6 +19,7 @@ import (
 	"github.com/lemon4ksan/foundation/generic"
 	"github.com/lemon4ksan/foundation/async/log"
 
+	"github.com/lemon4ksan/g-man/internal/network"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth/websession"
@@ -115,7 +116,7 @@ func (cfg *Config) ResolveDefaults() {
 	}
 
 	if cfg.HTTP == nil {
-		cfg.HTTP = aoni.NewClient(nil)
+		cfg.HTTP = network.NewClient(nil)
 	}
 
 	if cfg.Device == nil {

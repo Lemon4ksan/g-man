@@ -13,7 +13,9 @@ import (
 	"io"
 	"net/http"
 
+	json "github.com/goccy/go-json"
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/aoni/codec/decode"
 	"github.com/lemon4ksan/aoni/fast"
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/option"
@@ -25,6 +27,11 @@ import (
 const HTTPUserAgent = "Valve/Steam HTTP Client 1.0"
 
 var ErrTargetNotHTTP = errors.New("http: target does not support HTTP transport")
+
+// GoJSONDecoder wraps github.com/goccy/go-json as an aoni response decoder for high-speed SIMD JSON parsing.
+var GoJSONDecoder decode.Decoder = decode.DecoderFunc(func(reader io.Reader, target any) error {
+	return json.NewDecoder(reader).Decode(target)
+})
 
 type HTTPMetadata struct {
 	Result     enums.EResult
@@ -52,24 +59,43 @@ func NewHTTPTransport(doer any, baseURL string) *HTTPTransport {
 		baseURL: baseURL,
 	}
 
+	decoderOpt := option.WithDecoder("application/json", GoJSONDecoder)
+
 	if doer == nil {
-		tr.fastClient = fast.NewClient(option.WithBaseURL(baseURL), option.WithUserAgent(HTTPUserAgent))
+		tr.fastClient = fast.NewClient(
+			option.WithBaseURL(baseURL),
+			option.WithUserAgent(HTTPUserAgent),
+			decoderOpt,
+		)
 		return tr
 	}
 
 	if fc, ok := doer.(*fast.Client); ok {
-		tr.fastClient = fc.With(option.WithBaseURL(baseURL), option.WithUserAgent(HTTPUserAgent))
+		tr.fastClient = fc.With(
+			option.WithBaseURL(baseURL),
+			option.WithUserAgent(HTTPUserAgent),
+			decoderOpt,
+		)
 		return tr
 	}
 
 	if ac, ok := doer.(*aoni.Client); ok {
-		tr.client = ac.With(option.WithBaseURL(baseURL), option.WithUserAgent(HTTPUserAgent))
+		tr.client = ac.With(
+			option.WithBaseURL(baseURL),
+			option.WithUserAgent(HTTPUserAgent),
+			decoderOpt,
+		)
 		return tr
 	}
 
 	if hd, ok := doer.(aoni.HTTPDoer); ok {
 		tr.doer = hd
-		tr.client = aoni.NewClient(hd, option.WithBaseURL(baseURL), option.WithUserAgent(HTTPUserAgent))
+		tr.client = aoni.NewClient(
+			hd,
+			option.WithBaseURL(baseURL),
+			option.WithUserAgent(HTTPUserAgent),
+			decoderOpt,
+		)
 
 		return tr
 	}
@@ -79,6 +105,7 @@ func NewHTTPTransport(doer any, baseURL string) *HTTPTransport {
 			aoni.NewRequestDoerAdapter(rd),
 			option.WithBaseURL(baseURL),
 			option.WithUserAgent(HTTPUserAgent),
+			decoderOpt,
 		)
 
 		return tr

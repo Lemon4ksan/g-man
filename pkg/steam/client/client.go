@@ -24,6 +24,7 @@ import (
 	"github.com/lemon4ksan/g-man/internal/client/modules"
 	"github.com/lemon4ksan/g-man/internal/client/router"
 	"github.com/lemon4ksan/g-man/internal/client/session"
+	"github.com/lemon4ksan/g-man/internal/network"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
@@ -291,7 +292,7 @@ func New(cfg Config, opts ...Option) (*Client, error) {
 	}
 
 	if c.rest == nil {
-		c.rest = aoni.NewClient(nil)
+		c.rest = network.NewClient(nil)
 	}
 
 	if c.storage == nil {
@@ -315,7 +316,7 @@ func New(cfg Config, opts ...Option) (*Client, error) {
 		case c.rest != nil:
 			sessionHTTPDoer = c.rest
 		default:
-			sessionHTTPDoer = aoni.NewClient(nil)
+			sessionHTTPDoer = network.NewClient(nil)
 		}
 
 		sessionCfg := session.Config{

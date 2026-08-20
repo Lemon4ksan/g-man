@@ -100,7 +100,7 @@ func NewWSWithClient(
 		if proxyURL != "" {
 			opts = append(opts, option.WithProxyString(proxyURL))
 		}
-		dialerClient = aoni.NewClient(nil, opts...)
+		dialerClient = NewClient(nil, opts...)
 	}
 
 	reqMods := make([]aoni.RequestModifier, 0, len(headers)+1)

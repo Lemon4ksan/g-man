@@ -26,6 +26,7 @@ import (
 	"github.com/lemon4ksan/aoni/request"
 	"github.com/lemon4ksan/foundation/async/log"
 
+	"github.com/lemon4ksan/g-man/internal/network"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
@@ -103,7 +104,7 @@ func New(steamID id.ID, logger log.Logger, doer any) *WebSession {
 	} else if rd, ok := doer.(aoni.RequestDoer); ok {
 		httpDoer = aoni.NewRequestDoerAdapter(rd)
 	} else {
-		httpDoer = aoni.NewClient(nil).HTTP()
+		httpDoer = network.NewClient(nil).HTTP()
 	}
 
 	ws := &WebSession{
