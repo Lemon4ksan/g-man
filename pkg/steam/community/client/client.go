@@ -13,7 +13,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strings"
 
 	json "github.com/goccy/go-json"
@@ -35,14 +34,6 @@ const BaseURL = "https://steamcommunity.com/"
 var GoJSONDecoder decode.Decoder = decode.DecoderFunc(func(reader io.Reader, target any) error {
 	return json.NewDecoder(reader).Decode(target)
 })
-
-var (
-	apiKeyRegexes = []*regexp.Regexp{
-		regexp.MustCompile(`(?i)Key:\s*([0-9A-F]{32})`),
-		regexp.MustCompile(`(?i)id=["']apiKey["']\s+value=["']([0-9A-F]{32})["']`),
-		regexp.MustCompile(`(?i)value=["']([0-9A-F]{32})["']`),
-	}
-)
 
 var (
 	// ErrFamilyViewRestricted indicates an operation was blocked by Family View PIN controls.
@@ -118,6 +109,7 @@ func New(doer aoni.RequestDoer, session SessionProvider) *Client {
 	r := request.AsRequester(aoni.Configure(doer,
 		option.WithBaseURL(BaseURL),
 		option.WithOrigin(BaseURL),
+		option.WithBlockRedirectTo("/login/home", "/login"),
 		option.WithDecoder("application/json", GoJSONDecoder),
 		option.WithDecoder("text/javascript", GoJSONDecoder),
 	))
@@ -252,9 +244,14 @@ func (c *Client) GetOrRegisterAPIKey(ctx context.Context, domain string) (string
 		return "", ErrAccountLimited
 	}
 
-	for _, re := range apiKeyRegexes {
-		if matches := re.FindStringSubmatch(bodyStr); len(matches) > 1 {
-			return matches[1], nil
+	if key, err := extract.AttrString(bodyBytes, "#apiKey", "value").Unwrap(); err == nil && len(key) == 32 {
+		return key, nil
+	}
+
+	if key, err := extract.BetweenString(bodyBytes, "Key: ", "<").Unwrap(); err == nil {
+		trimmed := strings.TrimSpace(key)
+		if len(trimmed) == 32 {
+			return trimmed, nil
 		}
 	}
 

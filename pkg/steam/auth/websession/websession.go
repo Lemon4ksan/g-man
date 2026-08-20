@@ -116,7 +116,7 @@ func (s *WebSession) Do(req *http.Request) (*http.Response, error) {
 	return client.Do(req) //nolint:gosec
 }
 
-// REST returns an aoni.Client wrapping the web session with exponential backoff retries.
+// REST returns an aoni.Client wrapping the WebSession with retries and singleflight re-authentication.
 func (s *WebSession) REST() *aoni.Client {
 	s.mu.RLock()
 	backoff := s.retryBackoff
@@ -128,10 +128,19 @@ func (s *WebSession) REST() *aoni.Client {
 		AllowedMethods: []string{"GET", "POST", "HEAD", "PUT", "DELETE"},
 	}, middleware.RetryOnErr())
 
+	reauth := middleware.ReAuth(middleware.ReAuthConfig{
+		Trigger: func(resp aoni.Response, err error) bool {
+			return resp != nil && (resp.StatusCode() == http.StatusUnauthorized || resp.StatusCode() == http.StatusForbidden)
+		},
+		Refresh: func(ctx context.Context) error {
+			return s.Refresh(ctx)
+		},
+	})
+
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	return aoni.NewClient(middleware.Chain(s, retrier))
+	return aoni.NewClient(middleware.Chain(s, reauth, retrier))
 }
 
 // HTTP returns the underlying http.Client instance.

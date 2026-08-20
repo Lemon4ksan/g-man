@@ -6,6 +6,7 @@
 package market
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -17,8 +18,9 @@ import (
 
 	json "github.com/goccy/go-json"
 	"github.com/lemon4ksan/aoni/mod"
-	"github.com/lemon4ksan/foundation/generic"
 	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/generic"
+	"github.com/lemon4ksan/foundation/silicon/bytesconv"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/client"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
@@ -27,11 +29,10 @@ import (
 )
 
 var (
-	rxBoosterCreator = regexp.MustCompile(`(?s)CBoosterCreatorPage\.Init\(\s*(.*?),\s*(\d+),\s*(\d+),\s*(\d+),\s*\[`)
-	rxMarketApps     = regexp.MustCompile(`https?://steamcommunity.com/market/search\?appid=(\d+)`)
-	rxGameAnchor     = regexp.MustCompile(`(?s)<a\s+([^>]*class="[^"]*game_button[^"]*"[^>]*)>(.*?)</a>`)
-	rxHref           = regexp.MustCompile(`href="([^"]*)"`)
-	rxGameName       = regexp.MustCompile(
+	rxMarketApps = regexp.MustCompile(`https?://steamcommunity.com/market/search\?appid=(\d+)`)
+	rxGameAnchor = regexp.MustCompile(`(?s)<a\s+([^>]*class="[^"]*game_button[^"]*"[^>]*)>(.*?)</a>`)
+	rxHref       = regexp.MustCompile(`href="([^"]*)"`)
+	rxGameName   = regexp.MustCompile(
 		`(?s)<span[^>]*class="[^"]*game_button_game_name[^"]*"[^>]*>\s*(.*?)\s*</span>`,
 	)
 )
@@ -546,28 +547,90 @@ func parseAppIDFromHref(href string) (uint32, bool) {
 }
 
 func parseBoosterCatalog(bodyBytes []byte) (*BoosterCatalog, error) {
-	match := rxBoosterCreator.FindSubmatch(bodyBytes)
-	if len(match) != 5 {
+	idx := bytes.Index(bodyBytes, []byte("CBoosterCreatorPage.Init("))
+	if idx == -1 {
 		return nil, ErrBoosterCatalogJS
+	}
+	content := bytes.TrimSpace(bodyBytes[idx+len("CBoosterCreatorPage.Init("):])
+
+	var param1, rest []byte
+	if len(content) > 0 && content[0] == '[' {
+		depth := 0
+		end := -1
+		for i, b := range content {
+			if b == '[' {
+				depth++
+			} else if b == ']' {
+				depth--
+				if depth == 0 {
+					end = i
+					break
+				}
+			}
+		}
+		if end == -1 {
+			return nil, ErrBoosterCatalogJS
+		}
+		param1 = content[:end+1]
+		rest = content[end+1:]
+	} else if len(content) > 0 && content[0] == '{' {
+		depth := 0
+		end := -1
+		for i, b := range content {
+			if b == '{' {
+				depth++
+			} else if b == '}' {
+				depth--
+				if depth == 0 {
+					end = i
+					break
+				}
+			}
+		}
+		if end == -1 {
+			return nil, ErrBoosterCatalogJS
+		}
+		param1 = content[:end+1]
+		rest = content[end+1:]
+	} else {
+		comma := bytes.IndexByte(content, ',')
+		if comma == -1 {
+			return nil, ErrBoosterCatalogJS
+		}
+		param1 = bytes.TrimSpace(content[:comma])
+		rest = content[comma:]
 	}
 
 	var catalogList []*BoosterPackInfo
-	if err := json.Unmarshal(match[1], &catalogList); err != nil {
+	if err := json.Unmarshal(param1, &catalogList); err != nil {
 		return nil, fmt.Errorf("market: failed to parse catalog JSON: %w", err)
 	}
 
-	totalGems, _ := strconv.Atoi(string(match[2]))
-	tradableGems, _ := strconv.Atoi(string(match[3]))
-	untradableGems, _ := strconv.Atoi(string(match[4]))
+	rest = bytes.TrimPrefix(rest, []byte(","))
+	if nextArr := bytes.IndexByte(rest, '['); nextArr != -1 {
+		rest = rest[:nextArr]
+	}
+
+	parts := bytes.Split(rest, []byte(","))
+	if len(parts) < 3 {
+		return nil, ErrBoosterCatalogJS
+	}
+
+	v1, ok1 := bytesconv.ParseUintFast(bytes.TrimSpace(parts[0]))
+	v2, ok2 := bytesconv.ParseUintFast(bytes.TrimSpace(parts[1]))
+	v3, ok3 := bytesconv.ParseUintFast(bytes.TrimSpace(parts[2]))
+	if !ok1 || !ok2 || !ok3 {
+		return nil, ErrBoosterCatalogJS
+	}
 
 	catalogMap := generic.IndexBy(catalogList, func(app *BoosterPackInfo) uint32 {
 		return app.AppID
 	})
 
 	return &BoosterCatalog{
-		TotalGems:      totalGems,
-		TradableGems:   tradableGems,
-		UntradableGems: untradableGems,
+		TotalGems:      int(v1),
+		TradableGems:   int(v2),
+		UntradableGems: int(v3),
 		Catalog:        catalogMap,
 	}, nil
 }

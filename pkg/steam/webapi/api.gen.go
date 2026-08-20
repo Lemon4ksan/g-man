@@ -31,18 +31,7 @@ func newClientStats1046930(doer any, opts ...aoni.ClientOption) *clientStats1046
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IClientStats_1046930")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IClientStats_1046930")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IClientStats_1046930")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IClientStats_1046930")}, baseOpts...)...)
 
 	return &clientStats1046930Client{
 		r: targetReq,
@@ -86,18 +75,7 @@ func newCSGOPlayers730(doer any, opts ...aoni.ClientOption) *csgoPlayers730Clien
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ICSGOPlayers_730")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ICSGOPlayers_730")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ICSGOPlayers_730")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ICSGOPlayers_730")}, baseOpts...)...)
 
 	return &csgoPlayers730Client{
 		r: targetReq,
@@ -151,18 +129,7 @@ func newCSGOServers730(doer any, opts ...aoni.ClientOption) *csgoServers730Clien
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ICSGOServers_730")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ICSGOServers_730")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ICSGOServers_730")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ICSGOServers_730")}, baseOpts...)...)
 
 	return &csgoServers730Client{
 		r: targetReq,
@@ -231,18 +198,7 @@ func newCSGOTournaments730(doer any, opts ...aoni.ClientOption) *csgoTournaments
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ICSGOTournaments_730")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ICSGOTournaments_730")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ICSGOTournaments_730")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ICSGOTournaments_730")}, baseOpts...)...)
 
 	return &csgoTournaments730Client{
 		r: targetReq,
@@ -407,18 +363,7 @@ func newDOTA2MatchStats570(doer any, opts ...aoni.ClientOption) *dotA2MatchStats
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IDOTA2MatchStats_570")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IDOTA2MatchStats_570")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IDOTA2MatchStats_570")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IDOTA2MatchStats_570")}, baseOpts...)...)
 
 	return &dotA2MatchStats570Client{
 		r: targetReq,
@@ -468,18 +413,7 @@ func newDOTA2Match570(doer any, opts ...aoni.ClientOption) *dotA2Match570Client 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IDOTA2Match_570")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IDOTA2Match_570")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IDOTA2Match_570")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IDOTA2Match_570")}, baseOpts...)...)
 
 	return &dotA2Match570Client{
 		r: targetReq,
@@ -727,18 +661,7 @@ func newDOTA2StreamSystem570(doer any, opts ...aoni.ClientOption) *dotA2StreamSy
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IDOTA2StreamSystem_570")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IDOTA2StreamSystem_570")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IDOTA2StreamSystem_570")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IDOTA2StreamSystem_570")}, baseOpts...)...)
 
 	return &dotA2StreamSystem570Client{
 		r: targetReq,
@@ -790,18 +713,7 @@ func newDOTA2Ticket570(doer any, opts ...aoni.ClientOption) *dotA2Ticket570Clien
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IDOTA2Ticket_570")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IDOTA2Ticket_570")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IDOTA2Ticket_570")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IDOTA2Ticket_570")}, baseOpts...)...)
 
 	return &dotA2Ticket570Client{
 		r: targetReq,
@@ -895,18 +807,7 @@ func newEconDOTA2570(doer any, opts ...aoni.ClientOption) *econDOTA2570Client {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconDOTA2_570")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconDOTA2_570")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconDOTA2_570")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconDOTA2_570")}, baseOpts...)...)
 
 	return &econDOTA2570Client{
 		r: targetReq,
@@ -1067,18 +968,7 @@ func newEconItems1046930(doer any, opts ...aoni.ClientOption) *econItems1046930C
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_1046930")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_1046930")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_1046930")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_1046930")}, baseOpts...)...)
 
 	return &econItems1046930Client{
 		r: targetReq,
@@ -1128,18 +1018,7 @@ func newEconItems1269260(doer any, opts ...aoni.ClientOption) *econItems1269260C
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_1269260")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_1269260")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_1269260")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_1269260")}, baseOpts...)...)
 
 	return &econItems1269260Client{
 		r: targetReq,
@@ -1191,18 +1070,7 @@ func newEconItems440(doer any, opts ...aoni.ClientOption) *econItems440Client {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_440")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_440")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_440")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_440")}, baseOpts...)...)
 
 	return &econItems440Client{
 		r: targetReq,
@@ -1368,18 +1236,7 @@ func newEconItems570(doer any, opts ...aoni.ClientOption) *econItems570Client {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_570")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_570")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_570")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_570")}, baseOpts...)...)
 
 	return &econItems570Client{
 		r: targetReq,
@@ -1450,18 +1307,7 @@ func newEconItems583950(doer any, opts ...aoni.ClientOption) *econItems583950Cli
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_583950")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_583950")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_583950")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_583950")}, baseOpts...)...)
 
 	return &econItems583950Client{
 		r: targetReq,
@@ -1513,18 +1359,7 @@ func newEconItems620(doer any, opts ...aoni.ClientOption) *econItems620Client {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_620")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_620")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_620")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_620")}, baseOpts...)...)
 
 	return &econItems620Client{
 		r: targetReq,
@@ -1595,18 +1430,7 @@ func newEconItems730(doer any, opts ...aoni.ClientOption) *econItems730Client {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_730")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_730")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_730")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_730")}, baseOpts...)...)
 
 	return &econItems730Client{
 		r: targetReq,
@@ -1713,18 +1537,7 @@ func newGCVersion1046930(doer any, opts ...aoni.ClientOption) *gcVersion1046930C
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_1046930")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_1046930")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_1046930")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_1046930")}, baseOpts...)...)
 
 	return &gcVersion1046930Client{
 		r: targetReq,
@@ -1783,18 +1596,7 @@ func newGCVersion1269260(doer any, opts ...aoni.ClientOption) *gcVersion1269260C
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_1269260")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_1269260")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_1269260")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_1269260")}, baseOpts...)...)
 
 	return &gcVersion1269260Client{
 		r: targetReq,
@@ -1853,18 +1655,7 @@ func newGCVersion1422450(doer any, opts ...aoni.ClientOption) *gcVersion1422450C
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_1422450")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_1422450")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_1422450")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_1422450")}, baseOpts...)...)
 
 	return &gcVersion1422450Client{
 		r: targetReq,
@@ -1923,18 +1714,7 @@ func newGCVersion440(doer any, opts ...aoni.ClientOption) *gcVersion440Client {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_440")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_440")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_440")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_440")}, baseOpts...)...)
 
 	return &gcVersion440Client{
 		r: targetReq,
@@ -1993,18 +1773,7 @@ func newGCVersion570(doer any, opts ...aoni.ClientOption) *gcVersion570Client {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_570")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_570")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_570")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_570")}, baseOpts...)...)
 
 	return &gcVersion570Client{
 		r: targetReq,
@@ -2063,18 +1832,7 @@ func newGCVersion583950(doer any, opts ...aoni.ClientOption) *gcVersion583950Cli
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_583950")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_583950")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_583950")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_583950")}, baseOpts...)...)
 
 	return &gcVersion583950Client{
 		r: targetReq,
@@ -2133,18 +1891,7 @@ func newGCVersion730(doer any, opts ...aoni.ClientOption) *gcVersion730Client {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_730")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_730")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_730")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_730")}, baseOpts...)...)
 
 	return &gcVersion730Client{
 		r: targetReq,
@@ -2188,18 +1935,7 @@ func newPortal2Leaderboards620(doer any, opts ...aoni.ClientOption) *portal2Lead
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IPortal2Leaderboards_620")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IPortal2Leaderboards_620")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IPortal2Leaderboards_620")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IPortal2Leaderboards_620")}, baseOpts...)...)
 
 	return &portal2Leaderboards620Client{
 		r: targetReq,
@@ -2249,18 +1985,7 @@ func newSteamApps(doer any, opts ...aoni.ClientOption) *steamAppsClient {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamApps")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamApps")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamApps")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamApps")}, baseOpts...)...)
 
 	return &steamAppsClient{
 		r: targetReq,
@@ -2354,18 +2079,7 @@ func newSteamBroadcast(doer any, opts ...aoni.ClientOption) *steamBroadcastClien
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamBroadcast")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamBroadcast")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamBroadcast")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamBroadcast")}, baseOpts...)...)
 
 	return &steamBroadcastClient{
 		r: targetReq,
@@ -2429,18 +2143,7 @@ func newSteamCDN(doer any, opts ...aoni.ClientOption) *steamCDNClient {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamCDN")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamCDN")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamCDN")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamCDN")}, baseOpts...)...)
 
 	return &steamCDNClient{
 		r: targetReq,
@@ -2509,18 +2212,7 @@ func newSteamDirectory(doer any, opts ...aoni.ClientOption) *steamDirectoryClien
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamDirectory")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamDirectory")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamDirectory")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamDirectory")}, baseOpts...)...)
 
 	return &steamDirectoryClient{
 		r: targetReq,
@@ -2607,18 +2299,7 @@ func newSteamEconomy(doer any, opts ...aoni.ClientOption) *steamEconomyClient {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamEconomy")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamEconomy")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamEconomy")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamEconomy")}, baseOpts...)...)
 
 	return &steamEconomyClient{
 		r: targetReq,
@@ -2692,18 +2373,7 @@ func newSteamNews(doer any, opts ...aoni.ClientOption) *steamNewsClient {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamNews")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamNews")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamNews")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamNews")}, baseOpts...)...)
 
 	return &steamNewsClient{
 		r: targetReq,
@@ -2772,18 +2442,7 @@ func newSteamRemoteStorage(doer any, opts ...aoni.ClientOption) *steamRemoteStor
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamRemoteStorage")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamRemoteStorage")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamRemoteStorage")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamRemoteStorage")}, baseOpts...)...)
 
 	return &steamRemoteStorageClient{
 		r: targetReq,
@@ -2885,18 +2544,7 @@ func newSteamUser(doer any, opts ...aoni.ClientOption) *steamUserClient {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamUser")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamUser")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamUser")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamUser")}, baseOpts...)...)
 
 	return &steamUserClient{
 		r: targetReq,
@@ -3067,18 +2715,7 @@ func newSteamUserAuth(doer any, opts ...aoni.ClientOption) *steamUserAuthClient 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamUserAuth")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamUserAuth")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamUserAuth")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamUserAuth")}, baseOpts...)...)
 
 	return &steamUserAuthClient{
 		r: targetReq,
@@ -3132,18 +2769,7 @@ func newSteamUserOAuth(doer any, opts ...aoni.ClientOption) *steamUserOAuthClien
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamUserOAuth")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamUserOAuth")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamUserOAuth")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamUserOAuth")}, baseOpts...)...)
 
 	return &steamUserOAuthClient{
 		r: targetReq,
@@ -3193,18 +2819,7 @@ func newSteamUserStats(doer any, opts ...aoni.ClientOption) *steamUserStatsClien
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamUserStats")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamUserStats")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamUserStats")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamUserStats")}, baseOpts...)...)
 
 	return &steamUserStatsClient{
 		r: targetReq,
@@ -3436,18 +3051,7 @@ func newSteamWebAPIUtil(doer any, opts ...aoni.ClientOption) *steamWebAPIUtilCli
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamWebAPIUtil")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamWebAPIUtil")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamWebAPIUtil")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamWebAPIUtil")}, baseOpts...)...)
 
 	return &steamWebAPIUtilClient{
 		r: targetReq,
@@ -3512,18 +3116,7 @@ func newTFItems440(doer any, opts ...aoni.ClientOption) *tfItems440Client {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ITFItems_440")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ITFItems_440")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ITFItems_440")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ITFItems_440")}, baseOpts...)...)
 
 	return &tfItems440Client{
 		r: targetReq,
@@ -3582,18 +3175,7 @@ func newTFPromos440(doer any, opts ...aoni.ClientOption) *tfPromos440Client {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ITFPromos_440")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ITFPromos_440")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ITFPromos_440")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ITFPromos_440")}, baseOpts...)...)
 
 	return &tfPromos440Client{
 		r: targetReq,
@@ -3669,18 +3251,7 @@ func newTFPromos620(doer any, opts ...aoni.ClientOption) *tfPromos620Client {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ITFPromos_620")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ITFPromos_620")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ITFPromos_620")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ITFPromos_620")}, baseOpts...)...)
 
 	return &tfPromos620Client{
 		r: targetReq,
@@ -3756,18 +3327,7 @@ func newTFSystem440(doer any, opts ...aoni.ClientOption) *tfSystem440Client {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ITFSystem_440")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ITFSystem_440")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ITFSystem_440")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ITFSystem_440")}, baseOpts...)...)
 
 	return &tfSystem440Client{
 		r: targetReq,
@@ -3811,18 +3371,7 @@ func newGameServersService(doer any, opts ...aoni.ClientOption) *gameServersServ
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGameServersService")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGameServersService")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGameServersService")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGameServersService")}, baseOpts...)...)
 
 	return &gameServersServiceClient{
 		r: targetReq,
@@ -4084,18 +3633,7 @@ func newPlayerService(doer any, opts ...aoni.ClientOption) *playerServiceClient 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IPlayerService")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IPlayerService")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IPlayerService")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IPlayerService")}, baseOpts...)...)
 
 	return &playerServiceClient{
 		r: targetReq,
@@ -4291,18 +3829,7 @@ func newAuthenticationService(doer any, opts ...aoni.ClientOption) *authenticati
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IAuthenticationService")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IAuthenticationService")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IAuthenticationService")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IAuthenticationService")}, baseOpts...)...)
 
 	return &authenticationServiceClient{
 		r: targetReq,
@@ -4524,18 +4051,7 @@ func newBroadcastService(doer any, opts ...aoni.ClientOption) *broadcastServiceC
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IBroadcastService")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IBroadcastService")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IBroadcastService")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IBroadcastService")}, baseOpts...)...)
 
 	return &broadcastServiceClient{
 		r: targetReq,
@@ -4584,18 +4100,7 @@ func newContentServerConfigService(doer any, opts ...aoni.ClientOption) *content
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IContentServerConfigService")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IContentServerConfigService")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IContentServerConfigService")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IContentServerConfigService")}, baseOpts...)...)
 
 	return &contentServerConfigServiceClient{
 		r: targetReq,
@@ -4689,18 +4194,7 @@ func newContentServerDirectoryService(doer any, opts ...aoni.ClientOption) *cont
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IContentServerDirectoryService")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IContentServerDirectoryService")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IContentServerDirectoryService")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IContentServerDirectoryService")}, baseOpts...)...)
 
 	return &contentServerDirectoryServiceClient{
 		r: targetReq,
@@ -4840,18 +4334,7 @@ func newPublishedFileService(doer any, opts ...aoni.ClientOption) *publishedFile
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IPublishedFileService")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IPublishedFileService")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IPublishedFileService")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IPublishedFileService")}, baseOpts...)...)
 
 	return &publishedFileServiceClient{
 		r: targetReq,
@@ -5001,18 +4484,7 @@ func newEconService(doer any, opts ...aoni.ClientOption) *econServiceClient {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconService")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconService")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconService")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconService")}, baseOpts...)...)
 
 	return &econServiceClient{
 		r: targetReq,
@@ -5169,18 +4641,7 @@ func newGameNotificationsService(doer any, opts ...aoni.ClientOption) *gameNotif
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGameNotificationsService")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGameNotificationsService")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGameNotificationsService")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGameNotificationsService")}, baseOpts...)...)
 
 	return &gameNotificationsServiceClient{
 		r: targetReq,
@@ -5275,18 +4736,7 @@ func newInventoryService(doer any, opts ...aoni.ClientOption) *inventoryServiceC
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IInventoryService")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IInventoryService")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IInventoryService")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IInventoryService")}, baseOpts...)...)
 
 	return &inventoryServiceClient{
 		r: targetReq,
@@ -5380,18 +4830,7 @@ func newStoreService(doer any, opts ...aoni.ClientOption) *storeServiceClient {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IStoreService")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IStoreService")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IStoreService")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IStoreService")}, baseOpts...)...)
 
 	return &storeServiceClient{
 		r: targetReq,
@@ -5507,18 +4946,7 @@ func newHelpRequestLogsService(doer any, opts ...aoni.ClientOption) *helpRequest
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IHelpRequestLogsService")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IHelpRequestLogsService")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IHelpRequestLogsService")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IHelpRequestLogsService")}, baseOpts...)...)
 
 	return &helpRequestLogsServiceClient{
 		r: targetReq,
@@ -5589,18 +5017,7 @@ func newCheatReportingService(doer any, opts ...aoni.ClientOption) *cheatReporti
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ICheatReportingService")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ICheatReportingService")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ICheatReportingService")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ICheatReportingService")}, baseOpts...)...)
 
 	return &cheatReportingServiceClient{
 		r: targetReq,
@@ -5649,18 +5066,7 @@ func newWishlistService(doer any, opts ...aoni.ClientOption) *wishlistServiceCli
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IWishlistService")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IWishlistService")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IWishlistService")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IWishlistService")}, baseOpts...)...)
 
 	return &wishlistServiceClient{
 		r: targetReq,

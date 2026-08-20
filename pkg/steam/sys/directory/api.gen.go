@@ -32,24 +32,7 @@ func NewAPI(client service.Doer, opts ...aoni.ClientOption) (API, error) {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	if req, ok := any(client).(request.Requester); ok && len(opts) == 0 {
-		return &apiClient{
-			r: req,
-		}, nil
-	}
-
-	var targetReq request.Requester
-	if d, ok := any(client).(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamDirectory")}, baseOpts...)...))
-	} else if req, ok := any(client).(request.Requester); ok {
-		targetReq = req
-	} else if rd, ok := any(client).(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := any(client).(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		return nil, errors.New("aoni: unsupported requester interface")
-	}
+	targetReq := request.Configure(client, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamDirectory")}, baseOpts...)...)
 
 	return &apiClient{
 		r: targetReq,

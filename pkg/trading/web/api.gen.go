@@ -29,18 +29,7 @@ func newEconServiceAPI(doer any, opts ...aoni.ClientOption) *econServiceAPIClien
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/")}, baseOpts...)...)
 
 	return &econServiceAPIClient{
 		r: targetReq,
@@ -168,18 +157,7 @@ func newTradeCommunityAPI(doer any, opts ...aoni.ClientOption) *tradeCommunityAP
 	baseOpts = append(baseOpts, option.WithHeader("Origin", "https://steamcommunity.com"))
 	baseOpts = append(baseOpts, opts...)
 
-	var targetReq request.Requester
-	if d, ok := doer.(aoni.RequestDoer); ok {
-		targetReq = request.AsRequester(aoni.Configure(d, append([]aoni.ClientOption{option.WithBaseURL("https://steamcommunity.com/")}, baseOpts...)...))
-	} else if req, ok := doer.(request.Requester); ok {
-		targetReq = request.AsRequester(aoni.Configure(req, append([]aoni.ClientOption{option.WithBaseURL("https://steamcommunity.com/")}, baseOpts...)...))
-	} else if rd, ok := doer.(interface{ Rest() request.Requester }); ok && rd.Rest() != nil {
-		targetReq = rd.Rest()
-	} else if rd, ok := doer.(interface{ Requester() request.Requester }); ok && rd.Requester() != nil {
-		targetReq = rd.Requester()
-	} else {
-		targetReq = request.AsRequester(aoni.Configure(fast.NewClient(), append([]aoni.ClientOption{option.WithBaseURL("https://steamcommunity.com/")}, baseOpts...)...))
-	}
+	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://steamcommunity.com/")}, baseOpts...)...)
 
 	return &tradeCommunityAPIClient{
 		r: targetReq,
