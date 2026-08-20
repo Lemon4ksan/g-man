@@ -7,9 +7,13 @@ package socket
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -133,9 +137,12 @@ func New(cfg Config) *Socket {
 	}
 
 	dialer := func(ctx context.Context, endpoint CMServer, f socket.Framer, c socket.Cipher) (connector.Connection, error) {
-		t := endpoint.Type
-		if t == "" {
+		t := strings.ToLower(strings.TrimSpace(endpoint.Type))
+		switch t {
+		case "", "tcp", "netfilter":
 			t = "tcp"
+		case "websocket", "websockets", "ws", "wss":
+			t = "websocket"
 		}
 
 		d, ok := dialerMap[t]
@@ -203,14 +210,72 @@ func New(cfg Config) *Socket {
 	}
 
 	s.dispatch = dispatcher.New[enums.EMsg, uint64, *protocol.Packet](dispCfg, s.conn, extractor)
+	s.dispatch.RegisterHandler(enums.EMsg_Multi, s.handleMulti)
 
 	decode := func(data []byte) (*protocol.Packet, error) {
-		return protocol.ParsePacket(bytes.NewReader(data))
+		pkt, err := protocol.ParsePacket(bytes.NewReader(data))
+		if err != nil {
+			s.Logger().Error("Failed to parse packet", log.Err(err), log.Int("len", len(data)))
+			return nil, err
+		}
+		s.Logger().Debug("Decoded packet", log.Uint32("emsg", uint32(pkt.EMsg)), log.Bool("isProto", pkt.IsProto), log.Int("payloadLen", len(pkt.Payload)))
+		return pkt, nil
 	}
 
 	s.proc = processor.New[*protocol.Packet](cfg.Processor, s.conn.C(), s.dispatch, decode)
 
 	return s
+}
+
+func (s *Socket) handleMulti(packet *protocol.Packet) {
+	msg := &pb.CMsgMulti{}
+	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
+		s.Logger().Error("Failed to unmarshal CMsgMulti", log.Err(err))
+		return
+	}
+
+	payload := msg.GetMessageBody()
+	if msg.GetSizeUnzipped() > 0 {
+		gr, err := gzip.NewReader(bytes.NewReader(payload))
+		if err != nil {
+			s.Logger().Error("Failed to decompress multi payload", log.Err(err))
+			return
+		}
+		defer gr.Close()
+
+		unzipped, err := io.ReadAll(gr)
+		if err != nil {
+			s.Logger().Error("Failed to read decompressed multi payload", log.Err(err))
+			return
+		}
+		payload = unzipped
+	}
+
+	reader := bytes.NewReader(payload)
+	for reader.Len() > 0 {
+		var subSize uint32
+		if err := binary.Read(reader, binary.LittleEndian, &subSize); err != nil {
+			s.Logger().Error("Failed to read multi sub-packet size", log.Err(err))
+			return
+		}
+		if subSize == 0 {
+			continue
+		}
+
+		subData := make([]byte, subSize)
+		if _, err := io.ReadFull(reader, subData); err != nil {
+			s.Logger().Error("Failed to read multi sub-packet data", log.Err(err))
+			return
+		}
+
+		subPkt, err := protocol.ParsePacket(bytes.NewReader(subData))
+		if err != nil {
+			s.Logger().Error("Failed to parse multi sub-packet", log.Err(err))
+			continue
+		}
+
+		s.dispatch.Dispatch(subPkt)
+	}
 }
 
 // Connector returns the underlying connector instance.

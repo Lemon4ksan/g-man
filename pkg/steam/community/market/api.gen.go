@@ -85,7 +85,7 @@ func (c *apiClient) SellItem(ctx context.Context, appID uint32, contextID int64,
 	formBytes = strconv.AppendInt(formBytes, int64(price), 10)
 	formBytes = append(formBytes, "&steamid="...)
 	formBytes = append(formBytes, url.QueryEscape(fmt.Sprint(steamID))...)
-	if getter, ok := any(c.r).(interface{ SessionID(string) string }); ok {
+	if getter, ok := aoni.UnwrapAs[interface{ SessionID(string) string }](c.r); ok {
 		if val := getter.SessionID(""); val != "" {
 			if len(formBytes) > 0 {
 				formBytes = append(formBytes, "&sessionid="...)
@@ -94,7 +94,7 @@ func (c *apiClient) SellItem(ctx context.Context, appID uint32, contextID int64,
 			}
 			formBytes = append(formBytes, url.QueryEscape(val)...)
 		}
-	} else if getter, ok := any(c.r).(interface{ SessionID() string }); ok {
+	} else if getter, ok := aoni.UnwrapAs[interface{ SessionID() string }](c.r); ok {
 		if val := getter.SessionID(); val != "" {
 			if len(formBytes) > 0 {
 				formBytes = append(formBytes, "&sessionid="...)
@@ -148,7 +148,7 @@ func (c *apiClient) CreateBuyOrder(ctx context.Context, appID uint32, currency C
 	formBytes = append(formBytes, url.QueryEscape(billingState)...)
 	formBytes = append(formBytes, "&save_my_address="...)
 	formBytes = append(formBytes, url.QueryEscape(saveMyAddress)...)
-	if getter, ok := any(c.r).(interface{ SessionID(string) string }); ok {
+	if getter, ok := aoni.UnwrapAs[interface{ SessionID(string) string }](c.r); ok {
 		if val := getter.SessionID(""); val != "" {
 			if len(formBytes) > 0 {
 				formBytes = append(formBytes, "&sessionid="...)
@@ -157,7 +157,7 @@ func (c *apiClient) CreateBuyOrder(ctx context.Context, appID uint32, currency C
 			}
 			formBytes = append(formBytes, url.QueryEscape(val)...)
 		}
-	} else if getter, ok := any(c.r).(interface{ SessionID() string }); ok {
+	} else if getter, ok := aoni.UnwrapAs[interface{ SessionID() string }](c.r); ok {
 		if val := getter.SessionID(); val != "" {
 			if len(formBytes) > 0 {
 				formBytes = append(formBytes, "&sessionid="...)
@@ -192,7 +192,7 @@ func (c *apiClient) CancelBuyOrder(ctx context.Context, buyOrderID uint64, mods 
 	formBytes := formBuf[:0]
 	formBytes = append(formBytes, "buy_orderid="...)
 	formBytes = strconv.AppendUint(formBytes, uint64(buyOrderID), 10)
-	if getter, ok := any(c.r).(interface{ SessionID(string) string }); ok {
+	if getter, ok := aoni.UnwrapAs[interface{ SessionID(string) string }](c.r); ok {
 		if val := getter.SessionID(""); val != "" {
 			if len(formBytes) > 0 {
 				formBytes = append(formBytes, "&sessionid="...)
@@ -201,7 +201,7 @@ func (c *apiClient) CancelBuyOrder(ctx context.Context, buyOrderID uint64, mods 
 			}
 			formBytes = append(formBytes, url.QueryEscape(val)...)
 		}
-	} else if getter, ok := any(c.r).(interface{ SessionID() string }); ok {
+	} else if getter, ok := aoni.UnwrapAs[interface{ SessionID() string }](c.r); ok {
 		if val := getter.SessionID(); val != "" {
 			if len(formBytes) > 0 {
 				formBytes = append(formBytes, "&sessionid="...)
@@ -234,7 +234,7 @@ func (c *apiClient) RemoveListing(ctx context.Context, listingID uint64, mods ..
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
 	var formBuf [64]byte
 	formBytes := formBuf[:0]
-	if getter, ok := any(c.r).(interface{ SessionID(string) string }); ok {
+	if getter, ok := aoni.UnwrapAs[interface{ SessionID(string) string }](c.r); ok {
 		if val := getter.SessionID(""); val != "" {
 			if len(formBytes) > 0 {
 				formBytes = append(formBytes, "&sessionid="...)
@@ -243,7 +243,7 @@ func (c *apiClient) RemoveListing(ctx context.Context, listingID uint64, mods ..
 			}
 			formBytes = append(formBytes, url.QueryEscape(val)...)
 		}
-	} else if getter, ok := any(c.r).(interface{ SessionID() string }); ok {
+	} else if getter, ok := aoni.UnwrapAs[interface{ SessionID() string }](c.r); ok {
 		if val := getter.SessionID(); val != "" {
 			if len(formBytes) > 0 {
 				formBytes = append(formBytes, "&sessionid="...)
@@ -465,7 +465,7 @@ func (c *apiClient) GrindIntoGoo(ctx context.Context, appID uint32, contextID in
 	formBytes = strconv.AppendUint(formBytes, uint64(assetID), 10)
 	formBytes = append(formBytes, "&goo_value_expected="...)
 	formBytes = strconv.AppendInt(formBytes, int64(gooValueExpected), 10)
-	if getter, ok := any(c.r).(interface{ SessionID(string) string }); ok {
+	if getter, ok := aoni.UnwrapAs[interface{ SessionID(string) string }](c.r); ok {
 		if val := getter.SessionID(""); val != "" {
 			if len(formBytes) > 0 {
 				formBytes = append(formBytes, "&sessionid="...)
@@ -474,7 +474,7 @@ func (c *apiClient) GrindIntoGoo(ctx context.Context, appID uint32, contextID in
 			}
 			formBytes = append(formBytes, url.QueryEscape(val)...)
 		}
-	} else if getter, ok := any(c.r).(interface{ SessionID() string }); ok {
+	} else if getter, ok := aoni.UnwrapAs[interface{ SessionID() string }](c.r); ok {
 		if val := getter.SessionID(); val != "" {
 			if len(formBytes) > 0 {
 				formBytes = append(formBytes, "&sessionid="...)
@@ -511,7 +511,7 @@ func (c *apiClient) UnpackBooster(ctx context.Context, appID uint32, communityIt
 	formBytes = strconv.AppendUint(formBytes, uint64(appID), 10)
 	formBytes = append(formBytes, "&communityitemid="...)
 	formBytes = strconv.AppendUint(formBytes, uint64(communityItemID), 10)
-	if getter, ok := any(c.r).(interface{ SessionID(string) string }); ok {
+	if getter, ok := aoni.UnwrapAs[interface{ SessionID(string) string }](c.r); ok {
 		if val := getter.SessionID(""); val != "" {
 			if len(formBytes) > 0 {
 				formBytes = append(formBytes, "&sessionid="...)
@@ -520,7 +520,7 @@ func (c *apiClient) UnpackBooster(ctx context.Context, appID uint32, communityIt
 			}
 			formBytes = append(formBytes, url.QueryEscape(val)...)
 		}
-	} else if getter, ok := any(c.r).(interface{ SessionID() string }); ok {
+	} else if getter, ok := aoni.UnwrapAs[interface{ SessionID() string }](c.r); ok {
 		if val := getter.SessionID(); val != "" {
 			if len(formBytes) > 0 {
 				formBytes = append(formBytes, "&sessionid="...)
@@ -575,7 +575,7 @@ func (c *apiClient) CreateBooster(ctx context.Context, appID uint32, series int,
 	formBytes = strconv.AppendInt(formBytes, int64(series), 10)
 	formBytes = append(formBytes, "&tradability_preference="...)
 	formBytes = strconv.AppendInt(formBytes, int64(tradabilityPreference), 10)
-	if getter, ok := any(c.r).(interface{ SessionID(string) string }); ok {
+	if getter, ok := aoni.UnwrapAs[interface{ SessionID(string) string }](c.r); ok {
 		if val := getter.SessionID(""); val != "" {
 			if len(formBytes) > 0 {
 				formBytes = append(formBytes, "&sessionid="...)
@@ -584,7 +584,7 @@ func (c *apiClient) CreateBooster(ctx context.Context, appID uint32, series int,
 			}
 			formBytes = append(formBytes, url.QueryEscape(val)...)
 		}
-	} else if getter, ok := any(c.r).(interface{ SessionID() string }); ok {
+	} else if getter, ok := aoni.UnwrapAs[interface{ SessionID() string }](c.r); ok {
 		if val := getter.SessionID(); val != "" {
 			if len(formBytes) > 0 {
 				formBytes = append(formBytes, "&sessionid="...)
@@ -617,7 +617,7 @@ func (c *apiClient) ValidateUnpackGift(ctx context.Context, giftID uint64, mods 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
 	var formBuf [64]byte
 	formBytes := formBuf[:0]
-	if getter, ok := any(c.r).(interface{ SessionID(string) string }); ok {
+	if getter, ok := aoni.UnwrapAs[interface{ SessionID(string) string }](c.r); ok {
 		if val := getter.SessionID(""); val != "" {
 			if len(formBytes) > 0 {
 				formBytes = append(formBytes, "&sessionid="...)
@@ -626,7 +626,7 @@ func (c *apiClient) ValidateUnpackGift(ctx context.Context, giftID uint64, mods 
 			}
 			formBytes = append(formBytes, url.QueryEscape(val)...)
 		}
-	} else if getter, ok := any(c.r).(interface{ SessionID() string }); ok {
+	} else if getter, ok := aoni.UnwrapAs[interface{ SessionID() string }](c.r); ok {
 		if val := getter.SessionID(); val != "" {
 			if len(formBytes) > 0 {
 				formBytes = append(formBytes, "&sessionid="...)
@@ -660,7 +660,7 @@ func (c *apiClient) UnpackGift(ctx context.Context, giftID uint64, mods ...aoni.
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
 	var formBuf [64]byte
 	formBytes := formBuf[:0]
-	if getter, ok := any(c.r).(interface{ SessionID(string) string }); ok {
+	if getter, ok := aoni.UnwrapAs[interface{ SessionID(string) string }](c.r); ok {
 		if val := getter.SessionID(""); val != "" {
 			if len(formBytes) > 0 {
 				formBytes = append(formBytes, "&sessionid="...)
@@ -669,7 +669,7 @@ func (c *apiClient) UnpackGift(ctx context.Context, giftID uint64, mods ...aoni.
 			}
 			formBytes = append(formBytes, url.QueryEscape(val)...)
 		}
-	} else if getter, ok := any(c.r).(interface{ SessionID() string }); ok {
+	} else if getter, ok := aoni.UnwrapAs[interface{ SessionID() string }](c.r); ok {
 		if val := getter.SessionID(); val != "" {
 			if len(formBytes) > 0 {
 				formBytes = append(formBytes, "&sessionid="...)
@@ -715,7 +715,7 @@ func (c *apiClient) ExchangeGoo(ctx context.Context, appID uint32, assetID uint6
 	formBytes = strconv.AppendInt(formBytes, int64(gooDenomOut), 10)
 	formBytes = append(formBytes, "&goo_amount_out_expected="...)
 	formBytes = strconv.AppendInt(formBytes, int64(gooAmountOutExpected), 10)
-	if getter, ok := any(c.r).(interface{ SessionID(string) string }); ok {
+	if getter, ok := aoni.UnwrapAs[interface{ SessionID(string) string }](c.r); ok {
 		if val := getter.SessionID(""); val != "" {
 			if len(formBytes) > 0 {
 				formBytes = append(formBytes, "&sessionid="...)
@@ -724,7 +724,7 @@ func (c *apiClient) ExchangeGoo(ctx context.Context, appID uint32, assetID uint6
 			}
 			formBytes = append(formBytes, url.QueryEscape(val)...)
 		}
-	} else if getter, ok := any(c.r).(interface{ SessionID() string }); ok {
+	} else if getter, ok := aoni.UnwrapAs[interface{ SessionID() string }](c.r); ok {
 		if val := getter.SessionID(); val != "" {
 			if len(formBytes) > 0 {
 				formBytes = append(formBytes, "&sessionid="...)

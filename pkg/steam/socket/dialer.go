@@ -101,40 +101,48 @@ func DefaultDialers() map[string]Dialer {
 
 // NewDialers initializes TCP and WebSocket dialers configured with an optional proxy URL.
 func NewDialers(proxyURL string) map[string]Dialer {
+	wsDialer := func(ctx context.Context, endpoint CMServer, _ socket.Framer, _ socket.Cipher) (connector.Connection, error) {
+		wsConn, err := network.NewWS(ctx, log.New(log.DefaultConfig(log.LevelDebug)), endpoint.Endpoint, proxyURL, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		return &legacyConnAdapter{conn: wsConn}, nil
+	}
+
+	tcpDialer := func(ctx context.Context, endpoint CMServer, framer socket.Framer, cipher socket.Cipher) (connector.Connection, error) {
+		var (
+			conn net.Conn
+			err  error
+		)
+
+		if proxyURL != "" {
+			conn, err = network.NewProxyConn(ctx, proxyURL, endpoint.Endpoint)
+		} else {
+			var d net.Dialer
+			conn, err = d.DialContext(ctx, netdial.NetworkTCP.String(), endpoint.Endpoint)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("tcp dial: %w", err)
+		}
+
+		if framer == nil {
+			framer = socket.NewLengthPrefixedFramer(socket.LengthPrefixedConfig{
+				ByteOrder: binary.LittleEndian,
+				Magic:     []byte("VT01"),
+				MaxLength: 10 * 1024 * 1024,
+			})
+		}
+
+		return connector.NewNetConnWrapper(conn, framer, cipher), nil
+	}
+
 	return map[string]Dialer{
-		"tcp": func(ctx context.Context, endpoint CMServer, framer socket.Framer, cipher socket.Cipher) (connector.Connection, error) {
-			var (
-				conn net.Conn
-				err  error
-			)
-
-			if proxyURL != "" {
-				conn, err = network.NewProxyConn(ctx, proxyURL, endpoint.Endpoint)
-			} else {
-				var d net.Dialer
-				conn, err = d.DialContext(ctx, netdial.NetworkTCP.String(), endpoint.Endpoint)
-			}
-			if err != nil {
-				return nil, fmt.Errorf("tcp dial: %w", err)
-			}
-
-			if framer == nil {
-				framer = socket.NewLengthPrefixedFramer(socket.LengthPrefixedConfig{
-					ByteOrder: binary.LittleEndian,
-					Magic:     []byte("VT01"),
-					MaxLength: 10 * 1024 * 1024,
-				})
-			}
-
-			return connector.NewNetConnWrapper(conn, framer, cipher), nil
-		},
-		"websocket": func(ctx context.Context, endpoint CMServer, _ socket.Framer, _ socket.Cipher) (connector.Connection, error) {
-			wsConn, err := network.NewWS(ctx, log.Discard, endpoint.Endpoint, proxyURL, nil)
-			if err != nil {
-				return nil, err
-			}
-
-			return &legacyConnAdapter{conn: wsConn}, nil
-		},
+		"tcp":        tcpDialer,
+		"netfilter":  tcpDialer,
+		"websocket":  wsDialer,
+		"websockets": wsDialer,
+		"ws":         wsDialer,
+		"wss":        wsDialer,
 	}
 }

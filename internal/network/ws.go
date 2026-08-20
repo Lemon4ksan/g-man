@@ -89,6 +89,10 @@ func NewWSWithClient(
 		u.Scheme = "wss"
 	}
 
+	if u.Path == "" || u.Path == "/" {
+		u.Path = "/cmsocket/"
+	}
+
 	if proxyURL != "" {
 		if _, err := url.Parse(proxyURL); err != nil {
 			return nil, NewError(OpProxy, ConnTypeWS, err)
@@ -103,9 +107,13 @@ func NewWSWithClient(
 		dialerClient = NewClient(nil, opts...)
 	}
 
-	reqMods := make([]aoni.RequestModifier, 0, len(headers)+1)
+	reqMods := make([]aoni.RequestModifier, 0, len(headers)+2)
 	if proxyURL != "" {
 		reqMods = append(reqMods, mod.WithProxyOverride(proxyURL))
+	}
+
+	if headers == nil || headers.Get("Origin") == "" {
+		reqMods = append(reqMods, mod.WithHeader("Origin", "https://steamcommunity.com"))
 	}
 
 	for k, vv := range headers {
@@ -184,8 +192,11 @@ func (w *WS) Send(ctx context.Context, data []byte) error {
 	}
 
 	if err := w.conn.WriteMessage(ws.FrameBinary, data); err != nil {
+		w.logger.Error("WS write message failed", log.Err(err))
 		return NewError(OpSend, ConnTypeWS, err)
 	}
+
+	w.logger.Debug("WS wrote message to socket", log.Int("bytes", len(data)))
 
 	return nil
 }
@@ -222,12 +233,15 @@ func (w *WS) readLoop() {
 	for {
 		msgType, payload, err := w.conn.ReadMessage()
 		if err != nil {
+			w.logger.Debug("WS ReadMessage returned error", log.Err(err))
 			select {
 			case w.errChan <- NewError(OpRead, ConnTypeWS, err):
 			default:
 			}
 			return
 		}
+
+		w.logger.Debug("WS ReadMessage received frame", log.Int("msgType", msgType), log.Int("bytes", len(payload)))
 
 		if msgType != ws.FrameBinary {
 			continue

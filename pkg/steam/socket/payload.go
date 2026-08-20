@@ -119,9 +119,24 @@ func Unified(method string, req proto.Message) PayloadBuilder {
 	}
 }
 
-// Raw builds a packet with Extended headers.
+// Raw builds a packet with Standard or Extended headers depending on the EMsg opcode.
 func Raw(eMsg enums.EMsg, payload []byte) PayloadBuilder {
 	return func(sess SessionReader, buf *bytes.Buffer, sourceJobID uint64, _ string) error {
+		if eMsg == enums.EMsg_ChannelEncryptRequest ||
+			eMsg == enums.EMsg_ChannelEncryptResponse ||
+			eMsg == enums.EMsg_ChannelEncryptResult {
+			hdr := protocol.NewMsgHdr(eMsg, protocol.NoJob)
+			hdr.SourceJobID = sourceJobID
+
+			if err := hdr.SerializeTo(buf); err != nil {
+				return fmt.Errorf("serialize standard header: %w", err)
+			}
+
+			buf.Write(payload)
+
+			return nil
+		}
+
 		var (
 			steamID   uint64
 			sessionID int32

@@ -602,6 +602,11 @@ func (c *Client) Close() error {
 	return c.closeErr
 }
 
+// Unwrap returns the underlying REST requester.
+func (c *Client) Unwrap() any {
+	return c.rest
+}
+
 // Wait blocks until client shutdown is complete.
 func (c *Client) Wait() {
 	<-c.closed

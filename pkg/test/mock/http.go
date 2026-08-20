@@ -99,8 +99,28 @@ func (s *HTTPStub) Do(req *http.Request) (*http.Response, error) {
 			matchErrKey = qUnescaped
 		} else if _, exists := s.ResponseErrs[path]; exists {
 			matchErrKey = path
-		} else if _, exists := s.ResponseErrs[""]; exists {
-			matchErrKey = ""
+		} else {
+			for k, err := range s.ResponseErrs {
+				if err == nil {
+					continue
+				}
+				if strings.Contains(k, "{") {
+					prefix, _, _ := strings.Cut(k, "{")
+					suffix := k[strings.LastIndex(k, "}")+1:]
+					if strings.Contains(rawURL, strings.Trim(prefix, "/")) && strings.HasSuffix(rawURL, suffix) {
+						matchErrKey = k
+						break
+					}
+				} else if k != "" && (strings.Contains(rawURL, k) || strings.Contains(path, k)) {
+					matchErrKey = k
+					break
+				}
+			}
+			if _, exists := s.ResponseErrs[matchErrKey]; !exists {
+				if _, exists := s.ResponseErrs[""]; exists {
+					matchErrKey = ""
+				}
+			}
 		}
 	}
 
@@ -122,8 +142,25 @@ func (s *HTTPStub) Do(req *http.Request) (*http.Response, error) {
 			matchKey = qUnescaped
 		} else if _, exists := s.responses[path]; exists {
 			matchKey = path
-		} else if _, exists := s.responses[""]; exists {
-			matchKey = ""
+		} else {
+			for k := range s.responses {
+				if strings.Contains(k, "{") {
+					prefix, _, _ := strings.Cut(k, "{")
+					suffix := k[strings.LastIndex(k, "}")+1:]
+					if strings.Contains(rawURL, strings.Trim(prefix, "/")) && strings.HasSuffix(rawURL, suffix) {
+						matchKey = k
+						break
+					}
+				} else if k != "" && (strings.Contains(rawURL, k) || strings.Contains(path, k)) {
+					matchKey = k
+					break
+				}
+			}
+			if _, exists := s.responses[matchKey]; !exists {
+				if _, exists := s.responses[""]; exists {
+					matchKey = ""
+				}
+			}
 		}
 	}
 

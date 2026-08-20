@@ -103,7 +103,7 @@ func TestGetUserInventoryContents_VariousResponses_ReturnsExpectedContents(t *te
 					MoreItems: false,
 				}
 				m.OnRest = func(method, path string, body any) (*http.Response, error) {
-					assert.Equal(t, "inventory/{steamID}/{appID}/{contextID}", path)
+					assert.Contains(t, path, "inventory/76561198000000000/730/2")
 
 					return &http.Response{
 						StatusCode: http.StatusOK,
@@ -338,7 +338,7 @@ func TestGetUserInventoryContexts_VariousResponses_ReturnsExpectedContexts(t *te
 					};
 				`
 				m.OnRest = func(method, path string, body any) (*http.Response, error) {
-					assert.Equal(t, "profiles/{userID}/inventory", path)
+					assert.Contains(t, path, "profiles/76561198000000000/inventory")
 
 					return &http.Response{
 						StatusCode: http.StatusOK,

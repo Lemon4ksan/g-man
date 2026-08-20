@@ -299,15 +299,21 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 	a.loginCancel.Store(cancel)
 	a.activeDetails.Store(details)
 
+	a.getLogger().Debug("Connecting to CM server...", log.String("endpoint", server.Endpoint), log.String("type", server.Type))
+
 	if err := a.socket.Connect(loginCtx, server); err != nil {
 		return fmt.Errorf("cm connection failed: %w", err)
 	}
 
+	a.getLogger().Debug("Connected to CM server, configuring session...", log.String("endpoint", server.Endpoint))
+
 	a.configureSession(details)
 
-	if server.Type == "websockets" {
+	if isWebSocketServer(server.Type) {
 		a.getLogger().Debug("WebSocket detected, starting logon sequence immediately")
 		a.sendLogOn(loginCtx, details)
+	} else {
+		a.getLogger().Debug("TCP connection established, waiting for ChannelEncryptRequest from server...")
 	}
 
 	return a.waitForLogOn(loginCtx, resultChan, details.AccountName)
@@ -340,11 +346,16 @@ func (a *Authenticator) LogOnAnonymous(ctx context.Context, server socket.CMServ
 		return fmt.Errorf("cm connection failed: %w", err)
 	}
 
-	if server.Type == "websockets" {
+	if isWebSocketServer(server.Type) {
 		a.sendLogOn(loginCtx, anonDetails)
 	}
 
 	return a.waitForLogOn(loginCtx, resultChan, "")
+}
+
+func isWebSocketServer(t string) bool {
+	t = strings.ToLower(strings.TrimSpace(t))
+	return t == "websockets" || t == "websocket" || t == "ws" || t == "wss"
 }
 
 func (a *Authenticator) ensureTerminalState() {

@@ -30,7 +30,7 @@ var (
 )
 
 func (a *Authenticator) handleChannelEncryptRequest(packet *protocol.Packet) {
-	a.getLogger().Debug("Received ChannelEncryptRequest", log.Int("size", len(packet.Payload)))
+	a.getLogger().Debug("Received ChannelEncryptRequest from server", log.Int("size", len(packet.Payload)))
 
 	r := bytes.NewReader(packet.Payload)
 
@@ -66,7 +66,7 @@ func (a *Authenticator) handleChannelEncryptRequest(packet *protocol.Packet) {
 	_ = binary.Write(resp, binary.LittleEndian, crc32.ChecksumIEEE(encryptedKey))
 	_ = binary.Write(resp, binary.LittleEndian, uint32(0))
 
-	a.getLogger().Debug("Sending ChannelEncryptResponse", log.Int("key_size", len(encryptedKey)))
+	a.getLogger().Debug("Sending ChannelEncryptResponse to server", log.Int("key_size", len(encryptedKey)))
 
 	if err := a.socket.SendRaw(context.Background(), enums.EMsg_ChannelEncryptResponse, resp.Bytes()); err != nil {
 		a.failLogin(fmt.Errorf("encrypt_request: failed to send response: %w", err))
@@ -176,6 +176,8 @@ func (a *Authenticator) handleLoggedOff(packet *protocol.Packet) {
 }
 
 func (a *Authenticator) sendLogOn(ctx context.Context, details *LogOnDetails) {
+	a.getLogger().Debug("Sending ClientLogon to CM server...", log.String("account", details.AccountName))
+
 	logon := &pb.CMsgClientLogon{
 		ProtocolVersion:           proto.Uint32(details.ProtocolVersion),
 		ClientOsType:              proto.Uint32(details.ClientOSType),
