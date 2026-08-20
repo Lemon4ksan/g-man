@@ -16,9 +16,9 @@ import (
 	json "github.com/goccy/go-json"
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/codec/decode"
-	"github.com/lemon4ksan/aoni/fast"
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/option"
+	"github.com/lemon4ksan/aoni/request"
 
 	"github.com/lemon4ksan/foundation/silicon/bytesconv"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
@@ -41,10 +41,8 @@ type HTTPMetadata struct {
 
 // HTTPTransport executes transport requests over HTTPS WebAPI using standard or fast.Client engines.
 type HTTPTransport struct {
-	client     *aoni.Client
-	fastClient *fast.Client
-	doer       aoni.HTTPDoer
-	baseURL    string
+	doer    aoni.RequestDoer
+	baseURL string
 }
 
 type HTTPTarget interface {
@@ -55,76 +53,17 @@ type HTTPTarget interface {
 
 // NewHTTPTransport constructs an HTTPTransport instance.
 func NewHTTPTransport(doer any, baseURL string) *HTTPTransport {
-	tr := &HTTPTransport{
+	configured := aoni.Configure(doer,
+		option.WithBaseURL(baseURL),
+		option.WithUserAgent(HTTPUserAgent),
+		option.WithDecoder("application/json", GoJSONDecoder),
+		option.WithDecoder("text/javascript", GoJSONDecoder),
+	)
+
+	return &HTTPTransport{
+		doer:    configured,
 		baseURL: baseURL,
 	}
-
-	decoderOpt := option.WithDecoder("application/json", GoJSONDecoder)
-
-	if doer == nil {
-		tr.fastClient = fast.NewClient(
-			option.WithBaseURL(baseURL),
-			option.WithUserAgent(HTTPUserAgent),
-			decoderOpt,
-		)
-		return tr
-	}
-
-	if fc, ok := doer.(*fast.Client); ok {
-		tr.fastClient = fc.With(
-			option.WithBaseURL(baseURL),
-			option.WithUserAgent(HTTPUserAgent),
-			decoderOpt,
-		)
-		return tr
-	}
-
-	if ac, ok := doer.(*aoni.Client); ok {
-		tr.client = ac.With(
-			option.WithBaseURL(baseURL),
-			option.WithUserAgent(HTTPUserAgent),
-			decoderOpt,
-		)
-		return tr
-	}
-
-	if hd, ok := doer.(aoni.HTTPDoer); ok {
-		tr.doer = hd
-		tr.client = aoni.NewClient(
-			hd,
-			option.WithBaseURL(baseURL),
-			option.WithUserAgent(HTTPUserAgent),
-			decoderOpt,
-		)
-
-		return tr
-	}
-
-	if rd, ok := doer.(aoni.RequestDoer); ok {
-		tr.client = aoni.NewClient(
-			aoni.NewRequestDoerAdapter(rd),
-			option.WithBaseURL(baseURL),
-			option.WithUserAgent(HTTPUserAgent),
-			decoderOpt,
-		)
-
-		return tr
-	}
-
-	return tr
-}
-
-type fastUnsafeReadCloser struct {
-	*bytes.Reader
-	resp aoni.Response
-}
-
-func (f *fastUnsafeReadCloser) Close() error {
-	if f.resp != nil {
-		return f.resp.Close()
-	}
-
-	return nil
 }
 
 func (t *HTTPTransport) Do(ctx context.Context, req *Request) (*Response, error) {
@@ -146,74 +85,37 @@ func (t *HTTPTransport) Do(ctx context.Context, req *Request) (*Response, error)
 		params.Set("input_protobuf_encoded", bytesconv.B2S(encBuf))
 	}
 
-	if t.fastClient != nil {
-		fastReq := fast.NewRequest(nil)
-		defer fastReq.Release()
-
-		fastReq.SetContext(ctx)
-		fastReq.SetMethod(target.HTTPMethod())
-		fastReq.SetURL(t.baseURL + target.HTTPPath())
-
-		if len(params) > 0 {
-			fastReq.SetRawQuery(params.Encode())
-		}
-
+	mods := make([]aoni.RequestModifier, 0, len(req.Modifiers())+2)
+	if len(params) > 0 {
+		mods = append(mods, mod.WithQuery(params))
+	}
+	mods = append(mods, mod.Custom(func(r aoni.Request) {
 		for key, values := range req.Header() {
 			for _, val := range values {
-				fastReq.AddHeader(key, val)
+				r.AddHeader(key, val)
 			}
 		}
-
-		fastReq.SetHeader("Accept", "text/html,*/*;q=0.9")
-
-		for _, m := range req.Modifiers() {
-			m.Apply(fastReq)
+		if r.Header("User-Agent") == "" {
+			r.SetHeader("User-Agent", HTTPUserAgent)
 		}
+		r.SetHeader("Accept", "text/html,*/*;q=0.9")
+	}))
+	mods = append(mods, req.Modifiers()...)
 
-		resp, err := t.fastClient.Do(fastReq)
-		if err != nil {
-			return nil, err
-		}
-
-		var bodyRC io.ReadCloser
-		if unsafeResp, ok := resp.(interface{ UnsafeBodyBytes() []byte }); ok {
-			bodyRC = &fastUnsafeReadCloser{
-				Reader: bytes.NewReader(unsafeResp.UnsafeBodyBytes()),
-				resp:   resp,
-			}
-		} else {
-			bodyRC = resp.BodyStream()
-		}
-
-		return NewResponse(bodyRC, HTTPMetadata{
-			Result:     t.parseEResult(resp),
-			Header:     http.Header(resp.Headers()),
-			StatusCode: resp.StatusCode(),
-		}), nil
-	}
-
-	mods := append([]aoni.RequestModifier{
-		mod.WithQuery(params),
-		mod.Custom(func(r aoni.Request) {
-			for key, values := range req.Header() {
-				for _, val := range values {
-					r.AddHeader(key, val)
-				}
-			}
-
-			r.SetHeader("Accept", "text/html,*/*;q=0.9")
-		}),
-	}, req.Modifiers()...)
-
-	resp, err := t.client.Request(ctx, target.HTTPMethod(), target.HTTPPath(), mods...) //nolint:bodyclose
+	resp, err := request.DoFast(ctx, t.doer, target.HTTPMethod(), target.HTTPPath(), nil, mods...)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewResponse(resp.Body, HTTPMetadata{
+	var bodyRC io.ReadCloser
+	if resp != nil {
+		bodyRC = resp.BodyStream()
+	}
+
+	return NewResponse(bodyRC, HTTPMetadata{
 		Result:     t.parseEResult(resp),
-		Header:     resp.Header,
-		StatusCode: resp.StatusCode,
+		Header:     http.Header(resp.Headers()),
+		StatusCode: resp.StatusCode(),
 	}), nil
 }
 

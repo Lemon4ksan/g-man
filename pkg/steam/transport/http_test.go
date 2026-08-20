@@ -198,8 +198,9 @@ func TestHTTPTransportDo_VariousRequests_ExecutesExpectedRESTCalls(t *testing.T)
 
 		resp, err := tr.Do(t.Context(), req)
 		if err != nil {
-			assert.Contains(t, err.Error(), "failed to read response")
+			assert.Contains(t, err.Error(), "read failure")
 		} else {
+			require.NotNil(t, resp)
 			_, readErr := io.ReadAll(resp.Body)
 			assert.Error(t, readErr)
 			assert.Contains(t, readErr.Error(), "read failure")
