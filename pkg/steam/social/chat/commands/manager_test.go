@@ -16,8 +16,8 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/lemon4ksan/miyako/bus"
-	"github.com/lemon4ksan/miyako/log"
+	"github.com/lemon4ksan/foundation/async/event"
+	"github.com/lemon4ksan/foundation/async/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -41,7 +41,7 @@ type dummyModule struct {
 }
 
 type dummyEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 }
 
 func populateMockFriends(friendsMgr *friends.Manager, friendID id.ID, name string) {

@@ -19,8 +19,8 @@ import (
 	"github.com/lemon4ksan/aoni/realtime/socket/connector"
 	"github.com/lemon4ksan/aoni/realtime/socket/dispatcher"
 	"github.com/lemon4ksan/aoni/realtime/socket/processor"
-	"github.com/lemon4ksan/miyako/generic"
-	"github.com/lemon4ksan/miyako/log"
+	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/generic"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/lemon4ksan/g-man/internal/framer"
@@ -129,7 +129,7 @@ func New(cfg Config) *Socket {
 
 	dialerMap := cfg.Connector.Dialers
 	if len(dialerMap) == 0 {
-		dialerMap = DefaultDialers()
+		dialerMap = NewDialers(cfg.Connector.ProxyURL)
 	}
 
 	dialer := func(ctx context.Context, endpoint CMServer, f socket.Framer, c socket.Cipher) (connector.Connection, error) {

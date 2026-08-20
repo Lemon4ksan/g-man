@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lemon4ksan/miyako/bus"
-	"github.com/lemon4ksan/miyako/generic"
-	"github.com/lemon4ksan/miyako/log"
+	"github.com/lemon4ksan/foundation/async/event"
+	"github.com/lemon4ksan/foundation/generic"
+	"github.com/lemon4ksan/foundation/async/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
@@ -58,7 +58,7 @@ func TestManager_Run(t *testing.T) {
 	t.Run("auto_accept_registration", func(t *testing.T) {
 		t.Parallel()
 
-		bBus := bus.New()
+		bBus := event.New()
 		logger := log.Discard
 		orch := behavior.NewOrchestrator(bBus, logger)
 		provider := new(mockGuardianProvider)
@@ -74,7 +74,7 @@ func TestManager_Run(t *testing.T) {
 		t.Parallel()
 
 		provider := new(mockGuardianProvider)
-		eventBus := bus.New()
+		eventBus := event.New()
 		cfg := Config{
 			AutoAcceptTypes: generic.NewSet(guard.ConfTypeTrade),
 			PollOnStart:     true,
@@ -102,7 +102,7 @@ func TestManager_Run(t *testing.T) {
 		t.Parallel()
 
 		provider := new(mockGuardianProvider)
-		eventBus := bus.New()
+		eventBus := event.New()
 		cfg := Config{
 			AutoAcceptTypes: generic.NewSet(guard.ConfTypeLogin),
 		}
@@ -144,7 +144,7 @@ func TestManager_Run(t *testing.T) {
 		t.Parallel()
 
 		provider := new(mockGuardianProvider)
-		eventBus := bus.New()
+		eventBus := event.New()
 		cfg := Config{
 			AutoAcceptTypes: generic.NewSet(guard.ConfTypeTrade),
 		}
@@ -186,7 +186,7 @@ func TestManager_Run(t *testing.T) {
 		t.Parallel()
 
 		provider := new(mockGuardianProvider)
-		eventBus := bus.New()
+		eventBus := event.New()
 		cfg := Config{
 			AutoAcceptTypes: generic.NewSet(guard.ConfTypeMarket),
 		}
@@ -232,7 +232,7 @@ func TestManager_Run(t *testing.T) {
 		t.Parallel()
 
 		provider := new(mockGuardianProvider)
-		eventBus := bus.New()
+		eventBus := event.New()
 		cfg := Config{PollOnStart: true}
 
 		provider.On("FetchConfirmations", mock.Anything).Return([]*guard.Confirmation{}, nil).Once()
@@ -251,7 +251,7 @@ func TestManager_Run(t *testing.T) {
 		t.Parallel()
 
 		provider := new(mockGuardianProvider)
-		eventBus := bus.New()
+		eventBus := event.New()
 		cfg := Config{PollOnStart: true}
 
 		provider.On("FetchConfirmations", mock.Anything).Return(nil, errors.New("network error")).Once()
@@ -270,7 +270,7 @@ func TestManager_Run(t *testing.T) {
 		t.Parallel()
 
 		provider := new(mockGuardianProvider)
-		eventBus := bus.New()
+		eventBus := event.New()
 		cfg := Config{
 			AutoAcceptTypes: generic.NewSet(guard.ConfTypeTrade),
 			PollOnStart:     true,
@@ -294,7 +294,7 @@ func TestManager_Run(t *testing.T) {
 		t.Parallel()
 
 		provider := new(mockGuardianProvider)
-		eventBus := bus.New()
+		eventBus := event.New()
 		m := New(provider, log.Discard, eventBus, Config{})
 
 		ctx, cancel := context.WithCancel(t.Context())
@@ -318,7 +318,7 @@ func TestManager_Run(t *testing.T) {
 		t.Parallel()
 
 		provider := new(mockGuardianProvider)
-		eventBus := bus.New()
+		eventBus := event.New()
 		cfg := Config{
 			AutoAcceptTypes: generic.NewSet(guard.ConfTypeTrade),
 		}

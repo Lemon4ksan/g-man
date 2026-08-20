@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lemon4ksan/miyako/bus"
-	"github.com/lemon4ksan/miyako/log"
+	"github.com/lemon4ksan/foundation/async/event"
+	"github.com/lemon4ksan/foundation/async/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -146,7 +146,7 @@ func newTestFixture(t *testing.T, eng *engine.Engine) *testFixture {
 	schema := &mockSchemaProvider{}
 	reviewer := review.New(schema, reviewChat, logger)
 
-	proc := New(ex, eng, notifMgr, reviewer, bus.New(), logger)
+	proc := New(ex, eng, notifMgr, reviewer, event.New(), logger)
 
 	return &testFixture{
 		proc:       proc,

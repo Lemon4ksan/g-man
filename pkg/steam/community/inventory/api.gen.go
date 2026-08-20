@@ -143,7 +143,6 @@ func (c *apiClient) GetInventoryHistoryHTML(ctx context.Context, steamID id.ID, 
 	return io.ReadAll(resp.Body)
 }
 
-// AppendFormData serializes GetInventoryPageRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *GetInventoryPageRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -174,12 +173,10 @@ func (r *GetInventoryPageRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes GetInventoryPageRequest into query string bytes on dst buffer (0 B/op).
 func (r *GetInventoryPageRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes GetInventoryPageRequest into url.Values without reflection.
 func (r *GetInventoryPageRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -195,7 +192,6 @@ func (r *GetInventoryPageRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes InventoryHistoryParams into url-encoded form bytes on dst buffer (0 B/op).
 func (r *InventoryHistoryParams) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -233,12 +229,10 @@ func (r *InventoryHistoryParams) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes InventoryHistoryParams into query string bytes on dst buffer (0 B/op).
 func (r *InventoryHistoryParams) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes InventoryHistoryParams into url.Values without reflection.
 func (r *InventoryHistoryParams) EncodeValues(vals url.Values) {
 	if r == nil {
 		return

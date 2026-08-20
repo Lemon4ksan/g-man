@@ -16,9 +16,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lemon4ksan/miyako/log"
-	"github.com/lemon4ksan/miyako/sync/limiter"
-	"golang.org/x/time/rate"
+	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/sync/limiter"
+	"github.com/lemon4ksan/foundation/async/rate"
 
 	"github.com/lemon4ksan/g-man/pkg/command"
 	"github.com/lemon4ksan/g-man/pkg/steam/client"

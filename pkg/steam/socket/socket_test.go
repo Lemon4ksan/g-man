@@ -15,7 +15,7 @@ import (
 
 	aoni_socket "github.com/lemon4ksan/aoni/realtime/socket"
 	"github.com/lemon4ksan/aoni/realtime/socket/connector"
-	"github.com/lemon4ksan/miyako/log"
+	"github.com/lemon4ksan/foundation/async/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"

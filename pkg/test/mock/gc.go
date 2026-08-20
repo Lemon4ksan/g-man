@@ -10,7 +10,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/lemon4ksan/miyako/jobs"
+	"github.com/lemon4ksan/foundation/async/task"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
@@ -24,7 +24,7 @@ type GCMock struct {
 	sendCalls    map[uint32]proto.Message
 	sendRawCalls map[uint32][]byte
 
-	pendingCalls map[uint32]jobs.Callback[*protocol.GCPacket]
+	pendingCalls map[uint32]task.Callback[*protocol.GCPacket]
 	autoReplies  map[uint32]func(payload []byte) ([]byte, error)
 }
 
@@ -32,7 +32,7 @@ func NewGCMock() *GCMock {
 	return &GCMock{
 		sendCalls:    make(map[uint32]proto.Message),
 		sendRawCalls: make(map[uint32][]byte),
-		pendingCalls: make(map[uint32]jobs.Callback[*protocol.GCPacket]),
+		pendingCalls: make(map[uint32]task.Callback[*protocol.GCPacket]),
 		autoReplies:  make(map[uint32]func(payload []byte) ([]byte, error)),
 	}
 }
@@ -64,7 +64,7 @@ func (m *GCMock) Call(
 	ctx context.Context,
 	appID, msgType uint32,
 	msg proto.Message,
-	cb jobs.Callback[*protocol.GCPacket],
+	cb task.Callback[*protocol.GCPacket],
 ) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -87,7 +87,7 @@ func (m *GCMock) CallRaw(
 	ctx context.Context,
 	appID, msgType uint32,
 	payload []byte,
-	cb jobs.Callback[*protocol.GCPacket],
+	cb task.Callback[*protocol.GCPacket],
 ) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()

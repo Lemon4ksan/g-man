@@ -8,9 +8,9 @@ package guard
 import (
 	"context"
 
-	"github.com/lemon4ksan/miyako/bus"
-	"github.com/lemon4ksan/miyako/generic"
-	"github.com/lemon4ksan/miyako/log"
+	"github.com/lemon4ksan/foundation/async/event"
+	"github.com/lemon4ksan/foundation/generic"
+	"github.com/lemon4ksan/foundation/async/log"
 
 	"github.com/lemon4ksan/g-man/pkg/behavior"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
@@ -68,11 +68,11 @@ type Manager struct {
 	guardian Provider
 	logger   log.Logger
 	config   Config
-	bus      *bus.Bus
+	bus      *event.Bus
 }
 
 // New constructs a guard Manager instance.
-func New(guardian Provider, logger log.Logger, bus *bus.Bus, cfg Config) *Manager {
+func New(guardian Provider, logger log.Logger, bus *event.Bus, cfg Config) *Manager {
 	return &Manager{
 		guardian: guardian,
 		logger:   logger.With(log.Module(BehaviorName)),

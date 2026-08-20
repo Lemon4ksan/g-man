@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lemon4ksan/miyako/bus"
-	"github.com/lemon4ksan/miyako/log"
+	"github.com/lemon4ksan/foundation/async/event"
+	"github.com/lemon4ksan/foundation/async/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -50,7 +50,7 @@ func (m *mockBehavior) Run(ctx context.Context) error {
 func TestNewOrchestrator(t *testing.T) {
 	t.Parallel()
 
-	bBus := bus.New()
+	bBus := event.New()
 	logger := log.Discard
 	o := NewOrchestrator(bBus, logger)
 	require.NotNil(t, o)
@@ -65,7 +65,7 @@ func TestNewOrchestrator(t *testing.T) {
 func TestOrchestrator_Register(t *testing.T) {
 	t.Parallel()
 
-	o := NewOrchestrator(bus.New(), log.Discard)
+	o := NewOrchestrator(event.New(), log.Discard)
 	b := &mockBehavior{name: "test"}
 	o.Register(b)
 
@@ -75,7 +75,7 @@ func TestOrchestrator_Register(t *testing.T) {
 func TestOrchestrator_StartStop(t *testing.T) {
 	t.Parallel()
 
-	o := NewOrchestrator(bus.New(), log.Discard)
+	o := NewOrchestrator(event.New(), log.Discard)
 	b1Called := make(chan struct{}, 1)
 	b2Called := make(chan struct{}, 1)
 	b1 := &mockBehavior{name: "b1", runCalled: b1Called}
@@ -105,7 +105,7 @@ func TestOrchestrator_StartStop(t *testing.T) {
 func TestOrchestrator_StartAlreadyRunning(t *testing.T) {
 	t.Parallel()
 
-	o := NewOrchestrator(bus.New(), log.Discard)
+	o := NewOrchestrator(event.New(), log.Discard)
 	err := o.Start(t.Context())
 	require.NoError(t, err)
 
@@ -118,14 +118,14 @@ func TestOrchestrator_StartAlreadyRunning(t *testing.T) {
 func TestOrchestrator_StopNotRunning(t *testing.T) {
 	t.Parallel()
 
-	o := NewOrchestrator(bus.New(), log.Discard)
+	o := NewOrchestrator(event.New(), log.Discard)
 	assert.NotPanics(t, func() { o.Stop() })
 }
 
 func TestOrchestrator_BehaviorError(t *testing.T) {
 	t.Parallel()
 
-	o := NewOrchestrator(bus.New(), log.Discard)
+	o := NewOrchestrator(event.New(), log.Discard)
 	bCalled := make(chan struct{}, 1)
 	b := &mockBehavior{
 		name:      "failing",
@@ -151,7 +151,7 @@ func TestOrchestrator_BehaviorError(t *testing.T) {
 func TestOrchestrator_BehaviorStop(t *testing.T) {
 	t.Parallel()
 
-	o := NewOrchestrator(bus.New(), log.Discard)
+	o := NewOrchestrator(event.New(), log.Discard)
 	stopped := make(chan struct{})
 	b := &mockBehavior{
 		name: "stopping",
@@ -177,11 +177,11 @@ func TestOrchestrator_BehaviorStop(t *testing.T) {
 
 type mockInitContext struct {
 	module.InitContext
-	bBus   *bus.Bus
+	bBus   *event.Bus
 	logger log.Logger
 }
 
-func (m *mockInitContext) Bus() *bus.Bus                                                 { return m.bBus }
+func (m *mockInitContext) Bus() *event.Bus                                                 { return m.bBus }
 func (m *mockInitContext) Logger() log.Logger                                            { return m.logger }
 func (m *mockInitContext) RegisterPacketHandler(eMsg enums.EMsg, handler socket.Handler) {}
 func (m *mockInitContext) RegisterServiceHandler(method string, handler socket.Handler)  {}
@@ -193,7 +193,7 @@ func TestOrchestrator_ModuleInterface(t *testing.T) {
 	assert.Equal(t, "behavior", o.Name())
 
 	mCtx := &mockInitContext{
-		bBus:   bus.New(),
+		bBus:   event.New(),
 		logger: log.Discard,
 	}
 

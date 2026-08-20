@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/aoni/request"
-	"github.com/lemon4ksan/miyako/bus"
-	"github.com/lemon4ksan/miyako/log"
+	"github.com/lemon4ksan/foundation/async/event"
+	"github.com/lemon4ksan/foundation/async/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -27,12 +27,12 @@ import (
 
 type mockInitContext struct {
 	logger log.Logger
-	bus    *bus.Bus
+	bus    *event.Bus
 	mods   map[string]module.Module
 }
 
 func (m *mockInitContext) Storage() storage.Provider                           { return nil }
-func (m *mockInitContext) Bus() *bus.Bus                                       { return m.bus }
+func (m *mockInitContext) Bus() *event.Bus                                       { return m.bus }
 func (m *mockInitContext) Logger() log.Logger                                  { return m.logger }
 func (m *mockInitContext) Service() service.Doer                               { return nil }
 func (m *mockInitContext) Rest() request.Requester                             { return nil }
@@ -142,7 +142,7 @@ func TestBase_Lifecycle(t *testing.T) {
 		base := module.New("test_module")
 		mCtx := &mockInitContext{
 			logger: log.Discard,
-			bus:    bus.New(),
+			bus:    event.New(),
 		}
 
 		err := base.Init(mCtx)
@@ -158,7 +158,7 @@ func TestBase_Lifecycle(t *testing.T) {
 
 		mCtx := &mockInitContext{
 			logger: log.Discard,
-			bus:    bus.New(),
+			bus:    event.New(),
 		}
 
 		err := rawBase.Init(mCtx)
@@ -197,7 +197,7 @@ func TestBase_Go(t *testing.T) {
 		t.Parallel()
 
 		base := module.New("go_test")
-		err := base.Init(&mockInitContext{logger: log.Discard, bus: bus.New()})
+		err := base.Init(&mockInitContext{logger: log.Discard, bus: event.New()})
 		require.NoError(t, err)
 
 		err = base.Start(t.Context())
@@ -260,7 +260,7 @@ func TestBase_InitFallbackContext(t *testing.T) {
 		t.Parallel()
 
 		base := module.New("fallback")
-		mCtx := &mockInitContext{logger: log.Discard, bus: bus.New()}
+		mCtx := &mockInitContext{logger: log.Discard, bus: event.New()}
 
 		err := base.Init(mCtx)
 		require.NoError(t, err)
@@ -275,7 +275,7 @@ func TestBase_InitFallbackContext(t *testing.T) {
 		t.Parallel()
 
 		baseReinit := module.New("reinit")
-		mCtxReinit := &mockInitContext{logger: log.Discard, bus: bus.New()}
+		mCtxReinit := &mockInitContext{logger: log.Discard, bus: event.New()}
 
 		err := baseReinit.Init(mCtxReinit)
 		require.NoError(t, err)
@@ -367,7 +367,7 @@ func TestAuthBase_Lifecycle(t *testing.T) {
 		t.Parallel()
 
 		base := module.New("auth_test")
-		mCtx := &mockInitContext{logger: log.Discard, bus: bus.New()}
+		mCtx := &mockInitContext{logger: log.Discard, bus: event.New()}
 
 		err := base.Init(mCtx)
 		require.NoError(t, err)
@@ -409,7 +409,7 @@ func (nilCommunityAuthContext) Community() community.Requester { return nil }
 func (nilCommunityAuthContext) SteamID() id.ID                 { return 0 }
 
 type testEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	Value string
 }
 

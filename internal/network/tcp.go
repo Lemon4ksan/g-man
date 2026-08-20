@@ -17,7 +17,7 @@ import (
 
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/mod"
-	"github.com/lemon4ksan/miyako/log"
+	"github.com/lemon4ksan/foundation/async/log"
 	"golang.org/x/net/proxy"
 
 	"github.com/lemon4ksan/g-man/internal/framer"
@@ -71,7 +71,7 @@ func NewTCP(
 	)
 
 	if proxyURL != "" {
-		conn, err = newProxyConn(ctx, proxyURL, endpoint)
+		conn, err = NewProxyConn(ctx, proxyURL, endpoint)
 	} else {
 		conn, err = new(net.Dialer).DialContext(ctx, "tcp", endpoint)
 	}
@@ -266,7 +266,7 @@ func (t *TCP) readLoop() {
 	}
 }
 
-func newProxyConn(ctx context.Context, proxyURL, endpoint string) (net.Conn, error) {
+func NewProxyConn(ctx context.Context, proxyURL, endpoint string) (net.Conn, error) {
 	u, err := url.Parse(proxyURL)
 	if err != nil {
 		return nil, NewError(OpProxy, ConnTypeTCP, err)

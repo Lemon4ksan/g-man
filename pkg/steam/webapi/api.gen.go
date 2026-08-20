@@ -5739,7 +5739,6 @@ func (c *wishlistServiceClient) GetWishlistItemCount(ctx context.Context, steamI
 	return resp, nil
 }
 
-// AppendFormData serializes UploadTournamentFantasyLineupRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *UploadTournamentFantasyLineupRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -5847,12 +5846,10 @@ func (r *UploadTournamentFantasyLineupRequest) AppendFormData(dst []byte) []byte
 	return dst
 }
 
-// AppendQuery serializes UploadTournamentFantasyLineupRequest into query string bytes on dst buffer (0 B/op).
 func (r *UploadTournamentFantasyLineupRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes UploadTournamentFantasyLineupRequest into url.Values without reflection.
 func (r *UploadTournamentFantasyLineupRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -5901,7 +5898,6 @@ func (r *UploadTournamentFantasyLineupRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes UploadTournamentPredictionsRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *UploadTournamentPredictionsRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -5967,12 +5963,10 @@ func (r *UploadTournamentPredictionsRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes UploadTournamentPredictionsRequest into query string bytes on dst buffer (0 B/op).
 func (r *UploadTournamentPredictionsRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes UploadTournamentPredictionsRequest into url.Values without reflection.
 func (r *UploadTournamentPredictionsRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -6003,7 +5997,6 @@ func (r *UploadTournamentPredictionsRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes GetMatchHistoryRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *GetMatchHistoryRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -6069,12 +6062,10 @@ func (r *GetMatchHistoryRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes GetMatchHistoryRequest into query string bytes on dst buffer (0 B/op).
 func (r *GetMatchHistoryRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes GetMatchHistoryRequest into url.Values without reflection.
 func (r *GetMatchHistoryRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -6105,7 +6096,6 @@ func (r *GetMatchHistoryRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes GetTournamentPlayerStatsV1Request into url-encoded form bytes on dst buffer (0 B/op).
 func (r *GetTournamentPlayerStatsV1Request) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -6150,12 +6140,10 @@ func (r *GetTournamentPlayerStatsV1Request) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes GetTournamentPlayerStatsV1Request into query string bytes on dst buffer (0 B/op).
 func (r *GetTournamentPlayerStatsV1Request) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes GetTournamentPlayerStatsV1Request into url.Values without reflection.
 func (r *GetTournamentPlayerStatsV1Request) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -6177,7 +6165,6 @@ func (r *GetTournamentPlayerStatsV1Request) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes GetTournamentPlayerStatsV2Request into url-encoded form bytes on dst buffer (0 B/op).
 func (r *GetTournamentPlayerStatsV2Request) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -6229,12 +6216,10 @@ func (r *GetTournamentPlayerStatsV2Request) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes GetTournamentPlayerStatsV2Request into query string bytes on dst buffer (0 B/op).
 func (r *GetTournamentPlayerStatsV2Request) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes GetTournamentPlayerStatsV2Request into url.Values without reflection.
 func (r *GetTournamentPlayerStatsV2Request) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -6259,7 +6244,6 @@ func (r *GetTournamentPlayerStatsV2Request) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes SteamAccountValidForBadgeTypeRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *SteamAccountValidForBadgeTypeRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -6304,12 +6288,10 @@ func (r *SteamAccountValidForBadgeTypeRequest) AppendFormData(dst []byte) []byte
 	return dst
 }
 
-// AppendQuery serializes SteamAccountValidForBadgeTypeRequest into query string bytes on dst buffer (0 B/op).
 func (r *SteamAccountValidForBadgeTypeRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes SteamAccountValidForBadgeTypeRequest into url.Values without reflection.
 func (r *SteamAccountValidForBadgeTypeRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -6331,7 +6313,6 @@ func (r *SteamAccountValidForBadgeTypeRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes ViewerHeartbeatRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *ViewerHeartbeatRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -6369,12 +6350,10 @@ func (r *ViewerHeartbeatRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes ViewerHeartbeatRequest into query string bytes on dst buffer (0 B/op).
 func (r *ViewerHeartbeatRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes ViewerHeartbeatRequest into url.Values without reflection.
 func (r *ViewerHeartbeatRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -6393,7 +6372,6 @@ func (r *ViewerHeartbeatRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes SetClientFiltersRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *SetClientFiltersRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -6438,12 +6416,10 @@ func (r *SetClientFiltersRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes SetClientFiltersRequest into query string bytes on dst buffer (0 B/op).
 func (r *SetClientFiltersRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes SetClientFiltersRequest into url.Values without reflection.
 func (r *SetClientFiltersRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -6465,7 +6441,6 @@ func (r *SetClientFiltersRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes SetPerformanceStatsRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *SetPerformanceStatsRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -6517,12 +6492,10 @@ func (r *SetPerformanceStatsRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes SetPerformanceStatsRequest into query string bytes on dst buffer (0 B/op).
 func (r *SetPerformanceStatsRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes SetPerformanceStatsRequest into url.Values without reflection.
 func (r *SetPerformanceStatsRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -6547,7 +6520,6 @@ func (r *SetPerformanceStatsRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes GetCMListForConnectRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *GetCMListForConnectRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -6592,12 +6564,10 @@ func (r *GetCMListForConnectRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes GetCMListForConnectRequest into query string bytes on dst buffer (0 B/op).
 func (r *GetCMListForConnectRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes GetCMListForConnectRequest into url.Values without reflection.
 func (r *GetCMListForConnectRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -6619,7 +6589,6 @@ func (r *GetCMListForConnectRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes GetAssetClassInfoRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *GetAssetClassInfoRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -6664,12 +6633,10 @@ func (r *GetAssetClassInfoRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes GetAssetClassInfoRequest into query string bytes on dst buffer (0 B/op).
 func (r *GetAssetClassInfoRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes GetAssetClassInfoRequest into url.Values without reflection.
 func (r *GetAssetClassInfoRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -6691,7 +6658,6 @@ func (r *GetAssetClassInfoRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes GetNewsForAppV1Request into url-encoded form bytes on dst buffer (0 B/op).
 func (r *GetNewsForAppV1Request) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -6736,12 +6702,10 @@ func (r *GetNewsForAppV1Request) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes GetNewsForAppV1Request into query string bytes on dst buffer (0 B/op).
 func (r *GetNewsForAppV1Request) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes GetNewsForAppV1Request into url.Values without reflection.
 func (r *GetNewsForAppV1Request) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -6763,7 +6727,6 @@ func (r *GetNewsForAppV1Request) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes GetNewsForAppV2Request into url-encoded form bytes on dst buffer (0 B/op).
 func (r *GetNewsForAppV2Request) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -6815,12 +6778,10 @@ func (r *GetNewsForAppV2Request) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes GetNewsForAppV2Request into query string bytes on dst buffer (0 B/op).
 func (r *GetNewsForAppV2Request) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes GetNewsForAppV2Request into url.Values without reflection.
 func (r *GetNewsForAppV2Request) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -6845,7 +6806,6 @@ func (r *GetNewsForAppV2Request) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes GetGlobalStatsForGameRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *GetGlobalStatsForGameRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -6890,12 +6850,10 @@ func (r *GetGlobalStatsForGameRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes GetGlobalStatsForGameRequest into query string bytes on dst buffer (0 B/op).
 func (r *GetGlobalStatsForGameRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes GetGlobalStatsForGameRequest into url.Values without reflection.
 func (r *GetGlobalStatsForGameRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -6917,7 +6875,6 @@ func (r *GetGlobalStatsForGameRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes GetPlayerAchievementsRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *GetPlayerAchievementsRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -6955,12 +6912,10 @@ func (r *GetPlayerAchievementsRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes GetPlayerAchievementsRequest into query string bytes on dst buffer (0 B/op).
 func (r *GetPlayerAchievementsRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes GetPlayerAchievementsRequest into url.Values without reflection.
 func (r *GetPlayerAchievementsRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -6979,7 +6934,6 @@ func (r *GetPlayerAchievementsRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes QueryByFakeIPRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *QueryByFakeIPRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -7024,12 +6978,10 @@ func (r *QueryByFakeIPRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes QueryByFakeIPRequest into query string bytes on dst buffer (0 B/op).
 func (r *QueryByFakeIPRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes QueryByFakeIPRequest into url.Values without reflection.
 func (r *QueryByFakeIPRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -7051,7 +7003,6 @@ func (r *QueryByFakeIPRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes GetOwnedGamesRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *GetOwnedGamesRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -7119,12 +7070,10 @@ func (r *GetOwnedGamesRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes GetOwnedGamesRequest into query string bytes on dst buffer (0 B/op).
 func (r *GetOwnedGamesRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes GetOwnedGamesRequest into url.Values without reflection.
 func (r *GetOwnedGamesRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -7158,7 +7107,6 @@ func (r *GetOwnedGamesRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes NotifyRiskQuizResultsRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *NotifyRiskQuizResultsRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -7195,12 +7143,10 @@ func (r *NotifyRiskQuizResultsRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes NotifyRiskQuizResultsRequest into query string bytes on dst buffer (0 B/op).
 func (r *NotifyRiskQuizResultsRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes NotifyRiskQuizResultsRequest into url.Values without reflection.
 func (r *NotifyRiskQuizResultsRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -7219,7 +7165,6 @@ func (r *NotifyRiskQuizResultsRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes BeginAuthSessionViaCredentialsRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *BeginAuthSessionViaCredentialsRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -7312,12 +7257,10 @@ func (r *BeginAuthSessionViaCredentialsRequest) AppendFormData(dst []byte) []byt
 	return dst
 }
 
-// AppendQuery serializes BeginAuthSessionViaCredentialsRequest into query string bytes on dst buffer (0 B/op).
 func (r *BeginAuthSessionViaCredentialsRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes BeginAuthSessionViaCredentialsRequest into url.Values without reflection.
 func (r *BeginAuthSessionViaCredentialsRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -7360,7 +7303,6 @@ func (r *BeginAuthSessionViaCredentialsRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes UpdateAuthSessionWithSteamGuardCodeRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *UpdateAuthSessionWithSteamGuardCodeRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -7398,12 +7340,10 @@ func (r *UpdateAuthSessionWithSteamGuardCodeRequest) AppendFormData(dst []byte) 
 	return dst
 }
 
-// AppendQuery serializes UpdateAuthSessionWithSteamGuardCodeRequest into query string bytes on dst buffer (0 B/op).
 func (r *UpdateAuthSessionWithSteamGuardCodeRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes UpdateAuthSessionWithSteamGuardCodeRequest into url.Values without reflection.
 func (r *UpdateAuthSessionWithSteamGuardCodeRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -7422,7 +7362,6 @@ func (r *UpdateAuthSessionWithSteamGuardCodeRequest) EncodeValues(vals url.Value
 	}
 }
 
-// AppendFormData serializes BeginAuthSessionViaQRRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *BeginAuthSessionViaQRRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -7460,12 +7399,10 @@ func (r *BeginAuthSessionViaQRRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes BeginAuthSessionViaQRRequest into query string bytes on dst buffer (0 B/op).
 func (r *BeginAuthSessionViaQRRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes BeginAuthSessionViaQRRequest into url.Values without reflection.
 func (r *BeginAuthSessionViaQRRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -7484,7 +7421,6 @@ func (r *BeginAuthSessionViaQRRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes UpdateAuthSessionWithMobileConfirmationRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *UpdateAuthSessionWithMobileConfirmationRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -7535,12 +7471,10 @@ func (r *UpdateAuthSessionWithMobileConfirmationRequest) AppendFormData(dst []by
 	return dst
 }
 
-// AppendQuery serializes UpdateAuthSessionWithMobileConfirmationRequest into query string bytes on dst buffer (0 B/op).
 func (r *UpdateAuthSessionWithMobileConfirmationRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes UpdateAuthSessionWithMobileConfirmationRequest into url.Values without reflection.
 func (r *UpdateAuthSessionWithMobileConfirmationRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -7565,7 +7499,6 @@ func (r *UpdateAuthSessionWithMobileConfirmationRequest) EncodeValues(vals url.V
 	}
 }
 
-// AppendFormData serializes PostGameDataFrameRTMPRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *PostGameDataFrameRTMPRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -7603,12 +7536,10 @@ func (r *PostGameDataFrameRTMPRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes PostGameDataFrameRTMPRequest into query string bytes on dst buffer (0 B/op).
 func (r *PostGameDataFrameRTMPRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes PostGameDataFrameRTMPRequest into url.Values without reflection.
 func (r *PostGameDataFrameRTMPRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -7627,7 +7558,6 @@ func (r *PostGameDataFrameRTMPRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes SetSteamCacheClientFiltersRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *SetSteamCacheClientFiltersRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -7672,12 +7602,10 @@ func (r *SetSteamCacheClientFiltersRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes SetSteamCacheClientFiltersRequest into query string bytes on dst buffer (0 B/op).
 func (r *SetSteamCacheClientFiltersRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes SetSteamCacheClientFiltersRequest into url.Values without reflection.
 func (r *SetSteamCacheClientFiltersRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -7699,7 +7627,6 @@ func (r *SetSteamCacheClientFiltersRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes SetSteamCachePerformanceStatsRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *SetSteamCachePerformanceStatsRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -7786,12 +7713,10 @@ func (r *SetSteamCachePerformanceStatsRequest) AppendFormData(dst []byte) []byte
 	return dst
 }
 
-// AppendQuery serializes SetSteamCachePerformanceStatsRequest into query string bytes on dst buffer (0 B/op).
 func (r *SetSteamCachePerformanceStatsRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes SetSteamCachePerformanceStatsRequest into url.Values without reflection.
 func (r *SetSteamCachePerformanceStatsRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -7831,7 +7756,6 @@ func (r *SetSteamCachePerformanceStatsRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes GetServersForSteamPipeRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *GetServersForSteamPipeRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -7883,12 +7807,10 @@ func (r *GetServersForSteamPipeRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes GetServersForSteamPipeRequest into query string bytes on dst buffer (0 B/op).
 func (r *GetServersForSteamPipeRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes GetServersForSteamPipeRequest into url.Values without reflection.
 func (r *GetServersForSteamPipeRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -7913,7 +7835,6 @@ func (r *GetServersForSteamPipeRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes GetDepotPatchInfoRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *GetDepotPatchInfoRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -7951,12 +7872,10 @@ func (r *GetDepotPatchInfoRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes GetDepotPatchInfoRequest into query string bytes on dst buffer (0 B/op).
 func (r *GetDepotPatchInfoRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes GetDepotPatchInfoRequest into url.Values without reflection.
 func (r *GetDepotPatchInfoRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -7975,7 +7894,6 @@ func (r *GetDepotPatchInfoRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes QueryFilesRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *QueryFilesRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -8256,12 +8174,10 @@ func (r *QueryFilesRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes QueryFilesRequest into query string bytes on dst buffer (0 B/op).
 func (r *QueryFilesRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes QueryFilesRequest into url.Values without reflection.
 func (r *QueryFilesRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -8391,7 +8307,6 @@ func (r *QueryFilesRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes GetSubSectionDataRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *GetSubSectionDataRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -8435,12 +8350,10 @@ func (r *GetSubSectionDataRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes GetSubSectionDataRequest into query string bytes on dst buffer (0 B/op).
 func (r *GetSubSectionDataRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes GetSubSectionDataRequest into url.Values without reflection.
 func (r *GetSubSectionDataRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -8462,7 +8375,6 @@ func (r *GetSubSectionDataRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes GetDetailsRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *GetDetailsRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -8580,12 +8492,10 @@ func (r *GetDetailsRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes GetDetailsRequest into query string bytes on dst buffer (0 B/op).
 func (r *GetDetailsRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes GetDetailsRequest into url.Values without reflection.
 func (r *GetDetailsRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -8643,7 +8553,6 @@ func (r *GetDetailsRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes GetUserFilesRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *GetUserFilesRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -8891,12 +8800,10 @@ func (r *GetUserFilesRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes GetUserFilesRequest into query string bytes on dst buffer (0 B/op).
 func (r *GetUserFilesRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes GetUserFilesRequest into url.Values without reflection.
 func (r *GetUserFilesRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -9011,7 +8918,6 @@ func (r *GetUserFilesRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes GetUserFileCountRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *GetUserFileCountRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -9259,12 +9165,10 @@ func (r *GetUserFileCountRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes GetUserFileCountRequest into query string bytes on dst buffer (0 B/op).
 func (r *GetUserFileCountRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes GetUserFileCountRequest into url.Values without reflection.
 func (r *GetUserFileCountRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -9379,7 +9283,6 @@ func (r *GetUserFileCountRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes GetTradeHistoryRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *GetTradeHistoryRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -9448,12 +9351,10 @@ func (r *GetTradeHistoryRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes GetTradeHistoryRequest into query string bytes on dst buffer (0 B/op).
 func (r *GetTradeHistoryRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes GetTradeHistoryRequest into url.Values without reflection.
 func (r *GetTradeHistoryRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -9487,7 +9388,6 @@ func (r *GetTradeHistoryRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes GetTradeStatusRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *GetTradeStatusRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -9524,12 +9424,10 @@ func (r *GetTradeStatusRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes GetTradeStatusRequest into query string bytes on dst buffer (0 B/op).
 func (r *GetTradeStatusRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes GetTradeStatusRequest into url.Values without reflection.
 func (r *GetTradeStatusRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -9548,7 +9446,6 @@ func (r *GetTradeStatusRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes GetTradeOffersRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *GetTradeOffersRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -9616,12 +9513,10 @@ func (r *GetTradeOffersRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes GetTradeOffersRequest into query string bytes on dst buffer (0 B/op).
 func (r *GetTradeOffersRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes GetTradeOffersRequest into url.Values without reflection.
 func (r *GetTradeOffersRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -9655,7 +9550,6 @@ func (r *GetTradeOffersRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes GetTradeOfferRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *GetTradeOfferRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -9692,12 +9586,10 @@ func (r *GetTradeOfferRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes GetTradeOfferRequest into query string bytes on dst buffer (0 B/op).
 func (r *GetTradeOfferRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes GetTradeOfferRequest into url.Values without reflection.
 func (r *GetTradeOfferRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -9716,7 +9608,6 @@ func (r *GetTradeOfferRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes UserCreateSessionRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *UserCreateSessionRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -9761,12 +9652,10 @@ func (r *UserCreateSessionRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes UserCreateSessionRequest into query string bytes on dst buffer (0 B/op).
 func (r *UserCreateSessionRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes UserCreateSessionRequest into url.Values without reflection.
 func (r *UserCreateSessionRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -9788,7 +9677,6 @@ func (r *UserCreateSessionRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes UserUpdateSessionRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *UserUpdateSessionRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -9833,12 +9721,10 @@ func (r *UserUpdateSessionRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes UserUpdateSessionRequest into query string bytes on dst buffer (0 B/op).
 func (r *UserUpdateSessionRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes UserUpdateSessionRequest into url.Values without reflection.
 func (r *UserUpdateSessionRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -9860,7 +9746,6 @@ func (r *UserUpdateSessionRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes SplitItemStackRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *SplitItemStackRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -9905,12 +9790,10 @@ func (r *SplitItemStackRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes SplitItemStackRequest into query string bytes on dst buffer (0 B/op).
 func (r *SplitItemStackRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes SplitItemStackRequest into url.Values without reflection.
 func (r *SplitItemStackRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -9932,7 +9815,6 @@ func (r *SplitItemStackRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes CombineItemStacksRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *CombineItemStacksRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -9984,12 +9866,10 @@ func (r *CombineItemStacksRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes CombineItemStacksRequest into query string bytes on dst buffer (0 B/op).
 func (r *CombineItemStacksRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes CombineItemStacksRequest into url.Values without reflection.
 func (r *CombineItemStacksRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -10014,7 +9894,6 @@ func (r *CombineItemStacksRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes GetAppListRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *GetAppListRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -10089,12 +9968,10 @@ func (r *GetAppListRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes GetAppListRequest into query string bytes on dst buffer (0 B/op).
 func (r *GetAppListRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes GetAppListRequest into url.Values without reflection.
 func (r *GetAppListRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -10131,7 +10008,6 @@ func (r *GetAppListRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes UploadUserApplicationLogRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *UploadUserApplicationLogRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -10176,12 +10052,10 @@ func (r *UploadUserApplicationLogRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes UploadUserApplicationLogRequest into query string bytes on dst buffer (0 B/op).
 func (r *UploadUserApplicationLogRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes UploadUserApplicationLogRequest into url.Values without reflection.
 func (r *UploadUserApplicationLogRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -10203,7 +10077,6 @@ func (r *UploadUserApplicationLogRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes ReportCheatDataRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *ReportCheatDataRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -10311,12 +10184,10 @@ func (r *ReportCheatDataRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes ReportCheatDataRequest into query string bytes on dst buffer (0 B/op).
 func (r *ReportCheatDataRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes ReportCheatDataRequest into url.Values without reflection.
 func (r *ReportCheatDataRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -10365,7 +10236,6 @@ func (r *ReportCheatDataRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes GetWishlistSortedFilteredRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *GetWishlistSortedFilteredRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -10431,12 +10301,10 @@ func (r *GetWishlistSortedFilteredRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes GetWishlistSortedFilteredRequest into query string bytes on dst buffer (0 B/op).
 func (r *GetWishlistSortedFilteredRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes GetWishlistSortedFilteredRequest into url.Values without reflection.
 func (r *GetWishlistSortedFilteredRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return

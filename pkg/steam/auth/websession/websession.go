@@ -24,7 +24,7 @@ import (
 	"github.com/lemon4ksan/aoni/middleware"
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/request"
-	"github.com/lemon4ksan/miyako/log"
+	"github.com/lemon4ksan/foundation/async/log"
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
@@ -74,6 +74,7 @@ type WebSession struct {
 	retryBackoff time.Duration
 
 	lastRefreshToken string
+	lastAccessToken  string
 	lastPlatform     pb.EAuthTokenPlatformType
 	refreshCancel    context.CancelFunc
 }
@@ -170,8 +171,8 @@ func (s *WebSession) AddDomains(domains ...string) {
 	}
 }
 
-// DefaultRefreshInterval is the default period for updating WebSession cookies (every 12 hours).
-const DefaultRefreshInterval = 12 * time.Hour
+// DefaultRefreshInterval is the default period for updating WebSession cookies (every 6 hours).
+const DefaultRefreshInterval = 6 * time.Hour
 
 // Authenticate performs OIDC web finalization or fast-path cookie injection.
 func (s *WebSession) Authenticate(
@@ -185,6 +186,7 @@ func (s *WebSession) Authenticate(
 
 	s.mu.Lock()
 	s.lastRefreshToken = refreshToken
+	s.lastAccessToken = accessToken
 	s.lastPlatform = platform
 	s.mu.Unlock()
 
@@ -192,8 +194,8 @@ func (s *WebSession) Authenticate(
 
 	sessionID := generateSessionID()
 
-	if platform == pb.EAuthTokenPlatformType_k_EAuthTokenPlatformType_SteamClient ||
-		platform == pb.EAuthTokenPlatformType_k_EAuthTokenPlatformType_MobileApp && accessToken != "" {
+	if (platform == pb.EAuthTokenPlatformType_k_EAuthTokenPlatformType_SteamClient ||
+		platform == pb.EAuthTokenPlatformType_k_EAuthTokenPlatformType_MobileApp) && accessToken != "" {
 		return s.applyFastPath(accessToken, sessionID)
 	}
 
@@ -204,6 +206,7 @@ func (s *WebSession) Authenticate(
 func (s *WebSession) Refresh(ctx context.Context) error {
 	s.mu.RLock()
 	refreshToken := s.lastRefreshToken
+	accessToken := s.lastAccessToken
 	platform := s.lastPlatform
 	s.mu.RUnlock()
 
@@ -213,7 +216,7 @@ func (s *WebSession) Refresh(ctx context.Context) error {
 
 	s.logger.Info("Refreshing WebSession cookies...")
 
-	if err := s.Authenticate(ctx, platform, refreshToken, ""); err != nil {
+	if err := s.Authenticate(ctx, platform, refreshToken, accessToken); err != nil {
 		s.logger.Error("Failed to refresh WebSession cookies", log.Err(err))
 		return err
 	}

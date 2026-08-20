@@ -200,9 +200,14 @@ func (c *tradeCommunityAPIClient) SendOffer(ctx context.Context, partnerID uint3
 	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	allMods = append(allMods, mod.WithHeader("Referer", "https://steamcommunity.com/tradeoffer/new/?partner"))
+	var refBuf [128]byte
+	ref := refBuf[:0]
+	ref = append(ref, "https://steamcommunity.com/tradeoffer/new/?partner="...)
+	ref = strconv.AppendUint(ref, uint64(partnerID), 10)
+	allMods = append(allMods, mod.WithHeader("Referer", string(ref)))
+
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
-	var formBuf [128]byte
+	var formBuf [256]byte
 	formBytes := formBuf[:0]
 	formBytes = append(formBytes, "partnerid="...)
 	formBytes = strconv.AppendUint(formBytes, uint64(partnerID), 10)
@@ -248,7 +253,6 @@ func (c *tradeCommunityAPIClient) AcceptOffer(ctx context.Context, offerID uint6
 	return resp, nil
 }
 
-// AppendFormData serializes GetOffersParams into url-encoded form bytes on dst buffer (0 B/op).
 func (r *GetOffersParams) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -293,12 +297,10 @@ func (r *GetOffersParams) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes GetOffersParams into query string bytes on dst buffer (0 B/op).
 func (r *GetOffersParams) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes GetOffersParams into url.Values without reflection.
 func (r *GetOffersParams) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -320,7 +322,6 @@ func (r *GetOffersParams) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes GetOfferParams into url-encoded form bytes on dst buffer (0 B/op).
 func (r *GetOfferParams) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -350,12 +351,10 @@ func (r *GetOfferParams) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes GetOfferParams into query string bytes on dst buffer (0 B/op).
 func (r *GetOfferParams) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes GetOfferParams into url.Values without reflection.
 func (r *GetOfferParams) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -371,7 +370,6 @@ func (r *GetOfferParams) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes TradeStatusParams into url-encoded form bytes on dst buffer (0 B/op).
 func (r *TradeStatusParams) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -401,12 +399,10 @@ func (r *TradeStatusParams) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes TradeStatusParams into query string bytes on dst buffer (0 B/op).
 func (r *TradeStatusParams) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes TradeStatusParams into url.Values without reflection.
 func (r *TradeStatusParams) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -422,7 +418,6 @@ func (r *TradeStatusParams) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes TradeOfferActionParams into url-encoded form bytes on dst buffer (0 B/op).
 func (r *TradeOfferActionParams) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -439,12 +434,10 @@ func (r *TradeOfferActionParams) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes TradeOfferActionParams into query string bytes on dst buffer (0 B/op).
 func (r *TradeOfferActionParams) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes TradeOfferActionParams into url.Values without reflection.
 func (r *TradeOfferActionParams) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -454,7 +447,6 @@ func (r *TradeOfferActionParams) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes SendNewTradeOfferRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *SendNewTradeOfferRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -506,12 +498,10 @@ func (r *SendNewTradeOfferRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes SendNewTradeOfferRequest into query string bytes on dst buffer (0 B/op).
 func (r *SendNewTradeOfferRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes SendNewTradeOfferRequest into url.Values without reflection.
 func (r *SendNewTradeOfferRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -536,7 +526,6 @@ func (r *SendNewTradeOfferRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes AcceptTradeOfferRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *AcceptTradeOfferRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -560,12 +549,10 @@ func (r *AcceptTradeOfferRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes AcceptTradeOfferRequest into query string bytes on dst buffer (0 B/op).
 func (r *AcceptTradeOfferRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes AcceptTradeOfferRequest into url.Values without reflection.
 func (r *AcceptTradeOfferRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return

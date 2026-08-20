@@ -16,10 +16,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/lemon4ksan/miyako/batto"
-	"github.com/lemon4ksan/miyako/generic"
-	"github.com/lemon4ksan/miyako/log"
-	"github.com/lemon4ksan/miyako/sync/lazy"
+	"github.com/lemon4ksan/foundation/async/dedup"
+	"github.com/lemon4ksan/foundation/generic"
+	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/sync/lazy"
 	"golang.org/x/time/rate"
 
 	"github.com/lemon4ksan/g-man/internal/bytesconv"
@@ -217,7 +217,7 @@ type Guardian struct {
 
 	metrics     *GuardianMetrics
 	rateLimiter *rate.Limiter
-	fetchGroup  *batto.Group[string, []*Confirmation]
+	fetchGroup  *dedup.Group[string, []*Confirmation]
 
 	sharedSecretBytes   [20]byte
 	identitySecretBytes [20]byte
@@ -238,7 +238,7 @@ func New(config Config) (*Guardian, error) {
 		metrics:       new(GuardianMetrics),
 		rateLimiter:   rate.NewLimiter(rate.Every(config.RateLimit), 1),
 		pollingState:  PollingStopped,
-		fetchGroup:    new(batto.Group[string, []*Confirmation]),
+		fetchGroup:    new(dedup.Group[string, []*Confirmation]),
 	}
 
 	if config.SharedSecret != "" {
@@ -382,24 +382,47 @@ func (g *Guardian) Close() error {
 	return g.Base.Close()
 }
 
-func (g *Guardian) synchronizeTimeOffset(ctx context.Context) {
-	if g.twoFactorSvc == nil {
-		return
+// TimeOffset returns the active clock offset duration relative to Steam servers.
+func (g *Guardian) TimeOffset() time.Duration {
+	if g == nil || g.clock == nil {
+		return 0
+	}
+	return g.clock.Offset()
+}
+
+// SetTimeOffset manually sets the clock offset duration.
+func (g *Guardian) SetTimeOffset(offset time.Duration) {
+	if g != nil && g.clock != nil {
+		g.clock.SetOffset(offset)
+	}
+}
+
+// SyncTime queries ITwoFactorService.QueryTime to synchronize the local clock with Steam server time.
+func (g *Guardian) SyncTime(ctx context.Context) (time.Duration, error) {
+	if g == nil || g.twoFactorSvc == nil {
+		return 0, ErrNotConfigured
 	}
 
-	offsetFuture := generic.NewFutureFunc(func() (time.Duration, error) {
-		svc, err := g.twoFactorSvc.Get()
-		if err != nil || svc == nil {
-			return 0, err
-		}
+	svc, err := g.twoFactorSvc.Get()
+	if err != nil || svc == nil {
+		return 0, fmt.Errorf("guard: two factor service unavailable: %w", err)
+	}
 
-		return svc.QueryTimeOffset(ctx)
-	})
+	offset, err := svc.QueryTimeOffset(ctx)
+	if err != nil {
+		return 0, err
+	}
 
-	if offset, err := offsetFuture.Get(ctx); err == nil && offset != 0 {
+	if offset != 0 {
 		g.clock.SetOffset(offset)
 		g.Logger.Debug("Time offset synchronized", log.Duration("offset", offset))
 	}
+
+	return offset, nil
+}
+
+func (g *Guardian) synchronizeTimeOffset(ctx context.Context) {
+	_, _ = g.SyncTime(ctx)
 }
 
 func (g *Guardian) logGuardStatus(ctx context.Context, auth module.AuthContext) {

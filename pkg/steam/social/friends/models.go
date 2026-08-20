@@ -7,7 +7,7 @@ package friends
 import (
 	"time"
 
-	"github.com/lemon4ksan/miyako/bus"
+	"github.com/lemon4ksan/foundation/async/event"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
@@ -30,14 +30,14 @@ type GetBadgesResponse struct {
 }
 
 type RelationshipChangedEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	SteamID id.ID
 	Old     enums.EFriendRelationship
 	New     enums.EFriendRelationship
 }
 
 type PersonaStateUpdatedEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	SteamID id.ID
 	State   *PersonaState
 }
@@ -58,17 +58,17 @@ type FriendGroup struct {
 }
 
 type GroupListEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	Groups map[int32]FriendGroup
 }
 
 type NicknameListEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	Nicknames map[id.ID]string
 }
 
 type NicknameChangedEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	SteamID  id.ID
 	Nickname string
 }

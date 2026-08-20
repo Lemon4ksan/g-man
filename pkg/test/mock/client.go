@@ -11,7 +11,7 @@ import (
 
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/request"
-	"github.com/lemon4ksan/miyako/log"
+	"github.com/lemon4ksan/foundation/async/log"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 

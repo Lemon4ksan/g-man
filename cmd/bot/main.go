@@ -12,9 +12,9 @@ import (
 	"os/signal"
 	"sync"
 
-	"github.com/lemon4ksan/miyako/bus"
-	"github.com/lemon4ksan/miyako/generic"
-	"github.com/lemon4ksan/miyako/log"
+	"github.com/lemon4ksan/foundation/async/event"
+	"github.com/lemon4ksan/foundation/generic"
+	"github.com/lemon4ksan/foundation/async/log"
 
 	"github.com/lemon4ksan/g-man/pkg/behavior"
 	"github.com/lemon4ksan/g-man/pkg/behavior/guard"
@@ -47,7 +47,7 @@ type Bot struct {
 	store  storage.Provider
 	logger log.Logger
 	client *steam.Client
-	sub    *bus.Subscription
+	sub    *event.Subscription
 	wg     sync.WaitGroup
 }
 

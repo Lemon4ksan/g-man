@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lemon4ksan/miyako/bus"
-	"github.com/lemon4ksan/miyako/log"
+	"github.com/lemon4ksan/foundation/async/event"
+	"github.com/lemon4ksan/foundation/async/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
@@ -43,7 +43,7 @@ func TestKeepAlive(t *testing.T) {
 	t.Run("keepalive_and_name", func(t *testing.T) {
 		t.Parallel()
 
-		bBus := bus.New()
+		bBus := event.New()
 		logger := log.Discard
 		orch := behavior.NewOrchestrator(bBus, logger)
 		provider := new(mockSessionProvider)
@@ -58,7 +58,7 @@ func TestKeepAlive(t *testing.T) {
 	t.Run("default_interval", func(t *testing.T) {
 		t.Parallel()
 
-		m := New(&mockSessionProvider{}, log.Discard, bus.New(), Config{})
+		m := New(&mockSessionProvider{}, log.Discard, event.New(), Config{})
 		assert.Equal(t, 5*time.Minute, m.config.Interval)
 	})
 }
@@ -70,7 +70,7 @@ func TestManager_Run(t *testing.T) {
 		t.Parallel()
 
 		provider := new(mockSessionProvider)
-		eventBus := bus.New()
+		eventBus := event.New()
 		cfg := Config{
 			Interval: 1 * time.Millisecond,
 		}
@@ -98,7 +98,7 @@ func TestManager_Run(t *testing.T) {
 		t.Parallel()
 
 		provider := new(mockSessionProvider)
-		eventBus := bus.New()
+		eventBus := event.New()
 		cfg := Config{
 			Interval: 1 * time.Millisecond,
 		}
@@ -138,7 +138,7 @@ func TestManager_Run(t *testing.T) {
 		t.Parallel()
 
 		provider := new(mockSessionProvider)
-		eventBus := bus.New()
+		eventBus := event.New()
 		cfg := Config{
 			Interval: 1 * time.Millisecond,
 		}
@@ -177,7 +177,7 @@ func TestManager_Run(t *testing.T) {
 		t.Parallel()
 
 		provider := new(mockSessionProvider)
-		eventBus := bus.New()
+		eventBus := event.New()
 		cfg := Config{
 			Interval: 1 * time.Millisecond,
 		}
@@ -216,7 +216,7 @@ func TestManager_Run(t *testing.T) {
 		t.Parallel()
 
 		provider := new(mockSessionProvider)
-		eventBus := bus.New()
+		eventBus := event.New()
 		cfg := Config{
 			Interval: 1 * time.Millisecond,
 		}

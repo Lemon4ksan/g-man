@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lemon4ksan/miyako/bus"
-	"github.com/lemon4ksan/miyako/log"
+	"github.com/lemon4ksan/foundation/async/event"
+	"github.com/lemon4ksan/foundation/async/log"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lemon4ksan/g-man/pkg/behavior"
@@ -72,7 +72,7 @@ func TestAchievementManager_Lifecycle(t *testing.T) {
 	t.Run("simulate_and_name", func(t *testing.T) {
 		t.Parallel()
 
-		bBus := bus.New()
+		bBus := event.New()
 		logger := log.Discard
 		orch := behavior.NewOrchestrator(bBus, logger)
 

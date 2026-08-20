@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lemon4ksan/miyako/bus"
+	"github.com/lemon4ksan/foundation/async/event"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -163,7 +163,7 @@ func TestApps_PlayGames_Sequence(t *testing.T) {
 	subQ := ictx.Bus().Subscribe(&AppQuitEvent{})
 	defer subQ.Unsubscribe()
 
-	collectIDs := func(ch <-chan bus.Event, count int) []uint32 {
+	collectIDs := func(ch <-chan event.Event, count int) []uint32 {
 		ids := make([]uint32, 0, count)
 		for i := range count {
 			select {

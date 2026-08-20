@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/lemon4ksan/miyako/log"
+	"github.com/lemon4ksan/foundation/async/log"
 
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
@@ -139,4 +139,8 @@ func (bot *ChatBot) handleApprove(ctx context.Context, senderID uint64, args []a
 	bot.logger.Info("Admin approved trade manual", log.Uint64("admin", senderID), log.Uint64("offer", offerID))
 
 	return fmt.Sprintf("✅ Trade #%d has been successfully confirmed and sent for verification.", offerID), nil
+}
+
+func main() {
+	// Chatbot example
 }

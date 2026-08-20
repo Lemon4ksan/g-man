@@ -17,7 +17,7 @@ import (
 	"time"
 
 	json "github.com/goccy/go-json"
-	"github.com/lemon4ksan/miyako/generic"
+	"github.com/lemon4ksan/foundation/generic"
 
 	"github.com/lemon4ksan/g-man/internal/bytesconv"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
@@ -44,7 +44,17 @@ var (
 	ErrPrivateInventory = errors.New("inventory: inventory is private")
 	// ErrMalformedAppContext indicates inventory page HTML lacked expected g_rgAppContextData JSON.
 	ErrMalformedAppContext = errors.New("inventory: malformed page (g_rgAppContextData not found)")
+	// ErrBackpackFull indicates that the target inventory capacity has been exceeded.
+	ErrBackpackFull = errors.New("inventory: backpack capacity limit reached")
 )
+
+// CheckCapacity verifies if adding itemsToAdd to currentCount would exceed maxCapacity.
+func CheckCapacity(currentCount, itemsToAdd, maxCapacity int) error {
+	if maxCapacity > 0 && currentCount+itemsToAdd > maxCapacity {
+		return fmt.Errorf("%w: current %d + adding %d > max %d", ErrBackpackFull, currentCount, itemsToAdd, maxCapacity)
+	}
+	return nil
+}
 
 var descMapPool = sync.Pool{
 	New: func() any {

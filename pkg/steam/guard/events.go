@@ -5,12 +5,12 @@
 package guard
 
 import (
-	"github.com/lemon4ksan/miyako/bus"
+	"github.com/lemon4ksan/foundation/async/event"
 )
 
 // ConfirmationRequiredEvent is published when trade or account actions require mobile/email approval.
 type ConfirmationRequiredEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	TradeOfferID string
 	IsAppConfirm bool
 	IsEmail      bool
@@ -19,6 +19,6 @@ type ConfirmationRequiredEvent struct {
 
 // NeedAuthEvent is published when mobile confirmation endpoints report re-authentication is required.
 type NeedAuthEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	Message string
 }

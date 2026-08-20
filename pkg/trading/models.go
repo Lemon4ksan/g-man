@@ -148,3 +148,56 @@ type ExchangeAsset struct {
 	NewAssetID   uint64 `json:"new_assetid,string"`
 	NewContextID int64  `json:"new_contextid,string"`
 }
+
+// GetNewAssetID looks up the new asset ID assigned to a given original asset ID.
+func (d *ExchangeDetails) GetNewAssetID(oldAssetID uint64) (uint64, bool) {
+	if d == nil {
+		return 0, false
+	}
+	for _, a := range d.AssetsReceived {
+		if a.AssetID == oldAssetID && a.NewAssetID != 0 {
+			return a.NewAssetID, true
+		}
+	}
+	for _, a := range d.AssetsGiven {
+		if a.AssetID == oldAssetID && a.NewAssetID != 0 {
+			return a.NewAssetID, true
+		}
+	}
+	return 0, false
+}
+
+// NewAssetIDs returns a mapping of original asset IDs to their new post-trade asset IDs.
+func (d *ExchangeDetails) NewAssetIDs() map[uint64]uint64 {
+	if d == nil {
+		return nil
+	}
+	res := make(map[uint64]uint64, len(d.AssetsReceived)+len(d.AssetsGiven))
+	for _, a := range d.AssetsReceived {
+		if a.NewAssetID != 0 {
+			res[a.AssetID] = a.NewAssetID
+		}
+	}
+	for _, a := range d.AssetsGiven {
+		if a.NewAssetID != 0 {
+			res[a.AssetID] = a.NewAssetID
+		}
+	}
+	return res
+}
+
+// ReceivedAssetIDs returns a slice containing the newly assigned asset IDs for all received items.
+func (d *ExchangeDetails) ReceivedAssetIDs() []uint64 {
+	if d == nil {
+		return nil
+	}
+	res := make([]uint64, 0, len(d.AssetsReceived))
+	for _, a := range d.AssetsReceived {
+		if a.NewAssetID != 0 {
+			res = append(res, a.NewAssetID)
+		} else {
+			res = append(res, a.AssetID)
+		}
+	}
+	return res
+}

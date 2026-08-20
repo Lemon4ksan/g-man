@@ -140,7 +140,6 @@ func (c *apiClient) GetSteamPipeDomains(ctx context.Context) (*SteamPipeDomainsR
 	return resp.Response, nil
 }
 
-// AppendFormData serializes CMListRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *CMListRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -164,12 +163,10 @@ func (r *CMListRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes CMListRequest into query string bytes on dst buffer (0 B/op).
 func (r *CMListRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes CMListRequest into url.Values without reflection.
 func (r *CMListRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return
@@ -182,7 +179,6 @@ func (r *CMListRequest) EncodeValues(vals url.Values) {
 	}
 }
 
-// AppendFormData serializes CMListForConnectRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *CMListForConnectRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -220,12 +216,10 @@ func (r *CMListForConnectRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes CMListForConnectRequest into query string bytes on dst buffer (0 B/op).
 func (r *CMListForConnectRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes CMListForConnectRequest into url.Values without reflection.
 func (r *CMListForConnectRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return

@@ -10,9 +10,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/lemon4ksan/miyako/bus"
-	"github.com/lemon4ksan/miyako/jobs"
-	"github.com/lemon4ksan/miyako/log"
+	"github.com/lemon4ksan/foundation/async/event"
+	"github.com/lemon4ksan/foundation/async/task"
+	"github.com/lemon4ksan/foundation/async/log"
 	"google.golang.org/protobuf/proto"
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
@@ -49,7 +49,7 @@ type Handler func(packet *protocol.GCPacket)
 
 // MessageEvent is published when an unmapped Game Coordinator message arrives.
 type MessageEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	Packet *protocol.GCPacket
 }
 
@@ -61,7 +61,7 @@ type Coordinator struct {
 	module.Base
 
 	events     Events
-	jobManager *jobs.Manager[uint64, *protocol.GCPacket]
+	jobManager *task.Manager[uint64, *protocol.GCPacket]
 
 	handlersMu sync.RWMutex
 	gcHandlers map[uint32]map[uint32]Handler
@@ -71,7 +71,7 @@ type Coordinator struct {
 func New() *Coordinator {
 	return &Coordinator{
 		Base:       module.New(ModuleName),
-		jobManager: jobs.NewManager[uint64, *protocol.GCPacket](2000),
+		jobManager: task.NewManager[uint64, *protocol.GCPacket](2000),
 		gcHandlers: make(map[uint32]map[uint32]Handler),
 	}
 }
@@ -112,7 +112,7 @@ func (c *Coordinator) Call(
 	ctx context.Context,
 	appID, msgType uint32,
 	msg proto.Message,
-	cb jobs.Callback[*protocol.GCPacket],
+	cb task.Callback[*protocol.GCPacket],
 ) error {
 	if cb == nil {
 		return ErrCallbackRequired
@@ -126,7 +126,7 @@ func (c *Coordinator) CallRaw(
 	ctx context.Context,
 	appID, msgType uint32,
 	payload []byte,
-	cb jobs.Callback[*protocol.GCPacket],
+	cb task.Callback[*protocol.GCPacket],
 ) error {
 	if cb == nil {
 		return ErrCallbackRequired
@@ -140,7 +140,7 @@ func (c *Coordinator) send(
 	appID, msgType uint32,
 	msg proto.Message,
 	payload []byte,
-	cb jobs.Callback[*protocol.GCPacket],
+	cb task.Callback[*protocol.GCPacket],
 ) error {
 	var (
 		err    error
@@ -168,7 +168,7 @@ func (c *Coordinator) send(
 	if cb != nil {
 		sourceJobID = c.jobManager.NextID()
 
-		err := c.jobManager.Add(sourceJobID, cb, jobs.WithContext[*protocol.GCPacket](ctx))
+		err := c.jobManager.Add(sourceJobID, cb, task.WithContext[*protocol.GCPacket](ctx))
 		if err != nil {
 			return fmt.Errorf("gc job track: %w", err)
 		}

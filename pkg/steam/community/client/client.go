@@ -20,7 +20,7 @@ import (
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/option"
 	"github.com/lemon4ksan/aoni/request"
-	"github.com/lemon4ksan/miyako/log"
+	"github.com/lemon4ksan/foundation/async/log"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 )
@@ -165,6 +165,11 @@ func (c *Client) SessionID(targetURI string) string {
 	return c.session.SessionID(targetURI)
 }
 
+// Refresher describes session providers capable of re-authenticating cookies when expired.
+type Refresher interface {
+	Refresh(ctx context.Context) error
+}
+
 // Request executes HTTP calls and validates response headers and body content for Steam errors.
 func (c *Client) Request(
 	ctx context.Context,
@@ -176,7 +181,13 @@ func (c *Client) Request(
 	resp, err := c.r.Request(ctx, method, path, mods...)
 	if err != nil {
 		if IsSessionExpiredError(err) {
-			c.logger.Warn("Session expired during redirect loop, triggering auto-refresh")
+			c.logger.Warn("Session expired during redirect loop, attempting auto-refresh")
+			if r, ok := c.session.(Refresher); ok {
+				if rErr := r.Refresh(ctx); rErr == nil {
+					c.logger.Info("Auto-refresh succeeded, retrying community request")
+					return c.r.Request(ctx, method, path, mods...)
+				}
+			}
 			return nil, ErrRedirectLoop
 		}
 
@@ -185,7 +196,22 @@ func (c *Client) Request(
 
 	if err := SteamErrorsValidator(resp); err != nil {
 		if IsSessionExpiredError(err) {
-			c.logger.Warn("Session expired during redirect loop, triggering auto-refresh")
+			_ = resp.Body.Close()
+			c.logger.Warn("Session expired, attempting auto-refresh")
+			if r, ok := c.session.(Refresher); ok {
+				if rErr := r.Refresh(ctx); rErr == nil {
+					c.logger.Info("Auto-refresh succeeded, retrying community request")
+					retryResp, retryErr := c.r.Request(ctx, method, path, mods...)
+					if retryErr == nil {
+						if valErr := SteamErrorsValidator(retryResp); valErr == nil {
+							return retryResp, nil
+						}
+					}
+					if retryResp != nil {
+						return retryResp, retryErr
+					}
+				}
+			}
 			return nil, ErrRedirectLoop
 		}
 

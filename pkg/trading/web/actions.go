@@ -13,6 +13,7 @@ import (
 
 	json "github.com/goccy/go-json"
 	"github.com/lemon4ksan/aoni/mod"
+	"github.com/lemon4ksan/foundation/async/log"
 
 	"github.com/lemon4ksan/g-man/internal/bytesconv"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
@@ -48,7 +49,9 @@ func (m *Manager) SendOffer(ctx context.Context, p trading.OfferParams) (uint64,
 		},
 	}
 
+	var giveAssetIDs []uint64
 	for _, it := range p.ItemsToGive {
+		giveAssetIDs = append(giveAssetIDs, it.AssetID)
 		tradeOfferObj.Me.Assets = append(tradeOfferObj.Me.Assets, steamObject{
 			AppID:     it.AppID,
 			ContextID: strconv.FormatInt(it.ContextID, 10),
@@ -56,6 +59,12 @@ func (m *Manager) SendOffer(ctx context.Context, p trading.OfferParams) (uint64,
 			Amount:    it.Amount,
 		})
 	}
+
+	unlock, err := m.ReserveItems(giveAssetIDs...)
+	if err != nil {
+		return 0, err
+	}
+	defer unlock()
 
 	for _, it := range p.ItemsToReceive {
 		tradeOfferObj.Them.Assets = append(tradeOfferObj.Them.Assets, steamObject{
@@ -137,6 +146,21 @@ func (m *Manager) AcceptOffer(ctx context.Context, offerID uint64) error {
 		mod.WithHeader("Referer", fmt.Sprintf("https://steamcommunity.com/tradeoffer/%d/", offerID)),
 	)
 	if err != nil {
+		m.Logger.Warn("Accept trade offer HTTP call returned error, verifying actual offer status",
+			log.Uint64("offer_id", offerID),
+			log.Err(err),
+		)
+
+		if offer, getErr := m.GetOffer(ctx, offerID); getErr == nil && offer != nil {
+			if offer.State == trading.OfferStateAccepted || offer.State == trading.OfferStateInEscrow {
+				m.Logger.Info("Trade offer was accepted despite HTTP error response",
+					log.Uint64("offer_id", offerID),
+					log.Int32("state", int32(offer.State)),
+				)
+				return nil
+			}
+		}
+
 		return err
 	}
 

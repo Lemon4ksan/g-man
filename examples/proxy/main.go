@@ -15,7 +15,7 @@ import (
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/middleware"
 	"github.com/lemon4ksan/aoni/netutil/proxy"
-	"github.com/lemon4ksan/miyako/log"
+	"github.com/lemon4ksan/foundation/async/log"
 
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
@@ -79,7 +79,7 @@ func SetupProxyClient(logger log.Logger, cmProxy string, webProxies []string) (*
 		Backoff:    500 * time.Millisecond,
 	}, proxy.RetryCondition(proxyRotator))
 
-	chainedDoer := middleware.Chain(stickyRotator, middleware.Log(logger), retryMiddleware)
+	chainedDoer := middleware.Chain(stickyRotator, retryMiddleware)
 	restClient := aoni.NewClient(chainedDoer)
 
 	clientCfg := steam.DefaultConfig()
@@ -91,4 +91,8 @@ func SetupProxyClient(logger log.Logger, cmProxy string, webProxies []string) (*
 	}
 
 	return client, nil
+}
+
+func main() {
+	// Proxy example
 }

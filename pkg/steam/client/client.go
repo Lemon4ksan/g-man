@@ -15,10 +15,10 @@ import (
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/fast"
 	"github.com/lemon4ksan/aoni/request"
-	"github.com/lemon4ksan/miyako/bus"
-	"github.com/lemon4ksan/miyako/generic"
-	"github.com/lemon4ksan/miyako/kata"
-	"github.com/lemon4ksan/miyako/log"
+	"github.com/lemon4ksan/foundation/async/event"
+	"github.com/lemon4ksan/foundation/generic"
+	"github.com/lemon4ksan/foundation/async/fsm"
+	"github.com/lemon4ksan/foundation/async/log"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/lemon4ksan/g-man/internal/client/modules"
@@ -188,7 +188,7 @@ func WithFastClient(fastClient *fast.Client) Option {
 }
 
 // WithBus assigns an event bus instance.
-func WithBus(bus *bus.Bus) Option {
+func WithBus(bus *event.Bus) Option {
 	return func(c *Client) { c.bus = bus }
 }
 
@@ -212,6 +212,14 @@ func WithCommunityFactory(communityFactory session.CommunityClientFactory) Optio
 	return func(c *Client) { c.communityFactory = communityFactory }
 }
 
+// WithProxy configures a unified proxy across socket TCP/WebSocket dialers and HTTP web clients.
+func WithProxy(proxyURL string) Option {
+	return func(c *Client) {
+		c.cfg.Socket.Connector.ProxyURL = proxyURL
+		c.cfg.Socket.Connector.Dialers = socket.NewDialers(proxyURL)
+	}
+}
+
 // Client acts as the primary entry point connecting socket channels, authentication services, module managers, and request routers.
 //
 // Thread Safety:
@@ -220,7 +228,7 @@ type Client struct {
 	cfg      Config
 	loggerMu sync.RWMutex
 	logger   log.Logger
-	bus      *bus.Bus
+	bus      *event.Bus
 
 	socket     session.SocketProvider
 	session    *session.Session
@@ -234,7 +242,7 @@ type Client struct {
 	cancel    context.CancelFunc
 	closed    chan struct{}
 	wg        sync.WaitGroup
-	fsm       *kata.FSM[State, Event]
+	fsm       *fsm.FSM[State, Event]
 	closeOnce sync.Once
 
 	enrichedAccount string
@@ -256,20 +264,20 @@ func New(cfg Config, opts ...Option) (*Client, error) {
 
 	cfg.ResolveDefaults()
 
-	fsm := kata.NewFSM[State, Event](StateNew)
-	fsm.AddRules(
-		kata.TransitionRule[State, Event]{From: StateNew, Event: EventRun, To: StateRunning},
-		kata.TransitionRule[State, Event]{From: StateRunning, Event: EventAuthorize, To: StateAuthorized},
-		kata.TransitionRule[State, Event]{From: StateAuthorized, Event: EventAuthorize, To: StateAuthorized},
-		kata.TransitionRule[State, Event]{From: StateAuthorized, Event: EventClose, To: StateClosed},
-		kata.TransitionRule[State, Event]{From: StateRunning, Event: EventClose, To: StateClosed},
-		kata.TransitionRule[State, Event]{From: StateNew, Event: EventClose, To: StateClosed},
+	mach := fsm.NewFSM[State, Event](StateNew)
+	mach.AddRules(
+		fsm.TransitionRule[State, Event]{From: StateNew, Event: EventRun, To: StateRunning},
+		fsm.TransitionRule[State, Event]{From: StateRunning, Event: EventAuthorize, To: StateAuthorized},
+		fsm.TransitionRule[State, Event]{From: StateAuthorized, Event: EventAuthorize, To: StateAuthorized},
+		fsm.TransitionRule[State, Event]{From: StateAuthorized, Event: EventClose, To: StateClosed},
+		fsm.TransitionRule[State, Event]{From: StateRunning, Event: EventClose, To: StateClosed},
+		fsm.TransitionRule[State, Event]{From: StateNew, Event: EventClose, To: StateClosed},
 	)
 
 	c := &Client{
 		ctx:            ctx,
 		cancel:         cancel,
-		fsm:            fsm,
+		fsm:            mach,
 		cfg:            cfg,
 		logger:         log.Discard,
 		closed:         make(chan struct{}),
@@ -279,7 +287,7 @@ func New(cfg Config, opts ...Option) (*Client, error) {
 	generic.ApplyOptions(c, opts...)
 
 	if c.bus == nil {
-		c.bus = bus.New()
+		c.bus = event.New()
 	}
 
 	if c.rest == nil {
@@ -404,8 +412,8 @@ func (c *Client) RegisterModule(m module.Module) {
 // Socket returns the low-level socket provider.
 func (c *Client) Socket() session.SocketProvider { return c.socket }
 
-// Bus returns the event bus.
-func (c *Client) Bus() *bus.Bus { return c.bus }
+// Bus returns the event event.
+func (c *Client) Bus() *event.Bus { return c.bus }
 
 // Logger returns the configured logger.
 func (c *Client) Logger() log.Logger {
@@ -717,7 +725,7 @@ type initContext struct {
 }
 
 func (ctx *initContext) Storage() storage.Provider        { return ctx.Client.storage }
-func (ctx *initContext) Bus() *bus.Bus                    { return ctx.Client.bus }
+func (ctx *initContext) Bus() *event.Bus                    { return ctx.Client.bus }
 func (ctx *initContext) Logger() log.Logger               { return ctx.Client.Logger() }
 func (ctx *initContext) Service() service.Doer            { return ctx.Client }
 func (ctx *initContext) Rest() request.Requester          { return ctx.Client.rest }

@@ -8,7 +8,7 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/lemon4ksan/miyako/jobs"
+	"github.com/lemon4ksan/foundation/async/task"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
@@ -26,7 +26,7 @@ type ServiceHandler = Handler
 
 // SendConfig specifies parameters for sending outbound socket messages.
 type SendConfig struct {
-	Callback jobs.Callback[*protocol.Packet]
+	Callback task.Callback[*protocol.Packet]
 	Token    string
 }
 
@@ -34,7 +34,7 @@ type SendConfig struct {
 type SendOption func(*SendConfig)
 
 // WithCallback assigns an asynchronous job response callback.
-func WithCallback(cb jobs.Callback[*protocol.Packet]) SendOption {
+func WithCallback(cb task.Callback[*protocol.Packet]) SendOption {
 	return func(c *SendConfig) { c.Callback = cb }
 }
 

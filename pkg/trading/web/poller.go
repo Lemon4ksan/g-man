@@ -9,8 +9,8 @@ import (
 	"maps"
 	"time"
 
-	"github.com/lemon4ksan/miyako/bus"
-	"github.com/lemon4ksan/miyako/log"
+	"github.com/lemon4ksan/foundation/async/event"
+	"github.com/lemon4ksan/foundation/async/log"
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
@@ -233,7 +233,7 @@ func (m *Manager) gcKnownOffers(now time.Time) {
 	}
 }
 
-func (m *Manager) listenEvents(ctx context.Context, sub *bus.Subscription) {
+func (m *Manager) listenEvents(ctx context.Context, sub *event.Subscription) {
 	defer sub.Unsubscribe()
 
 	for {
@@ -255,7 +255,7 @@ func (m *Manager) listenEvents(ctx context.Context, sub *bus.Subscription) {
 	}
 }
 
-func (m *Manager) listenNotifications(ctx context.Context, sub *bus.Subscription) {
+func (m *Manager) listenNotifications(ctx context.Context, sub *event.Subscription) {
 	defer sub.Unsubscribe()
 
 	for {

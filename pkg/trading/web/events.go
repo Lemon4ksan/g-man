@@ -5,32 +5,32 @@
 package web
 
 import (
-	"github.com/lemon4ksan/miyako/bus"
+	"github.com/lemon4ksan/foundation/async/event"
 
 	"github.com/lemon4ksan/g-man/pkg/trading"
 )
 
 type StateEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	New State
 }
 
 type NewOfferEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	Offer *trading.TradeOffer
 }
 
 type OfferChangedEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	Offer    *trading.TradeOffer
 	OldState trading.OfferState
 }
 
 type PollSuccessEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 }
 
 type PollDataEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	PollData trading.PollData
 }

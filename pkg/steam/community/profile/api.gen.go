@@ -22,6 +22,7 @@ import (
 
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/codec/decode"
+	"github.com/lemon4ksan/aoni/codec/extract"
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/option"
 	"github.com/lemon4ksan/aoni/request"
@@ -99,13 +100,13 @@ func (c *apiClient) GetEditConfig(ctx context.Context, steamID uint64, mods ...a
 	}
 
 	stageIn := bodyBytes
-	stageOut0, err := decode.ExtractAttr(stageIn, "#profile_edit_config", "data-profile-edit")
+	stageOut0, err := extract.Attr(stageIn, "#profile_edit_config", "data-profile-edit")
 	if err != nil {
 		return nil, err
 	}
 	stageIn = stageOut0
 
-	stageIn = decode.HTMLUnescape(stageIn)
+	stageIn = extract.HTMLUnescape(stageIn)
 
 	var result rawProfileEditConfig
 	if err := decode.UnmarshalJSON(stageIn, &result); err != nil {
@@ -135,13 +136,13 @@ func (c *apiClient) GetPrivacyConfig(ctx context.Context, steamID uint64, mods .
 	}
 
 	stageIn := bodyBytes
-	stageOut0, err := decode.ExtractAttr(stageIn, "#profile_edit_config", "data-profile-edit")
+	stageOut0, err := extract.Attr(stageIn, "#profile_edit_config", "data-profile-edit")
 	if err != nil {
 		return nil, err
 	}
 	stageIn = stageOut0
 
-	stageIn = decode.HTMLUnescape(stageIn)
+	stageIn = extract.HTMLUnescape(stageIn)
 
 	var result rawPrivacyConfig
 	if err := decode.UnmarshalJSON(stageIn, &result); err != nil {
@@ -234,7 +235,6 @@ func (c *apiClient) UploadAvatarFile(ctx context.Context, uploadType string, ste
 	return resp, nil
 }
 
-// AppendFormData serializes profileSaveRequest into url-encoded form bytes on dst buffer (0 B/op).
 func (r *profileSaveRequest) AppendFormData(dst []byte) []byte {
 	if r == nil {
 		return dst
@@ -349,12 +349,10 @@ func (r *profileSaveRequest) AppendFormData(dst []byte) []byte {
 	return dst
 }
 
-// AppendQuery serializes profileSaveRequest into query string bytes on dst buffer (0 B/op).
 func (r *profileSaveRequest) AppendQuery(dst []byte) []byte {
 	return r.AppendFormData(dst)
 }
 
-// EncodeValues serializes profileSaveRequest into url.Values without reflection.
 func (r *profileSaveRequest) EncodeValues(vals url.Values) {
 	if r == nil {
 		return

@@ -153,3 +153,7 @@ func (kv *postgresKV) Keys(ctx context.Context, prefix string) ([]string, error)
 
 	return keys, nil
 }
+
+func main() {
+	// Database storage provider example
+}

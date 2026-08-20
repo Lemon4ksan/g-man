@@ -7,12 +7,12 @@ package status
 import (
 	"time"
 
-	"github.com/lemon4ksan/miyako/bus"
+	"github.com/lemon4ksan/foundation/async/event"
 )
 
 // StatusUpdatedEvent is published on the event bus whenever the Steam status is successfully refreshed.
 type StatusUpdatedEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	StatusText string
 	IdleAppIDs []uint32
 	Timestamp  time.Time

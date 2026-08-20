@@ -4,10 +4,10 @@
 
 package account
 
-import "github.com/lemon4ksan/miyako/bus"
+import "github.com/lemon4ksan/foundation/async/event"
 
 type InfoEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	PersonaName                     string
 	IPCountry                       string
 	CountAuthedComputers            int32
@@ -20,7 +20,7 @@ type InfoEvent struct {
 }
 
 type EmailInfoEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	EmailAddress                         string
 	EmailIsValidated                     bool
 	EmailValidationChanged               bool
@@ -29,7 +29,7 @@ type EmailInfoEvent struct {
 }
 
 type LimitationsEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	IsLimitedAccount                       bool
 	IsCommunityBanned                      bool
 	IsLockedAccount                        bool
@@ -37,14 +37,14 @@ type LimitationsEvent struct {
 }
 
 type VACBansEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	NumBans uint32
 	AppIDs  []uint32
 	Ranges  [][2]uint32
 }
 
 type WalletInfoEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	HasWallet      bool
 	Balance        int64
 	Currency       int32
@@ -53,11 +53,11 @@ type WalletInfoEvent struct {
 }
 
 type VanityURLChangedEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	VanityURL string
 }
 
 type GiftsUpdatedEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	Gifts []map[string]any
 }

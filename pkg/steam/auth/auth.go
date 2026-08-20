@@ -18,10 +18,10 @@ import (
 	"time"
 
 	json "github.com/goccy/go-json"
-	"github.com/lemon4ksan/miyako/bus"
-	"github.com/lemon4ksan/miyako/generic"
-	"github.com/lemon4ksan/miyako/kata"
-	"github.com/lemon4ksan/miyako/log"
+	"github.com/lemon4ksan/foundation/async/event"
+	"github.com/lemon4ksan/foundation/generic"
+	"github.com/lemon4ksan/foundation/async/fsm"
+	"github.com/lemon4ksan/foundation/async/log"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/lemon4ksan/g-man/internal/crypto"
@@ -209,13 +209,13 @@ func decodeJWTPayload(token string) ([]byte, error) {
 // Authenticator orchestrates password, token, and Steam Guard login sequences against Connection Managers.
 //
 // Thread Safety:
-//   - Safe for concurrent operations. State transitions are controlled via kata.FSM.
+//   - Safe for concurrent operations. State transitions are controlled via fsm.FSM.
 type Authenticator struct {
-	fsm *kata.FSM[State, Event]
+	fsm *fsm.FSM[State, Event]
 
 	loggerMu sync.RWMutex
 	logger   log.Logger
-	bus      *bus.Bus
+	bus      *event.Bus
 	socket   SocketProvider
 	service  WebAuthenticator
 
@@ -228,24 +228,24 @@ type Authenticator struct {
 }
 
 // NewAuthenticator constructs an Authenticator instance.
-func NewAuthenticator(s SocketProvider, svc WebAuthenticator, bus *bus.Bus, opts ...Option) *Authenticator {
-	fsm := kata.NewFSM[State, Event](StateDisconnected)
-	fsm.AddRules(
-		kata.TransitionRule[State, Event]{From: StateDisconnected, Event: EventBegin, To: StateAuthenticating},
-		kata.TransitionRule[State, Event]{From: StateFailed, Event: EventBegin, To: StateAuthenticating},
-		kata.TransitionRule[State, Event]{From: StateLoggedOn, Event: EventBegin, To: StateAuthenticating},
-		kata.TransitionRule[State, Event]{From: StateAuthenticating, Event: EventLoggingOn, To: StateLoggingOn},
-		kata.TransitionRule[State, Event]{From: StateLoggingOn, Event: EventSuccess, To: StateLoggedOn},
-		kata.TransitionRule[State, Event]{From: StateAuthenticating, Event: EventFail, To: StateFailed},
-		kata.TransitionRule[State, Event]{From: StateLoggingOn, Event: EventFail, To: StateFailed},
-		kata.TransitionRule[State, Event]{From: StateLoggedOn, Event: EventFail, To: StateFailed},
-		kata.TransitionRule[State, Event]{From: StateLoggedOn, Event: EventDisconnect, To: StateDisconnected},
-		kata.TransitionRule[State, Event]{From: StateFailed, Event: EventDisconnect, To: StateDisconnected},
-		kata.TransitionRule[State, Event]{From: StateAuthenticating, Event: EventDisconnect, To: StateDisconnected},
+func NewAuthenticator(s SocketProvider, svc WebAuthenticator, bus *event.Bus, opts ...Option) *Authenticator {
+	mach := fsm.NewFSM[State, Event](StateDisconnected)
+	mach.AddRules(
+		fsm.TransitionRule[State, Event]{From: StateDisconnected, Event: EventBegin, To: StateAuthenticating},
+		fsm.TransitionRule[State, Event]{From: StateFailed, Event: EventBegin, To: StateAuthenticating},
+		fsm.TransitionRule[State, Event]{From: StateLoggedOn, Event: EventBegin, To: StateAuthenticating},
+		fsm.TransitionRule[State, Event]{From: StateAuthenticating, Event: EventLoggingOn, To: StateLoggingOn},
+		fsm.TransitionRule[State, Event]{From: StateLoggingOn, Event: EventSuccess, To: StateLoggedOn},
+		fsm.TransitionRule[State, Event]{From: StateAuthenticating, Event: EventFail, To: StateFailed},
+		fsm.TransitionRule[State, Event]{From: StateLoggingOn, Event: EventFail, To: StateFailed},
+		fsm.TransitionRule[State, Event]{From: StateLoggedOn, Event: EventFail, To: StateFailed},
+		fsm.TransitionRule[State, Event]{From: StateLoggedOn, Event: EventDisconnect, To: StateDisconnected},
+		fsm.TransitionRule[State, Event]{From: StateFailed, Event: EventDisconnect, To: StateDisconnected},
+		fsm.TransitionRule[State, Event]{From: StateAuthenticating, Event: EventDisconnect, To: StateDisconnected},
 	)
 
 	auth := &Authenticator{
-		fsm:     fsm,
+		fsm:     mach,
 		bus:     bus,
 		socket:  s,
 		service: svc,
@@ -261,7 +261,7 @@ func NewAuthenticator(s SocketProvider, svc WebAuthenticator, bus *bus.Bus, opts
 		return nil
 	}
 	for _, ev := range []Event{EventBegin, EventLoggingOn, EventSuccess, EventFail, EventDisconnect} {
-		fsm.OnAfter(ev, publishState)
+		mach.OnAfter(ev, publishState)
 	}
 
 	s.RegisterMsgHandler(enums.EMsg_ChannelEncryptRequest, auth.handleChannelEncryptRequest)

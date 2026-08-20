@@ -7,7 +7,7 @@ package notifications
 import (
 	"fmt"
 
-	"github.com/lemon4ksan/miyako/bus"
+	"github.com/lemon4ksan/foundation/async/event"
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
@@ -123,31 +123,31 @@ func FromProtoNotificationType(t pb.ESteamNotificationType) NotificationType {
 }
 
 type ItemAnnouncementsEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	CountNewItems uint32
 	UnseenItems   []*pb.CMsgClientItemAnnouncements_UnseenItem
 }
 
 type CommentNotificationsEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	CountNewComments              uint32
 	CountNewCommentsOwner         uint32
 	CountNewCommentsSubscriptions uint32
 }
 
 type UserNotificationsEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	Notifications map[NotificationType]uint32
 }
 
 type OfflineMessagesEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	OfflineMessages            uint32
 	FriendsWithOfflineMessages []id.ID
 }
 
 type MarketingMessagesEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	Timestamp int64
 	Messages  []MarketingMessage
 }
@@ -159,7 +159,7 @@ type MarketingMessage struct {
 }
 
 type ReceivedEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	Notifications            []*pb.SteamNotificationData
 	PendingGiftCount         uint32
 	PendingFriendCount       uint32

@@ -12,8 +12,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/lemon4ksan/aoni/codec/decode"
-	"github.com/lemon4ksan/miyako/generic"
+	"github.com/lemon4ksan/aoni/codec/extract"
+	"github.com/lemon4ksan/foundation/generic"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
@@ -87,11 +87,11 @@ func EditProfile(ctx context.Context, client community.Requester, steamID id.ID,
 
 	currentConfig, err := api.GetEditConfig(ctx, uint64(steamID))
 	if err != nil {
-		if errors.Is(err, decode.ErrElementNotFound) || strings.Contains(err.Error(), "element not found") {
+		if errors.Is(err, extract.ErrElementNotFound) || strings.Contains(err.Error(), "element not found") {
 			return ErrConfigNotFound
 		}
 
-		if errors.Is(err, decode.ErrAttrNotFound) || strings.Contains(err.Error(), "attribute not found") {
+		if errors.Is(err, extract.ErrAttrNotFound) || strings.Contains(err.Error(), "attribute not found") {
 			return ErrMissingDataAttr
 		}
 
@@ -131,11 +131,11 @@ func UpdatePrivacySettings(
 
 	currentConfig, err := api.GetPrivacyConfig(ctx, uint64(steamID))
 	if err != nil {
-		if errors.Is(err, decode.ErrElementNotFound) || strings.Contains(err.Error(), "element not found") {
+		if errors.Is(err, extract.ErrElementNotFound) || strings.Contains(err.Error(), "element not found") {
 			return ErrConfigNotFound
 		}
 
-		if errors.Is(err, decode.ErrAttrNotFound) || strings.Contains(err.Error(), "attribute not found") {
+		if errors.Is(err, extract.ErrAttrNotFound) || strings.Contains(err.Error(), "attribute not found") {
 			return ErrMissingDataAttr
 		}
 

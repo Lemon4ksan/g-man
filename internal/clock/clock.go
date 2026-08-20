@@ -28,6 +28,11 @@ func (c *OffsetClock) SetOffset(offset time.Duration) {
 	c.offset.Store(int64(offset))
 }
 
+// Offset returns the configured time offset duration.
+func (c *OffsetClock) Offset() time.Duration {
+	return time.Duration(c.offset.Load())
+}
+
 // Now returns the current time shifted by the configured server offset.
 func (c *OffsetClock) Now() time.Time {
 	return time.Now().Add(time.Duration(c.offset.Load()))

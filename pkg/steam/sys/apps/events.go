@@ -5,33 +5,33 @@
 package apps
 
 import (
-	"github.com/lemon4ksan/miyako/bus"
+	"github.com/lemon4ksan/foundation/async/event"
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 )
 
 type AppLaunchedEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	AppID uint32
 }
 
 type AppQuitEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	AppID uint32
 }
 
 type PlayingStateEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	Blocked    bool
 	PlayingApp uint32
 }
 
 type LicensesEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	Licenses []*pb.CMsgClientLicenseList_License
 }
 
 type GameConnectTokensEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	Tokens [][]byte
 }

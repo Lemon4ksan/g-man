@@ -8,11 +8,14 @@ package web
 import (
 	"context"
 	"errors"
+	"fmt"
+	"slices"
 	"sync"
 	"time"
 
-	"github.com/lemon4ksan/miyako/kata"
-	"github.com/lemon4ksan/miyako/log"
+	"github.com/lemon4ksan/foundation/async/fsm"
+	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/sync/keylock"
 	"golang.org/x/time/rate"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
@@ -43,6 +46,8 @@ var (
 	ErrOfferNotFound = errors.New("trade offer not found")
 	// ErrMissingPartnerParam indicates trade URL does not contain partner parameter.
 	ErrMissingPartnerParam = errors.New("trade URL is missing partner parameter")
+	// ErrItemAlreadyReserved indicates one or more items are already locked in another active offer.
+	ErrItemAlreadyReserved = errors.New("trading: one or more items are already reserved in another active offer")
 )
 
 // WithModule registers the Manager module in the client.
@@ -133,7 +138,8 @@ type Manager struct {
 
 	rateLimiter *rate.Limiter
 	trigger     chan struct{}
-	fsm         *kata.FSM[State, Event]
+	fsm         *fsm.FSM[State, Event]
+	itemLocks   *keylock.KeyMutex[uint64]
 }
 
 // New constructs a Manager instance with configured polling parameters.
@@ -142,12 +148,12 @@ func New(cfg Config) *Manager {
 		cfg.PollInterval = 30 * time.Second
 	}
 
-	fsm := kata.NewFSM[State, Event](StateStopped)
-	fsm.AddRules(
-		kata.TransitionRule[State, Event]{From: StateStopped, Event: EventStartPolling, To: StatePolling},
-		kata.TransitionRule[State, Event]{From: StatePolling, Event: EventStopPolling, To: StateStopped},
-		kata.TransitionRule[State, Event]{From: StateStopped, Event: EventClose, To: StateClosed},
-		kata.TransitionRule[State, Event]{From: StatePolling, Event: EventClose, To: StateClosed},
+	mach := fsm.NewFSM[State, Event](StateStopped)
+	mach.AddRules(
+		fsm.TransitionRule[State, Event]{From: StateStopped, Event: EventStartPolling, To: StatePolling},
+		fsm.TransitionRule[State, Event]{From: StatePolling, Event: EventStopPolling, To: StateStopped},
+		fsm.TransitionRule[State, Event]{From: StateStopped, Event: EventClose, To: StateClosed},
+		fsm.TransitionRule[State, Event]{From: StatePolling, Event: EventClose, To: StateClosed},
 	)
 
 	return &Manager{
@@ -160,8 +166,76 @@ func New(cfg Config) *Manager {
 		lastSeenOffers: make(map[uint64]time.Time),
 		rateLimiter:    rate.NewLimiter(rate.Every(2*time.Second), 1),
 		trigger:        make(chan struct{}, 1),
-		fsm:            fsm,
+		fsm:            mach,
+		itemLocks:      keylock.New[uint64](),
 	}
+}
+
+// ReserveItems attempts to reserve multiple asset IDs atomically (e.g. before creating a trade offer).
+// If any asset is already reserved, all acquired locks are released and ErrItemAlreadyReserved is returned.
+// Returns an unlock cleanup function.
+func (m *Manager) ReserveItems(assetIDs ...uint64) (func(), error) {
+	if len(assetIDs) == 0 {
+		return func() {}, nil
+	}
+
+	// Sort asset IDs to avoid deadlock potential
+	sorted := make([]uint64, len(assetIDs))
+	copy(sorted, assetIDs)
+	slices.Sort(sorted)
+
+	locked := make([]uint64, 0, len(sorted))
+	for _, id := range sorted {
+		if !m.itemLocks.TryLock(id) {
+			for _, prevID := range locked {
+				m.itemLocks.Unlock(prevID)
+			}
+			return nil, fmt.Errorf("%w: asset ID %d", ErrItemAlreadyReserved, id)
+		}
+		locked = append(locked, id)
+	}
+
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			for _, id := range locked {
+				m.itemLocks.Unlock(id)
+			}
+		})
+	}, nil
+}
+
+// LockItems blocks until all specified asset IDs are successfully locked.
+// Returns an unlock cleanup function.
+func (m *Manager) LockItems(assetIDs ...uint64) func() {
+	if len(assetIDs) == 0 {
+		return func() {}
+	}
+
+	sorted := make([]uint64, len(assetIDs))
+	copy(sorted, assetIDs)
+	slices.Sort(sorted)
+
+	for _, id := range sorted {
+		m.itemLocks.Lock(id)
+	}
+
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			for _, id := range sorted {
+				m.itemLocks.Unlock(id)
+			}
+		})
+	}
+}
+
+// IsItemReserved reports whether the given asset ID is currently locked/reserved.
+func (m *Manager) IsItemReserved(assetID uint64) bool {
+	if m == nil || m.itemLocks == nil {
+		return false
+	}
+	return m.itemLocks.IsLocked(assetID)
 }
 
 // Web returns the underlying WebAPI service client.

@@ -7,8 +7,8 @@ package steam
 import (
 	"context"
 
-	"github.com/lemon4ksan/miyako/generic"
-	"github.com/lemon4ksan/miyako/log"
+	"github.com/lemon4ksan/foundation/generic"
+	"github.com/lemon4ksan/foundation/async/log"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/steam/client"
@@ -40,6 +40,7 @@ var (
 	WithAuthenticator    = client.WithAuthenticator
 	WithWebFactory       = client.WithWebFactory
 	WithCommunityFactory = client.WithCommunityFactory
+	WithProxy            = client.WithProxy
 )
 
 var NewClient = client.New

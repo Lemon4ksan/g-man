@@ -17,8 +17,8 @@ import (
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/request"
-	"github.com/lemon4ksan/miyako/bus"
-	"github.com/lemon4ksan/miyako/log"
+	"github.com/lemon4ksan/foundation/async/event"
+	"github.com/lemon4ksan/foundation/async/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/protobuf/proto"
@@ -79,7 +79,7 @@ func (d *requesterDoer) Do(req *http.Request) (*http.Response, error) {
 
 type InitContext struct {
 	mu              sync.RWMutex
-	eventBus        *bus.Bus
+	eventBus        *event.Bus
 	logger          log.Logger
 	packetHandlers  map[enums.EMsg]socket.Handler
 	serviceHandlers map[string]socket.Handler
@@ -91,7 +91,7 @@ type InitContext struct {
 
 func NewInitContext() *InitContext {
 	return &InitContext{
-		eventBus:        bus.New(),
+		eventBus:        event.New(),
 		logger:          log.Discard,
 		packetHandlers:  make(map[enums.EMsg]socket.Handler),
 		serviceHandlers: make(map[string]socket.Handler),
@@ -102,7 +102,7 @@ func NewInitContext() *InitContext {
 }
 
 func (m *InitContext) MockService() *ServiceMock { return m.service }
-func (m *InitContext) Bus() *bus.Bus             { return m.eventBus }
+func (m *InitContext) Bus() *event.Bus             { return m.eventBus }
 func (m *InitContext) Logger() log.Logger        { return m.logger }
 func (m *InitContext) Service() service.Doer     { return m.service }
 

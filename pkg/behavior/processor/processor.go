@@ -13,9 +13,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lemon4ksan/miyako/bus"
-	"github.com/lemon4ksan/miyako/log"
-	"github.com/lemon4ksan/miyako/sync/keylock"
+	"github.com/lemon4ksan/foundation/async/event"
+	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/sync/keylock"
 
 	"github.com/lemon4ksan/g-man/pkg/behavior"
 	"github.com/lemon4ksan/g-man/pkg/steam/client"
@@ -45,7 +45,7 @@ type Processor struct {
 	notif    *notifications.Manager
 	reviewer *review.Reviewer
 	logger   log.Logger
-	bus      *bus.Bus
+	bus      *event.Bus
 
 	queue chan *trading.TradeOffer
 
@@ -60,11 +60,11 @@ func New(
 	eng *engine.Engine,
 	n *notifications.Manager,
 	r *review.Reviewer,
-	b *bus.Bus,
+	b *event.Bus,
 	l log.Logger,
 ) *Processor {
 	if b == nil {
-		b = bus.New()
+		b = event.New()
 	}
 
 	if l == nil {

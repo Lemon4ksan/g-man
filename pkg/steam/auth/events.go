@@ -5,21 +5,21 @@
 package auth
 
 import (
-	"github.com/lemon4ksan/miyako/bus"
+	"github.com/lemon4ksan/foundation/async/event"
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 )
 
 // StateEvent is emitted when the authenticator transitions between lifecycle states.
 type StateEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	Old State
 	New State
 }
 
 // LoggedOnEvent is emitted after successful authentication with a Connection Manager.
 type LoggedOnEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	ClientInstanceID uint32
 	CellID           uint32
 	PublicIP         uint32
@@ -29,7 +29,7 @@ type LoggedOnEvent struct {
 
 // SteamGuardRequiredEvent is emitted when password logon requires mobile or email Steam Guard verification codes.
 type SteamGuardRequiredEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	IsAppConfirm bool
 	Is2FA        bool
 	EmailDomain  string

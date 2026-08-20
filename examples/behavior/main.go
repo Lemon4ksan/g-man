@@ -9,7 +9,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/lemon4ksan/miyako/log"
+	"github.com/lemon4ksan/foundation/async/log"
 
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/sys/apps"
@@ -149,4 +149,8 @@ func (h *HumanMimicryBehavior) randomSleep(ctx context.Context, minSec, maxSec i
 	case <-ctx.Done():
 	case <-time.After(duration):
 	}
+}
+
+func main() {
+	// Behavior example
 }

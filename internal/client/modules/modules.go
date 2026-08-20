@@ -13,7 +13,7 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/lemon4ksan/miyako/lifecycle"
+	"github.com/lemon4ksan/foundation/async/lifecycle"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 )

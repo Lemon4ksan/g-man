@@ -8,9 +8,9 @@ package behavior
 import (
 	"context"
 
-	"github.com/lemon4ksan/miyako/bus"
-	"github.com/lemon4ksan/miyako/lifecycle"
-	"github.com/lemon4ksan/miyako/log"
+	"github.com/lemon4ksan/foundation/async/event"
+	"github.com/lemon4ksan/foundation/async/lifecycle"
+	"github.com/lemon4ksan/foundation/async/log"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/client"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
@@ -29,12 +29,12 @@ func From(c *client.Client) *Orchestrator {
 // Orchestrator wraps a miyako BehaviorRunner and adapts it to the Steam client module interface.
 type Orchestrator struct {
 	*lifecycle.BehaviorRunner
-	bus    *bus.Bus
+	bus    *event.Bus
 	logger log.Logger
 }
 
 // NewOrchestrator creates an Orchestrator with the given bus and logger.
-func NewOrchestrator(b *bus.Bus, logger log.Logger, opts ...lifecycle.Option) *Orchestrator {
+func NewOrchestrator(b *event.Bus, logger log.Logger, opts ...lifecycle.Option) *Orchestrator {
 	return &Orchestrator{
 		BehaviorRunner: lifecycle.NewBehaviorRunner(
 			append([]lifecycle.Option{lifecycle.WithLogger(logger)}, opts...)...),
@@ -96,8 +96,8 @@ func (o *Orchestrator) Close() error {
 	return nil
 }
 
-// Bus returns the shared event bus.
-func (o *Orchestrator) Bus() *bus.Bus { return o.bus }
+// Bus returns the shared event event.
+func (o *Orchestrator) Bus() *event.Bus { return o.bus }
 
 // Logger returns the shared logger.
 func (o *Orchestrator) Logger() log.Logger { return o.logger }

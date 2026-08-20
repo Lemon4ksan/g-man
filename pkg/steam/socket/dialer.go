@@ -17,7 +17,7 @@ import (
 	"github.com/lemon4ksan/aoni/realtime/socket"
 	"github.com/lemon4ksan/aoni/realtime/socket/connector"
 	"github.com/lemon4ksan/aoni/realtime/socket/processor"
-	"github.com/lemon4ksan/miyako/log"
+	"github.com/lemon4ksan/foundation/async/log"
 
 	"github.com/lemon4ksan/g-man/internal/network"
 )
@@ -93,13 +93,26 @@ func (a *legacyConnAdapter) Close() error {
 	return a.conn.Close()
 }
 
-// DefaultDialers initializes TCP and WebSocket dialers.
+// DefaultDialers initializes TCP and WebSocket dialers without proxy.
 func DefaultDialers() map[string]Dialer {
+	return NewDialers("")
+}
+
+// NewDialers initializes TCP and WebSocket dialers configured with an optional proxy URL.
+func NewDialers(proxyURL string) map[string]Dialer {
 	return map[string]Dialer{
 		"tcp": func(ctx context.Context, endpoint CMServer, framer socket.Framer, cipher socket.Cipher) (connector.Connection, error) {
-			var d net.Dialer
+			var (
+				conn net.Conn
+				err  error
+			)
 
-			conn, err := d.DialContext(ctx, "tcp", endpoint.Endpoint)
+			if proxyURL != "" {
+				conn, err = network.NewProxyConn(ctx, proxyURL, endpoint.Endpoint)
+			} else {
+				var d net.Dialer
+				conn, err = d.DialContext(ctx, "tcp", endpoint.Endpoint)
+			}
 			if err != nil {
 				return nil, fmt.Errorf("tcp dial: %w", err)
 			}
@@ -115,7 +128,7 @@ func DefaultDialers() map[string]Dialer {
 			return connector.NewNetConnWrapper(conn, framer, cipher), nil
 		},
 		"websocket": func(ctx context.Context, endpoint CMServer, _ socket.Framer, _ socket.Cipher) (connector.Connection, error) {
-			wsConn, err := network.NewWS(ctx, log.Discard, endpoint.Endpoint, "", nil)
+			wsConn, err := network.NewWS(ctx, log.Discard, endpoint.Endpoint, proxyURL, nil)
 			if err != nil {
 				return nil, err
 			}

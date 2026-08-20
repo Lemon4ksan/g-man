@@ -13,8 +13,8 @@ import (
 	"time"
 
 	json "github.com/goccy/go-json"
-	"github.com/lemon4ksan/miyako/generic"
-	"github.com/lemon4ksan/miyako/yumi"
+	"github.com/lemon4ksan/foundation/generic"
+	"github.com/lemon4ksan/foundation/async/pipeline"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"github.com/lemon4ksan/g-man/pkg/trading"
@@ -207,9 +207,9 @@ func (e *Enricher) fetchAssetClassInfos(
 		chunks = append(chunks, uncachedKeys[i:end])
 	}
 
-	cfg := yumi.PipelineConfig{Workers: 3, RPS: 5, Burst: 2}
+	cfg := pipeline.PipelineConfig{Workers: 3, RPS: 5, Burst: 2}
 
-	results, err := yumi.Map(ctx, cfg, chunks, func(chunkCtx context.Context, chunk []descKey) (chunkResult, error) {
+	results, err := pipeline.Map(ctx, cfg, chunks, func(chunkCtx context.Context, chunk []descKey) (chunkResult, error) {
 		params := make(url.Values)
 		params.Set("appid", strconv.FormatUint(uint64(appID), 10))
 		params.Set("language", language)

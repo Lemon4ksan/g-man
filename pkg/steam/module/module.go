@@ -12,10 +12,10 @@ import (
 	"sync"
 
 	"github.com/lemon4ksan/aoni/request"
-	"github.com/lemon4ksan/miyako/bus"
-	"github.com/lemon4ksan/miyako/generic"
-	"github.com/lemon4ksan/miyako/kata"
-	"github.com/lemon4ksan/miyako/log"
+	"github.com/lemon4ksan/foundation/async/event"
+	"github.com/lemon4ksan/foundation/generic"
+	"github.com/lemon4ksan/foundation/async/fsm"
+	"github.com/lemon4ksan/foundation/async/log"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
@@ -96,7 +96,7 @@ type InitContext interface {
 	request.Transport
 
 	Storage() storage.Provider
-	Bus() *bus.Bus
+	Bus() *event.Bus
 	Logger() log.Logger
 	Service() service.Doer
 	Rest() request.Requester
@@ -136,8 +136,8 @@ type Auth interface {
 type Base struct {
 	NameStr string
 	Logger  log.Logger
-	Bus     *bus.Bus
-	Fsm     *kata.FSM[State, Event]
+	Bus     *event.Bus
+	Fsm     *fsm.FSM[State, Event]
 	Ctx     context.Context
 	Cancel  context.CancelFunc
 	Wg      *sync.WaitGroup
@@ -149,17 +149,17 @@ type Base struct {
 
 // New constructs a Base module.
 func New(name string) Base {
-	fsm := kata.NewFSM[State, Event](StateNew)
-	fsm.AddRules(
-		kata.TransitionRule[State, Event]{From: StateNew, Event: EventStart, To: StateStarted},
-		kata.TransitionRule[State, Event]{From: StateStarted, Event: EventClose, To: StateClosed},
-		kata.TransitionRule[State, Event]{From: StateNew, Event: EventClose, To: StateClosed},
+	mach := fsm.NewFSM[State, Event](StateNew)
+	mach.AddRules(
+		fsm.TransitionRule[State, Event]{From: StateNew, Event: EventStart, To: StateStarted},
+		fsm.TransitionRule[State, Event]{From: StateStarted, Event: EventClose, To: StateClosed},
+		fsm.TransitionRule[State, Event]{From: StateNew, Event: EventClose, To: StateClosed},
 	)
 
 	return Base{
 		NameStr: name,
 		Logger:  log.Discard,
-		Fsm:     fsm,
+		Fsm:     mach,
 		Wg:      new(sync.WaitGroup),
 		mu:      new(sync.Mutex),
 	}
@@ -180,13 +180,13 @@ func (b *Base) Init(ctx InitContext) error {
 	b.Bus = ctx.Bus()
 
 	if b.Fsm == nil {
-		fsm := kata.NewFSM[State, Event](StateNew)
-		fsm.AddRules(
-			kata.TransitionRule[State, Event]{From: StateNew, Event: EventStart, To: StateStarted},
-			kata.TransitionRule[State, Event]{From: StateStarted, Event: EventClose, To: StateClosed},
-			kata.TransitionRule[State, Event]{From: StateNew, Event: EventClose, To: StateClosed},
+		mach := fsm.NewFSM[State, Event](StateNew)
+		mach.AddRules(
+			fsm.TransitionRule[State, Event]{From: StateNew, Event: EventStart, To: StateStarted},
+			fsm.TransitionRule[State, Event]{From: StateStarted, Event: EventClose, To: StateClosed},
+			fsm.TransitionRule[State, Event]{From: StateNew, Event: EventClose, To: StateClosed},
 		)
-		b.Fsm = fsm
+		b.Fsm = mach
 	}
 
 	if b.Wg == nil {
@@ -258,7 +258,7 @@ func (b *Base) Close() error {
 }
 
 // Bind subscribes an event listener, transforms the incoming payload, publishes it to the event bus, and automatically tracks unregistration on module close.
-func Bind[T any, E bus.Event](
+func Bind[T any, E event.Event](
 	b *Base,
 	subscribe func(handler func(msg T)) func(),
 	transform func(T) E,

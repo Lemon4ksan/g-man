@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/lemon4ksan/miyako/log"
+	"github.com/lemon4ksan/foundation/async/log"
 
 	"github.com/lemon4ksan/g-man/internal/crypto"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
@@ -95,6 +95,13 @@ func WithServerFinder(finder func(ctx context.Context) (socket.CMServer, error))
 	}
 }
 
+// WithTimeOffset configures clock drift compensation duration.
+func WithTimeOffset(offset time.Duration) FlowOption {
+	return func(f *Flow) {
+		f.timeOffset = offset
+	}
+}
+
 // LogOnRunner executes low-level network authentication against Steam Connection Managers.
 type LogOnRunner interface {
 	LogOn(ctx context.Context, details *LogOnDetails, server socket.CMServer) error
@@ -111,6 +118,7 @@ type Flow struct {
 	guardCode     string
 	refreshToken  string
 	accessToken   string
+	timeOffset    time.Duration
 	serverFinder  func(ctx context.Context) (socket.CMServer, error)
 	onQR          func(challengeURL string)
 	onStateChange func(oldState, newState State)
@@ -141,7 +149,7 @@ func (f *Flow) Execute(ctx context.Context) (*LogOnDetails, error) {
 
 	// 2. Generate 2FA code if shared secret is provided and guardCode is not yet set
 	if len(f.sharedSecret) > 0 && f.guardCode == "" {
-		codeBytes := crypto.GenerateAuthCode(f.sharedSecret, time.Now().Unix())
+		codeBytes := crypto.GenerateAuthCode(f.sharedSecret, time.Now().Add(f.timeOffset).Unix())
 		f.guardCode = string(codeBytes[:])
 	}
 

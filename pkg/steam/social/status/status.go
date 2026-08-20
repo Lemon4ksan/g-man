@@ -12,9 +12,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lemon4ksan/miyako/bus"
-	"github.com/lemon4ksan/miyako/generic"
-	"github.com/lemon4ksan/miyako/log"
+	"github.com/lemon4ksan/foundation/async/event"
+	"github.com/lemon4ksan/foundation/generic"
+	"github.com/lemon4ksan/foundation/async/log"
 	"google.golang.org/protobuf/proto"
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
@@ -353,7 +353,7 @@ func (m *Manager) playCombined(ctx context.Context, appIDs []uint32, customText 
 	return m.events.SendGamesPlayed(ctx, req)
 }
 
-func (m *Manager) listenEvents(ctx context.Context, sub *bus.Subscription) {
+func (m *Manager) listenEvents(ctx context.Context, sub *event.Subscription) {
 	defer sub.Unsubscribe()
 
 	for {

@@ -7,7 +7,7 @@ package chat
 import (
 	"time"
 
-	"github.com/lemon4ksan/miyako/bus"
+	"github.com/lemon4ksan/foundation/async/event"
 )
 
 const (
@@ -20,7 +20,7 @@ const (
 
 // MessageEvent is published when a private text message arrives from a friend.
 type MessageEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	SenderID  uint64
 	Message   string
 	Timestamp time.Time
@@ -29,7 +29,7 @@ type MessageEvent struct {
 
 // StickerEvent is published when an animated sticker message arrives.
 type StickerEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	SenderID  uint64
 	StickerID string
 	Timestamp time.Time
@@ -37,13 +37,13 @@ type StickerEvent struct {
 
 // TypingEvent is published when a friend sends a typing signal.
 type TypingEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	SenderID uint64
 }
 
 // GroupMessageEvent is published when a message arrives in a group chat room.
 type GroupMessageEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	ChatGroupID uint64
 	ChatID      uint64
 	SenderID    uint64
@@ -53,7 +53,7 @@ type GroupMessageEvent struct {
 
 // ReactionEvent is published when an emoji reaction is updated on a private message.
 type ReactionEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	FriendSteamID   uint64
 	ReactorSteamID  uint64
 	ServerTimestamp uint32
@@ -65,7 +65,7 @@ type ReactionEvent struct {
 
 // GroupReactionEvent is published when an emoji reaction is updated in a group chat channel.
 type GroupReactionEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	ChatGroupID     uint64
 	ChatID          uint64
 	ReactorSteamID  uint64

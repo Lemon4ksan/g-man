@@ -9,9 +9,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/lemon4ksan/miyako/bus"
-	"github.com/lemon4ksan/miyako/generic"
-	"github.com/lemon4ksan/miyako/log"
+	"github.com/lemon4ksan/foundation/async/event"
+	"github.com/lemon4ksan/foundation/generic"
+	"github.com/lemon4ksan/foundation/async/log"
 
 	"github.com/lemon4ksan/g-man/pkg/behavior"
 	"github.com/lemon4ksan/g-man/pkg/steam/client"
@@ -42,11 +42,11 @@ type Verifier struct {
 	provider Provider
 	logger   log.Logger
 	config   Config
-	bus      *bus.Bus
+	bus      *event.Bus
 }
 
 // New constructs a session keep-alive Verifier instance.
-func New(provider Provider, logger log.Logger, bus *bus.Bus, cfg Config) *Verifier {
+func New(provider Provider, logger log.Logger, bus *event.Bus, cfg Config) *Verifier {
 	cfg.Interval = generic.Coalesce(cfg.Interval, 5*time.Minute)
 
 	return &Verifier{

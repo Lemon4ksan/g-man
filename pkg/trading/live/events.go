@@ -5,20 +5,20 @@
 package live
 
 import (
-	"github.com/lemon4ksan/miyako/bus"
+	"github.com/lemon4ksan/foundation/async/event"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 )
 
 type TradeProposedEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	OtherSteamID uint64
 	TradeID      uint32
 	Respond      func(accept bool)
 }
 
 type TradeResultEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	OtherSteamID           uint64
 	Response               enums.EEconTradeResponse
 	SteamGuardRequiredDays uint32
@@ -26,6 +26,6 @@ type TradeResultEvent struct {
 }
 
 type TradeSessionStartedEvent struct {
-	bus.BaseEvent
+	event.BaseEvent
 	OtherSteamID uint64
 }

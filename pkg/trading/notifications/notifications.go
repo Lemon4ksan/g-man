@@ -12,7 +12,7 @@ import (
 	"sync"
 	"text/template"
 
-	"github.com/lemon4ksan/miyako/log"
+	"github.com/lemon4ksan/foundation/async/log"
 )
 
 // Manager parses, caches, and renders notification message templates.

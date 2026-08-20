@@ -14,9 +14,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lemon4ksan/miyako/bus"
-	"github.com/lemon4ksan/miyako/log"
-	"github.com/lemon4ksan/miyako/sync/lazy"
+	"github.com/lemon4ksan/foundation/async/event"
+	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/sync/lazy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -117,8 +117,8 @@ func (m *mockInitContextWithService) Logger() log.Logger {
 	return log.Discard
 }
 
-func (m *mockInitContextWithService) Bus() *bus.Bus {
-	return bus.New()
+func (m *mockInitContextWithService) Bus() *event.Bus {
+	return event.New()
 }
 
 func defaultValidConfig() Config {

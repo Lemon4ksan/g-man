@@ -15,9 +15,9 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/aoni"
-	"github.com/lemon4ksan/miyako/bus"
-	"github.com/lemon4ksan/miyako/generic"
-	"github.com/lemon4ksan/miyako/log"
+	"github.com/lemon4ksan/foundation/async/event"
+	"github.com/lemon4ksan/foundation/generic"
+	"github.com/lemon4ksan/foundation/async/log"
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
@@ -85,7 +85,7 @@ type Config struct {
 	Storage            storage.Provider
 	HTTP               any
 	WebAPIBase         string
-	Bus                *bus.Bus
+	Bus                *event.Bus
 	Logger             log.Logger
 	Authenticator      AuthenticatorProvider
 	WebFactory         WebSessionFactory
@@ -95,7 +95,7 @@ type Config struct {
 // ResolveDefaults populates zero-value fields in Config with defaults.
 func (cfg *Config) ResolveDefaults() {
 	if cfg.RefreshJobInterval == 0 {
-		cfg.RefreshJobInterval = 12 * time.Hour
+		cfg.RefreshJobInterval = 6 * time.Hour
 	}
 
 	if cfg.Logger == nil {
@@ -103,7 +103,7 @@ func (cfg *Config) ResolveDefaults() {
 	}
 
 	if cfg.Bus == nil {
-		cfg.Bus = bus.New()
+		cfg.Bus = event.New()
 	}
 
 	if cfg.Storage == nil {
@@ -150,7 +150,7 @@ type Session struct {
 	logger    log.Logger
 	storage   storage.Provider
 	device    *auth.DeviceConfig
-	bus       *bus.Bus
+	bus       *event.Bus
 	http      any
 
 	webFactory       WebSessionFactory

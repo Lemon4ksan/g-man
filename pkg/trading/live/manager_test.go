@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lemon4ksan/miyako/bus"
+	"github.com/lemon4ksan/foundation/async/event"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 
@@ -41,7 +41,7 @@ func setupOffers(t *testing.T) (*Manager, *mock.InitContext) {
 	return m, ictx
 }
 
-func awaitEvent[T any](t *testing.T, ch <-chan bus.Event) T {
+func awaitEvent[T any](t *testing.T, ch <-chan event.Event) T {
 	t.Helper()
 
 	ctx, cancel := context.WithTimeout(t.Context(), 500*time.Millisecond)

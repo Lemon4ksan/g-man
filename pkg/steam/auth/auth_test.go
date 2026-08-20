@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lemon4ksan/miyako/bus"
-	"github.com/lemon4ksan/miyako/log"
+	"github.com/lemon4ksan/foundation/async/event"
+	"github.com/lemon4ksan/foundation/async/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
@@ -30,7 +30,7 @@ import (
 
 type AuthenticatorSuite struct {
 	suite.Suite
-	bus     *bus.Bus
+	bus     *event.Bus
 	socket  *MockSocketProvider
 	webAPI  *MockWebAuthenticator
 	store   *MockStore
@@ -39,7 +39,7 @@ type AuthenticatorSuite struct {
 }
 
 func (s *AuthenticatorSuite) SetupTest() {
-	s.bus = bus.New()
+	s.bus = event.New()
 	s.socket = NewMockSocket()
 	s.webAPI = new(MockWebAuthenticator)
 	s.store = new(MockStore)
