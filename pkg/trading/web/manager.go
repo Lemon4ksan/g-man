@@ -15,8 +15,8 @@ import (
 
 	"github.com/lemon4ksan/foundation/async/fsm"
 	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/rate"
 	"github.com/lemon4ksan/foundation/sync/keylock"
-	"golang.org/x/time/rate"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/steam/client"

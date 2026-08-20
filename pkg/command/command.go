@@ -18,7 +18,7 @@ import (
 
 	"github.com/lemon4ksan/foundation/generic"
 
-	"github.com/lemon4ksan/g-man/internal/bytesconv"
+	"github.com/lemon4ksan/foundation/silicon/bytesconv"
 )
 
 type contextKey string

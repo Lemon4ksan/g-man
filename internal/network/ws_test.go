@@ -5,21 +5,17 @@
 package network
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"io"
 	"net/http"
-	"net/http/httptest"
-	"net/url"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/gorilla/websocket"
+	"github.com/lemon4ksan/aoni/fast"
+	"github.com/lemon4ksan/aoni/realtime/ws"
 	"github.com/lemon4ksan/foundation/async/log"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/lemon4ksan/g-man/internal/framer"
 )
@@ -28,7 +24,7 @@ type mockWSConn struct {
 	setWriteDeadlineFunc func(t time.Time) error
 	writeMessageFunc     func(messageType int, data []byte) error
 	closeFunc            func() error
-	nextReaderFunc       func() (messageType int, r io.Reader, err error)
+	readMessageFunc      func() (messageType int, payload []byte, err error)
 }
 
 func (m *mockWSConn) SetWriteDeadline(t time.Time) error {
@@ -55,12 +51,12 @@ func (m *mockWSConn) Close() error {
 	return nil
 }
 
-func (m *mockWSConn) NextReader() (messageType int, r io.Reader, err error) {
-	if m.nextReaderFunc != nil {
-		return m.nextReaderFunc()
+func (m *mockWSConn) ReadMessage() (messageType int, payload []byte, err error) {
+	if m.readMessageFunc != nil {
+		return m.readMessageFunc()
 	}
 
-	return 0, nil, nil
+	return 0, nil, io.EOF
 }
 
 func TestWS_NewWS(t *testing.T) {
@@ -105,35 +101,23 @@ func TestWS_NewWS_URLSchemaAndProxy(t *testing.T) {
 	})
 }
 
-func TestWS_NewWS_HandshakeResponseClose(t *testing.T) {
-	t.Parallel()
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusBadRequest)
-	}))
-	defer server.Close()
-
-	_, err := NewWS(t.Context(), log.Discard, server.URL, "", nil)
-	assert.Error(t, err)
-}
-
 func TestWS_Name(t *testing.T) {
 	t.Parallel()
 
-	ws := &WS{}
-	assert.Equal(t, "WS", ws.Name())
-	assert.Nil(t, ws.Closed())
-	assert.Nil(t, ws.Messages())
-	assert.Nil(t, ws.Errors())
+	wsConn := &WS{}
+	assert.Equal(t, "WS", wsConn.Name())
+	assert.Nil(t, wsConn.Closed())
+	assert.Nil(t, wsConn.Messages())
+	assert.Nil(t, wsConn.Errors())
 }
 
 func TestWS_Send_Closed(t *testing.T) {
 	t.Parallel()
 
-	ws := &WS{conn: nil}
-	err := ws.Send(t.Context(), []byte("data"))
+	wsConn := &WS{conn: nil}
+	err := wsConn.Send(t.Context(), []byte("data"))
 	assert.ErrorContains(t, err, "connection closed")
-	assert.Nil(t, ws.Errors())
+	assert.Nil(t, wsConn.Errors())
 }
 
 func TestWS_Send_Deadline(t *testing.T) {
@@ -142,8 +126,8 @@ func TestWS_Send_Deadline(t *testing.T) {
 	t.Run("conn_nil", func(t *testing.T) {
 		t.Parallel()
 
-		ws := &WS{conn: nil}
-		err := ws.Send(t.Context(), []byte("data"))
+		wsConn := &WS{conn: nil}
+		err := wsConn.Send(t.Context(), []byte("data"))
 		assert.ErrorContains(t, err, "connection closed")
 	})
 
@@ -155,13 +139,13 @@ func TestWS_Send_Deadline(t *testing.T) {
 			},
 		}
 
-		ws := &WS{
+		wsConn := &WS{
 			BaseConnection: NewBaseConnection("WS"),
 			conn:           mockConn,
 			logger:         log.Discard,
 		}
 
-		err := ws.Send(t.Context(), []byte("data"))
+		err := wsConn.Send(t.Context(), []byte("data"))
 		assert.ErrorContains(t, err, "deadline failed")
 	})
 
@@ -174,13 +158,13 @@ func TestWS_Send_Deadline(t *testing.T) {
 			},
 		}
 
-		ws := &WS{
+		wsConn := &WS{
 			BaseConnection: NewBaseConnection("WS"),
 			conn:           mockConn,
 			logger:         log.Discard,
 		}
 
-		err := ws.Send(t.Context(), []byte("data"))
+		err := wsConn.Send(t.Context(), []byte("data"))
 		assert.ErrorContains(t, err, "write failed")
 	})
 
@@ -189,7 +173,7 @@ func TestWS_Send_Deadline(t *testing.T) {
 
 		mockConn := &mockWSConn{}
 
-		ws := &WS{
+		wsConn := &WS{
 			BaseConnection: NewBaseConnection("WS"),
 			conn:           mockConn,
 			logger:         log.Discard,
@@ -198,7 +182,7 @@ func TestWS_Send_Deadline(t *testing.T) {
 		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 		defer cancel()
 
-		err := ws.Send(ctx, []byte("data"))
+		err := wsConn.Send(ctx, []byte("data"))
 		assert.NoError(t, err)
 	})
 }
@@ -206,46 +190,44 @@ func TestWS_Send_Deadline(t *testing.T) {
 func TestWS_ReadLoop(t *testing.T) {
 	t.Parallel()
 
-	t.Run("dial_success_and_read_binary", func(t *testing.T) {
+	t.Run("read_binary_and_ignore_text", func(t *testing.T) {
 		t.Parallel()
 
-		upgrader := websocket.Upgrader{}
+		reads := []struct {
+			msgType int
+			payload []byte
+		}{
+			{ws.FrameText, []byte("text")},
+			{ws.FrameBinary, []byte("bin")},
+		}
+		readIdx := 0
 
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			conn, err := upgrader.Upgrade(w, r, nil)
-			if err != nil {
-				return
-			}
+		mockConn := &mockWSConn{
+			readMessageFunc: func() (int, []byte, error) {
+				if readIdx < len(reads) {
+					item := reads[readIdx]
+					readIdx++
+					return item.msgType, item.payload, nil
+				}
+				time.Sleep(50 * time.Millisecond)
+				return 0, nil, io.EOF
+			},
+		}
 
-			// Send Text (Ignored)
-			_ = conn.WriteMessage(websocket.TextMessage, []byte("text"))
-			// Send Binary (Processed)
-			_ = conn.WriteMessage(websocket.BinaryMessage, []byte("bin"))
-			// Keep open until client closes
-			time.Sleep(100 * time.Millisecond)
-			conn.Close()
-		}))
-		defer server.Close()
-
-		endpoint := strings.TrimPrefix(server.URL, "http://")
-		u := url.URL{Scheme: "ws", Host: endpoint, Path: "/cmsocket/"}
-		conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
-		require.NoError(t, err)
-
-		ws := &WS{
+		w := &WS{
 			BaseConnection: NewBaseConnection("WS"),
-			conn:           conn,
+			conn:           mockConn,
 			logger:         log.Discard,
 			msgChan:        make(chan Message, 10),
 			errChan:        make(chan error, 10),
 			closedChan:     make(chan struct{}),
 		}
 
-		go ws.readLoop()
-		defer ws.Close()
+		go w.readLoop()
+		defer func() { _ = w.Close() }()
 
 		select {
-		case msg := <-ws.Messages():
+		case msg := <-w.Messages():
 			assert.Equal(t, &framer.FrameBuffer{B: []byte("bin")}, msg)
 		case <-time.After(2 * time.Second):
 			t.Fatal("timeout")
@@ -258,55 +240,35 @@ func TestWS_ReadLoop(t *testing.T) {
 		assert.Error(t, err)
 	})
 
-	t.Run("headers_are_sent", func(t *testing.T) {
+	t.Run("new_ws_with_fast_client", func(t *testing.T) {
 		t.Parallel()
-
-		headerKey := "X-Test-Header"
-		headerVal := "G-MAN-TEST"
-
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			assert.Equal(t, headerVal, r.Header.Get(headerKey))
-
-			upgrader := websocket.Upgrader{}
-
-			conn, err := upgrader.Upgrade(w, r, nil)
-			if err == nil {
-				_ = conn.Close()
-			}
-		}))
-		defer server.Close()
-
 		headers := make(http.Header)
-		headers.Set(headerKey, headerVal)
+		headers.Set("X-Test-Header", "G-MAN-TEST")
 
-		ws, err := NewWS(t.Context(), log.Discard, server.URL, "", headers)
-		require.NoError(t, err)
+		_, err := NewWSWithFastClient(t.Context(), log.Discard, "invalid:80", "", headers, nil)
+		assert.Error(t, err)
 
-		_ = ws.Close()
+		fc := fast.NewClient(nil)
+		_, err = NewWSWithFastClient(t.Context(), log.Discard, "invalid:80", "", headers, fc)
+		assert.Error(t, err)
 	})
 }
 
-func TestWS_Close_MultipleTimes(t *testing.T) {
+func TestWS_Close(t *testing.T) {
 	t.Parallel()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		upgrader := websocket.Upgrader{}
-		conn, _ := upgrader.Upgrade(w, r, nil)
-		_ = conn.Close()
-	}))
-	defer server.Close()
+	mockConn := &mockWSConn{
+		closeFunc: func() error {
+			return nil
+		},
+		writeMessageFunc: func(messageType int, data []byte) error {
+			return nil
+		},
+	}
 
-	// Use ws:// for the test server
-	endpoint := strings.TrimPrefix(server.URL, "http://")
-	u := url.URL{Scheme: "ws", Host: endpoint, Path: "/cmsocket/"}
-
-	// Dial manually to ensure we have a valid connection for the Close test
-	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
-	require.NoError(t, err)
-
-	ws := &WS{
+	w := &WS{
 		BaseConnection: NewBaseConnection("WS"),
-		conn:           conn,
+		conn:           mockConn,
 		logger:         log.Discard,
 		msgChan:        make(chan Message, 10),
 		errChan:        make(chan error, 10),
@@ -314,11 +276,11 @@ func TestWS_Close_MultipleTimes(t *testing.T) {
 	}
 
 	// First close
-	err = ws.Close()
+	err := w.Close()
 	assert.NoError(t, err)
 
-	// Second call (hits sync.Once and should return immediately without panic)
-	err = ws.Close()
+	// Second call (hits sync.Once and should return immediately without error)
+	err = w.Close()
 	assert.NoError(t, err)
 }
 
@@ -331,13 +293,13 @@ func TestWS_Close_Error(t *testing.T) {
 		},
 	}
 
-	ws := &WS{
+	w := &WS{
 		BaseConnection: NewBaseConnection("WS"),
 		conn:           mockConn,
 		logger:         log.Discard,
 	}
 
-	err := ws.Close()
+	err := w.Close()
 	assert.ErrorContains(t, err, "close failed")
 }
 
@@ -348,12 +310,12 @@ func TestWS_ReadLoop_Coverage(t *testing.T) {
 		t.Parallel()
 
 		mockConn := &mockWSConn{
-			nextReaderFunc: func() (messageType int, r io.Reader, err error) {
+			readMessageFunc: func() (int, []byte, error) {
 				return 0, nil, errors.New("unexpected EOF")
 			},
 		}
 
-		ws := &WS{
+		w := &WS{
 			BaseConnection: NewBaseConnection("WS"),
 			conn:           mockConn,
 			logger:         log.Discard,
@@ -362,44 +324,13 @@ func TestWS_ReadLoop_Coverage(t *testing.T) {
 			closedChan:     make(chan struct{}),
 		}
 
-		go ws.readLoop()
+		go w.readLoop()
 
 		select {
-		case <-ws.Closed():
+		case <-w.Closed():
 			// Successfully exited readLoop after encountering the error and taking default branch.
 		case <-time.After(2 * time.Second):
 			t.Fatal("timeout waiting for readLoop exit")
-		}
-	})
-
-	t.Run("read_loop_reader_copy_error", func(t *testing.T) {
-		t.Parallel()
-
-		errReader, w := io.Pipe()
-		_ = w.CloseWithError(errors.New("pipe read error"))
-
-		mockConn := &mockWSConn{
-			nextReaderFunc: func() (messageType int, r io.Reader, err error) {
-				return websocket.BinaryMessage, errReader, nil
-			},
-		}
-
-		ws := &WS{
-			BaseConnection: NewBaseConnection("WS"),
-			conn:           mockConn,
-			logger:         log.Discard,
-			msgChan:        make(chan Message, 10),
-			errChan:        make(chan error, 10),
-			closedChan:     make(chan struct{}),
-		}
-
-		go ws.readLoop()
-
-		select {
-		case err := <-ws.Errors():
-			assert.ErrorContains(t, err, "pipe read error")
-		case <-time.After(2 * time.Second):
-			t.Fatal("timeout waiting for reader copy error")
 		}
 	})
 
@@ -408,10 +339,10 @@ func TestWS_ReadLoop_Coverage(t *testing.T) {
 
 		hasSent := false
 		mockConn := &mockWSConn{
-			nextReaderFunc: func() (messageType int, r io.Reader, err error) {
+			readMessageFunc: func() (int, []byte, error) {
 				if !hasSent {
 					hasSent = true
-					return websocket.BinaryMessage, bytes.NewReader([]byte("data")), nil
+					return ws.FrameBinary, []byte("data"), nil
 				}
 
 				// Keep blocked for subsequent reads
@@ -421,7 +352,7 @@ func TestWS_ReadLoop_Coverage(t *testing.T) {
 			},
 		}
 
-		ws := &WS{
+		w := &WS{
 			BaseConnection: NewBaseConnection("WS"),
 			conn:           mockConn,
 			logger:         log.Discard,
@@ -430,17 +361,17 @@ func TestWS_ReadLoop_Coverage(t *testing.T) {
 			closedChan:     make(chan struct{}),
 		}
 
-		go ws.readLoop()
+		go w.readLoop()
 
 		// Wait for readLoop to block on msgChan <- data
 		time.Sleep(50 * time.Millisecond)
 
 		// Send to closedChan to force select exit
-		ws.closedChan <- struct{}{}
+		w.closedChan <- struct{}{}
 
 		// Verify that closedChan is closed via readLoop's defer
 		select {
-		case _, ok := <-ws.closedChan:
+		case _, ok := <-w.closedChan:
 			assert.False(t, ok, "closedChan should be closed")
 		case <-time.After(2 * time.Second):
 			t.Fatal("timeout waiting for readLoop exit")

@@ -18,7 +18,7 @@ import (
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/option"
 
-	"github.com/lemon4ksan/g-man/internal/bytesconv"
+	"github.com/lemon4ksan/foundation/silicon/bytesconv"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 )
 
@@ -206,7 +206,7 @@ func (t *HTTPTransport) parseEResult(v any) enums.EResult {
 	}
 
 	if resHeader != "" {
-		if val, ok := bytesconv.ParseInt64(bytesconv.S2B(resHeader)); ok {
+		if val, ok := bytesconv.ParseUintFast(bytesconv.S2B(resHeader)); ok {
 			return enums.EResult(val)
 		}
 	}

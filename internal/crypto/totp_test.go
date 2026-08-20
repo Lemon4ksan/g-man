@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/lemon4ksan/g-man/internal/bytesconv"
+	"github.com/lemon4ksan/foundation/silicon/bytesconv"
 )
 
 func TestGenerateAuthCode(t *testing.T) {

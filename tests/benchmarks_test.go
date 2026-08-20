@@ -6,13 +6,14 @@ package tests_test
 
 import (
 	"bytes"
+	"net/url"
 	"strconv"
 	"sync"
 	"testing"
 
 	json "github.com/goccy/go-json"
 
-	"github.com/lemon4ksan/g-man/internal/bytesconv"
+	"github.com/lemon4ksan/foundation/silicon/bytesconv"
 	"github.com/lemon4ksan/g-man/internal/crypto"
 	"github.com/lemon4ksan/g-man/internal/framer"
 	"github.com/lemon4ksan/g-man/pkg/command"
@@ -30,23 +31,13 @@ import (
 // 1. BYTESCONV & NUMBER PARSING BENCHMARKS
 // ============================================================================
 
-func BenchmarkBytesconv_ParseUint64(b *testing.B) {
+func BenchmarkBytesconv_ParseUintFast(b *testing.B) {
 	data := []byte("76561198000000001")
 
 	b.ReportAllocs()
 
 	for b.Loop() {
-		_, _ = bytesconv.ParseUint64(data)
-	}
-}
-
-func BenchmarkBytesconv_ParseInt64(b *testing.B) {
-	data := []byte("-1234567890")
-
-	b.ReportAllocs()
-
-	for b.Loop() {
-		_, _ = bytesconv.ParseInt64(data)
+		_, _ = bytesconv.ParseUintFast(data)
 	}
 }
 
@@ -194,7 +185,8 @@ func BenchmarkInventory_UnmarshalFlexibleArray_Object(b *testing.B) {
 		if err := json.Unmarshal(data, &rawMap); err == nil {
 			res := make([]trading.Description, len(rawMap))
 			for k, raw := range rawMap {
-				idx, ok := bytesconv.ParseUint64(bytesconv.S2B(k))
+				idxVal, ok := bytesconv.ParseUintFast(bytesconv.S2B(k))
+				idx := uint64(idxVal)
 				if ok && idx < uint64(len(res)) {
 					_ = json.Unmarshal(raw, &res[idx])
 				}
@@ -231,16 +223,20 @@ func BenchmarkInventory_ProcessAssets_Opt(b *testing.B) {
 		descMap := make(map[struct{ ClassID, InstanceID uint64 }]*inventory.Description, len(descriptions))
 		for i := range descriptions {
 			d := &descriptions[i]
-			cID, _ := bytesconv.ParseUint64(bytesconv.S2B(d.ClassID))
-			instID, _ := bytesconv.ParseUint64(bytesconv.S2B(d.InstanceID))
+			cIDVal, _ := bytesconv.ParseUintFast(bytesconv.S2B(d.ClassID))
+			cID := uint64(cIDVal)
+			instIDVal, _ := bytesconv.ParseUintFast(bytesconv.S2B(d.InstanceID))
+			instID := uint64(instIDVal)
 			descMap[struct{ ClassID, InstanceID uint64 }{ClassID: cID, InstanceID: instID}] = d
 		}
 
 		pos := 1
 		for i := range assets {
 			asset := &assets[i]
-			cID, _ := bytesconv.ParseUint64(bytesconv.S2B(asset.ClassID))
-			instID, _ := bytesconv.ParseUint64(bytesconv.S2B(asset.InstanceID))
+			cIDVal, _ := bytesconv.ParseUintFast(bytesconv.S2B(asset.ClassID))
+			cID := uint64(cIDVal)
+			instIDVal, _ := bytesconv.ParseUintFast(bytesconv.S2B(asset.InstanceID))
+			instID := uint64(instIDVal)
 			key := struct{ ClassID, InstanceID uint64 }{ClassID: cID, InstanceID: instID}
 
 			if desc, ok := descMap[key]; ok && desc.Tradable == 1 {
@@ -284,14 +280,14 @@ func (r mockSendReq) EncodeFormString() (string, error) {
 	buf.Write(strconv.AppendUint(intBuf[:0], uint64(r.PartnerID), 10))
 
 	buf.WriteString("&tradeoffermessage=")
-	bytesconv.AppendQueryEscaped(buf, bytesconv.S2B(r.Message))
+	buf.WriteString(url.QueryEscape(r.Message))
 
 	buf.WriteString("&json_tradeoffer=")
-	bytesconv.AppendQueryEscaped(buf, bytesconv.S2B(r.JSON))
+	buf.WriteString(url.QueryEscape(r.JSON))
 
 	if r.CreateParams != "" {
 		buf.WriteString("&trade_offer_create_params=")
-		bytesconv.AppendQueryEscaped(buf, bytesconv.S2B(r.CreateParams))
+		buf.WriteString(url.QueryEscape(r.CreateParams))
 	}
 
 	return bytesconv.B2S(buf.Bytes()), nil

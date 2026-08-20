@@ -9,22 +9,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
-	"regexp"
 	"sync"
 	"time"
 
-	"github.com/lemon4ksan/foundation/generic"
 	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/generic"
+	"github.com/lemon4ksan/foundation/silicon/pool"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/trading"
 )
 
 var (
-	RxTheir = regexp.MustCompile(`(?i)g_DaysTheirEscrow\s*=\s*(\d+);`)
-	RxMy    = regexp.MustCompile(`(?i)g_DaysMyEscrow\s*=\s*(\d+);`)
-
 	ErrMaxRetriesReached    = errors.New("max retries reached")
 	ErrCommunityNotReady    = errors.New("community client is not ready (bot not logged in)")
 	ErrEscrowNotFound       = errors.New("escrow data not found on the page (Steam might be down or offer is invalid)")
@@ -254,24 +250,19 @@ func (p *Processor) withRetry(ctx context.Context, maxRetries int, fn func() err
 			return err
 		}
 
-		backoffDuration := time.Duration(math.Pow(2, float64(attempt))) * time.Second
+		backoffDuration := time.Duration(1<<attempt) * time.Second
 		p.logger.Warn("Action failed, retrying",
 			log.Err(err),
 			log.Int("attempt", attempt+1),
 			log.Duration("backoff", backoffDuration),
 		)
 
-		timer := time.NewTimer(backoffDuration)
+		timer := pool.AcquireTimer(backoffDuration)
 		select {
 		case <-timer.C:
+			pool.ReleaseTimer(timer)
 		case <-ctx.Done():
-			if !timer.Stop() {
-				select {
-				case <-timer.C:
-				default:
-				}
-			}
-
+			pool.ReleaseTimer(timer)
 			return ctx.Err()
 		}
 	}

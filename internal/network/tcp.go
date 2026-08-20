@@ -17,8 +17,9 @@ import (
 
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/mod"
+	"github.com/lemon4ksan/aoni/netutil/netdial"
 	"github.com/lemon4ksan/foundation/async/log"
-	"golang.org/x/net/proxy"
+	"github.com/lemon4ksan/foundation/net/proxy"
 
 	"github.com/lemon4ksan/g-man/internal/framer"
 )
@@ -73,7 +74,7 @@ func NewTCP(
 	if proxyURL != "" {
 		conn, err = NewProxyConn(ctx, proxyURL, endpoint)
 	} else {
-		conn, err = new(net.Dialer).DialContext(ctx, "tcp", endpoint)
+		conn, err = new(net.Dialer).DialContext(ctx, netdial.NetworkTCP.String(), endpoint)
 	}
 
 	if err != nil {
@@ -279,9 +280,9 @@ func NewProxyConn(ctx context.Context, proxyURL, endpoint string) (net.Conn, err
 
 	var conn net.Conn
 	if contextDialer, ok := dialer.(proxy.ContextDialer); ok {
-		conn, err = contextDialer.DialContext(ctx, "tcp", endpoint)
+		conn, err = contextDialer.DialContext(ctx, netdial.NetworkTCP.String(), endpoint)
 	} else {
-		conn, err = dialer.Dial("tcp", endpoint)
+		conn, err = dialer.Dial(netdial.NetworkTCP.String(), endpoint)
 	}
 
 	if err != nil {

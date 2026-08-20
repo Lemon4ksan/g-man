@@ -5,20 +5,18 @@
 package network
 
 import (
-	"bytes"
 	"context"
 	"errors"
-	"io"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/gorilla/websocket"
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/fast"
 	"github.com/lemon4ksan/aoni/mod"
+	"github.com/lemon4ksan/aoni/option"
 	"github.com/lemon4ksan/aoni/realtime/ws"
 	"github.com/lemon4ksan/foundation/async/log"
 
@@ -39,7 +37,7 @@ type wsConn interface {
 	SetWriteDeadline(t time.Time) error
 	WriteMessage(messageType int, data []byte) error
 	Close() error
-	NextReader() (messageType int, r io.Reader, err error)
+	ReadMessage() (messageType int, payload []byte, err error)
 }
 
 // WS implements Connection over WebSocket protocols.
@@ -64,6 +62,17 @@ func NewWS(
 	endpoint, proxyURL string,
 	headers http.Header,
 ) (*WS, error) {
+	return NewWSWithClient(ctx, logger, endpoint, proxyURL, headers, nil)
+}
+
+// NewWSWithClient establishes a WebSocket connection using a custom aoni.WebSocketDialer client.
+func NewWSWithClient(
+	ctx context.Context,
+	logger log.Logger,
+	endpoint, proxyURL string,
+	headers http.Header,
+	dialerClient aoni.WebSocketDialer,
+) (*WS, error) {
 	if !strings.Contains(endpoint, "://") {
 		endpoint = "wss://" + endpoint
 	}
@@ -80,25 +89,35 @@ func NewWS(
 		u.Scheme = "wss"
 	}
 
-	dialer := &websocket.Dialer{
-		HandshakeTimeout: 10 * time.Second,
-		Proxy:            http.ProxyFromEnvironment,
-	}
-
 	if proxyURL != "" {
-		pu, err := url.Parse(proxyURL)
-		if err != nil {
+		if _, err := url.Parse(proxyURL); err != nil {
 			return nil, NewError(OpProxy, ConnTypeWS, err)
 		}
-
-		dialer.Proxy = http.ProxyURL(pu)
 	}
 
-	conn, resp, err := dialer.DialContext(ctx, u.String(), headers)
-	if resp != nil {
+	if dialerClient == nil {
+		opts := make([]aoni.ClientOption, 0, 2)
+		if proxyURL != "" {
+			opts = append(opts, option.WithProxyString(proxyURL))
+		}
+		dialerClient = aoni.NewClient(nil, opts...)
+	}
+
+	reqMods := make([]aoni.RequestModifier, 0, len(headers)+1)
+	if proxyURL != "" {
+		reqMods = append(reqMods, mod.WithProxyOverride(proxyURL))
+	}
+
+	for k, vv := range headers {
+		for _, v := range vv {
+			reqMods = append(reqMods, mod.WithHeader(k, v))
+		}
+	}
+
+	conn, resp, err := ws.DialWebSocket(ctx, dialerClient, u.String(), reqMods...)
+	if resp != nil && resp.Body != nil {
 		_ = resp.Body.Close()
 	}
-
 	if err != nil {
 		return nil, NewError(OpDial, ConnTypeWS, err)
 	}
@@ -126,43 +145,10 @@ func NewWSWithFastClient(
 	fastClient *fast.Client,
 ) (*WS, error) {
 	if fastClient == nil {
-		return NewWS(ctx, logger, endpoint, proxyURL, headers)
+		return NewWSWithClient(ctx, logger, endpoint, proxyURL, headers, nil)
 	}
 
-	reqMods := make([]aoni.RequestModifier, 0, len(headers)+1)
-	if proxyURL != "" {
-		reqMods = append(reqMods, mod.WithProxyOverride(proxyURL))
-	}
-
-	for k, vv := range headers {
-		for _, v := range vv {
-			reqMods = append(reqMods, mod.WithHeader(k, v))
-		}
-	}
-
-	conn, _, err := ws.DialWebSocket(ctx, fastClient, endpoint, reqMods...) //nolint:bodyclose
-	if err != nil {
-		return nil, NewError(OpDial, ConnTypeWS, err)
-	}
-
-	wsConnAdapter, ok := conn.(wsConn)
-	if !ok {
-		_ = conn.Close()
-		return nil, NewError(OpDial, ConnTypeWS, ErrWSConnTypeMismatch)
-	}
-
-	w := &WS{
-		BaseConnection: NewBaseConnection(ConnTypeWS),
-		conn:           wsConnAdapter,
-		logger:         logger.With(log.String("transport", ConnTypeWS), log.String("endpoint", endpoint)),
-		msgChan:        make(chan Message, 100),
-		errChan:        make(chan error, 10),
-		closedChan:     make(chan struct{}),
-	}
-
-	go w.readLoop()
-
-	return w, nil
+	return NewWSWithClient(ctx, logger, endpoint, proxyURL, headers, fastClient)
 }
 
 // Name returns protocol label "WS".
@@ -197,7 +183,7 @@ func (w *WS) Send(ctx context.Context, data []byte) error {
 		return NewError(OpDeadline, ConnTypeWS, err)
 	}
 
-	if err := w.conn.WriteMessage(websocket.BinaryMessage, data); err != nil {
+	if err := w.conn.WriteMessage(ws.FrameBinary, data); err != nil {
 		return NewError(OpSend, ConnTypeWS, err)
 	}
 
@@ -213,8 +199,7 @@ func (w *WS) Close() error {
 		defer w.writeMu.Unlock()
 
 		if w.conn != nil {
-			msg := websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")
-			_ = w.conn.WriteMessage(websocket.CloseMessage, msg)
+			_ = w.conn.WriteMessage(ws.FrameClose, nil)
 			err = w.conn.Close()
 		}
 	})
@@ -235,38 +220,21 @@ func (w *WS) readLoop() {
 	}()
 
 	for {
-		msgType, r, err := w.conn.NextReader()
+		msgType, payload, err := w.conn.ReadMessage()
 		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
-				select {
-				case w.errChan <- NewError(OpRead, ConnTypeWS, err):
-				default:
-				}
-			}
-
-			return
-		}
-
-		if msgType != websocket.BinaryMessage {
-			_, _ = io.Copy(io.Discard, r)
-			continue
-		}
-
-		fb := framer.AcquireFrameBuffer(0)
-		buf := bytes.NewBuffer(fb.B[:0])
-		_, err = io.Copy(buf, r)
-		fb.B = buf.Bytes()
-
-		if err != nil {
-			framer.ReleaseFrameBuffer(fb)
-
 			select {
 			case w.errChan <- NewError(OpRead, ConnTypeWS, err):
 			default:
 			}
-
 			return
 		}
+
+		if msgType != ws.FrameBinary {
+			continue
+		}
+
+		fb := framer.AcquireFrameBuffer(len(payload))
+		copy(fb.B, payload)
 
 		select {
 		case w.msgChan <- fb:

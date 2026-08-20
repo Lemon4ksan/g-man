@@ -12,7 +12,7 @@ import (
 
 	json "github.com/goccy/go-json"
 
-	"github.com/lemon4ksan/g-man/internal/bytesconv"
+	"github.com/lemon4ksan/foundation/silicon/bytesconv"
 	"github.com/lemon4ksan/g-man/pkg/trading"
 )
 
@@ -88,7 +88,8 @@ func scanJSONObjectElements(data []byte) ([][]byte, error) {
 		keyBytes := data[keyStart:i]
 		i++
 
-		idx, ok := bytesconv.ParseUint64(keyBytes)
+		idxVal, ok := bytesconv.ParseUintFast(keyBytes)
+		idx := uint64(idxVal)
 		if !ok {
 			for i < n && data[i] != ':' {
 				i++
@@ -130,10 +131,7 @@ func scanJSONObjectElements(data []byte) ([][]byte, error) {
 			if idxInt >= len(elements) {
 				newLen := idxInt + 1
 				if cap(elements) < newLen {
-					newCap := cap(elements) * 2
-					if newCap < newLen {
-						newCap = newLen
-					}
+					newCap := max(cap(elements) * 2, newLen)
 
 					newElems := make([][]byte, newLen, newCap)
 					copy(newElems, elements)

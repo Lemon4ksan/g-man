@@ -6,13 +6,13 @@ package web
 
 import (
 	"bytes"
+	"net/url"
 	"strconv"
 	"sync"
 
 	json "github.com/goccy/go-json"
 	"github.com/lemon4ksan/aoni/codec/values"
 
-	"github.com/lemon4ksan/g-man/internal/bytesconv"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/trading"
 )
@@ -84,14 +84,14 @@ func (r sendNewReq) EncodeFormString() (string, error) {
 	buf.Write(strconv.AppendUint(intBuf[:0], uint64(r.PartnerID), 10))
 
 	buf.WriteString("&tradeoffermessage=")
-	bytesconv.AppendQueryEscaped(buf, bytesconv.S2B(r.Message))
+	buf.WriteString(url.QueryEscape(r.Message))
 
 	buf.WriteString("&json_tradeoffer=")
-	bytesconv.AppendQueryEscaped(buf, bytesconv.S2B(r.JSON))
+	buf.WriteString(url.QueryEscape(r.JSON))
 
 	if r.CreateParams != "" {
 		buf.WriteString("&trade_offer_create_params=")
-		bytesconv.AppendQueryEscaped(buf, bytesconv.S2B(r.CreateParams))
+		buf.WriteString(url.QueryEscape(r.CreateParams))
 	}
 
 	if r.CounteredID > 0 {

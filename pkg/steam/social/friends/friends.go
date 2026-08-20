@@ -18,7 +18,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/PuerkitoBio/goquery"
+	"golang.org/x/net/html"
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/request"
@@ -416,18 +416,18 @@ func (m *Manager) PostUserComment(ctx context.Context, steamID id.ID, message st
 		return "", fmt.Errorf("friends: post comment failed: %s", generic.Coalesce(resp.Error, "unknown error"))
 	}
 
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(resp.CommentsHTML))
+	doc, err := html.Parse(strings.NewReader(resp.CommentsHTML))
 	if err != nil {
 		return "", fmt.Errorf("friends: failed to parse comments HTML: %w", err)
 	}
 
-	firstComment := doc.Find(".commentthread_comment").First()
-	if firstComment.Length() == 0 {
+	firstComment := findFirstWithClass(doc, "commentthread_comment")
+	if firstComment == nil {
 		return "", ErrCommentNotFound
 	}
 
-	idAttr, exists := firstComment.Attr("id")
-	if !exists {
+	idAttr := getHTMLAttr(firstComment, "id")
+	if idAttr == "" {
 		return "", ErrCommentMissingID
 	}
 
@@ -510,53 +510,161 @@ func (m *Manager) GetUserComments(ctx context.Context, steamID id.ID, start, cou
 		return nil, 0, fmt.Errorf("friends: render comments failed: %s", generic.Coalesce(resp.Error, "unknown error"))
 	}
 
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(resp.CommentsHTML))
+	doc, err := html.Parse(strings.NewReader(resp.CommentsHTML))
 	if err != nil {
 		return nil, 0, fmt.Errorf("friends: failed to parse rendered comments: %w", err)
 	}
 
 	var comments []Comment
-	doc.Find(".commentthread_comment.responsive_body_text[id]").Each(func(_ int, s *goquery.Selection) {
-		elID, _ := s.Attr("id")
+	var walk func(*html.Node)
+	walk = func(n *html.Node) {
+		if n.Type == html.ElementNode && hasHTMLClass(n, "commentthread_comment") && hasHTMLClass(n, "responsive_body_text") {
+			elID := getHTMLAttr(n, "id")
+			if elID != "" {
+				parts := strings.Split(elID, "_")
+				if len(parts) >= 2 {
+					commentID := parts[1]
+					var authorSteamID id.ID
+					if mpNode := findFirstWithAttr(n, "data-miniprofile"); mpNode != nil {
+						miniprofile := getHTMLAttr(mpNode, "data-miniprofile")
+						if miniprofile != "" {
+							mpID, _ := strconv.ParseUint(miniprofile, 10, 64)
+							authorSteamID = id.ID(76561197960265728 + mpID)
+						}
+					}
 
-		parts := strings.Split(elID, "_")
-		if len(parts) < 2 {
-			return
+					var name string
+					if bdiNode := findFirstElement(n, "bdi"); bdiNode != nil {
+						name = getHTMLText(bdiNode)
+					}
+
+					var avatar string
+					if playerAvatarNode := findFirstWithClass(n, "playerAvatar"); playerAvatarNode != nil {
+						if imgNode := findFirstElement(playerAvatarNode, "img"); imgNode != nil {
+							avatar = getHTMLAttr(imgNode, "src")
+						}
+					}
+
+					var timestamp time.Time
+					if tsNode := findFirstWithClass(n, "commentthread_comment_timestamp"); tsNode != nil {
+						tsAttr := getHTMLAttr(tsNode, "data-timestamp")
+						if tsAttr != "" {
+							unixTS, _ := strconv.ParseInt(tsAttr, 10, 64)
+							timestamp = time.Unix(unixTS, 0).UTC()
+						}
+					}
+
+					var commentText string
+					if textNode := findFirstWithClass(n, "commentthread_comment_text"); textNode != nil {
+						commentText = strings.TrimSpace(getHTMLText(textNode))
+					}
+
+					comments = append(comments, Comment{
+						ID:            commentID,
+						AuthorSteamID: authorSteamID,
+						AuthorName:    name,
+						AuthorAvatar:  avatar,
+						Date:          timestamp,
+						Text:          commentText,
+					})
+				}
+			}
 		}
-
-		commentID := parts[1]
-		miniprofile, _ := s.Find("[data-miniprofile]").Attr("data-miniprofile")
-
-		var authorSteamID id.ID
-		if miniprofile != "" {
-			mpID, _ := strconv.ParseUint(miniprofile, 10, 64)
-			authorSteamID = id.ID(76561197960265728 + mpID)
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			walk(c)
 		}
-
-		name := s.Find("bdi").Text()
-		avatar, _ := s.Find(".playerAvatar img[src]").Attr("src")
-
-		var timestamp time.Time
-
-		tsAttr, _ := s.Find(".commentthread_comment_timestamp").Attr("data-timestamp")
-		if tsAttr != "" {
-			unixTS, _ := strconv.ParseInt(tsAttr, 10, 64)
-			timestamp = time.Unix(unixTS, 0).UTC()
-		}
-
-		commentText := strings.TrimSpace(s.Find(".commentthread_comment_text").Text())
-
-		comments = append(comments, Comment{
-			ID:            commentID,
-			AuthorSteamID: authorSteamID,
-			AuthorName:    name,
-			AuthorAvatar:  avatar,
-			Date:          timestamp,
-			Text:          commentText,
-		})
-	})
+	}
+	walk(doc)
 
 	return comments, resp.TotalCount, nil
+}
+
+func findFirstWithClass(n *html.Node, className string) *html.Node {
+	if n == nil {
+		return nil
+	}
+	if n.Type == html.ElementNode && hasHTMLClass(n, className) {
+		return n
+	}
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		if res := findFirstWithClass(c, className); res != nil {
+			return res
+		}
+	}
+	return nil
+}
+
+func findFirstWithAttr(n *html.Node, attrName string) *html.Node {
+	if n == nil {
+		return nil
+	}
+	if n.Type == html.ElementNode && getHTMLAttr(n, attrName) != "" {
+		return n
+	}
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		if res := findFirstWithAttr(c, attrName); res != nil {
+			return res
+		}
+	}
+	return nil
+}
+
+func findFirstElement(n *html.Node, tag string) *html.Node {
+	if n == nil {
+		return nil
+	}
+	if n.Type == html.ElementNode && n.Data == tag {
+		return n
+	}
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		if res := findFirstElement(c, tag); res != nil {
+			return res
+		}
+	}
+	return nil
+}
+
+func hasHTMLClass(n *html.Node, className string) bool {
+	for _, a := range n.Attr {
+		if a.Key == "class" {
+			for _, c := range strings.Fields(a.Val) {
+				if c == className {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+func getHTMLAttr(n *html.Node, key string) string {
+	if n == nil {
+		return ""
+	}
+	for _, a := range n.Attr {
+		if a.Key == key {
+			return a.Val
+		}
+	}
+	return ""
+}
+
+func getHTMLText(n *html.Node) string {
+	if n == nil {
+		return ""
+	}
+	var sb strings.Builder
+	var walk func(*html.Node)
+	walk = func(curr *html.Node) {
+		if curr.Type == html.TextNode {
+			sb.WriteString(curr.Data)
+		}
+		for c := curr.FirstChild; c != nil; c = c.NextSibling {
+			walk(c)
+		}
+	}
+	walk(n)
+	return sb.String()
 }
 
 const (

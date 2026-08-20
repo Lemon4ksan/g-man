@@ -17,17 +17,15 @@ import (
 	"time"
 
 	json "github.com/goccy/go-json"
+	"github.com/lemon4ksan/aoni/codec/extract"
 	"github.com/lemon4ksan/foundation/generic"
 
-	"github.com/lemon4ksan/g-man/internal/bytesconv"
+	"github.com/lemon4ksan/foundation/silicon/bytesconv"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 )
 
 var (
-	rxAppContextData   = regexp.MustCompile(`(?s)var g_rgAppContextData\s*=\s*(.*?);`)
-	rxHistoryInventory = regexp.MustCompile(`(?s)var g_rgHistoryInventory\s*=\s*(.*?);`)
-
 	rxHoverScript = regexp.MustCompile(
 		`HistoryPageCreateItemHover\(\s*'\s*([^']+)\s*'\s*,\s*(\d+)\s*,\s*['"]([^'"]+)['"]\s*,\s*['"]([^'"]+)['"]\s*,\s*['"]([^'"]+)['"]\s*\)`,
 	)
@@ -78,11 +76,13 @@ func releaseDescMap(m map[descKey]*Description) {
 type descKey = uint64
 
 func packDescKey(classIDStr, instanceIDStr string) descKey {
-	cID, _ := bytesconv.ParseUint64(bytesconv.S2B(classIDStr))
+	cIDVal, _ := bytesconv.ParseUintFast(bytesconv.S2B(classIDStr))
+	cID := uint64(cIDVal)
 
 	var instID uint64
 	if len(instanceIDStr) > 0 && (len(instanceIDStr) != 1 || instanceIDStr[0] != '0') {
-		instID, _ = bytesconv.ParseUint64(bytesconv.S2B(instanceIDStr))
+		instIDVal, _ := bytesconv.ParseUintFast(bytesconv.S2B(instanceIDStr))
+		instID = uint64(instIDVal)
 	}
 
 	return descKey((cID << 32) | (instID & 0xFFFFFFFF))
@@ -399,12 +399,12 @@ func verifyInventoryPrivacy(bodyBytes []byte) error {
 }
 
 func extractAppContextJSON(bodyBytes []byte) ([]byte, error) {
-	match := rxAppContextData.FindSubmatch(bodyBytes)
-	if len(match) != 2 {
+	data, err := extract.Between(bodyBytes, "var g_rgAppContextData = ", ";")
+	if err != nil {
 		return nil, ErrMalformedAppContext
 	}
 
-	return bytes.TrimSpace(match[1]), nil
+	return bytes.TrimSpace(data), nil
 }
 
 func lookupInventoryItem(

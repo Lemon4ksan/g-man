@@ -9,12 +9,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
 
-	"github.com/PuerkitoBio/goquery"
 	"github.com/lemon4ksan/aoni"
+	"golang.org/x/net/html"
 )
 
 var (
@@ -25,6 +26,11 @@ var (
 	// ErrWrongHost indicates initial authorization redirects ended outside steamcommunity.com.
 	ErrWrongHost = errors.New("openid: was not redirected to steamcommunity.com")
 )
+
+type openIDForm struct {
+	action string
+	inputs url.Values
+}
 
 // Login performs OpenID authentication on a target site using active Steam session cookies.
 //
@@ -62,18 +68,12 @@ func Login(ctx context.Context, targetURL string, steamCookies []*http.Cookie) (
 		return client, nil
 	}
 
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("openid: failed to parse HTML: %w", err)
-	}
-
-	form, err := parseOpenIDForm(doc)
+	form, err := parseOpenIDForm(resp.Body)
 	if err != nil {
 		return nil, err
 	}
 
-	formData := extractFormInputs(form)
-	postURL := resolveActionURL(resp.Request.URL, form)
+	postURL := resolveActionURL(resp.Request.URL, form.action)
 
 	postReq, err := http.NewRequestWithContext(ctx, http.MethodPost, postURL, nil)
 	if err != nil {
@@ -82,7 +82,7 @@ func Login(ctx context.Context, targetURL string, steamCookies []*http.Cookie) (
 
 	postReq.Header.Set("Referer", resp.Request.URL.String())
 	postReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	postReq.URL.RawQuery = formData.Encode()
+	postReq.URL.RawQuery = form.inputs.Encode()
 
 	postResp, err := stdClient.Do(postReq)
 	if err != nil {
@@ -126,44 +126,87 @@ func verifyRedirect(originalTargetHost string, responseURL *url.URL) (bool, erro
 	return true, nil
 }
 
-func parseOpenIDForm(doc *goquery.Document) (*goquery.Selection, error) {
-	if doc.Find("#loginForm").Length() > 0 {
-		return nil, ErrNotSignedIn
+func parseOpenIDForm(r io.Reader) (openIDForm, error) {
+	doc, err := html.Parse(r)
+	if err != nil {
+		return openIDForm{}, fmt.Errorf("openid: failed to parse HTML: %w", err)
 	}
 
-	form := doc.Find("#openidForm")
-	if form.Length() == 0 {
-		return nil, ErrNoForm
-	}
+	var loginFormFound bool
+	var openidFormNode *html.Node
+	var findForms func(*html.Node)
 
-	return form, nil
-}
-
-func extractFormInputs(form *goquery.Selection) url.Values {
-	formData := url.Values{}
-
-	form.Find("input").Each(func(_ int, inputSel *goquery.Selection) {
-		name, exists := inputSel.Attr("name")
-		if !exists || name == "" {
-			return
+	findForms = func(n *html.Node) {
+		if n.Type == html.ElementNode && n.Data == "form" {
+			for _, attr := range n.Attr {
+				if attr.Key == "id" {
+					switch attr.Val {
+					case "loginForm":
+						loginFormFound = true
+					case "openidForm":
+						openidFormNode = n
+					}
+				}
+			}
 		}
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			findForms(c)
+		}
+	}
+	findForms(doc)
 
-		value, _ := inputSel.Attr("value")
-		formData.Set(name, value)
-	})
-
-	if formData.Get("action") == "" {
-		formData.Set("action", "steam_openid_login")
+	if loginFormFound {
+		return openIDForm{}, ErrNotSignedIn
 	}
 
-	return formData
+	if openidFormNode == nil {
+		return openIDForm{}, ErrNoForm
+	}
+
+	var action string
+	for _, attr := range openidFormNode.Attr {
+		if attr.Key == "action" {
+			action = attr.Val
+			break
+		}
+	}
+
+	inputs := url.Values{}
+	var extractInputs func(*html.Node)
+	extractInputs = func(n *html.Node) {
+		if n.Type == html.ElementNode && n.Data == "input" {
+			var name, value string
+			for _, attr := range n.Attr {
+				switch attr.Key {
+				case "name":
+					name = attr.Val
+				case "value":
+					value = attr.Val
+				}
+			}
+			if name != "" {
+				inputs.Set(name, value)
+			}
+		}
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			extractInputs(c)
+		}
+	}
+	extractInputs(openidFormNode)
+
+	if inputs.Get("action") == "" {
+		inputs.Set("action", "steam_openid_login")
+	}
+
+	return openIDForm{
+		action: action,
+		inputs: inputs,
+	}, nil
 }
 
-func resolveActionURL(currentURL *url.URL, form *goquery.Selection) string {
+func resolveActionURL(currentURL *url.URL, action string) string {
 	defaultURL := "https://steamcommunity.com/openid/login"
-
-	action, exists := form.Attr("action")
-	if !exists || action == "" {
+	if action == "" {
 		return defaultURL
 	}
 

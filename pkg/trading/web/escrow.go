@@ -5,13 +5,13 @@
 package web
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
-	"strconv"
 
+	"github.com/lemon4ksan/aoni/codec/extract"
 	"github.com/lemon4ksan/aoni/mod"
+	"github.com/lemon4ksan/foundation/silicon/bytesconv"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/trading"
@@ -35,24 +35,29 @@ func (m *Manager) GetEscrowDuration(ctx context.Context, offerID uint64) (proces
 
 	defer body.Close()
 
-	var buf bytes.Buffer
-	if _, err := io.Copy(&buf, body); err != nil {
+	bodyBytes, err := io.ReadAll(body)
+	if err != nil {
 		return processor.Details{}, err
 	}
 
-	theirMatches := processor.RxTheir.FindStringSubmatch(buf.String())
-	myMatches := processor.RxMy.FindStringSubmatch(buf.String())
+	theirRaw, err1 := extract.Between(bodyBytes, "g_DaysTheirEscrow = ", ";")
+	myRaw, err2 := extract.Between(bodyBytes, "g_DaysMyEscrow = ", ";")
 
-	if len(theirMatches) < 2 || len(myMatches) < 2 {
+	if err1 != nil || err2 != nil {
+		theirRaw, err1 = extract.Regex(bodyBytes, `(?i)g_DaysTheirEscrow\s*=\s*(\d+);`)
+		myRaw, err2 = extract.Regex(bodyBytes, `(?i)g_DaysMyEscrow\s*=\s*(\d+);`)
+	}
+
+	if err1 != nil || err2 != nil {
 		return processor.Details{}, ErrEscrowNotFound
 	}
 
-	theirDays, _ := strconv.Atoi(theirMatches[1])
-	myDays, _ := strconv.Atoi(myMatches[1])
+	theirDaysVal, _ := bytesconv.ParseUintFast(theirRaw)
+	myDaysVal, _ := bytesconv.ParseUintFast(myRaw)
 
 	return processor.Details{
-		TheirDays: theirDays,
-		MyDays:    myDays,
+		TheirDays: int(theirDaysVal),
+		MyDays:    int(myDaysVal),
 	}, nil
 }
 

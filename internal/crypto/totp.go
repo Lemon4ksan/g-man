@@ -11,7 +11,7 @@ import (
 	"encoding/hex"
 	"strconv"
 
-	"github.com/lemon4ksan/g-man/internal/bytesconv"
+	"github.com/lemon4ksan/foundation/silicon/bytesconv"
 )
 
 const steamChars = "23456789BCDFGHJKMNPQRTVWXY"

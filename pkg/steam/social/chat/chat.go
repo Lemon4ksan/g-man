@@ -12,8 +12,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lemon4ksan/foundation/generic"
 	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/generic"
+	"github.com/lemon4ksan/foundation/silicon/pool"
 	"google.golang.org/protobuf/proto"
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
@@ -696,10 +697,13 @@ func (c *Chat) synchronizeOfflineMessages(ctx context.Context) {
 			)
 
 			backoff := time.Duration(1<<(attempt+1)) * time.Second
+			timer := pool.AcquireTimer(backoff)
 			select {
 			case <-ctx.Done():
+				pool.ReleaseTimer(timer)
 				return
-			case <-time.After(backoff):
+			case <-timer.C:
+				pool.ReleaseTimer(timer)
 			}
 		}
 	}

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/aoni/fast"
+	"github.com/lemon4ksan/aoni/netutil/netdial"
 	"github.com/lemon4ksan/aoni/realtime/socket"
 	"github.com/lemon4ksan/aoni/realtime/socket/connector"
 	"github.com/lemon4ksan/aoni/realtime/socket/processor"
@@ -111,7 +112,7 @@ func NewDialers(proxyURL string) map[string]Dialer {
 				conn, err = network.NewProxyConn(ctx, proxyURL, endpoint.Endpoint)
 			} else {
 				var d net.Dialer
-				conn, err = d.DialContext(ctx, "tcp", endpoint.Endpoint)
+				conn, err = d.DialContext(ctx, netdial.NetworkTCP.String(), endpoint.Endpoint)
 			}
 			if err != nil {
 				return nil, fmt.Errorf("tcp dial: %w", err)

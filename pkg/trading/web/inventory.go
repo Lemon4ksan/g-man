@@ -9,7 +9,7 @@ import (
 
 	"github.com/lemon4ksan/foundation/async/log"
 
-	"github.com/lemon4ksan/g-man/internal/bytesconv"
+	"github.com/lemon4ksan/foundation/silicon/bytesconv"
 	"github.com/lemon4ksan/g-man/pkg/steam/community/inventory"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/trading"
@@ -66,7 +66,7 @@ func (m *Manager) GetPartnerInventoryOpts(
 
 	validIndex := 0
 	for _, it := range inv {
-		assetID, ok := bytesconv.ParseUint64(bytesconv.S2B(it.Asset.AssetID))
+		assetIDVal, ok := bytesconv.ParseUintFast(bytesconv.S2B(it.Asset.AssetID))
 		if !ok {
 			m.Logger.Warn("Invalid asset ID in partner inventory, skipping item",
 				log.String("asset_id", it.Asset.AssetID),
@@ -75,9 +75,13 @@ func (m *Manager) GetPartnerInventoryOpts(
 			continue
 		}
 
-		classID, _ := bytesconv.ParseUint64(bytesconv.S2B(it.Asset.ClassID))
-		instanceID, _ := bytesconv.ParseUint64(bytesconv.S2B(it.Asset.InstanceID))
-		amount, _ := bytesconv.ParseInt64(bytesconv.S2B(it.Asset.Amount))
+		assetID := uint64(assetIDVal)
+		classIDVal, _ := bytesconv.ParseUintFast(bytesconv.S2B(it.Asset.ClassID))
+		classID := uint64(classIDVal)
+		instanceIDVal, _ := bytesconv.ParseUintFast(bytesconv.S2B(it.Asset.InstanceID))
+		instanceID := uint64(instanceIDVal)
+		amountVal, _ := bytesconv.ParseUintFast(bytesconv.S2B(it.Asset.Amount))
+		amount := int64(amountVal)
 
 		packedKey := (classID << 32) | (instanceID & 0xFFFFFFFF)
 

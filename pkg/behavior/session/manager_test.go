@@ -75,7 +75,14 @@ func TestManager_Run(t *testing.T) {
 			Interval: 1 * time.Millisecond,
 		}
 
-		provider.On("IsAuthenticated").Return(false)
+		called := make(chan struct{})
+		provider.On("IsAuthenticated").Return(false).Run(func(args mock.Arguments) {
+			select {
+			case <-called:
+			default:
+				close(called)
+			}
+		})
 
 		m := New(provider, log.Discard, eventBus, cfg)
 
@@ -87,8 +94,11 @@ func TestManager_Run(t *testing.T) {
 			_ = m.Run(ctx)
 		}()
 
-		// Give it a brief moment to tick and skip
-		time.Sleep(15 * time.Millisecond)
+		select {
+		case <-called:
+		case <-time.After(2 * time.Second):
+			t.Fatal("timed out waiting for IsAuthenticated call")
+		}
 		cancel()
 
 		provider.AssertExpectations(t)

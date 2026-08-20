@@ -14,9 +14,9 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/net/proxy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/proxy"
 
 	"github.com/lemon4ksan/g-man/internal/framer"
 )
