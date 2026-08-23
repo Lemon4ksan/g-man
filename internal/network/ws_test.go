@@ -209,7 +209,9 @@ func TestWS_ReadLoop(t *testing.T) {
 					readIdx++
 					return item.msgType, item.payload, nil
 				}
+
 				time.Sleep(50 * time.Millisecond)
+
 				return 0, nil, io.EOF
 			},
 		}
@@ -242,6 +244,7 @@ func TestWS_ReadLoop(t *testing.T) {
 
 	t.Run("new_ws_with_fast_client", func(t *testing.T) {
 		t.Parallel()
+
 		headers := make(http.Header)
 		headers.Set("X-Test-Header", "G-MAN-TEST")
 

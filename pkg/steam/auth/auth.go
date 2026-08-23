@@ -19,9 +19,9 @@ import (
 
 	json "github.com/goccy/go-json"
 	"github.com/lemon4ksan/foundation/async/event"
-	"github.com/lemon4ksan/foundation/generic"
 	"github.com/lemon4ksan/foundation/async/fsm"
 	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/generic"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/lemon4ksan/g-man/internal/crypto"
@@ -299,7 +299,8 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 	a.loginCancel.Store(cancel)
 	a.activeDetails.Store(details)
 
-	a.getLogger().Debug("Connecting to CM server...", log.String("endpoint", server.Endpoint), log.String("type", server.Type))
+	a.getLogger().
+		Debug("Connecting to CM server...", log.String("endpoint", server.Endpoint), log.String("type", server.Type))
 
 	if err := a.socket.Connect(loginCtx, server); err != nil {
 		return fmt.Errorf("cm connection failed: %w", err)

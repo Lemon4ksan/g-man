@@ -91,5 +91,6 @@ func AuthFlow(c *Client, opts ...auth.FlowOption) *auth.Flow {
 		}),
 	}
 	allOpts := append(defaultOpts, opts...)
+
 	return auth.NewFlow(c, allOpts...)
 }

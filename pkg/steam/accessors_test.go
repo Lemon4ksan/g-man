@@ -44,6 +44,7 @@ func TestAccessors_AllServicesInstantiated(t *testing.T) {
 		web.WithModule(web.Config{}),
 	)
 	require.NoError(t, err)
+
 	defer c.Close()
 
 	// 1. Community & trading services

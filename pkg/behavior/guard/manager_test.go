@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/foundation/async/event"
-	"github.com/lemon4ksan/foundation/generic"
 	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/generic"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 

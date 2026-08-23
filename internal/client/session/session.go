@@ -16,8 +16,8 @@ import (
 
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/foundation/async/event"
-	"github.com/lemon4ksan/foundation/generic"
 	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/generic"
 
 	"github.com/lemon4ksan/g-man/internal/network"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"

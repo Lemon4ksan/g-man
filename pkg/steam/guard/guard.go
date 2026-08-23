@@ -22,6 +22,7 @@ import (
 	"github.com/lemon4ksan/foundation/generic"
 	"github.com/lemon4ksan/foundation/silicon/bytesconv"
 	"github.com/lemon4ksan/foundation/sync/lazy"
+
 	"github.com/lemon4ksan/g-man/internal/clock"
 	"github.com/lemon4ksan/g-man/internal/crypto"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
@@ -386,6 +387,7 @@ func (g *Guardian) TimeOffset() time.Duration {
 	if g == nil || g.clock == nil {
 		return 0
 	}
+
 	return g.clock.Offset()
 }
 

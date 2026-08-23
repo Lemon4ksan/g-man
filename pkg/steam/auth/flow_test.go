@@ -8,9 +8,10 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
 	"github.com/lemon4ksan/g-man/pkg/storage/memory"
-	"github.com/stretchr/testify/require"
 )
 
 type mockLogOnRunner struct {

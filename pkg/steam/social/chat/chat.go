@@ -697,6 +697,7 @@ func (c *Chat) synchronizeOfflineMessages(ctx context.Context) {
 			)
 
 			backoff := time.Duration(1<<(attempt+1)) * time.Second
+
 			timer := pool.AcquireTimer(backoff)
 			select {
 			case <-ctx.Done():

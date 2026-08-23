@@ -32,7 +32,7 @@ type mockInitContext struct {
 }
 
 func (m *mockInitContext) Storage() storage.Provider                           { return nil }
-func (m *mockInitContext) Bus() *event.Bus                                       { return m.bus }
+func (m *mockInitContext) Bus() *event.Bus                                     { return m.bus }
 func (m *mockInitContext) Logger() log.Logger                                  { return m.logger }
 func (m *mockInitContext) Service() service.Doer                               { return nil }
 func (m *mockInitContext) Rest() request.Requester                             { return nil }

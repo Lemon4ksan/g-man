@@ -104,6 +104,7 @@ func NewWSWithClient(
 		if proxyURL != "" {
 			opts = append(opts, option.WithProxyString(proxyURL))
 		}
+
 		dialerClient = NewClient(nil, opts...)
 	}
 
@@ -126,6 +127,7 @@ func NewWSWithClient(
 	if resp != nil && resp.Body != nil {
 		_ = resp.Body.Close()
 	}
+
 	if err != nil {
 		return nil, NewError(OpDial, ConnTypeWS, err)
 	}
@@ -234,10 +236,12 @@ func (w *WS) readLoop() {
 		msgType, payload, err := w.conn.ReadMessage()
 		if err != nil {
 			w.logger.Debug("WS ReadMessage returned error", log.Err(err))
+
 			select {
 			case w.errChan <- NewError(OpRead, ConnTypeWS, err):
 			default:
 			}
+
 			return
 		}
 

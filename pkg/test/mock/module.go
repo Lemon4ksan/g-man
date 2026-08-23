@@ -102,7 +102,7 @@ func NewInitContext() *InitContext {
 }
 
 func (m *InitContext) MockService() *ServiceMock { return m.service }
-func (m *InitContext) Bus() *event.Bus             { return m.eventBus }
+func (m *InitContext) Bus() *event.Bus           { return m.eventBus }
 func (m *InitContext) Logger() log.Logger        { return m.logger }
 func (m *InitContext) Service() service.Doer     { return m.service }
 

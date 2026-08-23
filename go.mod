@@ -4,17 +4,14 @@ go 1.25.4
 
 require (
 	github.com/andygrunwald/vdf v1.1.0
+	github.com/goccy/go-json v0.10.6
 	github.com/lemon4ksan/aoni v0.6.2-0.20260820060134-e0c297e54fac
+	github.com/lemon4ksan/foundation v0.0.0-20260820045422-43e40082e954
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/net v0.58.0
 	golang.org/x/time v0.15.0 // indirect
 	google.golang.org/protobuf v1.36.11
-)
-
-require (
-	github.com/goccy/go-json v0.10.6
-	github.com/lemon4ksan/foundation v0.0.0-20260820045422-43e40082e954
 )
 
 require (

@@ -218,7 +218,10 @@ func New(cfg Config) *Socket {
 			s.Logger().Error("Failed to parse packet", log.Err(err), log.Int("len", len(data)))
 			return nil, err
 		}
-		s.Logger().Debug("Decoded packet", log.Uint32("emsg", uint32(pkt.EMsg)), log.Bool("isProto", pkt.IsProto), log.Int("payloadLen", len(pkt.Payload)))
+
+		s.Logger().
+			Debug("Decoded packet", log.Uint32("emsg", uint32(pkt.EMsg)), log.Bool("isProto", pkt.IsProto), log.Int("payloadLen", len(pkt.Payload)))
+
 		return pkt, nil
 	}
 
@@ -248,6 +251,7 @@ func (s *Socket) handleMulti(packet *protocol.Packet) {
 			s.Logger().Error("Failed to read decompressed multi payload", log.Err(err))
 			return
 		}
+
 		payload = unzipped
 	}
 
@@ -258,6 +262,7 @@ func (s *Socket) handleMulti(packet *protocol.Packet) {
 			s.Logger().Error("Failed to read multi sub-packet size", log.Err(err))
 			return
 		}
+
 		if subSize == 0 {
 			continue
 		}

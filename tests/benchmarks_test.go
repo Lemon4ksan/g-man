@@ -12,8 +12,8 @@ import (
 	"testing"
 
 	json "github.com/goccy/go-json"
-
 	"github.com/lemon4ksan/foundation/silicon/bytesconv"
+
 	"github.com/lemon4ksan/g-man/internal/crypto"
 	"github.com/lemon4ksan/g-man/internal/framer"
 	"github.com/lemon4ksan/g-man/pkg/command"
@@ -186,6 +186,7 @@ func BenchmarkInventory_UnmarshalFlexibleArray_Object(b *testing.B) {
 			res := make([]trading.Description, len(rawMap))
 			for k, raw := range rawMap {
 				idxVal, ok := bytesconv.ParseUintFast(bytesconv.S2B(k))
+
 				idx := uint64(idxVal)
 				if ok && idx < uint64(len(res)) {
 					_ = json.Unmarshal(raw, &res[idx])

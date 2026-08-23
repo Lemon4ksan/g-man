@@ -8,8 +8,8 @@ import (
 	"context"
 
 	"github.com/lemon4ksan/foundation/async/log"
-
 	"github.com/lemon4ksan/foundation/silicon/bytesconv"
+
 	"github.com/lemon4ksan/g-man/pkg/steam/community/inventory"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/trading"

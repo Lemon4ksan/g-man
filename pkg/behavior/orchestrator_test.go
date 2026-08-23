@@ -181,7 +181,7 @@ type mockInitContext struct {
 	logger log.Logger
 }
 
-func (m *mockInitContext) Bus() *event.Bus                                                 { return m.bBus }
+func (m *mockInitContext) Bus() *event.Bus                                               { return m.bBus }
 func (m *mockInitContext) Logger() log.Logger                                            { return m.logger }
 func (m *mockInitContext) RegisterPacketHandler(eMsg enums.EMsg, handler socket.Handler) {}
 func (m *mockInitContext) RegisterServiceHandler(method string, handler socket.Handler)  {}

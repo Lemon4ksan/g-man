@@ -551,11 +551,13 @@ func parseBoosterCatalog(bodyBytes []byte) (*BoosterCatalog, error) {
 	if idx == -1 {
 		return nil, ErrBoosterCatalogJS
 	}
+
 	content := bytes.TrimSpace(bodyBytes[idx+len("CBoosterCreatorPage.Init("):])
 
 	var param1, rest []byte
 	if len(content) > 0 && content[0] == '[' {
 		depth := 0
+
 		end := -1
 		for i, b := range content {
 			if b == '[' {
@@ -568,13 +570,16 @@ func parseBoosterCatalog(bodyBytes []byte) (*BoosterCatalog, error) {
 				}
 			}
 		}
+
 		if end == -1 {
 			return nil, ErrBoosterCatalogJS
 		}
+
 		param1 = content[:end+1]
 		rest = content[end+1:]
 	} else if len(content) > 0 && content[0] == '{' {
 		depth := 0
+
 		end := -1
 		for i, b := range content {
 			if b == '{' {
@@ -587,9 +592,11 @@ func parseBoosterCatalog(bodyBytes []byte) (*BoosterCatalog, error) {
 				}
 			}
 		}
+
 		if end == -1 {
 			return nil, ErrBoosterCatalogJS
 		}
+
 		param1 = content[:end+1]
 		rest = content[end+1:]
 	} else {
@@ -597,6 +604,7 @@ func parseBoosterCatalog(bodyBytes []byte) (*BoosterCatalog, error) {
 		if comma == -1 {
 			return nil, ErrBoosterCatalogJS
 		}
+
 		param1 = bytes.TrimSpace(content[:comma])
 		rest = content[comma:]
 	}
@@ -618,6 +626,7 @@ func parseBoosterCatalog(bodyBytes []byte) (*BoosterCatalog, error) {
 
 	v1, ok1 := bytesconv.ParseUintFast(bytes.TrimSpace(parts[0]))
 	v2, ok2 := bytesconv.ParseUintFast(bytes.TrimSpace(parts[1]))
+
 	v3, ok3 := bytesconv.ParseUintFast(bytes.TrimSpace(parts[2]))
 	if !ok1 || !ok2 || !ok3 {
 		return nil, ErrBoosterCatalogJS

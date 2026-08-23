@@ -129,7 +129,7 @@ func PostFormTo[Resp any](
 		if body != nil {
 			var err error
 
-			params, err = values.StructToValues(body)
+			params, err = values.Encode(body)
 			if err != nil {
 				return nil, err
 			}

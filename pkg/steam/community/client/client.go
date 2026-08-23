@@ -181,12 +181,14 @@ func (c *Client) Request(
 	if err != nil {
 		if IsSessionExpiredError(err) {
 			c.logger.Warn("Session expired during redirect loop, attempting auto-refresh")
+
 			if r, ok := c.session.(Refresher); ok {
 				if rErr := r.Refresh(ctx); rErr == nil {
 					c.logger.Info("Auto-refresh succeeded, retrying community request")
 					return c.r.Request(ctx, method, path, mods...)
 				}
 			}
+
 			return nil, ErrRedirectLoop
 		}
 
@@ -196,21 +198,26 @@ func (c *Client) Request(
 	if err := SteamErrorsValidator(resp); err != nil {
 		if IsSessionExpiredError(err) {
 			_ = resp.Body.Close()
+
 			c.logger.Warn("Session expired, attempting auto-refresh")
+
 			if r, ok := c.session.(Refresher); ok {
 				if rErr := r.Refresh(ctx); rErr == nil {
 					c.logger.Info("Auto-refresh succeeded, retrying community request")
+
 					retryResp, retryErr := c.r.Request(ctx, method, path, mods...)
 					if retryErr == nil {
 						if valErr := SteamErrorsValidator(retryResp); valErr == nil {
 							return retryResp, nil
 						}
 					}
+
 					if retryResp != nil {
 						return retryResp, retryErr
 					}
 				}
 			}
+
 			return nil, ErrRedirectLoop
 		}
 

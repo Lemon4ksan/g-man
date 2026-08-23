@@ -18,12 +18,12 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/net/html"
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/request"
-	"github.com/lemon4ksan/foundation/generic"
 	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/generic"
+	"golang.org/x/net/html"
 	"google.golang.org/protobuf/proto"
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
@@ -515,15 +515,20 @@ func (m *Manager) GetUserComments(ctx context.Context, steamID id.ID, start, cou
 		return nil, 0, fmt.Errorf("friends: failed to parse rendered comments: %w", err)
 	}
 
-	var comments []Comment
-	var walk func(*html.Node)
+	var (
+		comments []Comment
+		walk     func(*html.Node)
+	)
+
 	walk = func(n *html.Node) {
-		if n.Type == html.ElementNode && hasHTMLClass(n, "commentthread_comment") && hasHTMLClass(n, "responsive_body_text") {
+		if n.Type == html.ElementNode && hasHTMLClass(n, "commentthread_comment") &&
+			hasHTMLClass(n, "responsive_body_text") {
 			elID := getHTMLAttr(n, "id")
 			if elID != "" {
 				parts := strings.Split(elID, "_")
 				if len(parts) >= 2 {
 					commentID := parts[1]
+
 					var authorSteamID id.ID
 					if mpNode := findFirstWithAttr(n, "data-miniprofile"); mpNode != nil {
 						miniprofile := getHTMLAttr(mpNode, "data-miniprofile")
@@ -570,6 +575,7 @@ func (m *Manager) GetUserComments(ctx context.Context, steamID id.ID, start, cou
 				}
 			}
 		}
+
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
 			walk(c)
 		}
@@ -583,14 +589,17 @@ func findFirstWithClass(n *html.Node, className string) *html.Node {
 	if n == nil {
 		return nil
 	}
+
 	if n.Type == html.ElementNode && hasHTMLClass(n, className) {
 		return n
 	}
+
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
 		if res := findFirstWithClass(c, className); res != nil {
 			return res
 		}
 	}
+
 	return nil
 }
 
@@ -598,14 +607,17 @@ func findFirstWithAttr(n *html.Node, attrName string) *html.Node {
 	if n == nil {
 		return nil
 	}
+
 	if n.Type == html.ElementNode && getHTMLAttr(n, attrName) != "" {
 		return n
 	}
+
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
 		if res := findFirstWithAttr(c, attrName); res != nil {
 			return res
 		}
 	}
+
 	return nil
 }
 
@@ -613,14 +625,17 @@ func findFirstElement(n *html.Node, tag string) *html.Node {
 	if n == nil {
 		return nil
 	}
+
 	if n.Type == html.ElementNode && n.Data == tag {
 		return n
 	}
+
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
 		if res := findFirstElement(c, tag); res != nil {
 			return res
 		}
 	}
+
 	return nil
 }
 
@@ -634,6 +649,7 @@ func hasHTMLClass(n *html.Node, className string) bool {
 			}
 		}
 	}
+
 	return false
 }
 
@@ -641,11 +657,13 @@ func getHTMLAttr(n *html.Node, key string) string {
 	if n == nil {
 		return ""
 	}
+
 	for _, a := range n.Attr {
 		if a.Key == key {
 			return a.Val
 		}
 	}
+
 	return ""
 }
 
@@ -653,17 +671,23 @@ func getHTMLText(n *html.Node) string {
 	if n == nil {
 		return ""
 	}
-	var sb strings.Builder
-	var walk func(*html.Node)
+
+	var (
+		sb   strings.Builder
+		walk func(*html.Node)
+	)
+
 	walk = func(curr *html.Node) {
 		if curr.Type == html.TextNode {
 			sb.WriteString(curr.Data)
 		}
+
 		for c := curr.FirstChild; c != nil; c = c.NextSibling {
 			walk(c)
 		}
 	}
 	walk(n)
+
 	return sb.String()
 }
 

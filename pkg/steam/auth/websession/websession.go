@@ -130,7 +130,8 @@ func (s *WebSession) REST() *aoni.Client {
 
 	reauth := middleware.ReAuth(middleware.ReAuthConfig{
 		Trigger: func(resp aoni.Response, err error) bool {
-			return resp != nil && (resp.StatusCode() == http.StatusUnauthorized || resp.StatusCode() == http.StatusForbidden)
+			return resp != nil &&
+				(resp.StatusCode() == http.StatusUnauthorized || resp.StatusCode() == http.StatusForbidden)
 		},
 		Refresh: func(ctx context.Context) error {
 			return s.Refresh(ctx)

@@ -190,12 +190,15 @@ func (m *Manager) ReserveItems(assetIDs ...uint64) (func(), error) {
 			for _, prevID := range locked {
 				m.itemLocks.Unlock(prevID)
 			}
+
 			return nil, fmt.Errorf("%w: asset ID %d", ErrItemAlreadyReserved, id)
 		}
+
 		locked = append(locked, id)
 	}
 
 	var once sync.Once
+
 	return func() {
 		once.Do(func() {
 			for _, id := range locked {
@@ -221,6 +224,7 @@ func (m *Manager) LockItems(assetIDs ...uint64) func() {
 	}
 
 	var once sync.Once
+
 	return func() {
 		once.Do(func() {
 			for _, id := range sorted {
@@ -235,6 +239,7 @@ func (m *Manager) IsItemReserved(assetID uint64) bool {
 	if m == nil || m.itemLocks == nil {
 		return false
 	}
+
 	return m.itemLocks.IsLocked(assetID)
 }
 

@@ -19,8 +19,8 @@ import (
 	json "github.com/goccy/go-json"
 	"github.com/lemon4ksan/aoni/codec/extract"
 	"github.com/lemon4ksan/foundation/generic"
-
 	"github.com/lemon4ksan/foundation/silicon/bytesconv"
+
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 )
@@ -51,6 +51,7 @@ func CheckCapacity(currentCount, itemsToAdd, maxCapacity int) error {
 	if maxCapacity > 0 && currentCount+itemsToAdd > maxCapacity {
 		return fmt.Errorf("%w: current %d + adding %d > max %d", ErrBackpackFull, currentCount, itemsToAdd, maxCapacity)
 	}
+
 	return nil
 }
 

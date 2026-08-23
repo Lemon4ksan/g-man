@@ -154,16 +154,19 @@ func (d *ExchangeDetails) GetNewAssetID(oldAssetID uint64) (uint64, bool) {
 	if d == nil {
 		return 0, false
 	}
+
 	for _, a := range d.AssetsReceived {
 		if a.AssetID == oldAssetID && a.NewAssetID != 0 {
 			return a.NewAssetID, true
 		}
 	}
+
 	for _, a := range d.AssetsGiven {
 		if a.AssetID == oldAssetID && a.NewAssetID != 0 {
 			return a.NewAssetID, true
 		}
 	}
+
 	return 0, false
 }
 
@@ -172,17 +175,20 @@ func (d *ExchangeDetails) NewAssetIDs() map[uint64]uint64 {
 	if d == nil {
 		return nil
 	}
+
 	res := make(map[uint64]uint64, len(d.AssetsReceived)+len(d.AssetsGiven))
 	for _, a := range d.AssetsReceived {
 		if a.NewAssetID != 0 {
 			res[a.AssetID] = a.NewAssetID
 		}
 	}
+
 	for _, a := range d.AssetsGiven {
 		if a.NewAssetID != 0 {
 			res[a.AssetID] = a.NewAssetID
 		}
 	}
+
 	return res
 }
 
@@ -191,6 +197,7 @@ func (d *ExchangeDetails) ReceivedAssetIDs() []uint64 {
 	if d == nil {
 		return nil
 	}
+
 	res := make([]uint64, 0, len(d.AssetsReceived))
 	for _, a := range d.AssetsReceived {
 		if a.NewAssetID != 0 {
@@ -199,5 +206,6 @@ func (d *ExchangeDetails) ReceivedAssetIDs() []uint64 {
 			res = append(res, a.AssetID)
 		}
 	}
+
 	return res
 }

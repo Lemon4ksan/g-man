@@ -99,6 +99,7 @@ func TestManager_Run(t *testing.T) {
 		case <-time.After(2 * time.Second):
 			t.Fatal("timed out waiting for IsAuthenticated call")
 		}
+
 		cancel()
 
 		provider.AssertExpectations(t)

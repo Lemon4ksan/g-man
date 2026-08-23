@@ -114,7 +114,11 @@ type API interface {
 	// @preset :xhr
 	// @query casing=snake_case
 	// @referer :origin
-	GetMyListings(ctx context.Context, start, count, norender int, mods ...aoni.RequestModifier) (*MyListingsResponse, error)
+	GetMyListings(
+		ctx context.Context,
+		start, count, norender int,
+		mods ...aoni.RequestModifier,
+	) (*MyListingsResponse, error)
 
 	// @get "market"
 	// @referer :origin
@@ -124,7 +128,13 @@ type API interface {
 	// @preset :xhr
 	// @query casing=flatcase
 	// @referer :origin
-	GetGooValue(ctx context.Context, appID uint32, contextID int64, assetID uint64, mods ...aoni.RequestModifier) (*gemValueResponse, error)
+	GetGooValue(
+		ctx context.Context,
+		appID uint32,
+		contextID int64,
+		assetID uint64,
+		mods ...aoni.RequestModifier,
+	) (*gemValueResponse, error)
 
 	// @post "ajaxgrindintogoo"
 	// @preset :xhr
@@ -145,7 +155,12 @@ type API interface {
 	// @form casing=flatcase
 	// @inject field="sessionid" from="SessionID"
 	// @referer :origin
-	UnpackBooster(ctx context.Context, appID uint32, communityItemID uint64, mods ...aoni.RequestModifier) (*unpackBoosterResponse, error)
+	UnpackBooster(
+		ctx context.Context,
+		appID uint32,
+		communityItemID uint64,
+		mods ...aoni.RequestModifier,
+	) (*unpackBoosterResponse, error)
 
 	// @get "tradingcards/boostercreator"
 	// @referer :origin

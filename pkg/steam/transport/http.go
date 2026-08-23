@@ -19,8 +19,8 @@ import (
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/option"
 	"github.com/lemon4ksan/aoni/request"
-
 	"github.com/lemon4ksan/foundation/silicon/bytesconv"
+
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 )
 
@@ -89,15 +89,18 @@ func (t *HTTPTransport) Do(ctx context.Context, req *Request) (*Response, error)
 	if len(params) > 0 {
 		mods = append(mods, mod.WithQuery(params))
 	}
+
 	mods = append(mods, mod.Custom(func(r aoni.Request) {
 		for key, values := range req.Header() {
 			for _, val := range values {
 				r.AddHeader(key, val)
 			}
 		}
+
 		if r.Header("User-Agent") == "" {
 			r.SetHeader("User-Agent", HTTPUserAgent)
 		}
+
 		r.SetHeader("Accept", "text/html,*/*;q=0.9")
 	}))
 	mods = append(mods, req.Modifiers()...)

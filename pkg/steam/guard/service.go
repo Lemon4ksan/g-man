@@ -17,10 +17,10 @@ import (
 	"github.com/lemon4ksan/aoni/codec/decode"
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/foundation/generic"
+	"github.com/lemon4ksan/foundation/silicon/bytesconv"
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/lemon4ksan/foundation/silicon/bytesconv"
 	"github.com/lemon4ksan/g-man/internal/crypto"
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"

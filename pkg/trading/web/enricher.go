@@ -13,8 +13,8 @@ import (
 	"time"
 
 	json "github.com/goccy/go-json"
-	"github.com/lemon4ksan/foundation/generic"
 	"github.com/lemon4ksan/foundation/async/pipeline"
+	"github.com/lemon4ksan/foundation/generic"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"github.com/lemon4ksan/g-man/pkg/trading"
@@ -209,43 +209,48 @@ func (e *Enricher) fetchAssetClassInfos(
 
 	cfg := pipeline.PipelineConfig{Workers: 3, RPS: 5, Burst: 2}
 
-	results, err := pipeline.Map(ctx, cfg, chunks, func(chunkCtx context.Context, chunk []descKey) (chunkResult, error) {
-		params := make(url.Values)
-		params.Set("appid", strconv.FormatUint(uint64(appID), 10))
-		params.Set("language", language)
-		params.Set("class_count", strconv.Itoa(len(chunk)))
+	results, err := pipeline.Map(
+		ctx,
+		cfg,
+		chunks,
+		func(chunkCtx context.Context, chunk []descKey) (chunkResult, error) {
+			params := make(url.Values)
+			params.Set("appid", strconv.FormatUint(uint64(appID), 10))
+			params.Set("language", language)
+			params.Set("class_count", strconv.Itoa(len(chunk)))
 
-		for idx, k := range chunk {
-			params.Set(fmt.Sprintf("classid%d", idx), strconv.FormatUint(k>>32, 10))
+			for idx, k := range chunk {
+				params.Set(fmt.Sprintf("classid%d", idx), strconv.FormatUint(k>>32, 10))
 
-			if k != 0 {
-				params.Set(fmt.Sprintf("instanceid%d", idx), strconv.FormatUint(k&0xFFFFFFFF, 10))
-			}
-		}
-
-		apiResp, err := service.WebAPI[getAssetClassInfoResponse](
-			chunkCtx, web, "GET", "ISteamEconomy", "GetAssetClassInfo", 1, params,
-		)
-		if err != nil {
-			return chunkResult{}, err
-		}
-
-		resolvedDescs := make(map[descKey]rawAssetClassDescription)
-		if apiResp != nil && apiResp.Result != nil {
-			for key, rawVal := range apiResp.Result {
-				if key == "success" {
-					continue
-				}
-
-				var desc rawAssetClassDescription
-				if err := json.Unmarshal(rawVal, &desc); err == nil {
-					resolvedDescs[newDescKey(desc.ClassID, desc.InstanceID)] = desc
+				if k != 0 {
+					params.Set(fmt.Sprintf("instanceid%d", idx), strconv.FormatUint(k&0xFFFFFFFF, 10))
 				}
 			}
-		}
 
-		return chunkResult{descs: resolvedDescs}, nil
-	})
+			apiResp, err := service.WebAPI[getAssetClassInfoResponse](
+				chunkCtx, web, "GET", "ISteamEconomy", "GetAssetClassInfo", 1, params,
+			)
+			if err != nil {
+				return chunkResult{}, err
+			}
+
+			resolvedDescs := make(map[descKey]rawAssetClassDescription)
+			if apiResp != nil && apiResp.Result != nil {
+				for key, rawVal := range apiResp.Result {
+					if key == "success" {
+						continue
+					}
+
+					var desc rawAssetClassDescription
+					if err := json.Unmarshal(rawVal, &desc); err == nil {
+						resolvedDescs[newDescKey(desc.ClassID, desc.InstanceID)] = desc
+					}
+				}
+			}
+
+			return chunkResult{descs: resolvedDescs}, nil
+		},
+	)
 	if err != nil {
 		return nil, err
 	}

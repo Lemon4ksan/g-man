@@ -8,10 +8,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/lemon4ksan/foundation/silicon/bytesconv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/lemon4ksan/foundation/silicon/bytesconv"
 )
 
 func TestGenerateAuthCode(t *testing.T) {

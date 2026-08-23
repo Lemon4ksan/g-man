@@ -15,9 +15,9 @@ import (
 	"github.com/lemon4ksan/aoni/fast"
 	"github.com/lemon4ksan/aoni/request"
 	"github.com/lemon4ksan/foundation/async/event"
-	"github.com/lemon4ksan/foundation/generic"
 	"github.com/lemon4ksan/foundation/async/fsm"
 	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/generic"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/lemon4ksan/g-man/internal/client/modules"
@@ -415,6 +415,7 @@ func (c *Client) Community() community.Requester {
 	if c.session != nil {
 		return c.session.Community()
 	}
+
 	return nil
 }
 
@@ -423,6 +424,7 @@ func (c *Client) Web() session.WebSessionProvider {
 	if c.session != nil {
 		return c.session.Web()
 	}
+
 	return nil
 }
 
@@ -714,7 +716,7 @@ type initContext struct {
 }
 
 func (ctx *initContext) Storage() storage.Provider        { return ctx.Client.storage }
-func (ctx *initContext) Bus() *event.Bus                    { return ctx.Client.bus }
+func (ctx *initContext) Bus() *event.Bus                  { return ctx.Client.bus }
 func (ctx *initContext) Logger() log.Logger               { return ctx.Client.Logger() }
 func (ctx *initContext) Service() service.Doer            { return ctx.Client }
 func (ctx *initContext) Rest() request.Requester          { return ctx.Client.rest }

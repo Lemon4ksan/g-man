@@ -14,8 +14,8 @@ import (
 	json "github.com/goccy/go-json"
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/foundation/async/log"
-
 	"github.com/lemon4ksan/foundation/silicon/bytesconv"
+
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/guard"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
@@ -157,6 +157,7 @@ func (m *Manager) AcceptOffer(ctx context.Context, offerID uint64) error {
 					log.Uint64("offer_id", offerID),
 					log.Int32("state", int32(offer.State)),
 				)
+
 				return nil
 			}
 		}

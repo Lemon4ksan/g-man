@@ -32,7 +32,7 @@ type APIListResp struct {
 }
 
 type Interface struct {
-	RawName         string   `json:"name"`
+	RawName         string `json:"name"`
 	GoInterfaceName string
 	Methods         []Method `json:"methods"`
 }
@@ -200,7 +200,7 @@ func main() {
 		for j := range iface.Methods {
 			m := &iface.Methods[j]
 			if m.UseStruct {
-				shortName := fmt.Sprintf("%sRequest", m.GoMethodName)
+				shortName := m.GoMethodName + "Request"
 				reqCounts[shortName]++
 			}
 		}
@@ -212,7 +212,7 @@ func main() {
 		for j := range iface.Methods {
 			m := &iface.Methods[j]
 			if m.UseStruct {
-				shortName := fmt.Sprintf("%sRequest", m.GoMethodName)
+				shortName := m.GoMethodName + "Request"
 				if reqCounts[shortName] == 1 {
 					m.ReqStruct = shortName
 				} else {

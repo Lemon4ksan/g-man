@@ -132,9 +132,11 @@ func parseOpenIDForm(r io.Reader) (openIDForm, error) {
 		return openIDForm{}, fmt.Errorf("openid: failed to parse HTML: %w", err)
 	}
 
-	var loginFormFound bool
-	var openidFormNode *html.Node
-	var findForms func(*html.Node)
+	var (
+		loginFormFound bool
+		openidFormNode *html.Node
+		findForms      func(*html.Node)
+	)
 
 	findForms = func(n *html.Node) {
 		if n.Type == html.ElementNode && n.Data == "form" {
@@ -149,6 +151,7 @@ func parseOpenIDForm(r io.Reader) (openIDForm, error) {
 				}
 			}
 		}
+
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
 			findForms(c)
 		}
@@ -172,7 +175,9 @@ func parseOpenIDForm(r io.Reader) (openIDForm, error) {
 	}
 
 	inputs := url.Values{}
+
 	var extractInputs func(*html.Node)
+
 	extractInputs = func(n *html.Node) {
 		if n.Type == html.ElementNode && n.Data == "input" {
 			var name, value string
@@ -184,10 +189,12 @@ func parseOpenIDForm(r io.Reader) (openIDForm, error) {
 					value = attr.Val
 				}
 			}
+
 			if name != "" {
 				inputs.Set(name, value)
 			}
 		}
+
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
 			extractInputs(c)
 		}

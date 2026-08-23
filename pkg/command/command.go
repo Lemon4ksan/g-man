@@ -17,7 +17,6 @@ import (
 	"sync"
 
 	"github.com/lemon4ksan/foundation/generic"
-
 	"github.com/lemon4ksan/foundation/silicon/bytesconv"
 )
 

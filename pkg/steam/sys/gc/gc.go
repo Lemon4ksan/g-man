@@ -11,8 +11,8 @@ import (
 	"sync"
 
 	"github.com/lemon4ksan/foundation/async/event"
-	"github.com/lemon4ksan/foundation/async/task"
 	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/task"
 	"google.golang.org/protobuf/proto"
 
 	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
