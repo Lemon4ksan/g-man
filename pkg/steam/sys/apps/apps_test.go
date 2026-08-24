@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
-	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
+	pb "github.com/lemon4ksan/g-man/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	module "github.com/lemon4ksan/g-man/pkg/test/mock"
 )

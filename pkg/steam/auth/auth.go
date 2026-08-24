@@ -17,7 +17,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	json "github.com/goccy/go-json"
+	"github.com/lemon4ksan/foundation/codec/json"
 	"github.com/lemon4ksan/foundation/async/event"
 	"github.com/lemon4ksan/foundation/async/fsm"
 	"github.com/lemon4ksan/foundation/async/log"
@@ -25,7 +25,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/lemon4ksan/g-man/internal/crypto"
-	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
+	pb "github.com/lemon4ksan/g-man/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
@@ -188,7 +188,7 @@ func ExtractSteamIDFromJWT(token string) id.ID {
 	var claims struct {
 		Sub string `json:"sub"`
 	}
-	if err := json.Unmarshal(payload, &claims); err != nil {
+	if err := json.UnmarshalNoCopy(payload, &claims); err != nil {
 		return 0
 	}
 

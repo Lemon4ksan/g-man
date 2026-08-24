@@ -12,7 +12,7 @@ import (
 	"strings"
 	"sync"
 
-	json "github.com/goccy/go-json"
+	"github.com/lemon4ksan/foundation/codec/json"
 
 	"github.com/lemon4ksan/g-man/pkg/storage"
 )
@@ -68,7 +68,7 @@ func (p *Provider) load() error {
 		return nil
 	}
 
-	return json.Unmarshal(file, &p.data)
+	return json.UnmarshalNoCopy(file, &p.data)
 }
 
 func (p *Provider) save() error {

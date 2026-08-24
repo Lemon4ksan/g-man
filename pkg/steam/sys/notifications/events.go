@@ -9,7 +9,7 @@ import (
 
 	"github.com/lemon4ksan/foundation/async/event"
 
-	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
+	pb "github.com/lemon4ksan/g-man/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 )
 

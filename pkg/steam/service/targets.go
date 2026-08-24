@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"strings"
 
-	json "github.com/goccy/go-json"
+	"github.com/lemon4ksan/foundation/codec/json"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"

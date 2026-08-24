@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"time"
 
-	json "github.com/goccy/go-json"
+	"github.com/lemon4ksan/foundation/codec/json"
 	"github.com/lemon4ksan/aoni/codec/values"
 )
 
@@ -156,7 +156,7 @@ type GraphPoints []GraphPoint
 
 func (g *GraphPoints) UnmarshalJSON(data []byte) error {
 	var rawGraph [][]json.RawMessage
-	if err := json.Unmarshal(data, &rawGraph); err != nil {
+	if err := json.UnmarshalNoCopy(data, &rawGraph); err != nil {
 		return err
 	}
 
@@ -168,9 +168,9 @@ func (g *GraphPoints) UnmarshalJSON(data []byte) error {
 
 		var p GraphPoint
 
-		_ = json.Unmarshal(rawPoint[0], &p.Price)
-		_ = json.Unmarshal(rawPoint[1], &p.Volume)
-		_ = json.Unmarshal(rawPoint[2], &p.Description)
+		_ = json.UnmarshalNoCopy(rawPoint[0], &p.Price)
+		_ = json.UnmarshalNoCopy(rawPoint[1], &p.Volume)
+		_ = json.UnmarshalNoCopy(rawPoint[2], &p.Description)
 		points[i] = p
 	}
 
@@ -210,7 +210,7 @@ type PriceSample struct {
 
 func (ps *PriceSample) UnmarshalJSON(data []byte) error {
 	var rawPriceSample [3]json.RawMessage
-	if err := json.Unmarshal(data, &rawPriceSample); err != nil {
+	if err := json.UnmarshalNoCopy(data, &rawPriceSample); err != nil {
 		return err
 	}
 
@@ -219,15 +219,15 @@ func (ps *PriceSample) UnmarshalJSON(data []byte) error {
 		volumeStr string
 	)
 
-	if err := json.Unmarshal(rawPriceSample[0], &timeStr); err != nil {
+	if err := json.UnmarshalNoCopy(rawPriceSample[0], &timeStr); err != nil {
 		return err
 	}
 
-	if err := json.Unmarshal(rawPriceSample[1], &ps.Price); err != nil {
+	if err := json.UnmarshalNoCopy(rawPriceSample[1], &ps.Price); err != nil {
 		return err
 	}
 
-	if err := json.Unmarshal(rawPriceSample[2], &volumeStr); err != nil {
+	if err := json.UnmarshalNoCopy(rawPriceSample[2], &volumeStr); err != nil {
 		return err
 	}
 

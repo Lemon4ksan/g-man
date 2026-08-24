@@ -109,13 +109,19 @@ func TestBaseConnection(t *testing.T) {
 	assert.Equal(t, b1.ID()+1, b2.ID())
 }
 
+func shortCtx(t *testing.T) context.Context {
+	ctx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
+	t.Cleanup(cancel)
+	return ctx
+}
+
 func TestTCP_NewTCP_Fail(t *testing.T) {
 	t.Parallel()
 
-	_, err := NewTCP(t.Context(), log.Discard, "127.0.0.1:1", "", mockFramer{})
+	_, err := NewTCP(shortCtx(t), log.Discard, "127.0.0.1:1", "", mockFramer{})
 	assert.Error(t, err)
 
-	_, err = NewTCP(t.Context(), log.Discard, "127.0.0.1:1", "", nil)
+	_, err = NewTCP(shortCtx(t), log.Discard, "127.0.0.1:1", "", nil)
 	assert.ErrorContains(t, err, "framer cannot be nil")
 }
 
@@ -125,20 +131,20 @@ func TestTCP_NewTCP_ProxyErrors(t *testing.T) {
 	t.Run("invalid_proxy_url", func(t *testing.T) {
 		t.Parallel()
 		// unescapeable percentage sign to trigger url.Parse error
-		_, err := NewTCP(t.Context(), log.Discard, "127.0.0.1:1", "https://%", mockFramer{})
+		_, err := NewTCP(shortCtx(t), log.Discard, "127.0.0.1:1", "https://%", mockFramer{})
 		assert.Error(t, err)
 	})
 
 	t.Run("unsupported_proxy_scheme", func(t *testing.T) {
 		t.Parallel()
 		// ftp scheme is not supported by proxy.FromURL
-		_, err := NewTCP(t.Context(), log.Discard, "127.0.0.1:1", "ftp://localhost", mockFramer{})
+		_, err := NewTCP(shortCtx(t), log.Discard, "127.0.0.1:1", "ftp://localhost", mockFramer{})
 		assert.Error(t, err)
 	})
 
 	t.Run("custom_proxy_without_context_dialer", func(t *testing.T) {
 		t.Parallel()
-		_, err := NewTCP(t.Context(), log.Discard, "127.0.0.1:1", "mocksock://localhost", mockFramer{})
+		_, err := NewTCP(shortCtx(t), log.Discard, "127.0.0.1:1", "mocksock://localhost", mockFramer{})
 		assert.ErrorContains(t, err, "mock simple dial error")
 	})
 }

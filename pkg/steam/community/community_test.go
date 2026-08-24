@@ -14,7 +14,7 @@ import (
 	"strings"
 	"testing"
 
-	json "github.com/goccy/go-json"
+	"github.com/lemon4ksan/foundation/codec/json"
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/request"
@@ -167,7 +167,6 @@ func TestGet(t *testing.T) {
 		}
 		_, err := community.GetTo[genericResponse](t.Context(), client, "/test/get")
 		require.Error(t, err)
-		assert.IsType(t, &json.SyntaxError{}, err)
 	})
 }
 

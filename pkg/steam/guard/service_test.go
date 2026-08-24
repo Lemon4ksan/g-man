@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 
-	pbSteam "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
+	pbSteam "github.com/lemon4ksan/g-man/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/test/mock"
 )

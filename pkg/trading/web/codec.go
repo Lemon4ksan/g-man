@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"sync"
 
-	json "github.com/goccy/go-json"
+	"github.com/lemon4ksan/foundation/codec/json"
 	"github.com/lemon4ksan/foundation/silicon/bytesconv"
 
 	"github.com/lemon4ksan/g-man/pkg/trading"
@@ -228,7 +228,7 @@ func unmarshalFlexibleArray[T any](data []byte) ([]T, error) {
 
 	case '[':
 		var arr []T
-		if err := json.Unmarshal(data, &arr); err != nil {
+		if err := json.UnmarshalNoCopy(data, &arr); err != nil {
 			return nil, err
 		}
 
@@ -266,7 +266,7 @@ func unmarshalFlexibleArray[T any](data []byte) ([]T, error) {
 		buf.WriteByte(']')
 
 		var res []T
-		if err := json.Unmarshal(buf.Bytes(), &res); err != nil {
+		if err := json.UnmarshalNoCopy(buf.Bytes(), &res); err != nil {
 			return nil, err
 		}
 

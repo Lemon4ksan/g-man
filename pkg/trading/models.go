@@ -7,7 +7,7 @@ package trading
 import (
 	"bytes"
 
-	json "github.com/goccy/go-json"
+	"github.com/lemon4ksan/foundation/codec/json"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 )
@@ -58,7 +58,7 @@ func (d *Description) UnmarshalJSON(data []byte) error {
 	}
 
 	var pd plainDescription
-	if err := json.Unmarshal(data, &pd); err != nil {
+	if err := json.UnmarshalNoCopy(data, &pd); err != nil {
 		return err
 	}
 
@@ -70,7 +70,7 @@ func (d *Description) UnmarshalJSON(data []byte) error {
 			AppData json.RawMessage `json:"app_data"`
 		}
 
-		if err := json.Unmarshal(
+		if err := json.UnmarshalNoCopy(
 			data,
 			&appDataWrapper,
 		); err == nil && len(appDataWrapper.AppData) > 0 &&
@@ -79,7 +79,7 @@ func (d *Description) UnmarshalJSON(data []byte) error {
 				Defindex int `json:"def_index,string"`
 			}
 
-			if err := json.Unmarshal(appDataWrapper.AppData, &appData); err == nil {
+			if err := json.UnmarshalNoCopy(appDataWrapper.AppData, &appData); err == nil {
 				d.AppData = &struct {
 					Defindex int `json:"def_index,string"`
 				}{Defindex: appData.Defindex}

@@ -16,7 +16,7 @@ import (
 	"strings"
 	"sync"
 
-	json "github.com/goccy/go-json"
+	"github.com/lemon4ksan/foundation/codec/json"
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/foundation/async/log"
 	"github.com/lemon4ksan/foundation/generic"
@@ -610,7 +610,7 @@ func parseBoosterCatalog(bodyBytes []byte) (*BoosterCatalog, error) {
 	}
 
 	var catalogList []*BoosterPackInfo
-	if err := json.Unmarshal(param1, &catalogList); err != nil {
+	if err := json.UnmarshalNoCopy(param1, &catalogList); err != nil {
 		return nil, fmt.Errorf("market: failed to parse catalog JSON: %w", err)
 	}
 

@@ -25,7 +25,7 @@ import (
 
 	"github.com/lemon4ksan/g-man/internal/clock"
 	"github.com/lemon4ksan/g-man/internal/crypto"
-	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
+	pb "github.com/lemon4ksan/g-man/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/client"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"

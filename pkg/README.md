@@ -8,7 +8,7 @@
 
 </div>
 
-This directory houses G-man's modular Go packages. You can import the entire framework or select individual packages (e.g., `steam/community` for scraping, `trading/engine` for onion middleware, or `crypto` for mobile TOTP generation) to integrate into existing projects.
+This directory houses G-man's modular Go packages. You can import the entire framework or select individual packages (e.g., `steam/community` for scraping, `trading/engine` for onion middleware, or `behavior/processor` for trade evaluation) to integrate into existing projects.
 
 ## 🏗 Package Dependency Hierarchy
 
@@ -24,7 +24,7 @@ flowchart TD
     subgraph L4 ["🚀 Layer 4: Domain & Execution (Business Logic)"]
         direction LR
         Trading["<b>🤝 trading</b><br/>Onion Middleware Engine<br/>Offers Handling"]
-        Behavior["<b>🤖 behavior</b><br/>Autonomous Routines<br/>Achievements, Session & Guard"]
+        Behavior["<b>🤖 behavior</b><br/>Autonomous Routines<br/>Achievements, Processor & Guard"]
         Client["<b>🤖 steam.Client</b><br/>Central Orchestrator<br/>Lifecycle Management"]
         
         Trading ~~~ Behavior ~~~ Client
@@ -57,18 +57,16 @@ flowchart TD
 
     subgraph L1 ["🛠️ Layer 1: Infrastructure Utilities (Foundational Layer)"]
         direction LR
-        Log["<b>📊 log</b><br/>Structured Logger"]
-        Net["<b>🌐 network</b><br/>TCP/WS Transports"]
+        Foundation["<b>📊 foundation / miyako</b><br/>Logging & Async Tools"]
+        InternalNet["<b>🌐 internal/network</b><br/>TCP/WS Transports"]
         Storage["<b>💾 storage</b><br/>State Persistence (JSON/Memory)"]
         Crypto["<b>🔑 crypto</b><br/>RSA/AES & Steam TOTP"]
-        Bus["<b>🚌 miyako/bus</b><br/>Thread-Safe Pub/Sub"]
         
-        Log ~~~ Net
-        Net ~~~ Storage
+        Foundation ~~~ InternalNet
+        InternalNet ~~~ Storage
         Storage ~~~ Crypto
-        Crypto ~~~ Bus
     end
-    class L1,Log,Net,Storage,Crypto,Bus l1_node;
+    class L1,Foundation,InternalNet,Storage,Crypto l1_node;
 
     L4 ==>|Uses Services| L3
     L3 ==>|Serializes via| L2
@@ -82,7 +80,7 @@ flowchart TD
 
 ## 📦 Package Catalog
 
-### 1. Core Layer & Protobufs (`pkg/steam` & `pkg/protobuf`)
+### 1. Core Layer & Protobufs (`pkg/steam` & `protobuf`)
 The fundamental protocols and lifecycle systems of the client.
 
 | Package | Description |
@@ -98,7 +96,7 @@ The fundamental protocols and lifecycle systems of the client.
 | **[steam/social](steam/social/)** | Chat commands, friend-state sync, and persona state operations. |
 | **[steam/transport](steam/transport/)** | Low-level execution layer uniting CM Sockets and HTTP under a single interface. |
 | **[steam/webapi](steam/webapi/)** | Auto-generated standard Steam WebAPI endpoint wrappers. |
-| **[protobuf](protobuf/)** | Compiled Steam protobuf specifications (`steam`) and custom protocol structures (`custom`). |
+| **[protobuf](../protobuf/)** | Compiled Steam protobuf specifications (`protobuf/steam`) and custom protocol structures (`protobuf/custom`). |
 
 ### 2. Game Coordinators & Subsystems (`pkg/steam/sys`)
 Gateways to in-game coordination networks and app data.
@@ -117,7 +115,7 @@ Transaction lifecycles and business flow engines.
 | Package | Description |
 | :--- | :--- |
 | **[trading/engine](trading/engine/)** | The **Onion Middleware Engine** facilitating step-by-step trade checks. |
-| **[trading/processor](trading/processor/)** | Core transaction flow controller (*Evaluate $\rightarrow$ Decide $\rightarrow$ Act $\rightarrow$ Dispatch*). |
+| **[behavior/processor](behavior/processor/)** | Core transaction flow controller (*Evaluate $\rightarrow$ Decide $\rightarrow$ Act $\rightarrow$ Dispatch*). |
 | **[trading/reason](trading/reason/)** | Structured review reason definitions, error codes, and trade evaluation verdicts. |
 | **[trading/notifications](trading/notifications/)** | Asynchronous trade event notifications and status update broadcasting. |
 | **[trading/review](trading/review/)** | High-value trade validation, escrow holding checks, and administrator review logs. |
@@ -129,17 +127,15 @@ Infrastructure packages utilized throughout the project.
 
 | Package | Description |
 | :--- | :--- |
-| **[behavior](behavior/)** | Standardized autonomous bot behaviors (achievements simulation, session verification, guard auto-acceptance). |
+| **[behavior](behavior/)** | Standardized autonomous bot behaviors (achievements simulation, session verification, trade processor, guard auto-acceptance). |
 | **[command](command/)** | Thread-safe CLI command registration, type validation, and reflection-based execution system. |
-| **[crypto](crypto/)** | Encryption and decryption helpers (RSA/AES, Steam mobile signatures, and TOTP algorithms). |
-| **[log](log/)** | Contextual, asynchronous level-structured logging engine with correlation ID tracking. |
-| **[network](network/)** | Base TCP and WebSocket connection layers, message framers, and unified network errors. |
-| **[storage](storage/)** | Persistent storage interfaces featuring standard JSON (`jsonfile`) and in-memory (`memory`) adapters. |
+| **[bbcode](bbcode/)** | Fast BBCode parser and renderer for Steam chat and community formatting. |
+| **[storage](storage/)** | Persistent storage interfaces featuring zero-allocation JSON (`jsonfile`) and in-memory (`memory`) adapters. |
 
 ## 📐 Architecture Design Constraints
 
 To maintain modularity and code quality, the library adheres to these core architectural constraints:
 
-1. **Strict Mockability:** Structures depend on highly constrained interfaces (like `transport.Doer` or `storage.Provider`) rather than concrete implementations, allowing developers to isolate and mock layers during testing.
-2. **Channel-Based Concurrency:** Core event dispatching routes through the `miyako/bus` event bus package to prevent locking bottlenecks. Shared state across routines relies heavily on `sync/atomic` and read-write locks (`sync.RWMutex`).
+1. **Zero-Allocation Hot Paths:** Leverages `foundation/codec/json.UnmarshalNoCopy` and `aoni` pooled frame buffers for maximum throughput and minimal RAM consumption.
+2. **Strict Mockability:** Structures depend on highly constrained interfaces (like `transport.Doer` or `storage.Provider`) rather than concrete implementations, allowing developers to isolate and mock layers during testing.
 3. **Decoupled Extensions:** To prevent bloat, specialized game economies (like item schema processing or weapon smelting) are pushed to external packages like `g-man-tf2`, keeping the core framework code lean.

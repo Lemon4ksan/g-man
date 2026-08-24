@@ -13,7 +13,7 @@ import (
 	"strings"
 	"sync"
 
-	json "github.com/goccy/go-json"
+	"github.com/lemon4ksan/foundation/codec/json"
 	"github.com/lemon4ksan/aoni"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
@@ -100,6 +100,7 @@ func (s *HTTPStub) Do(req *http.Request) (*http.Response, error) {
 		} else if _, exists := s.ResponseErrs[path]; exists {
 			matchErrKey = path
 		} else {
+			bestMatch := ""
 			for k, err := range s.ResponseErrs {
 				if err == nil {
 					continue
@@ -108,18 +109,20 @@ func (s *HTTPStub) Do(req *http.Request) (*http.Response, error) {
 					prefix, _, _ := strings.Cut(k, "{")
 					suffix := k[strings.LastIndex(k, "}")+1:]
 					if strings.Contains(rawURL, strings.Trim(prefix, "/")) && strings.HasSuffix(rawURL, suffix) {
-						matchErrKey = k
-						break
+						if len(k) > len(bestMatch) {
+							bestMatch = k
+						}
 					}
 				} else if k != "" && (strings.Contains(rawURL, k) || strings.Contains(path, k)) {
-					matchErrKey = k
-					break
+					if len(k) > len(bestMatch) {
+						bestMatch = k
+					}
 				}
 			}
-			if _, exists := s.ResponseErrs[matchErrKey]; !exists {
-				if _, exists := s.ResponseErrs[""]; exists {
-					matchErrKey = ""
-				}
+			if bestMatch != "" {
+				matchErrKey = bestMatch
+			} else if _, exists := s.ResponseErrs[""]; exists {
+				matchErrKey = ""
 			}
 		}
 	}
@@ -143,23 +146,26 @@ func (s *HTTPStub) Do(req *http.Request) (*http.Response, error) {
 		} else if _, exists := s.responses[path]; exists {
 			matchKey = path
 		} else {
+			bestMatch := ""
 			for k := range s.responses {
 				if strings.Contains(k, "{") {
 					prefix, _, _ := strings.Cut(k, "{")
 					suffix := k[strings.LastIndex(k, "}")+1:]
 					if strings.Contains(rawURL, strings.Trim(prefix, "/")) && strings.HasSuffix(rawURL, suffix) {
-						matchKey = k
-						break
+						if len(k) > len(bestMatch) {
+							bestMatch = k
+						}
 					}
 				} else if k != "" && (strings.Contains(rawURL, k) || strings.Contains(path, k)) {
-					matchKey = k
-					break
+					if len(k) > len(bestMatch) {
+						bestMatch = k
+					}
 				}
 			}
-			if _, exists := s.responses[matchKey]; !exists {
-				if _, exists := s.responses[""]; exists {
-					matchKey = ""
-				}
+			if bestMatch != "" {
+				matchKey = bestMatch
+			} else if _, exists := s.responses[""]; exists {
+				matchKey = ""
 			}
 		}
 	}

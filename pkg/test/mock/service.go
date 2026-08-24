@@ -13,7 +13,7 @@ import (
 	"strings"
 	"sync"
 
-	json "github.com/goccy/go-json"
+	"github.com/lemon4ksan/foundation/codec/json"
 	"github.com/lemon4ksan/aoni"
 	"google.golang.org/protobuf/proto"
 

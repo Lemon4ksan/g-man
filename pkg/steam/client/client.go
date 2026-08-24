@@ -24,7 +24,7 @@ import (
 	"github.com/lemon4ksan/g-man/internal/client/router"
 	"github.com/lemon4ksan/g-man/internal/client/session"
 	"github.com/lemon4ksan/g-man/internal/network"
-	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
+	pb "github.com/lemon4ksan/g-man/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"

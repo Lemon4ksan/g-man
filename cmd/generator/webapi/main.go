@@ -18,7 +18,7 @@ import (
 	"strings"
 	"text/template"
 
-	json "github.com/goccy/go-json"
+	"github.com/lemon4ksan/foundation/codec/json"
 )
 
 // MaxPositionalParams determines the threshold for using positional parameters.

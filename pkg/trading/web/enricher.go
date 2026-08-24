@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"time"
 
-	json "github.com/goccy/go-json"
+	"github.com/lemon4ksan/foundation/codec/json"
 	"github.com/lemon4ksan/foundation/async/pipeline"
 	"github.com/lemon4ksan/foundation/generic"
 
@@ -242,7 +242,7 @@ func (e *Enricher) fetchAssetClassInfos(
 					}
 
 					var desc rawAssetClassDescription
-					if err := json.Unmarshal(rawVal, &desc); err == nil {
+					if err := json.UnmarshalNoCopy(rawVal, &desc); err == nil {
 						resolvedDescs[newDescKey(desc.ClassID, desc.InstanceID)] = desc
 					}
 				}

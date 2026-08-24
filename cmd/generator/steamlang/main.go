@@ -20,7 +20,7 @@ import (
 	"syscall"
 	"time"
 
-	json "github.com/goccy/go-json"
+	"github.com/lemon4ksan/foundation/codec/json"
 )
 
 var (

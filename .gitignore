@@ -22,7 +22,7 @@ profile.cov
 
 # Generated code
 cmd/**/*.json
-pkg/protobuf/tf2/tf2_gc
+protobuf/tf2/tf2_gc
 **/cache/**
 storage.json
 

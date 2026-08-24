@@ -63,7 +63,7 @@ func TestWS_NewWS(t *testing.T) {
 	t.Parallel()
 
 	// Attempt to dial a bad endpoint
-	_, err := NewWS(t.Context(), log.Discard, "invalid:80", "", nil)
+	_, err := NewWS(shortCtx(t), log.Discard, "invalid:80", "", nil)
 	assert.Error(t, err)
 }
 
@@ -72,31 +72,31 @@ func TestWS_NewWS_URLSchemaAndProxy(t *testing.T) {
 
 	t.Run("invalid_endpoint_url_parse", func(t *testing.T) {
 		t.Parallel()
-		_, err := NewWS(t.Context(), log.Discard, "wss://%", "", nil)
+		_, err := NewWS(shortCtx(t), log.Discard, "wss://%", "", nil)
 		assert.Error(t, err)
 	})
 
 	t.Run("http_schema_normalization", func(t *testing.T) {
 		t.Parallel()
-		_, err := NewWS(t.Context(), log.Discard, "http://localhost:1", "", nil)
+		_, err := NewWS(shortCtx(t), log.Discard, "http://localhost:1", "", nil)
 		assert.Error(t, err)
 	})
 
 	t.Run("https_schema_normalization", func(t *testing.T) {
 		t.Parallel()
-		_, err := NewWS(t.Context(), log.Discard, "https://localhost:1", "", nil)
+		_, err := NewWS(shortCtx(t), log.Discard, "https://localhost:1", "", nil)
 		assert.Error(t, err)
 	})
 
 	t.Run("invalid_proxy_url_parse", func(t *testing.T) {
 		t.Parallel()
-		_, err := NewWS(t.Context(), log.Discard, "localhost:1", "https://%", nil)
+		_, err := NewWS(shortCtx(t), log.Discard, "localhost:1", "https://%", nil)
 		assert.Error(t, err)
 	})
 
 	t.Run("valid_proxy_url", func(t *testing.T) {
 		t.Parallel()
-		_, err := NewWS(t.Context(), log.Discard, "localhost:1", "http://127.0.0.1:8888", nil)
+		_, err := NewWS(shortCtx(t), log.Discard, "localhost:1", "http://127.0.0.1:8888", nil)
 		assert.Error(t, err)
 	})
 }
@@ -238,7 +238,7 @@ func TestWS_ReadLoop(t *testing.T) {
 
 	t.Run("new_ws_handshake_failure", func(t *testing.T) {
 		t.Parallel()
-		_, err := NewWS(t.Context(), log.Discard, "localhost:1", "", nil)
+		_, err := NewWS(shortCtx(t), log.Discard, "localhost:1", "", nil)
 		assert.Error(t, err)
 	})
 
@@ -248,11 +248,11 @@ func TestWS_ReadLoop(t *testing.T) {
 		headers := make(http.Header)
 		headers.Set("X-Test-Header", "G-MAN-TEST")
 
-		_, err := NewWSWithFastClient(t.Context(), log.Discard, "invalid:80", "", headers, nil)
+		_, err := NewWSWithFastClient(shortCtx(t), log.Discard, "invalid:80", "", headers, nil)
 		assert.Error(t, err)
 
 		fc := fast.NewClient(nil)
-		_, err = NewWSWithFastClient(t.Context(), log.Discard, "invalid:80", "", headers, fc)
+		_, err = NewWSWithFastClient(shortCtx(t), log.Discard, "invalid:80", "", headers, fc)
 		assert.Error(t, err)
 	})
 }

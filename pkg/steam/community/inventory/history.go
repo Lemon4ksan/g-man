@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	json "github.com/goccy/go-json"
+	"github.com/lemon4ksan/foundation/codec/json"
 	"github.com/lemon4ksan/aoni/codec/extract"
 	"golang.org/x/net/html"
 
@@ -73,7 +73,7 @@ func (p *HistoryParser) extractHistoryInventory() (map[string]map[string]map[str
 	}
 
 	var inventory map[string]map[string]map[string]EconItem
-	if err := json.Unmarshal(bytes.TrimSpace(rawJSON), &inventory); err != nil {
+	if err := json.UnmarshalNoCopy(bytes.TrimSpace(rawJSON), &inventory); err != nil {
 		return nil, fmt.Errorf("history: failed to parse history inventory JSON: %w", err)
 	}
 

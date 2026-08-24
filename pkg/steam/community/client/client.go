@@ -15,9 +15,7 @@ import (
 	"net/url"
 	"strings"
 
-	json "github.com/goccy/go-json"
 	"github.com/lemon4ksan/aoni"
-	"github.com/lemon4ksan/aoni/codec/decode"
 	"github.com/lemon4ksan/aoni/codec/extract"
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/option"
@@ -29,11 +27,6 @@ import (
 
 // BaseURL root base URL for Steam Community endpoints.
 const BaseURL = "https://steamcommunity.com/"
-
-// GoJSONDecoder wraps github.com/goccy/go-json as an aoni response decoder for high-speed SIMD JSON parsing.
-var GoJSONDecoder decode.Decoder = decode.DecoderFunc(func(reader io.Reader, target any) error {
-	return json.NewDecoder(reader).Decode(target)
-})
 
 var (
 	// ErrFamilyViewRestricted indicates an operation was blocked by Family View PIN controls.
@@ -110,8 +103,6 @@ func New(doer aoni.RequestDoer, session SessionProvider) *Client {
 		option.WithBaseURL(BaseURL),
 		option.WithOrigin(BaseURL),
 		option.WithBlockRedirectTo("/login/home", "/login"),
-		option.WithDecoder("application/json", GoJSONDecoder),
-		option.WithDecoder("text/javascript", GoJSONDecoder),
 	))
 
 	return &Client{

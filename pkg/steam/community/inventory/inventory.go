@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	json "github.com/goccy/go-json"
+	"github.com/lemon4ksan/foundation/codec/json"
 	"github.com/lemon4ksan/aoni/codec/extract"
 	"github.com/lemon4ksan/foundation/generic"
 	"github.com/lemon4ksan/foundation/silicon/bytesconv"
@@ -291,7 +291,7 @@ func GetUserInventoryContexts(
 	}
 
 	var data map[string]*AppContext
-	if err := json.Unmarshal(cleanedJSON, &data); err != nil {
+	if err := json.UnmarshalNoCopy(cleanedJSON, &data); err != nil {
 		return nil, fmt.Errorf("inventory: failed to parse context data JSON: %w", err)
 	}
 

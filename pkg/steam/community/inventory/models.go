@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"time"
 
-	json "github.com/goccy/go-json"
+	"github.com/lemon4ksan/foundation/codec/json"
 	"github.com/lemon4ksan/aoni/codec/values"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
@@ -30,7 +30,7 @@ func (a *AppData) UnmarshalJSON(data []byte) error {
 	}
 
 	var raw map[string]json.RawMessage
-	if err := json.Unmarshal(data, &raw); err != nil {
+	if err := json.UnmarshalNoCopy(data, &raw); err != nil {
 		return nil //nolint:nilerr
 	}
 

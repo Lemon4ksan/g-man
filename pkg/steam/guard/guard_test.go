@@ -23,7 +23,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/lemon4ksan/g-man/internal/clock"
-	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
+	pb "github.com/lemon4ksan/g-man/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"

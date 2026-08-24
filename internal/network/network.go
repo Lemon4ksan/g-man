@@ -7,13 +7,9 @@ package network
 
 import (
 	"context"
-	"io"
 	"sync/atomic"
 
-	json "github.com/goccy/go-json"
 	"github.com/lemon4ksan/aoni"
-	"github.com/lemon4ksan/aoni/codec/decode"
-	"github.com/lemon4ksan/aoni/option"
 	"github.com/lemon4ksan/aoni/realtime/socket"
 
 	"github.com/lemon4ksan/g-man/internal/framer"
@@ -21,23 +17,14 @@ import (
 
 var globalConnectionID atomic.Int64
 
-// GoJSONDecoder wraps github.com/goccy/go-json as an aoni response decoder for SIMD-accelerated JSON unmarshaling.
-var GoJSONDecoder decode.Decoder = decode.DecoderFunc(func(reader io.Reader, target any) error {
-	return json.NewDecoder(reader).Decode(target)
-})
-
-// DefaultClientOptions returns standard aoni options registering go-json for standard JSON MIME types.
+// DefaultClientOptions returns standard aoni options.
 func DefaultClientOptions() []aoni.ClientOption {
-	return []aoni.ClientOption{
-		option.WithDecoder("application/json", GoJSONDecoder),
-		option.WithDecoder("text/javascript", GoJSONDecoder),
-	}
+	return nil
 }
 
-// NewClient constructs a new aoni.Client preconfigured with the go-json SIMD decoder.
+// NewClient constructs a new aoni.Client.
 func NewClient(doer aoni.HTTPDoer, opts ...aoni.ClientOption) *aoni.Client {
-	allOpts := append(DefaultClientOptions(), opts...)
-	return aoni.NewClient(doer, allOpts...)
+	return aoni.NewClient(doer, opts...)
 }
 
 // Message represents a framed byte buffer.

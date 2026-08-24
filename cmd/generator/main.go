@@ -24,13 +24,13 @@ const (
 
 	steamLangOutput = pkgRoot + "/steam/protocol/enums/enums.go"
 
-	steamImport = moduleRoot + "/pkg/protobuf/steam"
-	tf2Import   = moduleRoot + "/pkg/protobuf/tf2"
+	steamImport = moduleRoot + "/protobuf/steam"
+	tf2Import   = moduleRoot + "/protobuf/tf2"
 
 	pkgRoot      = "../../pkg"
 	webAPIOutput = pkgRoot + "/steam/webapi/generated.go"
-	steamOut     = pkgRoot + "/protobuf/steam"
-	tf2Out       = pkgRoot + "/protobuf/tf2"
+	steamOut     = "../../protobuf/steam"
+	tf2Out       = "../../protobuf/tf2"
 )
 
 // NOTE: Updated files should be reviewed manually because of unfixable steam junk.

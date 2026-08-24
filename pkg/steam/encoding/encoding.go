@@ -12,7 +12,7 @@ import (
 	"io"
 
 	"github.com/andygrunwald/vdf"
-	json "github.com/goccy/go-json"
+	"github.com/lemon4ksan/foundation/codec/json"
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/codec/decode"
 	"github.com/lemon4ksan/aoni/mod"
@@ -72,13 +72,13 @@ var SteamJSONDecoder = decode.DecoderFunc(func(r io.Reader, target any) error {
 	}
 
 	var wrapper map[string]json.RawMessage
-	if err := json.Unmarshal(data, &wrapper); err == nil {
+	if err := json.UnmarshalNoCopy(data, &wrapper); err == nil {
 		if inner, ok := wrapper["response"]; ok && len(inner) > 0 {
-			return json.Unmarshal(inner, target)
+			return json.UnmarshalNoCopy(inner, target)
 		}
 	}
 
-	return json.Unmarshal(data, target)
+	return json.UnmarshalNoCopy(data, target)
 })
 
 // ProtobufDecoder parses binary Protobuf or JSON-encoded Protobuf payloads into proto.Message.

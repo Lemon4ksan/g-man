@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"sync"
 
-	json "github.com/goccy/go-json"
+	"github.com/lemon4ksan/foundation/codec/json"
 	"github.com/lemon4ksan/aoni/codec/values"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/id"

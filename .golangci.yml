@@ -112,7 +112,7 @@ linters:
         path: "api.go"
 
     paths:
-      - pkg/protobuf/.*
+      - protobuf/.*
       - pkg/steam/webapi/.*
       - pkg/steam/protocol/enums/.*
       - test/.*

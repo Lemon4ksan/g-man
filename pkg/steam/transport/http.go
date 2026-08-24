@@ -13,9 +13,7 @@ import (
 	"io"
 	"net/http"
 
-	json "github.com/goccy/go-json"
 	"github.com/lemon4ksan/aoni"
-	"github.com/lemon4ksan/aoni/codec/decode"
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/option"
 	"github.com/lemon4ksan/aoni/request"
@@ -27,11 +25,6 @@ import (
 const HTTPUserAgent = "Valve/Steam HTTP Client 1.0"
 
 var ErrTargetNotHTTP = errors.New("http: target does not support HTTP transport")
-
-// GoJSONDecoder wraps github.com/goccy/go-json as an aoni response decoder for high-speed SIMD JSON parsing.
-var GoJSONDecoder decode.Decoder = decode.DecoderFunc(func(reader io.Reader, target any) error {
-	return json.NewDecoder(reader).Decode(target)
-})
 
 type HTTPMetadata struct {
 	Result     enums.EResult
@@ -56,8 +49,6 @@ func NewHTTPTransport(doer any, baseURL string) *HTTPTransport {
 	configured := aoni.Configure(doer,
 		option.WithBaseURL(baseURL),
 		option.WithUserAgent(HTTPUserAgent),
-		option.WithDecoder("application/json", GoJSONDecoder),
-		option.WithDecoder("text/javascript", GoJSONDecoder),
 	)
 
 	return &HTTPTransport{

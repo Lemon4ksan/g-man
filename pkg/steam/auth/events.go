@@ -7,7 +7,7 @@ package auth
 import (
 	"github.com/lemon4ksan/foundation/async/event"
 
-	pb "github.com/lemon4ksan/g-man/pkg/protobuf/steam"
+	pb "github.com/lemon4ksan/g-man/protobuf/steam"
 )
 
 // StateEvent is emitted when the authenticator transitions between lifecycle states.
