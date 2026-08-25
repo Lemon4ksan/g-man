@@ -63,7 +63,7 @@ func (c *apiClient) R() request.Requester {
 }
 
 func (c *apiClient) GetEditConfig(ctx context.Context, steamID uint64, mods ...aoni.RequestModifier) (*rawProfileEditConfig, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithVar("steamID", steamID))
@@ -99,7 +99,7 @@ func (c *apiClient) GetEditConfig(ctx context.Context, steamID uint64, mods ...a
 }
 
 func (c *apiClient) GetPrivacyConfig(ctx context.Context, steamID uint64, mods ...aoni.RequestModifier) (*rawPrivacyConfig, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithVar("steamID", steamID))

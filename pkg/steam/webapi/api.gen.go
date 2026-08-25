@@ -49,7 +49,7 @@ func (c *clientStats1046930Client) R() request.Requester {
 }
 
 func (c *clientStats1046930Client) ReportEvent(ctx context.Context, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	if len(mods) > 0 {
@@ -93,7 +93,7 @@ func (c *csgoPlayers730Client) R() request.Requester {
 }
 
 func (c *csgoPlayers730Client) GetNextMatchSharingCode(ctx context.Context, steamID uint64, steamIDKey string, knowncode string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [128]byte
@@ -147,7 +147,7 @@ func (c *csgoServers730Client) R() request.Requester {
 }
 
 func (c *csgoServers730Client) GetGameMapsPlaytime(ctx context.Context, interval string, gamemode string, mapgroup string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [128]byte
@@ -216,7 +216,7 @@ func (c *csgoTournaments730Client) R() request.Requester {
 }
 
 func (c *csgoTournaments730Client) GetTournamentFantasyLineup(ctx context.Context, event uint32, steamID uint64, steamIDKey string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [128]byte
@@ -241,7 +241,7 @@ func (c *csgoTournaments730Client) GetTournamentFantasyLineup(ctx context.Contex
 }
 
 func (c *csgoTournaments730Client) GetTournamentItems(ctx context.Context, event uint32, steamID uint64, steamIDKey string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [128]byte
@@ -266,7 +266,7 @@ func (c *csgoTournaments730Client) GetTournamentItems(ctx context.Context, event
 }
 
 func (c *csgoTournaments730Client) GetTournamentLayout(ctx context.Context, event uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -287,7 +287,7 @@ func (c *csgoTournaments730Client) GetTournamentLayout(ctx context.Context, even
 }
 
 func (c *csgoTournaments730Client) GetTournamentPredictions(ctx context.Context, event uint32, steamID uint64, steamIDKey string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [128]byte
@@ -312,7 +312,7 @@ func (c *csgoTournaments730Client) GetTournamentPredictions(ctx context.Context,
 }
 
 func (c *csgoTournaments730Client) UploadTournamentFantasyLineup(ctx context.Context, req *UploadTournamentFantasyLineupRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
@@ -332,7 +332,7 @@ func (c *csgoTournaments730Client) UploadTournamentFantasyLineup(ctx context.Con
 }
 
 func (c *csgoTournaments730Client) UploadTournamentPredictions(ctx context.Context, req *UploadTournamentPredictionsRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
@@ -381,7 +381,7 @@ func (c *dotA2MatchStats570Client) R() request.Requester {
 }
 
 func (c *dotA2MatchStats570Client) GetRealtimeStats(ctx context.Context, serverSteamID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -431,7 +431,7 @@ func (c *dotA2Match570Client) R() request.Requester {
 }
 
 func (c *dotA2Match570Client) GetLiveLeagueGames(ctx context.Context, leagueID uint32, matchID uint64, dPC bool, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [128]byte
@@ -456,7 +456,7 @@ func (c *dotA2Match570Client) GetLiveLeagueGames(ctx context.Context, leagueID u
 }
 
 func (c *dotA2Match570Client) GetMatchDetails(ctx context.Context, matchID uint64, includePersonaNames bool, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [128]byte
@@ -499,7 +499,7 @@ func (c *dotA2Match570Client) GetMatchHistory(ctx context.Context, req *GetMatch
 }
 
 func (c *dotA2Match570Client) GetMatchHistoryBySequenceNum(ctx context.Context, startAtMatchSeqNum uint64, matchesRequested uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [128]byte
@@ -522,7 +522,7 @@ func (c *dotA2Match570Client) GetMatchHistoryBySequenceNum(ctx context.Context, 
 }
 
 func (c *dotA2Match570Client) GetTeamInfoByTeamID(ctx context.Context, startAtTeamID uint64, teamsRequested uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [128]byte
@@ -545,7 +545,7 @@ func (c *dotA2Match570Client) GetTeamInfoByTeamID(ctx context.Context, startAtTe
 }
 
 func (c *dotA2Match570Client) GetTopLiveEventGame(ctx context.Context, partner int32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -566,7 +566,7 @@ func (c *dotA2Match570Client) GetTopLiveEventGame(ctx context.Context, partner i
 }
 
 func (c *dotA2Match570Client) GetTopLiveGame(ctx context.Context, partner int32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -587,10 +587,10 @@ func (c *dotA2Match570Client) GetTopLiveGame(ctx context.Context, partner int32,
 }
 
 func (c *dotA2Match570Client) GetTopWeekendTourneyGames(ctx context.Context, partner int32, homeDivision int32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [128]byte
+	var qBuf [64]byte
 	qBytes := qBuf[:0]
 	qBytes = append(qBytes, "partner="...)
 	qBytes = strconv.AppendInt(qBytes, int64(partner), 10)
@@ -679,7 +679,7 @@ func (c *dotA2StreamSystem570Client) R() request.Requester {
 }
 
 func (c *dotA2StreamSystem570Client) GetBroadcasterInfo(ctx context.Context, broadcasterSteamID uint64, leagueID uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [128]byte
@@ -731,7 +731,7 @@ func (c *dotA2Ticket570Client) R() request.Requester {
 }
 
 func (c *dotA2Ticket570Client) GetSteamIDForBadgeID(ctx context.Context, badgeID string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -752,7 +752,7 @@ func (c *dotA2Ticket570Client) GetSteamIDForBadgeID(ctx context.Context, badgeID
 }
 
 func (c *dotA2Ticket570Client) SetSteamAccountPurchased(ctx context.Context, steamID uint64, badgeType uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
@@ -825,7 +825,7 @@ func (c *econDOTA2570Client) R() request.Requester {
 }
 
 func (c *econDOTA2570Client) GetEventStatsForAccount(ctx context.Context, eventID uint32, accountID uint32, language string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [128]byte
@@ -850,10 +850,10 @@ func (c *econDOTA2570Client) GetEventStatsForAccount(ctx context.Context, eventI
 }
 
 func (c *econDOTA2570Client) GetHeroes(ctx context.Context, language string, itemizedonly bool, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [128]byte
+	var qBuf [64]byte
 	qBytes := qBuf[:0]
 	qBytes = append(qBytes, "language="...)
 	qBytes = append(qBytes, url.QueryEscape(language)...)
@@ -873,7 +873,7 @@ func (c *econDOTA2570Client) GetHeroes(ctx context.Context, language string, ite
 }
 
 func (c *econDOTA2570Client) GetItemCreators(ctx context.Context, itemdef uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -894,7 +894,7 @@ func (c *econDOTA2570Client) GetItemCreators(ctx context.Context, itemdef uint32
 }
 
 func (c *econDOTA2570Client) GetItemWorkshopPublishedFileIDs(ctx context.Context, itemdef uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -915,7 +915,7 @@ func (c *econDOTA2570Client) GetItemWorkshopPublishedFileIDs(ctx context.Context
 }
 
 func (c *econDOTA2570Client) GetRarities(ctx context.Context, language string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -936,7 +936,7 @@ func (c *econDOTA2570Client) GetRarities(ctx context.Context, language string, m
 }
 
 func (c *econDOTA2570Client) GetTournamentPrizePool(ctx context.Context, leagueID uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -986,7 +986,7 @@ func (c *econItems1046930Client) R() request.Requester {
 }
 
 func (c *econItems1046930Client) GetPlayerItems(ctx context.Context, steamID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -1036,7 +1036,7 @@ func (c *econItems1269260Client) R() request.Requester {
 }
 
 func (c *econItems1269260Client) GetEquippedPlayerItems(ctx context.Context, steamID uint64, classID uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -1088,7 +1088,7 @@ func (c *econItems440Client) R() request.Requester {
 }
 
 func (c *econItems440Client) GetPlayerItems(ctx context.Context, steamID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -1109,7 +1109,7 @@ func (c *econItems440Client) GetPlayerItems(ctx context.Context, steamID uint64,
 }
 
 func (c *econItems440Client) GetSchema(ctx context.Context, language string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -1130,7 +1130,7 @@ func (c *econItems440Client) GetSchema(ctx context.Context, language string, mod
 }
 
 func (c *econItems440Client) GetSchemaItems(ctx context.Context, language string, start int32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -1153,7 +1153,7 @@ func (c *econItems440Client) GetSchemaItems(ctx context.Context, language string
 }
 
 func (c *econItems440Client) GetSchemaOverview(ctx context.Context, language string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -1189,7 +1189,7 @@ func (c *econItems440Client) GetSchemaURL(ctx context.Context, mods ...aoni.Requ
 }
 
 func (c *econItems440Client) GetStoreMetaData(ctx context.Context, language string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -1254,7 +1254,7 @@ func (c *econItems570Client) R() request.Requester {
 }
 
 func (c *econItems570Client) GetPlayerItems(ctx context.Context, steamID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -1275,7 +1275,7 @@ func (c *econItems570Client) GetPlayerItems(ctx context.Context, steamID uint64,
 }
 
 func (c *econItems570Client) GetStoreMetaData(ctx context.Context, language string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -1325,7 +1325,7 @@ func (c *econItems583950Client) R() request.Requester {
 }
 
 func (c *econItems583950Client) GetEquippedPlayerItems(ctx context.Context, steamID uint64, classID uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -1377,7 +1377,7 @@ func (c *econItems620Client) R() request.Requester {
 }
 
 func (c *econItems620Client) GetPlayerItems(ctx context.Context, steamID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -1398,7 +1398,7 @@ func (c *econItems620Client) GetPlayerItems(ctx context.Context, steamID uint64,
 }
 
 func (c *econItems620Client) GetSchema(ctx context.Context, language string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -1448,7 +1448,7 @@ func (c *econItems730Client) R() request.Requester {
 }
 
 func (c *econItems730Client) GetPlayerItems(ctx context.Context, steamID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -1469,7 +1469,7 @@ func (c *econItems730Client) GetPlayerItems(ctx context.Context, steamID uint64,
 }
 
 func (c *econItems730Client) GetSchema(ctx context.Context, language string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -1505,7 +1505,7 @@ func (c *econItems730Client) GetSchemaURL(ctx context.Context, mods ...aoni.Requ
 }
 
 func (c *econItems730Client) GetStoreMetaData(ctx context.Context, language string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -1953,7 +1953,7 @@ func (c *portal2Leaderboards620Client) R() request.Requester {
 }
 
 func (c *portal2Leaderboards620Client) GetBucketizedData(ctx context.Context, leaderboardName string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -2003,7 +2003,7 @@ func (c *steamAppsClient) R() request.Requester {
 }
 
 func (c *steamAppsClient) GetSDRConfig(ctx context.Context, appID uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -2024,7 +2024,7 @@ func (c *steamAppsClient) GetSDRConfig(ctx context.Context, appID uint32, mods .
 }
 
 func (c *steamAppsClient) GetServersAtAddress(ctx context.Context, addr string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -2045,7 +2045,7 @@ func (c *steamAppsClient) GetServersAtAddress(ctx context.Context, addr string, 
 }
 
 func (c *steamAppsClient) UpToDateCheck(ctx context.Context, appID uint32, version uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -2097,7 +2097,7 @@ func (c *steamBroadcastClient) R() request.Requester {
 }
 
 func (c *steamBroadcastClient) PlayerStats(ctx context.Context, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	if len(mods) > 0 {
@@ -2161,7 +2161,7 @@ func (c *steamCDNClient) R() request.Requester {
 }
 
 func (c *steamCDNClient) SetClientFilters(ctx context.Context, req *SetClientFiltersRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
@@ -2181,7 +2181,7 @@ func (c *steamCDNClient) SetClientFilters(ctx context.Context, req *SetClientFil
 }
 
 func (c *steamCDNClient) SetPerformanceStats(ctx context.Context, req *SetPerformanceStatsRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
@@ -2230,7 +2230,7 @@ func (c *steamDirectoryClient) R() request.Requester {
 }
 
 func (c *steamDirectoryClient) GetCMList(ctx context.Context, cellID uint32, maxCount uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -2337,7 +2337,7 @@ func (c *steamEconomyClient) GetAssetClassInfo(ctx context.Context, req *GetAsse
 }
 
 func (c *steamEconomyClient) GetAssetPrices(ctx context.Context, appID uint32, currency string, language string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [128]byte
@@ -2460,7 +2460,7 @@ func (c *steamRemoteStorageClient) R() request.Requester {
 }
 
 func (c *steamRemoteStorageClient) GetCollectionDetails(ctx context.Context, collectioncount uint32, publishedfileids uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
@@ -2484,7 +2484,7 @@ func (c *steamRemoteStorageClient) GetCollectionDetails(ctx context.Context, col
 }
 
 func (c *steamRemoteStorageClient) GetPublishedFileDetails(ctx context.Context, itemcount uint32, publishedfileids uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
@@ -2508,7 +2508,7 @@ func (c *steamRemoteStorageClient) GetPublishedFileDetails(ctx context.Context, 
 }
 
 func (c *steamRemoteStorageClient) GetUGCFileDetails(ctx context.Context, steamID uint64, uGCID uint64, appID uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [128]byte
@@ -2562,7 +2562,7 @@ func (c *steamUserClient) R() request.Requester {
 }
 
 func (c *steamUserClient) GetFriendList(ctx context.Context, key string, steamID uint64, relationship string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [128]byte
@@ -2587,7 +2587,7 @@ func (c *steamUserClient) GetFriendList(ctx context.Context, key string, steamID
 }
 
 func (c *steamUserClient) GetPlayerBans(ctx context.Context, key string, steamids string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -2610,7 +2610,7 @@ func (c *steamUserClient) GetPlayerBans(ctx context.Context, key string, steamid
 }
 
 func (c *steamUserClient) GetPlayerSummariesV1(ctx context.Context, key string, steamids string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -2633,7 +2633,7 @@ func (c *steamUserClient) GetPlayerSummariesV1(ctx context.Context, key string, 
 }
 
 func (c *steamUserClient) GetPlayerSummariesV2(ctx context.Context, key string, steamids string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -2656,7 +2656,7 @@ func (c *steamUserClient) GetPlayerSummariesV2(ctx context.Context, key string, 
 }
 
 func (c *steamUserClient) GetUserGroupList(ctx context.Context, key string, steamID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -2679,7 +2679,7 @@ func (c *steamUserClient) GetUserGroupList(ctx context.Context, key string, stea
 }
 
 func (c *steamUserClient) ResolveVanityURL(ctx context.Context, key string, vanityurl string, uRLType int32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [128]byte
@@ -2733,7 +2733,7 @@ func (c *steamUserAuthClient) R() request.Requester {
 }
 
 func (c *steamUserAuthClient) AuthenticateUserTicket(ctx context.Context, key string, appID uint32, ticket string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [128]byte
@@ -2787,7 +2787,7 @@ func (c *steamUserOAuthClient) R() request.Requester {
 }
 
 func (c *steamUserOAuthClient) GetTokenDetails(ctx context.Context, accessToken string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -2837,7 +2837,7 @@ func (c *steamUserStatsClient) R() request.Requester {
 }
 
 func (c *steamUserStatsClient) GetGlobalAchievementPercentagesForAppV1(ctx context.Context, gameID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -2858,7 +2858,7 @@ func (c *steamUserStatsClient) GetGlobalAchievementPercentagesForAppV1(ctx conte
 }
 
 func (c *steamUserStatsClient) GetGlobalAchievementPercentagesForAppV2(ctx context.Context, gameID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -2899,7 +2899,7 @@ func (c *steamUserStatsClient) GetGlobalStatsForGame(ctx context.Context, req *G
 }
 
 func (c *steamUserStatsClient) GetNumberOfCurrentPlayers(ctx context.Context, appID uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -2940,10 +2940,10 @@ func (c *steamUserStatsClient) GetPlayerAchievements(ctx context.Context, req *G
 }
 
 func (c *steamUserStatsClient) GetSchemaForGameV1(ctx context.Context, key string, appID uint32, l string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [128]byte
+	var qBuf [64]byte
 	qBytes := qBuf[:0]
 	qBytes = append(qBytes, "key="...)
 	qBytes = append(qBytes, url.QueryEscape(key)...)
@@ -2965,10 +2965,10 @@ func (c *steamUserStatsClient) GetSchemaForGameV1(ctx context.Context, key strin
 }
 
 func (c *steamUserStatsClient) GetSchemaForGameV2(ctx context.Context, key string, appID uint32, l string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [128]byte
+	var qBuf [64]byte
 	qBytes := qBuf[:0]
 	qBytes = append(qBytes, "key="...)
 	qBytes = append(qBytes, url.QueryEscape(key)...)
@@ -2990,7 +2990,7 @@ func (c *steamUserStatsClient) GetSchemaForGameV2(ctx context.Context, key strin
 }
 
 func (c *steamUserStatsClient) GetUserStatsForGameV1(ctx context.Context, key string, steamID uint64, appID uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [128]byte
@@ -3015,7 +3015,7 @@ func (c *steamUserStatsClient) GetUserStatsForGameV1(ctx context.Context, key st
 }
 
 func (c *steamUserStatsClient) GetUserStatsForGameV2(ctx context.Context, key string, steamID uint64, appID uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [128]byte
@@ -3084,7 +3084,7 @@ func (c *steamWebAPIUtilClient) GetServerInfo(ctx context.Context, mods ...aoni.
 }
 
 func (c *steamWebAPIUtilClient) GetSupportedAPIList(ctx context.Context, key string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -3193,7 +3193,7 @@ func (c *tfPromos440Client) R() request.Requester {
 }
 
 func (c *tfPromos440Client) GetItemID(ctx context.Context, steamID uint64, promoid uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -3216,7 +3216,7 @@ func (c *tfPromos440Client) GetItemID(ctx context.Context, steamID uint64, promo
 }
 
 func (c *tfPromos440Client) GrantItem(ctx context.Context, steamID uint64, promoid uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
@@ -3269,7 +3269,7 @@ func (c *tfPromos620Client) R() request.Requester {
 }
 
 func (c *tfPromos620Client) GetItemID(ctx context.Context, steamID uint64, promoID uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -3292,7 +3292,7 @@ func (c *tfPromos620Client) GetItemID(ctx context.Context, steamID uint64, promo
 }
 
 func (c *tfPromos620Client) GrantItem(ctx context.Context, steamID uint64, promoID uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
@@ -3389,7 +3389,7 @@ func (c *gameServersServiceClient) R() request.Requester {
 }
 
 func (c *gameServersServiceClient) GetAccountList(ctx context.Context, key string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -3410,11 +3410,11 @@ func (c *gameServersServiceClient) GetAccountList(ctx context.Context, key strin
 }
 
 func (c *gameServersServiceClient) CreateAccount(ctx context.Context, key string, appID uint32, memo string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
-	var formBuf [256]byte
+	var formBuf [128]byte
 	formBytes := formBuf[:0]
 	formBytes = append(formBytes, "key="...)
 	formBytes = append(formBytes, url.QueryEscape(key)...)
@@ -3436,11 +3436,11 @@ func (c *gameServersServiceClient) CreateAccount(ctx context.Context, key string
 }
 
 func (c *gameServersServiceClient) SetMemo(ctx context.Context, key string, steamID uint64, memo string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
-	var formBuf [256]byte
+	var formBuf [128]byte
 	formBytes := formBuf[:0]
 	formBytes = append(formBytes, "key="...)
 	formBytes = append(formBytes, url.QueryEscape(key)...)
@@ -3462,7 +3462,7 @@ func (c *gameServersServiceClient) SetMemo(ctx context.Context, key string, stea
 }
 
 func (c *gameServersServiceClient) ResetLoginToken(ctx context.Context, key string, steamID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
@@ -3486,7 +3486,7 @@ func (c *gameServersServiceClient) ResetLoginToken(ctx context.Context, key stri
 }
 
 func (c *gameServersServiceClient) DeleteAccount(ctx context.Context, key string, steamID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
@@ -3510,7 +3510,7 @@ func (c *gameServersServiceClient) DeleteAccount(ctx context.Context, key string
 }
 
 func (c *gameServersServiceClient) GetAccountPublicInfo(ctx context.Context, key string, steamID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -3533,7 +3533,7 @@ func (c *gameServersServiceClient) GetAccountPublicInfo(ctx context.Context, key
 }
 
 func (c *gameServersServiceClient) QueryLoginToken(ctx context.Context, key string, loginToken string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -3556,7 +3556,7 @@ func (c *gameServersServiceClient) QueryLoginToken(ctx context.Context, key stri
 }
 
 func (c *gameServersServiceClient) GetServerSteamIDsByIP(ctx context.Context, key string, serverIps string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -3579,10 +3579,10 @@ func (c *gameServersServiceClient) GetServerSteamIDsByIP(ctx context.Context, ke
 }
 
 func (c *gameServersServiceClient) GetServerIPsBySteamID(ctx context.Context, key string, serverSteamids uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [128]byte
+	var qBuf [64]byte
 	qBytes := qBuf[:0]
 	qBytes = append(qBytes, "key="...)
 	qBytes = append(qBytes, url.QueryEscape(key)...)
@@ -3651,7 +3651,7 @@ func (c *playerServiceClient) R() request.Requester {
 }
 
 func (c *playerServiceClient) IsPlayingSharedGame(ctx context.Context, key string, steamID uint64, appIDPlaying uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [128]byte
@@ -3676,11 +3676,11 @@ func (c *playerServiceClient) IsPlayingSharedGame(ctx context.Context, key strin
 }
 
 func (c *playerServiceClient) RecordOfflinePlaytime(ctx context.Context, steamID uint64, ticket string, playSessions string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
-	var formBuf [256]byte
+	var formBuf [128]byte
 	formBytes := formBuf[:0]
 	formBytes = append(formBytes, "steam_id="...)
 	formBytes = strconv.AppendUint(formBytes, uint64(steamID), 10)
@@ -3702,7 +3702,7 @@ func (c *playerServiceClient) RecordOfflinePlaytime(ctx context.Context, steamID
 }
 
 func (c *playerServiceClient) GetRecentlyPlayedGames(ctx context.Context, key string, steamID uint64, count uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [128]byte
@@ -3747,7 +3747,7 @@ func (c *playerServiceClient) GetOwnedGames(ctx context.Context, req *GetOwnedGa
 }
 
 func (c *playerServiceClient) GetSteamLevel(ctx context.Context, key string, steamID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -3770,7 +3770,7 @@ func (c *playerServiceClient) GetSteamLevel(ctx context.Context, key string, ste
 }
 
 func (c *playerServiceClient) GetBadges(ctx context.Context, key string, steamID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -3793,7 +3793,7 @@ func (c *playerServiceClient) GetBadges(ctx context.Context, key string, steamID
 }
 
 func (c *playerServiceClient) GetCommunityBadgeProgress(ctx context.Context, key string, steamID uint64, badgeID int32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [128]byte
@@ -3847,7 +3847,7 @@ func (c *authenticationServiceClient) R() request.Requester {
 }
 
 func (c *authenticationServiceClient) PollAuthSessionStatus(ctx context.Context, clientID uint64, requestID string, tokenToRevoke uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
@@ -3873,7 +3873,7 @@ func (c *authenticationServiceClient) PollAuthSessionStatus(ctx context.Context,
 }
 
 func (c *authenticationServiceClient) GetAuthSessionInfo(ctx context.Context, clientID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
@@ -3895,7 +3895,7 @@ func (c *authenticationServiceClient) GetAuthSessionInfo(ctx context.Context, cl
 }
 
 func (c *authenticationServiceClient) GetAuthSessionRiskInfo(ctx context.Context, clientID uint64, language uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
@@ -3919,7 +3919,7 @@ func (c *authenticationServiceClient) GetAuthSessionRiskInfo(ctx context.Context
 }
 
 func (c *authenticationServiceClient) NotifyRiskQuizResults(ctx context.Context, req *NotifyRiskQuizResultsRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
@@ -3939,7 +3939,7 @@ func (c *authenticationServiceClient) NotifyRiskQuizResults(ctx context.Context,
 }
 
 func (c *authenticationServiceClient) GetPasswordRSAPublicKey(ctx context.Context, accountName string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -3960,7 +3960,7 @@ func (c *authenticationServiceClient) GetPasswordRSAPublicKey(ctx context.Contex
 }
 
 func (c *authenticationServiceClient) BeginAuthSessionViaCredentials(ctx context.Context, req *BeginAuthSessionViaCredentialsRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
@@ -3980,7 +3980,7 @@ func (c *authenticationServiceClient) BeginAuthSessionViaCredentials(ctx context
 }
 
 func (c *authenticationServiceClient) UpdateAuthSessionWithSteamGuardCode(ctx context.Context, req *UpdateAuthSessionWithSteamGuardCodeRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
@@ -4000,7 +4000,7 @@ func (c *authenticationServiceClient) UpdateAuthSessionWithSteamGuardCode(ctx co
 }
 
 func (c *authenticationServiceClient) BeginAuthSessionViaQR(ctx context.Context, req *BeginAuthSessionViaQRRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
@@ -4020,7 +4020,7 @@ func (c *authenticationServiceClient) BeginAuthSessionViaQR(ctx context.Context,
 }
 
 func (c *authenticationServiceClient) UpdateAuthSessionWithMobileConfirmation(ctx context.Context, req *UpdateAuthSessionWithMobileConfirmationRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
@@ -4069,7 +4069,7 @@ func (c *broadcastServiceClient) R() request.Requester {
 }
 
 func (c *broadcastServiceClient) PostGameDataFrameRTMP(ctx context.Context, req *PostGameDataFrameRTMPRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
@@ -4118,7 +4118,7 @@ func (c *contentServerConfigServiceClient) R() request.Requester {
 }
 
 func (c *contentServerConfigServiceClient) SetSteamCacheClientFilters(ctx context.Context, req *SetSteamCacheClientFiltersRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
@@ -4138,7 +4138,7 @@ func (c *contentServerConfigServiceClient) SetSteamCacheClientFilters(ctx contex
 }
 
 func (c *contentServerConfigServiceClient) GetSteamCacheNodeParams(ctx context.Context, key string, cacheID uint32, cacheKey string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [128]byte
@@ -4163,7 +4163,7 @@ func (c *contentServerConfigServiceClient) GetSteamCacheNodeParams(ctx context.C
 }
 
 func (c *contentServerConfigServiceClient) SetSteamCachePerformanceStats(ctx context.Context, req *SetSteamCachePerformanceStatsRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
@@ -4212,7 +4212,7 @@ func (c *contentServerDirectoryServiceClient) R() request.Requester {
 }
 
 func (c *contentServerDirectoryServiceClient) GetCDNForVideo(ctx context.Context, propertyType int32, clientIP string, clientRegion string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [128]byte
@@ -4237,7 +4237,7 @@ func (c *contentServerDirectoryServiceClient) GetCDNForVideo(ctx context.Context
 }
 
 func (c *contentServerDirectoryServiceClient) PickSingleContentServer(ctx context.Context, propertyType int32, cellID uint32, clientIP string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [128]byte
@@ -4282,7 +4282,7 @@ func (c *contentServerDirectoryServiceClient) GetServersForSteamPipe(ctx context
 }
 
 func (c *contentServerDirectoryServiceClient) GetClientUpdateHosts(ctx context.Context, cachedSignature string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -4352,7 +4352,7 @@ func (c *publishedFileServiceClient) R() request.Requester {
 }
 
 func (c *publishedFileServiceClient) GetUserVoteSummary(ctx context.Context, publishedfileids uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -4582,10 +4582,10 @@ func (c *econServiceClient) GetTradeOffer(ctx context.Context, req *GetTradeOffe
 }
 
 func (c *econServiceClient) GetTradeOffersSummary(ctx context.Context, key string, timeLastVisit uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
-	var qBuf [128]byte
+	var qBuf [64]byte
 	qBytes := qBuf[:0]
 	qBytes = append(qBytes, "key="...)
 	qBytes = append(qBytes, url.QueryEscape(key)...)
@@ -4605,7 +4605,7 @@ func (c *econServiceClient) GetTradeOffersSummary(ctx context.Context, key strin
 }
 
 func (c *econServiceClient) GetTradeHoldDurations(ctx context.Context, key string, steamIDTarget uint64, tradeOfferAccessToken string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [128]byte
@@ -4659,7 +4659,7 @@ func (c *gameNotificationsServiceClient) R() request.Requester {
 }
 
 func (c *gameNotificationsServiceClient) UserCreateSession(ctx context.Context, req *UserCreateSessionRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
@@ -4679,7 +4679,7 @@ func (c *gameNotificationsServiceClient) UserCreateSession(ctx context.Context, 
 }
 
 func (c *gameNotificationsServiceClient) UserUpdateSession(ctx context.Context, req *UserUpdateSessionRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
@@ -4699,11 +4699,11 @@ func (c *gameNotificationsServiceClient) UserUpdateSession(ctx context.Context, 
 }
 
 func (c *gameNotificationsServiceClient) UserDeleteSession(ctx context.Context, sessionID uint64, appID uint32, steamID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
-	var formBuf [256]byte
+	var formBuf [128]byte
 	formBytes := formBuf[:0]
 	formBytes = append(formBytes, "session_id="...)
 	formBytes = strconv.AppendUint(formBytes, uint64(sessionID), 10)
@@ -4754,7 +4754,7 @@ func (c *inventoryServiceClient) R() request.Requester {
 }
 
 func (c *inventoryServiceClient) SplitItemStack(ctx context.Context, req *SplitItemStackRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
@@ -4774,7 +4774,7 @@ func (c *inventoryServiceClient) SplitItemStack(ctx context.Context, req *SplitI
 }
 
 func (c *inventoryServiceClient) CombineItemStacks(ctx context.Context, req *CombineItemStacksRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
@@ -4794,7 +4794,7 @@ func (c *inventoryServiceClient) CombineItemStacks(ctx context.Context, req *Com
 }
 
 func (c *inventoryServiceClient) GetPriceSheet(ctx context.Context, key string, ecurrency int32, currencyCode string, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [128]byte
@@ -4848,7 +4848,7 @@ func (c *storeServiceClient) R() request.Requester {
 }
 
 func (c *storeServiceClient) GetGamesFollowed(ctx context.Context, steamID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -4869,7 +4869,7 @@ func (c *storeServiceClient) GetGamesFollowed(ctx context.Context, steamID uint6
 }
 
 func (c *storeServiceClient) GetGamesFollowedCount(ctx context.Context, steamID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -4910,7 +4910,7 @@ func (c *storeServiceClient) GetAppList(ctx context.Context, req *GetAppListRequ
 }
 
 func (c *storeServiceClient) GetRecommendedTagsForUser(ctx context.Context, language string, countryCode string, favorRarerTags bool, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [128]byte
@@ -4964,7 +4964,7 @@ func (c *helpRequestLogsServiceClient) R() request.Requester {
 }
 
 func (c *helpRequestLogsServiceClient) UploadUserApplicationLog(ctx context.Context, req *UploadUserApplicationLogRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
@@ -4984,7 +4984,7 @@ func (c *helpRequestLogsServiceClient) UploadUserApplicationLog(ctx context.Cont
 }
 
 func (c *helpRequestLogsServiceClient) GetApplicationLogDemand(ctx context.Context, appID uint32, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
@@ -5035,7 +5035,7 @@ func (c *cheatReportingServiceClient) R() request.Requester {
 }
 
 func (c *cheatReportingServiceClient) ReportCheatData(ctx context.Context, req *ReportCheatDataRequest, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
@@ -5104,7 +5104,7 @@ func (c *wishlistServiceClient) GetWishlistSortedFiltered(ctx context.Context, r
 }
 
 func (c *wishlistServiceClient) GetWishlist(ctx context.Context, steamID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte
@@ -5125,7 +5125,7 @@ func (c *wishlistServiceClient) GetWishlist(ctx context.Context, steamID uint64,
 }
 
 func (c *wishlistServiceClient) GetWishlistItemCount(ctx context.Context, steamID uint64, mods ...aoni.RequestModifier) (*json.RawMessage, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte

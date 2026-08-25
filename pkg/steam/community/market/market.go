@@ -16,9 +16,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/lemon4ksan/foundation/codec/json"
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/codec/json"
 	"github.com/lemon4ksan/foundation/generic"
 	"github.com/lemon4ksan/foundation/silicon/bytesconv"
 
@@ -554,8 +554,13 @@ func parseBoosterCatalog(bodyBytes []byte) (*BoosterCatalog, error) {
 
 	content := bytes.TrimSpace(bodyBytes[idx+len("CBoosterCreatorPage.Init("):])
 
+	if len(content) == 0 {
+		return nil, ErrBoosterCatalogJS
+	}
+
 	var param1, rest []byte
-	if len(content) > 0 && content[0] == '[' {
+	switch content[0] {
+	case '[':
 		depth := 0
 
 		end := -1
@@ -577,7 +582,7 @@ func parseBoosterCatalog(bodyBytes []byte) (*BoosterCatalog, error) {
 
 		param1 = content[:end+1]
 		rest = content[end+1:]
-	} else if len(content) > 0 && content[0] == '{' {
+	case '{':
 		depth := 0
 
 		end := -1
@@ -599,7 +604,7 @@ func parseBoosterCatalog(bodyBytes []byte) (*BoosterCatalog, error) {
 
 		param1 = content[:end+1]
 		rest = content[end+1:]
-	} else {
+	default:
 		comma := bytes.IndexByte(content, ',')
 		if comma == -1 {
 			return nil, ErrBoosterCatalogJS

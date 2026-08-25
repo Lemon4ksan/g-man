@@ -22,10 +22,10 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/lemon4ksan/g-man/internal/crypto"
-	pb "github.com/lemon4ksan/g-man/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
+	pb "github.com/lemon4ksan/g-man/protobuf/steam"
 )
 
 var rxTradeOfferID = regexp.MustCompile(`id="tradeofferid_(\d+)"`)

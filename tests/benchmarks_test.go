@@ -17,7 +17,6 @@ import (
 	"github.com/lemon4ksan/g-man/internal/crypto"
 	"github.com/lemon4ksan/g-man/internal/framer"
 	"github.com/lemon4ksan/g-man/pkg/command"
-	pb "github.com/lemon4ksan/g-man/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/community/inventory"
 	"github.com/lemon4ksan/g-man/pkg/steam/encoding"
 	"github.com/lemon4ksan/g-man/pkg/steam/encoding/bvdf"
@@ -25,6 +24,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/trading"
+	pb "github.com/lemon4ksan/g-man/protobuf/steam"
 )
 
 // ============================================================================

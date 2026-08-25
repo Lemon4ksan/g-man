@@ -9,8 +9,8 @@ import (
 
 	"github.com/lemon4ksan/foundation/async/event"
 
-	pb "github.com/lemon4ksan/g-man/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
+	pb "github.com/lemon4ksan/g-man/protobuf/steam"
 )
 
 type NotificationType uint32

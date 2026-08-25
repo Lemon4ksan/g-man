@@ -26,13 +26,13 @@ import (
 	"golang.org/x/net/html"
 	"google.golang.org/protobuf/proto"
 
-	pb "github.com/lemon4ksan/g-man/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/client"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
+	pb "github.com/lemon4ksan/g-man/protobuf/steam"
 )
 
 const ModuleName string = "friends"

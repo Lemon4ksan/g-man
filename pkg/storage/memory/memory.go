@@ -2,43 +2,39 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package memory provides an in-memory storage provider implementation.
+// Package memory provides a high-performance in-memory storage provider implementation using lock-free concurrent maps.
 package memory
 
 import (
+	"bytes"
 	"context"
-	"sort"
+	"slices"
 	"strings"
-	"sync"
+
+	"github.com/lemon4ksan/foundation/generic"
 
 	"github.com/lemon4ksan/g-man/pkg/storage"
 )
 
-// Provider implements storage.Provider in memory.
+// Provider implements storage.Provider in memory using lock-free concurrent maps.
 type Provider struct {
-	kvStores map[string]*kvStore
-	mu       sync.Mutex
+	kvStores generic.ConcurrentMap[string, *kvStore]
 }
 
 // New constructs an in-memory Provider.
 func New() *Provider {
-	return &Provider{
-		kvStores: make(map[string]*kvStore),
-	}
+	return &Provider{}
 }
 
 func (p *Provider) KV(namespace string) storage.KV {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	if store, ok := p.kvStores[namespace]; ok {
+	if store, ok := p.kvStores.Load(namespace); ok {
 		return store
 	}
 
-	store := &kvStore{data: make(map[string][]byte)}
-	p.kvStores[namespace] = store
+	newStore := &kvStore{}
+	actual, _ := p.kvStores.LoadOrStore(namespace, newStore)
 
-	return store
+	return actual
 }
 
 func (p *Provider) Close() error {
@@ -46,59 +42,43 @@ func (p *Provider) Close() error {
 }
 
 type kvStore struct {
-	mu   sync.RWMutex
-	data map[string][]byte
+	data generic.ConcurrentMap[string, []byte]
 }
 
 func (s *kvStore) Set(ctx context.Context, key string, value []byte) error {
-	s.mu.Lock()
-
-	s.data[key] = append([]byte(nil), value...)
-	s.mu.Unlock()
-
+	s.data.Store(key, bytes.Clone(value))
 	return nil
 }
 
 func (s *kvStore) Get(ctx context.Context, key string) ([]byte, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	if val, ok := s.data[key]; ok {
-		return append([]byte(nil), val...), nil
+	if val, ok := s.data.Load(key); ok {
+		return bytes.Clone(val), nil
 	}
 
 	return nil, storage.ErrNotFound
 }
 
 func (s *kvStore) Delete(ctx context.Context, key string) error {
-	s.mu.Lock()
-	delete(s.data, key)
-	s.mu.Unlock()
-
+	s.data.Delete(key)
 	return nil
 }
 
 func (s *kvStore) Has(ctx context.Context, key string) (bool, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	_, ok := s.data[key]
-
+	_, ok := s.data.Load(key)
 	return ok, nil
 }
 
 func (s *kvStore) Keys(ctx context.Context, prefix string) ([]string, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
 	var keys []string
-	for k := range s.data {
+	s.data.Range(func(k string, _ []byte) bool {
 		if strings.HasPrefix(k, prefix) {
 			keys = append(keys, k)
 		}
-	}
 
-	sort.Strings(keys)
+		return true
+	})
+
+	slices.Sort(keys)
 
 	return keys, nil
 }

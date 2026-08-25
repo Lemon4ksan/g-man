@@ -10,8 +10,8 @@ import (
 
 	"github.com/stretchr/testify/mock"
 
-	pb "github.com/lemon4ksan/g-man/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
+	pb "github.com/lemon4ksan/g-man/protobuf/steam"
 )
 
 type Session struct {

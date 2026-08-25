@@ -12,8 +12,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/lemon4ksan/foundation/codec/json"
 	"github.com/lemon4ksan/foundation/async/pipeline"
+	"github.com/lemon4ksan/foundation/codec/json"
 	"github.com/lemon4ksan/foundation/generic"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/service"

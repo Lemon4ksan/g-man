@@ -8,9 +8,9 @@ package account
 import (
 	"sync"
 
-	pb "github.com/lemon4ksan/g-man/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
+	pb "github.com/lemon4ksan/g-man/protobuf/steam"
 	"google.golang.org/protobuf/proto"
 )
 

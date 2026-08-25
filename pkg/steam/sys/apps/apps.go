@@ -16,10 +16,10 @@ import (
 	"github.com/lemon4ksan/foundation/async/log"
 	"google.golang.org/protobuf/proto"
 
-	pb "github.com/lemon4ksan/g-man/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/client"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
+	pb "github.com/lemon4ksan/g-man/protobuf/steam"
 )
 
 const ModuleName string = "apps"
@@ -299,12 +299,10 @@ func (a *Apps) handleGameConnectTokens(msg *pb.CMsgClientGameConnectTokens) {
 	newTokens := msg.GetTokens()
 
 	a.updateState(func(s *Snapshot) {
-		combined := append(s.ConnectTokens, newTokens...)
-		if maxKeep > 0 && len(combined) > maxKeep {
-			combined = combined[len(combined)-maxKeep:]
+		s.ConnectTokens = append(s.ConnectTokens, newTokens...)
+		if maxKeep > 0 && len(s.ConnectTokens) > maxKeep {
+			s.ConnectTokens = s.ConnectTokens[len(s.ConnectTokens)-maxKeep:]
 		}
-
-		s.ConnectTokens = combined
 	})
 
 	a.Bus.Publish(&GameConnectTokensEvent{

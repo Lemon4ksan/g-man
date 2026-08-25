@@ -8,9 +8,9 @@ import (
 	"errors"
 	"os"
 
-	pb "github.com/lemon4ksan/g-man/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
+	pb "github.com/lemon4ksan/g-man/protobuf/steam"
 )
 
 var (

@@ -100,3 +100,14 @@ func (c *TradeContext) Review(reason reason.TradeReason) {
 func (c *TradeContext) Counter(reason reason.TradeReason, params *trading.CounterParams) {
 	c.Verdict = Verdict{Action: trading.ActionCounter, Reason: reason, Data: params}
 }
+
+// Reset clears the trade context state preparing it for pool recycling.
+func (c *TradeContext) Reset() {
+	c.Context = nil
+	c.Offer = nil
+	c.Verdict = Verdict{}
+
+	c.mu.Lock()
+	clear(c.data)
+	c.mu.Unlock()
+}

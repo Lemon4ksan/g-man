@@ -23,13 +23,13 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/lemon4ksan/g-man/internal/clock"
-	pb "github.com/lemon4ksan/g-man/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	tr "github.com/lemon4ksan/g-man/pkg/steam/transport"
 	module "github.com/lemon4ksan/g-man/pkg/test/mock"
+	pb "github.com/lemon4ksan/g-man/protobuf/steam"
 )
 
 const validSecret = "SGVsbG8gV29ybGQ="

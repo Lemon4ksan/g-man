@@ -2,37 +2,63 @@
 # Documentation: https://github.com/lemon4ksan/aoni
 
 version: 1
+
 defaults:
-    casing: snake_case
-    engine: fast
+  casing: snake_case
+  engine: fast
+
 contracts:
-    - name: Inventory
-      file: pkg/steam/community/inventory/api.go
-    - name: Market
-      file: pkg/steam/community/market/api.go
-    - name: Profile
-      file: pkg/steam/community/profile/api.go
-    - name: Chat
-      file: pkg/steam/social/chat/api.go
-    - name: Friends
-      file: pkg/steam/social/friends/api.go
-    - name: Status
-      file: pkg/steam/social/status/api.go
-    - name: SteamSocket
-      file: pkg/steam/socket/api.go
-    - name: Account
-      file: pkg/steam/sys/account/api.go
-    - name: Apps
-      file: pkg/steam/sys/apps/api.go
-    - name: Directory
-      file: pkg/steam/sys/directory/api.go
-    - name: Gc
-      file: pkg/steam/sys/gc/api.go
-    - name: Notifications
-      file: pkg/steam/sys/notifications/api.go
-    - name: Webapi
-      file: pkg/steam/webapi/api.go
-    - name: Live
-      file: pkg/trading/live/api.go
-    - name: TradeCommunityAPI
-      file: pkg/trading/web/api.go
+  - name: WebAPI
+    package: webapi
+    dir: pkg/steam/webapi
+    upstream:
+      generate: go run ./cmd/generator/webapi -run-vortex=false
+      refresh: go run ./cmd/generator/webapi -fetch -run-vortex=false
+
+  - name: Inventory
+    package: inventory
+    dir: pkg/steam/community/inventory
+
+  - name: Market
+    package: market
+    dir: pkg/steam/community/market
+
+  - name: Profile
+    package: profile
+    dir: pkg/steam/community/profile
+
+  - name: Chat
+    package: chat
+    dir: pkg/steam/social/chat
+
+  - name: Friends
+    package: friends
+    dir: pkg/steam/social/friends
+
+  - name: Status
+    package: status
+    dir: pkg/steam/social/status
+
+  - name: Account
+    package: account
+    dir: pkg/steam/sys/account
+
+  - name: Apps
+    package: apps
+    dir: pkg/steam/sys/apps
+
+  - name: Directory
+    package: directory
+    dir: pkg/steam/sys/directory
+
+  - name: GC
+    package: gc
+    dir: pkg/steam/sys/gc
+
+  - name: Notifications
+    package: notifications
+    dir: pkg/steam/sys/notifications
+
+  - name: CommunityTrade
+    package: web
+    dir: pkg/trading/web

@@ -88,7 +88,7 @@ func (c *apiClient) GetInventoryPage(ctx context.Context, steamID uint64, appID 
 }
 
 func (c *apiClient) GetInventoryHTML(ctx context.Context, userID uint64, mods ...aoni.RequestModifier) ([]byte, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithVar("userID", userID))
@@ -105,7 +105,7 @@ func (c *apiClient) GetInventoryHTML(ctx context.Context, userID uint64, mods ..
 }
 
 func (c *apiClient) GetInventoryHistoryHTML(ctx context.Context, steamID id.ID, req InventoryHistoryParams, mods ...aoni.RequestModifier) ([]byte, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	var qBuf [64]byte

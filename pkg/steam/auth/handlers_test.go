@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/protobuf/proto"
 
-	pb "github.com/lemon4ksan/g-man/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
+	pb "github.com/lemon4ksan/g-man/protobuf/steam"
 )
 
 func (s *AuthenticatorSuite) TestHandleChannelEncryptRequest_Failures() {

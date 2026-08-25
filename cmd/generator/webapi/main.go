@@ -136,15 +136,16 @@ func main() {
 
 		url := "https://api.steampowered.com/ISteamWebAPIUtil/GetSupportedAPIList/v1/"
 
-		resp, httpErr := http.Get(url) //nolint:gosec,noctx
-		if httpErr != nil {
-			log.Fatalf("Failed to fetch WebAPI schema: %v", httpErr)
-		}
-		defer resp.Body.Close()
-
-		data, err = io.ReadAll(resp.Body)
+		data, err = func() ([]byte, error) {
+			resp, httpErr := http.Get(url) //nolint:gosec,noctx
+			if httpErr != nil {
+				return nil, httpErr
+			}
+			defer resp.Body.Close()
+			return io.ReadAll(resp.Body)
+		}()
 		if err != nil {
-			log.Fatalf("Failed to read HTTP response: %v", err)
+			log.Fatalf("Failed to fetch or read WebAPI schema: %v", err)
 		}
 	} else {
 		inputPath := filepath.Clean(*inFlag)
@@ -253,7 +254,7 @@ func main() {
 
 	if *runVortex {
 		log.Printf("Running vortex on %s...\n", outPath)
-		cmd := exec.Command("vortex", "gen", "-file="+filepath.Base(outPath))
+		cmd := exec.Command("vortex", "gen", "-file="+filepath.Base(outPath)) //nolint:gosec
 		cmd.Dir = filepath.Dir(outPath)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr

@@ -28,9 +28,9 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/lemon4ksan/g-man/internal/framer"
-	pb "github.com/lemon4ksan/g-man/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
+	pb "github.com/lemon4ksan/g-man/protobuf/steam"
 )
 
 // ErrClosed indicates socket operation was attempted after Close.

@@ -58,7 +58,7 @@ func (c *apiClient) R() request.Requester {
 }
 
 func (c *apiClient) SellItem(ctx context.Context, appID uint32, contextID int64, assetID uint64, amount int, price int, steamID id.ID, mods ...aoni.RequestModifier) (*CreateSellOrderResponse, error) {
-	var stackMods [16]aoni.RequestModifier
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("X-Requested-With", "XMLHttpRequest"))
@@ -118,7 +118,7 @@ func (c *apiClient) SellItem(ctx context.Context, appID uint32, contextID int64,
 }
 
 func (c *apiClient) CreateBuyOrder(ctx context.Context, appID uint32, currency CurrencyCode, marketHashName string, priceTotal string, quantity int, billingState string, saveMyAddress string, mods ...aoni.RequestModifier) (*CreateBuyOrderResponse, error) {
-	var stackMods [16]aoni.RequestModifier
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("X-Requested-With", "XMLHttpRequest"))
@@ -181,7 +181,7 @@ func (c *apiClient) CreateBuyOrder(ctx context.Context, appID uint32, currency C
 }
 
 func (c *apiClient) CancelBuyOrder(ctx context.Context, buyOrderID uint64, mods ...aoni.RequestModifier) (*basicMarketResponse, error) {
-	var stackMods [16]aoni.RequestModifier
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("X-Requested-With", "XMLHttpRequest"))
@@ -225,7 +225,7 @@ func (c *apiClient) CancelBuyOrder(ctx context.Context, buyOrderID uint64, mods 
 }
 
 func (c *apiClient) RemoveListing(ctx context.Context, listingID uint64, mods ...aoni.RequestModifier) (*basicMarketResponse, error) {
-	var stackMods [16]aoni.RequestModifier
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("X-Requested-With", "XMLHttpRequest"))
@@ -334,7 +334,7 @@ func (c *apiClient) GetPriceOverview(ctx context.Context, appID uint32, currency
 }
 
 func (c *apiClient) GetItemOrdersHistogram(ctx context.Context, appID uint32, marketHashName string, country string, language string, currency CurrencyCode, itemNameID uint64, twoFactor int, mods ...aoni.RequestModifier) (*ItemOrdersHistogramResponse, error) {
-	var stackMods [16]aoni.RequestModifier
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("X-Requested-With", "XMLHttpRequest"))
@@ -347,7 +347,7 @@ func (c *apiClient) GetItemOrdersHistogram(ctx context.Context, appID uint32, ma
 	ref = append(ref, url.PathEscape(marketHashName)...)
 	allMods = append(allMods, mod.WithHeader("Referer", string(ref)))
 
-	var qBuf [512]byte
+	var qBuf [256]byte
 	qBytes := qBuf[:0]
 	qBytes = append(qBytes, "app_id="...)
 	qBytes = strconv.AppendUint(qBytes, uint64(appID), 10)
@@ -404,7 +404,7 @@ func (c *apiClient) GetMyListings(ctx context.Context, start int, count int, nor
 }
 
 func (c *apiClient) GetMarketPage(ctx context.Context, mods ...aoni.RequestModifier) (io.ReadCloser, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Referer", "https://steamcommunity.com/"))
@@ -448,7 +448,7 @@ func (c *apiClient) GetGooValue(ctx context.Context, appID uint32, contextID int
 }
 
 func (c *apiClient) GrindIntoGoo(ctx context.Context, appID uint32, contextID int64, assetID uint64, gooValueExpected int, mods ...aoni.RequestModifier) (*grindGooResponse, error) {
-	var stackMods [16]aoni.RequestModifier
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("X-Requested-With", "XMLHttpRequest"))
@@ -498,7 +498,7 @@ func (c *apiClient) GrindIntoGoo(ctx context.Context, appID uint32, contextID in
 }
 
 func (c *apiClient) UnpackBooster(ctx context.Context, appID uint32, communityItemID uint64, mods ...aoni.RequestModifier) (*unpackBoosterResponse, error) {
-	var stackMods [16]aoni.RequestModifier
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("X-Requested-With", "XMLHttpRequest"))
@@ -544,7 +544,7 @@ func (c *apiClient) UnpackBooster(ctx context.Context, appID uint32, communityIt
 }
 
 func (c *apiClient) GetBoosterCreatorPage(ctx context.Context, mods ...aoni.RequestModifier) (io.ReadCloser, error) {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Referer", "https://steamcommunity.com/"))
@@ -560,7 +560,7 @@ func (c *apiClient) GetBoosterCreatorPage(ctx context.Context, mods ...aoni.Requ
 }
 
 func (c *apiClient) CreateBooster(ctx context.Context, appID uint32, series int, tradabilityPreference int, mods ...aoni.RequestModifier) (*createBoosterResponse, error) {
-	var stackMods [16]aoni.RequestModifier
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("X-Requested-With", "XMLHttpRequest"))
@@ -608,7 +608,7 @@ func (c *apiClient) CreateBooster(ctx context.Context, appID uint32, series int,
 }
 
 func (c *apiClient) ValidateUnpackGift(ctx context.Context, giftID uint64, mods ...aoni.RequestModifier) (*giftDetailsResponse, error) {
-	var stackMods [16]aoni.RequestModifier
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("X-Requested-With", "XMLHttpRequest"))
@@ -651,7 +651,7 @@ func (c *apiClient) ValidateUnpackGift(ctx context.Context, giftID uint64, mods 
 }
 
 func (c *apiClient) UnpackGift(ctx context.Context, giftID uint64, mods ...aoni.RequestModifier) (*redeemGiftResponse, error) {
-	var stackMods [16]aoni.RequestModifier
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("X-Requested-With", "XMLHttpRequest"))
@@ -694,7 +694,7 @@ func (c *apiClient) UnpackGift(ctx context.Context, giftID uint64, mods ...aoni.
 }
 
 func (c *apiClient) ExchangeGoo(ctx context.Context, appID uint32, assetID uint64, gooDenomIn int, gooAmountIn int, gooDenomOut int, gooAmountOutExpected int, mods ...aoni.RequestModifier) (*gemExchangeResponse, error) {
-	var stackMods [16]aoni.RequestModifier
+	var stackMods [8]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("X-Requested-With", "XMLHttpRequest"))

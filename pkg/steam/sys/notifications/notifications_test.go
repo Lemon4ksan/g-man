@@ -15,10 +15,10 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	pb "github.com/lemon4ksan/g-man/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	module "github.com/lemon4ksan/g-man/pkg/test/mock"
+	pb "github.com/lemon4ksan/g-man/protobuf/steam"
 )
 
 func setupNotifications(t *testing.T) (*Notifications, *module.InitContext) {

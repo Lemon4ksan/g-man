@@ -497,11 +497,9 @@ func TestEngine_Execute_MissingHandlers(t *testing.T) {
 	t.Parallel()
 
 	e := NewEngine()
-	e.commandsMu.Lock()
-	e.commands["noop"] = Command{
+	e.commands.Store("noop", Command{
 		Description: "no handlers",
-	}
-	e.commandsMu.Unlock()
+	})
 
 	_, err := e.Execute(context.Background(), "noop")
 	assert.ErrorContains(t, err, "command missing executable handler")

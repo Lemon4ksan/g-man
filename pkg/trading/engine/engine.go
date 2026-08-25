@@ -7,6 +7,7 @@ package engine
 
 import (
 	"context"
+	"sync"
 
 	"github.com/lemon4ksan/g-man/pkg/trading"
 )
@@ -17,22 +18,35 @@ type Middleware func(next Handler) Handler
 
 // Engine manages registration and sequential execution of trade offer evaluation middlewares.
 type Engine struct {
+	mu          sync.RWMutex
 	middlewares []Middleware
+	compiled    Handler
+	contextPool sync.Pool
 }
 
 func New() *Engine {
-	return &Engine{
-		middlewares: make([]Middleware, 0),
+	e := &Engine{
+		middlewares: make([]Middleware, 0, 8),
 	}
+	e.contextPool.New = func() any {
+		return &TradeContext{
+			data: make(map[string]any, 4),
+		}
+	}
+	e.compileLocked()
+
+	return e
 }
 
 func (e *Engine) Use(mws ...Middleware) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
 	e.middlewares = append(e.middlewares, mws...)
+	e.compileLocked()
 }
 
-func (e *Engine) Process(ctx context.Context, offer *trading.TradeOffer) (*Verdict, error) {
-	tCtx := NewTradeContext(ctx, offer)
-
+func (e *Engine) compileLocked() {
 	handler := func(c *TradeContext) error {
 		return nil
 	}
@@ -41,7 +55,38 @@ func (e *Engine) Process(ctx context.Context, offer *trading.TradeOffer) (*Verdi
 		handler = e.middlewares[i](handler)
 	}
 
+	e.compiled = handler
+}
+
+func (e *Engine) Process(ctx context.Context, offer *trading.TradeOffer) (*Verdict, error) {
+	e.mu.RLock()
+	handler := e.compiled
+	e.mu.RUnlock()
+
+	tCtx := e.acquireContext(ctx, offer)
+	defer e.releaseContext(tCtx)
+
 	err := handler(tCtx)
 
-	return &tCtx.Verdict, err
+	verdict := tCtx.Verdict
+
+	return &verdict, err
+}
+
+func (e *Engine) acquireContext(ctx context.Context, offer *trading.TradeOffer) *TradeContext {
+	tCtx := e.contextPool.Get().(*TradeContext)
+	tCtx.Context = ctx
+	tCtx.Offer = offer
+	tCtx.Verdict = Verdict{Action: trading.ActionSkip}
+
+	return tCtx
+}
+
+func (e *Engine) releaseContext(tCtx *TradeContext) {
+	if tCtx == nil {
+		return
+	}
+
+	tCtx.Reset()
+	e.contextPool.Put(tCtx)
 }

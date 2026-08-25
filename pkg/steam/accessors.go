@@ -85,12 +85,11 @@ func WebTrading(c *Client) *web.Manager {
 
 // AuthFlow returns a configured declarative authentication flow.
 func AuthFlow(c *Client, opts ...auth.FlowOption) *auth.Flow {
-	defaultOpts := []auth.FlowOption{
-		auth.WithServerFinder(func(ctx context.Context) (socket.CMServer, error) {
-			return directory.New(c).GetOptimalCMServer(ctx)
-		}),
-	}
-	allOpts := append(defaultOpts, opts...)
+	allOpts := make([]auth.FlowOption, 0, 1+len(opts))
+	allOpts = append(allOpts, auth.WithServerFinder(func(ctx context.Context) (socket.CMServer, error) {
+		return directory.New(c).GetOptimalCMServer(ctx)
+	}))
+	allOpts = append(allOpts, opts...)
 
 	return auth.NewFlow(c, allOpts...)
 }

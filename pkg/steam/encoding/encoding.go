@@ -12,10 +12,10 @@ import (
 	"io"
 
 	"github.com/andygrunwald/vdf"
-	"github.com/lemon4ksan/foundation/codec/json"
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/codec/decode"
 	"github.com/lemon4ksan/aoni/mod"
+	"github.com/lemon4ksan/foundation/codec/json"
 	"github.com/mitchellh/mapstructure"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"

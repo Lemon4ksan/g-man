@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"sync"
 
+	"github.com/lemon4ksan/aoni/x/otel"
 	"github.com/lemon4ksan/foundation/async/event"
 	"github.com/lemon4ksan/foundation/async/log"
 	"github.com/lemon4ksan/foundation/generic"
@@ -46,6 +47,7 @@ type Bot struct {
 	cfg    Config
 	store  storage.Provider
 	logger log.Logger
+	tracer *otel.Tracer
 	client *steam.Client
 	sub    *event.Subscription
 	wg     sync.WaitGroup
@@ -55,6 +57,10 @@ type Bot struct {
 // and injected storage and logger dependencies.
 func NewBot(cfg Config, store storage.Provider, logger log.Logger) (*Bot, error) {
 	logger = logger.With(log.Module("bot"))
+
+	tracer := otel.NewTracer("g-man-bot",
+		otel.WithExporter(otel.NewExporter(os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"))),
+	)
 
 	opts := []steam.Option{
 		steam.WithLogger(logger),
@@ -72,6 +78,7 @@ func NewBot(cfg Config, store storage.Provider, logger log.Logger) (*Bot, error)
 		cfg:    cfg,
 		store:  store,
 		logger: logger,
+		tracer: tracer,
 		client: client,
 	}
 
@@ -81,18 +88,39 @@ func NewBot(cfg Config, store storage.Provider, logger log.Logger) (*Bot, error)
 // Run starts the bot's background systems, establishes connection and logs on to Steam.
 // It blocks until the context is canceled or a termination signal is received.
 func (b *Bot) Run(ctx context.Context) error {
-	b.logger.Info("Starting core client services...")
+	ctx, span := b.tracer.Start(ctx, "Bot.Run",
+		otel.WithSpanKind(otel.SpanKindServer),
+		otel.WithAttributes(otel.StringAttr("steam.username", b.cfg.Username)),
+	)
+	defer span.End()
+
+	logger := b.logger
+	if traceID := span.SpanContext().TraceID(); traceID.IsValid() {
+		logger = logger.With(log.String("trace_id", traceID.String()))
+	}
+
+	logger.Info("Starting core client services...")
 
 	if err := b.client.Run(); err != nil {
+		span.RecordError(err)
 		return fmt.Errorf("client run failed: %w", err)
 	}
 
-	server, err := directory.New(b.client).GetOptimalCMServer(ctx)
+	cmCtx, cmSpan := b.tracer.Start(ctx, "Steam.CMDiscovery")
+
+	server, err := directory.New(b.client).GetOptimalCMServer(cmCtx)
 	if err != nil {
+		cmSpan.RecordError(err)
+		cmSpan.End()
+		span.RecordError(err)
+
 		return fmt.Errorf("cm discovery failed: %w", err)
 	}
 
-	b.logger.Info("Optimal CM server found",
+	cmSpan.SetAttribute("steam.cm.endpoint", server.Endpoint)
+	cmSpan.End()
+
+	logger.Info("Optimal CM server found",
 		log.String("endpoint", server.Endpoint),
 		log.Float64("load", server.Load),
 	)
@@ -106,22 +134,37 @@ func (b *Bot) Run(ctx context.Context) error {
 		b.handleEvents(ctx)
 	})
 
-	b.logger.Info("Connecting and authenticating with Steam...",
+	logger.Info("Connecting and authenticating with Steam...",
 		log.String("username", b.cfg.Username),
 	)
 
+	loginCtx, loginSpan := b.tracer.Start(ctx, "Steam.ConnectAndLogin",
+		otel.WithAttributes(otel.StringAttr("steam.username", b.cfg.Username)),
+	)
+
 	details := auth.NewLogOnDetails(b.cfg.Username, b.cfg.Password)
-	if err := b.client.ConnectAndLogin(ctx, server, details); err != nil {
+	if err := b.client.ConnectAndLogin(loginCtx, server, details); err != nil {
+		loginSpan.RecordError(err)
+		loginSpan.End()
+		span.RecordError(err)
+
 		return fmt.Errorf("connect and login failed: %w", err)
 	}
 
-	b.logger.Info("Bot logged in and fully operational")
+	loginSpan.End()
+
+	span.SetStatus(otel.StatusOk, "bot logged in and operational")
+	logger.Info("Bot logged in and fully operational")
 
 	return nil
 }
 
 // Close gracefully shuts down the bot, stopping the orchestrator and closing the client connection.
 func (b *Bot) Close() {
+	if b.tracer != nil {
+		_ = b.tracer.Shutdown(context.Background())
+	}
+
 	if b.sub != nil {
 		b.sub.Unsubscribe()
 	}

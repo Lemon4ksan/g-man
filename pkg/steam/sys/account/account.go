@@ -9,9 +9,9 @@ import (
 	"slices"
 	"sync/atomic"
 
-	pb "github.com/lemon4ksan/g-man/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/client"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
+	pb "github.com/lemon4ksan/g-man/protobuf/steam"
 )
 
 const ModuleName string = "account"

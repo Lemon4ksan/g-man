@@ -16,13 +16,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lemon4ksan/foundation/codec/json"
 	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/codec/json"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	pb "github.com/lemon4ksan/g-man/protobuf/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
+	pb "github.com/lemon4ksan/g-man/protobuf/steam"
 )
 
 const (

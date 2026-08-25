@@ -217,11 +217,8 @@ func ParseArgs[T any](args []any, schema []ArgSchema) (T, error) {
 // Thread Safety:
 //   - Safe for concurrent registration and execution.
 type Engine struct {
-	commandsMu sync.RWMutex
-	commands   map[string]Command
-
-	parsersMu sync.RWMutex
-	parsers   map[reflect.Type]TypeParser
+	commands generic.ConcurrentMap[string, Command]
+	parsers  generic.ConcurrentMap[reflect.Type, TypeParser]
 
 	middlewaresMu sync.RWMutex
 	middlewares   []Middleware
@@ -229,10 +226,7 @@ type Engine struct {
 
 // NewEngine constructs a thread-safe Engine.
 func NewEngine() *Engine {
-	return &Engine{
-		commands: make(map[string]Command),
-		parsers:  make(map[reflect.Type]TypeParser),
-	}
+	return &Engine{}
 }
 
 // Use appends global middlewares executed for every command.
@@ -245,10 +239,7 @@ func (e *Engine) Use(mw ...Middleware) {
 
 // RegisterTypeParser registers custom parsing logic for reflect.Type.
 func (e *Engine) RegisterTypeParser(t reflect.Type, parser TypeParser) {
-	e.parsersMu.Lock()
-	defer e.parsersMu.Unlock()
-
-	e.parsers[t] = parser
+	e.parsers.Store(t, parser)
 }
 
 // Register adds a command handler and its aliases to the engine.
@@ -277,65 +268,50 @@ func (e *Engine) Register(cmd string, handler any, opts ...Option) {
 
 	generic.ApplyOptions(&c, opts...)
 
-	e.commandsMu.Lock()
+	e.commands.Store(cmd, c)
 
-	e.commands[cmd] = c
 	for _, alias := range c.Aliases {
 		aliasCmd := c
 		aliasCmd.IsAlias = true
 		aliasCmd.Aliases = nil
-		e.commands[alias] = aliasCmd
+		e.commands.Store(alias, aliasCmd)
 	}
-
-	e.commandsMu.Unlock()
 }
 
 // UnregisterCommand removes a registered command and its associated aliases.
 func (e *Engine) UnregisterCommand(name string) {
-	e.commandsMu.Lock()
-	defer e.commandsMu.Unlock()
-
-	if cmd, ok := e.commands[name]; ok {
+	if cmd, ok := e.commands.Load(name); ok {
 		for _, alias := range cmd.Aliases {
-			delete(e.commands, alias)
+			e.commands.Delete(alias)
 		}
 	}
 
-	delete(e.commands, name)
+	e.commands.Delete(name)
 }
 
 // UpdateCommandDescription updates short help text for a registered command.
 func (e *Engine) UpdateCommandDescription(cmd, desc string) {
-	e.commandsMu.Lock()
-	defer e.commandsMu.Unlock()
-
-	if c, exists := e.commands[cmd]; exists {
+	if c, exists := e.commands.Load(cmd); exists {
 		c.Description = desc
-		e.commands[cmd] = c
+		e.commands.Store(cmd, c)
 	}
 }
 
 // GetCommand retrieves a registered Command metadata copy.
 func (e *Engine) GetCommand(cmd string) (Command, bool) {
-	e.commandsMu.RLock()
-	defer e.commandsMu.RUnlock()
-
-	c, exists := e.commands[cmd]
-
-	return c, exists
+	return e.commands.Load(cmd)
 }
 
 // Commands returns all primary registered commands (excluding aliases).
 func (e *Engine) Commands() map[string]Command {
-	e.commandsMu.RLock()
-	defer e.commandsMu.RUnlock()
-
 	res := make(map[string]Command)
-	for name, c := range e.commands {
+	e.commands.Range(func(name string, c Command) bool {
 		if !c.IsAlias {
 			res[name] = c
 		}
-	}
+
+		return true
+	})
 
 	return res
 }
@@ -361,10 +337,7 @@ func (e *Engine) Execute(ctx context.Context, cmdLine string) (string, error) {
 	cmdName := parts[0]
 	args := parts[1:]
 
-	e.commandsMu.RLock()
-	cmd, exists := e.commands[cmdName]
-	e.commandsMu.RUnlock()
-
+	cmd, exists := e.commands.Load(cmdName)
 	if !exists {
 		return "", fmt.Errorf("unknown command %q", cmdName)
 	}
@@ -461,9 +434,7 @@ func (e *Engine) ParseSchemaArgs(rawArgs []string, schema []ArgSchema) ([]any, e
 			err error
 		)
 
-		e.parsersMu.RLock()
-		customParser, hasParser := e.parsers[argSchema.Type]
-		e.parsersMu.RUnlock()
+		customParser, hasParser := e.parsers.Load(argSchema.Type)
 
 		if hasParser {
 			val, err = customParser(valStr)
