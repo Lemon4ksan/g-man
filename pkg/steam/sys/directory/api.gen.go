@@ -16,11 +16,10 @@ import (
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/option"
-	"github.com/lemon4ksan/aoni/request"
 )
 
 type apiClient struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 // NewAPI creates a new API client instance backed by an authenticated service.Doer.
@@ -32,7 +31,7 @@ func NewAPI(client service.Doer, opts ...aoni.ClientOption) (API, error) {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(client, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamDirectory")}, baseOpts...)...)
+	targetReq := aoni.NewClient(client, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamDirectory")}, baseOpts...)...)
 
 	return &apiClient{
 		r: targetReq,
@@ -48,8 +47,8 @@ func MustNewAPI(client service.Doer, opts ...aoni.ClientOption) API {
 	return api
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *apiClient) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *apiClient) R() *aoni.Client {
 	return c.r
 }
 
@@ -68,7 +67,7 @@ func (c *apiClient) GetCMList(ctx context.Context, req *CMListRequest) (*CMListR
 		ErrorMsg string          `json:"error,omitempty"`
 	}
 
-	resp, err := request.GetTo[envelope](ctx, c.r, "GetCMList/v1/", allMods...)
+	resp, err := c.r.Get[envelope](ctx, "GetCMList/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +92,7 @@ func (c *apiClient) GetCMListForConnect(ctx context.Context, req *CMListForConne
 		ErrorMsg string                    `json:"error,omitempty"`
 	}
 
-	resp, err := request.GetTo[envelope](ctx, c.r, "GetCMListForConnect/v1/", allMods...)
+	resp, err := c.r.Get[envelope](ctx, "GetCMListForConnect/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +112,7 @@ func (c *apiClient) GetSteamPipeDomains(ctx context.Context) (*SteamPipeDomainsR
 		ErrorMsg string                    `json:"error,omitempty"`
 	}
 
-	resp, err := request.GetTo[envelope](ctx, c.r, "GetSteamPipeDomains/v1/", allMods...)
+	resp, err := c.r.Get[envelope](ctx, "GetSteamPipeDomains/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}

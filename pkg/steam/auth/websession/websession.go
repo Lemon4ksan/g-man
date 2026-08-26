@@ -22,7 +22,6 @@ import (
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/middleware"
 	"github.com/lemon4ksan/aoni/mod"
-	"github.com/lemon4ksan/aoni/request"
 	"github.com/lemon4ksan/foundation/async/log"
 
 	"github.com/lemon4ksan/g-man/internal/network"
@@ -270,7 +269,7 @@ func (s *WebSession) Verify(ctx context.Context) (bool, error) {
 		return false, nil
 	}
 
-	_, err := request.GetTo[request.NoResponse](ctx, s.REST(), urlVerify)
+	_, err := s.REST().Get[aoni.NoResponse](ctx, urlVerify)
 	if err != nil {
 		s.Clear()
 		return false, nil //nolint:nilerr
@@ -359,7 +358,7 @@ func (s *WebSession) authSlowPath(ctx context.Context, refreshToken, sessionID s
 		} `json:"transfer_info"`
 	}
 
-	res, err := request.PostTo[finalizeResponse](ctx, s.REST(), urlFinalize, payload)
+	res, err := s.REST().Post[finalizeResponse](ctx, urlFinalize, payload)
 	if err != nil {
 		return fmt.Errorf("websession: finalize login failed: %w", err)
 	}
@@ -391,7 +390,7 @@ func (s *WebSession) executeTransfer(ctx context.Context, transferURL string, pa
 		Result enums.EResult `json:"result"`
 	}
 
-	resp, err := request.PostTo[transferResp](ctx, s.REST(), transferURL, nil, mod.WithFormBody(params))
+	resp, err := s.REST().Post[transferResp](ctx, transferURL, nil, mod.WithFormBody(params))
 	if err != nil {
 		return err
 	}

@@ -135,8 +135,8 @@ func (m *Manager) AcceptOffer(ctx context.Context, offerID uint64) error {
 	}
 
 	req := struct {
-		ServerID     int    `url:"serverid"`
-		TradeOfferID uint64 `url:"tradeofferid"`
+		ServerID     int    `query:"serverid"`
+		TradeOfferID uint64 `query:"tradeofferid"`
 	}{1, offerID}
 
 	resp, err := community.PostFormTo[acceptResponse](
@@ -184,7 +184,7 @@ func (m *Manager) DeclineOffer(ctx context.Context, offerID uint64) error {
 	}
 
 	req := struct {
-		TradeOfferID uint64 `url:"tradeofferid"`
+		TradeOfferID uint64 `query:"tradeofferid"`
 	}{offerID}
 
 	_, err := service.WebAPI[service.NoResponse](ctx, m.web, "POST", "IEconService", "DeclineTradeOffer", 1, req)
@@ -199,7 +199,7 @@ func (m *Manager) CancelOffer(ctx context.Context, offerID uint64) error {
 	}
 
 	req := struct {
-		TradeOfferID uint64 `url:"tradeofferid"`
+		TradeOfferID uint64 `query:"tradeofferid"`
 	}{offerID}
 
 	_, err := service.WebAPI[service.NoResponse](ctx, m.web, "POST", "IEconService", "CancelTradeOffer", 1, req)

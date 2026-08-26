@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lemon4ksan/aoni/request"
+	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/foundation/async/event"
 	"github.com/lemon4ksan/foundation/async/log"
 	"github.com/stretchr/testify/assert"
@@ -35,7 +35,7 @@ func (m *mockInitContext) Storage() storage.Provider                           {
 func (m *mockInitContext) Bus() *event.Bus                                     { return m.bus }
 func (m *mockInitContext) Logger() log.Logger                                  { return m.logger }
 func (m *mockInitContext) Service() service.Doer                               { return nil }
-func (m *mockInitContext) Rest() request.Requester                             { return nil }
+func (m *mockInitContext) Rest() *aoni.Client                                  { return nil }
 func (m *mockInitContext) RegisterPacketHandler(enums.EMsg, socket.Handler)    {}
 func (m *mockInitContext) RegisterServiceHandler(string, socket.Handler)       {}
 func (m *mockInitContext) UnregisterPacketHandler(enums.EMsg)                  {}

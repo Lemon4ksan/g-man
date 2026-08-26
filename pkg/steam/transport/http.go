@@ -16,7 +16,6 @@ import (
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/option"
-	"github.com/lemon4ksan/aoni/request"
 	"github.com/lemon4ksan/foundation/silicon/bytesconv"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
@@ -34,7 +33,7 @@ type HTTPMetadata struct {
 
 // HTTPTransport executes transport requests over HTTPS WebAPI using standard or fast.Client engines.
 type HTTPTransport struct {
-	doer    aoni.RequestDoer
+	client  *aoni.Client
 	baseURL string
 }
 
@@ -46,13 +45,13 @@ type HTTPTarget interface {
 
 // NewHTTPTransport constructs an HTTPTransport instance.
 func NewHTTPTransport(doer any, baseURL string) *HTTPTransport {
-	configured := aoni.Configure(doer,
+	client := aoni.NewClient(doer,
 		option.WithBaseURL(baseURL),
 		option.WithUserAgent(HTTPUserAgent),
 	)
 
 	return &HTTPTransport{
-		doer:    configured,
+		client:  client,
 		baseURL: baseURL,
 	}
 }
@@ -96,38 +95,29 @@ func (t *HTTPTransport) Do(ctx context.Context, req *Request) (*Response, error)
 	}))
 	mods = append(mods, req.Modifiers()...)
 
-	resp, err := request.DoFast(ctx, t.doer, target.HTTPMethod(), target.HTTPPath(), nil, mods...)
+	resp, err := t.client.Raw().Request(ctx, target.HTTPMethod(), target.HTTPPath(), mods...)
 	if err != nil {
 		return nil, err
 	}
 
 	var bodyRC io.ReadCloser
 	if resp != nil {
-		bodyRC = resp.BodyStream()
+		bodyRC = resp.Body
 	}
 
 	return NewResponse(bodyRC, HTTPMetadata{
 		Result:     t.parseEResult(resp),
-		Header:     http.Header(resp.Headers()),
-		StatusCode: resp.StatusCode(),
+		Header:     resp.Header,
+		StatusCode: resp.StatusCode,
 	}), nil
 }
 
-func (t *HTTPTransport) parseEResult(v any) enums.EResult {
-	var resHeader string
-
-	switch r := v.(type) {
-	case *http.Response:
-		if r != nil && r.Header != nil {
-			resHeader = r.Header.Get("x-eresult")
-		}
-
-	case aoni.Response:
-		if r != nil {
-			resHeader = r.Header("x-eresult")
-		}
+func (t *HTTPTransport) parseEResult(r *http.Response) enums.EResult {
+	if r == nil || r.Header == nil {
+		return enums.EResult_OK
 	}
 
+	resHeader := r.Header.Get("x-eresult")
 	if resHeader != "" {
 		if val, ok := bytesconv.ParseUintFast(bytesconv.S2B(resHeader)); ok {
 			return enums.EResult(val)

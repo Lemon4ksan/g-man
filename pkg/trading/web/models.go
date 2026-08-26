@@ -55,12 +55,12 @@ type createParams struct {
 }
 
 type sendNewReq struct {
-	ServerID     int    `url:"serverid"`
-	PartnerID    id.ID  `url:"partner"`
-	Message      string `url:"tradeoffermessage"`
-	JSON         string `url:"json_tradeoffer"`
-	CreateParams string `url:"trade_offer_create_params,omitempty"`
-	CounteredID  uint64 `url:"tradeofferid_countered,omitempty"`
+	ServerID     int    `query:"serverid"`
+	PartnerID    id.ID  `query:"partner"`
+	Message      string `query:"tradeoffermessage"`
+	JSON         string `query:"json_tradeoffer"`
+	CreateParams string `query:"trade_offer_create_params,omitempty"`
+	CounteredID  uint64 `query:"tradeofferid_countered,omitempty"`
 }
 
 var formBufferPool = sync.Pool{
@@ -116,9 +116,9 @@ type acceptResponse struct {
 }
 
 type tradeStatusReq struct {
-	TradeID         uint64 `url:"tradeid"`
-	GetDescriptions bool   `url:"get_descriptions"`
-	Language        string `url:"language"`
+	TradeID         uint64 `query:"tradeid"`
+	GetDescriptions bool   `query:"get_descriptions"`
+	Language        string `query:"language"`
 }
 
 type tradeStatusResp struct {
@@ -133,17 +133,17 @@ type tradeStatusResp struct {
 }
 
 type getOfferReq struct {
-	TradeOfferID    uint64 `url:"tradeofferid"`
-	GetDescriptions bool   `url:"get_descriptions"`
-	Language        string `url:"language"`
+	TradeOfferID    uint64 `query:"tradeofferid"`
+	GetDescriptions bool   `query:"get_descriptions"`
+	Language        string `query:"language"`
 }
 
 type getOffersReq struct {
-	GetReceivedOffers    int   `url:"get_received_offers"`
-	GetSentOffers        int   `url:"get_sent_offers"`
-	ActiveOnly           int   `url:"active_only"`
-	GetDescriptions      int   `url:"get_descriptions"`
-	TimeHistoricalCutoff int64 `url:"time_historical_cutoff"`
+	GetReceivedOffers    int   `query:"get_received_offers"`
+	GetSentOffers        int   `query:"get_sent_offers"`
+	ActiveOnly           int   `query:"active_only"`
+	GetDescriptions      int   `query:"get_descriptions"`
+	TimeHistoricalCutoff int64 `query:"time_historical_cutoff"`
 }
 
 type getOffersResp struct {

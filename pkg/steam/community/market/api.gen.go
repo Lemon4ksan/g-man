@@ -20,11 +20,10 @@ import (
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/option"
-	"github.com/lemon4ksan/aoni/request"
 )
 
 type apiClient struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 // NewAPI creates a new API client instance backed by an authenticated community.Requester.
@@ -36,7 +35,7 @@ func NewAPI(client community.Requester, opts ...aoni.ClientOption) (API, error) 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(client, append([]aoni.ClientOption{option.WithBaseURL("https://steamcommunity.com")}, baseOpts...)...)
+	targetReq := aoni.NewClient(client, append([]aoni.ClientOption{option.WithBaseURL("https://steamcommunity.com")}, baseOpts...)...)
 
 	return &apiClient{
 		r: targetReq,
@@ -52,8 +51,8 @@ func MustNewAPI(client community.Requester, opts ...aoni.ClientOption) API {
 	return api
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *apiClient) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *apiClient) R() *aoni.Client {
 	return c.r
 }
 
@@ -110,7 +109,7 @@ func (c *apiClient) SellItem(ctx context.Context, appID uint32, contextID int64,
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[CreateSellOrderResponse](ctx, c.r, "market/sellitem", nil, allMods...)
+	resp, err := c.r.Post[CreateSellOrderResponse](ctx, "market/sellitem", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -173,7 +172,7 @@ func (c *apiClient) CreateBuyOrder(ctx context.Context, appID uint32, currency C
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[CreateBuyOrderResponse](ctx, c.r, "market/createbuyorder", nil, allMods...)
+	resp, err := c.r.Post[CreateBuyOrderResponse](ctx, "market/createbuyorder", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -217,7 +216,7 @@ func (c *apiClient) CancelBuyOrder(ctx context.Context, buyOrderID uint64, mods 
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[basicMarketResponse](ctx, c.r, "market/cancelbuyorder", nil, allMods...)
+	resp, err := c.r.Post[basicMarketResponse](ctx, "market/cancelbuyorder", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -260,7 +259,7 @@ func (c *apiClient) RemoveListing(ctx context.Context, listingID uint64, mods ..
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[basicMarketResponse](ctx, c.r, "market/removelisting/{listingID}", nil, allMods...)
+	resp, err := c.r.Post[basicMarketResponse](ctx, "market/removelisting/{listingID}", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -291,7 +290,7 @@ func (c *apiClient) Search(ctx context.Context, appID uint32, opts SearchOptions
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[SearchResponse](ctx, c.r, "market/search/render", allMods...)
+	resp, err := c.r.Get[SearchResponse](ctx, "market/search/render", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -326,7 +325,7 @@ func (c *apiClient) GetPriceOverview(ctx context.Context, appID uint32, currency
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[PriceOverviewResponse](ctx, c.r, "market/priceoverview", allMods...)
+	resp, err := c.r.Get[PriceOverviewResponse](ctx, "market/priceoverview", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -368,7 +367,7 @@ func (c *apiClient) GetItemOrdersHistogram(ctx context.Context, appID uint32, ma
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[ItemOrdersHistogramResponse](ctx, c.r, "market/itemordershistogram", allMods...)
+	resp, err := c.r.Get[ItemOrdersHistogramResponse](ctx, "market/itemordershistogram", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -396,7 +395,7 @@ func (c *apiClient) GetMyListings(ctx context.Context, start int, count int, nor
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[MyListingsResponse](ctx, c.r, "market/mylistings", allMods...)
+	resp, err := c.r.Get[MyListingsResponse](ctx, "market/mylistings", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -440,7 +439,7 @@ func (c *apiClient) GetGooValue(ctx context.Context, appID uint32, contextID int
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[gemValueResponse](ctx, c.r, "ajaxgetgoovalue", allMods...)
+	resp, err := c.r.Get[gemValueResponse](ctx, "ajaxgetgoovalue", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -490,7 +489,7 @@ func (c *apiClient) GrindIntoGoo(ctx context.Context, appID uint32, contextID in
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[grindGooResponse](ctx, c.r, "ajaxgrindintogoo", nil, allMods...)
+	resp, err := c.r.Post[grindGooResponse](ctx, "ajaxgrindintogoo", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -536,7 +535,7 @@ func (c *apiClient) UnpackBooster(ctx context.Context, appID uint32, communityIt
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[unpackBoosterResponse](ctx, c.r, "ajaxunpackbooster", nil, allMods...)
+	resp, err := c.r.Post[unpackBoosterResponse](ctx, "ajaxunpackbooster", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -600,7 +599,7 @@ func (c *apiClient) CreateBooster(ctx context.Context, appID uint32, series int,
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[createBoosterResponse](ctx, c.r, "tradingcards/ajaxcreatebooster", nil, allMods...)
+	resp, err := c.r.Post[createBoosterResponse](ctx, "tradingcards/ajaxcreatebooster", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -643,7 +642,7 @@ func (c *apiClient) ValidateUnpackGift(ctx context.Context, giftID uint64, mods 
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[giftDetailsResponse](ctx, c.r, "gifts/{giftID}/validateunpack", nil, allMods...)
+	resp, err := c.r.Post[giftDetailsResponse](ctx, "gifts/{giftID}/validateunpack", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -686,7 +685,7 @@ func (c *apiClient) UnpackGift(ctx context.Context, giftID uint64, mods ...aoni.
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[redeemGiftResponse](ctx, c.r, "gifts/{giftID}/unpack", nil, allMods...)
+	resp, err := c.r.Post[redeemGiftResponse](ctx, "gifts/{giftID}/unpack", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -740,7 +739,7 @@ func (c *apiClient) ExchangeGoo(ctx context.Context, appID uint32, assetID uint6
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[gemExchangeResponse](ctx, c.r, "ajaxexchangegoo", nil, allMods...)
+	resp, err := c.r.Post[gemExchangeResponse](ctx, "ajaxexchangegoo", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}

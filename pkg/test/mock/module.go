@@ -15,7 +15,6 @@ import (
 
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/mod"
-	"github.com/lemon4ksan/aoni/request"
 	"github.com/lemon4ksan/foundation/async/event"
 	"github.com/lemon4ksan/foundation/async/log"
 	"github.com/lemon4ksan/foundation/codec/json"
@@ -64,7 +63,7 @@ func (m *AuthModule) StartAuthed(ctx context.Context, authCtx module.AuthContext
 }
 
 type requesterDoer struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func (d *requesterDoer) Do(req *http.Request) (*http.Response, error) {
@@ -86,7 +85,7 @@ type InitContext struct {
 	modules         map[string]module.Module
 	storage         storage.Provider
 	service         *ServiceMock
-	rest            request.Requester
+	rest            *aoni.Client
 }
 
 func NewInitContext() *InitContext {
@@ -113,7 +112,7 @@ func (m *InitContext) Storage() storage.Provider {
 	return m.storage
 }
 
-func (m *InitContext) Rest() request.Requester {
+func (m *InitContext) Rest() *aoni.Client {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -126,7 +125,7 @@ func (m *InitContext) SetService(s *ServiceMock) {
 	m.mu.Unlock()
 }
 
-func (m *InitContext) SetRest(r request.Requester) {
+func (m *InitContext) SetRest(r *aoni.Client) {
 	m.mu.Lock()
 	m.rest = r
 	m.mu.Unlock()

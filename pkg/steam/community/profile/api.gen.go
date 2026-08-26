@@ -25,11 +25,10 @@ import (
 	"github.com/lemon4ksan/aoni/codec/extract"
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/option"
-	"github.com/lemon4ksan/aoni/request"
 )
 
 type apiClient struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 // NewAPI creates a new API client instance backed by an authenticated community.Requester.
@@ -41,7 +40,7 @@ func NewAPI(client community.Requester, opts ...aoni.ClientOption) (API, error) 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(client, append([]aoni.ClientOption{option.WithBaseURL("https://steamcommunity.com")}, baseOpts...)...)
+	targetReq := aoni.NewClient(client, append([]aoni.ClientOption{option.WithBaseURL("https://steamcommunity.com")}, baseOpts...)...)
 
 	return &apiClient{
 		r: targetReq,
@@ -57,8 +56,8 @@ func MustNewAPI(client community.Requester, opts ...aoni.ClientOption) API {
 	return api
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *apiClient) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *apiClient) R() *aoni.Client {
 	return c.r
 }
 
@@ -148,7 +147,7 @@ func (c *apiClient) SaveProfile(ctx context.Context, steamID uint64, req *profil
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[saveResponse](ctx, c.r, "profiles/{steamID}/edit", nil, allMods...)
+	resp, err := c.r.Post[saveResponse](ctx, "profiles/{steamID}/edit", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +178,7 @@ func (c *apiClient) SavePrivacy(ctx context.Context, steamID uint64, sessionID s
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[privacyResponse](ctx, c.r, "profiles/{steamID}/ajaxsetprivacy", nil, allMods...)
+	resp, err := c.r.Post[privacyResponse](ctx, "profiles/{steamID}/ajaxsetprivacy", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -211,7 +210,7 @@ func (c *apiClient) UploadAvatarFile(ctx context.Context, uploadType string, ste
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[uploadResponse](ctx, c.r, "actions/FileUploader", nil, allMods...)
+	resp, err := c.r.Post[uploadResponse](ctx, "actions/FileUploader", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}

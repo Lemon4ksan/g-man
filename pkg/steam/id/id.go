@@ -279,7 +279,7 @@ func ResolveVanityURL(ctx context.Context, d service.Doer, vanityURL string) (ID
 	}
 
 	req := struct {
-		VanityURL string `url:"vanityurl"`
+		VanityURL string `query:"vanityurl"`
 	}{VanityURL: vanityURL}
 
 	res, err := service.WebAPI[response](ctx, d, "GET", "ISteamUser", "ResolveVanityURL", 1, req)

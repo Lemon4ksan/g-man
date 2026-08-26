@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/lemon4ksan/aoni"
-	"github.com/lemon4ksan/aoni/request"
 	"github.com/lemon4ksan/foundation/async/log"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -41,7 +40,7 @@ func SetupTestClient(t *testing.T) (*client.Client, *TestMocks) {
 	}
 
 	sess := session.New(m.Sock, session.Config{
-		HTTP:          request.AsRequester(aoni.NewHTTPDoerAdapter(m.Doer)),
+		HTTP:          aoni.NewClient(m.Doer),
 		Authenticator: m.Auth,
 		WebFactory: func(steamID id.ID, logger log.Logger, r any) session.WebSessionProvider {
 			return m.Web

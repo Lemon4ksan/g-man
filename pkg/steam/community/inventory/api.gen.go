@@ -19,11 +19,10 @@ import (
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/option"
-	"github.com/lemon4ksan/aoni/request"
 )
 
 type apiClient struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 // NewAPI creates a new API client instance backed by an authenticated community.Requester.
@@ -36,7 +35,7 @@ func NewAPI(client community.Requester, opts ...aoni.ClientOption) (API, error) 
 	baseOpts = append(baseOpts, option.WithHeader("Origin", "https://steamcommunity.com"))
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(client, append([]aoni.ClientOption{option.WithBaseURL("https://steamcommunity.com/")}, baseOpts...)...)
+	targetReq := aoni.NewClient(client, append([]aoni.ClientOption{option.WithBaseURL("https://steamcommunity.com/")}, baseOpts...)...)
 
 	return &apiClient{
 		r: targetReq,
@@ -52,8 +51,8 @@ func MustNewAPI(client community.Requester, opts ...aoni.ClientOption) API {
 	return api
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *apiClient) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *apiClient) R() *aoni.Client {
 	return c.r
 }
 
@@ -80,7 +79,7 @@ func (c *apiClient) GetInventoryPage(ctx context.Context, steamID uint64, appID 
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[inventoryResponse](ctx, c.r, "inventory/{steamID}/{appID}/{contextID}", allMods...)
+	resp, err := c.r.Get[inventoryResponse](ctx, "inventory/{steamID}/{appID}/{contextID}", allMods...)
 	if err != nil {
 		return nil, err
 	}

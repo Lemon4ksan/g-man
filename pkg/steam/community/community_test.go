@@ -16,7 +16,6 @@ import (
 
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/mod"
-	"github.com/lemon4ksan/aoni/request"
 	"github.com/lemon4ksan/foundation/codec/json"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -34,7 +33,7 @@ func (m *mockRequestDoer) Do(req aoni.Request) (aoni.Response, error) {
 	return m.doFunc(req)
 }
 
-type customRequester struct{ request.Requester }
+type customRequester struct{ aoni.HTTPRequester }
 
 func (cr customRequester) SessionID(baseURL string) string { return "" }
 
@@ -50,8 +49,8 @@ type genericResponse struct {
 
 // A simple struct for testing request bodies/queries.
 type genericRequest struct {
-	Param1 string `url:"param1"`
-	Param2 int    `url:"param2"`
+	Param1 string `query:"param1"`
+	Param2 int    `query:"param2"`
 }
 
 // faultyReader is a reader that always returns an error.
@@ -129,14 +128,13 @@ func TestGet(t *testing.T) {
 		mockSvc := mock.NewServiceMock()
 		client := community.NewClient(nil, nil).WithREST(mockSvc)
 
-		resp, err := community.GetTo[genericResponse](
+		_, err := community.GetTo[genericResponse](
 			t.Context(),
 			client,
 			"/test/get",
 			mod.WithQuery(make(chan int)),
 		)
-		require.NoError(t, err)
-		assert.NotNil(t, resp)
+		require.Error(t, err)
 	})
 
 	t.Run("request_failure", func(t *testing.T) {
@@ -202,7 +200,7 @@ func TestGetHTML(t *testing.T) {
 		}
 		_, err := community.GetHTML(t.Context(), client, "/test/html")
 		require.Error(t, err)
-		assert.Equal(t, expectedErr, err)
+		assert.ErrorIs(t, err, expectedErr)
 	})
 
 	t.Run("body_read_fails", func(t *testing.T) {
@@ -274,8 +272,8 @@ func TestPostFormJSON(t *testing.T) {
 		}
 
 		type requestWithSession struct {
-			SessionID string `url:"sessionid"`
-			Param     string `url:"param"`
+			SessionID string `query:"sessionid"`
+			Param     string `query:"param"`
 		}
 
 		reqMsg := requestWithSession{SessionID: "custom_session_id", Param: "val"}
@@ -451,7 +449,7 @@ func TestPerformRequest(t *testing.T) {
 		mockSvc.OnRest = func(method, path string, body any) (*http.Response, error) {
 			return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"success": true}`))}, nil
 		}
-		req := customRequester{Requester: mockSvc}
+		req := customRequester{HTTPRequester: mockSvc}
 
 		require.NotPanics(t, func() {
 			_, err := community.GetTo[genericResponse](t.Context(), req, "/test")

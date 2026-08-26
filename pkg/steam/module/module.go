@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/lemon4ksan/aoni/request"
+	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/foundation/async/event"
 	"github.com/lemon4ksan/foundation/async/fsm"
 	"github.com/lemon4ksan/foundation/async/log"
@@ -93,18 +93,19 @@ func Get[T any](init InitContext, name string) (T, error) {
 
 // InitContext provides client configuration, event bus, and packet registration handlers to initializing modules.
 type InitContext interface {
-	request.Transport
-
 	Storage() storage.Provider
 	Bus() *event.Bus
 	Logger() log.Logger
 	Service() service.Doer
-	Rest() request.Requester
+	Rest() *aoni.Client
 	RegisterPacketHandler(eMsg enums.EMsg, handler socket.Handler)
 	RegisterServiceHandler(method string, handler socket.Handler)
 	Module(name string) Module
 	UnregisterPacketHandler(eMsg enums.EMsg)
 	UnregisterServiceHandler(method string)
+	Subscribe(eventID any, handler func(raw []byte)) (unsubscribe func())
+	Invoke(ctx context.Context, op any, payload []byte) ([]byte, error)
+	Notify(ctx context.Context, op any, payload []byte) error
 }
 
 // AuthContext provides authenticated resources available after user logon.

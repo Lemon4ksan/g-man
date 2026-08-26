@@ -266,7 +266,7 @@ func TestEntryPoints(t *testing.T) {
 		assert.NoError(t, err)
 
 		type P struct {
-			ID int `url:"id"`
+			ID int `query:"id"`
 		}
 
 		_, err = WebAPI[NoResponse](ctx, trans, "GET", "I", "M", 1, &P{ID: 1})

@@ -20,7 +20,6 @@ import (
 
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/mod"
-	"github.com/lemon4ksan/aoni/request"
 	"github.com/lemon4ksan/foundation/async/log"
 	"github.com/lemon4ksan/foundation/generic"
 	"golang.org/x/net/html"
@@ -181,7 +180,7 @@ func (m *Manager) GetMaxFriends(ctx context.Context) (int, error) {
 	m.mu.RUnlock()
 
 	req := struct {
-		SteamID id.ID `url:"steamid"`
+		SteamID id.ID `query:"steamid"`
 	}{m.mySteamID}
 
 	resp, err := service.WebAPI[GetBadgesResponse](ctx, m.client, "GET", "IPlayerService", "GetBadges", 1, req)
@@ -243,11 +242,11 @@ func (m *Manager) InviteToGroups(ctx context.Context, steamID id.ID, groupIDs []
 
 	_ = generic.ParallelForEach(ctx, groupIDs, 5, func(ctx context.Context, groupID uint64) error {
 		reqForm := struct {
-			JSON    int    `url:"json"`
-			Type    string `url:"type"`
-			Inviter id.ID  `url:"inviter"`
-			Invitee id.ID  `url:"invitee"`
-			Group   uint64 `url:"group"`
+			JSON    int    `query:"json"`
+			Type    string `query:"type"`
+			Inviter id.ID  `query:"inviter"`
+			Invitee id.ID  `query:"invitee"`
+			Group   uint64 `query:"group"`
 		}{1, "groupInvite", m.mySteamID, steamID, groupID}
 
 		_, err := community.PostFormTo[service.NoResponse](ctx, client, "actions/GroupInvite", reqForm)
@@ -312,8 +311,8 @@ func (m *Manager) AcceptFriendRequestWeb(ctx context.Context, steamID id.ID) err
 	}
 
 	reqForm := struct {
-		AcceptInvite int   `url:"accept_invite"`
-		SteamID      id.ID `url:"steamid"`
+		AcceptInvite int   `query:"accept_invite"`
+		SteamID      id.ID `query:"steamid"`
 	}{1, steamID}
 
 	type respType struct {
@@ -340,7 +339,7 @@ func (m *Manager) BlockCommunication(ctx context.Context, steamID id.ID) error {
 	}
 
 	reqForm := struct {
-		SteamID id.ID `url:"steamid"`
+		SteamID id.ID `query:"steamid"`
 	}{steamID}
 
 	type respType struct {
@@ -375,7 +374,7 @@ func (m *Manager) UnblockCommunication(ctx context.Context, steamID id.ID) error
 		"friends[" + steamID.String() + "]": {"1"},
 	}
 
-	_, err = community.PostFormTo[request.NoResponse](
+	_, err = community.PostFormTo[aoni.NoResponse](
 		ctx, client, "profiles/{mySteamID}/friends/blocked", form,
 		mod.WithVar("mySteamID", mySteamID),
 	)
@@ -394,8 +393,8 @@ func (m *Manager) PostUserComment(ctx context.Context, steamID id.ID, message st
 	}
 
 	reqForm := struct {
-		Comment string `url:"comment"`
-		Count   int    `url:"count"`
+		Comment string `query:"comment"`
+		Count   int    `query:"count"`
 	}{message, 1}
 
 	type respType struct {
@@ -447,10 +446,10 @@ func (m *Manager) DeleteUserComment(ctx context.Context, steamID id.ID, commentI
 	}
 
 	reqForm := struct {
-		GIDComment string `url:"gidcomment"`
-		Start      int    `url:"start"`
-		Count      int    `url:"count"`
-		Feature2   int    `url:"feature2"`
+		GIDComment string `query:"gidcomment"`
+		Start      int    `query:"start"`
+		Count      int    `query:"count"`
+		Feature2   int    `query:"feature2"`
 	}{commentID, 0, 1, -1}
 
 	type respType struct {
@@ -486,9 +485,9 @@ func (m *Manager) GetUserComments(ctx context.Context, steamID id.ID, start, cou
 	}
 
 	reqForm := struct {
-		Start    int `url:"start"`
-		Count    int `url:"count"`
-		Feature2 int `url:"feature2"`
+		Start    int `query:"start"`
+		Count    int `query:"count"`
+		Feature2 int `query:"feature2"`
 	}{start, count, -1}
 
 	type respType struct {

@@ -185,8 +185,8 @@ func (s *MobileConf) RespondToConfirmation(
 
 type multiRequest struct {
 	baseParams
-	ConfIDs []uint64 `url:"cid[]"`
-	Nonces  []uint64 `url:"ck[]"`
+	ConfIDs []uint64 `query:"cid[]"`
+	Nonces  []uint64 `query:"ck[]"`
 }
 
 func (r multiRequest) EncodeFormString() (string, error) {
@@ -264,15 +264,15 @@ func (s *MobileConf) RespondToMultiple(
 }
 
 type baseParams struct {
-	DeviceID  string `url:"p"`
-	SteamID   id.ID  `url:"a"`
-	ConfKey   string `url:"k"`
-	Timestamp int64  `url:"t"`
-	Mode      string `url:"m"`
-	ActionTag string `url:"tag"`
-	Op        string `url:"op,omitempty"`
-	ConfID    uint64 `url:"cid,omitempty"`
-	Nonce     uint64 `url:"ck,omitempty"`
+	DeviceID  string `query:"p"`
+	SteamID   id.ID  `query:"a"`
+	ConfKey   string `query:"k"`
+	Timestamp int64  `query:"t"`
+	Mode      string `query:"m"`
+	ActionTag string `query:"tag"`
+	Op        string `query:"op,omitempty"`
+	ConfID    uint64 `query:"cid,omitempty"`
+	Nonce     uint64 `query:"ck,omitempty"`
 }
 
 func (p baseParams) EncodeFormString() (string, error) {

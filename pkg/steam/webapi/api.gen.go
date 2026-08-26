@@ -16,11 +16,10 @@ import (
 	"github.com/lemon4ksan/aoni/fast"
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/option"
-	"github.com/lemon4ksan/aoni/request"
 )
 
 type clientStats1046930Client struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newClientStats1046930(doer any, opts ...aoni.ClientOption) *clientStats1046930Client {
@@ -31,7 +30,7 @@ func newClientStats1046930(doer any, opts ...aoni.ClientOption) *clientStats1046
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IClientStats_1046930")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IClientStats_1046930")}, baseOpts...)...)
 
 	return &clientStats1046930Client{
 		r: targetReq,
@@ -43,8 +42,8 @@ func NewClientStats1046930(doer any, opts ...aoni.ClientOption) ClientStats10469
 	return newClientStats1046930(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *clientStats1046930Client) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *clientStats1046930Client) R() *aoni.Client {
 	return c.r
 }
 
@@ -56,7 +55,7 @@ func (c *clientStats1046930Client) ReportEvent(ctx context.Context, mods ...aoni
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/ReportEvent/v1/", nil, allMods...)
+	resp, err := c.r.Post[json.RawMessage](ctx, "/ReportEvent/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +63,7 @@ func (c *clientStats1046930Client) ReportEvent(ctx context.Context, mods ...aoni
 }
 
 type csgoPlayers730Client struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newCSGOPlayers730(doer any, opts ...aoni.ClientOption) *csgoPlayers730Client {
@@ -75,7 +74,7 @@ func newCSGOPlayers730(doer any, opts ...aoni.ClientOption) *csgoPlayers730Clien
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ICSGOPlayers_730")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ICSGOPlayers_730")}, baseOpts...)...)
 
 	return &csgoPlayers730Client{
 		r: targetReq,
@@ -87,8 +86,8 @@ func NewCSGOPlayers730(doer any, opts ...aoni.ClientOption) CSGOPlayers730 {
 	return newCSGOPlayers730(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *csgoPlayers730Client) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *csgoPlayers730Client) R() *aoni.Client {
 	return c.r
 }
 
@@ -110,7 +109,7 @@ func (c *csgoPlayers730Client) GetNextMatchSharingCode(ctx context.Context, stea
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetNextMatchSharingCode/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetNextMatchSharingCode/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +117,7 @@ func (c *csgoPlayers730Client) GetNextMatchSharingCode(ctx context.Context, stea
 }
 
 type csgoServers730Client struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newCSGOServers730(doer any, opts ...aoni.ClientOption) *csgoServers730Client {
@@ -129,7 +128,7 @@ func newCSGOServers730(doer any, opts ...aoni.ClientOption) *csgoServers730Clien
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ICSGOServers_730")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ICSGOServers_730")}, baseOpts...)...)
 
 	return &csgoServers730Client{
 		r: targetReq,
@@ -141,8 +140,8 @@ func NewCSGOServers730(doer any, opts ...aoni.ClientOption) CSGOServers730 {
 	return newCSGOServers730(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *csgoServers730Client) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *csgoServers730Client) R() *aoni.Client {
 	return c.r
 }
 
@@ -164,7 +163,7 @@ func (c *csgoServers730Client) GetGameMapsPlaytime(ctx context.Context, interval
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetGameMapsPlaytime/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetGameMapsPlaytime/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +178,7 @@ func (c *csgoServers730Client) GetGameServersStatus(ctx context.Context, mods ..
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetGameServersStatus/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetGameServersStatus/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +186,7 @@ func (c *csgoServers730Client) GetGameServersStatus(ctx context.Context, mods ..
 }
 
 type csgoTournaments730Client struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newCSGOTournaments730(doer any, opts ...aoni.ClientOption) *csgoTournaments730Client {
@@ -198,7 +197,7 @@ func newCSGOTournaments730(doer any, opts ...aoni.ClientOption) *csgoTournaments
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ICSGOTournaments_730")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ICSGOTournaments_730")}, baseOpts...)...)
 
 	return &csgoTournaments730Client{
 		r: targetReq,
@@ -210,8 +209,8 @@ func NewCSGOTournaments730(doer any, opts ...aoni.ClientOption) CSGOTournaments7
 	return newCSGOTournaments730(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *csgoTournaments730Client) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *csgoTournaments730Client) R() *aoni.Client {
 	return c.r
 }
 
@@ -233,7 +232,7 @@ func (c *csgoTournaments730Client) GetTournamentFantasyLineup(ctx context.Contex
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetTournamentFantasyLineup/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetTournamentFantasyLineup/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -258,7 +257,7 @@ func (c *csgoTournaments730Client) GetTournamentItems(ctx context.Context, event
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetTournamentItems/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetTournamentItems/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -279,7 +278,7 @@ func (c *csgoTournaments730Client) GetTournamentLayout(ctx context.Context, even
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetTournamentLayout/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetTournamentLayout/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -304,7 +303,7 @@ func (c *csgoTournaments730Client) GetTournamentPredictions(ctx context.Context,
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetTournamentPredictions/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetTournamentPredictions/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -324,7 +323,7 @@ func (c *csgoTournaments730Client) UploadTournamentFantasyLineup(ctx context.Con
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/UploadTournamentFantasyLineup/v1/", nil, allMods...)
+	resp, err := c.r.Post[json.RawMessage](ctx, "/UploadTournamentFantasyLineup/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -344,7 +343,7 @@ func (c *csgoTournaments730Client) UploadTournamentPredictions(ctx context.Conte
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/UploadTournamentPredictions/v1/", nil, allMods...)
+	resp, err := c.r.Post[json.RawMessage](ctx, "/UploadTournamentPredictions/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -352,7 +351,7 @@ func (c *csgoTournaments730Client) UploadTournamentPredictions(ctx context.Conte
 }
 
 type dotA2MatchStats570Client struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newDOTA2MatchStats570(doer any, opts ...aoni.ClientOption) *dotA2MatchStats570Client {
@@ -363,7 +362,7 @@ func newDOTA2MatchStats570(doer any, opts ...aoni.ClientOption) *dotA2MatchStats
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IDOTA2MatchStats_570")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IDOTA2MatchStats_570")}, baseOpts...)...)
 
 	return &dotA2MatchStats570Client{
 		r: targetReq,
@@ -375,8 +374,8 @@ func NewDOTA2MatchStats570(doer any, opts ...aoni.ClientOption) DOTA2MatchStats5
 	return newDOTA2MatchStats570(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *dotA2MatchStats570Client) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *dotA2MatchStats570Client) R() *aoni.Client {
 	return c.r
 }
 
@@ -394,7 +393,7 @@ func (c *dotA2MatchStats570Client) GetRealtimeStats(ctx context.Context, serverS
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetRealtimeStats/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetRealtimeStats/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -402,7 +401,7 @@ func (c *dotA2MatchStats570Client) GetRealtimeStats(ctx context.Context, serverS
 }
 
 type dotA2Match570Client struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newDOTA2Match570(doer any, opts ...aoni.ClientOption) *dotA2Match570Client {
@@ -413,7 +412,7 @@ func newDOTA2Match570(doer any, opts ...aoni.ClientOption) *dotA2Match570Client 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IDOTA2Match_570")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IDOTA2Match_570")}, baseOpts...)...)
 
 	return &dotA2Match570Client{
 		r: targetReq,
@@ -425,8 +424,8 @@ func NewDOTA2Match570(doer any, opts ...aoni.ClientOption) DOTA2Match570 {
 	return newDOTA2Match570(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *dotA2Match570Client) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *dotA2Match570Client) R() *aoni.Client {
 	return c.r
 }
 
@@ -448,7 +447,7 @@ func (c *dotA2Match570Client) GetLiveLeagueGames(ctx context.Context, leagueID u
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetLiveLeagueGames/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetLiveLeagueGames/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -471,7 +470,7 @@ func (c *dotA2Match570Client) GetMatchDetails(ctx context.Context, matchID uint6
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetMatchDetails/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetMatchDetails/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -491,7 +490,7 @@ func (c *dotA2Match570Client) GetMatchHistory(ctx context.Context, req *GetMatch
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetMatchHistory/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetMatchHistory/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -514,7 +513,7 @@ func (c *dotA2Match570Client) GetMatchHistoryBySequenceNum(ctx context.Context, 
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetMatchHistoryBySequenceNum/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetMatchHistoryBySequenceNum/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -537,7 +536,7 @@ func (c *dotA2Match570Client) GetTeamInfoByTeamID(ctx context.Context, startAtTe
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetTeamInfoByTeamID/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetTeamInfoByTeamID/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -558,7 +557,7 @@ func (c *dotA2Match570Client) GetTopLiveEventGame(ctx context.Context, partner i
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetTopLiveEventGame/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetTopLiveEventGame/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -579,7 +578,7 @@ func (c *dotA2Match570Client) GetTopLiveGame(ctx context.Context, partner int32,
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetTopLiveGame/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetTopLiveGame/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -602,7 +601,7 @@ func (c *dotA2Match570Client) GetTopWeekendTourneyGames(ctx context.Context, par
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetTopWeekendTourneyGames/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetTopWeekendTourneyGames/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -622,7 +621,7 @@ func (c *dotA2Match570Client) GetTournamentPlayerStatsV1(ctx context.Context, re
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetTournamentPlayerStats/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetTournamentPlayerStats/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -642,7 +641,7 @@ func (c *dotA2Match570Client) GetTournamentPlayerStatsV2(ctx context.Context, re
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetTournamentPlayerStats/v2/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetTournamentPlayerStats/v2/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -650,7 +649,7 @@ func (c *dotA2Match570Client) GetTournamentPlayerStatsV2(ctx context.Context, re
 }
 
 type dotA2StreamSystem570Client struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newDOTA2StreamSystem570(doer any, opts ...aoni.ClientOption) *dotA2StreamSystem570Client {
@@ -661,7 +660,7 @@ func newDOTA2StreamSystem570(doer any, opts ...aoni.ClientOption) *dotA2StreamSy
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IDOTA2StreamSystem_570")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IDOTA2StreamSystem_570")}, baseOpts...)...)
 
 	return &dotA2StreamSystem570Client{
 		r: targetReq,
@@ -673,8 +672,8 @@ func NewDOTA2StreamSystem570(doer any, opts ...aoni.ClientOption) DOTA2StreamSys
 	return newDOTA2StreamSystem570(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *dotA2StreamSystem570Client) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *dotA2StreamSystem570Client) R() *aoni.Client {
 	return c.r
 }
 
@@ -694,7 +693,7 @@ func (c *dotA2StreamSystem570Client) GetBroadcasterInfo(ctx context.Context, bro
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetBroadcasterInfo/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetBroadcasterInfo/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -702,7 +701,7 @@ func (c *dotA2StreamSystem570Client) GetBroadcasterInfo(ctx context.Context, bro
 }
 
 type dotA2Ticket570Client struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newDOTA2Ticket570(doer any, opts ...aoni.ClientOption) *dotA2Ticket570Client {
@@ -713,7 +712,7 @@ func newDOTA2Ticket570(doer any, opts ...aoni.ClientOption) *dotA2Ticket570Clien
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IDOTA2Ticket_570")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IDOTA2Ticket_570")}, baseOpts...)...)
 
 	return &dotA2Ticket570Client{
 		r: targetReq,
@@ -725,8 +724,8 @@ func NewDOTA2Ticket570(doer any, opts ...aoni.ClientOption) DOTA2Ticket570 {
 	return newDOTA2Ticket570(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *dotA2Ticket570Client) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *dotA2Ticket570Client) R() *aoni.Client {
 	return c.r
 }
 
@@ -744,7 +743,7 @@ func (c *dotA2Ticket570Client) GetSteamIDForBadgeID(ctx context.Context, badgeID
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetSteamIDForBadgeID/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetSteamIDForBadgeID/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -768,7 +767,7 @@ func (c *dotA2Ticket570Client) SetSteamAccountPurchased(ctx context.Context, ste
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/SetSteamAccountPurchased/v1/", nil, allMods...)
+	resp, err := c.r.Post[json.RawMessage](ctx, "/SetSteamAccountPurchased/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -788,7 +787,7 @@ func (c *dotA2Ticket570Client) SteamAccountValidForBadgeType(ctx context.Context
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/SteamAccountValidForBadgeType/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/SteamAccountValidForBadgeType/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -796,7 +795,7 @@ func (c *dotA2Ticket570Client) SteamAccountValidForBadgeType(ctx context.Context
 }
 
 type econDOTA2570Client struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newEconDOTA2570(doer any, opts ...aoni.ClientOption) *econDOTA2570Client {
@@ -807,7 +806,7 @@ func newEconDOTA2570(doer any, opts ...aoni.ClientOption) *econDOTA2570Client {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconDOTA2_570")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconDOTA2_570")}, baseOpts...)...)
 
 	return &econDOTA2570Client{
 		r: targetReq,
@@ -819,8 +818,8 @@ func NewEconDOTA2570(doer any, opts ...aoni.ClientOption) EconDOTA2570 {
 	return newEconDOTA2570(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *econDOTA2570Client) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *econDOTA2570Client) R() *aoni.Client {
 	return c.r
 }
 
@@ -842,7 +841,7 @@ func (c *econDOTA2570Client) GetEventStatsForAccount(ctx context.Context, eventI
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetEventStatsForAccount/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetEventStatsForAccount/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -865,7 +864,7 @@ func (c *econDOTA2570Client) GetHeroes(ctx context.Context, language string, ite
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetHeroes/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetHeroes/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -886,7 +885,7 @@ func (c *econDOTA2570Client) GetItemCreators(ctx context.Context, itemdef uint32
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetItemCreators/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetItemCreators/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -907,7 +906,7 @@ func (c *econDOTA2570Client) GetItemWorkshopPublishedFileIDs(ctx context.Context
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetItemWorkshopPublishedFileIDs/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetItemWorkshopPublishedFileIDs/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -928,7 +927,7 @@ func (c *econDOTA2570Client) GetRarities(ctx context.Context, language string, m
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetRarities/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetRarities/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -949,7 +948,7 @@ func (c *econDOTA2570Client) GetTournamentPrizePool(ctx context.Context, leagueI
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetTournamentPrizePool/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetTournamentPrizePool/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -957,7 +956,7 @@ func (c *econDOTA2570Client) GetTournamentPrizePool(ctx context.Context, leagueI
 }
 
 type econItems1046930Client struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newEconItems1046930(doer any, opts ...aoni.ClientOption) *econItems1046930Client {
@@ -968,7 +967,7 @@ func newEconItems1046930(doer any, opts ...aoni.ClientOption) *econItems1046930C
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_1046930")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_1046930")}, baseOpts...)...)
 
 	return &econItems1046930Client{
 		r: targetReq,
@@ -980,8 +979,8 @@ func NewEconItems1046930(doer any, opts ...aoni.ClientOption) EconItems1046930 {
 	return newEconItems1046930(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *econItems1046930Client) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *econItems1046930Client) R() *aoni.Client {
 	return c.r
 }
 
@@ -999,7 +998,7 @@ func (c *econItems1046930Client) GetPlayerItems(ctx context.Context, steamID uin
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetPlayerItems/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetPlayerItems/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1007,7 +1006,7 @@ func (c *econItems1046930Client) GetPlayerItems(ctx context.Context, steamID uin
 }
 
 type econItems1269260Client struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newEconItems1269260(doer any, opts ...aoni.ClientOption) *econItems1269260Client {
@@ -1018,7 +1017,7 @@ func newEconItems1269260(doer any, opts ...aoni.ClientOption) *econItems1269260C
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_1269260")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_1269260")}, baseOpts...)...)
 
 	return &econItems1269260Client{
 		r: targetReq,
@@ -1030,8 +1029,8 @@ func NewEconItems1269260(doer any, opts ...aoni.ClientOption) EconItems1269260 {
 	return newEconItems1269260(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *econItems1269260Client) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *econItems1269260Client) R() *aoni.Client {
 	return c.r
 }
 
@@ -1051,7 +1050,7 @@ func (c *econItems1269260Client) GetEquippedPlayerItems(ctx context.Context, ste
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetEquippedPlayerItems/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetEquippedPlayerItems/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1059,7 +1058,7 @@ func (c *econItems1269260Client) GetEquippedPlayerItems(ctx context.Context, ste
 }
 
 type econItems440Client struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newEconItems440(doer any, opts ...aoni.ClientOption) *econItems440Client {
@@ -1070,7 +1069,7 @@ func newEconItems440(doer any, opts ...aoni.ClientOption) *econItems440Client {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_440")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_440")}, baseOpts...)...)
 
 	return &econItems440Client{
 		r: targetReq,
@@ -1082,8 +1081,8 @@ func NewEconItems440(doer any, opts ...aoni.ClientOption) EconItems440 {
 	return newEconItems440(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *econItems440Client) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *econItems440Client) R() *aoni.Client {
 	return c.r
 }
 
@@ -1101,7 +1100,7 @@ func (c *econItems440Client) GetPlayerItems(ctx context.Context, steamID uint64,
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetPlayerItems/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetPlayerItems/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1122,7 +1121,7 @@ func (c *econItems440Client) GetSchema(ctx context.Context, language string, mod
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetSchema/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetSchema/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1145,7 +1144,7 @@ func (c *econItems440Client) GetSchemaItems(ctx context.Context, language string
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetSchemaItems/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetSchemaItems/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1166,7 +1165,7 @@ func (c *econItems440Client) GetSchemaOverview(ctx context.Context, language str
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetSchemaOverview/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetSchemaOverview/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1181,7 +1180,7 @@ func (c *econItems440Client) GetSchemaURL(ctx context.Context, mods ...aoni.Requ
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetSchemaURL/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetSchemaURL/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1202,7 +1201,7 @@ func (c *econItems440Client) GetStoreMetaData(ctx context.Context, language stri
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetStoreMetaData/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetStoreMetaData/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1217,7 +1216,7 @@ func (c *econItems440Client) GetStoreStatus(ctx context.Context, mods ...aoni.Re
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetStoreStatus/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetStoreStatus/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1225,7 +1224,7 @@ func (c *econItems440Client) GetStoreStatus(ctx context.Context, mods ...aoni.Re
 }
 
 type econItems570Client struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newEconItems570(doer any, opts ...aoni.ClientOption) *econItems570Client {
@@ -1236,7 +1235,7 @@ func newEconItems570(doer any, opts ...aoni.ClientOption) *econItems570Client {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_570")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_570")}, baseOpts...)...)
 
 	return &econItems570Client{
 		r: targetReq,
@@ -1248,8 +1247,8 @@ func NewEconItems570(doer any, opts ...aoni.ClientOption) EconItems570 {
 	return newEconItems570(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *econItems570Client) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *econItems570Client) R() *aoni.Client {
 	return c.r
 }
 
@@ -1267,7 +1266,7 @@ func (c *econItems570Client) GetPlayerItems(ctx context.Context, steamID uint64,
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetPlayerItems/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetPlayerItems/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1288,7 +1287,7 @@ func (c *econItems570Client) GetStoreMetaData(ctx context.Context, language stri
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetStoreMetaData/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetStoreMetaData/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1296,7 +1295,7 @@ func (c *econItems570Client) GetStoreMetaData(ctx context.Context, language stri
 }
 
 type econItems583950Client struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newEconItems583950(doer any, opts ...aoni.ClientOption) *econItems583950Client {
@@ -1307,7 +1306,7 @@ func newEconItems583950(doer any, opts ...aoni.ClientOption) *econItems583950Cli
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_583950")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_583950")}, baseOpts...)...)
 
 	return &econItems583950Client{
 		r: targetReq,
@@ -1319,8 +1318,8 @@ func NewEconItems583950(doer any, opts ...aoni.ClientOption) EconItems583950 {
 	return newEconItems583950(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *econItems583950Client) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *econItems583950Client) R() *aoni.Client {
 	return c.r
 }
 
@@ -1340,7 +1339,7 @@ func (c *econItems583950Client) GetEquippedPlayerItems(ctx context.Context, stea
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetEquippedPlayerItems/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetEquippedPlayerItems/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1348,7 +1347,7 @@ func (c *econItems583950Client) GetEquippedPlayerItems(ctx context.Context, stea
 }
 
 type econItems620Client struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newEconItems620(doer any, opts ...aoni.ClientOption) *econItems620Client {
@@ -1359,7 +1358,7 @@ func newEconItems620(doer any, opts ...aoni.ClientOption) *econItems620Client {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_620")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_620")}, baseOpts...)...)
 
 	return &econItems620Client{
 		r: targetReq,
@@ -1371,8 +1370,8 @@ func NewEconItems620(doer any, opts ...aoni.ClientOption) EconItems620 {
 	return newEconItems620(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *econItems620Client) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *econItems620Client) R() *aoni.Client {
 	return c.r
 }
 
@@ -1390,7 +1389,7 @@ func (c *econItems620Client) GetPlayerItems(ctx context.Context, steamID uint64,
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetPlayerItems/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetPlayerItems/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1411,7 +1410,7 @@ func (c *econItems620Client) GetSchema(ctx context.Context, language string, mod
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetSchema/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetSchema/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1419,7 +1418,7 @@ func (c *econItems620Client) GetSchema(ctx context.Context, language string, mod
 }
 
 type econItems730Client struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newEconItems730(doer any, opts ...aoni.ClientOption) *econItems730Client {
@@ -1430,7 +1429,7 @@ func newEconItems730(doer any, opts ...aoni.ClientOption) *econItems730Client {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_730")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconItems_730")}, baseOpts...)...)
 
 	return &econItems730Client{
 		r: targetReq,
@@ -1442,8 +1441,8 @@ func NewEconItems730(doer any, opts ...aoni.ClientOption) EconItems730 {
 	return newEconItems730(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *econItems730Client) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *econItems730Client) R() *aoni.Client {
 	return c.r
 }
 
@@ -1461,7 +1460,7 @@ func (c *econItems730Client) GetPlayerItems(ctx context.Context, steamID uint64,
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetPlayerItems/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetPlayerItems/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1482,7 +1481,7 @@ func (c *econItems730Client) GetSchema(ctx context.Context, language string, mod
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetSchema/v2/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetSchema/v2/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1497,7 +1496,7 @@ func (c *econItems730Client) GetSchemaURL(ctx context.Context, mods ...aoni.Requ
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetSchemaURL/v2/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetSchemaURL/v2/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1518,7 +1517,7 @@ func (c *econItems730Client) GetStoreMetaData(ctx context.Context, language stri
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetStoreMetaData/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetStoreMetaData/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1526,7 +1525,7 @@ func (c *econItems730Client) GetStoreMetaData(ctx context.Context, language stri
 }
 
 type gcVersion1046930Client struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newGCVersion1046930(doer any, opts ...aoni.ClientOption) *gcVersion1046930Client {
@@ -1537,7 +1536,7 @@ func newGCVersion1046930(doer any, opts ...aoni.ClientOption) *gcVersion1046930C
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_1046930")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_1046930")}, baseOpts...)...)
 
 	return &gcVersion1046930Client{
 		r: targetReq,
@@ -1549,8 +1548,8 @@ func NewGCVersion1046930(doer any, opts ...aoni.ClientOption) GCVersion1046930 {
 	return newGCVersion1046930(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *gcVersion1046930Client) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *gcVersion1046930Client) R() *aoni.Client {
 	return c.r
 }
 
@@ -1562,7 +1561,7 @@ func (c *gcVersion1046930Client) GetClientVersion(ctx context.Context, mods ...a
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetClientVersion/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetClientVersion/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1577,7 +1576,7 @@ func (c *gcVersion1046930Client) GetServerVersion(ctx context.Context, mods ...a
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetServerVersion/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetServerVersion/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1585,7 +1584,7 @@ func (c *gcVersion1046930Client) GetServerVersion(ctx context.Context, mods ...a
 }
 
 type gcVersion1269260Client struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newGCVersion1269260(doer any, opts ...aoni.ClientOption) *gcVersion1269260Client {
@@ -1596,7 +1595,7 @@ func newGCVersion1269260(doer any, opts ...aoni.ClientOption) *gcVersion1269260C
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_1269260")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_1269260")}, baseOpts...)...)
 
 	return &gcVersion1269260Client{
 		r: targetReq,
@@ -1608,8 +1607,8 @@ func NewGCVersion1269260(doer any, opts ...aoni.ClientOption) GCVersion1269260 {
 	return newGCVersion1269260(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *gcVersion1269260Client) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *gcVersion1269260Client) R() *aoni.Client {
 	return c.r
 }
 
@@ -1621,7 +1620,7 @@ func (c *gcVersion1269260Client) GetClientVersion(ctx context.Context, mods ...a
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetClientVersion/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetClientVersion/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1636,7 +1635,7 @@ func (c *gcVersion1269260Client) GetServerVersion(ctx context.Context, mods ...a
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetServerVersion/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetServerVersion/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1644,7 +1643,7 @@ func (c *gcVersion1269260Client) GetServerVersion(ctx context.Context, mods ...a
 }
 
 type gcVersion1422450Client struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newGCVersion1422450(doer any, opts ...aoni.ClientOption) *gcVersion1422450Client {
@@ -1655,7 +1654,7 @@ func newGCVersion1422450(doer any, opts ...aoni.ClientOption) *gcVersion1422450C
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_1422450")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_1422450")}, baseOpts...)...)
 
 	return &gcVersion1422450Client{
 		r: targetReq,
@@ -1667,8 +1666,8 @@ func NewGCVersion1422450(doer any, opts ...aoni.ClientOption) GCVersion1422450 {
 	return newGCVersion1422450(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *gcVersion1422450Client) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *gcVersion1422450Client) R() *aoni.Client {
 	return c.r
 }
 
@@ -1680,7 +1679,7 @@ func (c *gcVersion1422450Client) GetClientVersion(ctx context.Context, mods ...a
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetClientVersion/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetClientVersion/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1695,7 +1694,7 @@ func (c *gcVersion1422450Client) GetServerVersion(ctx context.Context, mods ...a
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetServerVersion/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetServerVersion/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1703,7 +1702,7 @@ func (c *gcVersion1422450Client) GetServerVersion(ctx context.Context, mods ...a
 }
 
 type gcVersion440Client struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newGCVersion440(doer any, opts ...aoni.ClientOption) *gcVersion440Client {
@@ -1714,7 +1713,7 @@ func newGCVersion440(doer any, opts ...aoni.ClientOption) *gcVersion440Client {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_440")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_440")}, baseOpts...)...)
 
 	return &gcVersion440Client{
 		r: targetReq,
@@ -1726,8 +1725,8 @@ func NewGCVersion440(doer any, opts ...aoni.ClientOption) GCVersion440 {
 	return newGCVersion440(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *gcVersion440Client) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *gcVersion440Client) R() *aoni.Client {
 	return c.r
 }
 
@@ -1739,7 +1738,7 @@ func (c *gcVersion440Client) GetClientVersion(ctx context.Context, mods ...aoni.
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetClientVersion/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetClientVersion/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1754,7 +1753,7 @@ func (c *gcVersion440Client) GetServerVersion(ctx context.Context, mods ...aoni.
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetServerVersion/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetServerVersion/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1762,7 +1761,7 @@ func (c *gcVersion440Client) GetServerVersion(ctx context.Context, mods ...aoni.
 }
 
 type gcVersion570Client struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newGCVersion570(doer any, opts ...aoni.ClientOption) *gcVersion570Client {
@@ -1773,7 +1772,7 @@ func newGCVersion570(doer any, opts ...aoni.ClientOption) *gcVersion570Client {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_570")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_570")}, baseOpts...)...)
 
 	return &gcVersion570Client{
 		r: targetReq,
@@ -1785,8 +1784,8 @@ func NewGCVersion570(doer any, opts ...aoni.ClientOption) GCVersion570 {
 	return newGCVersion570(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *gcVersion570Client) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *gcVersion570Client) R() *aoni.Client {
 	return c.r
 }
 
@@ -1798,7 +1797,7 @@ func (c *gcVersion570Client) GetClientVersion(ctx context.Context, mods ...aoni.
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetClientVersion/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetClientVersion/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1813,7 +1812,7 @@ func (c *gcVersion570Client) GetServerVersion(ctx context.Context, mods ...aoni.
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetServerVersion/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetServerVersion/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1821,7 +1820,7 @@ func (c *gcVersion570Client) GetServerVersion(ctx context.Context, mods ...aoni.
 }
 
 type gcVersion583950Client struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newGCVersion583950(doer any, opts ...aoni.ClientOption) *gcVersion583950Client {
@@ -1832,7 +1831,7 @@ func newGCVersion583950(doer any, opts ...aoni.ClientOption) *gcVersion583950Cli
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_583950")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_583950")}, baseOpts...)...)
 
 	return &gcVersion583950Client{
 		r: targetReq,
@@ -1844,8 +1843,8 @@ func NewGCVersion583950(doer any, opts ...aoni.ClientOption) GCVersion583950 {
 	return newGCVersion583950(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *gcVersion583950Client) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *gcVersion583950Client) R() *aoni.Client {
 	return c.r
 }
 
@@ -1857,7 +1856,7 @@ func (c *gcVersion583950Client) GetClientVersion(ctx context.Context, mods ...ao
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetClientVersion/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetClientVersion/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1872,7 +1871,7 @@ func (c *gcVersion583950Client) GetServerVersion(ctx context.Context, mods ...ao
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetServerVersion/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetServerVersion/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1880,7 +1879,7 @@ func (c *gcVersion583950Client) GetServerVersion(ctx context.Context, mods ...ao
 }
 
 type gcVersion730Client struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newGCVersion730(doer any, opts ...aoni.ClientOption) *gcVersion730Client {
@@ -1891,7 +1890,7 @@ func newGCVersion730(doer any, opts ...aoni.ClientOption) *gcVersion730Client {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_730")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGCVersion_730")}, baseOpts...)...)
 
 	return &gcVersion730Client{
 		r: targetReq,
@@ -1903,8 +1902,8 @@ func NewGCVersion730(doer any, opts ...aoni.ClientOption) GCVersion730 {
 	return newGCVersion730(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *gcVersion730Client) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *gcVersion730Client) R() *aoni.Client {
 	return c.r
 }
 
@@ -1916,7 +1915,7 @@ func (c *gcVersion730Client) GetServerVersion(ctx context.Context, mods ...aoni.
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetServerVersion/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetServerVersion/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1924,7 +1923,7 @@ func (c *gcVersion730Client) GetServerVersion(ctx context.Context, mods ...aoni.
 }
 
 type portal2Leaderboards620Client struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newPortal2Leaderboards620(doer any, opts ...aoni.ClientOption) *portal2Leaderboards620Client {
@@ -1935,7 +1934,7 @@ func newPortal2Leaderboards620(doer any, opts ...aoni.ClientOption) *portal2Lead
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IPortal2Leaderboards_620")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IPortal2Leaderboards_620")}, baseOpts...)...)
 
 	return &portal2Leaderboards620Client{
 		r: targetReq,
@@ -1947,8 +1946,8 @@ func NewPortal2Leaderboards620(doer any, opts ...aoni.ClientOption) Portal2Leade
 	return newPortal2Leaderboards620(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *portal2Leaderboards620Client) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *portal2Leaderboards620Client) R() *aoni.Client {
 	return c.r
 }
 
@@ -1966,7 +1965,7 @@ func (c *portal2Leaderboards620Client) GetBucketizedData(ctx context.Context, le
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetBucketizedData/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetBucketizedData/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1974,7 +1973,7 @@ func (c *portal2Leaderboards620Client) GetBucketizedData(ctx context.Context, le
 }
 
 type steamAppsClient struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newSteamApps(doer any, opts ...aoni.ClientOption) *steamAppsClient {
@@ -1985,7 +1984,7 @@ func newSteamApps(doer any, opts ...aoni.ClientOption) *steamAppsClient {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamApps")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamApps")}, baseOpts...)...)
 
 	return &steamAppsClient{
 		r: targetReq,
@@ -1997,8 +1996,8 @@ func NewSteamApps(doer any, opts ...aoni.ClientOption) SteamApps {
 	return newSteamApps(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *steamAppsClient) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *steamAppsClient) R() *aoni.Client {
 	return c.r
 }
 
@@ -2016,7 +2015,7 @@ func (c *steamAppsClient) GetSDRConfig(ctx context.Context, appID uint32, mods .
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetSDRConfig/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetSDRConfig/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2037,7 +2036,7 @@ func (c *steamAppsClient) GetServersAtAddress(ctx context.Context, addr string, 
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetServersAtAddress/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetServersAtAddress/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2060,7 +2059,7 @@ func (c *steamAppsClient) UpToDateCheck(ctx context.Context, appID uint32, versi
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/UpToDateCheck/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/UpToDateCheck/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2068,7 +2067,7 @@ func (c *steamAppsClient) UpToDateCheck(ctx context.Context, appID uint32, versi
 }
 
 type steamBroadcastClient struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newSteamBroadcast(doer any, opts ...aoni.ClientOption) *steamBroadcastClient {
@@ -2079,7 +2078,7 @@ func newSteamBroadcast(doer any, opts ...aoni.ClientOption) *steamBroadcastClien
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamBroadcast")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamBroadcast")}, baseOpts...)...)
 
 	return &steamBroadcastClient{
 		r: targetReq,
@@ -2091,8 +2090,8 @@ func NewSteamBroadcast(doer any, opts ...aoni.ClientOption) SteamBroadcast {
 	return newSteamBroadcast(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *steamBroadcastClient) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *steamBroadcastClient) R() *aoni.Client {
 	return c.r
 }
 
@@ -2104,7 +2103,7 @@ func (c *steamBroadcastClient) PlayerStats(ctx context.Context, mods ...aoni.Req
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/PlayerStats/v1/", nil, allMods...)
+	resp, err := c.r.Post[json.RawMessage](ctx, "/PlayerStats/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2124,7 +2123,7 @@ func (c *steamBroadcastClient) ViewerHeartbeat(ctx context.Context, req *ViewerH
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/ViewerHeartbeat/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/ViewerHeartbeat/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2132,7 +2131,7 @@ func (c *steamBroadcastClient) ViewerHeartbeat(ctx context.Context, req *ViewerH
 }
 
 type steamCDNClient struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newSteamCDN(doer any, opts ...aoni.ClientOption) *steamCDNClient {
@@ -2143,7 +2142,7 @@ func newSteamCDN(doer any, opts ...aoni.ClientOption) *steamCDNClient {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamCDN")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamCDN")}, baseOpts...)...)
 
 	return &steamCDNClient{
 		r: targetReq,
@@ -2155,8 +2154,8 @@ func NewSteamCDN(doer any, opts ...aoni.ClientOption) SteamCDN {
 	return newSteamCDN(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *steamCDNClient) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *steamCDNClient) R() *aoni.Client {
 	return c.r
 }
 
@@ -2173,7 +2172,7 @@ func (c *steamCDNClient) SetClientFilters(ctx context.Context, req *SetClientFil
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/SetClientFilters/v1/", nil, allMods...)
+	resp, err := c.r.Post[json.RawMessage](ctx, "/SetClientFilters/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2193,7 +2192,7 @@ func (c *steamCDNClient) SetPerformanceStats(ctx context.Context, req *SetPerfor
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/SetPerformanceStats/v1/", nil, allMods...)
+	resp, err := c.r.Post[json.RawMessage](ctx, "/SetPerformanceStats/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2201,7 +2200,7 @@ func (c *steamCDNClient) SetPerformanceStats(ctx context.Context, req *SetPerfor
 }
 
 type steamDirectoryClient struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newSteamDirectory(doer any, opts ...aoni.ClientOption) *steamDirectoryClient {
@@ -2212,7 +2211,7 @@ func newSteamDirectory(doer any, opts ...aoni.ClientOption) *steamDirectoryClien
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamDirectory")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamDirectory")}, baseOpts...)...)
 
 	return &steamDirectoryClient{
 		r: targetReq,
@@ -2224,8 +2223,8 @@ func NewSteamDirectory(doer any, opts ...aoni.ClientOption) SteamDirectory {
 	return newSteamDirectory(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *steamDirectoryClient) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *steamDirectoryClient) R() *aoni.Client {
 	return c.r
 }
 
@@ -2245,7 +2244,7 @@ func (c *steamDirectoryClient) GetCMList(ctx context.Context, cellID uint32, max
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetCMList/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetCMList/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2265,7 +2264,7 @@ func (c *steamDirectoryClient) GetCMListForConnect(ctx context.Context, req *Get
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetCMListForConnect/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetCMListForConnect/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2280,7 +2279,7 @@ func (c *steamDirectoryClient) GetSteamPipeDomains(ctx context.Context, mods ...
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetSteamPipeDomains/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetSteamPipeDomains/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2288,7 +2287,7 @@ func (c *steamDirectoryClient) GetSteamPipeDomains(ctx context.Context, mods ...
 }
 
 type steamEconomyClient struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newSteamEconomy(doer any, opts ...aoni.ClientOption) *steamEconomyClient {
@@ -2299,7 +2298,7 @@ func newSteamEconomy(doer any, opts ...aoni.ClientOption) *steamEconomyClient {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamEconomy")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamEconomy")}, baseOpts...)...)
 
 	return &steamEconomyClient{
 		r: targetReq,
@@ -2311,8 +2310,8 @@ func NewSteamEconomy(doer any, opts ...aoni.ClientOption) SteamEconomy {
 	return newSteamEconomy(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *steamEconomyClient) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *steamEconomyClient) R() *aoni.Client {
 	return c.r
 }
 
@@ -2329,7 +2328,7 @@ func (c *steamEconomyClient) GetAssetClassInfo(ctx context.Context, req *GetAsse
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetAssetClassInfo/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetAssetClassInfo/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2354,7 +2353,7 @@ func (c *steamEconomyClient) GetAssetPrices(ctx context.Context, appID uint32, c
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetAssetPrices/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetAssetPrices/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2362,7 +2361,7 @@ func (c *steamEconomyClient) GetAssetPrices(ctx context.Context, appID uint32, c
 }
 
 type steamNewsClient struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newSteamNews(doer any, opts ...aoni.ClientOption) *steamNewsClient {
@@ -2373,7 +2372,7 @@ func newSteamNews(doer any, opts ...aoni.ClientOption) *steamNewsClient {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamNews")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamNews")}, baseOpts...)...)
 
 	return &steamNewsClient{
 		r: targetReq,
@@ -2385,8 +2384,8 @@ func NewSteamNews(doer any, opts ...aoni.ClientOption) SteamNews {
 	return newSteamNews(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *steamNewsClient) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *steamNewsClient) R() *aoni.Client {
 	return c.r
 }
 
@@ -2403,7 +2402,7 @@ func (c *steamNewsClient) GetNewsForAppV1(ctx context.Context, req *GetNewsForAp
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetNewsForApp/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetNewsForApp/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2423,7 +2422,7 @@ func (c *steamNewsClient) GetNewsForAppV2(ctx context.Context, req *GetNewsForAp
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetNewsForApp/v2/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetNewsForApp/v2/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2431,7 +2430,7 @@ func (c *steamNewsClient) GetNewsForAppV2(ctx context.Context, req *GetNewsForAp
 }
 
 type steamRemoteStorageClient struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newSteamRemoteStorage(doer any, opts ...aoni.ClientOption) *steamRemoteStorageClient {
@@ -2442,7 +2441,7 @@ func newSteamRemoteStorage(doer any, opts ...aoni.ClientOption) *steamRemoteStor
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamRemoteStorage")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamRemoteStorage")}, baseOpts...)...)
 
 	return &steamRemoteStorageClient{
 		r: targetReq,
@@ -2454,8 +2453,8 @@ func NewSteamRemoteStorage(doer any, opts ...aoni.ClientOption) SteamRemoteStora
 	return newSteamRemoteStorage(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *steamRemoteStorageClient) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *steamRemoteStorageClient) R() *aoni.Client {
 	return c.r
 }
 
@@ -2476,7 +2475,7 @@ func (c *steamRemoteStorageClient) GetCollectionDetails(ctx context.Context, col
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/GetCollectionDetails/v1/", nil, allMods...)
+	resp, err := c.r.Post[json.RawMessage](ctx, "/GetCollectionDetails/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2500,7 +2499,7 @@ func (c *steamRemoteStorageClient) GetPublishedFileDetails(ctx context.Context, 
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/GetPublishedFileDetails/v1/", nil, allMods...)
+	resp, err := c.r.Post[json.RawMessage](ctx, "/GetPublishedFileDetails/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2525,7 +2524,7 @@ func (c *steamRemoteStorageClient) GetUGCFileDetails(ctx context.Context, steamI
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetUGCFileDetails/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetUGCFileDetails/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2533,7 +2532,7 @@ func (c *steamRemoteStorageClient) GetUGCFileDetails(ctx context.Context, steamI
 }
 
 type steamUserClient struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newSteamUser(doer any, opts ...aoni.ClientOption) *steamUserClient {
@@ -2544,7 +2543,7 @@ func newSteamUser(doer any, opts ...aoni.ClientOption) *steamUserClient {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamUser")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamUser")}, baseOpts...)...)
 
 	return &steamUserClient{
 		r: targetReq,
@@ -2556,8 +2555,8 @@ func NewSteamUser(doer any, opts ...aoni.ClientOption) SteamUser {
 	return newSteamUser(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *steamUserClient) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *steamUserClient) R() *aoni.Client {
 	return c.r
 }
 
@@ -2579,7 +2578,7 @@ func (c *steamUserClient) GetFriendList(ctx context.Context, key string, steamID
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetFriendList/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetFriendList/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2602,7 +2601,7 @@ func (c *steamUserClient) GetPlayerBans(ctx context.Context, key string, steamid
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetPlayerBans/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetPlayerBans/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2625,7 +2624,7 @@ func (c *steamUserClient) GetPlayerSummariesV1(ctx context.Context, key string, 
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetPlayerSummaries/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetPlayerSummaries/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2648,7 +2647,7 @@ func (c *steamUserClient) GetPlayerSummariesV2(ctx context.Context, key string, 
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetPlayerSummaries/v2/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetPlayerSummaries/v2/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2671,7 +2670,7 @@ func (c *steamUserClient) GetUserGroupList(ctx context.Context, key string, stea
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetUserGroupList/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetUserGroupList/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2696,7 +2695,7 @@ func (c *steamUserClient) ResolveVanityURL(ctx context.Context, key string, vani
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/ResolveVanityURL/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/ResolveVanityURL/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2704,7 +2703,7 @@ func (c *steamUserClient) ResolveVanityURL(ctx context.Context, key string, vani
 }
 
 type steamUserAuthClient struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newSteamUserAuth(doer any, opts ...aoni.ClientOption) *steamUserAuthClient {
@@ -2715,7 +2714,7 @@ func newSteamUserAuth(doer any, opts ...aoni.ClientOption) *steamUserAuthClient 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamUserAuth")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamUserAuth")}, baseOpts...)...)
 
 	return &steamUserAuthClient{
 		r: targetReq,
@@ -2727,8 +2726,8 @@ func NewSteamUserAuth(doer any, opts ...aoni.ClientOption) SteamUserAuth {
 	return newSteamUserAuth(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *steamUserAuthClient) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *steamUserAuthClient) R() *aoni.Client {
 	return c.r
 }
 
@@ -2750,7 +2749,7 @@ func (c *steamUserAuthClient) AuthenticateUserTicket(ctx context.Context, key st
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/AuthenticateUserTicket/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/AuthenticateUserTicket/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2758,7 +2757,7 @@ func (c *steamUserAuthClient) AuthenticateUserTicket(ctx context.Context, key st
 }
 
 type steamUserOAuthClient struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newSteamUserOAuth(doer any, opts ...aoni.ClientOption) *steamUserOAuthClient {
@@ -2769,7 +2768,7 @@ func newSteamUserOAuth(doer any, opts ...aoni.ClientOption) *steamUserOAuthClien
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamUserOAuth")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamUserOAuth")}, baseOpts...)...)
 
 	return &steamUserOAuthClient{
 		r: targetReq,
@@ -2781,8 +2780,8 @@ func NewSteamUserOAuth(doer any, opts ...aoni.ClientOption) SteamUserOAuth {
 	return newSteamUserOAuth(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *steamUserOAuthClient) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *steamUserOAuthClient) R() *aoni.Client {
 	return c.r
 }
 
@@ -2800,7 +2799,7 @@ func (c *steamUserOAuthClient) GetTokenDetails(ctx context.Context, accessToken 
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetTokenDetails/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetTokenDetails/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2808,7 +2807,7 @@ func (c *steamUserOAuthClient) GetTokenDetails(ctx context.Context, accessToken 
 }
 
 type steamUserStatsClient struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newSteamUserStats(doer any, opts ...aoni.ClientOption) *steamUserStatsClient {
@@ -2819,7 +2818,7 @@ func newSteamUserStats(doer any, opts ...aoni.ClientOption) *steamUserStatsClien
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamUserStats")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamUserStats")}, baseOpts...)...)
 
 	return &steamUserStatsClient{
 		r: targetReq,
@@ -2831,8 +2830,8 @@ func NewSteamUserStats(doer any, opts ...aoni.ClientOption) SteamUserStats {
 	return newSteamUserStats(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *steamUserStatsClient) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *steamUserStatsClient) R() *aoni.Client {
 	return c.r
 }
 
@@ -2850,7 +2849,7 @@ func (c *steamUserStatsClient) GetGlobalAchievementPercentagesForAppV1(ctx conte
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetGlobalAchievementPercentagesForApp/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetGlobalAchievementPercentagesForApp/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2871,7 +2870,7 @@ func (c *steamUserStatsClient) GetGlobalAchievementPercentagesForAppV2(ctx conte
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetGlobalAchievementPercentagesForApp/v2/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetGlobalAchievementPercentagesForApp/v2/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2891,7 +2890,7 @@ func (c *steamUserStatsClient) GetGlobalStatsForGame(ctx context.Context, req *G
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetGlobalStatsForGame/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetGlobalStatsForGame/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2912,7 +2911,7 @@ func (c *steamUserStatsClient) GetNumberOfCurrentPlayers(ctx context.Context, ap
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetNumberOfCurrentPlayers/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetNumberOfCurrentPlayers/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2932,7 +2931,7 @@ func (c *steamUserStatsClient) GetPlayerAchievements(ctx context.Context, req *G
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetPlayerAchievements/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetPlayerAchievements/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2957,7 +2956,7 @@ func (c *steamUserStatsClient) GetSchemaForGameV1(ctx context.Context, key strin
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetSchemaForGame/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetSchemaForGame/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2982,7 +2981,7 @@ func (c *steamUserStatsClient) GetSchemaForGameV2(ctx context.Context, key strin
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetSchemaForGame/v2/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetSchemaForGame/v2/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3007,7 +3006,7 @@ func (c *steamUserStatsClient) GetUserStatsForGameV1(ctx context.Context, key st
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetUserStatsForGame/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetUserStatsForGame/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3032,7 +3031,7 @@ func (c *steamUserStatsClient) GetUserStatsForGameV2(ctx context.Context, key st
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetUserStatsForGame/v2/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetUserStatsForGame/v2/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3040,7 +3039,7 @@ func (c *steamUserStatsClient) GetUserStatsForGameV2(ctx context.Context, key st
 }
 
 type steamWebAPIUtilClient struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newSteamWebAPIUtil(doer any, opts ...aoni.ClientOption) *steamWebAPIUtilClient {
@@ -3051,7 +3050,7 @@ func newSteamWebAPIUtil(doer any, opts ...aoni.ClientOption) *steamWebAPIUtilCli
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamWebAPIUtil")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ISteamWebAPIUtil")}, baseOpts...)...)
 
 	return &steamWebAPIUtilClient{
 		r: targetReq,
@@ -3063,8 +3062,8 @@ func NewSteamWebAPIUtil(doer any, opts ...aoni.ClientOption) SteamWebAPIUtil {
 	return newSteamWebAPIUtil(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *steamWebAPIUtilClient) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *steamWebAPIUtilClient) R() *aoni.Client {
 	return c.r
 }
 
@@ -3076,7 +3075,7 @@ func (c *steamWebAPIUtilClient) GetServerInfo(ctx context.Context, mods ...aoni.
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetServerInfo/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetServerInfo/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3097,7 +3096,7 @@ func (c *steamWebAPIUtilClient) GetSupportedAPIList(ctx context.Context, key str
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetSupportedAPIList/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetSupportedAPIList/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3105,7 +3104,7 @@ func (c *steamWebAPIUtilClient) GetSupportedAPIList(ctx context.Context, key str
 }
 
 type tfItems440Client struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newTFItems440(doer any, opts ...aoni.ClientOption) *tfItems440Client {
@@ -3116,7 +3115,7 @@ func newTFItems440(doer any, opts ...aoni.ClientOption) *tfItems440Client {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ITFItems_440")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ITFItems_440")}, baseOpts...)...)
 
 	return &tfItems440Client{
 		r: targetReq,
@@ -3128,8 +3127,8 @@ func NewTFItems440(doer any, opts ...aoni.ClientOption) TFItems440 {
 	return newTFItems440(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *tfItems440Client) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *tfItems440Client) R() *aoni.Client {
 	return c.r
 }
 
@@ -3141,7 +3140,7 @@ func (c *tfItems440Client) GetGoldenWrenchesV1(ctx context.Context, mods ...aoni
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetGoldenWrenches/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetGoldenWrenches/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3156,7 +3155,7 @@ func (c *tfItems440Client) GetGoldenWrenchesV2(ctx context.Context, mods ...aoni
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetGoldenWrenches/v2/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetGoldenWrenches/v2/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3164,7 +3163,7 @@ func (c *tfItems440Client) GetGoldenWrenchesV2(ctx context.Context, mods ...aoni
 }
 
 type tfPromos440Client struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newTFPromos440(doer any, opts ...aoni.ClientOption) *tfPromos440Client {
@@ -3175,7 +3174,7 @@ func newTFPromos440(doer any, opts ...aoni.ClientOption) *tfPromos440Client {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ITFPromos_440")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ITFPromos_440")}, baseOpts...)...)
 
 	return &tfPromos440Client{
 		r: targetReq,
@@ -3187,8 +3186,8 @@ func NewTFPromos440(doer any, opts ...aoni.ClientOption) TFPromos440 {
 	return newTFPromos440(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *tfPromos440Client) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *tfPromos440Client) R() *aoni.Client {
 	return c.r
 }
 
@@ -3208,7 +3207,7 @@ func (c *tfPromos440Client) GetItemID(ctx context.Context, steamID uint64, promo
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetItemID/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetItemID/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3232,7 +3231,7 @@ func (c *tfPromos440Client) GrantItem(ctx context.Context, steamID uint64, promo
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/GrantItem/v1/", nil, allMods...)
+	resp, err := c.r.Post[json.RawMessage](ctx, "/GrantItem/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3240,7 +3239,7 @@ func (c *tfPromos440Client) GrantItem(ctx context.Context, steamID uint64, promo
 }
 
 type tfPromos620Client struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newTFPromos620(doer any, opts ...aoni.ClientOption) *tfPromos620Client {
@@ -3251,7 +3250,7 @@ func newTFPromos620(doer any, opts ...aoni.ClientOption) *tfPromos620Client {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ITFPromos_620")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ITFPromos_620")}, baseOpts...)...)
 
 	return &tfPromos620Client{
 		r: targetReq,
@@ -3263,8 +3262,8 @@ func NewTFPromos620(doer any, opts ...aoni.ClientOption) TFPromos620 {
 	return newTFPromos620(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *tfPromos620Client) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *tfPromos620Client) R() *aoni.Client {
 	return c.r
 }
 
@@ -3284,7 +3283,7 @@ func (c *tfPromos620Client) GetItemID(ctx context.Context, steamID uint64, promo
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetItemID/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetItemID/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3308,7 +3307,7 @@ func (c *tfPromos620Client) GrantItem(ctx context.Context, steamID uint64, promo
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/GrantItem/v1/", nil, allMods...)
+	resp, err := c.r.Post[json.RawMessage](ctx, "/GrantItem/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3316,7 +3315,7 @@ func (c *tfPromos620Client) GrantItem(ctx context.Context, steamID uint64, promo
 }
 
 type tfSystem440Client struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newTFSystem440(doer any, opts ...aoni.ClientOption) *tfSystem440Client {
@@ -3327,7 +3326,7 @@ func newTFSystem440(doer any, opts ...aoni.ClientOption) *tfSystem440Client {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ITFSystem_440")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ITFSystem_440")}, baseOpts...)...)
 
 	return &tfSystem440Client{
 		r: targetReq,
@@ -3339,8 +3338,8 @@ func NewTFSystem440(doer any, opts ...aoni.ClientOption) TFSystem440 {
 	return newTFSystem440(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *tfSystem440Client) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *tfSystem440Client) R() *aoni.Client {
 	return c.r
 }
 
@@ -3352,7 +3351,7 @@ func (c *tfSystem440Client) GetWorldStatus(ctx context.Context, mods ...aoni.Req
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetWorldStatus/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetWorldStatus/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3360,7 +3359,7 @@ func (c *tfSystem440Client) GetWorldStatus(ctx context.Context, mods ...aoni.Req
 }
 
 type gameServersServiceClient struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newGameServersService(doer any, opts ...aoni.ClientOption) *gameServersServiceClient {
@@ -3371,7 +3370,7 @@ func newGameServersService(doer any, opts ...aoni.ClientOption) *gameServersServ
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGameServersService")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGameServersService")}, baseOpts...)...)
 
 	return &gameServersServiceClient{
 		r: targetReq,
@@ -3383,8 +3382,8 @@ func NewGameServersService(doer any, opts ...aoni.ClientOption) GameServersServi
 	return newGameServersService(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *gameServersServiceClient) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *gameServersServiceClient) R() *aoni.Client {
 	return c.r
 }
 
@@ -3402,7 +3401,7 @@ func (c *gameServersServiceClient) GetAccountList(ctx context.Context, key strin
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetAccountList/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetAccountList/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3428,7 +3427,7 @@ func (c *gameServersServiceClient) CreateAccount(ctx context.Context, key string
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/CreateAccount/v1/", nil, allMods...)
+	resp, err := c.r.Post[json.RawMessage](ctx, "/CreateAccount/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3454,7 +3453,7 @@ func (c *gameServersServiceClient) SetMemo(ctx context.Context, key string, stea
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/SetMemo/v1/", nil, allMods...)
+	resp, err := c.r.Post[json.RawMessage](ctx, "/SetMemo/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3478,7 +3477,7 @@ func (c *gameServersServiceClient) ResetLoginToken(ctx context.Context, key stri
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/ResetLoginToken/v1/", nil, allMods...)
+	resp, err := c.r.Post[json.RawMessage](ctx, "/ResetLoginToken/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3502,7 +3501,7 @@ func (c *gameServersServiceClient) DeleteAccount(ctx context.Context, key string
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/DeleteAccount/v1/", nil, allMods...)
+	resp, err := c.r.Post[json.RawMessage](ctx, "/DeleteAccount/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3525,7 +3524,7 @@ func (c *gameServersServiceClient) GetAccountPublicInfo(ctx context.Context, key
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetAccountPublicInfo/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetAccountPublicInfo/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3548,7 +3547,7 @@ func (c *gameServersServiceClient) QueryLoginToken(ctx context.Context, key stri
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/QueryLoginToken/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/QueryLoginToken/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3571,7 +3570,7 @@ func (c *gameServersServiceClient) GetServerSteamIDsByIP(ctx context.Context, ke
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetServerSteamIDsByIP/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetServerSteamIDsByIP/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3594,7 +3593,7 @@ func (c *gameServersServiceClient) GetServerIPsBySteamID(ctx context.Context, ke
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetServerIPsBySteamID/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetServerIPsBySteamID/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3614,7 +3613,7 @@ func (c *gameServersServiceClient) QueryByFakeIP(ctx context.Context, req *Query
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/QueryByFakeIP/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/QueryByFakeIP/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3622,7 +3621,7 @@ func (c *gameServersServiceClient) QueryByFakeIP(ctx context.Context, req *Query
 }
 
 type playerServiceClient struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newPlayerService(doer any, opts ...aoni.ClientOption) *playerServiceClient {
@@ -3633,7 +3632,7 @@ func newPlayerService(doer any, opts ...aoni.ClientOption) *playerServiceClient 
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IPlayerService")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IPlayerService")}, baseOpts...)...)
 
 	return &playerServiceClient{
 		r: targetReq,
@@ -3645,8 +3644,8 @@ func NewPlayerService(doer any, opts ...aoni.ClientOption) PlayerService {
 	return newPlayerService(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *playerServiceClient) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *playerServiceClient) R() *aoni.Client {
 	return c.r
 }
 
@@ -3668,7 +3667,7 @@ func (c *playerServiceClient) IsPlayingSharedGame(ctx context.Context, key strin
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/IsPlayingSharedGame/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/IsPlayingSharedGame/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3694,7 +3693,7 @@ func (c *playerServiceClient) RecordOfflinePlaytime(ctx context.Context, steamID
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/RecordOfflinePlaytime/v1/", nil, allMods...)
+	resp, err := c.r.Post[json.RawMessage](ctx, "/RecordOfflinePlaytime/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3719,7 +3718,7 @@ func (c *playerServiceClient) GetRecentlyPlayedGames(ctx context.Context, key st
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetRecentlyPlayedGames/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetRecentlyPlayedGames/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3739,7 +3738,7 @@ func (c *playerServiceClient) GetOwnedGames(ctx context.Context, req *GetOwnedGa
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetOwnedGames/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetOwnedGames/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3762,7 +3761,7 @@ func (c *playerServiceClient) GetSteamLevel(ctx context.Context, key string, ste
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetSteamLevel/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetSteamLevel/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3785,7 +3784,7 @@ func (c *playerServiceClient) GetBadges(ctx context.Context, key string, steamID
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetBadges/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetBadges/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3810,7 +3809,7 @@ func (c *playerServiceClient) GetCommunityBadgeProgress(ctx context.Context, key
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetCommunityBadgeProgress/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetCommunityBadgeProgress/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3818,7 +3817,7 @@ func (c *playerServiceClient) GetCommunityBadgeProgress(ctx context.Context, key
 }
 
 type authenticationServiceClient struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newAuthenticationService(doer any, opts ...aoni.ClientOption) *authenticationServiceClient {
@@ -3829,7 +3828,7 @@ func newAuthenticationService(doer any, opts ...aoni.ClientOption) *authenticati
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IAuthenticationService")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IAuthenticationService")}, baseOpts...)...)
 
 	return &authenticationServiceClient{
 		r: targetReq,
@@ -3841,8 +3840,8 @@ func NewAuthenticationService(doer any, opts ...aoni.ClientOption) Authenticatio
 	return newAuthenticationService(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *authenticationServiceClient) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *authenticationServiceClient) R() *aoni.Client {
 	return c.r
 }
 
@@ -3865,7 +3864,7 @@ func (c *authenticationServiceClient) PollAuthSessionStatus(ctx context.Context,
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/PollAuthSessionStatus/v1/", nil, allMods...)
+	resp, err := c.r.Post[json.RawMessage](ctx, "/PollAuthSessionStatus/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3887,7 +3886,7 @@ func (c *authenticationServiceClient) GetAuthSessionInfo(ctx context.Context, cl
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/GetAuthSessionInfo/v1/", nil, allMods...)
+	resp, err := c.r.Post[json.RawMessage](ctx, "/GetAuthSessionInfo/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3911,7 +3910,7 @@ func (c *authenticationServiceClient) GetAuthSessionRiskInfo(ctx context.Context
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/GetAuthSessionRiskInfo/v1/", nil, allMods...)
+	resp, err := c.r.Post[json.RawMessage](ctx, "/GetAuthSessionRiskInfo/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3931,7 +3930,7 @@ func (c *authenticationServiceClient) NotifyRiskQuizResults(ctx context.Context,
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/NotifyRiskQuizResults/v1/", nil, allMods...)
+	resp, err := c.r.Post[json.RawMessage](ctx, "/NotifyRiskQuizResults/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3952,7 +3951,7 @@ func (c *authenticationServiceClient) GetPasswordRSAPublicKey(ctx context.Contex
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetPasswordRSAPublicKey/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetPasswordRSAPublicKey/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3972,7 +3971,7 @@ func (c *authenticationServiceClient) BeginAuthSessionViaCredentials(ctx context
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/BeginAuthSessionViaCredentials/v1/", nil, allMods...)
+	resp, err := c.r.Post[json.RawMessage](ctx, "/BeginAuthSessionViaCredentials/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3992,7 +3991,7 @@ func (c *authenticationServiceClient) UpdateAuthSessionWithSteamGuardCode(ctx co
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/UpdateAuthSessionWithSteamGuardCode/v1/", nil, allMods...)
+	resp, err := c.r.Post[json.RawMessage](ctx, "/UpdateAuthSessionWithSteamGuardCode/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4012,7 +4011,7 @@ func (c *authenticationServiceClient) BeginAuthSessionViaQR(ctx context.Context,
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/BeginAuthSessionViaQR/v1/", nil, allMods...)
+	resp, err := c.r.Post[json.RawMessage](ctx, "/BeginAuthSessionViaQR/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4032,7 +4031,7 @@ func (c *authenticationServiceClient) UpdateAuthSessionWithMobileConfirmation(ct
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/UpdateAuthSessionWithMobileConfirmation/v1/", nil, allMods...)
+	resp, err := c.r.Post[json.RawMessage](ctx, "/UpdateAuthSessionWithMobileConfirmation/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4040,7 +4039,7 @@ func (c *authenticationServiceClient) UpdateAuthSessionWithMobileConfirmation(ct
 }
 
 type broadcastServiceClient struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newBroadcastService(doer any, opts ...aoni.ClientOption) *broadcastServiceClient {
@@ -4051,7 +4050,7 @@ func newBroadcastService(doer any, opts ...aoni.ClientOption) *broadcastServiceC
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IBroadcastService")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IBroadcastService")}, baseOpts...)...)
 
 	return &broadcastServiceClient{
 		r: targetReq,
@@ -4063,8 +4062,8 @@ func NewBroadcastService(doer any, opts ...aoni.ClientOption) BroadcastService {
 	return newBroadcastService(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *broadcastServiceClient) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *broadcastServiceClient) R() *aoni.Client {
 	return c.r
 }
 
@@ -4081,7 +4080,7 @@ func (c *broadcastServiceClient) PostGameDataFrameRTMP(ctx context.Context, req 
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/PostGameDataFrameRTMP/v1/", nil, allMods...)
+	resp, err := c.r.Post[json.RawMessage](ctx, "/PostGameDataFrameRTMP/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4089,7 +4088,7 @@ func (c *broadcastServiceClient) PostGameDataFrameRTMP(ctx context.Context, req 
 }
 
 type contentServerConfigServiceClient struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newContentServerConfigService(doer any, opts ...aoni.ClientOption) *contentServerConfigServiceClient {
@@ -4100,7 +4099,7 @@ func newContentServerConfigService(doer any, opts ...aoni.ClientOption) *content
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IContentServerConfigService")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IContentServerConfigService")}, baseOpts...)...)
 
 	return &contentServerConfigServiceClient{
 		r: targetReq,
@@ -4112,8 +4111,8 @@ func NewContentServerConfigService(doer any, opts ...aoni.ClientOption) ContentS
 	return newContentServerConfigService(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *contentServerConfigServiceClient) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *contentServerConfigServiceClient) R() *aoni.Client {
 	return c.r
 }
 
@@ -4130,7 +4129,7 @@ func (c *contentServerConfigServiceClient) SetSteamCacheClientFilters(ctx contex
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/SetSteamCacheClientFilters/v1/", nil, allMods...)
+	resp, err := c.r.Post[json.RawMessage](ctx, "/SetSteamCacheClientFilters/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4155,7 +4154,7 @@ func (c *contentServerConfigServiceClient) GetSteamCacheNodeParams(ctx context.C
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetSteamCacheNodeParams/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetSteamCacheNodeParams/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4175,7 +4174,7 @@ func (c *contentServerConfigServiceClient) SetSteamCachePerformanceStats(ctx con
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/SetSteamCachePerformanceStats/v1/", nil, allMods...)
+	resp, err := c.r.Post[json.RawMessage](ctx, "/SetSteamCachePerformanceStats/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4183,7 +4182,7 @@ func (c *contentServerConfigServiceClient) SetSteamCachePerformanceStats(ctx con
 }
 
 type contentServerDirectoryServiceClient struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newContentServerDirectoryService(doer any, opts ...aoni.ClientOption) *contentServerDirectoryServiceClient {
@@ -4194,7 +4193,7 @@ func newContentServerDirectoryService(doer any, opts ...aoni.ClientOption) *cont
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IContentServerDirectoryService")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IContentServerDirectoryService")}, baseOpts...)...)
 
 	return &contentServerDirectoryServiceClient{
 		r: targetReq,
@@ -4206,8 +4205,8 @@ func NewContentServerDirectoryService(doer any, opts ...aoni.ClientOption) Conte
 	return newContentServerDirectoryService(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *contentServerDirectoryServiceClient) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *contentServerDirectoryServiceClient) R() *aoni.Client {
 	return c.r
 }
 
@@ -4229,7 +4228,7 @@ func (c *contentServerDirectoryServiceClient) GetCDNForVideo(ctx context.Context
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetCDNForVideo/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetCDNForVideo/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4254,7 +4253,7 @@ func (c *contentServerDirectoryServiceClient) PickSingleContentServer(ctx contex
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/PickSingleContentServer/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/PickSingleContentServer/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4274,7 +4273,7 @@ func (c *contentServerDirectoryServiceClient) GetServersForSteamPipe(ctx context
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetServersForSteamPipe/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetServersForSteamPipe/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4295,7 +4294,7 @@ func (c *contentServerDirectoryServiceClient) GetClientUpdateHosts(ctx context.C
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetClientUpdateHosts/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetClientUpdateHosts/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4315,7 +4314,7 @@ func (c *contentServerDirectoryServiceClient) GetDepotPatchInfo(ctx context.Cont
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetDepotPatchInfo/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetDepotPatchInfo/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4323,7 +4322,7 @@ func (c *contentServerDirectoryServiceClient) GetDepotPatchInfo(ctx context.Cont
 }
 
 type publishedFileServiceClient struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newPublishedFileService(doer any, opts ...aoni.ClientOption) *publishedFileServiceClient {
@@ -4334,7 +4333,7 @@ func newPublishedFileService(doer any, opts ...aoni.ClientOption) *publishedFile
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IPublishedFileService")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IPublishedFileService")}, baseOpts...)...)
 
 	return &publishedFileServiceClient{
 		r: targetReq,
@@ -4346,8 +4345,8 @@ func NewPublishedFileService(doer any, opts ...aoni.ClientOption) PublishedFileS
 	return newPublishedFileService(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *publishedFileServiceClient) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *publishedFileServiceClient) R() *aoni.Client {
 	return c.r
 }
 
@@ -4365,7 +4364,7 @@ func (c *publishedFileServiceClient) GetUserVoteSummary(ctx context.Context, pub
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetUserVoteSummary/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetUserVoteSummary/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4385,7 +4384,7 @@ func (c *publishedFileServiceClient) QueryFiles(ctx context.Context, req *QueryF
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/QueryFiles/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/QueryFiles/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4405,7 +4404,7 @@ func (c *publishedFileServiceClient) GetSubSectionData(ctx context.Context, req 
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetSubSectionData/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetSubSectionData/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4425,7 +4424,7 @@ func (c *publishedFileServiceClient) GetDetails(ctx context.Context, req *GetDet
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetDetails/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetDetails/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4445,7 +4444,7 @@ func (c *publishedFileServiceClient) GetUserFiles(ctx context.Context, req *GetU
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetUserFiles/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetUserFiles/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4465,7 +4464,7 @@ func (c *publishedFileServiceClient) GetUserFileCount(ctx context.Context, req *
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetUserFileCount/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetUserFileCount/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4473,7 +4472,7 @@ func (c *publishedFileServiceClient) GetUserFileCount(ctx context.Context, req *
 }
 
 type econServiceClient struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newEconService(doer any, opts ...aoni.ClientOption) *econServiceClient {
@@ -4484,7 +4483,7 @@ func newEconService(doer any, opts ...aoni.ClientOption) *econServiceClient {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconService")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IEconService")}, baseOpts...)...)
 
 	return &econServiceClient{
 		r: targetReq,
@@ -4496,8 +4495,8 @@ func NewEconService(doer any, opts ...aoni.ClientOption) EconService {
 	return newEconService(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *econServiceClient) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *econServiceClient) R() *aoni.Client {
 	return c.r
 }
 
@@ -4514,7 +4513,7 @@ func (c *econServiceClient) GetTradeHistory(ctx context.Context, req *GetTradeHi
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetTradeHistory/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetTradeHistory/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4534,7 +4533,7 @@ func (c *econServiceClient) GetTradeStatus(ctx context.Context, req *GetTradeSta
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetTradeStatus/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetTradeStatus/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4554,7 +4553,7 @@ func (c *econServiceClient) GetTradeOffers(ctx context.Context, req *GetTradeOff
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetTradeOffers/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetTradeOffers/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4574,7 +4573,7 @@ func (c *econServiceClient) GetTradeOffer(ctx context.Context, req *GetTradeOffe
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetTradeOffer/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetTradeOffer/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4597,7 +4596,7 @@ func (c *econServiceClient) GetTradeOffersSummary(ctx context.Context, key strin
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetTradeOffersSummary/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetTradeOffersSummary/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4622,7 +4621,7 @@ func (c *econServiceClient) GetTradeHoldDurations(ctx context.Context, key strin
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetTradeHoldDurations/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetTradeHoldDurations/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4630,7 +4629,7 @@ func (c *econServiceClient) GetTradeHoldDurations(ctx context.Context, key strin
 }
 
 type gameNotificationsServiceClient struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newGameNotificationsService(doer any, opts ...aoni.ClientOption) *gameNotificationsServiceClient {
@@ -4641,7 +4640,7 @@ func newGameNotificationsService(doer any, opts ...aoni.ClientOption) *gameNotif
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGameNotificationsService")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IGameNotificationsService")}, baseOpts...)...)
 
 	return &gameNotificationsServiceClient{
 		r: targetReq,
@@ -4653,8 +4652,8 @@ func NewGameNotificationsService(doer any, opts ...aoni.ClientOption) GameNotifi
 	return newGameNotificationsService(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *gameNotificationsServiceClient) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *gameNotificationsServiceClient) R() *aoni.Client {
 	return c.r
 }
 
@@ -4671,7 +4670,7 @@ func (c *gameNotificationsServiceClient) UserCreateSession(ctx context.Context, 
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/UserCreateSession/v1/", nil, allMods...)
+	resp, err := c.r.Post[json.RawMessage](ctx, "/UserCreateSession/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4691,7 +4690,7 @@ func (c *gameNotificationsServiceClient) UserUpdateSession(ctx context.Context, 
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/UserUpdateSession/v1/", nil, allMods...)
+	resp, err := c.r.Post[json.RawMessage](ctx, "/UserUpdateSession/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4717,7 +4716,7 @@ func (c *gameNotificationsServiceClient) UserDeleteSession(ctx context.Context, 
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/UserDeleteSession/v1/", nil, allMods...)
+	resp, err := c.r.Post[json.RawMessage](ctx, "/UserDeleteSession/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4725,7 +4724,7 @@ func (c *gameNotificationsServiceClient) UserDeleteSession(ctx context.Context, 
 }
 
 type inventoryServiceClient struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newInventoryService(doer any, opts ...aoni.ClientOption) *inventoryServiceClient {
@@ -4736,7 +4735,7 @@ func newInventoryService(doer any, opts ...aoni.ClientOption) *inventoryServiceC
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IInventoryService")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IInventoryService")}, baseOpts...)...)
 
 	return &inventoryServiceClient{
 		r: targetReq,
@@ -4748,8 +4747,8 @@ func NewInventoryService(doer any, opts ...aoni.ClientOption) InventoryService {
 	return newInventoryService(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *inventoryServiceClient) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *inventoryServiceClient) R() *aoni.Client {
 	return c.r
 }
 
@@ -4766,7 +4765,7 @@ func (c *inventoryServiceClient) SplitItemStack(ctx context.Context, req *SplitI
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/SplitItemStack/v1/", nil, allMods...)
+	resp, err := c.r.Post[json.RawMessage](ctx, "/SplitItemStack/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4786,7 +4785,7 @@ func (c *inventoryServiceClient) CombineItemStacks(ctx context.Context, req *Com
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/CombineItemStacks/v1/", nil, allMods...)
+	resp, err := c.r.Post[json.RawMessage](ctx, "/CombineItemStacks/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4811,7 +4810,7 @@ func (c *inventoryServiceClient) GetPriceSheet(ctx context.Context, key string, 
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetPriceSheet/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetPriceSheet/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4819,7 +4818,7 @@ func (c *inventoryServiceClient) GetPriceSheet(ctx context.Context, key string, 
 }
 
 type storeServiceClient struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newStoreService(doer any, opts ...aoni.ClientOption) *storeServiceClient {
@@ -4830,7 +4829,7 @@ func newStoreService(doer any, opts ...aoni.ClientOption) *storeServiceClient {
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IStoreService")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IStoreService")}, baseOpts...)...)
 
 	return &storeServiceClient{
 		r: targetReq,
@@ -4842,8 +4841,8 @@ func NewStoreService(doer any, opts ...aoni.ClientOption) StoreService {
 	return newStoreService(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *storeServiceClient) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *storeServiceClient) R() *aoni.Client {
 	return c.r
 }
 
@@ -4861,7 +4860,7 @@ func (c *storeServiceClient) GetGamesFollowed(ctx context.Context, steamID uint6
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetGamesFollowed/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetGamesFollowed/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4882,7 +4881,7 @@ func (c *storeServiceClient) GetGamesFollowedCount(ctx context.Context, steamID 
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetGamesFollowedCount/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetGamesFollowedCount/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4902,7 +4901,7 @@ func (c *storeServiceClient) GetAppList(ctx context.Context, req *GetAppListRequ
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetAppList/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetAppList/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4927,7 +4926,7 @@ func (c *storeServiceClient) GetRecommendedTagsForUser(ctx context.Context, lang
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetRecommendedTagsForUser/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetRecommendedTagsForUser/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4935,7 +4934,7 @@ func (c *storeServiceClient) GetRecommendedTagsForUser(ctx context.Context, lang
 }
 
 type helpRequestLogsServiceClient struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newHelpRequestLogsService(doer any, opts ...aoni.ClientOption) *helpRequestLogsServiceClient {
@@ -4946,7 +4945,7 @@ func newHelpRequestLogsService(doer any, opts ...aoni.ClientOption) *helpRequest
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IHelpRequestLogsService")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IHelpRequestLogsService")}, baseOpts...)...)
 
 	return &helpRequestLogsServiceClient{
 		r: targetReq,
@@ -4958,8 +4957,8 @@ func NewHelpRequestLogsService(doer any, opts ...aoni.ClientOption) HelpRequestL
 	return newHelpRequestLogsService(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *helpRequestLogsServiceClient) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *helpRequestLogsServiceClient) R() *aoni.Client {
 	return c.r
 }
 
@@ -4976,7 +4975,7 @@ func (c *helpRequestLogsServiceClient) UploadUserApplicationLog(ctx context.Cont
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/UploadUserApplicationLog/v1/", nil, allMods...)
+	resp, err := c.r.Post[json.RawMessage](ctx, "/UploadUserApplicationLog/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4998,7 +4997,7 @@ func (c *helpRequestLogsServiceClient) GetApplicationLogDemand(ctx context.Conte
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/GetApplicationLogDemand/v1/", nil, allMods...)
+	resp, err := c.r.Post[json.RawMessage](ctx, "/GetApplicationLogDemand/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -5006,7 +5005,7 @@ func (c *helpRequestLogsServiceClient) GetApplicationLogDemand(ctx context.Conte
 }
 
 type cheatReportingServiceClient struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newCheatReportingService(doer any, opts ...aoni.ClientOption) *cheatReportingServiceClient {
@@ -5017,7 +5016,7 @@ func newCheatReportingService(doer any, opts ...aoni.ClientOption) *cheatReporti
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ICheatReportingService")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/ICheatReportingService")}, baseOpts...)...)
 
 	return &cheatReportingServiceClient{
 		r: targetReq,
@@ -5029,8 +5028,8 @@ func NewCheatReportingService(doer any, opts ...aoni.ClientOption) CheatReportin
 	return newCheatReportingService(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *cheatReportingServiceClient) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *cheatReportingServiceClient) R() *aoni.Client {
 	return c.r
 }
 
@@ -5047,7 +5046,7 @@ func (c *cheatReportingServiceClient) ReportCheatData(ctx context.Context, req *
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[json.RawMessage](ctx, c.r, "/ReportCheatData/v1/", nil, allMods...)
+	resp, err := c.r.Post[json.RawMessage](ctx, "/ReportCheatData/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -5055,7 +5054,7 @@ func (c *cheatReportingServiceClient) ReportCheatData(ctx context.Context, req *
 }
 
 type wishlistServiceClient struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newWishlistService(doer any, opts ...aoni.ClientOption) *wishlistServiceClient {
@@ -5066,7 +5065,7 @@ func newWishlistService(doer any, opts ...aoni.ClientOption) *wishlistServiceCli
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IWishlistService")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/IWishlistService")}, baseOpts...)...)
 
 	return &wishlistServiceClient{
 		r: targetReq,
@@ -5078,8 +5077,8 @@ func NewWishlistService(doer any, opts ...aoni.ClientOption) WishlistService {
 	return newWishlistService(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *wishlistServiceClient) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *wishlistServiceClient) R() *aoni.Client {
 	return c.r
 }
 
@@ -5096,7 +5095,7 @@ func (c *wishlistServiceClient) GetWishlistSortedFiltered(ctx context.Context, r
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetWishlistSortedFiltered/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetWishlistSortedFiltered/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -5117,7 +5116,7 @@ func (c *wishlistServiceClient) GetWishlist(ctx context.Context, steamID uint64,
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetWishlist/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetWishlist/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -5138,7 +5137,7 @@ func (c *wishlistServiceClient) GetWishlistItemCount(ctx context.Context, steamI
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[json.RawMessage](ctx, c.r, "/GetWishlistItemCount/v1/", allMods...)
+	resp, err := c.r.Get[json.RawMessage](ctx, "/GetWishlistItemCount/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}

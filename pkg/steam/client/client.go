@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/fast"
-	"github.com/lemon4ksan/aoni/request"
 	"github.com/lemon4ksan/foundation/async/event"
 	"github.com/lemon4ksan/foundation/async/fsm"
 	"github.com/lemon4ksan/foundation/async/log"
@@ -153,7 +153,7 @@ func WithREST(doer any) Option {
 			c.cfg.Socket.Connector.FastClient = fc
 		}
 
-		c.rest = request.AsRequester(doer)
+		c.rest = aoni.NewClient(doer)
 	}
 }
 
@@ -165,7 +165,7 @@ func WithFastClient(fastClient *fast.Client) Option {
 		}
 
 		c.fastClient = fastClient
-		c.rest = request.AsRequester(fastClient)
+		c.rest = aoni.NewClient(fastClient)
 		c.cfg.Socket.FastClient = fastClient
 		c.cfg.Socket.Connector.FastClient = fastClient
 	}
@@ -218,7 +218,7 @@ type Client struct {
 	session    *session.Session
 	router     *router.ServiceRouter
 	modules    *modules.Manager
-	rest       request.Requester
+	rest       *aoni.Client
 	fastClient *fast.Client
 	storage    storage.Provider
 
@@ -408,7 +408,7 @@ func (c *Client) Logger() log.Logger {
 }
 
 // Rest returns the low-level REST requester.
-func (c *Client) Rest() request.Requester { return c.rest }
+func (c *Client) Rest() *aoni.Client { return c.rest }
 
 // Community returns the active community requester.
 func (c *Client) Community() community.Requester {
@@ -719,7 +719,7 @@ func (ctx *initContext) Storage() storage.Provider        { return ctx.Client.st
 func (ctx *initContext) Bus() *event.Bus                  { return ctx.Client.bus }
 func (ctx *initContext) Logger() log.Logger               { return ctx.Client.Logger() }
 func (ctx *initContext) Service() service.Doer            { return ctx.Client }
-func (ctx *initContext) Rest() request.Requester          { return ctx.Client.rest }
+func (ctx *initContext) Rest() *aoni.Client               { return ctx.Client.rest }
 func (ctx *initContext) Module(name string) module.Module { return ctx.Client.Module(name) }
 
 func (ctx *initContext) RegisterPacketHandler(e enums.EMsg, h socket.Handler) {

@@ -81,19 +81,19 @@ type uploadResponse struct {
 
 // @aoni:dto
 type profileSaveRequest struct {
-	Type          string `url:"type"`
-	Weblink1Title string `url:"weblink_1_title"`
-	Weblink1URL   string `url:"weblink_1_url"`
-	Weblink2Title string `url:"weblink_2_title"`
-	Weblink2URL   string `url:"weblink_2_url"`
-	Weblink3Title string `url:"weblink_3_title"`
-	Weblink3URL   string `url:"weblink_3_url"`
-	PersonaName   string `url:"personaName"`
-	RealName      string `url:"real_name"`
-	Summary       string `url:"summary"`
-	Country       string `url:"country"`
-	State         string `url:"state"`
-	City          string `url:"city"`
-	CustomURL     string `url:"customURL"`
-	JSON          int    `url:"json"`
+	Type          string `query:"type"`
+	Weblink1Title string `query:"weblink_1_title"`
+	Weblink1URL   string `query:"weblink_1_url"`
+	Weblink2Title string `query:"weblink_2_title"`
+	Weblink2URL   string `query:"weblink_2_url"`
+	Weblink3Title string `query:"weblink_3_title"`
+	Weblink3URL   string `query:"weblink_3_url"`
+	PersonaName   string `query:"personaName"`
+	RealName      string `query:"real_name"`
+	Summary       string `query:"summary"`
+	Country       string `query:"country"`
+	State         string `query:"state"`
+	City          string `query:"city"`
+	CustomURL     string `query:"customURL"`
+	JSON          int    `query:"json"`
 }

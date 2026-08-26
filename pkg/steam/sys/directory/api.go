@@ -43,8 +43,8 @@ type API interface {
 //
 // @aoni:dto
 type CMListRequest struct {
-	CellID   uint32 `url:"cellid"`
-	MaxCount uint32 `url:"maxcount,omitempty"`
+	CellID   uint32 `query:"cellid"`
+	MaxCount uint32 `query:"maxcount,omitempty"`
 }
 
 type CMListResponse struct {
@@ -56,10 +56,10 @@ type CMListResponse struct {
 //
 // @aoni:dto
 type CMListForConnectRequest struct {
-	CellID   uint32 `url:"cellid,omitempty"`
-	MaxCount uint32 `url:"maxcount,omitempty"`
-	CMType   string `url:"cmtype,omitempty"`
-	Realm    string `url:"realm,omitempty"`
+	CellID   uint32 `query:"cellid,omitempty"`
+	MaxCount uint32 `query:"maxcount,omitempty"`
+	CMType   string `query:"cmtype,omitempty"`
+	Realm    string `query:"realm,omitempty"`
 }
 
 type CMListForConnectResponse struct {

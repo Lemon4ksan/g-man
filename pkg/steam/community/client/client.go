@@ -19,7 +19,6 @@ import (
 	"github.com/lemon4ksan/aoni/codec/extract"
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/option"
-	"github.com/lemon4ksan/aoni/request"
 	"github.com/lemon4ksan/foundation/async/log"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
@@ -67,7 +66,7 @@ func SteamErrorsValidator(resp *http.Response) error {
 		return CheckSteamErrors(resp.StatusCode, resp.Header, nil)
 	}
 
-	peekBuf := request.ResolvePeekableReader(resp)
+	peekBuf := aoni.ResolvePeekableReader(resp)
 	resp.Body = io.NopCloser(peekBuf)
 
 	peekBytes, peekErr := peekBuf.Peek(4096)
@@ -80,7 +79,7 @@ func SteamErrorsValidator(resp *http.Response) error {
 
 // Requester executes HTTP requests against steamcommunity.com with session state awareness.
 type Requester interface {
-	request.Requester
+	aoni.HTTPRequester
 	SessionID(baseURL string) string
 	GetOrRegisterAPIKey(ctx context.Context, domain string) (string, error)
 }
@@ -92,21 +91,21 @@ type SessionProvider interface {
 
 // Client executes HTTP requests against the Steam Community website.
 type Client struct {
-	r       request.Requester
+	r       *aoni.Client
 	session SessionProvider
 	logger  log.Logger
 }
 
 // New constructs a Client configured for steamcommunity.com.
 func New(doer aoni.RequestDoer, session SessionProvider) *Client {
-	r := request.AsRequester(aoni.Configure(doer,
+	c := aoni.NewClient(doer,
 		option.WithBaseURL(BaseURL),
 		option.WithOrigin(BaseURL),
 		option.WithBlockRedirectTo("/login/home", "/login"),
-	))
+	)
 
 	return &Client{
-		r:       r,
+		r:       c,
 		session: session,
 		logger:  log.Discard,
 	}
@@ -119,7 +118,7 @@ func (c *Client) With(opts ...aoni.ClientOption) *Client {
 	}
 
 	return &Client{
-		r:       request.AsRequester(aoni.Configure(c.r, opts...)),
+		r:       c.r.With(opts...),
 		session: c.session,
 		logger:  c.logger,
 	}
@@ -134,15 +133,19 @@ func (c *Client) WithLogger(l log.Logger) *Client {
 }
 
 // WithREST sets the underlying requester instance.
-func (c *Client) WithREST(r request.Requester) *Client {
+func (c *Client) WithREST(doer any) *Client {
 	copy := *c
-	copy.r = r
+	if cl, ok := doer.(*aoni.Client); ok {
+		copy.r = cl
+	} else {
+		copy.r = aoni.NewClient(doer)
+	}
 
 	return &copy
 }
 
-// Unwrap returns the underlying request.Requester.
-func (c *Client) Unwrap() request.Requester {
+// Unwrap returns the underlying *aoni.Client.
+func (c *Client) Unwrap() *aoni.Client {
 	return c.r
 }
 

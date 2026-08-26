@@ -287,12 +287,12 @@ type BuyOrderResponse struct {
 }
 
 type SearchOptions struct {
-	Query              string `url:"query"`
-	Start              int    `url:"start"`
-	Count              int    `url:"count"               default:"100"`
-	SearchDescriptions bool   `url:"search_descriptions"`
-	SortColumn         string `url:"sort_column"         default:"popular"`
-	SortDir            string `url:"sort_dir"            default:"desc"`
+	Query              string `query:"query"`
+	Start              int    `query:"start"`
+	Count              int    `query:"count"               default:"100"`
+	SearchDescriptions bool   `query:"search_descriptions"`
+	SortColumn         string `query:"sort_column"         default:"popular"`
+	SortDir            string `query:"sort_dir"            default:"desc"`
 }
 
 type SearchResponse struct {

@@ -14,11 +14,10 @@ import (
 	"github.com/lemon4ksan/aoni/fast"
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/option"
-	"github.com/lemon4ksan/aoni/request"
 )
 
 type econServiceAPIClient struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newEconServiceAPI(doer any, opts ...aoni.ClientOption) *econServiceAPIClient {
@@ -29,7 +28,7 @@ func newEconServiceAPI(doer any, opts ...aoni.ClientOption) *econServiceAPIClien
 	var baseOpts []aoni.ClientOption
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://api.steampowered.com/")}, baseOpts...)...)
 
 	return &econServiceAPIClient{
 		r: targetReq,
@@ -41,8 +40,8 @@ func NewEconServiceAPI(doer any, opts ...aoni.ClientOption) EconServiceAPI {
 	return newEconServiceAPI(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *econServiceAPIClient) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *econServiceAPIClient) R() *aoni.Client {
 	return c.r
 }
 
@@ -59,7 +58,7 @@ func (c *econServiceAPIClient) GetTradeOffers(ctx context.Context, req GetOffers
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[GetOffersResponse](ctx, c.r, "IEconService/GetTradeOffers/v1", allMods...)
+	resp, err := c.r.Get[GetOffersResponse](ctx, "IEconService/GetTradeOffers/v1", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +78,7 @@ func (c *econServiceAPIClient) GetTradeOffer(ctx context.Context, req GetOfferPa
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[GetOfferResponse](ctx, c.r, "IEconService/GetTradeOffer/v1", allMods...)
+	resp, err := c.r.Get[GetOfferResponse](ctx, "IEconService/GetTradeOffer/v1", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +98,7 @@ func (c *econServiceAPIClient) GetTradeStatus(ctx context.Context, req TradeStat
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.GetTo[TradeStatusResponse](ctx, c.r, "IEconService/GetTradeStatus/v1", allMods...)
+	resp, err := c.r.Get[TradeStatusResponse](ctx, "IEconService/GetTradeStatus/v1", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +106,7 @@ func (c *econServiceAPIClient) GetTradeStatus(ctx context.Context, req TradeStat
 }
 
 func (c *econServiceAPIClient) DeclineTradeOffer(ctx context.Context, tradeOfferID uint64, mods ...aoni.RequestModifier) error {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
@@ -121,12 +120,12 @@ func (c *econServiceAPIClient) DeclineTradeOffer(ctx context.Context, tradeOffer
 		allMods = append(allMods, mods...)
 	}
 
-	_, err := request.PostTo[request.NoResponse](ctx, c.r, "IEconService/DeclineTradeOffer/v1", nil, allMods...)
+	_, err := c.r.Post[aoni.NoResponse](ctx, "IEconService/DeclineTradeOffer/v1", nil, allMods...)
 	return err
 }
 
 func (c *econServiceAPIClient) CancelTradeOffer(ctx context.Context, tradeOfferID uint64, mods ...aoni.RequestModifier) error {
-	var stackMods [8]aoni.RequestModifier
+	var stackMods [4]aoni.RequestModifier
 	allMods := stackMods[:0]
 
 	allMods = append(allMods, mod.WithHeader("Content-Type", "application/x-www-form-urlencoded"))
@@ -140,12 +139,12 @@ func (c *econServiceAPIClient) CancelTradeOffer(ctx context.Context, tradeOfferI
 		allMods = append(allMods, mods...)
 	}
 
-	_, err := request.PostTo[request.NoResponse](ctx, c.r, "IEconService/CancelTradeOffer/v1", nil, allMods...)
+	_, err := c.r.Post[aoni.NoResponse](ctx, "IEconService/CancelTradeOffer/v1", nil, allMods...)
 	return err
 }
 
 type tradeCommunityAPIClient struct {
-	r request.Requester
+	r *aoni.Client
 }
 
 func newTradeCommunityAPI(doer any, opts ...aoni.ClientOption) *tradeCommunityAPIClient {
@@ -157,7 +156,7 @@ func newTradeCommunityAPI(doer any, opts ...aoni.ClientOption) *tradeCommunityAP
 	baseOpts = append(baseOpts, option.WithHeader("Origin", "https://steamcommunity.com"))
 	baseOpts = append(baseOpts, opts...)
 
-	targetReq := request.Configure(doer, append([]aoni.ClientOption{option.WithBaseURL("https://steamcommunity.com/")}, baseOpts...)...)
+	targetReq := aoni.NewClient(doer, append([]aoni.ClientOption{option.WithBaseURL("https://steamcommunity.com/")}, baseOpts...)...)
 
 	return &tradeCommunityAPIClient{
 		r: targetReq,
@@ -169,8 +168,8 @@ func NewTradeCommunityAPI(doer any, opts ...aoni.ClientOption) TradeCommunityAPI
 	return newTradeCommunityAPI(doer, opts...)
 }
 
-// R returns the underlying request.Requester used by the client.
-func (c *tradeCommunityAPIClient) R() request.Requester {
+// R returns the underlying *aoni.Client used by the client.
+func (c *tradeCommunityAPIClient) R() *aoni.Client {
 	return c.r
 }
 
@@ -196,7 +195,7 @@ func (c *tradeCommunityAPIClient) SendOffer(ctx context.Context, partnerID uint3
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[SendNewTradeOfferResponse](ctx, c.r, "tradeoffer/new/send", nil, allMods...)
+	resp, err := c.r.Post[SendNewTradeOfferResponse](ctx, "tradeoffer/new/send", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -224,7 +223,7 @@ func (c *tradeCommunityAPIClient) AcceptOffer(ctx context.Context, offerID uint6
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := request.PostTo[AcceptTradeOfferResponse](ctx, c.r, "tradeoffer/{offerID}/accept", nil, allMods...)
+	resp, err := c.r.Post[AcceptTradeOfferResponse](ctx, "tradeoffer/{offerID}/accept", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
