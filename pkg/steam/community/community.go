@@ -6,7 +6,9 @@
 package community
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -15,7 +17,6 @@ import (
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/codec/values"
 	"github.com/lemon4ksan/aoni/mod"
-	"github.com/lemon4ksan/aoni/request"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/community/client"
 	"github.com/lemon4ksan/g-man/pkg/steam/encoding"
@@ -28,6 +29,31 @@ type Requester = client.Requester
 type SessionProvider = client.SessionProvider
 
 var NewClient = client.New
+
+// ErrSessionExpired indicates Steam rejected the request due to invalid or expired web authentication cookies.
+var ErrSessionExpired = errors.New("steam: session expired or authentication required")
+
+// SteamSoftErrorDetector detects HTML login forms or session expiration messages in Steam Community responses.
+func SteamSoftErrorDetector(resp *http.Response, peek []byte) error {
+	if resp == nil {
+		return nil
+	}
+	ct := resp.Header.Get("Content-Type")
+	if strings.Contains(ct, "text/html") {
+		if bytes.Contains(peek, []byte("openid.claimed_id")) ||
+			bytes.Contains(peek, []byte("loginform")) ||
+			bytes.Contains(peek, []byte("Sign In")) ||
+			bytes.Contains(peek, []byte("login/checkstoredlogin")) {
+			return ErrSessionExpired
+		}
+	}
+	if bytes.Contains(peek, []byte(`"Not Logged In"`)) ||
+		bytes.Contains(peek, []byte(`"not logged in"`)) ||
+		bytes.Contains(peek, []byte(`"Logged In":false`)) {
+		return ErrSessionExpired
+	}
+	return nil
+}
 
 // FastFormEncoder allows DTO structs to serialize into form strings without map allocations.
 type FastFormEncoder interface {
@@ -55,11 +81,13 @@ func GetTo[Resp any](
 ) (*Resp, error) {
 	mods = append([]aoni.RequestModifier{
 		mod.WithDecoder(encoding.SteamJSONDecoder),
+		mod.WithSoftErrorDetector(SteamSoftErrorDetector),
 		mod.WithAccept("application/json, text/javascript; q=0.01"),
 		mod.WithHeader("X-Requested-With", "XMLHttpRequest"),
 	}, mods...)
 
-	return request.GetTo[Resp](ctx, r, path, mods...)
+	res, _, err := aoni.FetchTo[*Resp](ctx, r, http.MethodGet, path, mods...)
+	return res, err
 }
 
 // GetHTML executes a GET request and returns an HTML body stream.
@@ -91,12 +119,15 @@ func PostTo[Resp any](
 
 	mods = append([]aoni.RequestModifier{
 		mod.WithDecoder(encoding.SteamJSONDecoder),
+		mod.WithSoftErrorDetector(SteamSoftErrorDetector),
 		mod.WithQuery(query),
 		mod.WithAccept("application/json"),
 		mod.WithContentType("application/json; charset=UTF-8"),
+		mod.WithSmartBody(body),
 	}, mods...)
 
-	return request.PostTo[Resp](ctx, r, path, body, mods...)
+	res, _, err := aoni.FetchTo[*Resp](ctx, r, http.MethodPost, path, mods...)
+	return res, err
 }
 
 // PostFormTo executes a POST request with URL-encoded form data.
@@ -146,12 +177,14 @@ func PostFormTo[Resp any](
 
 	mods = append([]aoni.RequestModifier{
 		mod.WithDecoder(encoding.SteamJSONDecoder),
+		mod.WithSoftErrorDetector(SteamSoftErrorDetector),
 		mod.WithBodyBytes([]byte(rawForm)),
 		mod.WithAccept("application/json, text/javascript; q=0.01"),
 		mod.WithContentType("application/x-www-form-urlencoded; charset=UTF-8"),
 	}, mods...)
 
-	return request.PostTo[Resp](ctx, r, path, nil, mods...)
+	res, _, err := aoni.FetchTo[*Resp](ctx, r, http.MethodPost, path, mods...)
+	return res, err
 }
 
 func urlValuesHasKey(formStr, key string) bool {
