@@ -27,4 +27,11 @@ require (
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.41.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	github.com/lemon4ksan/sein v0.0.0
+)
+
+replace (
+	github.com/lemon4ksan/aoni => ../aoni
+	github.com/lemon4ksan/foundation => ../foundation
+	github.com/lemon4ksan/sein => ../server/sein
 )
