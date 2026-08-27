@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/lemon4ksan/g-man/internal/client/session"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
@@ -46,7 +46,7 @@ func (m *Socket) IsConnected() bool {
 	return args.Bool(0)
 }
 
-func (m *Socket) UpdateLogger(logger log.Logger) {
+func (m *Socket) UpdateLogger(logger logkit.Logger) {
 	m.Called(logger)
 }
 

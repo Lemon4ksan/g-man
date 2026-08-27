@@ -79,7 +79,7 @@ func (c *apiClient) GetInventoryPage(ctx context.Context, steamID uint64, appID 
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[inventoryResponse](ctx, "inventory/{steamID}/{appID}/{contextID}", allMods...)
+	resp, err := c.r.GetTo[inventoryResponse](ctx, "inventory/{steamID}/{appID}/{contextID}", allMods...)
 	if err != nil {
 		return nil, err
 	}

@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/foundation/async/dedup"
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/lemon4ksan/foundation/async/rate"
 	"github.com/lemon4ksan/foundation/generic"
 	"github.com/lemon4ksan/foundation/silicon/bytesconv"
@@ -38,7 +38,7 @@ func WithModule(config Config) client.Option {
 	m, err := New(config)
 	if err != nil {
 		return func(c *client.Client) {
-			c.Logger().Error("Failed to register guardian", log.Err(err))
+			c.Logger().Error("Failed to register guardian", logkit.Err(err))
 		}
 	}
 
@@ -268,7 +268,7 @@ func (g *Guardian) Init(init module.InitContext) error {
 		})
 	}
 
-	g.Logger = g.Logger.With(log.String("device_id", maskDeviceID(g.config.DeviceID)))
+	g.Logger = g.Logger.With(logkit.String("device_id", maskDeviceID(g.config.DeviceID)))
 
 	return nil
 }
@@ -416,7 +416,7 @@ func (g *Guardian) SyncTime(ctx context.Context) (time.Duration, error) {
 
 	if offset != 0 {
 		g.clock.SetOffset(offset)
-		g.Logger.Debug("Time offset synchronized", log.Duration("offset", offset))
+		g.Logger.Debug("Time offset synchronized", logkit.Duration("offset", offset))
 	}
 
 	return offset, nil
@@ -441,7 +441,7 @@ func (g *Guardian) logGuardStatus(ctx context.Context, auth module.AuthContext) 
 	})
 
 	if status, err := statusFuture.Get(ctx); err == nil && status != nil {
-		g.Logger.Info("Steam Guard Status loaded", log.String("device_id", status.GetDeviceIdentifier()))
+		g.Logger.Info("Steam Guard Status loaded", logkit.String("device_id", status.GetDeviceIdentifier()))
 	}
 }
 

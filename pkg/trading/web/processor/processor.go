@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/lemon4ksan/foundation/generic"
 	"github.com/lemon4ksan/foundation/silicon/pool"
 
@@ -56,7 +56,7 @@ type OfferHandler interface {
 
 type Option = generic.Option[*Processor]
 
-func WithLogger(l log.Logger) Option {
+func WithLogger(l logkit.Logger) Option {
 	return func(p *Processor) {
 		p.logger = l
 	}
@@ -67,7 +67,7 @@ type Processor struct {
 	manager  ManagerProvider
 	backpack BackpackProvider
 	handler  OfferHandler
-	logger   log.Logger
+	logger   logkit.Logger
 
 	queue chan *trading.TradeOffer
 
@@ -84,7 +84,7 @@ func New(
 		manager:  manager,
 		handler:  handler,
 		backpack: backpack,
-		logger:   log.Discard,
+		logger:   logkit.Discard,
 		queue:    make(chan *trading.TradeOffer, 500),
 	}
 }
@@ -100,9 +100,9 @@ func (p *Processor) Enqueue(off *trading.TradeOffer) {
 
 	select {
 	case p.queue <- off:
-		p.logger.Debug("Offer enqueued for processing", log.Uint64("offerID", off.ID))
+		p.logger.Debug("Offer enqueued for processing", logkit.Uint64("offerID", off.ID))
 	default:
-		p.logger.Warn("Offer queue full, dropping offer", log.Uint64("offerID", off.ID))
+		p.logger.Warn("Offer queue full, dropping offer", logkit.Uint64("offerID", off.ID))
 		p.processing.Delete(off.ID)
 	}
 }
@@ -129,8 +129,8 @@ func (p *Processor) CheckEscrow(ctx context.Context, offer *trading.TradeOffer) 
 	}
 
 	p.logger.Debug("Escrow check success",
-		log.Int("myHoldDays", details.MyDays),
-		log.Int("theirHoldDays", details.TheirDays),
+		logkit.Int("myHoldDays", details.MyDays),
+		logkit.Int("theirHoldDays", details.TheirDays),
 	)
 
 	return details.TheirDays > 0, nil
@@ -154,7 +154,7 @@ func (p *Processor) worker(ctx context.Context) {
 
 func (p *Processor) processSingleOffer(ctx context.Context, off *trading.TradeOffer) {
 	start := time.Now()
-	l := p.logger.With(log.Uint64("offerID", off.ID))
+	l := p.logger.With(logkit.Uint64("offerID", off.ID))
 
 	ourItemIDs := make([]uint64, 0, len(off.ItemsToGive))
 	for _, it := range off.ItemsToGive {
@@ -178,7 +178,7 @@ func (p *Processor) processSingleOffer(ctx context.Context, off *trading.TradeOf
 
 	decision, err := p.handler.ProcessOffer(ctx, off)
 	if err != nil {
-		l.Error("Handler failed to process offer", log.Err(err))
+		l.Error("Handler failed to process offer", logkit.Err(err))
 		return
 	}
 
@@ -192,7 +192,7 @@ func (p *Processor) processSingleOffer(ctx context.Context, off *trading.TradeOf
 		shouldUnlock = false
 	}
 
-	l.Debug("Finished processing offer", log.Duration("took", time.Since(start)))
+	l.Debug("Finished processing offer", logkit.Duration("took", time.Since(start)))
 }
 
 func (p *Processor) applyAction(ctx context.Context, off *trading.TradeOffer, decision trading.ActionDecision) error {
@@ -252,9 +252,9 @@ func (p *Processor) withRetry(ctx context.Context, maxRetries int, fn func() err
 
 		backoffDuration := time.Duration(1<<attempt) * time.Second
 		p.logger.Warn("Action failed, retrying",
-			log.Err(err),
-			log.Int("attempt", attempt+1),
-			log.Duration("backoff", backoffDuration),
+			logkit.Err(err),
+			logkit.Int("attempt", attempt+1),
+			logkit.Duration("backoff", backoffDuration),
 		)
 
 		timer := pool.AcquireTimer(backoffDuration)

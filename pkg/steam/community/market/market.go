@@ -17,7 +17,7 @@ import (
 	"sync"
 
 	"github.com/lemon4ksan/aoni/mod"
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/lemon4ksan/foundation/codec/json"
 	"github.com/lemon4ksan/foundation/generic"
 	"github.com/lemon4ksan/foundation/silicon/bytesconv"
@@ -125,7 +125,7 @@ func (m *Market) StartAuthed(ctx context.Context, auth module.AuthContext) error
 	m.api = api
 	m.mu.Unlock()
 
-	m.Logger.Info("Market module ready", log.Int("currency", int(m.config.Currency)))
+	m.Logger.Info("Market module ready", logkit.Int("currency", int(m.config.Currency)))
 
 	return nil
 }

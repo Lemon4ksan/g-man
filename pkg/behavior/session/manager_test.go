@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/foundation/async/event"
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
@@ -44,7 +44,7 @@ func TestKeepAlive(t *testing.T) {
 		t.Parallel()
 
 		bBus := event.New()
-		logger := log.Discard
+		logger := logkit.Discard
 		orch := behavior.NewOrchestrator(bBus, logger)
 		provider := new(mockSessionProvider)
 
@@ -58,7 +58,7 @@ func TestKeepAlive(t *testing.T) {
 	t.Run("default_interval", func(t *testing.T) {
 		t.Parallel()
 
-		m := New(&mockSessionProvider{}, log.Discard, event.New(), Config{})
+		m := New(&mockSessionProvider{}, logkit.Discard, event.New(), Config{})
 		assert.Equal(t, 5*time.Minute, m.config.Interval)
 	})
 }
@@ -84,7 +84,7 @@ func TestManager_Run(t *testing.T) {
 			}
 		})
 
-		m := New(provider, log.Discard, eventBus, cfg)
+		m := New(provider, logkit.Discard, eventBus, cfg)
 
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
@@ -124,7 +124,7 @@ func TestManager_Run(t *testing.T) {
 			}
 		})
 
-		m := New(provider, log.Discard, eventBus, cfg)
+		m := New(provider, logkit.Discard, eventBus, cfg)
 
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
@@ -165,7 +165,7 @@ func TestManager_Run(t *testing.T) {
 			}
 		})
 
-		m := New(provider, log.Discard, eventBus, cfg)
+		m := New(provider, logkit.Discard, eventBus, cfg)
 
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
@@ -204,7 +204,7 @@ func TestManager_Run(t *testing.T) {
 			}
 		})
 
-		m := New(provider, log.Discard, eventBus, cfg)
+		m := New(provider, logkit.Discard, eventBus, cfg)
 
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
@@ -243,7 +243,7 @@ func TestManager_Run(t *testing.T) {
 			}
 		})
 
-		m := New(provider, log.Discard, eventBus, cfg)
+		m := New(provider, logkit.Discard, eventBus, cfg)
 
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()

@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/lemon4ksan/aoni"
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -42,10 +42,10 @@ func SetupTestClient(t *testing.T) (*client.Client, *TestMocks) {
 	sess := session.New(m.Sock, session.Config{
 		HTTP:          aoni.NewClient(m.Doer),
 		Authenticator: m.Auth,
-		WebFactory: func(steamID id.ID, logger log.Logger, r any) session.WebSessionProvider {
+		WebFactory: func(steamID id.ID, logger logkit.Logger, r any) session.WebSessionProvider {
 			return m.Web
 		},
-		CommunityFactory: func(httpDoer aoni.HTTPDoer, sess community.SessionProvider, logger log.Logger) community.Requester {
+		CommunityFactory: func(httpDoer aoni.HTTPDoer, sess community.SessionProvider, logger logkit.Logger) community.Requester {
 			return m.Comm
 		},
 	})
@@ -56,11 +56,11 @@ func SetupTestClient(t *testing.T) (*client.Client, *TestMocks) {
 		client.WithSession(sess),
 		client.WithRouter(router.New(sess, m.Sock)),
 		client.WithAuthenticator(m.Auth),
-		client.WithWebFactory(func(steamID id.ID, logger log.Logger, r any) session.WebSessionProvider {
+		client.WithWebFactory(func(steamID id.ID, logger logkit.Logger, r any) session.WebSessionProvider {
 			return m.Web
 		}),
 		client.WithCommunityFactory(
-			func(httpDoer aoni.HTTPDoer, sess community.SessionProvider, logger log.Logger) community.Requester {
+			func(httpDoer aoni.HTTPDoer, sess community.SessionProvider, logger logkit.Logger) community.Requester {
 				return m.Comm
 			},
 		),

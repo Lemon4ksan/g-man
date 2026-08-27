@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 )
@@ -19,10 +19,10 @@ import (
 type Reviewer struct {
 	schema SchemaProvider
 	chat   ChatProvider
-	logger log.Logger
+	logger logkit.Logger
 }
 
-func New(s SchemaProvider, c ChatProvider, l log.Logger) *Reviewer {
+func New(s SchemaProvider, c ChatProvider, l logkit.Logger) *Reviewer {
 	return &Reviewer{schema: s, chat: c, logger: l}
 }
 

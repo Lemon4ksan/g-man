@@ -147,7 +147,7 @@ func (c *apiClient) SaveProfile(ctx context.Context, steamID uint64, req *profil
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[saveResponse](ctx, "profiles/{steamID}/edit", nil, allMods...)
+	resp, err := c.r.PostTo[saveResponse](ctx, "profiles/{steamID}/edit", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +178,7 @@ func (c *apiClient) SavePrivacy(ctx context.Context, steamID uint64, sessionID s
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[privacyResponse](ctx, "profiles/{steamID}/ajaxsetprivacy", nil, allMods...)
+	resp, err := c.r.PostTo[privacyResponse](ctx, "profiles/{steamID}/ajaxsetprivacy", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -210,7 +210,7 @@ func (c *apiClient) UploadAvatarFile(ctx context.Context, uploadType string, ste
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[uploadResponse](ctx, "actions/FileUploader", nil, allMods...)
+	resp, err := c.r.PostTo[uploadResponse](ctx, "actions/FileUploader", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}

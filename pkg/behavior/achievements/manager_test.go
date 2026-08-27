@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/foundation/async/event"
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lemon4ksan/g-man/pkg/behavior"
@@ -73,7 +73,7 @@ func TestAchievementManager_Lifecycle(t *testing.T) {
 		t.Parallel()
 
 		bBus := event.New()
-		logger := log.Discard
+		logger := logkit.Discard
 		orch := behavior.NewOrchestrator(bBus, logger)
 
 		provider := &mockProvider{
@@ -113,7 +113,7 @@ func TestAchievementManager_Unlock(t *testing.T) {
 			AchievementPool:  [][]uint32{{1, 5}},
 		}
 
-		mgr := New(provider, config, log.Discard)
+		mgr := New(provider, config, logkit.Discard)
 
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
@@ -151,7 +151,7 @@ func TestAchievementManager_Unlock(t *testing.T) {
 			UnlockChance:     0.0, // never unlock
 			BreakChance:      0.0, // never break
 		}
-		mgr := New(provider, config, log.Discard)
+		mgr := New(provider, config, logkit.Discard)
 
 		ctx, cancel := context.WithCancel(t.Context())
 		cancel() // выход
@@ -178,7 +178,7 @@ func TestAchievementManager_Break(t *testing.T) {
 			CheckInterval: 10 * time.Millisecond,
 		}
 
-		mgr := New(provider, config, log.Discard)
+		mgr := New(provider, config, logkit.Discard)
 
 		ctx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
 		defer cancel()
@@ -206,7 +206,7 @@ func TestAchievementManager_Run_Errors(t *testing.T) {
 			AppID:        440,
 			InitialDelay: 5 * time.Second, // long delay
 		}
-		mgr := New(provider, config, log.Discard)
+		mgr := New(provider, config, logkit.Discard)
 
 		ctx, cancel := context.WithCancel(t.Context())
 		cancel() // Cancel context immediately
@@ -225,7 +225,7 @@ func TestAchievementManager_Run_Errors(t *testing.T) {
 		config := Config{
 			AppID: 440,
 		}
-		mgr := New(provider, config, log.Discard)
+		mgr := New(provider, config, logkit.Discard)
 
 		ctx, cancel := context.WithCancel(t.Context())
 		provider.getCanceled = cancel
@@ -241,7 +241,7 @@ func TestAchievementManager_Unlock_Errors(t *testing.T) {
 	t.Run("unlock_random_empty_pool", func(t *testing.T) {
 		t.Parallel()
 
-		mgr := New(&mockProvider{}, Config{}, log.Discard)
+		mgr := New(&mockProvider{}, Config{}, logkit.Discard)
 		assert.NotPanics(t, func() {
 			mgr.unlockRandom(t.Context(), nil)
 		})
@@ -252,7 +252,7 @@ func TestAchievementManager_Unlock_Errors(t *testing.T) {
 
 		mgr := New(&mockProvider{}, Config{
 			AchievementPool: [][]uint32{{1}}, // only 1 element
-		}, log.Discard)
+		}, logkit.Discard)
 		assert.NotPanics(t, func() {
 			mgr.unlockRandom(t.Context(), nil)
 		})
@@ -266,7 +266,7 @@ func TestAchievementManager_Unlock_Errors(t *testing.T) {
 		}
 		mgr := New(provider, Config{
 			AchievementPool: [][]uint32{{1, 1}}, // range [1, 1]
-		}, log.Discard)
+		}, logkit.Discard)
 
 		assert.NotPanics(t, func() {
 			mgr.unlockRandom(t.Context(), map[uint32]bool{1: true})

@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/foundation/async/fsm"
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/lemon4ksan/foundation/async/rate"
 	"github.com/lemon4ksan/foundation/sync/keylock"
 
@@ -159,7 +159,7 @@ func New(cfg Config) *Manager {
 	return &Manager{
 		Base:           module.New(ModuleName),
 		config:         cfg,
-		canceller:      NewCanceller(log.Discard),
+		canceller:      NewCanceller(logkit.Discard),
 		enricher:       NewEnricher(),
 		sentOffers:     make(map[uint64]trading.OfferState),
 		receivedOffers: make(map[uint64]trading.OfferState),
@@ -342,7 +342,7 @@ func (m *Manager) StartPolling() error {
 	}
 
 	m.Go(m.pollingLoop)
-	m.Logger.Info("Trade polling started", log.Duration("interval", m.config.PollInterval))
+	m.Logger.Info("Trade polling started", logkit.Duration("interval", m.config.PollInterval))
 
 	return nil
 }

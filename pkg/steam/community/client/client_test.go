@@ -14,7 +14,7 @@ import (
 	"testing"
 
 	"github.com/lemon4ksan/aoni"
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -46,7 +46,7 @@ func newMockedClient(t *testing.T, mockSvc *mock.ServiceMock) *client.Client {
 func TestNew_InitializesCorrectly(t *testing.T) {
 	t.Parallel()
 
-	logger := log.New(log.DefaultConfig(log.LevelDebug))
+	logger := logkit.New(logkit.DefaultConfig(logkit.LevelDebug))
 
 	t.Run("Default Initialization", func(t *testing.T) {
 		t.Parallel()

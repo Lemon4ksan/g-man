@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
@@ -26,14 +26,14 @@ var ErrNegativeAmount = errors.New("chatbot: withdrawal amount must be a positiv
 // ChatBot links Steam friend and chat events with the command engine.
 type ChatBot struct {
 	client *steam.Client
-	logger log.Logger
+	logger logkit.Logger
 }
 
 // NewChatBot constructs a ChatBot instance.
-func NewChatBot(client *steam.Client, logger log.Logger) *ChatBot {
+func NewChatBot(client *steam.Client, logger logkit.Logger) *ChatBot {
 	return &ChatBot{
 		client: client,
-		logger: logger.With(log.Module("admin_bot")),
+		logger: logger.With(logkit.Module("admin_bot")),
 	}
 }
 
@@ -93,11 +93,11 @@ func (bot *ChatBot) handleFriendRequest(ctx context.Context, e *friends.Relation
 	friendsMgr := friends.From(bot.client)
 
 	if e.New == enums.EFriendRelationship_RequestInitiator {
-		bot.logger.Info("Received incoming friend request", log.String("steam_id", e.SteamID.String()))
+		bot.logger.Info("Received incoming friend request", logkit.String("steam_id", e.SteamID.String()))
 
 		err := friendsMgr.AcceptFriendRequestWeb(ctx, e.SteamID)
 		if err != nil {
-			bot.logger.Error("Failed to accept friend request", log.Err(err))
+			bot.logger.Error("Failed to accept friend request", logkit.Err(err))
 			return
 		}
 
@@ -117,9 +117,9 @@ func (bot *ChatBot) handleWithdraw(_ context.Context, senderID uint64, args []an
 	}
 
 	bot.logger.Warn("Withdraw executed by admin",
-		log.Uint64("admin_id", senderID),
-		log.String("target_id", targetID.String()),
-		log.Float64("amount", amount),
+		logkit.Uint64("admin_id", senderID),
+		logkit.String("target_id", targetID.String()),
+		logkit.Float64("amount", amount),
 	)
 
 	return fmt.Sprintf(
@@ -136,7 +136,7 @@ func (bot *ChatBot) handleApprove(ctx context.Context, senderID uint64, args []a
 		return "", fmt.Errorf("failed to approve trade #%d: %w", offerID, err)
 	}
 
-	bot.logger.Info("Admin approved trade manual", log.Uint64("admin", senderID), log.Uint64("offer", offerID))
+	bot.logger.Info("Admin approved trade manual", logkit.Uint64("admin", senderID), logkit.Uint64("offer", offerID))
 
 	return fmt.Sprintf("✅ Trade #%d has been successfully confirmed and sent for verification.", offerID), nil
 }

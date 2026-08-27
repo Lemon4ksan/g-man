@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/foundation/async/event"
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/lemon4ksan/foundation/generic"
 	"google.golang.org/protobuf/proto"
 
@@ -197,7 +197,7 @@ func (m *Manager) FlashStatus(message string, duration time.Duration) {
 	m.activeFlashUntil = time.Now().Add(duration)
 	m.stateMu.Unlock()
 
-	m.Logger.Debug("Status flash triggered", log.String("message", message))
+	m.Logger.Debug("Status flash triggered", logkit.String("message", message))
 }
 
 // ForceUpdate triggers an immediate status refresh on Steam.
@@ -320,7 +320,7 @@ func (m *Manager) updateSteamStatus(ctx context.Context, statusText string) {
 	}
 
 	if err := m.playCombined(ctx, m.config.IdleAppIDs, statusText); err != nil {
-		m.Logger.Warn("Failed to update status", log.Err(err))
+		m.Logger.Warn("Failed to update status", logkit.Err(err))
 	} else {
 		m.Bus.Publish(&StatusUpdatedEvent{
 			StatusText: statusText,

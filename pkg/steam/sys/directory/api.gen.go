@@ -67,7 +67,7 @@ func (c *apiClient) GetCMList(ctx context.Context, req *CMListRequest) (*CMListR
 		ErrorMsg string          `json:"error,omitempty"`
 	}
 
-	resp, err := c.r.Get[envelope](ctx, "GetCMList/v1/", allMods...)
+	resp, err := c.r.GetTo[envelope](ctx, "GetCMList/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func (c *apiClient) GetCMListForConnect(ctx context.Context, req *CMListForConne
 		ErrorMsg string                    `json:"error,omitempty"`
 	}
 
-	resp, err := c.r.Get[envelope](ctx, "GetCMListForConnect/v1/", allMods...)
+	resp, err := c.r.GetTo[envelope](ctx, "GetCMListForConnect/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +112,7 @@ func (c *apiClient) GetSteamPipeDomains(ctx context.Context) (*SteamPipeDomainsR
 		ErrorMsg string                    `json:"error,omitempty"`
 	}
 
-	resp, err := c.r.Get[envelope](ctx, "GetSteamPipeDomains/v1/", allMods...)
+	resp, err := c.r.GetTo[envelope](ctx, "GetSteamPipeDomains/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}

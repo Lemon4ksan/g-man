@@ -202,7 +202,7 @@ func (e *SteamEmulator) registerRoutes() {
 				WithHeader(header.ContentType, header.MIMEApplicationJSONCharsetUTF8), nil
 		}
 
-		emptyInv := fmt.Sprintf(`{"assets":[],"descriptions":[],"total_inventory_count":0,"success":1,"rwgrsn":-2}`)
+		emptyInv := `{"assets":[],"descriptions":[],"total_inventory_count":0,"success":1,"rwgrsn":-2}`
 		return sein.OK[any](emptyInv).
 			WithHeader(header.ContentType, header.MIMEApplicationJSONCharsetUTF8), nil
 	})

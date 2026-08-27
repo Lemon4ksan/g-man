@@ -16,7 +16,7 @@ import (
 
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/foundation/async/event"
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/lemon4ksan/foundation/generic"
 
 	"github.com/lemon4ksan/g-man/internal/network"
@@ -63,7 +63,7 @@ type WebSessionProvider interface {
 type SocketProvider interface {
 	auth.SocketProvider
 	IsConnected() bool
-	UpdateLogger(logger log.Logger)
+	UpdateLogger(logger logkit.Logger)
 	UpdateServers(servers []socket.CMServer)
 	Send(ctx context.Context, build socket.PayloadBuilder, opts ...socket.SendOption) error
 	SendSync(ctx context.Context, build socket.PayloadBuilder, opts ...socket.SendOption) (*protocol.Packet, error)
@@ -74,10 +74,10 @@ type SocketProvider interface {
 }
 
 // WebSessionFactory constructs custom WebSessionProvider instances.
-type WebSessionFactory func(steamID id.ID, logger log.Logger, r any) WebSessionProvider
+type WebSessionFactory func(steamID id.ID, logger logkit.Logger, r any) WebSessionProvider
 
 // CommunityClientFactory constructs custom community requester instances.
-type CommunityClientFactory func(httpDoer aoni.HTTPDoer, sess community.SessionProvider, logger log.Logger) community.Requester
+type CommunityClientFactory func(httpDoer aoni.HTTPDoer, sess community.SessionProvider, logger logkit.Logger) community.Requester
 
 // Config configures the Session manager behavior and fallback providers.
 type Config struct {
@@ -87,7 +87,7 @@ type Config struct {
 	HTTP               any
 	WebAPIBase         string
 	Bus                *event.Bus
-	Logger             log.Logger
+	Logger             logkit.Logger
 	Authenticator      AuthenticatorProvider
 	WebFactory         WebSessionFactory
 	CommunityFactory   CommunityClientFactory
@@ -100,7 +100,7 @@ func (cfg *Config) ResolveDefaults() {
 	}
 
 	if cfg.Logger == nil {
-		cfg.Logger = log.Discard
+		cfg.Logger = logkit.Discard
 	}
 
 	if cfg.Bus == nil {
@@ -125,13 +125,13 @@ func (cfg *Config) ResolveDefaults() {
 	}
 
 	if cfg.WebFactory == nil {
-		cfg.WebFactory = func(steamID id.ID, logger log.Logger, r any) WebSessionProvider {
+		cfg.WebFactory = func(steamID id.ID, logger logkit.Logger, r any) WebSessionProvider {
 			return websession.New(steamID, logger, r)
 		}
 	}
 
 	if cfg.CommunityFactory == nil {
-		cfg.CommunityFactory = func(httpDoer aoni.HTTPDoer, sess community.SessionProvider, logger log.Logger) community.Requester {
+		cfg.CommunityFactory = func(httpDoer aoni.HTTPDoer, sess community.SessionProvider, logger logkit.Logger) community.Requester {
 			return community.NewClient(aoni.NewHTTPDoerAdapter(httpDoer), sess).WithLogger(logger)
 		}
 	}
@@ -148,7 +148,7 @@ type Session struct {
 	web       WebSessionProvider
 	community community.Requester
 	socket    SocketProvider
-	logger    log.Logger
+	logger    logkit.Logger
 	storage   storage.Provider
 	device    *auth.DeviceConfig
 	bus       *event.Bus
@@ -198,7 +198,7 @@ func New(socket SocketProvider, cfg Config) *Session {
 		cancel:             cancel,
 		auth:               cfg.Authenticator,
 		socket:             socket,
-		logger:             cfg.Logger.With(log.Module("session_manager")),
+		logger:             cfg.Logger.With(logkit.Module("session_manager")),
 		storage:            cfg.Storage,
 		device:             cfg.Device,
 		bus:                cfg.Bus,
@@ -216,7 +216,7 @@ func New(socket SocketProvider, cfg Config) *Session {
 			sess.Logger().Info("L4 transport reconnected, re-authenticating L7 Steam session...")
 
 			if err := sess.Reconnect(reconCtx); err != nil {
-				sess.Logger().Error("Re-authentication failed after transport reconnect", log.Err(err))
+				sess.Logger().Error("Re-authentication failed after transport reconnect", logkit.Err(err))
 			}
 		})
 	}
@@ -422,9 +422,9 @@ func (c *Session) LogOn(ctx context.Context, server socket.CMServer, details *au
 	}
 
 	if key, err := c.GetOrRegisterAPIKey(ctx, "g-man-bot.dev"); err != nil {
-		c.Logger().Warn("Could not auto-fetch WebAPI Key", log.Err(err))
+		c.Logger().Warn("Could not auto-fetch WebAPI Key", logkit.Err(err))
 	} else {
-		c.Logger().Info("WebAPI Key acquired automatically", log.String("key", key[:4]+"***"))
+		c.Logger().Info("WebAPI Key acquired automatically", logkit.String("key", key[:4]+"***"))
 		c.SetAPIKey(key)
 	}
 
@@ -506,7 +506,7 @@ func (c *Session) doRefreshInternal(ctx context.Context, force bool) error {
 		}
 	}
 
-	c.Logger().Debug("Refreshing Steam session tokens...", log.Bool("force", force))
+	c.Logger().Debug("Refreshing Steam session tokens...", logkit.Bool("force", force))
 
 	refreshToken := c.RefreshToken()
 	steamID := c.SteamID().Uint64()
@@ -557,18 +557,18 @@ func (c *Session) StartRefreshLoop(ctx context.Context) {
 						c.Logger().Info("Web session verification failed, forcing token renewal")
 
 						if err := c.ForceRefresh(ctx); err != nil {
-							c.Logger().Warn("Periodic session refresh failed", log.Err(err))
+							c.Logger().Warn("Periodic session refresh failed", logkit.Err(err))
 						}
 					} else {
 						c.Logger().Info("Executing periodic 12-hour session token renewal")
 
 						if err := c.ForceRefresh(ctx); err != nil {
-							c.Logger().Warn("Periodic session refresh failed", log.Err(err))
+							c.Logger().Warn("Periodic session refresh failed", logkit.Err(err))
 						}
 					}
 				} else {
 					if err := c.ForceRefresh(ctx); err != nil {
-						c.Logger().Warn("Periodic session refresh failed", log.Err(err))
+						c.Logger().Warn("Periodic session refresh failed", logkit.Err(err))
 					}
 				}
 			}
@@ -593,7 +593,7 @@ func (c *Session) Close() error {
 }
 
 // Logger returns the configured logger.
-func (c *Session) Logger() log.Logger {
+func (c *Session) Logger() logkit.Logger {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -607,12 +607,12 @@ func (c *Session) EnrichLogger(account string, steamID id.ID) {
 
 	var logFields []any
 	if account != "" && c.enrichedAccount == "" {
-		logFields = append(logFields, log.String("account", account))
+		logFields = append(logFields, logkit.String("account", account))
 		c.enrichedAccount = account
 	}
 
 	if steamID != 0 && c.enrichedSteamID == 0 {
-		logFields = append(logFields, log.Uint64("steam_id", steamID.Uint64()))
+		logFields = append(logFields, logkit.Uint64("steam_id", steamID.Uint64()))
 		c.enrichedSteamID = steamID
 	}
 

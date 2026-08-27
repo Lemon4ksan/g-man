@@ -9,7 +9,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/sys/apps"
@@ -19,7 +19,7 @@ import (
 // to mimic human online/offline hours and randomized game activity.
 type HumanMimicryBehavior struct {
 	client *steam.Client
-	logger log.Logger
+	logger logkit.Logger
 	rng    *rand.Rand
 
 	gamePool    []uint32
@@ -33,11 +33,11 @@ func NewHumanMimicryBehavior(
 	client *steam.Client,
 	gamePool []uint32,
 	startHour, endHour int,
-	logger log.Logger,
+	logger logkit.Logger,
 ) *HumanMimicryBehavior {
 	return &HumanMimicryBehavior{
 		client:    client,
-		logger:    logger.With(log.Module("mimicry")),
+		logger:    logger.With(logkit.Module("mimicry")),
 		rng:       rand.New(rand.NewSource(time.Now().UnixNano())),
 		gamePool:  gamePool,
 		startHour: startHour,
@@ -53,8 +53,8 @@ func (h *HumanMimicryBehavior) Name() string {
 // Run executes the main activity state evaluation loop.
 func (h *HumanMimicryBehavior) Run(ctx context.Context) error {
 	h.logger.Info("Human Mimicry behavior started",
-		log.Int("active_hours", h.startHour),
-		log.Int("inactive_hours", h.endHour),
+		logkit.Int("active_hours", h.startHour),
+		logkit.Int("inactive_hours", h.endHour),
 	)
 
 	ticker := time.NewTicker(5 * time.Minute)
@@ -97,10 +97,10 @@ func (h *HumanMimicryBehavior) evaluateState(ctx context.Context) {
 			h.randomSleep(ctx, 10, 120)
 
 			selectedGames := h.selectRandomGames(3)
-			h.logger.Info("Starting game idling session", log.Any("game_ids", selectedGames))
+			h.logger.Info("Starting game idling session", logkit.Any("game_ids", selectedGames))
 
 			if err := appsMgr.PlayGames(ctx, selectedGames, false); err != nil {
-				h.logger.Error("Failed to update playing status", log.Err(err))
+				h.logger.Error("Failed to update playing status", logkit.Err(err))
 			}
 		} else if h.rng.Float32() < 0.15 {
 			h.logger.Info("Simulating game change session...")
@@ -120,7 +120,7 @@ func (h *HumanMimicryBehavior) evaluateState(ctx context.Context) {
 		h.randomSleep(ctx, 60, 900)
 
 		if err := appsMgr.StopPlaying(ctx); err != nil {
-			h.logger.Error("Failed to stop playing status", log.Err(err))
+			h.logger.Error("Failed to stop playing status", logkit.Err(err))
 		}
 	}
 }

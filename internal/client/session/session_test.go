@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/aoni"
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/protobuf/proto"
@@ -92,7 +92,7 @@ func (m *mockSocket) IsConnected() bool {
 	return args.Bool(0)
 }
 
-func (m *mockSocket) UpdateLogger(logger log.Logger) {
+func (m *mockSocket) UpdateLogger(logger logkit.Logger) {
 	m.Called(logger)
 }
 
@@ -263,13 +263,13 @@ func setupTestClient(t *testing.T) (*testClient, *testMocks) {
 	}
 
 	cfg := Config{
-		Logger:        log.Discard,
+		Logger:        logkit.Discard,
 		HTTP:          m.http,
 		Authenticator: m.auth,
-		WebFactory: func(steamID id.ID, logger log.Logger, r any) WebSessionProvider {
+		WebFactory: func(steamID id.ID, logger logkit.Logger, r any) WebSessionProvider {
 			return m.web
 		},
-		CommunityFactory: func(httpDoer aoni.HTTPDoer, sess community.SessionProvider, logger log.Logger) community.Requester {
+		CommunityFactory: func(httpDoer aoni.HTTPDoer, sess community.SessionProvider, logger logkit.Logger) community.Requester {
 			return m.comm
 		},
 	}
@@ -692,11 +692,11 @@ func TestSessionManager_CustomFactories_ValidFactories_InvokesCustomFactories(t 
 	mc.On("GetOrRegisterAPIKey", mock.Anything, mock.Anything).Return("key_12345", nil).Maybe()
 
 	cfg := Config{
-		WebFactory: func(steamID id.ID, logger log.Logger, r any) WebSessionProvider {
+		WebFactory: func(steamID id.ID, logger logkit.Logger, r any) WebSessionProvider {
 			webCalled = true
 			return mw
 		},
-		CommunityFactory: func(httpDoer aoni.HTTPDoer, sess community.SessionProvider, logger log.Logger) community.Requester {
+		CommunityFactory: func(httpDoer aoni.HTTPDoer, sess community.SessionProvider, logger logkit.Logger) community.Requester {
 			commCalled = true
 			return mc
 		},
@@ -710,7 +710,7 @@ func TestSessionManager_CustomFactories_ValidFactories_InvokesCustomFactories(t 
 
 	msock := new(mockSocket)
 	sessionCfg := Config{
-		Logger:           log.Discard,
+		Logger:           logkit.Discard,
 		Authenticator:    ma,
 		WebFactory:       cfg.WebFactory,
 		CommunityFactory: cfg.CommunityFactory,

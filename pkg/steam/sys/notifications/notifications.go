@@ -11,7 +11,7 @@ import (
 	"maps"
 	"sync/atomic"
 
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/client"
@@ -136,7 +136,7 @@ func (n *Notifications) MarkNotificationsRead(ctx context.Context, notificationI
 		body,
 	)
 	if err != nil {
-		n.Logger.Debug("Failed to mark notifications read", log.Err(err))
+		n.Logger.Debug("Failed to mark notifications read", logkit.Err(err))
 	}
 
 	return err
@@ -161,7 +161,7 @@ func (n *Notifications) MarkAllNotificationsRead(ctx context.Context) error {
 		body,
 	)
 	if err != nil {
-		n.Logger.Debug("Failed to mark all notifications read", log.Err(err))
+		n.Logger.Debug("Failed to mark all notifications read", logkit.Err(err))
 	}
 
 	return err
@@ -182,7 +182,7 @@ func (n *Notifications) updateState(fn func(next *Snapshot)) {
 }
 
 func (n *Notifications) handleItemAnnouncements(msg *pb.CMsgClientItemAnnouncements) {
-	n.Logger.Debug("Item announcements received", log.Uint32("count", msg.GetCountNewItems()))
+	n.Logger.Debug("Item announcements received", logkit.Uint32("count", msg.GetCountNewItems()))
 
 	n.Bus.Publish(&ItemAnnouncementsEvent{
 		CountNewItems: msg.GetCountNewItems(),
@@ -191,7 +191,7 @@ func (n *Notifications) handleItemAnnouncements(msg *pb.CMsgClientItemAnnounceme
 }
 
 func (n *Notifications) handleCommentNotifications(msg *pb.CMsgClientCommentNotifications) {
-	n.Logger.Debug("Comment notifications received", log.Uint32("count", msg.GetCountNewComments()))
+	n.Logger.Debug("Comment notifications received", logkit.Uint32("count", msg.GetCountNewComments()))
 
 	n.Bus.Publish(&CommentNotificationsEvent{
 		CountNewComments:              msg.GetCountNewComments(),
@@ -245,7 +245,7 @@ func (n *Notifications) handleOfflineMessages(msg *pb.CMsgClientOfflineMessageNo
 		friends = append(friends, sid)
 	}
 
-	n.Logger.Debug("Offline messages received", log.Uint32("count", msg.GetOfflineMessages()))
+	n.Logger.Debug("Offline messages received", logkit.Uint32("count", msg.GetOfflineMessages()))
 
 	n.Bus.Publish(&OfflineMessagesEvent{
 		OfflineMessages:            msg.GetOfflineMessages(),
@@ -258,7 +258,7 @@ func (n *Notifications) handleMarketingMessages(ev *MarketingMessagesEvent) {
 		return
 	}
 
-	n.Logger.Debug("Marketing messages received", log.Uint32("count", uint32(len(ev.Messages))))
+	n.Logger.Debug("Marketing messages received", logkit.Uint32("count", uint32(len(ev.Messages))))
 	n.Bus.Publish(ev)
 }
 
@@ -267,7 +267,7 @@ func (n *Notifications) handleNotificationsReceived(msg *pb.CSteamNotification_N
 		return
 	}
 
-	n.Logger.Debug("Notifications received", log.Int("count", len(msg.GetNotifications())))
+	n.Logger.Debug("Notifications received", logkit.Int("count", len(msg.GetNotifications())))
 
 	n.Bus.Publish(&ReceivedEvent{
 		Notifications:            msg.GetNotifications(),

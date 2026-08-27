@@ -17,7 +17,7 @@ import (
 
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/mod"
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/lemon4ksan/foundation/net/proxy"
 
 	"github.com/lemon4ksan/g-man/internal/framer"
@@ -42,7 +42,7 @@ var ErrNilFramer = errors.New("tcp: framer cannot be nil")
 type TCP struct {
 	BaseConnection
 	conn   net.Conn
-	logger log.Logger
+	logger logkit.Logger
 	framer Framer
 
 	msgChan    chan Message
@@ -57,7 +57,7 @@ type TCP struct {
 // NewTCP dials a TCP endpoint (optionally via proxy) and starts background framing loops.
 func NewTCP(
 	ctx context.Context,
-	logger log.Logger,
+	logger logkit.Logger,
 	endpoint, proxyURL string,
 	framer Framer,
 ) (*TCP, error) {
@@ -83,7 +83,7 @@ func NewTCP(
 	t := &TCP{
 		BaseConnection: NewBaseConnection(ConnTypeTCP),
 		conn:           conn,
-		logger:         logger.With(log.String("transport", ConnTypeTCP), log.String("endpoint", endpoint)),
+		logger:         logger.With(logkit.String("transport", ConnTypeTCP), logkit.String("endpoint", endpoint)),
 		framer:         framer,
 		msgChan:        make(chan Message, 100),
 		errChan:        make(chan error, 10),
@@ -98,7 +98,7 @@ func NewTCP(
 // NewTCPWithDialer dials a TCP connection using a custom dialer function.
 func NewTCPWithDialer(
 	ctx context.Context,
-	logger log.Logger,
+	logger logkit.Logger,
 	endpoint, proxyURL string,
 	framer Framer,
 	dialFunc func(ctx context.Context, network, addr string) (net.Conn, error),
@@ -123,7 +123,7 @@ func NewTCPWithDialer(
 	t := &TCP{
 		BaseConnection: NewBaseConnection(ConnTypeTCP),
 		conn:           conn,
-		logger:         logger.With(log.String("transport", ConnTypeTCP), log.String("endpoint", endpoint)),
+		logger:         logger.With(logkit.String("transport", ConnTypeTCP), logkit.String("endpoint", endpoint)),
 		framer:         framer,
 		msgChan:        make(chan Message, 100),
 		errChan:        make(chan error, 10),

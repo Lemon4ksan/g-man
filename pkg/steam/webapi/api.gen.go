@@ -55,7 +55,7 @@ func (c *clientStats1046930Client) ReportEvent(ctx context.Context, mods ...aoni
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[json.RawMessage](ctx, "/ReportEvent/v1/", nil, allMods...)
+	resp, err := c.r.PostTo[json.RawMessage](ctx, "/ReportEvent/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +109,7 @@ func (c *csgoPlayers730Client) GetNextMatchSharingCode(ctx context.Context, stea
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetNextMatchSharingCode/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetNextMatchSharingCode/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +163,7 @@ func (c *csgoServers730Client) GetGameMapsPlaytime(ctx context.Context, interval
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetGameMapsPlaytime/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetGameMapsPlaytime/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +178,7 @@ func (c *csgoServers730Client) GetGameServersStatus(ctx context.Context, mods ..
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetGameServersStatus/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetGameServersStatus/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -232,7 +232,7 @@ func (c *csgoTournaments730Client) GetTournamentFantasyLineup(ctx context.Contex
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetTournamentFantasyLineup/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetTournamentFantasyLineup/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -257,7 +257,7 @@ func (c *csgoTournaments730Client) GetTournamentItems(ctx context.Context, event
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetTournamentItems/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetTournamentItems/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -278,7 +278,7 @@ func (c *csgoTournaments730Client) GetTournamentLayout(ctx context.Context, even
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetTournamentLayout/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetTournamentLayout/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -303,7 +303,7 @@ func (c *csgoTournaments730Client) GetTournamentPredictions(ctx context.Context,
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetTournamentPredictions/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetTournamentPredictions/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -323,7 +323,7 @@ func (c *csgoTournaments730Client) UploadTournamentFantasyLineup(ctx context.Con
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[json.RawMessage](ctx, "/UploadTournamentFantasyLineup/v1/", nil, allMods...)
+	resp, err := c.r.PostTo[json.RawMessage](ctx, "/UploadTournamentFantasyLineup/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -343,7 +343,7 @@ func (c *csgoTournaments730Client) UploadTournamentPredictions(ctx context.Conte
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[json.RawMessage](ctx, "/UploadTournamentPredictions/v1/", nil, allMods...)
+	resp, err := c.r.PostTo[json.RawMessage](ctx, "/UploadTournamentPredictions/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -393,7 +393,7 @@ func (c *dotA2MatchStats570Client) GetRealtimeStats(ctx context.Context, serverS
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetRealtimeStats/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetRealtimeStats/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -447,7 +447,7 @@ func (c *dotA2Match570Client) GetLiveLeagueGames(ctx context.Context, leagueID u
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetLiveLeagueGames/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetLiveLeagueGames/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -470,7 +470,7 @@ func (c *dotA2Match570Client) GetMatchDetails(ctx context.Context, matchID uint6
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetMatchDetails/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetMatchDetails/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -490,7 +490,7 @@ func (c *dotA2Match570Client) GetMatchHistory(ctx context.Context, req *GetMatch
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetMatchHistory/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetMatchHistory/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -513,7 +513,7 @@ func (c *dotA2Match570Client) GetMatchHistoryBySequenceNum(ctx context.Context, 
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetMatchHistoryBySequenceNum/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetMatchHistoryBySequenceNum/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -536,7 +536,7 @@ func (c *dotA2Match570Client) GetTeamInfoByTeamID(ctx context.Context, startAtTe
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetTeamInfoByTeamID/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetTeamInfoByTeamID/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -557,7 +557,7 @@ func (c *dotA2Match570Client) GetTopLiveEventGame(ctx context.Context, partner i
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetTopLiveEventGame/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetTopLiveEventGame/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -578,7 +578,7 @@ func (c *dotA2Match570Client) GetTopLiveGame(ctx context.Context, partner int32,
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetTopLiveGame/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetTopLiveGame/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -601,7 +601,7 @@ func (c *dotA2Match570Client) GetTopWeekendTourneyGames(ctx context.Context, par
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetTopWeekendTourneyGames/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetTopWeekendTourneyGames/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -621,7 +621,7 @@ func (c *dotA2Match570Client) GetTournamentPlayerStatsV1(ctx context.Context, re
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetTournamentPlayerStats/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetTournamentPlayerStats/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -641,7 +641,7 @@ func (c *dotA2Match570Client) GetTournamentPlayerStatsV2(ctx context.Context, re
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetTournamentPlayerStats/v2/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetTournamentPlayerStats/v2/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -693,7 +693,7 @@ func (c *dotA2StreamSystem570Client) GetBroadcasterInfo(ctx context.Context, bro
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetBroadcasterInfo/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetBroadcasterInfo/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -743,7 +743,7 @@ func (c *dotA2Ticket570Client) GetSteamIDForBadgeID(ctx context.Context, badgeID
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetSteamIDForBadgeID/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetSteamIDForBadgeID/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -767,7 +767,7 @@ func (c *dotA2Ticket570Client) SetSteamAccountPurchased(ctx context.Context, ste
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[json.RawMessage](ctx, "/SetSteamAccountPurchased/v1/", nil, allMods...)
+	resp, err := c.r.PostTo[json.RawMessage](ctx, "/SetSteamAccountPurchased/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -787,7 +787,7 @@ func (c *dotA2Ticket570Client) SteamAccountValidForBadgeType(ctx context.Context
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/SteamAccountValidForBadgeType/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/SteamAccountValidForBadgeType/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -841,7 +841,7 @@ func (c *econDOTA2570Client) GetEventStatsForAccount(ctx context.Context, eventI
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetEventStatsForAccount/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetEventStatsForAccount/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -864,7 +864,7 @@ func (c *econDOTA2570Client) GetHeroes(ctx context.Context, language string, ite
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetHeroes/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetHeroes/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -885,7 +885,7 @@ func (c *econDOTA2570Client) GetItemCreators(ctx context.Context, itemdef uint32
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetItemCreators/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetItemCreators/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -906,7 +906,7 @@ func (c *econDOTA2570Client) GetItemWorkshopPublishedFileIDs(ctx context.Context
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetItemWorkshopPublishedFileIDs/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetItemWorkshopPublishedFileIDs/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -927,7 +927,7 @@ func (c *econDOTA2570Client) GetRarities(ctx context.Context, language string, m
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetRarities/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetRarities/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -948,7 +948,7 @@ func (c *econDOTA2570Client) GetTournamentPrizePool(ctx context.Context, leagueI
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetTournamentPrizePool/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetTournamentPrizePool/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -998,7 +998,7 @@ func (c *econItems1046930Client) GetPlayerItems(ctx context.Context, steamID uin
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetPlayerItems/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetPlayerItems/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1050,7 +1050,7 @@ func (c *econItems1269260Client) GetEquippedPlayerItems(ctx context.Context, ste
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetEquippedPlayerItems/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetEquippedPlayerItems/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1100,7 +1100,7 @@ func (c *econItems440Client) GetPlayerItems(ctx context.Context, steamID uint64,
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetPlayerItems/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetPlayerItems/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1121,7 +1121,7 @@ func (c *econItems440Client) GetSchema(ctx context.Context, language string, mod
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetSchema/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetSchema/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1144,7 +1144,7 @@ func (c *econItems440Client) GetSchemaItems(ctx context.Context, language string
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetSchemaItems/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetSchemaItems/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1165,7 +1165,7 @@ func (c *econItems440Client) GetSchemaOverview(ctx context.Context, language str
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetSchemaOverview/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetSchemaOverview/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1180,7 +1180,7 @@ func (c *econItems440Client) GetSchemaURL(ctx context.Context, mods ...aoni.Requ
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetSchemaURL/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetSchemaURL/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1201,7 +1201,7 @@ func (c *econItems440Client) GetStoreMetaData(ctx context.Context, language stri
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetStoreMetaData/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetStoreMetaData/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1216,7 +1216,7 @@ func (c *econItems440Client) GetStoreStatus(ctx context.Context, mods ...aoni.Re
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetStoreStatus/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetStoreStatus/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1266,7 +1266,7 @@ func (c *econItems570Client) GetPlayerItems(ctx context.Context, steamID uint64,
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetPlayerItems/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetPlayerItems/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1287,7 +1287,7 @@ func (c *econItems570Client) GetStoreMetaData(ctx context.Context, language stri
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetStoreMetaData/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetStoreMetaData/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1339,7 +1339,7 @@ func (c *econItems583950Client) GetEquippedPlayerItems(ctx context.Context, stea
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetEquippedPlayerItems/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetEquippedPlayerItems/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1389,7 +1389,7 @@ func (c *econItems620Client) GetPlayerItems(ctx context.Context, steamID uint64,
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetPlayerItems/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetPlayerItems/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1410,7 +1410,7 @@ func (c *econItems620Client) GetSchema(ctx context.Context, language string, mod
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetSchema/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetSchema/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1460,7 +1460,7 @@ func (c *econItems730Client) GetPlayerItems(ctx context.Context, steamID uint64,
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetPlayerItems/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetPlayerItems/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1481,7 +1481,7 @@ func (c *econItems730Client) GetSchema(ctx context.Context, language string, mod
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetSchema/v2/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetSchema/v2/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1496,7 +1496,7 @@ func (c *econItems730Client) GetSchemaURL(ctx context.Context, mods ...aoni.Requ
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetSchemaURL/v2/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetSchemaURL/v2/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1517,7 +1517,7 @@ func (c *econItems730Client) GetStoreMetaData(ctx context.Context, language stri
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetStoreMetaData/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetStoreMetaData/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1561,7 +1561,7 @@ func (c *gcVersion1046930Client) GetClientVersion(ctx context.Context, mods ...a
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetClientVersion/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetClientVersion/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1576,7 +1576,7 @@ func (c *gcVersion1046930Client) GetServerVersion(ctx context.Context, mods ...a
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetServerVersion/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetServerVersion/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1620,7 +1620,7 @@ func (c *gcVersion1269260Client) GetClientVersion(ctx context.Context, mods ...a
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetClientVersion/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetClientVersion/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1635,7 +1635,7 @@ func (c *gcVersion1269260Client) GetServerVersion(ctx context.Context, mods ...a
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetServerVersion/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetServerVersion/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1679,7 +1679,7 @@ func (c *gcVersion1422450Client) GetClientVersion(ctx context.Context, mods ...a
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetClientVersion/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetClientVersion/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1694,7 +1694,7 @@ func (c *gcVersion1422450Client) GetServerVersion(ctx context.Context, mods ...a
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetServerVersion/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetServerVersion/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1738,7 +1738,7 @@ func (c *gcVersion440Client) GetClientVersion(ctx context.Context, mods ...aoni.
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetClientVersion/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetClientVersion/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1753,7 +1753,7 @@ func (c *gcVersion440Client) GetServerVersion(ctx context.Context, mods ...aoni.
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetServerVersion/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetServerVersion/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1797,7 +1797,7 @@ func (c *gcVersion570Client) GetClientVersion(ctx context.Context, mods ...aoni.
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetClientVersion/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetClientVersion/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1812,7 +1812,7 @@ func (c *gcVersion570Client) GetServerVersion(ctx context.Context, mods ...aoni.
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetServerVersion/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetServerVersion/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1856,7 +1856,7 @@ func (c *gcVersion583950Client) GetClientVersion(ctx context.Context, mods ...ao
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetClientVersion/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetClientVersion/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1871,7 +1871,7 @@ func (c *gcVersion583950Client) GetServerVersion(ctx context.Context, mods ...ao
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetServerVersion/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetServerVersion/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1915,7 +1915,7 @@ func (c *gcVersion730Client) GetServerVersion(ctx context.Context, mods ...aoni.
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetServerVersion/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetServerVersion/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -1965,7 +1965,7 @@ func (c *portal2Leaderboards620Client) GetBucketizedData(ctx context.Context, le
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetBucketizedData/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetBucketizedData/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2015,7 +2015,7 @@ func (c *steamAppsClient) GetSDRConfig(ctx context.Context, appID uint32, mods .
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetSDRConfig/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetSDRConfig/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2036,7 +2036,7 @@ func (c *steamAppsClient) GetServersAtAddress(ctx context.Context, addr string, 
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetServersAtAddress/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetServersAtAddress/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2059,7 +2059,7 @@ func (c *steamAppsClient) UpToDateCheck(ctx context.Context, appID uint32, versi
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/UpToDateCheck/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/UpToDateCheck/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2103,7 +2103,7 @@ func (c *steamBroadcastClient) PlayerStats(ctx context.Context, mods ...aoni.Req
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[json.RawMessage](ctx, "/PlayerStats/v1/", nil, allMods...)
+	resp, err := c.r.PostTo[json.RawMessage](ctx, "/PlayerStats/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2123,7 +2123,7 @@ func (c *steamBroadcastClient) ViewerHeartbeat(ctx context.Context, req *ViewerH
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/ViewerHeartbeat/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/ViewerHeartbeat/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2172,7 +2172,7 @@ func (c *steamCDNClient) SetClientFilters(ctx context.Context, req *SetClientFil
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[json.RawMessage](ctx, "/SetClientFilters/v1/", nil, allMods...)
+	resp, err := c.r.PostTo[json.RawMessage](ctx, "/SetClientFilters/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2192,7 +2192,7 @@ func (c *steamCDNClient) SetPerformanceStats(ctx context.Context, req *SetPerfor
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[json.RawMessage](ctx, "/SetPerformanceStats/v1/", nil, allMods...)
+	resp, err := c.r.PostTo[json.RawMessage](ctx, "/SetPerformanceStats/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2244,7 +2244,7 @@ func (c *steamDirectoryClient) GetCMList(ctx context.Context, cellID uint32, max
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetCMList/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetCMList/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2264,7 +2264,7 @@ func (c *steamDirectoryClient) GetCMListForConnect(ctx context.Context, req *Get
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetCMListForConnect/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetCMListForConnect/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2279,7 +2279,7 @@ func (c *steamDirectoryClient) GetSteamPipeDomains(ctx context.Context, mods ...
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetSteamPipeDomains/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetSteamPipeDomains/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2328,7 +2328,7 @@ func (c *steamEconomyClient) GetAssetClassInfo(ctx context.Context, req *GetAsse
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetAssetClassInfo/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetAssetClassInfo/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2353,7 +2353,7 @@ func (c *steamEconomyClient) GetAssetPrices(ctx context.Context, appID uint32, c
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetAssetPrices/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetAssetPrices/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2402,7 +2402,7 @@ func (c *steamNewsClient) GetNewsForAppV1(ctx context.Context, req *GetNewsForAp
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetNewsForApp/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetNewsForApp/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2422,7 +2422,7 @@ func (c *steamNewsClient) GetNewsForAppV2(ctx context.Context, req *GetNewsForAp
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetNewsForApp/v2/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetNewsForApp/v2/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2475,7 +2475,7 @@ func (c *steamRemoteStorageClient) GetCollectionDetails(ctx context.Context, col
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[json.RawMessage](ctx, "/GetCollectionDetails/v1/", nil, allMods...)
+	resp, err := c.r.PostTo[json.RawMessage](ctx, "/GetCollectionDetails/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2499,7 +2499,7 @@ func (c *steamRemoteStorageClient) GetPublishedFileDetails(ctx context.Context, 
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[json.RawMessage](ctx, "/GetPublishedFileDetails/v1/", nil, allMods...)
+	resp, err := c.r.PostTo[json.RawMessage](ctx, "/GetPublishedFileDetails/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2524,7 +2524,7 @@ func (c *steamRemoteStorageClient) GetUGCFileDetails(ctx context.Context, steamI
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetUGCFileDetails/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetUGCFileDetails/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2578,7 +2578,7 @@ func (c *steamUserClient) GetFriendList(ctx context.Context, key string, steamID
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetFriendList/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetFriendList/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2601,7 +2601,7 @@ func (c *steamUserClient) GetPlayerBans(ctx context.Context, key string, steamid
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetPlayerBans/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetPlayerBans/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2624,7 +2624,7 @@ func (c *steamUserClient) GetPlayerSummariesV1(ctx context.Context, key string, 
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetPlayerSummaries/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetPlayerSummaries/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2647,7 +2647,7 @@ func (c *steamUserClient) GetPlayerSummariesV2(ctx context.Context, key string, 
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetPlayerSummaries/v2/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetPlayerSummaries/v2/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2670,7 +2670,7 @@ func (c *steamUserClient) GetUserGroupList(ctx context.Context, key string, stea
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetUserGroupList/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetUserGroupList/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2695,7 +2695,7 @@ func (c *steamUserClient) ResolveVanityURL(ctx context.Context, key string, vani
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/ResolveVanityURL/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/ResolveVanityURL/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2749,7 +2749,7 @@ func (c *steamUserAuthClient) AuthenticateUserTicket(ctx context.Context, key st
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/AuthenticateUserTicket/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/AuthenticateUserTicket/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2799,7 +2799,7 @@ func (c *steamUserOAuthClient) GetTokenDetails(ctx context.Context, accessToken 
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetTokenDetails/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetTokenDetails/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2849,7 +2849,7 @@ func (c *steamUserStatsClient) GetGlobalAchievementPercentagesForAppV1(ctx conte
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetGlobalAchievementPercentagesForApp/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetGlobalAchievementPercentagesForApp/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2870,7 +2870,7 @@ func (c *steamUserStatsClient) GetGlobalAchievementPercentagesForAppV2(ctx conte
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetGlobalAchievementPercentagesForApp/v2/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetGlobalAchievementPercentagesForApp/v2/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2890,7 +2890,7 @@ func (c *steamUserStatsClient) GetGlobalStatsForGame(ctx context.Context, req *G
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetGlobalStatsForGame/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetGlobalStatsForGame/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2911,7 +2911,7 @@ func (c *steamUserStatsClient) GetNumberOfCurrentPlayers(ctx context.Context, ap
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetNumberOfCurrentPlayers/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetNumberOfCurrentPlayers/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2931,7 +2931,7 @@ func (c *steamUserStatsClient) GetPlayerAchievements(ctx context.Context, req *G
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetPlayerAchievements/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetPlayerAchievements/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2956,7 +2956,7 @@ func (c *steamUserStatsClient) GetSchemaForGameV1(ctx context.Context, key strin
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetSchemaForGame/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetSchemaForGame/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -2981,7 +2981,7 @@ func (c *steamUserStatsClient) GetSchemaForGameV2(ctx context.Context, key strin
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetSchemaForGame/v2/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetSchemaForGame/v2/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3006,7 +3006,7 @@ func (c *steamUserStatsClient) GetUserStatsForGameV1(ctx context.Context, key st
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetUserStatsForGame/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetUserStatsForGame/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3031,7 +3031,7 @@ func (c *steamUserStatsClient) GetUserStatsForGameV2(ctx context.Context, key st
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetUserStatsForGame/v2/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetUserStatsForGame/v2/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3075,7 +3075,7 @@ func (c *steamWebAPIUtilClient) GetServerInfo(ctx context.Context, mods ...aoni.
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetServerInfo/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetServerInfo/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3096,7 +3096,7 @@ func (c *steamWebAPIUtilClient) GetSupportedAPIList(ctx context.Context, key str
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetSupportedAPIList/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetSupportedAPIList/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3140,7 +3140,7 @@ func (c *tfItems440Client) GetGoldenWrenchesV1(ctx context.Context, mods ...aoni
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetGoldenWrenches/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetGoldenWrenches/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3155,7 +3155,7 @@ func (c *tfItems440Client) GetGoldenWrenchesV2(ctx context.Context, mods ...aoni
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetGoldenWrenches/v2/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetGoldenWrenches/v2/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3207,7 +3207,7 @@ func (c *tfPromos440Client) GetItemID(ctx context.Context, steamID uint64, promo
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetItemID/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetItemID/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3231,7 +3231,7 @@ func (c *tfPromos440Client) GrantItem(ctx context.Context, steamID uint64, promo
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[json.RawMessage](ctx, "/GrantItem/v1/", nil, allMods...)
+	resp, err := c.r.PostTo[json.RawMessage](ctx, "/GrantItem/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3283,7 +3283,7 @@ func (c *tfPromos620Client) GetItemID(ctx context.Context, steamID uint64, promo
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetItemID/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetItemID/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3307,7 +3307,7 @@ func (c *tfPromos620Client) GrantItem(ctx context.Context, steamID uint64, promo
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[json.RawMessage](ctx, "/GrantItem/v1/", nil, allMods...)
+	resp, err := c.r.PostTo[json.RawMessage](ctx, "/GrantItem/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3351,7 +3351,7 @@ func (c *tfSystem440Client) GetWorldStatus(ctx context.Context, mods ...aoni.Req
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetWorldStatus/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetWorldStatus/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3401,7 +3401,7 @@ func (c *gameServersServiceClient) GetAccountList(ctx context.Context, key strin
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetAccountList/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetAccountList/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3427,7 +3427,7 @@ func (c *gameServersServiceClient) CreateAccount(ctx context.Context, key string
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[json.RawMessage](ctx, "/CreateAccount/v1/", nil, allMods...)
+	resp, err := c.r.PostTo[json.RawMessage](ctx, "/CreateAccount/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3453,7 +3453,7 @@ func (c *gameServersServiceClient) SetMemo(ctx context.Context, key string, stea
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[json.RawMessage](ctx, "/SetMemo/v1/", nil, allMods...)
+	resp, err := c.r.PostTo[json.RawMessage](ctx, "/SetMemo/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3477,7 +3477,7 @@ func (c *gameServersServiceClient) ResetLoginToken(ctx context.Context, key stri
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[json.RawMessage](ctx, "/ResetLoginToken/v1/", nil, allMods...)
+	resp, err := c.r.PostTo[json.RawMessage](ctx, "/ResetLoginToken/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3501,7 +3501,7 @@ func (c *gameServersServiceClient) DeleteAccount(ctx context.Context, key string
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[json.RawMessage](ctx, "/DeleteAccount/v1/", nil, allMods...)
+	resp, err := c.r.PostTo[json.RawMessage](ctx, "/DeleteAccount/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3524,7 +3524,7 @@ func (c *gameServersServiceClient) GetAccountPublicInfo(ctx context.Context, key
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetAccountPublicInfo/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetAccountPublicInfo/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3547,7 +3547,7 @@ func (c *gameServersServiceClient) QueryLoginToken(ctx context.Context, key stri
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/QueryLoginToken/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/QueryLoginToken/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3570,7 +3570,7 @@ func (c *gameServersServiceClient) GetServerSteamIDsByIP(ctx context.Context, ke
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetServerSteamIDsByIP/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetServerSteamIDsByIP/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3593,7 +3593,7 @@ func (c *gameServersServiceClient) GetServerIPsBySteamID(ctx context.Context, ke
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetServerIPsBySteamID/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetServerIPsBySteamID/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3613,7 +3613,7 @@ func (c *gameServersServiceClient) QueryByFakeIP(ctx context.Context, req *Query
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/QueryByFakeIP/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/QueryByFakeIP/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3667,7 +3667,7 @@ func (c *playerServiceClient) IsPlayingSharedGame(ctx context.Context, key strin
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/IsPlayingSharedGame/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/IsPlayingSharedGame/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3693,7 +3693,7 @@ func (c *playerServiceClient) RecordOfflinePlaytime(ctx context.Context, steamID
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[json.RawMessage](ctx, "/RecordOfflinePlaytime/v1/", nil, allMods...)
+	resp, err := c.r.PostTo[json.RawMessage](ctx, "/RecordOfflinePlaytime/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3718,7 +3718,7 @@ func (c *playerServiceClient) GetRecentlyPlayedGames(ctx context.Context, key st
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetRecentlyPlayedGames/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetRecentlyPlayedGames/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3738,7 +3738,7 @@ func (c *playerServiceClient) GetOwnedGames(ctx context.Context, req *GetOwnedGa
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetOwnedGames/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetOwnedGames/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3761,7 +3761,7 @@ func (c *playerServiceClient) GetSteamLevel(ctx context.Context, key string, ste
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetSteamLevel/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetSteamLevel/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3784,7 +3784,7 @@ func (c *playerServiceClient) GetBadges(ctx context.Context, key string, steamID
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetBadges/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetBadges/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3809,7 +3809,7 @@ func (c *playerServiceClient) GetCommunityBadgeProgress(ctx context.Context, key
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetCommunityBadgeProgress/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetCommunityBadgeProgress/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3864,7 +3864,7 @@ func (c *authenticationServiceClient) PollAuthSessionStatus(ctx context.Context,
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[json.RawMessage](ctx, "/PollAuthSessionStatus/v1/", nil, allMods...)
+	resp, err := c.r.PostTo[json.RawMessage](ctx, "/PollAuthSessionStatus/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3886,7 +3886,7 @@ func (c *authenticationServiceClient) GetAuthSessionInfo(ctx context.Context, cl
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[json.RawMessage](ctx, "/GetAuthSessionInfo/v1/", nil, allMods...)
+	resp, err := c.r.PostTo[json.RawMessage](ctx, "/GetAuthSessionInfo/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3910,7 +3910,7 @@ func (c *authenticationServiceClient) GetAuthSessionRiskInfo(ctx context.Context
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[json.RawMessage](ctx, "/GetAuthSessionRiskInfo/v1/", nil, allMods...)
+	resp, err := c.r.PostTo[json.RawMessage](ctx, "/GetAuthSessionRiskInfo/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3930,7 +3930,7 @@ func (c *authenticationServiceClient) NotifyRiskQuizResults(ctx context.Context,
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[json.RawMessage](ctx, "/NotifyRiskQuizResults/v1/", nil, allMods...)
+	resp, err := c.r.PostTo[json.RawMessage](ctx, "/NotifyRiskQuizResults/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3951,7 +3951,7 @@ func (c *authenticationServiceClient) GetPasswordRSAPublicKey(ctx context.Contex
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetPasswordRSAPublicKey/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetPasswordRSAPublicKey/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3971,7 +3971,7 @@ func (c *authenticationServiceClient) BeginAuthSessionViaCredentials(ctx context
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[json.RawMessage](ctx, "/BeginAuthSessionViaCredentials/v1/", nil, allMods...)
+	resp, err := c.r.PostTo[json.RawMessage](ctx, "/BeginAuthSessionViaCredentials/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -3991,7 +3991,7 @@ func (c *authenticationServiceClient) UpdateAuthSessionWithSteamGuardCode(ctx co
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[json.RawMessage](ctx, "/UpdateAuthSessionWithSteamGuardCode/v1/", nil, allMods...)
+	resp, err := c.r.PostTo[json.RawMessage](ctx, "/UpdateAuthSessionWithSteamGuardCode/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4011,7 +4011,7 @@ func (c *authenticationServiceClient) BeginAuthSessionViaQR(ctx context.Context,
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[json.RawMessage](ctx, "/BeginAuthSessionViaQR/v1/", nil, allMods...)
+	resp, err := c.r.PostTo[json.RawMessage](ctx, "/BeginAuthSessionViaQR/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4031,7 +4031,7 @@ func (c *authenticationServiceClient) UpdateAuthSessionWithMobileConfirmation(ct
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[json.RawMessage](ctx, "/UpdateAuthSessionWithMobileConfirmation/v1/", nil, allMods...)
+	resp, err := c.r.PostTo[json.RawMessage](ctx, "/UpdateAuthSessionWithMobileConfirmation/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4080,7 +4080,7 @@ func (c *broadcastServiceClient) PostGameDataFrameRTMP(ctx context.Context, req 
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[json.RawMessage](ctx, "/PostGameDataFrameRTMP/v1/", nil, allMods...)
+	resp, err := c.r.PostTo[json.RawMessage](ctx, "/PostGameDataFrameRTMP/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4129,7 +4129,7 @@ func (c *contentServerConfigServiceClient) SetSteamCacheClientFilters(ctx contex
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[json.RawMessage](ctx, "/SetSteamCacheClientFilters/v1/", nil, allMods...)
+	resp, err := c.r.PostTo[json.RawMessage](ctx, "/SetSteamCacheClientFilters/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4154,7 +4154,7 @@ func (c *contentServerConfigServiceClient) GetSteamCacheNodeParams(ctx context.C
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetSteamCacheNodeParams/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetSteamCacheNodeParams/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4174,7 +4174,7 @@ func (c *contentServerConfigServiceClient) SetSteamCachePerformanceStats(ctx con
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[json.RawMessage](ctx, "/SetSteamCachePerformanceStats/v1/", nil, allMods...)
+	resp, err := c.r.PostTo[json.RawMessage](ctx, "/SetSteamCachePerformanceStats/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4228,7 +4228,7 @@ func (c *contentServerDirectoryServiceClient) GetCDNForVideo(ctx context.Context
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetCDNForVideo/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetCDNForVideo/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4253,7 +4253,7 @@ func (c *contentServerDirectoryServiceClient) PickSingleContentServer(ctx contex
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/PickSingleContentServer/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/PickSingleContentServer/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4273,7 +4273,7 @@ func (c *contentServerDirectoryServiceClient) GetServersForSteamPipe(ctx context
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetServersForSteamPipe/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetServersForSteamPipe/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4294,7 +4294,7 @@ func (c *contentServerDirectoryServiceClient) GetClientUpdateHosts(ctx context.C
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetClientUpdateHosts/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetClientUpdateHosts/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4314,7 +4314,7 @@ func (c *contentServerDirectoryServiceClient) GetDepotPatchInfo(ctx context.Cont
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetDepotPatchInfo/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetDepotPatchInfo/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4364,7 +4364,7 @@ func (c *publishedFileServiceClient) GetUserVoteSummary(ctx context.Context, pub
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetUserVoteSummary/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetUserVoteSummary/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4384,7 +4384,7 @@ func (c *publishedFileServiceClient) QueryFiles(ctx context.Context, req *QueryF
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/QueryFiles/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/QueryFiles/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4404,7 +4404,7 @@ func (c *publishedFileServiceClient) GetSubSectionData(ctx context.Context, req 
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetSubSectionData/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetSubSectionData/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4424,7 +4424,7 @@ func (c *publishedFileServiceClient) GetDetails(ctx context.Context, req *GetDet
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetDetails/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetDetails/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4444,7 +4444,7 @@ func (c *publishedFileServiceClient) GetUserFiles(ctx context.Context, req *GetU
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetUserFiles/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetUserFiles/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4464,7 +4464,7 @@ func (c *publishedFileServiceClient) GetUserFileCount(ctx context.Context, req *
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetUserFileCount/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetUserFileCount/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4513,7 +4513,7 @@ func (c *econServiceClient) GetTradeHistory(ctx context.Context, req *GetTradeHi
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetTradeHistory/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetTradeHistory/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4533,7 +4533,7 @@ func (c *econServiceClient) GetTradeStatus(ctx context.Context, req *GetTradeSta
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetTradeStatus/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetTradeStatus/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4553,7 +4553,7 @@ func (c *econServiceClient) GetTradeOffers(ctx context.Context, req *GetTradeOff
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetTradeOffers/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetTradeOffers/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4573,7 +4573,7 @@ func (c *econServiceClient) GetTradeOffer(ctx context.Context, req *GetTradeOffe
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetTradeOffer/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetTradeOffer/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4596,7 +4596,7 @@ func (c *econServiceClient) GetTradeOffersSummary(ctx context.Context, key strin
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetTradeOffersSummary/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetTradeOffersSummary/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4621,7 +4621,7 @@ func (c *econServiceClient) GetTradeHoldDurations(ctx context.Context, key strin
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetTradeHoldDurations/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetTradeHoldDurations/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4670,7 +4670,7 @@ func (c *gameNotificationsServiceClient) UserCreateSession(ctx context.Context, 
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[json.RawMessage](ctx, "/UserCreateSession/v1/", nil, allMods...)
+	resp, err := c.r.PostTo[json.RawMessage](ctx, "/UserCreateSession/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4690,7 +4690,7 @@ func (c *gameNotificationsServiceClient) UserUpdateSession(ctx context.Context, 
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[json.RawMessage](ctx, "/UserUpdateSession/v1/", nil, allMods...)
+	resp, err := c.r.PostTo[json.RawMessage](ctx, "/UserUpdateSession/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4716,7 +4716,7 @@ func (c *gameNotificationsServiceClient) UserDeleteSession(ctx context.Context, 
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[json.RawMessage](ctx, "/UserDeleteSession/v1/", nil, allMods...)
+	resp, err := c.r.PostTo[json.RawMessage](ctx, "/UserDeleteSession/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4765,7 +4765,7 @@ func (c *inventoryServiceClient) SplitItemStack(ctx context.Context, req *SplitI
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[json.RawMessage](ctx, "/SplitItemStack/v1/", nil, allMods...)
+	resp, err := c.r.PostTo[json.RawMessage](ctx, "/SplitItemStack/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4785,7 +4785,7 @@ func (c *inventoryServiceClient) CombineItemStacks(ctx context.Context, req *Com
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[json.RawMessage](ctx, "/CombineItemStacks/v1/", nil, allMods...)
+	resp, err := c.r.PostTo[json.RawMessage](ctx, "/CombineItemStacks/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4810,7 +4810,7 @@ func (c *inventoryServiceClient) GetPriceSheet(ctx context.Context, key string, 
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetPriceSheet/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetPriceSheet/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4860,7 +4860,7 @@ func (c *storeServiceClient) GetGamesFollowed(ctx context.Context, steamID uint6
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetGamesFollowed/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetGamesFollowed/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4881,7 +4881,7 @@ func (c *storeServiceClient) GetGamesFollowedCount(ctx context.Context, steamID 
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetGamesFollowedCount/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetGamesFollowedCount/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4901,7 +4901,7 @@ func (c *storeServiceClient) GetAppList(ctx context.Context, req *GetAppListRequ
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetAppList/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetAppList/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4926,7 +4926,7 @@ func (c *storeServiceClient) GetRecommendedTagsForUser(ctx context.Context, lang
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetRecommendedTagsForUser/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetRecommendedTagsForUser/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4975,7 +4975,7 @@ func (c *helpRequestLogsServiceClient) UploadUserApplicationLog(ctx context.Cont
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[json.RawMessage](ctx, "/UploadUserApplicationLog/v1/", nil, allMods...)
+	resp, err := c.r.PostTo[json.RawMessage](ctx, "/UploadUserApplicationLog/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -4997,7 +4997,7 @@ func (c *helpRequestLogsServiceClient) GetApplicationLogDemand(ctx context.Conte
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[json.RawMessage](ctx, "/GetApplicationLogDemand/v1/", nil, allMods...)
+	resp, err := c.r.PostTo[json.RawMessage](ctx, "/GetApplicationLogDemand/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -5046,7 +5046,7 @@ func (c *cheatReportingServiceClient) ReportCheatData(ctx context.Context, req *
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[json.RawMessage](ctx, "/ReportCheatData/v1/", nil, allMods...)
+	resp, err := c.r.PostTo[json.RawMessage](ctx, "/ReportCheatData/v1/", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -5095,7 +5095,7 @@ func (c *wishlistServiceClient) GetWishlistSortedFiltered(ctx context.Context, r
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetWishlistSortedFiltered/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetWishlistSortedFiltered/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -5116,7 +5116,7 @@ func (c *wishlistServiceClient) GetWishlist(ctx context.Context, steamID uint64,
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetWishlist/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetWishlist/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -5137,7 +5137,7 @@ func (c *wishlistServiceClient) GetWishlistItemCount(ctx context.Context, steamI
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[json.RawMessage](ctx, "/GetWishlistItemCount/v1/", allMods...)
+	resp, err := c.r.GetTo[json.RawMessage](ctx, "/GetWishlistItemCount/v1/", allMods...)
 	if err != nil {
 		return nil, err
 	}

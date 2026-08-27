@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/foundation/async/event"
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/lemon4ksan/foundation/sync/lazy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -113,8 +113,8 @@ func (m *mockInitContextWithService) Service() service.Doer {
 	return m.doer
 }
 
-func (m *mockInitContextWithService) Logger() log.Logger {
-	return log.Discard
+func (m *mockInitContextWithService) Logger() logkit.Logger {
+	return logkit.Discard
 }
 
 func (m *mockInitContextWithService) Bus() *event.Bus {

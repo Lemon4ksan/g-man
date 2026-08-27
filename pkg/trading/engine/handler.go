@@ -7,17 +7,17 @@ package engine
 import (
 	"context"
 
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 
 	"github.com/lemon4ksan/g-man/pkg/trading"
 )
 
 type BotHandler struct {
 	engine *Engine
-	logger log.Logger
+	logger logkit.Logger
 }
 
-func NewBotHandler(e *Engine, l log.Logger) *BotHandler {
+func NewBotHandler(e *Engine, l logkit.Logger) *BotHandler {
 	return &BotHandler{
 		engine: e,
 		logger: l,
@@ -41,9 +41,9 @@ func (h *BotHandler) OnActionFailed(
 	err error,
 ) {
 	h.logger.Error("Trade action failed",
-		log.Uint64("offer_id", offer.ID),
-		log.String("action", string(action)),
-		log.String("reason", reason),
-		log.Err(err),
+		logkit.Uint64("offer_id", offer.ID),
+		logkit.String("action", string(action)),
+		logkit.String("reason", reason),
+		logkit.Err(err),
 	)
 }

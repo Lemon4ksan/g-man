@@ -22,7 +22,7 @@ import (
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/middleware"
 	"github.com/lemon4ksan/aoni/mod"
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 
 	"github.com/lemon4ksan/g-man/internal/network"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
@@ -66,7 +66,7 @@ type WebSession struct {
 	baseDoer   aoni.HTTPDoer
 	httpClient *http.Client
 	jar        http.CookieJar
-	logger     log.Logger
+	logger     logkit.Logger
 	isAuth     bool
 	domains    []*url.URL
 
@@ -87,11 +87,11 @@ func (d *doerRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) 
 }
 
 // New constructs an unauthenticated WebSession.
-func New(steamID id.ID, logger log.Logger, doer any) *WebSession {
+func New(steamID id.ID, logger logkit.Logger, doer any) *WebSession {
 	ws := &WebSession{
 		steamID:      steamID,
 		baseDoer:     aoni.NewRequestDoerAdapter(aoni.Configure(doer, network.DefaultClientOptions()...)),
-		logger:       logger.With(log.Module("websession")),
+		logger:       logger.With(logkit.Module("websession")),
 		retryBackoff: time.Second,
 	}
 
@@ -209,7 +209,7 @@ func (s *WebSession) Refresh(ctx context.Context) error {
 	s.logger.Info("Refreshing WebSession cookies...")
 
 	if err := s.Authenticate(ctx, platform, refreshToken, accessToken); err != nil {
-		s.logger.Error("Failed to refresh WebSession cookies", log.Err(err))
+		s.logger.Error("Failed to refresh WebSession cookies", logkit.Err(err))
 		return err
 	}
 
@@ -236,7 +236,7 @@ func (s *WebSession) StartAutoRefresh(ctx context.Context, interval time.Duratio
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 
-		s.logger.Info("Started automatic WebSession refresh loop", log.Duration("interval", interval))
+		s.logger.Info("Started automatic WebSession refresh loop", logkit.Duration("interval", interval))
 
 		for {
 			select {
@@ -245,7 +245,7 @@ func (s *WebSession) StartAutoRefresh(ctx context.Context, interval time.Duratio
 				return
 			case <-ticker.C:
 				if err := s.Refresh(refreshCtx); err != nil {
-					s.logger.Warn("Periodic WebSession refresh attempt failed", log.Err(err))
+					s.logger.Warn("Periodic WebSession refresh attempt failed", logkit.Err(err))
 				}
 			}
 		}
@@ -269,7 +269,7 @@ func (s *WebSession) Verify(ctx context.Context) (bool, error) {
 		return false, nil
 	}
 
-	_, err := s.REST().Get[aoni.NoResponse](ctx, urlVerify)
+	_, err := s.REST().GetTo[aoni.NoResponse](ctx, urlVerify)
 	if err != nil {
 		s.Clear()
 		return false, nil //nolint:nilerr
@@ -358,7 +358,7 @@ func (s *WebSession) authSlowPath(ctx context.Context, refreshToken, sessionID s
 		} `json:"transfer_info"`
 	}
 
-	res, err := s.REST().Post[finalizeResponse](ctx, urlFinalize, payload)
+	res, err := s.REST().PostTo[finalizeResponse](ctx, urlFinalize, payload)
 	if err != nil {
 		return fmt.Errorf("websession: finalize login failed: %w", err)
 	}
@@ -390,7 +390,7 @@ func (s *WebSession) executeTransfer(ctx context.Context, transferURL string, pa
 		Result enums.EResult `json:"result"`
 	}
 
-	resp, err := s.REST().Post[transferResp](ctx, transferURL, nil, mod.WithFormBody(params))
+	resp, err := s.REST().PostTo[transferResp](ctx, transferURL, nil, mod.WithFormBody(params))
 	if err != nil {
 		return err
 	}

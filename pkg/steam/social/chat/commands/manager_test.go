@@ -17,7 +17,7 @@ import (
 	"unsafe"
 
 	"github.com/lemon4ksan/foundation/async/event"
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -451,7 +451,7 @@ func TestCommandManager_EventRouting(t *testing.T) {
 
 		cmdMgr.Register("corr", func(ctx context.Context, senderID uint64, args []string) (string, error) {
 			mu.Lock()
-			if id, ok := log.CorrelationID(ctx); ok {
+			if id, ok := logkit.CorrelationID(ctx); ok {
 				capturedCorrID = id
 			}
 
@@ -465,7 +465,7 @@ func TestCommandManager_EventRouting(t *testing.T) {
 			Message:  "!corr",
 		}
 
-		ctxWithCorr := log.WithCorrelationID(t.Context(), "my-correlation-id")
+		ctxWithCorr := logkit.WithCorrelationID(t.Context(), "my-correlation-id")
 		setContextOnEvent(ev, ctxWithCorr)
 
 		eb.Publish(ev)

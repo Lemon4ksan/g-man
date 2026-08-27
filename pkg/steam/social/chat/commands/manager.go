@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/lemon4ksan/foundation/async/rate"
 	"github.com/lemon4ksan/foundation/sync/limiter"
 
@@ -413,7 +413,7 @@ func (m *Manager) eventLoop(ctx context.Context) {
 
 			for _, h := range handlers {
 				if err := h(ctx, sev); err != nil {
-					m.Logger.ErrorContext(ctx, "Sticker handler failed", log.Err(err))
+					m.Logger.ErrorContext(ctx, "Sticker handler failed", logkit.Err(err))
 				}
 			}
 
@@ -429,7 +429,7 @@ func (m *Manager) eventLoop(ctx context.Context) {
 
 			for _, h := range handlers {
 				if err := h(ctx, rev); err != nil {
-					m.Logger.ErrorContext(ctx, "Reaction handler failed", log.Err(err))
+					m.Logger.ErrorContext(ctx, "Reaction handler failed", logkit.Err(err))
 				}
 			}
 
@@ -450,8 +450,8 @@ func (m *Manager) eventLoop(ctx context.Context) {
 						m.Logger.ErrorContext(
 							ctx,
 							"FSM conversation error",
-							log.Uint64("sender", mev.SenderID),
-							log.Err(err),
+							logkit.Uint64("sender", mev.SenderID),
+							logkit.Err(err),
 						)
 
 						if m.chat != nil && response != "" {
@@ -494,9 +494,9 @@ func (m *Manager) eventLoop(ctx context.Context) {
 					m.Logger.WarnContext(
 						mev.Context(),
 						"Rate limit exceeded or error occurred for user",
-						log.String("command", cmdName),
-						log.Uint64("sender", mev.SenderID),
-						log.Err(err),
+						logkit.String("command", cmdName),
+						logkit.Uint64("sender", mev.SenderID),
+						logkit.Err(err),
 					)
 
 					if m.chat != nil {
@@ -515,8 +515,8 @@ func (m *Manager) eventLoop(ctx context.Context) {
 				m.Logger.WarnContext(
 					mev.Context(),
 					"Unauthorized command execution attempt",
-					log.String("command", cmdName),
-					log.Uint64("sender", mev.SenderID),
+					logkit.String("command", cmdName),
+					logkit.Uint64("sender", mev.SenderID),
 				)
 
 				if m.chat != nil {
@@ -527,8 +527,8 @@ func (m *Manager) eventLoop(ctx context.Context) {
 			}
 
 			m.Go(func(ctx context.Context) {
-				if corrID, ok := log.CorrelationID(mev.Context()); ok {
-					ctx = log.WithCorrelationID(ctx, corrID)
+				if corrID, ok := logkit.CorrelationID(mev.Context()); ok {
+					ctx = logkit.WithCorrelationID(ctx, corrID)
 				}
 
 				caller := SteamCaller{
@@ -544,8 +544,8 @@ func (m *Manager) eventLoop(ctx context.Context) {
 					m.Logger.ErrorContext(
 						cmdCtx,
 						"Chat command execution failed",
-						log.String("command", cmdName),
-						log.Err(err),
+						logkit.String("command", cmdName),
+						logkit.Err(err),
 					)
 
 					if m.chat != nil {

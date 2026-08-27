@@ -59,7 +59,7 @@ import (
 	"context"
 	"os"
 
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/steam/sys/directory"
@@ -70,7 +70,7 @@ import (
 func main() {
 	// 1. Инициализируем хранилище сессий в JSON-файле
 	store, _ := jsonfile.New("storage.json")
-	logger := log.New(log.DefaultConfig(log.LevelInfo))
+	logger := logkit.New(logkit.DefaultConfig(logkit.LevelInfo))
 
 	// 2. Инициализируем оркестратор с необходимыми модулями
 	client, _ := steam.NewClient(steam.DefaultConfig(),

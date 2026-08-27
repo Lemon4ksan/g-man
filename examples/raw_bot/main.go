@@ -13,7 +13,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/lemon4ksan/foundation/generic"
 
 	"github.com/lemon4ksan/g-man/pkg/behavior"
@@ -42,26 +42,26 @@ func (s SimpleSchema) GetName(sku string, _ bool) string {
 }
 
 type NotificationChat struct {
-	logger log.Logger
+	logger logkit.Logger
 }
 
 func (c NotificationChat) SendMessage(_ context.Context, steamID id.ID, message string) error {
 	c.logger.Info("Chat notification sent to partner",
-		log.Uint64("partner_steam_id", uint64(steamID)),
-		log.String("message", message),
+		logkit.Uint64("partner_steam_id", uint64(steamID)),
+		logkit.String("message", message),
 	)
 
 	return nil
 }
 
 type ReviewChat struct {
-	logger log.Logger
+	logger logkit.Logger
 }
 
 func (c ReviewChat) SendMessage(_ context.Context, steamID uint64, message string) error {
 	c.logger.Info("Review chat sent to partner",
-		log.Uint64("partner_steam_id", steamID),
-		log.String("message", message),
+		logkit.Uint64("partner_steam_id", steamID),
+		logkit.String("message", message),
 	)
 
 	return nil
@@ -69,7 +69,7 @@ func (c ReviewChat) SendMessage(_ context.Context, steamID uint64, message strin
 
 func (c ReviewChat) MessageAdmins(_ context.Context, message string) error {
 	c.logger.Warn("ADMIN ALERT: Trade Offer sent to Manual Review!",
-		log.String("alert_details", message),
+		logkit.String("alert_details", message),
 	)
 
 	return nil
@@ -98,7 +98,7 @@ func main() {
 		panic(fmt.Errorf("failed to initialize storage: %w", err))
 	}
 
-	logger := log.New(log.DefaultConfig(log.LevelInfo))
+	logger := logkit.New(logkit.DefaultConfig(logkit.LevelInfo))
 	defer logger.Close()
 
 	logger.Info("Starting G-man Generic Raw Trading Bot Example...")
@@ -137,7 +137,7 @@ func main() {
 	tradeEngine.Use(func(next engine.Handler) engine.Handler {
 		return func(ctx *engine.TradeContext) error {
 			if ctx.Offer.EscrowEndDate > 0 {
-				logger.Warn("Decline offer: trade involves escrow hold period", log.Uint64("offer_id", ctx.Offer.ID))
+				logger.Warn("Decline offer: trade involves escrow hold period", logkit.Uint64("offer_id", ctx.Offer.ID))
 				ctx.Decline(reason.TradeReason("ESCROW_HOLD_DETECTION"))
 
 				return nil
@@ -153,14 +153,14 @@ func main() {
 			receiveCount := len(ctx.Offer.ItemsToReceive)
 
 			if receiveCount < giveCount {
-				logger.Info("Decline offer: unequal exchange ratio", log.Uint64("offer_id", ctx.Offer.ID))
+				logger.Info("Decline offer: unequal exchange ratio", logkit.Uint64("offer_id", ctx.Offer.ID))
 				ctx.Decline(reason.TradeReason("INSUFFICIENT_ITEMS_VALUE"))
 
 				return nil
 			}
 
 			if receiveCount >= giveCount*2 && giveCount > 0 {
-				logger.Info("Accept offer: highly profitable raw trade exchange", log.Uint64("offer_id", ctx.Offer.ID))
+				logger.Info("Accept offer: highly profitable raw trade exchange", logkit.Uint64("offer_id", ctx.Offer.ID))
 				ctx.Accept(reason.TradeReason("PROFITABLE_ITEM_RATIO"))
 
 				return nil
@@ -175,7 +175,7 @@ func main() {
 			if len(ctx.Offer.ItemsToGive) > 10 {
 				logger.Warn(
 					"Review offer: high-volume outgoing items limit reached",
-					log.Uint64("offer_id", ctx.Offer.ID),
+					logkit.Uint64("offer_id", ctx.Offer.ID),
 				)
 				ctx.Review(reason.TradeReason("HIGH_VOLUME_SAFETY_REVIEW"))
 
@@ -207,21 +207,21 @@ func main() {
 
 	server, err := directory.New(client).GetOptimalCMServer(loginCtx)
 	if err != nil {
-		logger.Error("Failed to fetch CM server list", log.Err(err))
+		logger.Error("Failed to fetch CM server list", logkit.Err(err))
 		return
 	}
 
 	user, pass := os.Getenv("STEAM_USER"), os.Getenv("STEAM_PASS")
 	if user == "" || pass == "" {
-		logger.Error("Credentials not set!", log.Err(ErrCredentialsNotSet))
+		logger.Error("Credentials not set!", logkit.Err(ErrCredentialsNotSet))
 		return
 	}
 
 	loginDetails := auth.NewLogOnDetails(user, pass)
-	logger.Info("Attempting login...", log.String("user", loginDetails.AccountName))
+	logger.Info("Attempting login...", logkit.String("user", loginDetails.AccountName))
 
 	if err := client.ConnectAndLogin(loginCtx, server, loginDetails); err != nil {
-		logger.Error("Login process failed", log.Err(err))
+		logger.Error("Login process failed", logkit.Err(err))
 		return
 	}
 

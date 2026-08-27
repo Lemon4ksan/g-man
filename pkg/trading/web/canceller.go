@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/lemon4ksan/foundation/generic"
 
 	"github.com/lemon4ksan/g-man/internal/heap"
@@ -20,11 +20,11 @@ import (
 type Canceller struct {
 	priorityQueue *heap.PriorityQueue
 	cancelling    sync.Map
-	logger        log.Logger
+	logger        logkit.Logger
 }
 
 // NewCanceller constructs a Canceller instance.
-func NewCanceller(log log.Logger) *Canceller {
+func NewCanceller(log logkit.Logger) *Canceller {
 	return &Canceller{
 		priorityQueue: heap.NewPriorityQueue(),
 		logger:        log,
@@ -79,8 +79,8 @@ func (c *Canceller) cancelTimeouts(
 
 		if c.logger != nil {
 			c.logger.Info("Auto-cancelling active sent offer due to CancelTime timeout",
-				log.Uint64("offer_id", off.ID),
-				log.Duration("age", age),
+				logkit.Uint64("offer_id", off.ID),
+				logkit.Duration("age", age),
 			)
 		}
 
@@ -89,7 +89,7 @@ func (c *Canceller) cancelTimeouts(
 
 			if err := cancelOfferFn(ctx, id); err != nil {
 				if c.logger != nil {
-					c.logger.Error("Failed to auto-cancel offer", log.Uint64("offer_id", id), log.Err(err))
+					c.logger.Error("Failed to auto-cancel offer", logkit.Uint64("offer_id", id), logkit.Err(err))
 				}
 			}
 		}(off.ID)
@@ -133,9 +133,9 @@ func (c *Canceller) cancelOverLimit(
 	if _, loaded := c.cancelling.LoadOrStore(oldest.ID, true); !loaded {
 		if c.logger != nil {
 			c.logger.Info("Auto-cancelling oldest active sent offer due to limit",
-				log.Uint64("offer_id", oldest.ID),
-				log.Int("active_count", len(active)),
-				log.Int("limit", cfg.CancelOfferCount),
+				logkit.Uint64("offer_id", oldest.ID),
+				logkit.Int("active_count", len(active)),
+				logkit.Int("limit", cfg.CancelOfferCount),
 			)
 		}
 
@@ -144,7 +144,7 @@ func (c *Canceller) cancelOverLimit(
 
 			if err := cancelOfferFn(ctx, id); err != nil {
 				if c.logger != nil {
-					c.logger.Error("Failed to auto-cancel oldest offer", log.Uint64("offer_id", id), log.Err(err))
+					c.logger.Error("Failed to auto-cancel oldest offer", logkit.Uint64("offer_id", id), logkit.Err(err))
 				}
 			}
 		}(oldest.ID)

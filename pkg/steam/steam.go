@@ -7,7 +7,7 @@ package steam
 import (
 	"context"
 
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/lemon4ksan/foundation/generic"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
@@ -47,7 +47,7 @@ var NewClient = client.New
 
 // NewReadyClient constructs a Client, connects to an optimal Connection Manager server, and logs in.
 func NewReadyClient(ctx context.Context, cfg Config, details *auth.LogOnDetails, opts ...Option) (*Client, error) {
-	logger := log.New(log.DefaultConfig(log.LevelInfo))
+	logger := logkit.New(logkit.DefaultConfig(logkit.LevelInfo))
 	opts = append([]Option{WithLogger(logger)}, opts...)
 
 	c, err := client.New(cfg, opts...)

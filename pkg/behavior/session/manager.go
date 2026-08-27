@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/foundation/async/event"
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/lemon4ksan/foundation/generic"
 
 	"github.com/lemon4ksan/g-man/pkg/behavior"
@@ -40,18 +40,18 @@ type Config struct {
 // Verifier periodically checks session cookies and triggers automated token updates when invalid.
 type Verifier struct {
 	provider Provider
-	logger   log.Logger
+	logger   logkit.Logger
 	config   Config
 	bus      *event.Bus
 }
 
 // New constructs a session keep-alive Verifier instance.
-func New(provider Provider, logger log.Logger, bus *event.Bus, cfg Config) *Verifier {
+func New(provider Provider, logger logkit.Logger, bus *event.Bus, cfg Config) *Verifier {
 	cfg.Interval = generic.Coalesce(cfg.Interval, 5*time.Minute)
 
 	return &Verifier{
 		provider: provider,
-		logger:   logger.With(log.Module(BehaviorName)),
+		logger:   logger.With(logkit.Module(BehaviorName)),
 		config:   cfg,
 		bus:      bus,
 	}
@@ -64,7 +64,7 @@ func (m *Verifier) Name() string {
 
 // Run starts periodic session health checks.
 func (m *Verifier) Run(ctx context.Context) error {
-	m.logger.Info("Session Keep-Alive behavior started", log.Duration("interval", m.config.Interval))
+	m.logger.Info("Session Keep-Alive behavior started", logkit.Duration("interval", m.config.Interval))
 
 	ticker := time.NewTicker(m.config.Interval)
 	defer ticker.Stop()
@@ -84,14 +84,14 @@ func (m *Verifier) Run(ctx context.Context) error {
 
 			isAlive, err := m.provider.Verify(ctx)
 			if err != nil {
-				m.logger.Warn("Session verification encountered an error", log.Err(err))
+				m.logger.Warn("Session verification encountered an error", logkit.Err(err))
 			}
 
 			if !isAlive && ctx.Err() == nil {
 				m.logger.Info("Session has expired or is invalid. Performing automatic refresh...")
 
 				if err := m.provider.Refresh(ctx); err != nil {
-					m.logger.Error("Automatic session refresh failed", log.Err(err))
+					m.logger.Error("Automatic session refresh failed", logkit.Err(err))
 				} else {
 					m.logger.Info("Session successfully refreshed!")
 				}

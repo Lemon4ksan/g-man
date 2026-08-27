@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/lemon4ksan/foundation/codec/json"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -58,13 +58,13 @@ func setupMockTransport() *mockTransport {
 }
 
 func newMockedSession(transport *mockTransport) *WebSession {
-	return New(testSteamID, log.Discard, transport)
+	return New(testSteamID, logkit.Discard, transport)
 }
 
 func TestNew(t *testing.T) {
 	t.Parallel()
 
-	ws := New(testCustomSteamID, log.Discard, nil)
+	ws := New(testCustomSteamID, logkit.Discard, nil)
 
 	require.NotNil(t, ws)
 	assert.Equal(t, testCustomSteamID, ws.steamID)
@@ -198,7 +198,7 @@ func TestExecuteTransferWithRetry(t *testing.T) {
 		}))
 		defer server.Close()
 
-		ws := New(id.ID(0), log.Discard, server.Client())
+		ws := New(id.ID(0), logkit.Discard, server.Client())
 		err := ws.executeTransfer(t.Context(), server.URL, nil)
 		assert.NoError(t, err)
 	})
@@ -224,7 +224,7 @@ func TestExecuteTransferWithRetry(t *testing.T) {
 		}))
 		defer server.Close()
 
-		ws := New(id.ID(0), log.Discard, server.Client())
+		ws := New(id.ID(0), logkit.Discard, server.Client())
 		ws.retryBackoff = time.Millisecond
 		err := ws.executeTransfer(t.Context(), server.URL, nil)
 		assert.NoError(t, err)
@@ -418,7 +418,7 @@ func TestAuthenticate_SlowPath_Errors(t *testing.T) {
 		}))
 		defer server.Close()
 
-		ws := New(id.ID(0), log.Discard, server.Client())
+		ws := New(id.ID(0), logkit.Discard, server.Client())
 		ws.retryBackoff = time.Millisecond
 
 		err := ws.executeTransfer(t.Context(), server.URL, nil)

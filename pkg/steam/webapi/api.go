@@ -2663,7 +2663,7 @@ type GetAppListRequest struct {
 	MaxResults uint32 `query:"max_results,omitempty"`
 }
 
-// UploadUserApplicationLogRequest represents request parameters for UploadUserApplicationLog.
+// UploadUserApplicationLogRequest represents request parameters for UploadUserApplicationlogkit.
 //
 // @aoni:dto omitempty=true
 type UploadUserApplicationLogRequest struct {

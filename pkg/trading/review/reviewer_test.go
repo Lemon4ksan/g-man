@@ -8,7 +8,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -78,7 +78,7 @@ func setupReviewer(t *testing.T) (*Reviewer, *mockSchemaProvider, *mockChatProvi
 		},
 	}
 	chat := &mockChatProvider{}
-	logger := log.New(log.DefaultConfig(log.LevelError))
+	logger := logkit.New(logkit.DefaultConfig(logkit.LevelError))
 	reviewer := New(schema, chat, logger)
 
 	return reviewer, schema, chat

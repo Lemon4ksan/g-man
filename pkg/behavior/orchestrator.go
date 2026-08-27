@@ -10,7 +10,7 @@ import (
 
 	"github.com/lemon4ksan/foundation/async/event"
 	"github.com/lemon4ksan/foundation/async/lifecycle"
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/client"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
@@ -30,11 +30,11 @@ func From(c *client.Client) *Orchestrator {
 type Orchestrator struct {
 	*lifecycle.BehaviorRunner
 	bus    *event.Bus
-	logger log.Logger
+	logger logkit.Logger
 }
 
 // NewOrchestrator creates an Orchestrator with the given bus and logger.
-func NewOrchestrator(b *event.Bus, logger log.Logger, opts ...lifecycle.Option) *Orchestrator {
+func NewOrchestrator(b *event.Bus, logger logkit.Logger, opts ...lifecycle.Option) *Orchestrator {
 	return &Orchestrator{
 		BehaviorRunner: lifecycle.NewBehaviorRunner(
 			append([]lifecycle.Option{lifecycle.WithLogger(logger)}, opts...)...),
@@ -69,7 +69,7 @@ func (o *Orchestrator) Register(b lifecycle.Behavior) {
 // Init configures the orchestrator using Steam client initialization context.
 func (o *Orchestrator) Init(init module.InitContext) error {
 	o.bus = init.Bus()
-	o.logger = init.Logger().With(log.Module("behavior"))
+	o.logger = init.Logger().With(logkit.Module("behavior"))
 
 	if o.BehaviorRunner == nil {
 		o.BehaviorRunner = lifecycle.NewBehaviorRunner(lifecycle.WithLogger(o.logger))
@@ -100,4 +100,4 @@ func (o *Orchestrator) Close() error {
 func (o *Orchestrator) Bus() *event.Bus { return o.bus }
 
 // Logger returns the shared logger.
-func (o *Orchestrator) Logger() log.Logger { return o.logger }
+func (o *Orchestrator) Logger() logkit.Logger { return o.logger }

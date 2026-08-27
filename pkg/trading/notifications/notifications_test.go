@@ -11,7 +11,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/trading/reason"
@@ -93,7 +93,7 @@ func setupManager(t *testing.T) (*Manager, *mockChatProvider, *mockConfigProvide
 
 	chat := newMockChatProvider()
 	cfg := newMockConfigProvider()
-	logger := log.New(log.DefaultConfig(log.LevelError))
+	logger := logkit.New(logkit.DefaultConfig(logkit.LevelError))
 	mgr := NewManager(chat, cfg, logger)
 
 	return mgr, chat, cfg

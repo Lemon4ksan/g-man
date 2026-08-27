@@ -17,7 +17,7 @@
 			"func (m *${1:Manager}) handle${2:Name}(packet *protocol.Packet) {",
 			"\tmsg := &pb.C${3:Interface}_${2:Name}_Notification{}",
 			"\tif err := proto.Unmarshal(packet.Payload, msg); err != nil {",
-			"\t\tm.Logger.Error(\"Failed to unmarshal ${2:Name}\", log.Err(err))",
+			"\t\tm.Logger.Error(\"Failed to unmarshal ${2:Name}\", logkit.Err(err))",
 			"\t\treturn",
 			"\t}",
 			"",

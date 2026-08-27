@@ -13,7 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/client"
@@ -172,7 +172,7 @@ func (a *Apps) PlayGames(ctx context.Context, appIDs []uint32, forceKick bool) e
 		a.Logger.Info("Playing session is blocked by another client. Attempting to kick...")
 
 		if err := a.KickPlayingSession(ctx); err != nil {
-			a.Logger.Error("Failed to kick other playing session", log.Err(err))
+			a.Logger.Error("Failed to kick other playing session", logkit.Err(err))
 		}
 
 		time.Sleep(500 * time.Millisecond)
@@ -231,14 +231,14 @@ func (a *Apps) sendGamesPlayed(
 
 	for _, newID := range newAppIDs {
 		if !slices.Contains(oldAppIDs, newID) {
-			a.Logger.Debug("App launched", log.Uint32("appid", newID))
+			a.Logger.Debug("App launched", logkit.Uint32("appid", newID))
 			a.Bus.Publish(&AppLaunchedEvent{AppID: newID})
 		}
 	}
 
 	for _, oldID := range oldAppIDs {
 		if !slices.Contains(newAppIDs, oldID) {
-			a.Logger.Debug("App quit", log.Uint32("appid", oldID))
+			a.Logger.Debug("App quit", logkit.Uint32("appid", oldID))
 			a.Bus.Publish(&AppQuitEvent{AppID: oldID})
 		}
 	}
@@ -273,7 +273,7 @@ func (a *Apps) handlePlayingSessionState(msg *pb.CMsgClientPlayingSessionState) 
 	})
 
 	if blocked {
-		a.Logger.Warn("In-game status blocked by another session", log.Uint32("active_app", playingApp))
+		a.Logger.Warn("In-game status blocked by another session", logkit.Uint32("active_app", playingApp))
 	}
 
 	a.Bus.Publish(&PlayingStateEvent{

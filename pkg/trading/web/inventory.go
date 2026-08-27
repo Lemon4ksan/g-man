@@ -7,7 +7,7 @@ package web
 import (
 	"context"
 
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/lemon4ksan/foundation/silicon/bytesconv"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/community/inventory"
@@ -69,7 +69,7 @@ func (m *Manager) GetPartnerInventoryOpts(
 		assetIDVal, ok := bytesconv.ParseUintFast(bytesconv.S2B(it.Asset.AssetID))
 		if !ok {
 			m.Logger.Warn("Invalid asset ID in partner inventory, skipping item",
-				log.String("asset_id", it.Asset.AssetID),
+				logkit.String("asset_id", it.Asset.AssetID),
 			)
 
 			continue

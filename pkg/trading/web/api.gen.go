@@ -58,7 +58,7 @@ func (c *econServiceAPIClient) GetTradeOffers(ctx context.Context, req GetOffers
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[GetOffersResponse](ctx, "IEconService/GetTradeOffers/v1", allMods...)
+	resp, err := c.r.GetTo[GetOffersResponse](ctx, "IEconService/GetTradeOffers/v1", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +78,7 @@ func (c *econServiceAPIClient) GetTradeOffer(ctx context.Context, req GetOfferPa
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[GetOfferResponse](ctx, "IEconService/GetTradeOffer/v1", allMods...)
+	resp, err := c.r.GetTo[GetOfferResponse](ctx, "IEconService/GetTradeOffer/v1", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +98,7 @@ func (c *econServiceAPIClient) GetTradeStatus(ctx context.Context, req TradeStat
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Get[TradeStatusResponse](ctx, "IEconService/GetTradeStatus/v1", allMods...)
+	resp, err := c.r.GetTo[TradeStatusResponse](ctx, "IEconService/GetTradeStatus/v1", allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +120,7 @@ func (c *econServiceAPIClient) DeclineTradeOffer(ctx context.Context, tradeOffer
 		allMods = append(allMods, mods...)
 	}
 
-	_, err := c.r.Post[aoni.NoResponse](ctx, "IEconService/DeclineTradeOffer/v1", nil, allMods...)
+	_, err := c.r.PostTo[aoni.NoResponse](ctx, "IEconService/DeclineTradeOffer/v1", nil, allMods...)
 	return err
 }
 
@@ -139,7 +139,7 @@ func (c *econServiceAPIClient) CancelTradeOffer(ctx context.Context, tradeOfferI
 		allMods = append(allMods, mods...)
 	}
 
-	_, err := c.r.Post[aoni.NoResponse](ctx, "IEconService/CancelTradeOffer/v1", nil, allMods...)
+	_, err := c.r.PostTo[aoni.NoResponse](ctx, "IEconService/CancelTradeOffer/v1", nil, allMods...)
 	return err
 }
 
@@ -195,7 +195,7 @@ func (c *tradeCommunityAPIClient) SendOffer(ctx context.Context, partnerID uint3
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[SendNewTradeOfferResponse](ctx, "tradeoffer/new/send", nil, allMods...)
+	resp, err := c.r.PostTo[SendNewTradeOfferResponse](ctx, "tradeoffer/new/send", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}
@@ -223,7 +223,7 @@ func (c *tradeCommunityAPIClient) AcceptOffer(ctx context.Context, offerID uint6
 		allMods = append(allMods, mods...)
 	}
 
-	resp, err := c.r.Post[AcceptTradeOfferResponse](ctx, "tradeoffer/{offerID}/accept", nil, allMods...)
+	resp, err := c.r.PostTo[AcceptTradeOfferResponse](ctx, "tradeoffer/{offerID}/accept", nil, allMods...)
 	if err != nil {
 		return nil, err
 	}

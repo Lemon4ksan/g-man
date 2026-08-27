@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/foundation/async/event"
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/lemon4ksan/foundation/generic"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -59,7 +59,7 @@ func TestManager_Run(t *testing.T) {
 		t.Parallel()
 
 		bBus := event.New()
-		logger := log.Discard
+		logger := logkit.Discard
 		orch := behavior.NewOrchestrator(bBus, logger)
 		provider := new(mockGuardianProvider)
 
@@ -88,7 +88,7 @@ func TestManager_Run(t *testing.T) {
 		provider.On("FetchConfirmations", mock.Anything).Return(confs, nil).Once()
 		provider.On("AcceptMultiple", mock.Anything, []*guard.Confirmation{confs[0]}).Return(nil).Once()
 
-		m := New(provider, log.Discard, eventBus, cfg)
+		m := New(provider, logkit.Discard, eventBus, cfg)
 
 		ctx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
 		defer cancel()
@@ -118,7 +118,7 @@ func TestManager_Run(t *testing.T) {
 			close(accepted)
 		}).Once()
 
-		m := New(provider, log.Discard, eventBus, cfg)
+		m := New(provider, logkit.Discard, eventBus, cfg)
 
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
@@ -160,7 +160,7 @@ func TestManager_Run(t *testing.T) {
 			close(accepted)
 		}).Once()
 
-		m := New(provider, log.Discard, eventBus, cfg)
+		m := New(provider, logkit.Discard, eventBus, cfg)
 
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
@@ -206,7 +206,7 @@ func TestManager_Run(t *testing.T) {
 			}).
 			Once()
 
-		m := New(provider, log.Discard, eventBus, cfg)
+		m := New(provider, logkit.Discard, eventBus, cfg)
 
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
@@ -237,7 +237,7 @@ func TestManager_Run(t *testing.T) {
 
 		provider.On("FetchConfirmations", mock.Anything).Return([]*guard.Confirmation{}, nil).Once()
 
-		m := New(provider, log.Discard, eventBus, cfg)
+		m := New(provider, logkit.Discard, eventBus, cfg)
 
 		ctx, cancel := context.WithTimeout(t.Context(), 20*time.Millisecond)
 		defer cancel()
@@ -256,7 +256,7 @@ func TestManager_Run(t *testing.T) {
 
 		provider.On("FetchConfirmations", mock.Anything).Return(nil, errors.New("network error")).Once()
 
-		m := New(provider, log.Discard, eventBus, cfg)
+		m := New(provider, logkit.Discard, eventBus, cfg)
 
 		ctx, cancel := context.WithTimeout(t.Context(), 20*time.Millisecond)
 		defer cancel()
@@ -280,7 +280,7 @@ func TestManager_Run(t *testing.T) {
 		provider.On("FetchConfirmations", mock.Anything).Return(confs, nil).Once()
 		provider.On("AcceptMultiple", mock.Anything, mock.Anything).Return(errors.New("steam error")).Once()
 
-		m := New(provider, log.Discard, eventBus, cfg)
+		m := New(provider, logkit.Discard, eventBus, cfg)
 
 		ctx, cancel := context.WithTimeout(t.Context(), 20*time.Millisecond)
 		defer cancel()
@@ -295,7 +295,7 @@ func TestManager_Run(t *testing.T) {
 
 		provider := new(mockGuardianProvider)
 		eventBus := event.New()
-		m := New(provider, log.Discard, eventBus, Config{})
+		m := New(provider, logkit.Discard, eventBus, Config{})
 
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
@@ -325,7 +325,7 @@ func TestManager_Run(t *testing.T) {
 
 		confs := []*guard.Confirmation{{ID: 1, Type: guard.ConfTypeLogin}}
 
-		m := New(provider, log.Discard, eventBus, cfg)
+		m := New(provider, logkit.Discard, eventBus, cfg)
 
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()

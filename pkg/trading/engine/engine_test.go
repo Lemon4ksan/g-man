@@ -8,7 +8,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -189,7 +189,7 @@ func TestTradeContext_Decision(t *testing.T) {
 func TestRecoverMiddleware(t *testing.T) {
 	t.Parallel()
 
-	logger := log.New(log.DefaultConfig(log.LevelError))
+	logger := logkit.New(logkit.DefaultConfig(logkit.LevelError))
 	e := New()
 	e.Use(RecoverMiddleware(logger))
 
@@ -212,7 +212,7 @@ func TestRecoverMiddleware(t *testing.T) {
 func TestLoggerMiddleware(t *testing.T) {
 	t.Parallel()
 
-	logger := log.New(log.DefaultConfig(log.LevelError))
+	logger := logkit.New(logkit.DefaultConfig(logkit.LevelError))
 	e := New()
 	e.Use(LoggerMiddleware(logger))
 
@@ -413,7 +413,7 @@ func TestBotHandler(t *testing.T) {
 			}
 		})
 
-		h := NewBotHandler(e, log.Discard)
+		h := NewBotHandler(e, logkit.Discard)
 		offer := &trading.TradeOffer{ID: 100}
 		decision, err := h.ProcessOffer(t.Context(), offer)
 		require.NoError(t, err)
@@ -430,7 +430,7 @@ func TestBotHandler(t *testing.T) {
 			}
 		})
 
-		h := NewBotHandler(e, log.Discard)
+		h := NewBotHandler(e, logkit.Discard)
 		offer := &trading.TradeOffer{ID: 100}
 		decision, err := h.ProcessOffer(t.Context(), offer)
 		assert.Error(t, err)
@@ -440,7 +440,7 @@ func TestBotHandler(t *testing.T) {
 	t.Run("on_action_failed", func(t *testing.T) {
 		t.Parallel()
 
-		h := NewBotHandler(New(), log.Discard)
+		h := NewBotHandler(New(), logkit.Discard)
 		offer := &trading.TradeOffer{ID: 100}
 		assert.NotPanics(t, func() {
 			h.OnActionFailed(t.Context(), offer, trading.ActionAccept, "reason", errors.New("network fail"))

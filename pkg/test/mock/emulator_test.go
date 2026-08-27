@@ -65,7 +65,7 @@ func TestSteamEmulator_InventorySync(t *testing.T) {
 	ctx := context.Background()
 
 	// 1. Default empty inventory
-	res, err := client.Get[InventoryResponse](ctx, "/inventory/76561198000000001/440/2")
+	res, err := client.GetTo[InventoryResponse](ctx, "/inventory/76561198000000001/440/2")
 	require.NoError(t, err)
 	assert.Equal(t, 0, res.TotalInventoryCount)
 
@@ -73,7 +73,7 @@ func TestSteamEmulator_InventorySync(t *testing.T) {
 	customInv := `{"assets":[{"assetid":"101","classid":"201"}],"descriptions":[],"total_inventory_count":1,"success":1}`
 	emu.SetInventory(76561198000000001, 440, 2, []byte(customInv))
 
-	res2, err := client.Get[InventoryResponse](ctx, "/inventory/76561198000000001/440/2")
+	res2, err := client.GetTo[InventoryResponse](ctx, "/inventory/76561198000000001/440/2")
 	require.NoError(t, err)
 	assert.Equal(t, 1, res2.TotalInventoryCount)
 	assert.Len(t, res2.Assets, 1)
@@ -88,22 +88,22 @@ func TestSteamEmulator_TradeOfferLifecycle(t *testing.T) {
 	ctx := context.Background()
 
 	// 1. Send Trade Offer
-	sendRes, err := client.Post[TradeOfferData](ctx, "/tradeoffer/new/send", struct{}{})
+	sendRes, err := client.PostTo[TradeOfferData](ctx, "/tradeoffer/new/send", struct{}{})
 	require.NoError(t, err)
 	assert.NotEmpty(t, sendRes.TradeOfferID)
 
 	// 2. Check Offer Status
-	getRes, err := client.Get[GetOfferResponse](ctx, "/IEconService/GetTradeOffer/v1", mod.WithQuery("tradeofferid", sendRes.TradeOfferID))
+	getRes, err := client.GetTo[GetOfferResponse](ctx, "/IEconService/GetTradeOffer/v1", mod.WithQuery("tradeofferid", sendRes.TradeOfferID))
 	require.NoError(t, err)
 	assert.Equal(t, float64(2), getRes.Response.Offer["trade_offer_state"]) // 2 = Active
 
 	// 3. Accept Offer
-	acceptRes, err := client.Post[AcceptResponse](ctx, "/tradeoffer/"+sendRes.TradeOfferID+"/accept", struct{}{})
+	acceptRes, err := client.PostTo[AcceptResponse](ctx, "/tradeoffer/"+sendRes.TradeOfferID+"/accept", struct{}{})
 	require.NoError(t, err)
 	assert.Equal(t, "900000001", acceptRes.TradeID)
 
 	// 4. Verify Offer Transition to Accepted (State 3)
-	getRes2, err := client.Get[GetOfferResponse](ctx, "/IEconService/GetTradeOffer/v1", mod.WithQuery("tradeofferid", sendRes.TradeOfferID))
+	getRes2, err := client.GetTo[GetOfferResponse](ctx, "/IEconService/GetTradeOffer/v1", mod.WithQuery("tradeofferid", sendRes.TradeOfferID))
 	require.NoError(t, err)
 	assert.Equal(t, float64(3), getRes2.Response.Offer["trade_offer_state"]) // 3 = Accepted
 }
@@ -118,12 +118,12 @@ func TestSteamEmulator_SimulateErrors(t *testing.T) {
 	// Simulate Rate Limit (429)
 	emu.SimulateError("/inventory", http.StatusTooManyRequests)
 
-	_, err := client.Get[InventoryResponse](ctx, "/inventory/76561198000000001/440/2")
+	_, err := client.GetTo[InventoryResponse](ctx, "/inventory/76561198000000001/440/2")
 	require.Error(t, err)
 
 	// Clear Errors
 	emu.ClearErrors()
-	res, err := client.Get[InventoryResponse](ctx, "/inventory/76561198000000001/440/2")
+	res, err := client.GetTo[InventoryResponse](ctx, "/inventory/76561198000000001/440/2")
 	require.NoError(t, err)
 	assert.Equal(t, 1, res.Success)
 }

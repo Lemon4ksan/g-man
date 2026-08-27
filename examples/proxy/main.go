@@ -15,7 +15,7 @@ import (
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/middleware"
 	"github.com/lemon4ksan/aoni/netutil/proxy"
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
@@ -24,7 +24,7 @@ import (
 var ErrNoWebProxies = errors.New("proxy: no valid web proxies available for rotation")
 
 // SetupProxyClient demonstrates configuring dedicated socket proxy routing and rotating HTTP proxies with sticky sessions via aoni.
-func SetupProxyClient(logger log.Logger, cmProxy string, webProxies []string) (*steam.Client, error) {
+func SetupProxyClient(logger logkit.Logger, cmProxy string, webProxies []string) (*steam.Client, error) {
 	socketCfg := socket.DefaultConfig()
 	socketCfg.Connector.ProxyURL = cmProxy
 	socketCfg.Connector.ConnectTimeout = 30 * time.Second
@@ -35,7 +35,7 @@ func SetupProxyClient(logger log.Logger, cmProxy string, webProxies []string) (*
 	for _, proxyURL := range webProxies {
 		parsedURL, err := url.Parse(proxyURL)
 		if err != nil {
-			logger.Error("Skipping invalid proxy configuration", log.String("url", proxyURL), log.Err(err))
+			logger.Error("Skipping invalid proxy configuration", logkit.String("url", proxyURL), logkit.Err(err))
 			continue
 		}
 

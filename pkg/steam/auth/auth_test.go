@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/foundation/async/event"
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
@@ -45,7 +45,7 @@ func (s *AuthenticatorSuite) SetupTest() {
 	s.store = new(MockStore)
 	s.session = &mockSession{}
 	s.socket.On("Session").Return(s.session).Maybe()
-	s.auth = NewAuthenticator(s.socket, s.webAPI, s.bus, WithStorage(s.store), WithLogger(log.Discard))
+	s.auth = NewAuthenticator(s.socket, s.webAPI, s.bus, WithStorage(s.store), WithLogger(logkit.Discard))
 }
 
 func TestAuthenticatorSuite(t *testing.T) {

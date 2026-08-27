@@ -12,7 +12,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 
 	"github.com/lemon4ksan/g-man/pkg/steam"
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
@@ -29,7 +29,7 @@ func main() {
 	}
 	defer jsonStorage.Close()
 
-	logger := log.New(log.DefaultConfig(log.LevelInfo))
+	logger := logkit.New(logkit.DefaultConfig(logkit.LevelInfo))
 	defer logger.Close()
 
 	client, err := steam.NewClient(
@@ -85,19 +85,19 @@ func main() {
 	}
 
 	loginDetails := auth.NewLogOnDetails(user, pass)
-	logger.Info("Attempting login...", log.String("user", loginDetails.AccountName))
+	logger.Info("Attempting login...", logkit.String("user", loginDetails.AccountName))
 
 	loginCtx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
 
 	server, err := directory.New(client).GetOptimalCMServer(loginCtx)
 	if err != nil {
-		logger.Error("Failed to fetch CM server list", log.Err(err))
+		logger.Error("Failed to fetch CM server list", logkit.Err(err))
 		return
 	}
 
 	if err := client.ConnectAndLogin(loginCtx, server, loginDetails); err != nil {
-		logger.Error("Login process failed", log.Err(err))
+		logger.Error("Login process failed", logkit.Err(err))
 		return
 	}
 
@@ -110,7 +110,7 @@ func main() {
 	logger.Info("Shutting down G-man spotify bot...")
 
 	if err := client.Close(); err != nil {
-		logger.Error("Failed to close client", log.Err(err))
+		logger.Error("Failed to close client", logkit.Err(err))
 	}
 
 	client.Wait()

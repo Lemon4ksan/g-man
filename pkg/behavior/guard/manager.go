@@ -9,7 +9,7 @@ import (
 	"context"
 
 	"github.com/lemon4ksan/foundation/async/event"
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/lemon4ksan/foundation/generic"
 
 	"github.com/lemon4ksan/g-man/pkg/behavior"
@@ -66,16 +66,16 @@ type Config struct {
 // Manager listens for Steam Guard event notifications and executes automated confirmation approvals.
 type Manager struct {
 	guardian Provider
-	logger   log.Logger
+	logger   logkit.Logger
 	config   Config
 	bus      *event.Bus
 }
 
 // New constructs a guard Manager instance.
-func New(guardian Provider, logger log.Logger, bus *event.Bus, cfg Config) *Manager {
+func New(guardian Provider, logger logkit.Logger, bus *event.Bus, cfg Config) *Manager {
 	return &Manager{
 		guardian: guardian,
-		logger:   logger.With(log.Module(BehaviorName)),
+		logger:   logger.With(logkit.Module(BehaviorName)),
 		config:   cfg,
 		bus:      bus,
 	}
@@ -88,7 +88,7 @@ func (m *Manager) Name() string {
 
 // Run starts event subscriptions and listens for confirmation triggers.
 func (m *Manager) Run(ctx context.Context) error {
-	m.logger.Info("Guard Manager behavior started", log.Any("auto_accept", m.config.AutoAcceptTypes))
+	m.logger.Info("Guard Manager behavior started", logkit.Any("auto_accept", m.config.AutoAcceptTypes))
 
 	if m.config.PollOnStart {
 		m.logger.Debug("Performing initial confirmation fetch...")
@@ -121,7 +121,7 @@ func (m *Manager) Run(ctx context.Context) error {
 
 			case *guard.ConfirmationRequiredEvent:
 				if e.IsAppConfirm {
-					m.logger.Debug("Received trade confirmation request signal", log.String("offer_id", e.TradeOfferID))
+					m.logger.Debug("Received trade confirmation request signal", logkit.String("offer_id", e.TradeOfferID))
 
 					trigger = true
 				}
@@ -137,7 +137,7 @@ func (m *Manager) Run(ctx context.Context) error {
 func (m *Manager) resolveConfirmations(ctx context.Context) {
 	confs, err := m.guardian.FetchConfirmations(ctx)
 	if err != nil {
-		m.logger.Error("Failed to fetch confirmations", log.Err(err))
+		m.logger.Error("Failed to fetch confirmations", logkit.Err(err))
 		return
 	}
 
@@ -151,8 +151,8 @@ func (m *Manager) resolveConfirmations(ctx context.Context) {
 			toAccept = append(toAccept, conf)
 		} else {
 			m.logger.Info("Confirmation requires manual review",
-				log.String("type", conf.Type.String()),
-				log.String("title", conf.Title),
+				logkit.String("type", conf.Type.String()),
+				logkit.String("title", conf.Title),
 			)
 		}
 	}
@@ -161,9 +161,9 @@ func (m *Manager) resolveConfirmations(ctx context.Context) {
 		return
 	}
 
-	m.logger.Info("Automatically accepting confirmations", log.Int("count", len(toAccept)))
+	m.logger.Info("Automatically accepting confirmations", logkit.Int("count", len(toAccept)))
 
 	if err := m.guardian.AcceptMultiple(ctx, toAccept); err != nil {
-		m.logger.Error("Failed to accept confirmations", log.Err(err))
+		m.logger.Error("Failed to accept confirmations", logkit.Err(err))
 	}
 }

@@ -14,7 +14,7 @@ import (
 
 	"github.com/lemon4ksan/aoni/x/otel"
 	"github.com/lemon4ksan/foundation/async/event"
-	"github.com/lemon4ksan/foundation/async/log"
+	"github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/lemon4ksan/foundation/generic"
 
 	"github.com/lemon4ksan/g-man/pkg/behavior"
@@ -46,7 +46,7 @@ type Config struct {
 type Bot struct {
 	cfg    Config
 	store  storage.Provider
-	logger log.Logger
+	logger logkit.Logger
 	tracer *otel.Tracer
 	client *steam.Client
 	sub    *event.Subscription
@@ -55,8 +55,8 @@ type Bot struct {
 
 // NewBot creates and initializes a new bot instance using the provided configuration
 // and injected storage and logger dependencies.
-func NewBot(cfg Config, store storage.Provider, logger log.Logger) (*Bot, error) {
-	logger = logger.With(log.Module("bot"))
+func NewBot(cfg Config, store storage.Provider, logger logkit.Logger) (*Bot, error) {
+	logger = logger.With(logkit.Module("bot"))
 
 	tracer := otel.NewTracer("g-man-bot",
 		otel.WithExporter(otel.NewExporter(os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"))),
@@ -96,7 +96,7 @@ func (b *Bot) Run(ctx context.Context) error {
 
 	logger := b.logger
 	if traceID := span.SpanContext().TraceID(); traceID.IsValid() {
-		logger = logger.With(log.String("trace_id", traceID.String()))
+		logger = logger.With(logkit.String("trace_id", traceID.String()))
 	}
 
 	logger.Info("Starting core client services...")
@@ -121,8 +121,8 @@ func (b *Bot) Run(ctx context.Context) error {
 	cmSpan.End()
 
 	logger.Info("Optimal CM server found",
-		log.String("endpoint", server.Endpoint),
-		log.Float64("load", server.Load),
+		logkit.String("endpoint", server.Endpoint),
+		logkit.Float64("load", server.Load),
 	)
 
 	b.setupOrchestrator()
@@ -135,7 +135,7 @@ func (b *Bot) Run(ctx context.Context) error {
 	})
 
 	logger.Info("Connecting and authenticating with Steam...",
-		log.String("username", b.cfg.Username),
+		logkit.String("username", b.cfg.Username),
 	)
 
 	loginCtx, loginSpan := b.tracer.Start(ctx, "Steam.ConnectAndLogin",
@@ -173,7 +173,7 @@ func (b *Bot) Close() {
 	b.wg.Wait()
 
 	if err := b.client.Close(); err != nil {
-		b.logger.Error("Error during client shutdown", log.Err(err))
+		b.logger.Error("Error during client shutdown", logkit.Err(err))
 	} else {
 		b.logger.Info("Client session closed")
 	}
@@ -206,7 +206,7 @@ func (b *Bot) handleEvents(ctx context.Context) {
 
 			switch ev := event.(type) {
 			case *auth.LoggedOnEvent:
-				b.logger.Info("Login successful", log.Uint64("steam_id", ev.SteamID))
+				b.logger.Info("Login successful", logkit.Uint64("steam_id", ev.SteamID))
 			default:
 			}
 		}
@@ -248,10 +248,10 @@ func main() {
 		}
 	}()
 
-	logCfg := log.DefaultConfig(log.LevelDebug)
+	logCfg := logkit.DefaultConfig(logkit.LevelDebug)
 	logCfg.FullPath = true
 
-	logger := log.New(logCfg)
+	logger := logkit.New(logCfg)
 	defer func() {
 		if err := logger.Close(); err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to close logger: %v\n", err)
@@ -260,7 +260,7 @@ func main() {
 
 	bot, err := NewBot(cfg, store, logger)
 	if err != nil {
-		logger.Error("Failed to create bot", log.Err(err))
+		logger.Error("Failed to create bot", logkit.Err(err))
 		return
 	}
 	defer bot.Close()
@@ -269,7 +269,7 @@ func main() {
 	defer cancel()
 
 	if err := bot.Run(ctx); err != nil {
-		logger.Error("Bot runtime error", log.Err(err))
+		logger.Error("Bot runtime error", logkit.Err(err))
 		return
 	}
 
