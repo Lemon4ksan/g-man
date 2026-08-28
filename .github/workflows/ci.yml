@@ -6,29 +6,56 @@ on:
   pull_request:
     branches: ["main"]
 
+permissions:
+  contents: read
+
 jobs:
-  build-and-test:
+  lint:
+    name: Lint & Code Standards
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - name: Checkout code
+        uses: actions/checkout@v6
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.25"
+          go-version: "1.27.x"
           cache: true
 
-      - name: Install dependencies
+      - name: Download dependencies
         run: go mod download
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v7
         with:
-          version: v2.11.3
+          version: latest
           args: --timeout=5m
 
+  test-matrix:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.27.x"
+          cache: true
+
+      - name: Download dependencies
+        run: go mod download
+
       - name: Run Tests with Race Detector
-        run: make race
+        run: go test -race -timeout 120s ./...
 
       - name: Build Bot Binary
-        run: make build
+        if: matrix.os == 'ubuntu-latest'
+        run: go build -o bin/g-man-bot ./cmd/bot/main.go

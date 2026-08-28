@@ -21,7 +21,8 @@ formatters:
 
     gofumpt:
       module-path: github.com/lemon4ksan/g-man
-      extra.group-params: true
+      extra:
+        group-params: true
 
     goimports:
       local-prefixes:
