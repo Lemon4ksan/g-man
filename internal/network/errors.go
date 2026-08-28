@@ -56,8 +56,7 @@ func (e *Error) Unwrap() error {
 
 // Is supports matching via errors.Is against target operations and transport names.
 func (e *Error) Is(target error) bool {
-	var t *Error
-	if errors.As(target, &t) {
+	if t, ok := errors.AsType[*Error](target); ok {
 		return e.Op == t.Op && (t.Net == "" || strings.EqualFold(e.Net, t.Net))
 	}
 

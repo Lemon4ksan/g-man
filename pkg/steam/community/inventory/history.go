@@ -165,10 +165,10 @@ func (p *HistoryParser) parseRows(
 		row := TradeHistoryRow{
 			ItemsReceived: make([]EconItem, 0),
 			ItemsGiven:    make([]EconItem, 0),
-		}
 
-		row.OnHold = p.parseRowHoldStatus(rowNode)
-		row.Date = p.parseRowTimestamp(rowNode)
+			OnHold: p.parseRowHoldStatus(rowNode),
+			Date:   p.parseRowTimestamp(rowNode),
+		}
 
 		if descNode := findFirstWithClass(rowNode, "tradehistory_event_description"); descNode != nil {
 			if partnerAnchor := findFirstElement(descNode, "a"); partnerAnchor != nil {

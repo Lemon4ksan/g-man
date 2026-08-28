@@ -49,8 +49,8 @@ func mockRSAResponse(t *testing.T, mock *mock.ServiceMock) *rsa.PrivateKey {
 		"Authentication",
 		"GetPasswordRSAPublicKey",
 		&pb.CAuthentication_GetPasswordRSAPublicKey_Response{
-			PublickeyMod: proto.String(modHex),
-			PublickeyExp: proto.String(expHex),
+			PublickeyMod: new(modHex),
+			PublickeyExp: new(expHex),
 			Timestamp:    proto.Uint64(TestTimestamp),
 		},
 	)
@@ -147,8 +147,8 @@ func TestAuthenticationService_EncryptPassword(t *testing.T) {
 						"Authentication",
 						"GetPasswordRSAPublicKey",
 						&pb.CAuthentication_GetPasswordRSAPublicKey_Response{
-							PublickeyMod: proto.String("NOT_HEX"),
-							PublickeyExp: proto.String("010001"),
+							PublickeyMod: new("NOT_HEX"),
+							PublickeyExp: new("010001"),
 						},
 					)
 				},
@@ -161,8 +161,8 @@ func TestAuthenticationService_EncryptPassword(t *testing.T) {
 						"Authentication",
 						"GetPasswordRSAPublicKey",
 						&pb.CAuthentication_GetPasswordRSAPublicKey_Response{
-							PublickeyMod: proto.String("010203"),
-							PublickeyExp: proto.String("NOT_HEX"),
+							PublickeyMod: new("010203"),
+							PublickeyExp: new("NOT_HEX"),
 						},
 					)
 				},
@@ -247,7 +247,7 @@ func TestAuthenticationService_PollAuthSessionStatus(t *testing.T) {
 			"Authentication",
 			"PollAuthSessionStatus",
 			&pb.CAuthentication_PollAuthSessionStatus_Response{
-				RefreshToken: proto.String("new_token"),
+				RefreshToken: new("new_token"),
 			},
 		)
 
@@ -325,7 +325,7 @@ func TestAuthenticationService_GenerateAccessTokenForApp(t *testing.T) {
 			"Authentication",
 			"GenerateAccessTokenForApp",
 			&pb.CAuthentication_AccessToken_GenerateForApp_Response{
-				AccessToken: proto.String("access_token"),
+				AccessToken: new("access_token"),
 			},
 		)
 

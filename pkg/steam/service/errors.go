@@ -21,13 +21,13 @@ var (
 
 // RetriableError identifies transient errors safe for automated retries.
 type RetriableError interface {
+	error
 	IsRetriable() bool
 }
 
 // IsRetriable checks whether err implements RetriableError and returns true.
 func IsRetriable(err error) bool {
-	var re RetriableError
-	if errors.As(err, &re) {
+	if re, ok := errors.AsType[RetriableError](err); ok {
 		return re.IsRetriable()
 	}
 
@@ -71,8 +71,7 @@ func (e *EResultError) Unwrap() error {
 }
 
 func (e *EResultError) Is(target error) bool {
-	var t *EResultError
-	if errors.As(target, &t) {
+	if t, ok := errors.AsType[*EResultError](target); ok {
 		return e.Result == t.Result
 	}
 
@@ -121,8 +120,7 @@ func (e *SteamAPIError) IsRetriable() bool {
 }
 
 func (e *SteamAPIError) Is(target error) bool {
-	var t *SteamAPIError
-	if errors.As(target, &t) {
+	if t, ok := errors.AsType[*SteamAPIError](target); ok {
 		return e.StatusCode == t.StatusCode && (t.Message == "" || e.Message == t.Message)
 	}
 

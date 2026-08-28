@@ -206,10 +206,10 @@ func TestExecuteTransferWithRetry(t *testing.T) {
 	t.Run("retries", func(t *testing.T) {
 		t.Parallel()
 
-		var count int32
+		var count atomic.Int32
 
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if atomic.AddInt32(&count, 1) < 2 {
+			if count.Add(1) < 2 {
 				hj, ok := w.(http.Hijacker)
 				if ok {
 					conn, _, _ := hj.Hijack()
@@ -228,7 +228,7 @@ func TestExecuteTransferWithRetry(t *testing.T) {
 		ws.retryBackoff = time.Millisecond
 		err := ws.executeTransfer(t.Context(), server.URL, nil)
 		assert.NoError(t, err)
-		assert.Equal(t, int32(2), atomic.LoadInt32(&count))
+		assert.Equal(t, int32(2), count.Load())
 	})
 }
 

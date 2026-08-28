@@ -215,16 +215,14 @@ func TestManager_Register_VariousStates_HandlesLifecycle(t *testing.T) {
 		startCalled := false
 
 		mod := &testAuthModule{
-			testModule: testModule{
-				name: "mod1",
-				initFunc: func(ctx module.InitContext) error {
-					initCalledWith = ctx
-					return nil
-				},
-				startFunc: func(ctx context.Context) error {
-					startCalled = true
-					return nil
-				},
+			name: "mod1",
+			initFunc: func(ctx module.InitContext) error {
+				initCalledWith = ctx
+				return nil
+			},
+			startFunc: func(ctx context.Context) error {
+				startCalled = true
+				return nil
 			},
 			startAuthedFunc: func(ctx context.Context, actx module.AuthContext) error {
 				startAuthedCalledWith = actx
@@ -296,9 +294,7 @@ func TestManager_Register_VariousStates_HandlesLifecycle(t *testing.T) {
 
 		errFailed := errors.New("auth-failed")
 		mod := &testAuthModule{
-			testModule: testModule{
-				name: "mod1",
-			},
+			name: "mod1",
 			startAuthedFunc: func(ctx context.Context, actx module.AuthContext) error {
 				return errFailed
 			},
@@ -345,16 +341,14 @@ func TestManager_LifecycleAll_VariousScenarios_RunsCorrectly(t *testing.T) {
 		closeCalled := false
 
 		mod := &testCloserModule{
-			testModule: testModule{
-				name: "mod1",
-				initFunc: func(ctx module.InitContext) error {
-					initCalled = true
-					return nil
-				},
-				startFunc: func(ctx context.Context) error {
-					startCalled = true
-					return nil
-				},
+			name: "mod1",
+			initFunc: func(ctx module.InitContext) error {
+				initCalled = true
+				return nil
+			},
+			startFunc: func(ctx context.Context) error {
+				startCalled = true
+				return nil
 			},
 			closeFunc: func() error {
 				closeCalled = true
@@ -404,7 +398,7 @@ func TestManager_LifecycleAll_VariousScenarios_RunsCorrectly(t *testing.T) {
 
 		mStop, _, _ := newTestManager(t, &mockStateProvider{})
 		_ = mStop.Add(&testCloserModule{
-			testModule: testModule{name: "mod-fail"},
+			name: "mod-fail",
 			closeFunc: func() error {
 				return errors.New("close-fail")
 			},
@@ -437,7 +431,7 @@ func TestManager_StartAuthedAll_VariousScenarios_RunsExpected(t *testing.T) {
 
 		called := false
 		mod := &testAuthModule{
-			testModule: testModule{name: "mod1"},
+			name: "mod1",
 			startAuthedFunc: func(ctx context.Context, actx module.AuthContext) error {
 				called = true
 
@@ -460,7 +454,7 @@ func TestManager_StartAuthedAll_VariousScenarios_RunsExpected(t *testing.T) {
 		errFailed := errors.New("auth-fail")
 
 		mod := &testAuthModule{
-			testModule: testModule{name: "mod1"},
+			name: "mod1",
 			startAuthedFunc: func(ctx context.Context, actx module.AuthContext) error {
 				return errFailed
 			},
@@ -500,7 +494,7 @@ func TestModuleAdapter_VariousStates_HandlesLifecycle(t *testing.T) {
 		t.Parallel()
 
 		mod := &testDependentModule{
-			testModule:   testModule{name: "dep"},
+			name:         "dep",
 			dependencies: []string{"dep1", "dep2"},
 		}
 		adapter := &modules.ModuleAdapter{Mod: mod}
@@ -535,13 +529,11 @@ func TestModuleAdapter_VariousStates_HandlesLifecycle(t *testing.T) {
 		var startCtx context.Context
 
 		mod := &testCloserModule{
-			testModule: testModule{
-				name: "start-stop-test",
-				startFunc: func(ctx context.Context) error {
-					startCalled = true
-					startCtx = ctx
-					return nil
-				},
+			name: "start-stop-test",
+			startFunc: func(ctx context.Context) error {
+				startCalled = true
+				startCtx = ctx
+				return nil
 			},
 			closeFunc: func() error {
 				return errors.New("close-err")

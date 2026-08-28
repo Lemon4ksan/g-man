@@ -13,8 +13,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	pb "github.com/lemon4ksan/g-man/protobuf/steam"
 )
@@ -58,7 +56,7 @@ func (s *AuthenticationService) GetPasswordRSAPublicKey(
 	accountName string,
 ) (*pb.CAuthentication_GetPasswordRSAPublicKey_Response, error) {
 	req := &pb.CAuthentication_GetPasswordRSAPublicKey_Request{
-		AccountName: proto.String(accountName),
+		AccountName: new(accountName),
 	}
 
 	return service.Unified[pb.CAuthentication_GetPasswordRSAPublicKey_Response](
@@ -118,17 +116,17 @@ func (s *AuthenticationService) BeginAuthSessionViaCredentials(
 	}
 
 	req := &pb.CAuthentication_BeginAuthSessionViaCredentials_Request{
-		AccountName:         proto.String(accountName),
-		EncryptedPassword:   proto.String(encPassword),
-		EncryptionTimestamp: proto.Uint64(timestamp),
-		RememberLogin:       proto.Bool(true),
+		AccountName:         new(accountName),
+		EncryptedPassword:   new(encPassword),
+		EncryptionTimestamp: new(timestamp),
+		RememberLogin:       new(true),
 		Persistence:         pb.ESessionPersistence_k_ESessionPersistence_Persistent.Enum(),
-		WebsiteId:           proto.String("Client"),
+		WebsiteId:           new("Client"),
 		DeviceDetails:       s.getDeviceDetails(),
 	}
 
 	if authCode != "" {
-		req.GuardData = proto.String(authCode)
+		req.GuardData = new(authCode)
 	}
 
 	return service.Unified[pb.CAuthentication_BeginAuthSessionViaCredentials_Response](
@@ -143,7 +141,7 @@ func (s *AuthenticationService) PollAuthSessionStatus(
 	requestID []byte,
 ) (*pb.CAuthentication_PollAuthSessionStatus_Response, error) {
 	req := &pb.CAuthentication_PollAuthSessionStatus_Request{
-		ClientId:  proto.Uint64(clientID),
+		ClientId:  new(clientID),
 		RequestId: requestID,
 	}
 
@@ -160,9 +158,9 @@ func (s *AuthenticationService) UpdateAuthSessionWithSteamGuardCode(
 	codeType pb.EAuthSessionGuardType,
 ) error {
 	req := &pb.CAuthentication_UpdateAuthSessionWithSteamGuardCode_Request{
-		ClientId: proto.Uint64(clientID),
-		Steamid:  proto.Uint64(steamID),
-		Code:     proto.String(code),
+		ClientId: new(clientID),
+		Steamid:  new(steamID),
+		Code:     new(code),
 		CodeType: codeType.Enum(),
 	}
 
@@ -178,8 +176,8 @@ func (s *AuthenticationService) GenerateAccessTokenForApp(
 	steamID uint64,
 ) (*pb.CAuthentication_AccessToken_GenerateForApp_Response, error) {
 	req := &pb.CAuthentication_AccessToken_GenerateForApp_Request{
-		RefreshToken: proto.String(refreshToken),
-		Steamid:      proto.Uint64(steamID),
+		RefreshToken: new(refreshToken),
+		Steamid:      new(steamID),
 		RenewalType:  pb.ETokenRenewalType_k_ETokenRenewalType_None.Enum(),
 	}
 
@@ -190,9 +188,9 @@ func (s *AuthenticationService) GenerateAccessTokenForApp(
 
 func (s *AuthenticationService) getDeviceDetails() *pb.CAuthentication_DeviceDetails {
 	return &pb.CAuthentication_DeviceDetails{
-		DeviceFriendlyName: proto.String(s.conf.DeviceFriendlyName),
+		DeviceFriendlyName: new(s.conf.DeviceFriendlyName),
 		PlatformType:       s.conf.PlatformType.Enum(),
-		OsType:             proto.Int32(int32(s.conf.OSType)),
-		GamingDeviceType:   proto.Uint32(s.conf.GamingDeviceType),
+		OsType:             new(int32(s.conf.OSType)),
+		GamingDeviceType:   new(s.conf.GamingDeviceType),
 	}
 }

@@ -388,16 +388,16 @@ func (e *Engine) Execute(ctx context.Context, cmdLine string) (string, error) {
 	}
 
 	exec := coreHandler
-	for i := len(cmd.Middlewares) - 1; i >= 0; i-- {
-		exec = cmd.Middlewares[i](exec)
+	for _, v := range slices.Backward(cmd.Middlewares) {
+		exec = v(exec)
 	}
 
 	e.middlewaresMu.RLock()
 	globalMW := slices.Clone(e.middlewares)
 	e.middlewaresMu.RUnlock()
 
-	for i := len(globalMW) - 1; i >= 0; i-- {
-		exec = globalMW[i](exec)
+	for _, g := range slices.Backward(globalMW) {
+		exec = g(exec)
 	}
 
 	return exec(ctx, args)

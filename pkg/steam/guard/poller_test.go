@@ -34,8 +34,7 @@ func TestConfirmationPoller_Lifecycle(t *testing.T) {
 		AutoConfirmAll: true,
 	})
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	// 1. Start poller
 	poller.Start(ctx)

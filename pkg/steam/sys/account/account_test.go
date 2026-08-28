@@ -75,8 +75,8 @@ func TestAccount_HandleAccountInfo(t *testing.T) {
 		defer sub.Unsubscribe()
 
 		ictx.EmitPacket(t, enums.EMsg_ClientAccountInfo, &pb.CMsgClientAccountInfo{
-			PersonaName:          proto.String("Arseny"),
-			IpCountry:            proto.String("RU"),
+			PersonaName:          new("Arseny"),
+			IpCountry:            new("RU"),
 			CountAuthedComputers: proto.Int32(2),
 			AccountFlags:         proto.Uint32(1337),
 		})
@@ -117,8 +117,8 @@ func TestAccount_HandleEmailAddrInfo(t *testing.T) {
 		defer sub.Unsubscribe()
 
 		ictx.EmitPacket(t, enums.EMsg_ClientEmailAddrInfo, &pb.CMsgClientEmailAddrInfo{
-			EmailAddress:     proto.String("test@test.com"),
-			EmailIsValidated: proto.Bool(true),
+			EmailAddress:     new("test@test.com"),
+			EmailIsValidated: new(true),
 		})
 
 		email := a.Email()
@@ -155,7 +155,7 @@ func TestAccount_HandleIsLimitedAccount(t *testing.T) {
 		defer sub.Unsubscribe()
 
 		ictx.EmitPacket(t, enums.EMsg_ClientIsLimitedAccount, &pb.CMsgClientIsLimitedAccount{
-			BisLimitedAccount: proto.Bool(true),
+			BisLimitedAccount: new(true),
 		})
 
 		limits := a.Limitations()
@@ -265,7 +265,7 @@ func TestAccount_HandleWalletInfoUpdate(t *testing.T) {
 		defer sub.Unsubscribe()
 
 		ictx.EmitPacket(t, enums.EMsg_ClientWalletInfoUpdate, &pb.CMsgClientWalletInfoUpdate{
-			HasWallet: proto.Bool(true),
+			HasWallet: new(true),
 			Balance:   proto.Int32(1050),
 			Currency:  proto.Int32(1),
 		})
@@ -291,7 +291,7 @@ func TestAccount_HandleWalletInfoUpdate(t *testing.T) {
 		defer sub.Unsubscribe()
 
 		ictx.EmitPacket(t, enums.EMsg_ClientWalletInfoUpdate, &pb.CMsgClientWalletInfoUpdate{
-			HasWallet:        proto.Bool(true),
+			HasWallet:        new(true),
 			Balance:          proto.Int32(100),
 			Balance64:        proto.Int64(100000000),
 			BalanceDelayed:   proto.Int32(50),
@@ -324,7 +324,7 @@ func TestAccount_HandleVanityURLChangedNotification(t *testing.T) {
 		defer sub.Unsubscribe()
 
 		ictx.EmitPacket(t, enums.EMsg_ClientVanityURLChangedNotification, &pb.CMsgClientVanityURLChangedNotification{
-			VanityUrl: proto.String("custom_vanity"),
+			VanityUrl: new("custom_vanity"),
 		})
 
 		assert.Equal(t, "custom_vanity", a.VanityURL())

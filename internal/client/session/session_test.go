@@ -352,7 +352,7 @@ func TestSessionManager_Refresh_ExpiredWebSession_RefreshesSuccessfully(t *testi
 	m.sock.On("Session").Return(msess)
 
 	tokenPb, _ := proto.Marshal(&pb.CAuthentication_AccessToken_GenerateForApp_Response{
-		AccessToken: proto.String("new_at"),
+		AccessToken: new("new_at"),
 	})
 
 	m.sock.On("SendSync", mock.Anything, mock.Anything, mock.Anything).Return(&protocol.Packet{
@@ -505,7 +505,7 @@ func TestSessionManager_Refresh_VariousFailures_ReturnsExpectedError(t *testing.
 				m.sock.On("Session").Return(msess)
 
 				tokenPb, _ := proto.Marshal(
-					&pb.CAuthentication_AccessToken_GenerateForApp_Response{AccessToken: proto.String("new_at")},
+					&pb.CAuthentication_AccessToken_GenerateForApp_Response{AccessToken: new("new_at")},
 				)
 				m.sock.On("SendSync", mock.Anything, mock.Anything, mock.Anything).Return(&protocol.Packet{
 					IsProto:    true,
@@ -575,7 +575,7 @@ func TestSessionManager_Refresh_SocketDisconnectMidway_ReturnsError(t *testing.T
 	m.sock.On("Session").Return(msess).Times(3)
 
 	tokenPb, _ := proto.Marshal(&pb.CAuthentication_AccessToken_GenerateForApp_Response{
-		AccessToken: proto.String("new_at"),
+		AccessToken: new("new_at"),
 	})
 
 	m.sock.On("SendSync", mock.Anything, mock.Anything, mock.Anything).Return(&protocol.Packet{
@@ -631,7 +631,7 @@ func TestSession_StartRefreshLoop_TriggerRefresh_Succeeds(t *testing.T) {
 	m.sock.On("Session").Return(msess)
 
 	tokenPb, _ := proto.Marshal(&pb.CAuthentication_AccessToken_GenerateForApp_Response{
-		AccessToken: proto.String("at_loop"),
+		AccessToken: new("at_loop"),
 	})
 
 	m.sock.On("SendSync", mock.Anything, mock.Anything, mock.Anything).Return(&protocol.Packet{
@@ -742,7 +742,7 @@ func TestSessionManager_Refresh_SingleFlight_PreventsDuplicateConcurrentRequests
 	m.sock.On("Session").Return(msess)
 
 	tokenPb, _ := proto.Marshal(&pb.CAuthentication_AccessToken_GenerateForApp_Response{
-		AccessToken: proto.String("new_token_sf"),
+		AccessToken: new("new_token_sf"),
 	})
 
 	m.sock.On("SendSync", mock.Anything, mock.Anything, mock.Anything).Return(&protocol.Packet{

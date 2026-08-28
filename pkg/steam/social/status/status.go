@@ -336,13 +336,13 @@ func (m *Manager) playCombined(ctx context.Context, appIDs []uint32, customText 
 	if customText != "" {
 		games = append(games, &pb.CMsgClientGamesPlayed_GamePlayed{
 			GameId:        proto.Uint64(apps.NonSteamGameID),
-			GameExtraInfo: proto.String(customText),
+			GameExtraInfo: new(customText),
 		})
 	}
 
 	for _, appID := range appIDs {
 		games = append(games, &pb.CMsgClientGamesPlayed_GamePlayed{
-			GameId: proto.Uint64(uint64(appID)),
+			GameId: new(uint64(appID)),
 		})
 	}
 

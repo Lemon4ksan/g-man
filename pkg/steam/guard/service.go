@@ -228,17 +228,15 @@ func (s *MobileConf) RespondToMultiple(
 	}
 
 	req := multiRequest{
-		baseParams: baseParams{
-			DeviceID:  deviceID,
-			SteamID:   steamID,
-			ConfKey:   confKey,
-			Timestamp: timestamp,
-			Mode:      "react",
-			ActionTag: generic.Ternary(accept, "accept", "reject"),
-			Op:        generic.Ternary(accept, "allow", "cancel"),
-		},
-		ConfIDs: make([]uint64, len(confs)),
-		Nonces:  make([]uint64, len(confs)),
+		DeviceID:  deviceID,
+		SteamID:   steamID,
+		ConfKey:   confKey,
+		Timestamp: timestamp,
+		Mode:      "react",
+		ActionTag: generic.Ternary(accept, "accept", "reject"),
+		Op:        generic.Ternary(accept, "allow", "cancel"),
+		ConfIDs:   make([]uint64, len(confs)),
+		Nonces:    make([]uint64, len(confs)),
 	}
 
 	for i, c := range confs {
@@ -318,8 +316,8 @@ func (s *TwoFactorService) AddAuthenticator(
 ) (*pb.CTwoFactor_AddAuthenticator_Response, error) {
 	req := &pb.CTwoFactor_AddAuthenticator_Request{
 		AuthenticatorType: proto.Uint32(1),
-		Steamid:           proto.Uint64(steamID.Uint64()),
-		DeviceIdentifier:  proto.String(deviceID),
+		Steamid:           new(steamID.Uint64()),
+		DeviceIdentifier:  new(deviceID),
 		Version:           proto.Uint32(2),
 	}
 
@@ -337,11 +335,11 @@ func (s *TwoFactorService) FinalizeAuthenticator(
 	totpCode := crypto.GenerateAuthCode(bytesconv.S2B(sharedSecret), int64(serverTime))
 
 	req := &pb.CTwoFactor_FinalizeAddAuthenticator_Request{
-		Steamid:           proto.Uint64(steamID.Uint64()),
-		AuthenticatorCode: proto.String(bytesconv.B2S(totpCode[:])),
-		AuthenticatorTime: proto.Uint64(serverTime),
-		ActivationCode:    proto.String(smsCode),
-		ValidateSmsCode:   proto.Bool(true),
+		Steamid:           new(steamID.Uint64()),
+		AuthenticatorCode: new(bytesconv.B2S(totpCode[:])),
+		AuthenticatorTime: new(serverTime),
+		ActivationCode:    new(smsCode),
+		ValidateSmsCode:   new(true),
 	}
 
 	return service.Unified[pb.CTwoFactor_FinalizeAddAuthenticator_Response](ctx, s.client, req)
@@ -353,7 +351,7 @@ func (s *TwoFactorService) QueryStatus(
 	steamID id.ID,
 ) (*pb.CTwoFactor_Status_Response, error) {
 	req := &pb.CTwoFactor_Status_Request{
-		Steamid: proto.Uint64(steamID.Uint64()),
+		Steamid: new(steamID.Uint64()),
 	}
 
 	return service.Unified[pb.CTwoFactor_Status_Response](ctx, s.client, req)
@@ -365,7 +363,7 @@ func (s *TwoFactorService) RemoveAuthenticator(
 	revocationCode string,
 ) (*pb.CTwoFactor_RemoveAuthenticator_Response, error) {
 	req := &pb.CTwoFactor_RemoveAuthenticator_Request{
-		RevocationCode: proto.String(revocationCode),
+		RevocationCode: new(revocationCode),
 	}
 
 	return service.Unified[pb.CTwoFactor_RemoveAuthenticator_Response](ctx, s.client, req)
@@ -387,8 +385,8 @@ func (s *TwoFactorService) RemoveAuthenticatorViaChallengeContinue(
 	smsCode string,
 ) (*pb.CTwoFactor_RemoveAuthenticatorViaChallengeContinue_Response, error) {
 	req := &pb.CTwoFactor_RemoveAuthenticatorViaChallengeContinue_Request{
-		SmsCode:          proto.String(smsCode),
-		GenerateNewToken: proto.Bool(true),
+		SmsCode:          new(smsCode),
+		GenerateNewToken: new(true),
 		Version:          proto.Uint32(2),
 	}
 

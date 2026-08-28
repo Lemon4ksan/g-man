@@ -15,7 +15,6 @@ import (
 	"time"
 
 	log "github.com/lemon4ksan/foundation/async/logkit"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/lemon4ksan/g-man/internal/crypto"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
@@ -179,24 +178,24 @@ func (a *Authenticator) sendLogOn(ctx context.Context, details *LogOnDetails) {
 	a.getLogger().Debug("Sending ClientLogon to CM server...", log.String("account", details.AccountName))
 
 	logon := &pb.CMsgClientLogon{
-		ProtocolVersion:           proto.Uint32(details.ProtocolVersion),
-		ClientOsType:              proto.Uint32(details.ClientOSType),
-		ClientLanguage:            proto.String(details.ClientLanguage),
+		ProtocolVersion:           new(details.ProtocolVersion),
+		ClientOsType:              new(details.ClientOSType),
+		ClientLanguage:            new(details.ClientLanguage),
 		MachineId:                 details.MachineID,
-		MachineName:               proto.String(details.MachineName),
-		SupportsRateLimitResponse: proto.Bool(true),
+		MachineName:               new(details.MachineName),
+		SupportsRateLimitResponse: new(true),
 		ObfuscatedPrivateIp: &pb.CMsgIPAddress{
 			Ip: &pb.CMsgIPAddress_V4{V4: uint32(time.Now().Unix()) ^ 0xbaadf00d},
 		},
 	}
 
 	if details.RefreshToken != "" {
-		logon.AccessToken = proto.String(details.RefreshToken)
+		logon.AccessToken = new(details.RefreshToken)
 		logon.AccountName = nil
 	} else {
-		logon.AccountName = proto.String(details.AccountName)
+		logon.AccountName = new(details.AccountName)
 		if details.TwoFactorCode != "" {
-			logon.TwoFactorCode = proto.String(details.TwoFactorCode)
+			logon.TwoFactorCode = new(details.TwoFactorCode)
 		}
 	}
 

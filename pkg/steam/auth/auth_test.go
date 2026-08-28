@@ -136,7 +136,7 @@ func (s *AuthenticatorSuite) TestResolveConfirmation_Coverage() {
 
 	s.auth.resolveConfirmation(ctx, cancel, &pb.CAuthentication_AllowedConfirmation{
 		ConfirmationType:  pb.EAuthSessionGuardType_k_EAuthSessionGuardType_EmailCode.Enum(),
-		AssociatedMessage: proto.String("email.com"),
+		AssociatedMessage: new("email.com"),
 	}, resp)
 
 	ev := (<-sub.C()).(*SteamGuardRequiredEvent)
@@ -219,7 +219,7 @@ func (s *AuthenticatorSuite) TestAcquireAuthToken_Coverage() {
 	s.webAPI.On("BeginAuthSessionViaCredentials", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return(&pb.CAuthentication_BeginAuthSessionViaCredentials_Response{Interval: proto.Float32(0.01)}, nil)
 	s.webAPI.On("PollAuthSessionStatus", mock.Anything, mock.Anything, mock.Anything).
-		Return(&pb.CAuthentication_PollAuthSessionStatus_Response{RefreshToken: proto.String("rt")}, nil)
+		Return(&pb.CAuthentication_PollAuthSessionStatus_Response{RefreshToken: new("rt")}, nil)
 	s.store.On("SaveRefreshToken", mock.Anything, "u2", "rt").Return(errors.New("fail"))
 
 	ctx, cancel = context.WithCancelCause(s.T().Context())

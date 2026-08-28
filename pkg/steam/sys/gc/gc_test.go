@@ -53,8 +53,8 @@ func emitGC(t *testing.T, ictx *mock.InitContext, appID, msgType uint32, payload
 	require.NoError(t, err)
 
 	ictx.EmitPacket(t, enums.EMsg_ClientFromGC, &pb.CMsgGCClient{
-		Appid:   proto.Uint32(appID),
-		Msgtype: proto.Uint32(msgType),
+		Appid:   new(appID),
+		Msgtype: new(msgType),
 		Payload: gcData,
 	})
 }

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"maps"
 	"net/url"
+	"slices"
 	"strconv"
 	"time"
 
@@ -113,10 +114,8 @@ func (e *Enricher) getMissingKeysFromOffer(offer *trading.TradeOffer) []descKey 
 
 		k := packDescKey(it.ClassID, it.InstanceID)
 
-		for _, s := range seen {
-			if s == k {
-				return
-			}
+		if slices.Contains(seen, k) {
+			return
 		}
 
 		seen = append(seen, k)
@@ -151,15 +150,7 @@ func (e *Enricher) getMissingKeys(items []*trading.Item) []descKey {
 		}
 
 		k := packDescKey(it.ClassID, it.InstanceID)
-		found := false
-
-		for _, s := range seen {
-			if s == k {
-				found = true
-
-				break
-			}
-		}
+		found := slices.Contains(seen, k)
 
 		if !found {
 			seen = append(seen, k)

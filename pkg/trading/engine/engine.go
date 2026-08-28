@@ -7,6 +7,7 @@ package engine
 
 import (
 	"context"
+	"slices"
 	"sync"
 
 	"github.com/lemon4ksan/g-man/pkg/trading"
@@ -51,8 +52,8 @@ func (e *Engine) compileLocked() {
 		return nil
 	}
 
-	for i := len(e.middlewares) - 1; i >= 0; i-- {
-		handler = e.middlewares[i](handler)
+	for _, v := range slices.Backward(e.middlewares) {
+		handler = v(handler)
 	}
 
 	e.compiled = handler

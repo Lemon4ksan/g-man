@@ -188,7 +188,7 @@ func (m *ServiceMock) Request(
 }
 
 func (m *ServiceMock) findError(method, path string) error {
-	pathOnly := strings.Split(path, "?")[0]
+	pathOnly, _, _ := strings.Cut(path, "?")
 	cleanPath := strings.Trim(pathOnly, "/")
 
 	key := fmt.Sprintf("%s:%s", method, path)
@@ -225,7 +225,7 @@ func (m *ServiceMock) findError(method, path string) error {
 }
 
 func (m *ServiceMock) findJSONResponse(method, path string) ([]byte, bool) {
-	pathOnly := strings.Split(path, "?")[0]
+	pathOnly, _, _ := strings.Cut(path, "?")
 	cleanPath := strings.Trim(pathOnly, "/")
 
 	key := fmt.Sprintf("%s:%s", method, path)

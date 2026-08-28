@@ -85,7 +85,7 @@ func (m *mockServiceDoer) Do(ctx context.Context, req *tr.Request) (*tr.Response
 	targetStr := fmt.Sprintf("%v", req.Target())
 	if strings.Contains(targetStr, "Time") {
 		timeResp := &pb.CTwoFactor_Time_Response{
-			ServerTime: proto.Uint64(uint64(time.Now().Unix() + 10)),
+			ServerTime: new(uint64(time.Now().Unix() + 10)),
 		}
 		body, _ := proto.Marshal(timeResp)
 
@@ -94,7 +94,7 @@ func (m *mockServiceDoer) Do(ctx context.Context, req *tr.Request) (*tr.Response
 
 	if strings.Contains(targetStr, "Status") {
 		statusResp := &pb.CTwoFactor_Status_Response{
-			DeviceIdentifier: proto.String("android:mock_id"),
+			DeviceIdentifier: new("android:mock_id"),
 		}
 		body, _ := proto.Marshal(statusResp)
 

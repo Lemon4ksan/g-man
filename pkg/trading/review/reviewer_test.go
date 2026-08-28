@@ -109,13 +109,13 @@ func TestBuildSummary_VariousMetadata_GeneratesExpectedReport(t *testing.T) {
 			PrimaryReason: reason.ReviewOverstocked,
 			Reasons: []interface{ ReasonType() reason.TradeReason }{
 				&ReasonOverstocked{
-					BaseReason:     BaseReason{Type: reason.ReviewOverstocked, SKU: "5021;6"},
+					Type: reason.ReviewOverstocked, SKU: "5021;6",
 					AmountCanTrade: 5,
 					AmountOffered:  10,
 				},
 				&ReasonInvalidItems{
-					BaseReason: BaseReason{Type: reason.ReviewInvalidItems, SKU: "5002;6"},
-					Price:      "no price",
+					Type: reason.ReviewInvalidItems, SKU: "5002;6",
+					Price: "no price",
 				},
 			},
 		}
@@ -139,7 +139,7 @@ func TestSendDeclinedAlert_ValidMetadata_SendsAdminsReport(t *testing.T) {
 		PrimaryReason: reason.DeclineBanned,
 		Reasons: []interface{ ReasonType() reason.TradeReason }{
 			&ReasonOverstocked{
-				BaseReason:     BaseReason{Type: reason.ReviewOverstocked, SKU: "5021;6"},
+				Type: reason.ReviewOverstocked, SKU: "5021;6",
 				AmountCanTrade: 1,
 				AmountOffered:  2,
 			},
@@ -176,7 +176,7 @@ func TestSendReviewAlert_ValidMetadata_SendsAdminsReport(t *testing.T) {
 		PrimaryReason: reason.ReviewOverstocked,
 		Reasons: []interface{ ReasonType() reason.TradeReason }{
 			&ReasonOverstocked{
-				BaseReason:     BaseReason{Type: reason.ReviewOverstocked, SKU: "5021;6"},
+				Type: reason.ReviewOverstocked, SKU: "5021;6",
 				AmountCanTrade: 0,
 				AmountOffered:  5,
 			},

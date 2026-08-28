@@ -10,7 +10,6 @@ import (
 	"fmt"
 
 	log "github.com/lemon4ksan/foundation/async/logkit"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/client"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
@@ -67,7 +66,7 @@ func (m *Manager) Close() error {
 // Invite sends a live trade invitation to another user.
 func (m *Manager) Invite(ctx context.Context, otherSteamID uint64) error {
 	req := &pb.CMsgTrading_InitiateTradeRequest{
-		OtherSteamid: proto.Uint64(otherSteamID),
+		OtherSteamid: new(otherSteamID),
 	}
 
 	m.Logger.Info("Sending trade invitation", log.Uint64("target_steam_id", otherSteamID))
@@ -83,7 +82,7 @@ func (m *Manager) Invite(ctx context.Context, otherSteamID uint64) error {
 // CancelInvitation cancels an outgoing live trade invitation.
 func (m *Manager) CancelInvitation(ctx context.Context, otherSteamID uint64) error {
 	req := &pb.CMsgTrading_CancelTradeRequest{
-		OtherSteamid: proto.Uint64(otherSteamID),
+		OtherSteamid: new(otherSteamID),
 	}
 
 	m.Logger.Debug("Canceling trade invitation", log.Uint64("target_steam_id", otherSteamID))
@@ -99,8 +98,8 @@ func (m *Manager) RespondToInvite(ctx context.Context, tradeID uint32, accept bo
 	}
 
 	req := &pb.CMsgTrading_InitiateTradeResponse{
-		TradeRequestId: proto.Uint32(tradeID),
-		Response:       proto.Uint32(uint32(responseCode)),
+		TradeRequestId: new(tradeID),
+		Response:       new(uint32(responseCode)),
 	}
 
 	m.Logger.Info("Responding to trade invitation",

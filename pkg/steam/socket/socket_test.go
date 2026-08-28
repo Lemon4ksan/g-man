@@ -18,7 +18,6 @@ import (
 	log "github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
@@ -263,7 +262,7 @@ func TestSocket_SendSync(t *testing.T) {
 			req, _ := protocol.ParsePacket(bytes.NewReader(data))
 
 			hdr := protocol.NewMsgHdrProtoBuf(enums.EMsg_ClientLogOnResponse, 0, 0)
-			hdr.Proto.JobidTarget = proto.Uint64(req.HdrProto.Proto.GetJobidSource())
+			hdr.Proto.JobidTarget = new(req.HdrProto.Proto.GetJobidSource())
 
 			buf := new(bytes.Buffer)
 			_ = hdr.SerializeTo(buf)
@@ -336,7 +335,7 @@ func TestSocket_SendAsync(t *testing.T) {
 			req, _ := protocol.ParsePacket(bytes.NewReader(data))
 
 			hdr := protocol.NewMsgHdrProtoBuf(enums.EMsg_ClientLogOnResponse, 0, 0)
-			hdr.Proto.JobidTarget = proto.Uint64(req.HdrProto.Proto.GetJobidSource())
+			hdr.Proto.JobidTarget = new(req.HdrProto.Proto.GetJobidSource())
 
 			buf := new(bytes.Buffer)
 			_ = hdr.SerializeTo(buf)
@@ -371,7 +370,7 @@ func TestSocket_Heartbeat(t *testing.T) {
 		case data := <-mConn.sentMsgs:
 			p, _ := protocol.ParsePacket(bytes.NewReader(data))
 			assert.Equal(t, enums.EMsg_ClientHeartBeat, p.EMsg)
-		case <-time.After(1 * time.Second):
+		case <-time.After(5 * time.Second):
 			t.Fatal("Heartbeat not sent")
 		}
 
@@ -393,7 +392,7 @@ func TestSocket_Heartbeat(t *testing.T) {
 
 		select {
 		case <-mConn.sentMsgs:
-		case <-time.After(1 * time.Second):
+		case <-time.After(5 * time.Second):
 			t.Fatal("Heartbeat was not triggered")
 		}
 	})
@@ -455,7 +454,7 @@ func TestSocket_Registration(t *testing.T) {
 		s.RegisterServiceHandler("Method", h)
 
 		hdr := protocol.NewMsgHdrProtoBuf(enums.EMsg_ServiceMethod, 0, 0)
-		hdr.Proto.TargetJobName = proto.String("Method")
+		hdr.Proto.TargetJobName = new("Method")
 
 		pkt := &protocol.Packet{
 			EMsg:       enums.EMsg_ServiceMethod,

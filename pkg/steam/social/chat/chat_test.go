@@ -124,7 +124,7 @@ func TestChat_FriendMessaging(t *testing.T) {
 		ictx.MockService().
 			SetProtoResponse("FriendMessages", "GetRecentMessages", &pb.CFriendMessages_GetRecentMessages_Response{
 				Messages: []*pb.CFriendMessages_GetRecentMessages_Response_FriendMessage{
-					{Message: proto.String("hi")},
+					{Message: new("hi")},
 				},
 			})
 
@@ -144,7 +144,7 @@ func TestChat_GroupMessaging(t *testing.T) {
 		ctx := t.Context()
 
 		ictx.MockService().SetProtoResponse("ChatRoom", "JoinChatRoomGroup", &pb.CChatRoom_JoinChatRoomGroup_Response{
-			JoinChatId: proto.Uint64(ChatID),
+			JoinChatId: new(ChatID),
 		})
 
 		err := m.JoinGroupChat(ctx, ChatGroupID)
@@ -267,11 +267,11 @@ func TestChat_GroupMessaging(t *testing.T) {
 		ts := uint32(time.Now().Unix())
 
 		msg := &pb.CChatRoom_IncomingChatMessage_Notification{
-			ChatGroupId:   proto.Uint64(ChatGroupID),
-			ChatId:        proto.Uint64(ChatID),
-			SteamidSender: proto.Uint64(FriendSteamID),
-			Message:       proto.String("hello group"),
-			Timestamp:     proto.Uint32(ts),
+			ChatGroupId:   new(ChatGroupID),
+			ChatId:        new(ChatID),
+			SteamidSender: new(FriendSteamID),
+			Message:       new("hello group"),
+			Timestamp:     new(ts),
 		}
 
 		m.handleGroupMessage(msg)
@@ -306,9 +306,9 @@ func TestChat_HandleIncomingMessage(t *testing.T) {
 		defer subMsg.Unsubscribe()
 
 		msg := &pb.CFriendMessages_IncomingMessage_Notification{
-			SteamidFriend: proto.Uint64(FriendSteamID),
+			SteamidFriend: new(FriendSteamID),
 			ChatEntryType: proto.Int32(ChatEntryTypeChatMsg),
-			Message:       proto.String("hello"),
+			Message:       new("hello"),
 		}
 		m.handleIncomingMessage(msg)
 
@@ -328,9 +328,9 @@ func TestChat_HandleIncomingMessage(t *testing.T) {
 		defer subMsg.Unsubscribe()
 
 		msg := &pb.CFriendMessages_IncomingMessage_Notification{
-			SteamidFriend: proto.Uint64(FriendSteamID),
+			SteamidFriend: new(FriendSteamID),
 			ChatEntryType: proto.Int32(ChatEntryTypeEmote),
-			Message:       proto.String("emote_text"),
+			Message:       new("emote_text"),
 		}
 		m.handleIncomingMessage(msg)
 
@@ -351,7 +351,7 @@ func TestChat_HandleIncomingMessage(t *testing.T) {
 
 		msg := &pb.CFriendMessages_IncomingMessage_Notification{
 			ChatEntryType: proto.Int32(ChatEntryTypeSticker),
-			Message:       proto.String("sticker_123"),
+			Message:       new("sticker_123"),
 		}
 		m.handleIncomingMessage(msg)
 
@@ -390,9 +390,9 @@ func TestChat_HandleIncomingMessage(t *testing.T) {
 		defer subMsg.Unsubscribe()
 
 		msg := &pb.CFriendMessages_IncomingMessage_Notification{
-			LocalEcho:     proto.Bool(true),
+			LocalEcho:     new(true),
 			ChatEntryType: proto.Int32(ChatEntryTypeChatMsg),
-			Message:       proto.String("should ignore echo"),
+			Message:       new("should ignore echo"),
 		}
 		m.handleIncomingMessage(msg)
 
@@ -457,7 +457,7 @@ func TestChat_HandleLegacyFriendMsg(t *testing.T) {
 		defer sub.Unsubscribe()
 
 		msg := &pb.CMsgClientFriendMsgIncoming{
-			SteamidFrom:            proto.Uint64(FriendSteamID),
+			SteamidFrom:            new(FriendSteamID),
 			ChatEntryType:          proto.Int32(ChatEntryTypeChatMsg),
 			Message:                []byte("hello legacy\x00"),
 			Rtime32ServerTimestamp: proto.Uint32(111),
@@ -480,7 +480,7 @@ func TestChat_HandleLegacyFriendMsg(t *testing.T) {
 		defer sub.Unsubscribe()
 
 		msg := &pb.CMsgClientFriendMsgIncoming{
-			SteamidFrom:   proto.Uint64(FriendSteamID),
+			SteamidFrom:   new(FriendSteamID),
 			ChatEntryType: proto.Int32(ChatEntryTypeTyping),
 		}
 		m.handleLegacyFriendMsg(msg)
@@ -526,7 +526,7 @@ func TestChat_OfflineSync(t *testing.T) {
 			SetProtoResponse("FriendMessages", "GetActiveMessageSessions", &pb.CFriendsMessages_GetActiveMessageSessions_Response{
 				MessageSessions: []*pb.CFriendsMessages_GetActiveMessageSessions_Response_FriendMessageSession{
 					{
-						AccountidFriend: proto.Uint32(id.ID(FriendSteamID).AccountID()),
+						AccountidFriend: new(id.ID(FriendSteamID).AccountID()),
 						LastMessage:     proto.Uint32(200),
 						LastView:        proto.Uint32(100),
 					},
@@ -539,7 +539,7 @@ func TestChat_OfflineSync(t *testing.T) {
 					{
 						Accountid: proto.Uint32(9999),
 						Timestamp: proto.Uint32(160),
-						Message:   proto.String("unread friend message"),
+						Message:   new("unread friend message"),
 					},
 				},
 			})
@@ -566,7 +566,7 @@ func TestChat_OfflineSync(t *testing.T) {
 			SetProtoResponse("FriendMessages", "GetActiveMessageSessions", &pb.CFriendsMessages_GetActiveMessageSessions_Response{
 				MessageSessions: []*pb.CFriendsMessages_GetActiveMessageSessions_Response_FriendMessageSession{
 					{
-						AccountidFriend: proto.Uint32(id.ID(FriendSteamID).AccountID()),
+						AccountidFriend: new(id.ID(FriendSteamID).AccountID()),
 						LastMessage:     proto.Uint32(100),
 						LastView:        proto.Uint32(100), // Equal, so no unread!
 					},
@@ -588,7 +588,7 @@ func TestChat_OfflineSync(t *testing.T) {
 			SetProtoResponse("FriendMessages", "GetActiveMessageSessions", &pb.CFriendsMessages_GetActiveMessageSessions_Response{
 				MessageSessions: []*pb.CFriendsMessages_GetActiveMessageSessions_Response_FriendMessageSession{
 					{
-						AccountidFriend: proto.Uint32(id.ID(FriendSteamID).AccountID()),
+						AccountidFriend: new(id.ID(FriendSteamID).AccountID()),
 						LastMessage:     proto.Uint32(200),
 						LastView:        proto.Uint32(100),
 					},
@@ -601,7 +601,7 @@ func TestChat_OfflineSync(t *testing.T) {
 					{
 						Accountid: proto.Uint32(9999),
 						Timestamp: proto.Uint32(90), // <= LastView (100)
-						Message:   proto.String("old message"),
+						Message:   new("old message"),
 					},
 				},
 			})
@@ -682,7 +682,7 @@ func TestChat_OfflineSync(t *testing.T) {
 			SetProtoResponse("FriendMessages", "GetActiveMessageSessions", &pb.CFriendsMessages_GetActiveMessageSessions_Response{
 				MessageSessions: []*pb.CFriendsMessages_GetActiveMessageSessions_Response_FriendMessageSession{
 					{
-						AccountidFriend: proto.Uint32(id.ID(FriendSteamID).AccountID()),
+						AccountidFriend: new(id.ID(FriendSteamID).AccountID()),
 						LastMessage:     proto.Uint32(200),
 						LastView:        proto.Uint32(100),
 					},
@@ -708,7 +708,7 @@ func TestChat_OfflineSync(t *testing.T) {
 			SetProtoResponse("FriendMessages", "GetActiveMessageSessions", &pb.CFriendsMessages_GetActiveMessageSessions_Response{
 				MessageSessions: []*pb.CFriendsMessages_GetActiveMessageSessions_Response_FriendMessageSession{
 					{
-						AccountidFriend: proto.Uint32(id.ID(FriendSteamID).AccountID()),
+						AccountidFriend: new(id.ID(FriendSteamID).AccountID()),
 						LastMessage:     proto.Uint32(200),
 						LastView:        proto.Uint32(100),
 					},
@@ -719,14 +719,14 @@ func TestChat_OfflineSync(t *testing.T) {
 			SetProtoResponse("FriendMessages", "GetRecentMessages", &pb.CFriendMessages_GetRecentMessages_Response{
 				Messages: []*pb.CFriendMessages_GetRecentMessages_Response_FriendMessage{
 					{
-						Accountid: proto.Uint32(m.botAccountID),
+						Accountid: new(m.botAccountID),
 						Timestamp: proto.Uint32(150),
-						Message:   proto.String("my own echo message"),
+						Message:   new("my own echo message"),
 					},
 					{
 						Accountid: proto.Uint32(9999),
 						Timestamp: proto.Uint32(160),
-						Message:   proto.String("friend message"),
+						Message:   new("friend message"),
 					},
 				},
 			})
@@ -776,7 +776,7 @@ func TestChat_GroupModerationAndHistory(t *testing.T) {
 					{
 						Sender:          proto.Uint32(9999),
 						ServerTimestamp: proto.Uint32(1620000000),
-						Message:         proto.String("group scrollback message"),
+						Message:         new("group scrollback message"),
 						Ordinal:         proto.Uint32(1),
 					},
 				},
@@ -938,7 +938,7 @@ func TestChat_GroupManagement(t *testing.T) {
 
 		ictx.MockService().
 			SetProtoResponse("ChatRoom", "CreateChatRoomGroup", &pb.CChatRoom_CreateChatRoomGroup_Response{
-				ChatGroupId: proto.Uint64(ChatGroupID),
+				ChatGroupId: new(ChatGroupID),
 			})
 
 		resp, err := m.CreateChatRoomGroup(ctx, "Test Group", []uint64{FriendSteamID})
@@ -975,7 +975,7 @@ func TestChat_GroupManagement(t *testing.T) {
 
 		ictx.MockService().
 			SetProtoResponse("ChatRoom", "RenameChatRoomGroup", &pb.CChatRoom_RenameChatRoomGroup_Response{
-				Name: proto.String("Renamed Group"),
+				Name: new("Renamed Group"),
 			})
 
 		name, err := m.RenameChatRoomGroup(ctx, ChatGroupID, "Renamed Group")
@@ -998,8 +998,8 @@ func TestChat_GroupManagement(t *testing.T) {
 				ChatRoomGroups: []*pb.CChatRoomSummaryPair{
 					{
 						GroupSummary: &pb.CChatRoom_GetChatRoomGroupSummary_Response{
-							ChatGroupId:   proto.Uint64(ChatGroupID),
-							ChatGroupName: proto.String("My Group"),
+							ChatGroupId:   new(ChatGroupID),
+							ChatGroupName: new("My Group"),
 						},
 					},
 				},
@@ -1024,8 +1024,8 @@ func TestChat_GroupManagement(t *testing.T) {
 			SetProtoResponse("ChatRoom", "GetChatRoomGroupState", &pb.CChatRoom_GetChatRoomGroupState_Response{
 				State: &pb.CChatRoomGroupState{
 					HeaderState: &pb.CChatRoomGroupHeaderState{
-						ChatGroupId: proto.Uint64(ChatGroupID),
-						ChatName:    proto.String("My Group"),
+						ChatGroupId: new(ChatGroupID),
+						ChatName:    new("My Group"),
 					},
 				},
 			})
@@ -1046,7 +1046,7 @@ func TestChat_GroupManagement(t *testing.T) {
 
 		ictx.MockService().
 			SetProtoResponse("ChatRoom", "CreateInviteLink", &pb.CChatRoom_CreateInviteLink_Response{
-				InviteCode: proto.String("XYZ"),
+				InviteCode: new("XYZ"),
 			})
 
 		resp, err := m.CreateInviteLink(ctx, ChatGroupID, 3600, ChatID)
@@ -1067,7 +1067,7 @@ func TestChat_GroupManagement(t *testing.T) {
 
 		ictx.MockService().
 			SetProtoResponse("ChatRoom", "CreateInviteLink", &pb.CChatRoom_CreateInviteLink_Response{
-				InviteCode: proto.String("XYZ"),
+				InviteCode: new("XYZ"),
 			})
 
 		resp, err := m.CreateInviteLink(ctx, ChatGroupID, 3600, 0)
@@ -1090,7 +1090,7 @@ func TestChat_GroupManagement(t *testing.T) {
 			SetProtoResponse("ChatRoom", "GetInviteLinksForGroup", &pb.CChatRoom_GetInviteLinksForGroup_Response{
 				InviteLinks: []*pb.CChatRoom_GetInviteLinksForGroup_Response_LinkInfo{
 					{
-						InviteCode: proto.String("XYZ"),
+						InviteCode: new("XYZ"),
 					},
 				},
 			})
@@ -1184,7 +1184,7 @@ func TestChat_ModernChatRooms(t *testing.T) {
 			SetProtoResponse("ChatRoom", "GetMessageHistory", &pb.CChatRoom_GetMessageHistory_Response{
 				Messages: []*pb.CChatRoom_GetMessageHistory_Response_ChatMessage{
 					{
-						Message: proto.String("history msg"),
+						Message: new("history msg"),
 					},
 				},
 			})
@@ -1215,13 +1215,13 @@ func TestChat_ReactionEvents(t *testing.T) {
 		defer sub.Unsubscribe()
 
 		msg := &pb.CFriendMessages_MessageReaction_Notification{
-			SteamidFriend:   proto.Uint64(FriendSteamID),
-			Reactor:         proto.Uint64(BotSteamID),
+			SteamidFriend:   new(FriendSteamID),
+			Reactor:         new(BotSteamID),
 			ServerTimestamp: proto.Uint32(111),
 			Ordinal:         proto.Uint32(2),
-			Reaction:        proto.String("🚀"),
+			Reaction:        new("🚀"),
 			ReactionType:    pb.EMessageReactionType_k_EMessageReactionType_Emoticon.Enum(),
-			IsAdd:           proto.Bool(true),
+			IsAdd:           new(true),
 		}
 		m.handleFriendReaction(msg)
 
@@ -1257,14 +1257,14 @@ func TestChat_ReactionEvents(t *testing.T) {
 		defer sub.Unsubscribe()
 
 		msg := &pb.CChatRoom_MessageReaction_Notification{
-			ChatGroupId:     proto.Uint64(ChatGroupID),
-			ChatId:          proto.Uint64(ChatID),
-			Reactor:         proto.Uint64(FriendSteamID),
+			ChatGroupId:     new(ChatGroupID),
+			ChatId:          new(ChatID),
+			Reactor:         new(FriendSteamID),
 			ServerTimestamp: proto.Uint32(222),
 			Ordinal:         proto.Uint32(3),
-			Reaction:        proto.String("❤️"),
+			Reaction:        new("❤️"),
 			ReactionType:    pb.EChatRoomMessageReactionType_k_EChatRoomMessageReactionType_Emoticon.Enum(),
-			IsAdd:           proto.Bool(false),
+			IsAdd:           new(false),
 		}
 		m.handleGroupReaction(msg)
 

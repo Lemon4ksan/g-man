@@ -127,7 +127,7 @@ func TestApps_HandlePlayingSessionState(t *testing.T) {
 		defer subState.Unsubscribe()
 
 		ictx.EmitPacket(t, enums.EMsg_ClientPlayingSessionState, &pb.CMsgClientPlayingSessionState{
-			PlayingBlocked: proto.Bool(true),
+			PlayingBlocked: new(true),
 			PlayingApp:     proto.Uint32(AppidCs2),
 		})
 

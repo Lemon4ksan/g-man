@@ -487,7 +487,7 @@ func (c *Client) SetPersonaState(ctx context.Context, state enums.EPersonaState)
 	c.setPersonaState(state)
 
 	statusReq := &pb.CMsgClientChangeStatus{
-		PersonaState: proto.Uint32(uint32(state)),
+		PersonaState: new(uint32(state)),
 	}
 
 	return c.socket.SendProto(ctx, enums.EMsg_ClientChangeStatus, statusReq)

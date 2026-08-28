@@ -229,7 +229,7 @@ func TestEngine_CustomTypeParser(t *testing.T) {
 	}
 
 	// Register a type parser for CustomID
-	e.RegisterTypeParser(reflect.TypeOf(CustomID{}), func(valStr string) (any, error) {
+	e.RegisterTypeParser(reflect.TypeFor[CustomID](), func(valStr string) (any, error) {
 		if valStr == "invalid" {
 			return nil, errors.New("cannot parse")
 		}
@@ -594,7 +594,6 @@ func TestParseCommandLine(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.input, func(t *testing.T) {
 			t.Parallel()
 

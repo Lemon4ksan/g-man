@@ -547,12 +547,12 @@ func parseAppIDFromHref(href string) (uint32, bool) {
 }
 
 func parseBoosterCatalog(bodyBytes []byte) (*BoosterCatalog, error) {
-	idx := bytes.Index(bodyBytes, []byte("CBoosterCreatorPage.Init("))
-	if idx == -1 {
+	_, after, ok := bytes.Cut(bodyBytes, []byte("CBoosterCreatorPage.Init("))
+	if !ok {
 		return nil, ErrBoosterCatalogJS
 	}
 
-	content := bytes.TrimSpace(bodyBytes[idx+len("CBoosterCreatorPage.Init("):])
+	content := bytes.TrimSpace(after)
 
 	if len(content) == 0 {
 		return nil, ErrBoosterCatalogJS

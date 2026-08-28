@@ -50,8 +50,8 @@ func populateMockFriends(friendsMgr *friends.Manager, friendID id.ID, name strin
 	}
 
 	val := reflect.ValueOf(friendsMgr).Elem()
-	for i := 0; i < val.NumField(); i++ {
-		field := val.Field(i)
+	for _, field := range val.Fields() {
+		field := field
 		fieldType := field.Type()
 
 		settableField := reflect.NewAt(fieldType, unsafe.Pointer(field.UnsafeAddr())).Elem()
@@ -137,8 +137,8 @@ func populateMockFriends(friendsMgr *friends.Manager, friendID id.ID, name strin
 
 func setContextOnEvent(ev *chat.MessageEvent, ctx context.Context) {
 	val := reflect.ValueOf(ev).Elem()
-	for i := 0; i < val.NumField(); i++ {
-		field := val.Field(i)
+	for _, field := range val.Fields() {
+		field := field
 
 		fieldType := field.Type()
 		if fieldType == reflect.TypeFor[context.Context]() {
@@ -148,8 +148,8 @@ func setContextOnEvent(ev *chat.MessageEvent, ctx context.Context) {
 		}
 
 		if field.Kind() == reflect.Struct {
-			for j := 0; j < field.NumField(); j++ {
-				subField := field.Field(j)
+			for _, subField := range field.Fields() {
+				subField := subField
 
 				subFieldType := subField.Type()
 				if subFieldType == reflect.TypeFor[context.Context]() {

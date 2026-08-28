@@ -66,7 +66,7 @@ func Proto(eMsg enums.EMsg, req proto.Message) PayloadBuilder {
 		}
 
 		hdr := protocol.NewMsgHdrProtoBuf(eMsg, steamID, sessionID)
-		hdr.Proto.JobidSource = proto.Uint64(sourceJobID)
+		hdr.Proto.JobidSource = new(sourceJobID)
 
 		if err := hdr.SerializeTo(buf); err != nil {
 			return fmt.Errorf("serialize proto header: %w", err)
@@ -99,8 +99,8 @@ func Unified(method string, req proto.Message) PayloadBuilder {
 		}
 
 		hdr := protocol.NewMsgHdrProtoBuf(enums.EMsg_ServiceMethodCallFromClient, steamID, sessionID)
-		hdr.Proto.JobidSource = proto.Uint64(sourceJobID)
-		hdr.Proto.TargetJobName = proto.String(method)
+		hdr.Proto.JobidSource = new(sourceJobID)
+		hdr.Proto.TargetJobName = new(method)
 
 		if err := hdr.SerializeTo(buf); err != nil {
 			return fmt.Errorf("serialize unified proto header: %w", err)
@@ -175,11 +175,11 @@ func DynamicRaw(eMsg enums.EMsg, targetName string, payload []byte, routingAppID
 
 		if targetName != "" {
 			hdr := protocol.NewMsgHdrProtoBuf(eMsg, steamID, sessionID)
-			hdr.Proto.JobidSource = proto.Uint64(sourceJobID)
-			hdr.Proto.TargetJobName = proto.String(targetName)
+			hdr.Proto.JobidSource = new(sourceJobID)
+			hdr.Proto.TargetJobName = new(targetName)
 
 			if routingAppID != 0 {
-				hdr.Proto.RoutingAppid = proto.Uint32(routingAppID)
+				hdr.Proto.RoutingAppid = new(routingAppID)
 			}
 
 			if err := hdr.SerializeTo(buf); err != nil {
@@ -214,10 +214,10 @@ func DynamicRawProto(eMsg enums.EMsg, payload []byte, routingAppID uint32) Paylo
 		}
 
 		hdr := protocol.NewMsgHdrProtoBuf(eMsg, steamID, sessionID)
-		hdr.Proto.JobidSource = proto.Uint64(sourceJobID)
+		hdr.Proto.JobidSource = new(sourceJobID)
 
 		if routingAppID != 0 {
-			hdr.Proto.RoutingAppid = proto.Uint32(routingAppID)
+			hdr.Proto.RoutingAppid = new(routingAppID)
 		}
 
 		if err := hdr.SerializeTo(buf); err != nil {

@@ -488,8 +488,8 @@ func (p *GCPacket) Serialize() ([]byte, error) {
 		}
 
 		hdr := &pb.CMsgProtoBufHeader{
-			JobidSource: proto.Uint64(p.SourceJobID),
-			JobidTarget: proto.Uint64(p.TargetJobID),
+			JobidSource: new(p.SourceJobID),
+			JobidTarget: new(p.TargetJobID),
 		}
 
 		hdrBytes, err := proto.Marshal(hdr)

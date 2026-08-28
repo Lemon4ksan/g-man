@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/test/mock"
@@ -244,7 +243,7 @@ func TestTwoFactorService_UnifiedMethods(t *testing.T) {
 		svc := NewTwoFactorService(mockSvc)
 
 		expected := &pbSteam.CTwoFactor_FinalizeAddAuthenticator_Response{
-			Success: proto.Bool(true),
+			Success: new(true),
 		}
 		mockSvc.SetProtoResponse("TwoFactor", "FinalizeAddAuthenticator", expected)
 
@@ -260,7 +259,7 @@ func TestTwoFactorService_UnifiedMethods(t *testing.T) {
 		svc := NewTwoFactorService(mockSvc)
 
 		expected := &pbSteam.CTwoFactor_Status_Response{
-			DeviceIdentifier: proto.String("android:status_id"),
+			DeviceIdentifier: new("android:status_id"),
 		}
 		mockSvc.SetProtoResponse("TwoFactor", "Status", expected)
 
@@ -276,7 +275,7 @@ func TestTwoFactorService_UnifiedMethods(t *testing.T) {
 		svc := NewTwoFactorService(mockSvc)
 
 		expected := &pbSteam.CTwoFactor_RemoveAuthenticator_Response{
-			Success: proto.Bool(true),
+			Success: new(true),
 		}
 		mockSvc.SetProtoResponse("TwoFactor", "RemoveAuthenticator", expected)
 
@@ -292,7 +291,7 @@ func TestTwoFactorService_UnifiedMethods(t *testing.T) {
 		svc := NewTwoFactorService(mockSvc)
 
 		expected := &pbSteam.CTwoFactor_RemoveAuthenticatorViaChallengeStart_Response{
-			Success: proto.Bool(true),
+			Success: new(true),
 		}
 		mockSvc.SetProtoResponse("TwoFactor", "RemoveAuthenticatorViaChallengeStart", expected)
 
@@ -308,7 +307,7 @@ func TestTwoFactorService_UnifiedMethods(t *testing.T) {
 		svc := NewTwoFactorService(mockSvc)
 
 		expected := &pbSteam.CTwoFactor_RemoveAuthenticatorViaChallengeContinue_Response{
-			Success: proto.Bool(true),
+			Success: new(true),
 		}
 		mockSvc.SetProtoResponse("TwoFactor", "RemoveAuthenticatorViaChallengeContinue", expected)
 

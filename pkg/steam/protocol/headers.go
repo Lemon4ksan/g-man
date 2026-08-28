@@ -162,8 +162,8 @@ var protoHeaderPool = sync.Pool{
 func AcquireProtoHeader() *pb.CMsgProtoBufHeader {
 	h := protoHeaderPool.Get().(*pb.CMsgProtoBufHeader)
 	h.Reset()
-	h.JobidSource = proto.Uint64(NoJob)
-	h.JobidTarget = proto.Uint64(NoJob)
+	h.JobidSource = new(NoJob)
+	h.JobidTarget = new(NoJob)
 
 	return h
 }

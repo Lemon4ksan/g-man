@@ -198,8 +198,8 @@ func (c *Coordinator) send(
 	}
 
 	wrapper := &pb.CMsgGCClient{
-		Appid:   proto.Uint32(appID),
-		Msgtype: proto.Uint32(finalMsgType),
+		Appid:   new(appID),
+		Msgtype: new(finalMsgType),
 		Payload: gcData,
 	}
 

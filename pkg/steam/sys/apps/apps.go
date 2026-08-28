@@ -14,7 +14,6 @@ import (
 	"time"
 
 	log "github.com/lemon4ksan/foundation/async/logkit"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/client"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
@@ -150,7 +149,7 @@ func (a *Apps) PopConnectToken() []byte {
 // GetPlayerCount queries current online player count for an appID via Steam Data Publisher.
 func (a *Apps) GetPlayerCount(ctx context.Context, appID uint32) (int32, error) {
 	req := &pb.CMsgDPGetNumberOfCurrentPlayers{
-		Appid: proto.Uint32(appID),
+		Appid: new(appID),
 	}
 
 	resp, err := a.events.GetPlayerCount(ctx, req)
@@ -181,7 +180,7 @@ func (a *Apps) PlayGames(ctx context.Context, appIDs []uint32, forceKick bool) e
 	games := make([]*pb.CMsgClientGamesPlayed_GamePlayed, 0, len(appIDs))
 	for _, id := range appIDs {
 		games = append(games, &pb.CMsgClientGamesPlayed_GamePlayed{
-			GameId: proto.Uint64(uint64(id)),
+			GameId: new(uint64(id)),
 		})
 	}
 
@@ -193,8 +192,8 @@ func (a *Apps) PlayCustomGames(ctx context.Context, names []string) error {
 	games := make([]*pb.CMsgClientGamesPlayed_GamePlayed, 0, len(names))
 	for _, name := range names {
 		games = append(games, &pb.CMsgClientGamesPlayed_GamePlayed{
-			GameId:        proto.Uint64(NonSteamGameID),
-			GameExtraInfo: proto.String(name),
+			GameId:        new(NonSteamGameID),
+			GameExtraInfo: new(name),
 		})
 	}
 

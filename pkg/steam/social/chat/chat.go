@@ -13,7 +13,6 @@ import (
 	"time"
 
 	log "github.com/lemon4ksan/foundation/async/logkit"
-	"github.com/lemon4ksan/foundation/generic"
 	"github.com/lemon4ksan/foundation/silicon/pool"
 	"google.golang.org/protobuf/proto"
 
@@ -143,7 +142,7 @@ func (c *Chat) SendMessage(ctx context.Context, steamID uint64, text string) err
 		Steamid:        &steamID,
 		ChatEntryType:  &entryType,
 		Message:        &text,
-		ContainsBbcode: generic.Ptr[bool](true),
+		ContainsBbcode: new(true),
 	}
 
 	_, err := c.events.SendMessage(ctx, req)
@@ -154,7 +153,7 @@ func (c *Chat) SendMessage(ctx context.Context, steamID uint64, text string) err
 // SendTyping sends a typing indicator signal to a friend.
 func (c *Chat) SendTyping(ctx context.Context, steamID uint64) error {
 	req := &pb.CFriendMessages_SendMessage_Request{
-		Steamid:       proto.Uint64(steamID),
+		Steamid:       new(steamID),
 		ChatEntryType: proto.Int32(ChatEntryTypeTyping),
 	}
 
@@ -166,8 +165,8 @@ func (c *Chat) SendTyping(ctx context.Context, steamID uint64) error {
 // AckFriendMessage acknowledges received messages up to timestamp.
 func (c *Chat) AckFriendMessage(ctx context.Context, steamID uint64, timestamp uint32) error {
 	req := &pb.CFriendMessages_AckMessage_Notification{
-		SteamidPartner: proto.Uint64(steamID),
-		Timestamp:      proto.Uint32(timestamp),
+		SteamidPartner: new(steamID),
+		Timestamp:      new(timestamp),
 	}
 
 	return c.events.AckFriendMessage(ctx, req)
@@ -182,10 +181,10 @@ func (c *Chat) GetRecentMessages(
 	c.stateMu.RUnlock()
 
 	req := &pb.CFriendMessages_GetRecentMessages_Request{
-		Steamid1:     proto.Uint64(myID.Uint64()),
-		Steamid2:     proto.Uint64(steamID),
-		Count:        proto.Uint32(count),
-		BbcodeFormat: proto.Bool(true),
+		Steamid1:     new(myID.Uint64()),
+		Steamid2:     new(steamID),
+		Count:        new(count),
+		BbcodeFormat: new(true),
 	}
 
 	resp, err := c.events.GetRecentMessages(ctx, req)
@@ -203,9 +202,9 @@ func (c *Chat) SendChatMessage(ctx context.Context, chatGroupID, chatID uint64, 
 	}
 
 	req := &pb.CChatRoom_SendChatMessage_Request{
-		ChatGroupId: proto.Uint64(chatGroupID),
-		ChatId:      proto.Uint64(chatID),
-		Message:     proto.String(message),
+		ChatGroupId: new(chatGroupID),
+		ChatId:      new(chatID),
+		Message:     new(message),
 	}
 
 	_, err := c.events.SendChatMessage(ctx, req)
@@ -223,13 +222,13 @@ func (c *Chat) SendChatReaction(
 	isAdd bool,
 ) error {
 	req := &pb.CChatRoom_UpdateMessageReaction_Request{
-		ChatGroupId:     proto.Uint64(chatGroupID),
-		ChatId:          proto.Uint64(chatID),
-		ServerTimestamp: proto.Uint32(serverTimestamp),
-		Ordinal:         proto.Uint32(ordinal),
+		ChatGroupId:     new(chatGroupID),
+		ChatId:          new(chatID),
+		ServerTimestamp: new(serverTimestamp),
+		Ordinal:         new(ordinal),
 		ReactionType:    &reactionType,
-		Reaction:        proto.String(reaction),
-		IsAdd:           proto.Bool(isAdd),
+		Reaction:        new(reaction),
+		IsAdd:           new(isAdd),
 	}
 
 	_, err := c.events.UpdateMessageReaction(ctx, req)
@@ -244,11 +243,11 @@ func (c *Chat) GetChatHistory(
 	startTime, startOrdinal, maxCount uint32,
 ) ([]*pb.CChatRoom_GetMessageHistory_Response_ChatMessage, error) {
 	req := &pb.CChatRoom_GetMessageHistory_Request{
-		ChatGroupId:  proto.Uint64(chatGroupID),
-		ChatId:       proto.Uint64(chatID),
-		StartTime:    proto.Uint32(startTime),
-		StartOrdinal: proto.Uint32(startOrdinal),
-		MaxCount:     proto.Uint32(maxCount),
+		ChatGroupId:  new(chatGroupID),
+		ChatId:       new(chatID),
+		StartTime:    new(startTime),
+		StartOrdinal: new(startOrdinal),
+		MaxCount:     new(maxCount),
 	}
 
 	resp, err := c.events.GetMessageHistory(ctx, req)
@@ -261,7 +260,7 @@ func (c *Chat) GetChatHistory(
 
 // JoinGroupChat enters a group chat room.
 func (c *Chat) JoinGroupChat(ctx context.Context, groupID uint64) error {
-	req := &pb.CChatRoom_JoinChatRoomGroup_Request{ChatGroupId: proto.Uint64(groupID)}
+	req := &pb.CChatRoom_JoinChatRoomGroup_Request{ChatGroupId: new(groupID)}
 
 	resp, err := c.events.JoinChatRoomGroup(ctx, req)
 	if err != nil {
@@ -286,7 +285,7 @@ func (c *Chat) LeaveGroupChat(ctx context.Context, groupID uint64) error {
 	}
 
 	req := &pb.CChatRoom_LeaveChatRoomGroup_Request{
-		ChatGroupId: proto.Uint64(groupID),
+		ChatGroupId: new(groupID),
 	}
 
 	_, err := c.events.LeaveChatRoomGroup(ctx, req)
@@ -314,9 +313,9 @@ func (c *Chat) SendGroupMessage(ctx context.Context, groupID uint64, text string
 	}
 
 	req := &pb.CChatRoom_SendChatMessage_Request{
-		ChatGroupId: proto.Uint64(groupID),
-		ChatId:      proto.Uint64(chatID),
-		Message:     proto.String(text),
+		ChatGroupId: new(groupID),
+		ChatId:      new(chatID),
+		Message:     new(text),
 	}
 
 	_, err := c.events.SendChatMessage(ctx, req)
@@ -343,8 +342,8 @@ func (c *Chat) DeleteGroupMessages(
 	}
 
 	req := &pb.CChatRoom_DeleteChatMessages_Request{
-		ChatGroupId: proto.Uint64(groupID),
-		ChatId:      proto.Uint64(chatID),
+		ChatGroupId: new(groupID),
+		ChatId:      new(chatID),
 		Messages:    messages,
 	}
 
@@ -356,9 +355,9 @@ func (c *Chat) DeleteGroupMessages(
 // AckGroupMessage acknowledges received group messages up to timestamp.
 func (c *Chat) AckGroupMessage(ctx context.Context, groupID, chatID uint64, timestamp uint32) error {
 	req := &pb.CChatRoom_AckChatMessage_Notification{
-		ChatGroupId: proto.Uint64(groupID),
-		ChatId:      proto.Uint64(chatID),
-		Timestamp:   proto.Uint32(timestamp),
+		ChatGroupId: new(groupID),
+		ChatId:      new(chatID),
+		Timestamp:   new(timestamp),
 	}
 
 	return c.events.AckChatMessage(ctx, req)
@@ -379,9 +378,9 @@ func (c *Chat) GetGroupMessageHistory(
 	}
 
 	req := &pb.CChatRoom_GetMessageHistory_Request{
-		ChatGroupId: proto.Uint64(groupID),
-		ChatId:      proto.Uint64(chatID),
-		MaxCount:    proto.Uint32(maxCount),
+		ChatGroupId: new(groupID),
+		ChatId:      new(chatID),
+		MaxCount:    new(maxCount),
 	}
 
 	resp, err := c.events.GetMessageHistory(ctx, req)
@@ -403,9 +402,9 @@ func (c *Chat) InviteFriendToGroupChat(ctx context.Context, groupID, friendSteam
 	}
 
 	req := &pb.CChatRoom_InviteFriendToChatRoomGroup_Request{
-		ChatGroupId: proto.Uint64(groupID),
-		ChatId:      proto.Uint64(chatID),
-		Steamid:     proto.Uint64(friendSteamID),
+		ChatGroupId: new(groupID),
+		ChatId:      new(chatID),
+		Steamid:     new(friendSteamID),
 	}
 
 	_, err := c.events.InviteFriendToChatRoomGroup(ctx, req)
@@ -428,9 +427,9 @@ func (c *Chat) KickUserFromGroupChat(
 	}
 
 	req := &pb.CChatRoom_KickUser_Request{
-		ChatGroupId: proto.Uint64(groupID),
-		Steamid:     proto.Uint64(targetSteamID),
-		Expiration:  proto.Int32(expirationSeconds),
+		ChatGroupId: new(groupID),
+		Steamid:     new(targetSteamID),
+		Expiration:  new(expirationSeconds),
 	}
 
 	_, err := c.events.KickUser(ctx, req)
@@ -449,9 +448,9 @@ func (c *Chat) MuteUserInGroupChat(ctx context.Context, groupID, targetSteamID u
 	}
 
 	req := &pb.CChatRoom_MuteUser_Request{
-		ChatGroupId: proto.Uint64(groupID),
-		Steamid:     proto.Uint64(targetSteamID),
-		Expiration:  proto.Int32(expirationSeconds),
+		ChatGroupId: new(groupID),
+		Steamid:     new(targetSteamID),
+		Expiration:  new(expirationSeconds),
 	}
 
 	_, err := c.events.MuteUser(ctx, req)
@@ -470,9 +469,9 @@ func (c *Chat) SetUserBanStateInGroupChat(ctx context.Context, groupID, targetSt
 	}
 
 	req := &pb.CChatRoom_SetUserBanState_Request{
-		ChatGroupId: proto.Uint64(groupID),
-		Steamid:     proto.Uint64(targetSteamID),
-		BanState:    proto.Bool(ban),
+		ChatGroupId: new(groupID),
+		Steamid:     new(targetSteamID),
+		BanState:    new(ban),
 	}
 
 	_, err := c.events.SetUserBanState(ctx, req)
@@ -487,7 +486,7 @@ func (c *Chat) CreateChatRoomGroup(
 	inviteeSteamIDs []uint64,
 ) (*pb.CChatRoom_CreateChatRoomGroup_Response, error) {
 	req := &pb.CChatRoom_CreateChatRoomGroup_Request{
-		Name:            proto.String(name),
+		Name:            new(name),
 		SteamidInvitees: inviteeSteamIDs,
 	}
 
@@ -497,8 +496,8 @@ func (c *Chat) CreateChatRoomGroup(
 // SaveChatRoomGroup converts an ad-hoc group chat into a saved named group chat.
 func (c *Chat) SaveChatRoomGroup(ctx context.Context, groupID uint64, name string) error {
 	req := &pb.CChatRoom_SaveChatRoomGroup_Request{
-		ChatGroupId: proto.Uint64(groupID),
-		Name:        proto.String(name),
+		ChatGroupId: new(groupID),
+		Name:        new(name),
 	}
 
 	_, err := c.events.SaveChatRoomGroup(ctx, req)
@@ -509,8 +508,8 @@ func (c *Chat) SaveChatRoomGroup(ctx context.Context, groupID uint64, name strin
 // RenameChatRoomGroup changes the display name of a group chat room.
 func (c *Chat) RenameChatRoomGroup(ctx context.Context, groupID uint64, newName string) (string, error) {
 	req := &pb.CChatRoom_RenameChatRoomGroup_Request{
-		ChatGroupId: proto.Uint64(groupID),
-		Name:        proto.String(newName),
+		ChatGroupId: new(groupID),
+		Name:        new(newName),
 	}
 
 	resp, err := c.events.RenameChatRoomGroup(ctx, req)
@@ -534,7 +533,7 @@ func (c *Chat) GetChatRoomGroupState(
 	groupID uint64,
 ) (*pb.CChatRoom_GetChatRoomGroupState_Response, error) {
 	req := &pb.CChatRoom_GetChatRoomGroupState_Request{
-		ChatGroupId: proto.Uint64(groupID),
+		ChatGroupId: new(groupID),
 	}
 
 	return c.events.GetChatRoomGroupState(ctx, req)
@@ -548,12 +547,12 @@ func (c *Chat) CreateInviteLink(
 	voiceChatID uint64,
 ) (*pb.CChatRoom_CreateInviteLink_Response, error) {
 	req := &pb.CChatRoom_CreateInviteLink_Request{
-		ChatGroupId:  proto.Uint64(groupID),
-		SecondsValid: proto.Uint32(secondsValid),
+		ChatGroupId:  new(groupID),
+		SecondsValid: new(secondsValid),
 	}
 
 	if voiceChatID > 0 {
-		req.ChatId = proto.Uint64(voiceChatID)
+		req.ChatId = new(voiceChatID)
 	}
 
 	return c.events.CreateInviteLink(ctx, req)
@@ -565,7 +564,7 @@ func (c *Chat) GetInviteLinksForGroup(
 	groupID uint64,
 ) ([]*pb.CChatRoom_GetInviteLinksForGroup_Response_LinkInfo, error) {
 	req := &pb.CChatRoom_GetInviteLinksForGroup_Request{
-		ChatGroupId: proto.Uint64(groupID),
+		ChatGroupId: new(groupID),
 	}
 
 	resp, err := c.events.GetInviteLinksForGroup(ctx, req)
@@ -579,8 +578,8 @@ func (c *Chat) GetInviteLinksForGroup(
 // DeleteInviteLink revokes a group chat invite link by code.
 func (c *Chat) DeleteInviteLink(ctx context.Context, groupID uint64, inviteCode string) error {
 	req := &pb.CChatRoom_DeleteInviteLink_Request{
-		ChatGroupId: proto.Uint64(groupID),
-		InviteCode:  proto.String(inviteCode),
+		ChatGroupId: new(groupID),
+		InviteCode:  new(inviteCode),
 	}
 
 	_, err := c.events.DeleteInviteLink(ctx, req)
@@ -676,7 +675,7 @@ func (c *Chat) handleGroupReaction(msg *pb.CChatRoom_MessageReaction_Notificatio
 
 func (c *Chat) synchronizeOfflineMessages(ctx context.Context) {
 	req := &pb.CFriendsMessages_GetActiveMessageSessions_Request{
-		OnlySessionsWithMessages: proto.Bool(true),
+		OnlySessionsWithMessages: new(true),
 	}
 
 	var (
