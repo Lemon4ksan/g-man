@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Lemon4ksan All rights reserved.
+﻿// Copyright (c) 2026 Lemon4ksan All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -12,19 +12,19 @@ import (
 	"sync"
 	"text/template"
 
-	"github.com/lemon4ksan/foundation/async/logkit"
+	log "github.com/lemon4ksan/foundation/async/logkit"
 )
 
 // Manager parses, caches, and renders notification message templates.
 type Manager struct {
 	chat     ChatProvider
 	config   ConfigProvider
-	logger   logkit.Logger
+	logger   log.Logger
 	tplMu    sync.RWMutex
 	tplCache map[string]*template.Template
 }
 
-func NewManager(chat ChatProvider, config ConfigProvider, logger logkit.Logger) *Manager {
+func NewManager(chat ChatProvider, config ConfigProvider, logger log.Logger) *Manager {
 	return &Manager{
 		chat:     chat,
 		config:   config,
@@ -47,7 +47,7 @@ func (m *Manager) SendNotification(ctx context.Context, info *TradeInfo) error {
 
 	msg, err := m.renderTemplate(key, tplStr, info)
 	if err != nil {
-		m.logger.Error("Failed to render notification template", logkit.String("key", key), logkit.Err(err))
+		m.logger.Error("Failed to render notification template", log.String("key", key), log.Err(err))
 
 		msg = "An internal error occurred while generating a response."
 	}

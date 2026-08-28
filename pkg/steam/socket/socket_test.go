@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Lemon4ksan All rights reserved.
+﻿// Copyright (c) 2026 Lemon4ksan All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -15,7 +15,7 @@ import (
 
 	aoni_socket "github.com/lemon4ksan/aoni/realtime/socket"
 	"github.com/lemon4ksan/aoni/realtime/socket/connector"
-	"github.com/lemon4ksan/foundation/async/logkit"
+	log "github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -149,7 +149,7 @@ func TestSocket_LifecycleAndAccessors(t *testing.T) {
 		t.Parallel()
 		s, _ := setupMockSocket(t)
 
-		s.UpdateLogger(logkit.Discard)
+		s.UpdateLogger(log.Discard)
 		assert.NotNil(t, s.Logger())
 	})
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Lemon4ksan All rights reserved.
+﻿// Copyright (c) 2026 Lemon4ksan All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -23,7 +23,7 @@ import (
 	"github.com/lemon4ksan/aoni/realtime/socket/connector"
 	"github.com/lemon4ksan/aoni/realtime/socket/dispatcher"
 	"github.com/lemon4ksan/aoni/realtime/socket/processor"
-	"github.com/lemon4ksan/foundation/async/logkit"
+	log "github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/lemon4ksan/foundation/generic"
 	"google.golang.org/protobuf/proto"
 
@@ -113,7 +113,7 @@ func DefaultConfig() Config {
 type Socket struct {
 	cfg    Config
 	mu     sync.RWMutex
-	logger logkit.Logger
+	logger log.Logger
 
 	conn     *connector.Connector[CMServer]
 	proc     *processor.Processor[*protocol.Packet]
@@ -133,7 +133,7 @@ func New(cfg Config) *Socket {
 
 	dialerMap := cfg.Connector.Dialers
 	if len(dialerMap) == 0 {
-		dialerMap = NewDialers(cfg.Connector.ProxyURL)
+		dialerMap = NewDialersWithLogger(cfg.Connector.ProxyURL, cfg.Connector.Logger)
 	}
 
 	dialer := func(ctx context.Context, endpoint CMServer, f socket.Framer, c socket.Cipher) (connector.Connection, error) {
@@ -157,12 +157,12 @@ func New(cfg Config) *Socket {
 		Dialer:          dialer,
 		ReconnectPolicy: cfg.Connector.ReconnectPolicy,
 		ConnectTimeout:  cfg.Connector.ConnectTimeout,
-		Logger:          logkit.Discard,
+		Logger:          log.Discard,
 	}
 
 	s := &Socket{
 		cfg:     cfg,
-		logger:  logkit.Discard,
+		logger:  log.Discard,
 		session: &BasicSession{},
 	}
 
@@ -215,12 +215,12 @@ func New(cfg Config) *Socket {
 	decode := func(data []byte) (*protocol.Packet, error) {
 		pkt, err := protocol.ParsePacket(bytes.NewReader(data))
 		if err != nil {
-			s.Logger().Error("Failed to parse packet", logkit.Err(err), logkit.Int("len", len(data)))
+			s.Logger().Error("Failed to parse packet", log.Err(err), log.Int("len", len(data)))
 			return nil, err
 		}
 
 		s.Logger().
-			Debug("Decoded packet", logkit.Uint32("emsg", uint32(pkt.EMsg)), logkit.Bool("isProto", pkt.IsProto), logkit.Int("payloadLen", len(pkt.Payload)))
+			Debug("Decoded packet", log.Uint32("emsg", uint32(pkt.EMsg)), log.Bool("isProto", pkt.IsProto), log.Int("payloadLen", len(pkt.Payload)))
 
 		return pkt, nil
 	}
@@ -233,7 +233,7 @@ func New(cfg Config) *Socket {
 func (s *Socket) handleMulti(packet *protocol.Packet) {
 	msg := &pb.CMsgMulti{}
 	if err := protocol.UnmarshalProto(packet.Payload, msg); err != nil {
-		s.Logger().Error("Failed to unmarshal CMsgMulti", logkit.Err(err))
+		s.Logger().Error("Failed to unmarshal CMsgMulti", log.Err(err))
 		return
 	}
 
@@ -241,14 +241,14 @@ func (s *Socket) handleMulti(packet *protocol.Packet) {
 	if msg.GetSizeUnzipped() > 0 {
 		gr, err := gzip.NewReader(bytes.NewReader(payload))
 		if err != nil {
-			s.Logger().Error("Failed to decompress multi payload", logkit.Err(err))
+			s.Logger().Error("Failed to decompress multi payload", log.Err(err))
 			return
 		}
 		defer gr.Close()
 
 		unzipped, err := io.ReadAll(gr)
 		if err != nil {
-			s.Logger().Error("Failed to read decompressed multi payload", logkit.Err(err))
+			s.Logger().Error("Failed to read decompressed multi payload", log.Err(err))
 			return
 		}
 
@@ -259,7 +259,7 @@ func (s *Socket) handleMulti(packet *protocol.Packet) {
 	for reader.Len() > 0 {
 		var subSize uint32
 		if err := binary.Read(reader, binary.LittleEndian, &subSize); err != nil {
-			s.Logger().Error("Failed to read multi sub-packet size", logkit.Err(err))
+			s.Logger().Error("Failed to read multi sub-packet size", log.Err(err))
 			return
 		}
 
@@ -269,13 +269,13 @@ func (s *Socket) handleMulti(packet *protocol.Packet) {
 
 		subData := make([]byte, subSize)
 		if _, err := io.ReadFull(reader, subData); err != nil {
-			s.Logger().Error("Failed to read multi sub-packet data", logkit.Err(err))
+			s.Logger().Error("Failed to read multi sub-packet data", log.Err(err))
 			return
 		}
 
 		subPkt, err := protocol.ParsePacket(bytes.NewReader(subData))
 		if err != nil {
-			s.Logger().Error("Failed to parse multi sub-packet", logkit.Err(err))
+			s.Logger().Error("Failed to parse multi sub-packet", log.Err(err))
 			continue
 		}
 
@@ -295,7 +295,7 @@ func (s *Socket) Dispatcher() *dispatcher.Dispatcher[enums.EMsg, uint64, *protoc
 func (s *Socket) Session() Session { return s.session }
 
 // Logger returns the socket logger.
-func (s *Socket) Logger() logkit.Logger {
+func (s *Socket) Logger() log.Logger {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -303,9 +303,9 @@ func (s *Socket) Logger() logkit.Logger {
 }
 
 // UpdateLogger updates the active logger.
-func (s *Socket) UpdateLogger(logger logkit.Logger) {
+func (s *Socket) UpdateLogger(logger log.Logger) {
 	s.mu.Lock()
-	s.logger = logger.With(logkit.Module("sock"))
+	s.logger = logger.With(log.Module("sock"))
 	s.mu.Unlock()
 }
 
@@ -430,7 +430,7 @@ func (s *Socket) StartHeartbeat(interval time.Duration) error {
 	s.heartbeatCancel = cancel
 	s.mu.Unlock()
 
-	s.Logger().Debug("Starting heartbeat loop", logkit.Duration("interval", interval))
+	s.Logger().Debug("Starting heartbeat loop", log.Duration("interval", interval))
 
 	go func() {
 		ticker := time.NewTicker(interval)
@@ -445,7 +445,7 @@ func (s *Socket) StartHeartbeat(interval time.Duration) error {
 
 				err := s.SendProto(context.Background(), enums.EMsg_ClientHeartBeat, &pb.CMsgClientHeartBeat{})
 				if err != nil {
-					s.Logger().Warn("Failed to send heartbeat", logkit.Err(err))
+					s.Logger().Warn("Failed to send heartbeat", log.Err(err))
 				}
 
 			case <-ctx.Done():

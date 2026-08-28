@@ -63,6 +63,10 @@ func (m *Manager) GetEscrowDuration(ctx context.Context, offerID uint64) (proces
 
 // CheckEscrow verifies whether the trade offer has an escrow hold duration.
 func (m *Manager) CheckEscrow(ctx context.Context, offer *trading.TradeOffer) (bool, error) {
+	if offer == nil || offer.IsOurOffer {
+		return false, nil
+	}
+
 	details, err := m.GetEscrowDuration(ctx, offer.ID)
 	if err != nil {
 		return false, err

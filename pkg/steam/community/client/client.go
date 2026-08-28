@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Lemon4ksan All rights reserved.
+﻿// Copyright (c) 2026 Lemon4ksan All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -19,7 +19,7 @@ import (
 	"github.com/lemon4ksan/aoni/codec/extract"
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/option"
-	"github.com/lemon4ksan/foundation/async/logkit"
+	log "github.com/lemon4ksan/foundation/async/logkit"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 )
@@ -93,7 +93,7 @@ type SessionProvider interface {
 type Client struct {
 	r       *aoni.Client
 	session SessionProvider
-	logger  logkit.Logger
+	logger  log.Logger
 }
 
 // New constructs a Client configured for steamcommunity.com.
@@ -107,7 +107,7 @@ func New(doer aoni.RequestDoer, session SessionProvider) *Client {
 	return &Client{
 		r:       c,
 		session: session,
-		logger:  logkit.Discard,
+		logger:  log.Discard,
 	}
 }
 
@@ -125,9 +125,9 @@ func (c *Client) With(opts ...aoni.ClientOption) *Client {
 }
 
 // WithLogger sets the logger instance.
-func (c *Client) WithLogger(l logkit.Logger) *Client {
+func (c *Client) WithLogger(l log.Logger) *Client {
 	copy := *c
-	copy.logger = l.With(logkit.Module("community"))
+	copy.logger = l.With(log.Module("community"))
 
 	return &copy
 }
@@ -169,7 +169,7 @@ func (c *Client) Request(
 	method, path string,
 	mods ...aoni.RequestModifier,
 ) (*http.Response, error) {
-	c.logger.Debug("Community Request", logkit.String("method", method), logkit.String("path", path))
+	c.logger.Debug("Community Request", log.String("method", method), log.String("path", path))
 
 	resp, err := c.r.Request(ctx, method, path, mods...)
 	if err != nil {

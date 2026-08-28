@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Lemon4ksan All rights reserved.
+﻿// Copyright (c) 2026 Lemon4ksan All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -20,7 +20,7 @@ import (
 
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/mod"
-	"github.com/lemon4ksan/foundation/async/logkit"
+	log "github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/lemon4ksan/foundation/generic"
 	"golang.org/x/net/html"
 	"google.golang.org/protobuf/proto"
@@ -256,7 +256,7 @@ func (m *Manager) InviteToGroups(ctx context.Context, steamID id.ID, groupIDs []
 				return nil
 			}
 
-			m.Logger.Warn("Failed to invite to group", logkit.Uint64("group_id", groupID), logkit.Err(err))
+			m.Logger.Warn("Failed to invite to group", log.Uint64("group_id", groupID), log.Err(err))
 
 			mu.Lock()
 

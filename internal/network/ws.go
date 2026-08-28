@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Lemon4ksan All rights reserved.
+﻿// Copyright (c) 2026 Lemon4ksan All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -18,7 +18,7 @@ import (
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/option"
 	"github.com/lemon4ksan/aoni/realtime/ws"
-	"github.com/lemon4ksan/foundation/async/logkit"
+	log "github.com/lemon4ksan/foundation/async/logkit"
 
 	"github.com/lemon4ksan/g-man/internal/framer"
 )
@@ -45,7 +45,7 @@ type WS struct {
 	BaseConnection
 
 	conn   wsConn
-	logger logkit.Logger
+	logger log.Logger
 
 	msgChan    chan Message
 	errChan    chan error
@@ -58,7 +58,7 @@ type WS struct {
 // NewWS establishes a WebSocket connection to the specified endpoint.
 func NewWS(
 	ctx context.Context,
-	logger logkit.Logger,
+	logger log.Logger,
 	endpoint, proxyURL string,
 	headers http.Header,
 ) (*WS, error) {
@@ -68,7 +68,7 @@ func NewWS(
 // NewWSWithClient establishes a WebSocket connection using a custom aoni.WebSocketDialer client.
 func NewWSWithClient(
 	ctx context.Context,
-	logger logkit.Logger,
+	logger log.Logger,
 	endpoint, proxyURL string,
 	headers http.Header,
 	dialerClient aoni.WebSocketDialer,
@@ -135,7 +135,7 @@ func NewWSWithClient(
 	w := &WS{
 		BaseConnection: NewBaseConnection(ConnTypeWS),
 		conn:           conn,
-		logger:         logger.With(logkit.String("transport", ConnTypeWS), logkit.String("endpoint", endpoint)),
+		logger:         logger.With(log.String("transport", ConnTypeWS), log.String("endpoint", endpoint)),
 		msgChan:        make(chan Message, 100),
 		errChan:        make(chan error, 10),
 		closedChan:     make(chan struct{}),
@@ -149,7 +149,7 @@ func NewWSWithClient(
 // NewWSWithFastClient establishes a WebSocket connection using fast.Client.
 func NewWSWithFastClient(
 	ctx context.Context,
-	logger logkit.Logger,
+	logger log.Logger,
 	endpoint, proxyURL string,
 	headers http.Header,
 	fastClient *fast.Client,
@@ -194,11 +194,11 @@ func (w *WS) Send(ctx context.Context, data []byte) error {
 	}
 
 	if err := w.conn.WriteMessage(ws.FrameBinary, data); err != nil {
-		w.logger.Error("WS write message failed", logkit.Err(err))
+		w.logger.Error("WS write message failed", log.Err(err))
 		return NewError(OpSend, ConnTypeWS, err)
 	}
 
-	w.logger.Debug("WS wrote message to socket", logkit.Int("bytes", len(data)))
+	w.logger.Debug("WS wrote message to socket", log.Int("bytes", len(data)))
 
 	return nil
 }
@@ -235,7 +235,7 @@ func (w *WS) readLoop() {
 	for {
 		msgType, payload, err := w.conn.ReadMessage()
 		if err != nil {
-			w.logger.Debug("WS ReadMessage returned error", logkit.Err(err))
+			w.logger.Debug("WS ReadMessage returned error", log.Err(err))
 
 			select {
 			case w.errChan <- NewError(OpRead, ConnTypeWS, err):
@@ -245,7 +245,7 @@ func (w *WS) readLoop() {
 			return
 		}
 
-		w.logger.Debug("WS ReadMessage received frame", logkit.Int("msgType", msgType), logkit.Int("bytes", len(payload)))
+		w.logger.Debug("WS ReadMessage received frame", log.Int("msgType", msgType), log.Int("bytes", len(payload)))
 
 		if msgType != ws.FrameBinary {
 			continue

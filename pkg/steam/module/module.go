@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Lemon4ksan All rights reserved.
+﻿// Copyright (c) 2026 Lemon4ksan All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -14,7 +14,7 @@ import (
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/foundation/async/event"
 	"github.com/lemon4ksan/foundation/async/fsm"
-	"github.com/lemon4ksan/foundation/async/logkit"
+	log "github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/lemon4ksan/foundation/generic"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
@@ -95,7 +95,7 @@ func Get[T any](init InitContext, name string) (T, error) {
 type InitContext interface {
 	Storage() storage.Provider
 	Bus() *event.Bus
-	Logger() logkit.Logger
+	Logger() log.Logger
 	Service() service.Doer
 	Rest() *aoni.Client
 	RegisterPacketHandler(eMsg enums.EMsg, handler socket.Handler)
@@ -136,7 +136,7 @@ type Auth interface {
 // Base provides standard lifecycle state machine management, logger binding, and task waitgroup tracking.
 type Base struct {
 	NameStr string
-	Logger  logkit.Logger
+	Logger  log.Logger
 	Bus     *event.Bus
 	Fsm     *fsm.FSM[State, Event]
 	Ctx     context.Context
@@ -159,7 +159,7 @@ func New(name string) Base {
 
 	return Base{
 		NameStr: name,
-		Logger:  logkit.Discard,
+		Logger:  log.Discard,
 		Fsm:     mach,
 		Wg:      new(sync.WaitGroup),
 		mu:      new(sync.Mutex),
@@ -177,7 +177,7 @@ func (b Base) WithDeps(deps ...string) Base {
 }
 
 func (b *Base) Init(ctx InitContext) error {
-	b.Logger = ctx.Logger().With(logkit.Module(b.NameStr))
+	b.Logger = ctx.Logger().With(log.Module(b.NameStr))
 	b.Bus = ctx.Bus()
 
 	if b.Fsm == nil {

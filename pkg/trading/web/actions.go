@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Lemon4ksan All rights reserved.
+﻿// Copyright (c) 2026 Lemon4ksan All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/aoni/mod"
-	"github.com/lemon4ksan/foundation/async/logkit"
+	log "github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/lemon4ksan/foundation/codec/json"
 	"github.com/lemon4ksan/foundation/silicon/bytesconv"
 
@@ -147,15 +147,15 @@ func (m *Manager) AcceptOffer(ctx context.Context, offerID uint64) error {
 	)
 	if err != nil {
 		m.Logger.Warn("Accept trade offer HTTP call returned error, verifying actual offer status",
-			logkit.Uint64("offer_id", offerID),
-			logkit.Err(err),
+			log.Uint64("offer_id", offerID),
+			log.Err(err),
 		)
 
 		if offer, getErr := m.GetOffer(ctx, offerID); getErr == nil && offer != nil {
 			if offer.State == trading.OfferStateAccepted || offer.State == trading.OfferStateInEscrow {
 				m.Logger.Info("Trade offer was accepted despite HTTP error response",
-					logkit.Uint64("offer_id", offerID),
-					logkit.Int32("state", int32(offer.State)),
+					log.Uint64("offer_id", offerID),
+					log.Int32("state", int32(offer.State)),
 				)
 
 				return nil

@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Lemon4ksan All rights reserved.
+﻿// Copyright (c) 2026 Lemon4ksan All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lemon4ksan/foundation/async/logkit"
+	log "github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/lemon4ksan/foundation/net/proxy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -118,10 +118,10 @@ func shortCtx(t *testing.T) context.Context {
 func TestTCP_NewTCP_Fail(t *testing.T) {
 	t.Parallel()
 
-	_, err := NewTCP(shortCtx(t), logkit.Discard, "127.0.0.1:1", "", mockFramer{})
+	_, err := NewTCP(shortCtx(t), log.Discard, "127.0.0.1:1", "", mockFramer{})
 	assert.Error(t, err)
 
-	_, err = NewTCP(shortCtx(t), logkit.Discard, "127.0.0.1:1", "", nil)
+	_, err = NewTCP(shortCtx(t), log.Discard, "127.0.0.1:1", "", nil)
 	assert.ErrorContains(t, err, "framer cannot be nil")
 }
 
@@ -131,20 +131,20 @@ func TestTCP_NewTCP_ProxyErrors(t *testing.T) {
 	t.Run("invalid_proxy_url", func(t *testing.T) {
 		t.Parallel()
 		// unescapeable percentage sign to trigger url.Parse error
-		_, err := NewTCP(shortCtx(t), logkit.Discard, "127.0.0.1:1", "https://%", mockFramer{})
+		_, err := NewTCP(shortCtx(t), log.Discard, "127.0.0.1:1", "https://%", mockFramer{})
 		assert.Error(t, err)
 	})
 
 	t.Run("unsupported_proxy_scheme", func(t *testing.T) {
 		t.Parallel()
 		// ftp scheme is not supported by proxy.FromURL
-		_, err := NewTCP(shortCtx(t), logkit.Discard, "127.0.0.1:1", "ftp://localhost", mockFramer{})
+		_, err := NewTCP(shortCtx(t), log.Discard, "127.0.0.1:1", "ftp://localhost", mockFramer{})
 		assert.Error(t, err)
 	})
 
 	t.Run("custom_proxy_without_context_dialer", func(t *testing.T) {
 		t.Parallel()
-		_, err := NewTCP(shortCtx(t), logkit.Discard, "127.0.0.1:1", "mocksock://localhost", mockFramer{})
+		_, err := NewTCP(shortCtx(t), log.Discard, "127.0.0.1:1", "mocksock://localhost", mockFramer{})
 		assert.ErrorContains(t, err, "mock simple dial error")
 	})
 }
@@ -169,7 +169,7 @@ func TestTCP_Close_NilConn(t *testing.T) {
 func TestTCP_ReadLoop_Coverage(t *testing.T) {
 	t.Parallel()
 
-	logger := logkit.Discard
+	logger := log.Discard
 
 	t.Run("decryption_branch", func(t *testing.T) {
 		t.Parallel()
@@ -217,7 +217,7 @@ func TestTCP_ReadLoop_Coverage(t *testing.T) {
 
 		tcp := &TCP{
 			conn:   c,
-			logger: logkit.Discard,
+			logger: log.Discard,
 			framer: mockFramer{
 				readFunc: func(r io.Reader) (*framer.FrameBuffer, error) {
 					return nil, errors.New("invalid frame")
@@ -351,7 +351,7 @@ func TestTCP_ReadLoop_Coverage(t *testing.T) {
 		s, c := net.Pipe()
 		tcp := &TCP{
 			conn:           c,
-			logger:         logkit.Discard,
+			logger:         log.Discard,
 			BaseConnection: NewBaseConnection("TCP"),
 			framer: mockFramer{
 				readFunc: func(r io.Reader) (*framer.FrameBuffer, error) {
@@ -390,7 +390,7 @@ func TestTCP_ReadLoop_Coverage(t *testing.T) {
 func TestTCP_SetCipher(t *testing.T) {
 	t.Parallel()
 
-	tcp := &TCP{logger: logkit.Discard}
+	tcp := &TCP{logger: log.Discard}
 	cipher := mockCipher{}
 	ok := tcp.SetCipher(cipher)
 	assert.True(t, ok)
@@ -417,7 +417,7 @@ func TestTCP_Send_Deadline(t *testing.T) {
 
 	tcp := &TCP{
 		conn:           clientConn,
-		logger:         logkit.Discard,
+		logger:         log.Discard,
 		BaseConnection: NewBaseConnection("TCP"),
 		framer:         mockFramer{},
 	}
@@ -450,7 +450,7 @@ func TestTCP_Send_Deadline(t *testing.T) {
 
 		tcp := &TCP{
 			conn:           client,
-			logger:         logkit.Discard,
+			logger:         log.Discard,
 			BaseConnection: NewBaseConnection("TCP"),
 			framer:         mockFramer{},
 		}
@@ -468,7 +468,7 @@ func TestTCP_Send_Deadline(t *testing.T) {
 
 		tcp := &TCP{
 			conn:           client,
-			logger:         logkit.Discard,
+			logger:         log.Discard,
 			BaseConnection: NewBaseConnection("TCP"),
 			framer:         mockFramer{},
 		}
@@ -494,7 +494,7 @@ func TestTCP_Send_Errors(t *testing.T) {
 		t.Parallel()
 
 		tcp := &TCP{
-			logger:         logkit.Discard,
+			logger:         log.Discard,
 			BaseConnection: NewBaseConnection("TCP"),
 			framer:         mockFramer{},
 		}
@@ -514,7 +514,7 @@ func TestTCP_Send_Errors(t *testing.T) {
 
 		tcp := &TCP{
 			conn:           deadlineFailingConn{},
-			logger:         logkit.Discard,
+			logger:         log.Discard,
 			BaseConnection: NewBaseConnection("TCP"),
 			framer:         mockFramer{},
 		}
@@ -528,7 +528,7 @@ func TestTCP_Send_Errors(t *testing.T) {
 
 		tcp := &TCP{
 			conn:           mockNetConn{},
-			logger:         logkit.Discard,
+			logger:         log.Discard,
 			BaseConnection: NewBaseConnection("TCP"),
 			framer: mockFramer{
 				writeFunc: func(w io.Writer, data []byte) error {

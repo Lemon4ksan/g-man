@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Lemon4ksan All rights reserved.
+﻿// Copyright (c) 2026 Lemon4ksan All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/foundation/async/event"
-	"github.com/lemon4ksan/foundation/async/logkit"
+	log "github.com/lemon4ksan/foundation/async/logkit"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
@@ -105,7 +105,7 @@ func (m *Manager) doPoll(ctx context.Context) {
 	resp, err := service.WebAPI[getOffersResp](ctx, m.web, "GET", "IEconService", "GetTradeOffers", 1, req)
 	if err != nil {
 		if ctx.Err() == nil {
-			m.Logger.Warn("Trade poll failed", logkit.Err(err))
+			m.Logger.Warn("Trade poll failed", log.Err(err))
 		}
 
 		return
@@ -214,8 +214,8 @@ func (m *Manager) doPoll(ctx context.Context) {
 	m.canceller.HandleAutoCancellation(ctx, m.config, resp.Sent, m.sentOffers, &m.mu, m.CancelOffer)
 
 	m.Logger.Debug("Trade poll completed",
-		logkit.Int("sent_active", len(resp.Sent)),
-		logkit.Int("received_active", len(resp.Received)),
+		log.Int("sent_active", len(resp.Sent)),
+		log.Int("received_active", len(resp.Received)),
 	)
 }
 
@@ -271,7 +271,7 @@ func (m *Manager) listenNotifications(ctx context.Context, sub *event.Subscripti
 			switch e := ev.(type) {
 			case *notifications.UserNotificationsEvent:
 				if count, exists := e.Notifications[notifications.NotificationTradeOffer]; exists && count > 0 {
-					m.Logger.Debug("Trade offer notification received, triggering poll", logkit.Uint32("count", count))
+					m.Logger.Debug("Trade offer notification received, triggering poll", log.Uint32("count", count))
 					m.TriggerPoll()
 				}
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Lemon4ksan All rights reserved.
+﻿// Copyright (c) 2026 Lemon4ksan All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/foundation/async/event"
-	"github.com/lemon4ksan/foundation/async/logkit"
+	log "github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/lemon4ksan/foundation/generic"
 	"google.golang.org/protobuf/proto"
 
@@ -197,7 +197,7 @@ func (m *Manager) FlashStatus(message string, duration time.Duration) {
 	m.activeFlashUntil = time.Now().Add(duration)
 	m.stateMu.Unlock()
 
-	m.Logger.Debug("Status flash triggered", logkit.String("message", message))
+	m.Logger.Debug("Status flash triggered", log.String("message", message))
 }
 
 // ForceUpdate triggers an immediate status refresh on Steam.
@@ -320,7 +320,7 @@ func (m *Manager) updateSteamStatus(ctx context.Context, statusText string) {
 	}
 
 	if err := m.playCombined(ctx, m.config.IdleAppIDs, statusText); err != nil {
-		m.Logger.Warn("Failed to update status", logkit.Err(err))
+		m.Logger.Warn("Failed to update status", log.Err(err))
 	} else {
 		m.Bus.Publish(&StatusUpdatedEvent{
 			StatusText: statusText,

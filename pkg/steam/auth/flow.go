@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Lemon4ksan All rights reserved.
+﻿// Copyright (c) 2026 Lemon4ksan All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/lemon4ksan/foundation/async/logkit"
+	log "github.com/lemon4ksan/foundation/async/logkit"
 
 	"github.com/lemon4ksan/g-man/internal/crypto"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
@@ -111,7 +111,7 @@ type LogOnRunner interface {
 type Flow struct {
 	runner        LogOnRunner
 	store         Store
-	logger        logkit.Logger
+	logger        log.Logger
 	accountName   string
 	password      string
 	sharedSecret  []byte
@@ -128,7 +128,7 @@ type Flow struct {
 func NewFlow(runner LogOnRunner, opts ...FlowOption) *Flow {
 	f := &Flow{
 		runner: runner,
-		logger: logkit.Discard,
+		logger: log.Discard,
 	}
 
 	for _, opt := range opts {

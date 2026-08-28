@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Lemon4ksan All rights reserved.
+﻿// Copyright (c) 2026 Lemon4ksan All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/foundation/async/event"
-	"github.com/lemon4ksan/foundation/async/logkit"
+	log "github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
@@ -45,7 +45,7 @@ func (s *AuthenticatorSuite) SetupTest() {
 	s.store = new(MockStore)
 	s.session = &mockSession{}
 	s.socket.On("Session").Return(s.session).Maybe()
-	s.auth = NewAuthenticator(s.socket, s.webAPI, s.bus, WithStorage(s.store), WithLogger(logkit.Discard))
+	s.auth = NewAuthenticator(s.socket, s.webAPI, s.bus, WithStorage(s.store), WithLogger(log.Discard))
 }
 
 func TestAuthenticatorSuite(t *testing.T) {

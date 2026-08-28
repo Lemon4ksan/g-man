@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Lemon4ksan All rights reserved.
+﻿// Copyright (c) 2026 Lemon4ksan All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/lemon4ksan/foundation/async/logkit"
+	log "github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
@@ -135,7 +135,7 @@ func TestClient_Initialization_VariousConfigs_InitializesCorrectly(t *testing.T)
 	t.Run("options", func(t *testing.T) {
 		t.Parallel()
 
-		l := logkit.Discard
+		l := log.Discard
 		mod := newMockModule(t, "opt_mod", nil, nil)
 
 		c, err := client.New(client.Config{DisableSocket: true}, client.WithLogger(l), client.WithModule(mod))
@@ -522,7 +522,7 @@ func TestNoopSocketProvider_VariousMethods_ReturnsDisabledError(t *testing.T) {
 	assert.ErrorIs(t, p.StartHeartbeat(0), client.ErrSocketDisabled)
 	assert.NoError(t, p.Disconnect())
 	assert.NoError(t, p.Close())
-	p.UpdateLogger(logkit.Discard)
+	p.UpdateLogger(log.Discard)
 	p.UpdateServers(nil)
 }
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Lemon4ksan All rights reserved.
+﻿// Copyright (c) 2026 Lemon4ksan All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -17,7 +17,7 @@ import (
 	"github.com/lemon4ksan/aoni/realtime/socket"
 	"github.com/lemon4ksan/aoni/realtime/socket/connector"
 	"github.com/lemon4ksan/aoni/realtime/socket/processor"
-	"github.com/lemon4ksan/foundation/async/logkit"
+	log "github.com/lemon4ksan/foundation/async/logkit"
 
 	"github.com/lemon4ksan/g-man/internal/network"
 )
@@ -36,6 +36,7 @@ type ConnectorConfig struct {
 	ConnectTimeout  time.Duration
 	ProxyURL        string
 	Headers         http.Header
+	Logger          log.Logger
 }
 
 // DefaultReconnectPolicy returns standard auto-reconnection settings.
@@ -100,8 +101,17 @@ func DefaultDialers() map[string]Dialer {
 
 // NewDialers initializes TCP and WebSocket dialers configured with an optional proxy URL.
 func NewDialers(proxyURL string) map[string]Dialer {
+	return NewDialersWithLogger(proxyURL, log.Discard)
+}
+
+// NewDialersWithLogger initializes TCP and WebSocket dialers configured with an optional proxy URL and custom logger.
+func NewDialersWithLogger(proxyURL string, logger log.Logger) map[string]Dialer {
+	if logger == nil {
+		logger = log.Discard
+	}
+
 	wsDialer := func(ctx context.Context, endpoint CMServer, _ socket.Framer, _ socket.Cipher) (connector.Connection, error) {
-		wsConn, err := network.NewWS(ctx, logkit.New(logkit.DefaultConfig(logkit.LevelDebug)), endpoint.Endpoint, proxyURL, nil)
+		wsConn, err := network.NewWS(ctx, logger, endpoint.Endpoint, proxyURL, nil)
 		if err != nil {
 			return nil, err
 		}

@@ -4,9 +4,10 @@ go 1.27.0
 
 require (
 	github.com/andygrunwald/vdf v1.1.0
-	github.com/lemon4ksan/aoni v0.6.2-0.20260826201021-af75080ce45c
-	github.com/lemon4ksan/foundation v0.0.0-20260827105332-90a271d07e46
-	github.com/lemon4ksan/sein v0.0.0
+	github.com/lemon4ksan/aoni v0.7.0-rc.1
+	github.com/lemon4ksan/aoni/x v0.0.0-20260828082233-689a59512a17
+	github.com/lemon4ksan/foundation v0.0.0-20260828071503-e6feb1d2bf04
+	github.com/lemon4ksan/sein v0.0.0-20260828081302-9861fa238bd0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10
 	github.com/stretchr/testify v1.11.1
@@ -18,7 +19,6 @@ require (
 	github.com/andybalholm/brotli v1.2.2 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/klauspost/compress v1.19.1 // indirect
-	github.com/kr/text v0.2.0 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/refraction-networking/utls v1.8.2 // indirect
 	github.com/stretchr/objx v0.5.3 // indirect
@@ -27,10 +27,4 @@ require (
 	golang.org/x/text v0.41.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-)
-
-replace (
-	github.com/lemon4ksan/aoni => ../aoni
-	github.com/lemon4ksan/foundation => ../foundation
-	github.com/lemon4ksan/sein => ../server/sein
 )

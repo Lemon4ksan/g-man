@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Lemon4ksan All rights reserved.
+﻿// Copyright (c) 2026 Lemon4ksan All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/foundation/async/event"
-	"github.com/lemon4ksan/foundation/async/logkit"
+	log "github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/lemon4ksan/foundation/sync/keylock"
 
 	"github.com/lemon4ksan/g-man/pkg/behavior"
@@ -44,7 +44,7 @@ type Processor struct {
 	engine   *engine.Engine
 	notif    *notifications.Manager
 	reviewer *review.Reviewer
-	logger   logkit.Logger
+	logger   log.Logger
 	bus      *event.Bus
 
 	queue chan *trading.TradeOffer
@@ -61,14 +61,14 @@ func New(
 	n *notifications.Manager,
 	r *review.Reviewer,
 	b *event.Bus,
-	l logkit.Logger,
+	l log.Logger,
 ) *Processor {
 	if b == nil {
 		b = event.New()
 	}
 
 	if l == nil {
-		l = logkit.Discard
+		l = log.Discard
 	}
 
 	return &Processor{
@@ -77,7 +77,7 @@ func New(
 		notif:     n,
 		reviewer:  r,
 		bus:       b,
-		logger:    l.With(logkit.Module("processor")),
+		logger:    l.With(log.Module("processor")),
 		queue:     make(chan *trading.TradeOffer, 100),
 		itemLocks: keylock.New[uint64](),
 	}
@@ -107,8 +107,8 @@ func (p *Processor) Run(ctx context.Context) error {
 
 			if offerEv, ok := ev.(*web.NewOfferEvent); ok {
 				p.logger.Info("New active trade offer received from event bus",
-					logkit.Uint64("offer_id", offerEv.Offer.ID),
-					logkit.Uint64("partner_steam_id", uint64(offerEv.Offer.OtherSteamID)),
+					log.Uint64("offer_id", offerEv.Offer.ID),
+					log.Uint64("partner_steam_id", uint64(offerEv.Offer.OtherSteamID)),
 				)
 				p.Enqueue(offerEv.Offer)
 			}
@@ -124,9 +124,9 @@ func (p *Processor) Enqueue(offer *trading.TradeOffer) {
 
 	select {
 	case p.queue <- offer:
-		p.logger.Debug("Offer enqueued for processing", logkit.Uint64("offerID", offer.ID))
+		p.logger.Debug("Offer enqueued for processing", log.Uint64("offerID", offer.ID))
 	default:
-		p.logger.Warn("Offer queue full, dropping offer", logkit.Uint64("offerID", offer.ID))
+		p.logger.Warn("Offer queue full, dropping offer", log.Uint64("offerID", offer.ID))
 		p.processing.Delete(offer.ID)
 	}
 }
@@ -147,7 +147,7 @@ func generateCorrelationID(offerID uint64) string {
 	sb.Write(strconv.AppendUint(intBuf[:0], offerID, 10))
 	sb.WriteByte('-')
 
-	corrSuffix := logkit.GenerateCorrelationID()
+	corrSuffix := log.GenerateCorrelationID()
 	if len(corrSuffix) > 8 {
 		corrSuffix = corrSuffix[:8]
 	}
@@ -172,12 +172,12 @@ func (p *Processor) handleOffer(ctx context.Context, offer *trading.TradeOffer) 
 	defer p.processing.Delete(offer.ID)
 
 	start := time.Now()
-	ctx = logkit.WithCorrelationID(ctx, generateCorrelationID(offer.ID))
+	ctx = log.WithCorrelationID(ctx, generateCorrelationID(offer.ID))
 
-	p.logger.InfoContext(ctx, "Processing offer", logkit.Uint64("id", offer.ID))
+	p.logger.InfoContext(ctx, "Processing offer", log.Uint64("id", offer.ID))
 
 	if p.isAnyItemBusy(offer) {
-		p.logger.WarnContext(ctx, "Offer skipped: items are busy in another trade", logkit.Uint64("id", offer.ID))
+		p.logger.WarnContext(ctx, "Offer skipped: items are busy in another trade", log.Uint64("id", offer.ID))
 		return
 	}
 
@@ -188,7 +188,7 @@ func (p *Processor) handleOffer(ctx context.Context, offer *trading.TradeOffer) 
 
 	verdict, err := p.engine.Process(ctx, offer)
 	if err != nil {
-		p.logger.ErrorContext(ctx, "Engine failed to process offer", logkit.Err(err), logkit.Uint64("id", offer.ID))
+		p.logger.ErrorContext(ctx, "Engine failed to process offer", log.Err(err), log.Uint64("id", offer.ID))
 		return
 	}
 
@@ -214,12 +214,12 @@ func (p *Processor) executeVerdict(
 		}
 
 	case trading.ActionReview:
-		p.logger.InfoContext(ctx, "Offer sent to manual review", logkit.Uint64("id", offer.ID))
+		p.logger.InfoContext(ctx, "Offer sent to manual review", log.Uint64("id", offer.ID))
 		_ = p.notif.SendNotification(ctx, p.makeNotifInfo(offer, notifications.StateActive, v))
 		_ = p.reviewer.SendReviewAlert(ctx, offer.ID, offer.OtherSteamID, p.makeReviewMeta(v, duration))
 
 	case trading.ActionIgnore:
-		p.logger.DebugContext(ctx, "Offer ignored by engine", logkit.Uint64("id", offer.ID))
+		p.logger.DebugContext(ctx, "Offer ignored by engine", log.Uint64("id", offer.ID))
 	}
 }
 

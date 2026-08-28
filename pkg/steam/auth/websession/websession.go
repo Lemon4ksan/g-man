@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Lemon4ksan All rights reserved.
+﻿// Copyright (c) 2026 Lemon4ksan All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -22,7 +22,7 @@ import (
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/middleware"
 	"github.com/lemon4ksan/aoni/mod"
-	"github.com/lemon4ksan/foundation/async/logkit"
+	log "github.com/lemon4ksan/foundation/async/logkit"
 
 	"github.com/lemon4ksan/g-man/internal/network"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
@@ -66,7 +66,7 @@ type WebSession struct {
 	baseDoer   aoni.HTTPDoer
 	httpClient *http.Client
 	jar        http.CookieJar
-	logger     logkit.Logger
+	logger     log.Logger
 	isAuth     bool
 	domains    []*url.URL
 
@@ -87,11 +87,11 @@ func (d *doerRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) 
 }
 
 // New constructs an unauthenticated WebSession.
-func New(steamID id.ID, logger logkit.Logger, doer any) *WebSession {
+func New(steamID id.ID, logger log.Logger, doer any) *WebSession {
 	ws := &WebSession{
 		steamID:      steamID,
 		baseDoer:     aoni.NewRequestDoerAdapter(aoni.Configure(doer, network.DefaultClientOptions()...)),
-		logger:       logger.With(logkit.Module("websession")),
+		logger:       logger.With(log.Module("websession")),
 		retryBackoff: time.Second,
 	}
 
@@ -209,7 +209,7 @@ func (s *WebSession) Refresh(ctx context.Context) error {
 	s.logger.Info("Refreshing WebSession cookies...")
 
 	if err := s.Authenticate(ctx, platform, refreshToken, accessToken); err != nil {
-		s.logger.Error("Failed to refresh WebSession cookies", logkit.Err(err))
+		s.logger.Error("Failed to refresh WebSession cookies", log.Err(err))
 		return err
 	}
 
@@ -236,7 +236,7 @@ func (s *WebSession) StartAutoRefresh(ctx context.Context, interval time.Duratio
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 
-		s.logger.Info("Started automatic WebSession refresh loop", logkit.Duration("interval", interval))
+		s.logger.Info("Started automatic WebSession refresh loop", log.Duration("interval", interval))
 
 		for {
 			select {
@@ -245,7 +245,7 @@ func (s *WebSession) StartAutoRefresh(ctx context.Context, interval time.Duratio
 				return
 			case <-ticker.C:
 				if err := s.Refresh(refreshCtx); err != nil {
-					s.logger.Warn("Periodic WebSession refresh attempt failed", logkit.Err(err))
+					s.logger.Warn("Periodic WebSession refresh attempt failed", log.Err(err))
 				}
 			}
 		}

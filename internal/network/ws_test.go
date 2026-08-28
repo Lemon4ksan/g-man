@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Lemon4ksan All rights reserved.
+﻿// Copyright (c) 2026 Lemon4ksan All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -14,7 +14,7 @@ import (
 
 	"github.com/lemon4ksan/aoni/fast"
 	"github.com/lemon4ksan/aoni/realtime/ws"
-	"github.com/lemon4ksan/foundation/async/logkit"
+	log "github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lemon4ksan/g-man/internal/framer"
@@ -63,7 +63,7 @@ func TestWS_NewWS(t *testing.T) {
 	t.Parallel()
 
 	// Attempt to dial a bad endpoint
-	_, err := NewWS(shortCtx(t), logkit.Discard, "invalid:80", "", nil)
+	_, err := NewWS(shortCtx(t), log.Discard, "invalid:80", "", nil)
 	assert.Error(t, err)
 }
 
@@ -72,31 +72,31 @@ func TestWS_NewWS_URLSchemaAndProxy(t *testing.T) {
 
 	t.Run("invalid_endpoint_url_parse", func(t *testing.T) {
 		t.Parallel()
-		_, err := NewWS(shortCtx(t), logkit.Discard, "wss://%", "", nil)
+		_, err := NewWS(shortCtx(t), log.Discard, "wss://%", "", nil)
 		assert.Error(t, err)
 	})
 
 	t.Run("http_schema_normalization", func(t *testing.T) {
 		t.Parallel()
-		_, err := NewWS(shortCtx(t), logkit.Discard, "http://localhost:1", "", nil)
+		_, err := NewWS(shortCtx(t), log.Discard, "http://localhost:1", "", nil)
 		assert.Error(t, err)
 	})
 
 	t.Run("https_schema_normalization", func(t *testing.T) {
 		t.Parallel()
-		_, err := NewWS(shortCtx(t), logkit.Discard, "https://localhost:1", "", nil)
+		_, err := NewWS(shortCtx(t), log.Discard, "https://localhost:1", "", nil)
 		assert.Error(t, err)
 	})
 
 	t.Run("invalid_proxy_url_parse", func(t *testing.T) {
 		t.Parallel()
-		_, err := NewWS(shortCtx(t), logkit.Discard, "localhost:1", "https://%", nil)
+		_, err := NewWS(shortCtx(t), log.Discard, "localhost:1", "https://%", nil)
 		assert.Error(t, err)
 	})
 
 	t.Run("valid_proxy_url", func(t *testing.T) {
 		t.Parallel()
-		_, err := NewWS(shortCtx(t), logkit.Discard, "localhost:1", "http://127.0.0.1:8888", nil)
+		_, err := NewWS(shortCtx(t), log.Discard, "localhost:1", "http://127.0.0.1:8888", nil)
 		assert.Error(t, err)
 	})
 }
@@ -142,7 +142,7 @@ func TestWS_Send_Deadline(t *testing.T) {
 		wsConn := &WS{
 			BaseConnection: NewBaseConnection("WS"),
 			conn:           mockConn,
-			logger:         logkit.Discard,
+			logger:         log.Discard,
 		}
 
 		err := wsConn.Send(t.Context(), []byte("data"))
@@ -161,7 +161,7 @@ func TestWS_Send_Deadline(t *testing.T) {
 		wsConn := &WS{
 			BaseConnection: NewBaseConnection("WS"),
 			conn:           mockConn,
-			logger:         logkit.Discard,
+			logger:         log.Discard,
 		}
 
 		err := wsConn.Send(t.Context(), []byte("data"))
@@ -176,7 +176,7 @@ func TestWS_Send_Deadline(t *testing.T) {
 		wsConn := &WS{
 			BaseConnection: NewBaseConnection("WS"),
 			conn:           mockConn,
-			logger:         logkit.Discard,
+			logger:         log.Discard,
 		}
 
 		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
@@ -219,7 +219,7 @@ func TestWS_ReadLoop(t *testing.T) {
 		w := &WS{
 			BaseConnection: NewBaseConnection("WS"),
 			conn:           mockConn,
-			logger:         logkit.Discard,
+			logger:         log.Discard,
 			msgChan:        make(chan Message, 10),
 			errChan:        make(chan error, 10),
 			closedChan:     make(chan struct{}),
@@ -238,7 +238,7 @@ func TestWS_ReadLoop(t *testing.T) {
 
 	t.Run("new_ws_handshake_failure", func(t *testing.T) {
 		t.Parallel()
-		_, err := NewWS(shortCtx(t), logkit.Discard, "localhost:1", "", nil)
+		_, err := NewWS(shortCtx(t), log.Discard, "localhost:1", "", nil)
 		assert.Error(t, err)
 	})
 
@@ -248,11 +248,11 @@ func TestWS_ReadLoop(t *testing.T) {
 		headers := make(http.Header)
 		headers.Set("X-Test-Header", "G-MAN-TEST")
 
-		_, err := NewWSWithFastClient(shortCtx(t), logkit.Discard, "invalid:80", "", headers, nil)
+		_, err := NewWSWithFastClient(shortCtx(t), log.Discard, "invalid:80", "", headers, nil)
 		assert.Error(t, err)
 
 		fc := fast.NewClient(nil)
-		_, err = NewWSWithFastClient(shortCtx(t), logkit.Discard, "invalid:80", "", headers, fc)
+		_, err = NewWSWithFastClient(shortCtx(t), log.Discard, "invalid:80", "", headers, fc)
 		assert.Error(t, err)
 	})
 }
@@ -272,7 +272,7 @@ func TestWS_Close(t *testing.T) {
 	w := &WS{
 		BaseConnection: NewBaseConnection("WS"),
 		conn:           mockConn,
-		logger:         logkit.Discard,
+		logger:         log.Discard,
 		msgChan:        make(chan Message, 10),
 		errChan:        make(chan error, 10),
 		closedChan:     make(chan struct{}),
@@ -299,7 +299,7 @@ func TestWS_Close_Error(t *testing.T) {
 	w := &WS{
 		BaseConnection: NewBaseConnection("WS"),
 		conn:           mockConn,
-		logger:         logkit.Discard,
+		logger:         log.Discard,
 	}
 
 	err := w.Close()
@@ -321,7 +321,7 @@ func TestWS_ReadLoop_Coverage(t *testing.T) {
 		w := &WS{
 			BaseConnection: NewBaseConnection("WS"),
 			conn:           mockConn,
-			logger:         logkit.Discard,
+			logger:         log.Discard,
 			msgChan:        make(chan Message, 10),
 			errChan:        make(chan error), // unbuffered so send will hit default branch because nobody is reading
 			closedChan:     make(chan struct{}),
@@ -358,7 +358,7 @@ func TestWS_ReadLoop_Coverage(t *testing.T) {
 		w := &WS{
 			BaseConnection: NewBaseConnection("WS"),
 			conn:           mockConn,
-			logger:         logkit.Discard,
+			logger:         log.Discard,
 			msgChan:        make(chan Message), // unbuffered so send blocks
 			errChan:        make(chan error, 10),
 			closedChan:     make(chan struct{}),

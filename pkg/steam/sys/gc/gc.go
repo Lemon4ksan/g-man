@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Lemon4ksan All rights reserved.
+﻿// Copyright (c) 2026 Lemon4ksan All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -11,7 +11,7 @@ import (
 	"sync"
 
 	"github.com/lemon4ksan/foundation/async/event"
-	"github.com/lemon4ksan/foundation/async/logkit"
+	log "github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/lemon4ksan/foundation/async/task"
 	"google.golang.org/protobuf/proto"
 
@@ -204,9 +204,9 @@ func (c *Coordinator) send(
 	}
 
 	c.Logger.Debug("Sending GC Message",
-		logkit.Uint32("appid", appID),
-		logkit.Uint32("msg_type", msgType),
-		logkit.Uint64("job_id", sourceJobID),
+		log.Uint32("appid", appID),
+		log.Uint32("msg_type", msgType),
+		log.Uint64("job_id", sourceJobID),
 	)
 
 	err = c.events.SendToGC(ctx, wrapper)
@@ -254,14 +254,14 @@ func (c *Coordinator) handleClientFromGC(wrapper *pb.CMsgGCClient) {
 
 	gcPacket, err := protocol.ParseGCPacket(wrapper.GetAppid(), wrapper.GetMsgtype(), wrapper.GetPayload())
 	if err != nil {
-		c.Logger.Error("Failed to parse inner GC packet", logkit.Err(err))
+		c.Logger.Error("Failed to parse inner GC packet", log.Err(err))
 		return
 	}
 
 	c.Logger.Debug("Received GC Message",
-		logkit.Uint32("appid", gcPacket.AppID),
-		logkit.Uint32("msg_type", gcPacket.MsgType),
-		logkit.Uint64("target_job", gcPacket.TargetJobID),
+		log.Uint32("appid", gcPacket.AppID),
+		log.Uint32("msg_type", gcPacket.MsgType),
+		log.Uint64("target_job", gcPacket.TargetJobID),
 	)
 
 	if gcPacket.TargetJobID != protocol.NoJob {

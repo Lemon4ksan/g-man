@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Lemon4ksan All rights reserved.
+﻿// Copyright (c) 2026 Lemon4ksan All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -10,7 +10,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/lemon4ksan/foundation/async/logkit"
+	log "github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/lemon4ksan/foundation/generic"
 
 	"github.com/lemon4ksan/g-man/pkg/behavior"
@@ -49,11 +49,11 @@ type Manager struct {
 	provider Provider
 	config   Config
 	rng      *rand.Rand
-	logger   logkit.Logger
+	logger   log.Logger
 }
 
 // New constructs an achievement Manager instance.
-func New(provider Provider, config Config, logger logkit.Logger) *Manager {
+func New(provider Provider, config Config, logger log.Logger) *Manager {
 	return &Manager{
 		provider: provider,
 		config:   config,
@@ -69,7 +69,7 @@ func (m *Manager) Name() string {
 
 // Run executes the achievement simulation loop.
 func (m *Manager) Run(ctx context.Context) error {
-	logger := m.logger.With(logkit.Uint32("app_id", m.config.AppID))
+	logger := m.logger.With(log.Uint32("app_id", m.config.AppID))
 	logger.Info("Achievement Manager started")
 
 	interval := generic.Coalesce(m.config.CheckInterval, 24*time.Hour)
@@ -94,7 +94,7 @@ func (m *Manager) Run(ctx context.Context) error {
 	for {
 		unlocked, err := m.provider.GetCurrentAchievements(ctx)
 		if err != nil {
-			logger.Error("Failed to fetch progress", logkit.Err(err))
+			logger.Error("Failed to fetch progress", log.Err(err))
 
 			select {
 			case <-ctx.Done():
@@ -104,7 +104,7 @@ func (m *Manager) Run(ctx context.Context) error {
 			}
 		} else {
 			currentCount := len(unlocked)
-			logger.Info("Progress status", logkit.Int("current", currentCount), logkit.Int("target", targetCount))
+			logger.Info("Progress status", log.Int("current", currentCount), log.Int("target", targetCount))
 
 			if currentCount < targetCount {
 				if m.rng.Float32() < m.config.UnlockChance {
@@ -141,13 +141,13 @@ func (m *Manager) unlockRandom(ctx context.Context, unlocked map[uint32]bool) {
 		return
 	}
 
-	m.logger.Info("Strategy: Unlocking achievement", logkit.Uint32("id", id))
+	m.logger.Info("Strategy: Unlocking achievement", log.Uint32("id", id))
 	_ = m.provider.AwardAchievement(ctx, id)
 }
 
 func (m *Manager) simulateBreak(ctx context.Context) {
 	duration := time.Duration(2+m.rng.Intn(4)) * time.Hour
-	m.logger.Info("Strategy: Taking a break", logkit.Duration("duration", duration))
+	m.logger.Info("Strategy: Taking a break", log.Duration("duration", duration))
 
 	_ = m.provider.PlayGames(ctx, []uint32{})
 

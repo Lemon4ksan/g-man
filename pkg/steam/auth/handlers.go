@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Lemon4ksan All rights reserved.
+﻿// Copyright (c) 2026 Lemon4ksan All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -14,7 +14,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/lemon4ksan/foundation/async/logkit"
+	log "github.com/lemon4ksan/foundation/async/logkit"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/lemon4ksan/g-man/internal/crypto"
@@ -30,7 +30,7 @@ var (
 )
 
 func (a *Authenticator) handleChannelEncryptRequest(packet *protocol.Packet) {
-	a.getLogger().Debug("Received ChannelEncryptRequest from server", logkit.Int("size", len(packet.Payload)))
+	a.getLogger().Debug("Received ChannelEncryptRequest from server", log.Int("size", len(packet.Payload)))
 
 	r := bytes.NewReader(packet.Payload)
 
@@ -66,7 +66,7 @@ func (a *Authenticator) handleChannelEncryptRequest(packet *protocol.Packet) {
 	_ = binary.Write(resp, binary.LittleEndian, crc32.ChecksumIEEE(encryptedKey))
 	_ = binary.Write(resp, binary.LittleEndian, uint32(0))
 
-	a.getLogger().Debug("Sending ChannelEncryptResponse to server", logkit.Int("key_size", len(encryptedKey)))
+	a.getLogger().Debug("Sending ChannelEncryptResponse to server", log.Int("key_size", len(encryptedKey)))
 
 	if err := a.socket.SendRaw(context.Background(), enums.EMsg_ChannelEncryptResponse, resp.Bytes()); err != nil {
 		a.failLogin(fmt.Errorf("encrypt_request: failed to send response: %w", err))
@@ -113,7 +113,7 @@ func (a *Authenticator) handleLogOnResponse(packet *protocol.Packet) {
 	}
 
 	if res := enums.EResult(msg.GetEresult()); res != enums.EResult_OK {
-		a.getLogger().Error("Logon denied by CM", logkit.Int32("eresult", int32(res)))
+		a.getLogger().Error("Logon denied by CM", log.Int32("eresult", int32(res)))
 		a.failLogin(service.NewEResultError(res, nil))
 
 		return
@@ -134,7 +134,7 @@ func (a *Authenticator) handleLogOnResponse(packet *protocol.Packet) {
 	}
 
 	if err := a.socket.StartHeartbeat(interval); err != nil {
-		a.getLogger().Error("Failed to start heartbeat", logkit.Err(err))
+		a.getLogger().Error("Failed to start heartbeat", log.Err(err))
 		a.failLogin(fmt.Errorf("logon_response: failed to start heartbeat: %w", err))
 
 		return
@@ -147,8 +147,8 @@ func (a *Authenticator) handleLogOnResponse(packet *protocol.Packet) {
 	a.succeedLogin()
 
 	a.getLogger().Info("Logon successful",
-		logkit.Int32("heartbeat_seconds", msg.GetHeartbeatSeconds()),
-		logkit.Uint32("public_ip", msg.GetPublicIp().GetV4()),
+		log.Int32("heartbeat_seconds", msg.GetHeartbeatSeconds()),
+		log.Uint32("public_ip", msg.GetPublicIp().GetV4()),
 	)
 }
 
@@ -158,7 +158,7 @@ func (a *Authenticator) handleLoggedOff(packet *protocol.Packet) {
 	if packet.IsProto {
 		resp := &pb.CMsgClientLoggedOff{}
 		if err := protocol.UnmarshalProto(packet.Payload, resp); err != nil {
-			a.getLogger().Error("Unmarshal failed in handleLoggedOff", logkit.Err(err))
+			a.getLogger().Error("Unmarshal failed in handleLoggedOff", log.Err(err))
 		} else {
 			res = enums.EResult(resp.GetEresult())
 		}
@@ -166,7 +166,7 @@ func (a *Authenticator) handleLoggedOff(packet *protocol.Packet) {
 		res = enums.EResult(binary.LittleEndian.Uint32(packet.Payload[:4]))
 	}
 
-	a.getLogger().Warn("Logged off by server", logkit.Int32("eresult", int32(res)))
+	a.getLogger().Warn("Logged off by server", log.Int32("eresult", int32(res)))
 
 	if service.IsAuthError(res) {
 		a.failLogin(service.ErrSessionExpired)
@@ -176,7 +176,7 @@ func (a *Authenticator) handleLoggedOff(packet *protocol.Packet) {
 }
 
 func (a *Authenticator) sendLogOn(ctx context.Context, details *LogOnDetails) {
-	a.getLogger().Debug("Sending ClientLogon to CM server...", logkit.String("account", details.AccountName))
+	a.getLogger().Debug("Sending ClientLogon to CM server...", log.String("account", details.AccountName))
 
 	logon := &pb.CMsgClientLogon{
 		ProtocolVersion:           proto.Uint32(details.ProtocolVersion),

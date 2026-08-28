@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Lemon4ksan All rights reserved.
+﻿// Copyright (c) 2026 Lemon4ksan All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lemon4ksan/foundation/async/logkit"
+	log "github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/lemon4ksan/foundation/generic"
 	"github.com/lemon4ksan/foundation/silicon/pool"
 	"google.golang.org/protobuf/proto"
@@ -616,7 +616,7 @@ func (c *Chat) handleIncomingMessage(msg *pb.CFriendMessages_IncomingMessage_Not
 	default:
 		c.Logger.Debug(
 			"Received unhandled chat entry type",
-			logkit.Int32("type", msg.GetChatEntryType()),
+			log.Int32("type", msg.GetChatEntryType()),
 		)
 	}
 }
@@ -692,8 +692,8 @@ func (c *Chat) synchronizeOfflineMessages(ctx context.Context) {
 
 		if attempt < 2 {
 			c.Logger.WarnContext(ctx, "Failed to get active message sessions, retrying",
-				logkit.Err(err),
-				logkit.Int("attempt", attempt+1),
+				log.Err(err),
+				log.Int("attempt", attempt+1),
 			)
 
 			backoff := time.Duration(1<<(attempt+1)) * time.Second
@@ -710,7 +710,7 @@ func (c *Chat) synchronizeOfflineMessages(ctx context.Context) {
 	}
 
 	if err != nil {
-		c.Logger.WarnContext(ctx, "Failed to get active message sessions after retries", logkit.Err(err))
+		c.Logger.WarnContext(ctx, "Failed to get active message sessions after retries", log.Err(err))
 		return
 	}
 
@@ -721,14 +721,14 @@ func (c *Chat) synchronizeOfflineMessages(ctx context.Context) {
 	for _, session := range sessionsResp.GetMessageSessions() {
 		if session.GetLastMessage() > session.GetLastView() {
 			friendID := id.FromAccountID(session.GetAccountidFriend())
-			c.Logger.Debug("Found unread messages", logkit.Uint64("steam_id", friendID.Uint64()))
+			c.Logger.Debug("Found unread messages", log.Uint64("steam_id", friendID.Uint64()))
 
 			history, err := c.GetRecentMessages(ctx, friendID.Uint64(), 50)
 			if err != nil {
 				c.Logger.Error(
 					"Failed to fetch history for sync",
-					logkit.Uint64("steam_id", friendID.Uint64()),
-					logkit.Err(err),
+					log.Uint64("steam_id", friendID.Uint64()),
+					log.Err(err),
 				)
 
 				continue
@@ -787,7 +787,7 @@ func (c *Chat) handleLegacyFriendMsg(msg *pb.CMsgClientFriendMsgIncoming) {
 	default:
 		c.Logger.Debug(
 			"Received unhandled legacy chat entry type",
-			logkit.Int32("type", msg.GetChatEntryType()),
+			log.Int32("type", msg.GetChatEntryType()),
 		)
 	}
 }

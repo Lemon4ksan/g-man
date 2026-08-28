@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Lemon4ksan All rights reserved.
+﻿// Copyright (c) 2026 Lemon4ksan All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -9,7 +9,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/lemon4ksan/foundation/async/logkit"
+	log "github.com/lemon4ksan/foundation/async/logkit"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/client"
@@ -70,7 +70,7 @@ func (m *Manager) Invite(ctx context.Context, otherSteamID uint64) error {
 		OtherSteamid: proto.Uint64(otherSteamID),
 	}
 
-	m.Logger.Info("Sending trade invitation", logkit.Uint64("target_steam_id", otherSteamID))
+	m.Logger.Info("Sending trade invitation", log.Uint64("target_steam_id", otherSteamID))
 
 	err := m.events.SendTradeRequest(ctx, req)
 	if err != nil {
@@ -86,7 +86,7 @@ func (m *Manager) CancelInvitation(ctx context.Context, otherSteamID uint64) err
 		OtherSteamid: proto.Uint64(otherSteamID),
 	}
 
-	m.Logger.Debug("Canceling trade invitation", logkit.Uint64("target_steam_id", otherSteamID))
+	m.Logger.Debug("Canceling trade invitation", log.Uint64("target_steam_id", otherSteamID))
 
 	return m.events.CancelTradeRequest(ctx, req)
 }
@@ -104,8 +104,8 @@ func (m *Manager) RespondToInvite(ctx context.Context, tradeID uint32, accept bo
 	}
 
 	m.Logger.Info("Responding to trade invitation",
-		logkit.Uint32("trade_id", tradeID),
-		logkit.Bool("accept", accept),
+		log.Uint32("trade_id", tradeID),
+		log.Bool("accept", accept),
 	)
 
 	return m.events.SendTradeResponse(ctx, req)
@@ -136,8 +136,8 @@ func (m *Manager) handleTradeResult(msg *pb.CMsgTrading_InitiateTradeResponse) {
 	res := enums.EEconTradeResponse(msg.GetResponse())
 
 	m.Logger.Debug("Trade invitation result",
-		logkit.Uint64("other_steam_id", msg.GetOtherSteamid()),
-		logkit.String("result", res.String()),
+		log.Uint64("other_steam_id", msg.GetOtherSteamid()),
+		log.String("result", res.String()),
 	)
 
 	m.Bus.Publish(&TradeResultEvent{
@@ -153,7 +153,7 @@ func (m *Manager) handleTradeStarted(msg *pb.CMsgTrading_StartSession) {
 		return
 	}
 
-	m.Logger.Info("Trade session started", logkit.Uint64("other_steam_id", msg.GetOtherSteamid()))
+	m.Logger.Info("Trade session started", log.Uint64("other_steam_id", msg.GetOtherSteamid()))
 
 	m.Bus.Publish(&TradeSessionStartedEvent{
 		OtherSteamID: msg.GetOtherSteamid(),

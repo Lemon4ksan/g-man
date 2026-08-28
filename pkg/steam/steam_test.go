@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Lemon4ksan All rights reserved.
+﻿// Copyright (c) 2026 Lemon4ksan All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -13,7 +13,7 @@ import (
 	"testing"
 
 	"github.com/lemon4ksan/aoni"
-	"github.com/lemon4ksan/foundation/async/logkit"
+	log "github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
@@ -84,11 +84,11 @@ func setupReadyClientMocks(t *testing.T) *readyClientMocks {
 		steam.WithSocket(sock),
 		steam.WithAuthenticator(authenticator),
 		steam.WithREST(aoni.NewClient(httpMock)),
-		steam.WithWebFactory(func(steamID id.ID, logger logkit.Logger, r any) session.WebSessionProvider {
+		steam.WithWebFactory(func(steamID id.ID, logger log.Logger, r any) session.WebSessionProvider {
 			return webMock
 		}),
 		steam.WithCommunityFactory(
-			func(httpDoer aoni.HTTPDoer, sess community.SessionProvider, logger logkit.Logger) community.Requester {
+			func(httpDoer aoni.HTTPDoer, sess community.SessionProvider, logger log.Logger) community.Requester {
 				return commMock
 			},
 		),

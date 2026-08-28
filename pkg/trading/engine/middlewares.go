@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Lemon4ksan All rights reserved.
+﻿// Copyright (c) 2026 Lemon4ksan All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/lemon4ksan/foundation/async/logkit"
+	log "github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/lemon4ksan/foundation/generic"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
@@ -17,7 +17,7 @@ import (
 )
 
 // RecoverMiddleware catches panics in the middleware chain and marks the offer for review.
-func RecoverMiddleware(logger logkit.Logger) Middleware {
+func RecoverMiddleware(logger log.Logger) Middleware {
 	return func(next Handler) Handler {
 		return func(ctx *TradeContext) (err error) {
 			defer func() {
@@ -26,8 +26,8 @@ func RecoverMiddleware(logger logkit.Logger) Middleware {
 					logger.ErrorContext(
 						ctx,
 						"Trade engine recovered from panic",
-						logkit.Any("panic", r),
-						logkit.Uint64("offer_id", ctx.Offer.ID),
+						log.Any("panic", r),
+						log.Uint64("offer_id", ctx.Offer.ID),
 					)
 					ctx.Review(reason.ReviewEngineError)
 				}
@@ -39,7 +39,7 @@ func RecoverMiddleware(logger logkit.Logger) Middleware {
 }
 
 // LoggerMiddleware measures processing duration and logs verdicts.
-func LoggerMiddleware(logger logkit.Logger) Middleware {
+func LoggerMiddleware(logger log.Logger) Middleware {
 	return func(next Handler) Handler {
 		return func(ctx *TradeContext) error {
 			start := time.Now()
@@ -48,10 +48,10 @@ func LoggerMiddleware(logger logkit.Logger) Middleware {
 			duration := time.Since(start)
 
 			logger.InfoContext(ctx, "Trade offer processed",
-				logkit.Uint64("offer_id", ctx.Offer.ID),
-				logkit.String("verdict", string(ctx.Verdict.Action)),
-				logkit.String("reason", ctx.Verdict.Reason.String()),
-				logkit.Duration("duration", duration),
+				log.Uint64("offer_id", ctx.Offer.ID),
+				log.String("verdict", string(ctx.Verdict.Action)),
+				log.String("reason", ctx.Verdict.Reason.String()),
+				log.Duration("duration", duration),
 			)
 
 			return err

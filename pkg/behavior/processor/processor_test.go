@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Lemon4ksan All rights reserved.
+﻿// Copyright (c) 2026 Lemon4ksan All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/foundation/async/event"
-	"github.com/lemon4ksan/foundation/async/logkit"
+	log "github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -133,7 +133,7 @@ type testFixture struct {
 func newTestFixture(t *testing.T, eng *engine.Engine) *testFixture {
 	t.Helper()
 
-	logger := logkit.New(logkit.DefaultConfig(logkit.LevelError))
+	logger := log.New(log.DefaultConfig(log.LevelError))
 	ex := &mockExecutor{
 		callsChan: make(chan uint64, 150),
 	}

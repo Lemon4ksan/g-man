@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Lemon4ksan All rights reserved.
+﻿// Copyright (c) 2026 Lemon4ksan All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -19,7 +19,7 @@ import (
 
 	"github.com/lemon4ksan/foundation/async/event"
 	"github.com/lemon4ksan/foundation/async/fsm"
-	"github.com/lemon4ksan/foundation/async/logkit"
+	log "github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/lemon4ksan/foundation/codec/json"
 	"github.com/lemon4ksan/foundation/generic"
 	"google.golang.org/protobuf/proto"
@@ -169,8 +169,8 @@ func (s *KVStore) Clear(ctx context.Context, accountName string) error {
 type Option func(*Authenticator)
 
 // WithLogger assigns a custom logger.
-func WithLogger(l logkit.Logger) Option {
-	return func(a *Authenticator) { a.setLogger(l.With(logkit.Module("auth"))) }
+func WithLogger(l log.Logger) Option {
+	return func(a *Authenticator) { a.setLogger(l.With(log.Module("auth"))) }
 }
 
 // WithStorage assigns a credential storage provider.
@@ -214,7 +214,7 @@ type Authenticator struct {
 	fsm *fsm.FSM[State, Event]
 
 	loggerMu sync.RWMutex
-	logger   logkit.Logger
+	logger   log.Logger
 	bus      *event.Bus
 	socket   SocketProvider
 	service  WebAuthenticator
@@ -249,7 +249,7 @@ func NewAuthenticator(s SocketProvider, svc WebAuthenticator, bus *event.Bus, op
 		bus:     bus,
 		socket:  s,
 		service: svc,
-		logger:  logkit.Discard,
+		logger:  log.Discard,
 		store:   nopStore{},
 	}
 	for _, opt := range opts {
@@ -300,13 +300,13 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 	a.activeDetails.Store(details)
 
 	a.getLogger().
-		Debug("Connecting to CM server...", logkit.String("endpoint", server.Endpoint), logkit.String("type", server.Type))
+		Debug("Connecting to CM server...", log.String("endpoint", server.Endpoint), log.String("type", server.Type))
 
 	if err := a.socket.Connect(loginCtx, server); err != nil {
 		return fmt.Errorf("cm connection failed: %w", err)
 	}
 
-	a.getLogger().Debug("Connected to CM server, configuring session...", logkit.String("endpoint", server.Endpoint))
+	a.getLogger().Debug("Connected to CM server, configuring session...", log.String("endpoint", server.Endpoint))
 
 	a.configureSession(details)
 
@@ -372,11 +372,11 @@ func (a *Authenticator) enrichLogger(details *LogOnDetails) {
 
 	var logFields []any
 	if details.AccountName != "" {
-		logFields = append(logFields, logkit.String("account", details.AccountName))
+		logFields = append(logFields, log.String("account", details.AccountName))
 	}
 
 	if details.SteamID != 0 {
-		logFields = append(logFields, logkit.Uint64("steam_id", details.SteamID.Uint64()))
+		logFields = append(logFields, log.Uint64("steam_id", details.SteamID.Uint64()))
 	}
 
 	if len(logFields) > 0 {
@@ -495,7 +495,7 @@ func (a *Authenticator) handleGuardCodeConfirmation(
 
 	a.getLogger().Info(
 		generic.Ternary(is2FA, "2FA code required", "Email confirmation required"),
-		logkit.String("associated_message", conf.GetAssociatedMessage()),
+		log.String("associated_message", conf.GetAssociatedMessage()),
 	)
 
 	a.bus.Publish(&SteamGuardRequiredEvent{
@@ -520,7 +520,7 @@ func (a *Authenticator) submitGuardCode(
 ) {
 	err := a.service.UpdateAuthSessionWithSteamGuardCode(ctx, clientID, steamID, code, confType)
 	if err != nil {
-		a.getLogger().Error("Failed to submit guard code", logkit.Err(err))
+		a.getLogger().Error("Failed to submit guard code", log.Err(err))
 		cancel(fmt.Errorf("steam guard rejected: %w", err))
 	}
 }
@@ -548,7 +548,7 @@ func (a *Authenticator) pollAuthStatus(
 			pollRes, err := a.service.PollAuthSessionStatus(ctx, clientID, requestID)
 			if err != nil {
 				if !strings.Contains(err.Error(), "DuplicateRequest") {
-					a.getLogger().Debug("Poll status warning", logkit.Err(err))
+					a.getLogger().Debug("Poll status warning", log.Err(err))
 				}
 
 				continue
@@ -612,7 +612,7 @@ func (a *Authenticator) acquireMachineID(ctx context.Context, details *LogOnDeta
 
 		details.MachineID = generateMachineID(details.AccountName)
 		if err := a.store.SaveMachineID(ctx, details.AccountName, details.MachineID); err != nil {
-			a.getLogger().Error("Storage save failed", logkit.Err(err))
+			a.getLogger().Error("Storage save failed", log.Err(err))
 		}
 	}
 }
@@ -634,7 +634,7 @@ func (a *Authenticator) acquireAuthToken(
 	if details.SteamID == 0 {
 		details.SteamID = ExtractSteamIDFromJWT(details.RefreshToken)
 		if details.SteamID != 0 {
-			a.getLogger().Debug("Extracted SteamID from saved token", logkit.Uint64("steam_id", details.SteamID.Uint64()))
+			a.getLogger().Debug("Extracted SteamID from saved token", log.Uint64("steam_id", details.SteamID.Uint64()))
 		}
 	}
 
@@ -651,25 +651,25 @@ func (a *Authenticator) acquireAuthToken(
 		details.SteamID = id.ID(steamID)
 
 		if err := a.store.SaveRefreshToken(ctx, details.AccountName, refresh); err != nil {
-			a.getLogger().Error("Storage save failed", logkit.Err(err))
+			a.getLogger().Error("Storage save failed", log.Err(err))
 		}
 	}
 
 	return nil
 }
 
-func (a *Authenticator) getLogger() logkit.Logger {
+func (a *Authenticator) getLogger() log.Logger {
 	a.loggerMu.RLock()
 	defer a.loggerMu.RUnlock()
 
 	if a.logger == nil {
-		return logkit.Discard
+		return log.Discard
 	}
 
 	return a.logger
 }
 
-func (a *Authenticator) setLogger(l logkit.Logger) {
+func (a *Authenticator) setLogger(l log.Logger) {
 	a.loggerMu.Lock()
 	defer a.loggerMu.Unlock()
 

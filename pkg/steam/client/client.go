@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Lemon4ksan All rights reserved.
+﻿// Copyright (c) 2026 Lemon4ksan All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -16,7 +16,7 @@ import (
 	"github.com/lemon4ksan/aoni/fast"
 	"github.com/lemon4ksan/foundation/async/event"
 	"github.com/lemon4ksan/foundation/async/fsm"
-	"github.com/lemon4ksan/foundation/async/logkit"
+	log "github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/lemon4ksan/foundation/generic"
 	"google.golang.org/protobuf/proto"
 
@@ -110,8 +110,8 @@ func (s State) String() string {
 type Option = generic.Option[*Client]
 
 // WithLogger assigns a logger instance.
-func WithLogger(l logkit.Logger) Option {
-	return func(c *Client) { c.logger = l.With(logkit.Module("steam")) }
+func WithLogger(l log.Logger) Option {
+	return func(c *Client) { c.logger = l.With(log.Module("steam")) }
 }
 
 // WithSession assigns a custom session manager.
@@ -211,7 +211,7 @@ func WithProxy(proxyURL string) Option {
 type Client struct {
 	cfg      Config
 	loggerMu sync.RWMutex
-	logger   logkit.Logger
+	logger   log.Logger
 	bus      *event.Bus
 
 	socket     session.SocketProvider
@@ -263,7 +263,7 @@ func New(cfg Config, opts ...Option) (*Client, error) {
 		cancel:         cancel,
 		fsm:            mach,
 		cfg:            cfg,
-		logger:         logkit.Discard,
+		logger:         log.Discard,
 		closed:         make(chan struct{}),
 		personaState:   cfg.PersonaState,
 		pendingModules: make([]module.Module, 0),
@@ -286,6 +286,7 @@ func New(cfg Config, opts ...Option) (*Client, error) {
 		if cfg.DisableSocket {
 			c.socket = noopSocketProvider{}
 		} else {
+			cfg.Socket.Connector.Logger = c.logger
 			c.socket = socket.New(cfg.Socket)
 			c.socket.UpdateLogger(c.logger)
 		}
@@ -389,7 +390,7 @@ func (c *Client) RegisterModule(m module.Module) {
 	}
 
 	if err := c.modules.Register(c.ctx, m); err != nil {
-		c.Logger().Error("Failed to register module", logkit.String("name", m.Name()), logkit.Err(err))
+		c.Logger().Error("Failed to register module", log.String("name", m.Name()), log.Err(err))
 	}
 }
 
@@ -400,7 +401,7 @@ func (c *Client) Socket() session.SocketProvider { return c.socket }
 func (c *Client) Bus() *event.Bus { return c.bus }
 
 // Logger returns the configured logger.
-func (c *Client) Logger() logkit.Logger {
+func (c *Client) Logger() log.Logger {
 	c.loggerMu.RLock()
 	defer c.loggerMu.RUnlock()
 
@@ -462,7 +463,7 @@ func (c *Client) Run() error {
 
 				if _, ok := ev.(*auth.LoggedOnEvent); ok {
 					if err := c.SetPersonaState(c.ctx, c.PersonaState()); err != nil {
-						c.Logger().Warn("Failed to set persona state after logon event", logkit.Err(err))
+						c.Logger().Warn("Failed to set persona state after logon event", log.Err(err))
 					}
 				}
 			}
@@ -523,7 +524,7 @@ func (c *Client) ConnectAndLogin(ctx context.Context, server socket.CMServer, de
 	}
 
 	if err := c.modules.StartAuthedAll(c.ctx); err != nil {
-		c.Logger().Error("Some modules failed to start authorized", logkit.Err(err))
+		c.Logger().Error("Some modules failed to start authorized", log.Err(err))
 		return err
 	}
 
@@ -544,14 +545,14 @@ func (c *Client) Reconnect(ctx context.Context) error {
 	c.Logger().Info("Attempting automatic reconnection...")
 
 	if err := c.session.Disconnect(); err != nil {
-		c.Logger().Warn("Disconnect failed during reconnect", logkit.Err(err))
+		c.Logger().Warn("Disconnect failed during reconnect", log.Err(err))
 	}
 
 	server, err := directory.New(c).GetOptimalCMServer(ctx)
 	if err == nil {
 		c.session.SetLogonServer(server)
 	} else {
-		c.Logger().Warn("CM server discovery failed, using stored server", logkit.Err(err))
+		c.Logger().Warn("CM server discovery failed, using stored server", log.Err(err))
 	}
 
 	if err := c.session.Reconnect(ctx); err != nil {
@@ -621,12 +622,12 @@ func (c *Client) EnrichLogger(account string, steamID id.ID) {
 
 	var logFields []any
 	if account != "" && c.enrichedAccount == "" {
-		logFields = append(logFields, logkit.String("account", account))
+		logFields = append(logFields, log.String("account", account))
 		c.enrichedAccount = account
 	}
 
 	if steamID != 0 && c.enrichedSteamID == 0 {
-		logFields = append(logFields, logkit.Uint64("steam_id", steamID.Uint64()))
+		logFields = append(logFields, log.Uint64("steam_id", steamID.Uint64()))
 		c.enrichedSteamID = steamID
 	}
 
@@ -654,6 +655,15 @@ func (c *Client) setPersonaState(state enums.EPersonaState) {
 	c.personaStateMu.Lock()
 	c.personaState = state
 	c.personaStateMu.Unlock()
+}
+
+// SteamID returns the active user's 64-bit Steam ID, or 0 if unauthenticated.
+func (c *Client) SteamID() id.ID {
+	if c == nil || c.session == nil {
+		return 0
+	}
+
+	return c.session.SteamID()
 }
 
 type noopSocketProvider struct{}
@@ -707,7 +717,7 @@ func (noopSocketProvider) StartHeartbeat(time.Duration) error {
 
 func (noopSocketProvider) Disconnect() error                    { return nil }
 func (noopSocketProvider) Close() error                         { return nil }
-func (noopSocketProvider) UpdateLogger(logkit.Logger)              {}
+func (noopSocketProvider) UpdateLogger(log.Logger)              {}
 func (noopSocketProvider) UpdateServers([]socket.CMServer)      {}
 func (noopSocketProvider) SetOnReconnect(func(context.Context)) {}
 
@@ -717,7 +727,7 @@ type initContext struct {
 
 func (ctx *initContext) Storage() storage.Provider        { return ctx.Client.storage }
 func (ctx *initContext) Bus() *event.Bus                  { return ctx.Client.bus }
-func (ctx *initContext) Logger() logkit.Logger               { return ctx.Client.Logger() }
+func (ctx *initContext) Logger() log.Logger               { return ctx.Client.Logger() }
 func (ctx *initContext) Service() service.Doer            { return ctx.Client }
 func (ctx *initContext) Rest() *aoni.Client               { return ctx.Client.rest }
 func (ctx *initContext) Module(name string) module.Module { return ctx.Client.Module(name) }

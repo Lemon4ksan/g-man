@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Lemon4ksan All rights reserved.
+﻿// Copyright (c) 2026 Lemon4ksan All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lemon4ksan/foundation/async/logkit"
+	log "github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/lemon4ksan/foundation/generic"
 
 	"github.com/lemon4ksan/g-man/internal/heap"
@@ -20,14 +20,14 @@ import (
 type Canceller struct {
 	priorityQueue *heap.PriorityQueue
 	cancelling    sync.Map
-	logger        logkit.Logger
+	logger        log.Logger
 }
 
 // NewCanceller constructs a Canceller instance.
-func NewCanceller(log logkit.Logger) *Canceller {
+func NewCanceller(logger log.Logger) *Canceller {
 	return &Canceller{
 		priorityQueue: heap.NewPriorityQueue(),
-		logger:        log,
+		logger:        logger,
 	}
 }
 
@@ -79,8 +79,8 @@ func (c *Canceller) cancelTimeouts(
 
 		if c.logger != nil {
 			c.logger.Info("Auto-cancelling active sent offer due to CancelTime timeout",
-				logkit.Uint64("offer_id", off.ID),
-				logkit.Duration("age", age),
+				log.Uint64("offer_id", off.ID),
+				log.Duration("age", age),
 			)
 		}
 
@@ -89,7 +89,7 @@ func (c *Canceller) cancelTimeouts(
 
 			if err := cancelOfferFn(ctx, id); err != nil {
 				if c.logger != nil {
-					c.logger.Error("Failed to auto-cancel offer", logkit.Uint64("offer_id", id), logkit.Err(err))
+					c.logger.Error("Failed to auto-cancel offer", log.Uint64("offer_id", id), log.Err(err))
 				}
 			}
 		}(off.ID)
@@ -133,9 +133,9 @@ func (c *Canceller) cancelOverLimit(
 	if _, loaded := c.cancelling.LoadOrStore(oldest.ID, true); !loaded {
 		if c.logger != nil {
 			c.logger.Info("Auto-cancelling oldest active sent offer due to limit",
-				logkit.Uint64("offer_id", oldest.ID),
-				logkit.Int("active_count", len(active)),
-				logkit.Int("limit", cfg.CancelOfferCount),
+				log.Uint64("offer_id", oldest.ID),
+				log.Int("active_count", len(active)),
+				log.Int("limit", cfg.CancelOfferCount),
 			)
 		}
 
@@ -144,7 +144,7 @@ func (c *Canceller) cancelOverLimit(
 
 			if err := cancelOfferFn(ctx, id); err != nil {
 				if c.logger != nil {
-					c.logger.Error("Failed to auto-cancel oldest offer", logkit.Uint64("offer_id", id), logkit.Err(err))
+					c.logger.Error("Failed to auto-cancel oldest offer", log.Uint64("offer_id", id), log.Err(err))
 				}
 			}
 		}(oldest.ID)

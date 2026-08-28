@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Lemon4ksan All rights reserved.
+﻿// Copyright (c) 2026 Lemon4ksan All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lemon4ksan/foundation/async/logkit"
+	log "github.com/lemon4ksan/foundation/async/logkit"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 )
@@ -19,10 +19,10 @@ import (
 type Reviewer struct {
 	schema SchemaProvider
 	chat   ChatProvider
-	logger logkit.Logger
+	logger log.Logger
 }
 
-func New(s SchemaProvider, c ChatProvider, l logkit.Logger) *Reviewer {
+func New(s SchemaProvider, c ChatProvider, l log.Logger) *Reviewer {
 	return &Reviewer{schema: s, chat: c, logger: l}
 }
 

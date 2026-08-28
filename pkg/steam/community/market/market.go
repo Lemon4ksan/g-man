@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Lemon4ksan All rights reserved.
+﻿// Copyright (c) 2026 Lemon4ksan All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -17,7 +17,7 @@ import (
 	"sync"
 
 	"github.com/lemon4ksan/aoni/mod"
-	"github.com/lemon4ksan/foundation/async/logkit"
+	log "github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/lemon4ksan/foundation/codec/json"
 	"github.com/lemon4ksan/foundation/generic"
 	"github.com/lemon4ksan/foundation/silicon/bytesconv"
@@ -125,7 +125,7 @@ func (m *Market) StartAuthed(ctx context.Context, auth module.AuthContext) error
 	m.api = api
 	m.mu.Unlock()
 
-	m.Logger.Info("Market module ready", logkit.Int("currency", int(m.config.Currency)))
+	m.Logger.Info("Market module ready", log.Int("currency", int(m.config.Currency)))
 
 	return nil
 }

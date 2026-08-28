@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Lemon4ksan All rights reserved.
+﻿// Copyright (c) 2026 Lemon4ksan All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -11,7 +11,7 @@ import (
 
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/foundation/async/event"
-	"github.com/lemon4ksan/foundation/async/logkit"
+	log "github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -26,14 +26,14 @@ import (
 )
 
 type mockInitContext struct {
-	logger logkit.Logger
+	logger log.Logger
 	bus    *event.Bus
 	mods   map[string]module.Module
 }
 
 func (m *mockInitContext) Storage() storage.Provider                           { return nil }
 func (m *mockInitContext) Bus() *event.Bus                                     { return m.bus }
-func (m *mockInitContext) Logger() logkit.Logger                                  { return m.logger }
+func (m *mockInitContext) Logger() log.Logger                                  { return m.logger }
 func (m *mockInitContext) Service() service.Doer                               { return nil }
 func (m *mockInitContext) Rest() *aoni.Client                                  { return nil }
 func (m *mockInitContext) RegisterPacketHandler(enums.EMsg, socket.Handler)    {}
@@ -141,7 +141,7 @@ func TestBase_Lifecycle(t *testing.T) {
 
 		base := module.New("test_module")
 		mCtx := &mockInitContext{
-			logger: logkit.Discard,
+			logger: log.Discard,
 			bus:    event.New(),
 		}
 
@@ -157,7 +157,7 @@ func TestBase_Lifecycle(t *testing.T) {
 		var rawBase module.Base
 
 		mCtx := &mockInitContext{
-			logger: logkit.Discard,
+			logger: log.Discard,
 			bus:    event.New(),
 		}
 
@@ -197,7 +197,7 @@ func TestBase_Go(t *testing.T) {
 		t.Parallel()
 
 		base := module.New("go_test")
-		err := base.Init(&mockInitContext{logger: logkit.Discard, bus: event.New()})
+		err := base.Init(&mockInitContext{logger: log.Discard, bus: event.New()})
 		require.NoError(t, err)
 
 		err = base.Start(t.Context())
@@ -260,7 +260,7 @@ func TestBase_InitFallbackContext(t *testing.T) {
 		t.Parallel()
 
 		base := module.New("fallback")
-		mCtx := &mockInitContext{logger: logkit.Discard, bus: event.New()}
+		mCtx := &mockInitContext{logger: log.Discard, bus: event.New()}
 
 		err := base.Init(mCtx)
 		require.NoError(t, err)
@@ -275,7 +275,7 @@ func TestBase_InitFallbackContext(t *testing.T) {
 		t.Parallel()
 
 		baseReinit := module.New("reinit")
-		mCtxReinit := &mockInitContext{logger: logkit.Discard, bus: event.New()}
+		mCtxReinit := &mockInitContext{logger: log.Discard, bus: event.New()}
 
 		err := baseReinit.Init(mCtxReinit)
 		require.NoError(t, err)
@@ -367,7 +367,7 @@ func TestAuthBase_Lifecycle(t *testing.T) {
 		t.Parallel()
 
 		base := module.New("auth_test")
-		mCtx := &mockInitContext{logger: logkit.Discard, bus: event.New()}
+		mCtx := &mockInitContext{logger: log.Discard, bus: event.New()}
 
 		err := base.Init(mCtx)
 		require.NoError(t, err)
