@@ -113,12 +113,13 @@ func main() {
 
 	if *runVortex {
 		log.Printf("⚡ Running 'vortex gen %s'...\n", outPath)
+		//nolint:gosec // Code generator executes vortex CLI tool on generated AST file
 		cmd := exec.CommandContext(
 			context.Background(),
 			"vortex",
 			"gen",
 			"-file="+filepath.Base(outPath),
-		) //nolint:gosec
+		)
 		cmd.Dir = filepath.Dir(outPath)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr

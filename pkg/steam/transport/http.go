@@ -95,6 +95,7 @@ func (t *HTTPTransport) Do(ctx context.Context, req *Request) (*Response, error)
 	}))
 	mods = append(mods, req.Modifiers()...)
 
+	//nolint:bodyclose // body is wrapped into Response (bodyRC) and closed by caller
 	resp, err := t.client.Raw().Request(ctx, target.HTTPMethod(), target.HTTPPath(), mods...)
 	if err != nil {
 		return nil, err
