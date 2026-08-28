@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 Lemon4ksan All rights reserved.
+// Copyright (c) 2026 Lemon4ksan All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -220,13 +220,16 @@ func New(socket SocketProvider, cfg Config) *Session {
 			if _, err := sess.reconnectSF.Do("reconnect", func() (struct{}, error) {
 				if err := sess.Reconnect(reconCtx); err != nil {
 					if errors.Is(err, auth.ErrAuthInProgress) {
-						sess.Logger().Debug("Authentication is already in progress, skipping duplicate reconnect attempt")
+						sess.Logger().
+							Debug("Authentication is already in progress, skipping duplicate reconnect attempt")
 						return struct{}{}, nil
 					}
 
 					sess.Logger().Error("Re-authentication failed after transport reconnect", log.Err(err))
+
 					return struct{}{}, err
 				}
+
 				return struct{}{}, nil
 			}); err != nil {
 				return

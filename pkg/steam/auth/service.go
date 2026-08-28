@@ -98,6 +98,7 @@ func (s *AuthenticationService) EncryptPassword(
 		E: int(exp.Int64()),
 	}
 
+	//nolint:staticcheck // Steam authentication protocol mandates RSA PKCS#1 v1.5 padding
 	encrypted, err := rsa.EncryptPKCS1v15(rand.Reader, pubKey, []byte(password))
 	if err != nil {
 		return "", 0, fmt.Errorf("encrypt password payload: %w", err)

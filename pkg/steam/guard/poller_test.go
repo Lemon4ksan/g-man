@@ -54,10 +54,17 @@ func TestConfirmationPoller_PollOnce(t *testing.T) {
 	mobileConf := guard.NewMobileConf(httpStub)
 
 	// Mock confirmations with one pending trade confirmation
-	httpStub.SetRawResponse("mobileconf/getlist", 200, []byte(`{"success":true,"conf":[{"id":1001,"nonce":2002,"type":2,"type_name":"Trade","creator_id":76561198000000001}]}`))
+	httpStub.SetRawResponse(
+		"mobileconf/getlist",
+		200,
+		[]byte(
+			`{"success":true,"conf":[{"id":1001,"nonce":2002,"type":2,"type_name":"Trade","creator_id":76561198000000001}]}`,
+		),
+	)
 	httpStub.SetRawResponse("mobileconf/multiajaxop", 200, []byte(`{"success":true}`))
 
 	var confirmedID uint64
+
 	poller := guard.NewPoller(mobileConf, guard.PollerConfig{
 		DeviceID:       "android:00000000-0000-0000-0000-000000000000",
 		SteamID:        id.ID(76561198000000001),

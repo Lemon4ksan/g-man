@@ -95,6 +95,7 @@ func TestAuthenticationService_EncryptPassword(t *testing.T) {
 		cipherText, err := base64.StdEncoding.DecodeString(encBase64)
 		require.NoError(t, err)
 
+		//nolint:staticcheck // Testing Steam PKCS#1 v1.5 encrypted password payload
 		plainText, err := rsa.DecryptPKCS1v15(rand.Reader, privKey, cipherText)
 		require.NoError(t, err, "failed to decrypt password")
 		assert.Equal(t, password, string(plainText))

@@ -38,6 +38,7 @@ func SteamSoftErrorDetector(resp *http.Response, peek []byte) error {
 	if resp == nil {
 		return nil
 	}
+
 	ct := resp.Header.Get("Content-Type")
 	if strings.Contains(ct, "text/html") {
 		if bytes.Contains(peek, []byte("openid.claimed_id")) ||
@@ -47,11 +48,13 @@ func SteamSoftErrorDetector(resp *http.Response, peek []byte) error {
 			return ErrSessionExpired
 		}
 	}
+
 	if bytes.Contains(peek, []byte(`"Not Logged In"`)) ||
 		bytes.Contains(peek, []byte(`"not logged in"`)) ||
 		bytes.Contains(peek, []byte(`"Logged In":false`)) {
 		return ErrSessionExpired
 	}
+
 	return nil
 }
 
@@ -86,7 +89,11 @@ func GetTo[Resp any](
 		mod.WithHeader("X-Requested-With", "XMLHttpRequest"),
 	}, mods...)
 
-	res, _, err := aoni.FetchTo[*Resp](ctx, r, http.MethodGet, path, mods...)
+	res, resp, err := aoni.FetchTo[*Resp](ctx, r, http.MethodGet, path, mods...)
+	if resp != nil && resp.Body != nil {
+		defer resp.Body.Close()
+	}
+
 	return res, err
 }
 
@@ -126,7 +133,11 @@ func PostTo[Resp any](
 		mod.WithSmartBody(body),
 	}, mods...)
 
-	res, _, err := aoni.FetchTo[*Resp](ctx, r, http.MethodPost, path, mods...)
+	res, resp, err := aoni.FetchTo[*Resp](ctx, r, http.MethodPost, path, mods...)
+	if resp != nil && resp.Body != nil {
+		defer resp.Body.Close()
+	}
+
 	return res, err
 }
 
@@ -183,7 +194,11 @@ func PostFormTo[Resp any](
 		mod.WithContentType("application/x-www-form-urlencoded; charset=UTF-8"),
 	}, mods...)
 
-	res, _, err := aoni.FetchTo[*Resp](ctx, r, http.MethodPost, path, mods...)
+	res, resp, err := aoni.FetchTo[*Resp](ctx, r, http.MethodPost, path, mods...)
+	if resp != nil && resp.Body != nil {
+		defer resp.Body.Close()
+	}
+
 	return res, err
 }
 

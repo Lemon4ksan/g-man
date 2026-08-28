@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 Lemon4ksan All rights reserved.
+// Copyright (c) 2026 Lemon4ksan All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -375,7 +375,9 @@ type MockSocketProvider struct {
 func NewMockSocket() *MockSocketProvider {
 	return &MockSocketProvider{handlers: make(map[enums.EMsg]socket.Handler)}
 }
+
 func (m *MockSocketProvider) RegisterMsgHandler(e enums.EMsg, h socket.Handler) { m.handlers[e] = h }
+
 func (m *MockSocketProvider) Connect(ctx context.Context, s socket.CMServer) error {
 	return m.Called(s).Error(0)
 }
@@ -424,11 +426,16 @@ type mockSession struct {
 	access  string
 }
 
-func (m *mockSession) SteamID() uint64                    { m.mu.Lock(); defer m.mu.Unlock(); return m.steamID }
-func (m *mockSession) SetSteamID(id uint64)               { m.mu.Lock(); defer m.mu.Unlock(); m.steamID = id }
-func (m *mockSession) SetRefreshToken(t string)           { m.mu.Lock(); defer m.mu.Unlock(); m.token = t }
-func (m *mockSession) RefreshToken() string               { m.mu.Lock(); defer m.mu.Unlock(); return m.token }
-func (m *mockSession) SetAccessToken(t string)            { m.mu.Lock(); defer m.mu.Unlock(); m.access = t }
+func (m *mockSession) SteamID() uint64 { m.mu.Lock(); defer m.mu.Unlock(); return m.steamID }
+
+func (m *mockSession) SetSteamID(id uint64) { m.mu.Lock(); defer m.mu.Unlock(); m.steamID = id }
+
+func (m *mockSession) SetRefreshToken(t string) { m.mu.Lock(); defer m.mu.Unlock(); m.token = t }
+
+func (m *mockSession) RefreshToken() string { m.mu.Lock(); defer m.mu.Unlock(); return m.token }
+
+func (m *mockSession) SetAccessToken(t string) { m.mu.Lock(); defer m.mu.Unlock(); m.access = t }
+
 func (m *mockSession) AccessToken() string                { m.mu.Lock(); defer m.mu.Unlock(); return m.access }
 func (m *mockSession) SetSessionID(int32)                 {}
 func (m *mockSession) Send(context.Context, []byte) error { return nil }

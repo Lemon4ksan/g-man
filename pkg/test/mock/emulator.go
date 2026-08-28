@@ -214,14 +214,14 @@ func (e *SteamEmulator) registerRoutes() {
 
 		e.mu.Lock()
 		e.tradeOffers[offerIDStr] = map[string]any{
-			"tradeofferid":             offerIDStr,
-			"trade_offer_state":        2, // Active
-			"is_our_offer":             true,
-			"time_created":             1700000000,
-			"time_updated":             1700000000,
-			"from_real_time_trade":     false,
-			"escrow_end_date":          0,
-			"confirmation_method":      0,
+			"tradeofferid":              offerIDStr,
+			"trade_offer_state":         2, // Active
+			"is_our_offer":              true,
+			"time_created":              1700000000,
+			"time_updated":              1700000000,
+			"from_real_time_trade":      false,
+			"escrow_end_date":           0,
+			"confirmation_method":       0,
 			"needs_mobile_confirmation": false,
 			"needs_email_confirmation":  false,
 		}
@@ -299,7 +299,7 @@ func (e *SteamEmulator) registerRoutes() {
 			offer["trade_offer_state"] = 7 // Declined
 		}
 		e.mu.Unlock()
-		return sein.OK[any](`{"tradeofferid":"` + idStr + `"}`).
+		return sein.OK[any](`{"tradeofferid":"`+idStr+`"}`).
 			WithHeader(header.ContentType, header.MIMEApplicationJSONCharsetUTF8), nil
 	})
 
@@ -310,7 +310,7 @@ func (e *SteamEmulator) registerRoutes() {
 			offer["trade_offer_state"] = 6 // Canceled
 		}
 		e.mu.Unlock()
-		return sein.OK[any](`{"tradeofferid":"` + idStr + `"}`).
+		return sein.OK[any](`{"tradeofferid":"`+idStr+`"}`).
 			WithHeader(header.ContentType, header.MIMEApplicationJSONCharsetUTF8), nil
 	})
 }

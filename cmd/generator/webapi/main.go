@@ -113,7 +113,12 @@ func main() {
 
 	if *runVortex {
 		log.Printf("⚡ Running 'vortex gen %s'...\n", outPath)
-		cmd := exec.CommandContext(context.Background(), "vortex", "gen", "-file="+filepath.Base(outPath)) //nolint:gosec
+		cmd := exec.CommandContext(
+			context.Background(),
+			"vortex",
+			"gen",
+			"-file="+filepath.Base(outPath),
+		) //nolint:gosec
 		cmd.Dir = filepath.Dir(outPath)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
@@ -429,4 +434,3 @@ func formatGoType(t string) string {
 		return "string"
 	}
 }
-

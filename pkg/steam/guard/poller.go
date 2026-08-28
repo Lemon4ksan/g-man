@@ -40,9 +40,11 @@ func NewPoller(mobileConf *MobileConf, cfg PollerConfig) *ConfirmationPoller {
 	if cfg.IdleInterval <= 0 {
 		cfg.IdleInterval = 30 * time.Second
 	}
+
 	if cfg.BurstInterval <= 0 {
 		cfg.BurstInterval = 2 * time.Second
 	}
+
 	if cfg.BurstDuration <= 0 {
 		cfg.BurstDuration = 30 * time.Second
 	}
@@ -79,6 +81,7 @@ func (p *ConfirmationPoller) PollOnce(ctx context.Context) ([]*Confirmation, err
 	}
 
 	confs := list.Confirmations
+
 	var toAccept []*Confirmation
 	for _, c := range confs {
 		shouldAccept := p.cfg.AutoConfirmAll
@@ -108,6 +111,7 @@ func (p *ConfirmationPoller) Start(ctx context.Context) {
 		p.mu.Unlock()
 		return
 	}
+
 	p.running = true
 	p.mu.Unlock()
 
@@ -118,9 +122,11 @@ func (p *ConfirmationPoller) Start(ctx context.Context) {
 func (p *ConfirmationPoller) Stop() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
 	if !p.running {
 		return
 	}
+
 	p.running = false
 	close(p.stopCh)
 }
@@ -145,6 +151,7 @@ func (p *ConfirmationPoller) loop(ctx context.Context) {
 
 func (p *ConfirmationPoller) runBurst(ctx context.Context) {
 	burstDeadline := time.Now().Add(p.cfg.BurstDuration)
+
 	burstTicker := time.NewTicker(p.cfg.BurstInterval)
 	defer burstTicker.Stop()
 
@@ -161,6 +168,7 @@ func (p *ConfirmationPoller) runBurst(ctx context.Context) {
 			if time.Now().After(burstDeadline) {
 				return
 			}
+
 			confs, _ := p.PollOnce(ctx)
 			if len(confs) > 0 {
 				// Successfully resolved confirmations during burst
