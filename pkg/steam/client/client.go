@@ -749,29 +749,57 @@ func (ctx *initContext) UnregisterServiceHandler(method string) {
 }
 
 func (ctx *initContext) Subscribe(eventID any, handler func(raw []byte)) (unsubscribe func()) {
-	var emsg enums.EMsg
 	switch v := eventID.(type) {
+	case string:
+		ctx.RegisterServiceHandler(v, func(p *protocol.Packet) {
+			handler(p.Payload)
+		})
+
+		return func() {
+			ctx.UnregisterServiceHandler(v)
+		}
+
 	case enums.EMsg:
-		emsg = v
+		ctx.RegisterPacketHandler(v, func(p *protocol.Packet) {
+			handler(p.Payload)
+		})
+
+		return func() {
+			ctx.UnregisterPacketHandler(v)
+		}
+
 	case int:
-		emsg = enums.EMsg(v)
+		emsg := enums.EMsg(v)
+		ctx.RegisterPacketHandler(emsg, func(p *protocol.Packet) {
+			handler(p.Payload)
+		})
+
+		return func() {
+			ctx.UnregisterPacketHandler(emsg)
+		}
+
 	case uint32:
-		emsg = enums.EMsg(v)
-	}
+		emsg := enums.EMsg(v)
+		ctx.RegisterPacketHandler(emsg, func(p *protocol.Packet) {
+			handler(p.Payload)
+		})
 
-	ctx.RegisterPacketHandler(emsg, func(p *protocol.Packet) {
-		handler(p.Payload)
-	})
+		return func() {
+			ctx.UnregisterPacketHandler(emsg)
+		}
 
-	return func() {
-		ctx.UnregisterPacketHandler(emsg)
+	default:
+		panic(fmt.Sprintf("client: unsupported subscribe event type %T", eventID))
 	}
 }
 
 func (ctx *initContext) Invoke(c context.Context, op any, payload []byte) ([]byte, error) {
 	switch v := op.(type) {
 	case string:
-		pkt, err := ctx.Client.socket.SendSync(c, socket.Unified(v, nil))
+		pkt, err := ctx.Client.socket.SendSync(
+			c,
+			socket.DynamicRaw(enums.EMsg_ServiceMethodCallFromClient, v, payload, 0),
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -813,6 +841,8 @@ func (ctx *initContext) Invoke(c context.Context, op any, payload []byte) ([]byt
 
 func (ctx *initContext) Notify(c context.Context, op any, payload []byte) error {
 	switch v := op.(type) {
+	case string:
+		return ctx.Client.socket.Send(c, socket.DynamicRaw(enums.EMsg_ServiceMethodCallFromClient, v, payload, 0))
 	case enums.EMsg:
 		return ctx.Client.socket.SendRaw(c, v, payload)
 	case int:
