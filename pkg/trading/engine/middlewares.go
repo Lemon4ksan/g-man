@@ -5,6 +5,7 @@
 package engine
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -79,6 +80,11 @@ func EmptyOfferMiddleware(isJunk func(*trading.Item) bool) Middleware {
 		return func(ctx *TradeContext) error {
 			gaveItems := len(ctx.Offer.ItemsToReceive) > 0
 			tookItems := len(ctx.Offer.ItemsToGive) > 0
+
+			if !tookItems && !gaveItems {
+				ctx.Review(reason.ReviewEngineError)
+				return errors.New("empty or glitched offer (0 items on both sides)")
+			}
 
 			if tookItems && !gaveItems {
 				ctx.Decline(reason.DeclineBegging)

@@ -14,6 +14,7 @@ import (
 	"sync/atomic"
 
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/aoni/option"
 	"github.com/lemon4ksan/foundation/codec/json"
 	"github.com/lemon4ksan/foundation/net/http/header"
 	"github.com/lemon4ksan/sein"
@@ -85,7 +86,7 @@ func (e *SteamEmulator) BaseURL() string {
 
 // Client returns an aoni Client pre-configured to communicate with the in-memory emulator.
 func (e *SteamEmulator) Client() *aoni.Client {
-	return aoni.NewClient(e.httpServer.Client(), aoni.WithBaseURL(e.BaseURL()))
+	return aoni.NewClient(e.httpServer.Client(), option.WithBaseURL(e.BaseURL()))
 }
 
 // LoadHAR parses a W3C HAR 1.2 archive and populates the emulator's endpoint playback cache.

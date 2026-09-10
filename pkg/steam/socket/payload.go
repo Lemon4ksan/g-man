@@ -66,7 +66,9 @@ func Proto(eMsg enums.EMsg, req proto.Message) PayloadBuilder {
 		}
 
 		hdr := protocol.NewMsgHdrProtoBuf(eMsg, steamID, sessionID)
-		hdr.Proto.JobidSource = new(sourceJobID)
+		if sourceJobID != 0 && sourceJobID != protocol.NoJob {
+			hdr.Proto.JobidSource = new(sourceJobID)
+		}
 
 		if err := hdr.SerializeTo(buf); err != nil {
 			return fmt.Errorf("serialize proto header: %w", err)
@@ -99,7 +101,10 @@ func Unified(method string, req proto.Message) PayloadBuilder {
 		}
 
 		hdr := protocol.NewMsgHdrProtoBuf(enums.EMsg_ServiceMethodCallFromClient, steamID, sessionID)
-		hdr.Proto.JobidSource = new(sourceJobID)
+		if sourceJobID != 0 && sourceJobID != protocol.NoJob {
+			hdr.Proto.JobidSource = new(sourceJobID)
+		}
+
 		hdr.Proto.TargetJobName = new(method)
 
 		if err := hdr.SerializeTo(buf); err != nil {

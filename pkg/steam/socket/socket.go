@@ -352,10 +352,8 @@ func (s *Socket) Send(ctx context.Context, build PayloadBuilder, opts ...SendOpt
 		}
 	}
 
-	jobID := s.dispatch.NextJobID()
-
 	var buf bytes.Buffer
-	if err := build(s.session, &buf, jobID, optCfg.Token); err != nil {
+	if err := build(s.session, &buf, protocol.NoJob, optCfg.Token); err != nil {
 		return fmt.Errorf("build payload: %w", err)
 	}
 
@@ -432,8 +430,19 @@ func (s *Socket) StartHeartbeat(interval time.Duration) error {
 
 	s.Logger().Debug("Starting heartbeat loop", log.Duration("interval", interval))
 
+	sendInterval := interval * 2 / 3
+	if sendInterval <= 0 {
+		sendInterval = interval
+	}
+
 	go func() {
-		ticker := time.NewTicker(interval)
+		if s.IsConnected() {
+			if err := s.SendProto(ctx, enums.EMsg_ClientHeartBeat, &pb.CMsgClientHeartBeat{}); err != nil {
+				s.Logger().Warn("Failed to send initial heartbeat", log.Err(err))
+			}
+		}
+
+		ticker := time.NewTicker(sendInterval)
 		defer ticker.Stop()
 
 		for {
@@ -443,7 +452,7 @@ func (s *Socket) StartHeartbeat(interval time.Duration) error {
 					continue
 				}
 
-				err := s.SendProto(context.Background(), enums.EMsg_ClientHeartBeat, &pb.CMsgClientHeartBeat{})
+				err := s.SendProto(ctx, enums.EMsg_ClientHeartBeat, &pb.CMsgClientHeartBeat{})
 				if err != nil {
 					s.Logger().Warn("Failed to send heartbeat", log.Err(err))
 				}

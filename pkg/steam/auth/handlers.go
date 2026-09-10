@@ -119,7 +119,19 @@ func (a *Authenticator) handleLogOnResponse(packet *protocol.Packet) {
 	}
 
 	sess := a.socket.Session()
-	if steamID := packet.GetSteamID(); steamID != 0 {
+
+	steamID := packet.GetSteamID()
+	if steamID == 0 {
+		steamID = msg.GetClientSuppliedSteamid()
+	}
+
+	if steamID == 0 {
+		if details := a.activeDetails.Load(); details != nil && details.SteamID != 0 {
+			steamID = details.SteamID.Uint64()
+		}
+	}
+
+	if steamID != 0 {
 		sess.SetSteamID(steamID)
 	}
 
@@ -127,7 +139,12 @@ func (a *Authenticator) handleLogOnResponse(packet *protocol.Packet) {
 		sess.SetSessionID(sessionID)
 	}
 
-	interval := time.Duration(msg.GetHeartbeatSeconds()) * time.Second
+	hbSeconds := msg.GetHeartbeatSeconds()
+	if hbSeconds <= 0 {
+		hbSeconds = msg.GetLegacyOutOfGameHeartbeatSeconds()
+	}
+
+	interval := time.Duration(hbSeconds) * time.Second
 	if interval <= 0 {
 		interval = 10 * time.Second
 	}

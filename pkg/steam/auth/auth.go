@@ -213,11 +213,12 @@ func decodeJWTPayload(token string) ([]byte, error) {
 type Authenticator struct {
 	fsm *fsm.FSM[State, Event]
 
-	loggerMu sync.RWMutex
-	logger   log.Logger
-	bus      *event.Bus
-	socket   SocketProvider
-	service  WebAuthenticator
+	loggerMu   sync.RWMutex
+	baseLogger log.Logger
+	logger     log.Logger
+	bus        *event.Bus
+	socket     SocketProvider
+	service    WebAuthenticator
 
 	activeDetails atomic.Pointer[LogOnDetails]
 	tempKey       atomic.Pointer[[]byte]
@@ -245,12 +246,13 @@ func NewAuthenticator(s SocketProvider, svc WebAuthenticator, bus *event.Bus, op
 	)
 
 	auth := &Authenticator{
-		fsm:     mach,
-		bus:     bus,
-		socket:  s,
-		service: svc,
-		logger:  log.Discard,
-		store:   nopStore{},
+		fsm:        mach,
+		bus:        bus,
+		socket:     s,
+		service:    svc,
+		baseLogger: log.Discard,
+		logger:     log.Discard,
+		store:      nopStore{},
 	}
 	for _, opt := range opts {
 		opt(auth)
@@ -380,7 +382,19 @@ func (a *Authenticator) enrichLogger(details *LogOnDetails) {
 	}
 
 	if len(logFields) > 0 {
-		a.setLogger(a.getLogger().With(logFields...))
+		a.loggerMu.Lock()
+
+		base := a.baseLogger
+		if base == nil {
+			base = a.logger
+		}
+
+		if base == nil {
+			base = log.Discard
+		}
+
+		a.logger = base.With(logFields...)
+		a.loggerMu.Unlock()
 	}
 }
 
@@ -673,6 +687,7 @@ func (a *Authenticator) setLogger(l log.Logger) {
 	a.loggerMu.Lock()
 	defer a.loggerMu.Unlock()
 
+	a.baseLogger = l
 	a.logger = l
 }
 
