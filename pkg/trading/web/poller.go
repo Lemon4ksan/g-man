@@ -17,6 +17,8 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/sys/notifications"
 	"github.com/lemon4ksan/g-man/pkg/trading"
 	pb "github.com/lemon4ksan/g-man/protobuf/steam"
+
+	"github.com/lemon4ksan/foundation/silicon/clock"
 )
 
 // GetPollData snapshots active polling state for persistence.
@@ -44,10 +46,10 @@ func (m *Manager) SetPollData(data trading.PollData) {
 
 	m.offersSince = data.OffersSince
 
-	m.sentOffers = make(map[uint64]trading.OfferState)
+	clear(m.sentOffers)
 	maps.Copy(m.sentOffers, data.Sent)
 
-	m.receivedOffers = make(map[uint64]trading.OfferState)
+	clear(m.receivedOffers)
 	maps.Copy(m.receivedOffers, data.Received)
 }
 
@@ -87,7 +89,7 @@ func (m *Manager) doPoll(ctx context.Context) {
 
 	m.mu.RLock()
 
-	cutoff := time.Now().Add(-24 * time.Hour).Unix()
+	cutoff := clock.CoarseTime().Add(-24 * time.Hour).Unix()
 	if m.offersSince > 0 {
 		cutoff = m.offersSince - 1800
 	}
@@ -127,7 +129,7 @@ func (m *Manager) doPoll(ctx context.Context) {
 
 	m.mu.Lock()
 
-	now := time.Now()
+	now := clock.CoarseTime()
 	allOffers := make([]*trading.TradeOffer, 0, len(resp.Sent)+len(resp.Received))
 
 	for _, off := range resp.Sent {

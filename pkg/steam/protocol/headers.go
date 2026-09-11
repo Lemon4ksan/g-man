@@ -10,13 +10,14 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"sync"
 
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	pb "github.com/lemon4ksan/g-man/protobuf/steam"
+
+	"github.com/lemon4ksan/foundation/silicon/pool"
 )
 
 const (
@@ -152,11 +153,9 @@ func (h *MsgHdrExtended) Deserialize(r io.Reader) error {
 	return nil
 }
 
-var protoHeaderPool = sync.Pool{
-	New: func() any {
-		return &pb.CMsgProtoBufHeader{}
-	},
-}
+var protoHeaderPool = pool.NewPerPStorage(func() any {
+	return &pb.CMsgProtoBufHeader{}
+})
 
 // AcquireProtoHeader fetches a pooled CMsgProtoBufHeader instance.
 func AcquireProtoHeader() *pb.CMsgProtoBufHeader {
@@ -178,9 +177,9 @@ func ReleaseProtoHeader(h *pb.CMsgProtoBufHeader) {
 	protoHeaderPool.Put(h)
 }
 
-var msgHdrProtoBufPool = sync.Pool{
-	New: func() any { return &MsgHdrProtoBuf{} },
-}
+var msgHdrProtoBufPool = pool.NewPerPStorage(func() any {
+	return &MsgHdrProtoBuf{}
+})
 
 func acquireMsgHdrProtoBuf(eMsg enums.EMsg) *MsgHdrProtoBuf {
 	h := msgHdrProtoBufPool.Get().(*MsgHdrProtoBuf)
@@ -256,13 +255,11 @@ func (h *MsgHdrProtoBuf) SerializeTo(w io.Writer) error {
 	return err
 }
 
-var protoHeaderBufPool = sync.Pool{
-	New: func() any {
-		b := make([]byte, 512)
+var protoHeaderBufPool = pool.NewPerPStorage(func() any {
+	b := make([]byte, 512)
 
-		return &b
-	},
-}
+	return &b
+})
 
 func (h *MsgHdrProtoBuf) Deserialize(r io.Reader) error {
 	var lenBuf [4]byte

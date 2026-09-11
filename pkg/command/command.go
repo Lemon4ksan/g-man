@@ -18,6 +18,7 @@ import (
 
 	"github.com/lemon4ksan/foundation/generic"
 	"github.com/lemon4ksan/foundation/silicon/bytesconv"
+	"github.com/lemon4ksan/foundation/silicon/pool"
 )
 
 type contextKey string
@@ -621,21 +622,19 @@ func (e *Engine) registerFuncDynamic(val reflect.Value, c *Command) {
 	}
 }
 
-var cmdBuilderPool = sync.Pool{
-	New: func() any { return new(strings.Builder) },
-}
+var cmdBuilderPool = pool.NewPerPStorage(func() any {
+	return new(strings.Builder)
+})
 
 type argsBuffer struct {
 	Slice []string
 }
 
-var argsSlicePool = sync.Pool{
-	New: func() any {
-		return &argsBuffer{
-			Slice: make([]string, 0, 16),
-		}
-	},
-}
+var argsSlicePool = pool.NewPerPStorage(func() any {
+	return &argsBuffer{
+		Slice: make([]string, 0, 16),
+	}
+})
 
 func releaseArgsSlice(buf *argsBuffer) {
 	if buf == nil {

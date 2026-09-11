@@ -13,7 +13,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/lemon4ksan/aoni/codec/extract"
@@ -23,6 +22,8 @@ import (
 
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
+
+	"github.com/lemon4ksan/foundation/silicon/pool"
 )
 
 var (
@@ -55,11 +56,9 @@ func CheckCapacity(currentCount, itemsToAdd, maxCapacity int) error {
 	return nil
 }
 
-var descMapPool = sync.Pool{
-	New: func() any {
-		return make(map[descKey]*Description, 128)
-	},
-}
+var descMapPool = pool.NewPerPStorage(func() any {
+	return make(map[descKey]*Description, 128)
+})
 
 func acquireDescMap() map[descKey]*Description {
 	return descMapPool.Get().(map[descKey]*Description)

@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package steam provides a high-level facade for interacting with the Steam Network.
+// It exposes the core Client, configuration, and options from the underlying
+// implementations while maintaining a clean, unified API surface.
 package steam
 
 import (
@@ -16,16 +19,23 @@ import (
 )
 
 var (
-	ErrNotRunning     = client.ErrNotRunning
+	// ErrNotRunning is returned when attempting to use a client that hasn't been started.
+	ErrNotRunning = client.ErrNotRunning
+	// ErrSocketDisabled is returned when attempting to use socket features while the socket is disabled.
 	ErrSocketDisabled = client.ErrSocketDisabled
 )
 
+// Client is the primary orchestrator for Steam Network interactions.
+// It manages the connection lifecycle, dispatching, and module execution.
 type Client = client.Client
 
+// Config holds the immutable settings for the Steam Client.
 type Config = client.Config
 
+// DefaultConfig returns a secure, production-ready default configuration.
 var DefaultConfig = client.DefaultConfig
 
+// Option applies functional configuration to the Client during instantiation.
 type Option = client.Option
 
 var (
@@ -43,29 +53,20 @@ var (
 	WithProxy            = client.WithProxy
 )
 
+// NewClient instantiates a new Client with the provided configuration and options.
 var NewClient = client.New
 
-// NewReadyClient constructs a Client, connects to an optimal Connection Manager server, and logs in.
+// NewReadyClient constructs a new Client, retrieves an optimal Connection Manager (CM) server
+// from the Steam Directory, and performs a full login sequence.
+//
+// This is a convenience method for establishing a ready-to-use authenticated session.
 func NewReadyClient(ctx context.Context, cfg Config, details *auth.LogOnDetails, opts ...Option) (*Client, error) {
-	logger := log.New(log.DefaultConfig(log.LevelInfo))
-	opts = append([]Option{WithLogger(logger)}, opts...)
-
-	c, err := client.New(cfg, opts...)
+	c, err := client.New(cfg, ensureLoggerOption(opts)...)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := c.Run(); err != nil {
-		return nil, err
-	}
-
-	srv, err := directory.New(c).GetOptimalCMServer(ctx)
-	if err != nil {
-		_ = c.Close()
-		return nil, err
-	}
-
-	if err = c.ConnectAndLogin(ctx, srv, details); err != nil {
+	if err := startAndLogin(ctx, c, details); err != nil {
 		_ = c.Close()
 		return nil, err
 	}
@@ -73,7 +74,30 @@ func NewReadyClient(ctx context.Context, cfg Config, details *auth.LogOnDetails,
 	return c, nil
 }
 
-// GetModule returns the first registered module matching type T.
+// ensureLoggerOption appends a default logger to the options if one isn't explicitly provided.
+// It ensures that the client always has a valid logging sink.
+func ensureLoggerOption(opts []Option) []Option {
+	logger := log.New(log.DefaultConfig(log.LevelInfo))
+	return append([]Option{WithLogger(logger)}, opts...)
+}
+
+// startAndLogin manages the sequence of starting the client, resolving a CM server, and authenticating.
+func startAndLogin(ctx context.Context, c *Client, details *auth.LogOnDetails) error {
+	if err := c.Run(); err != nil {
+		return err
+	}
+
+	srv, err := directory.New(c).GetOptimalCMServer(ctx)
+	if err != nil {
+		return err
+	}
+
+	return c.ConnectAndLogin(ctx, srv, details)
+}
+
+// GetModule searches the Client's registered modules and returns the first instance matching type T.
+// Returns the zero value of T if no matching module is found.
+// This generic accessor provides type-safe retrieval of subsystems (e.g., TF2, Trading).
 func GetModule[T any](c *Client) T {
 	if c == nil {
 		return generic.Zero[T]()

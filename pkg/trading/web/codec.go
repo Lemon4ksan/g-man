@@ -8,12 +8,13 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"sync"
 
 	"github.com/lemon4ksan/foundation/codec/json"
 	"github.com/lemon4ksan/foundation/silicon/bytesconv"
 
 	"github.com/lemon4ksan/g-man/pkg/trading"
+
+	"github.com/lemon4ksan/foundation/silicon/pool"
 )
 
 var (
@@ -31,11 +32,9 @@ var (
 	ErrInvalidJSONObjectNoKeys = errors.New("invalid json object: no valid numeric keys found")
 )
 
-var flexBufPool = sync.Pool{
-	New: func() any {
-		return new(bytes.Buffer)
-	},
-}
+var flexBufPool = pool.NewPerPStorage(func() any {
+	return new(bytes.Buffer)
+})
 
 func scanJSONObjectElements(data []byte) ([][]byte, error) {
 	i := 0

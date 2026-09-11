@@ -18,6 +18,8 @@ import (
 
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/trading"
+
+	"github.com/lemon4ksan/foundation/silicon/clock"
 )
 
 var (
@@ -157,7 +159,7 @@ func (p *Processor) worker(ctx context.Context) {
 }
 
 func (p *Processor) processSingleOffer(ctx context.Context, off *trading.TradeOffer) {
-	start := time.Now()
+	start := clock.CoarseTime()
 	l := p.logger.With(log.Uint64("offerID", off.ID))
 
 	ourItemIDs := make([]uint64, 0, len(off.ItemsToGive))

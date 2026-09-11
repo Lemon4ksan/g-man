@@ -8,13 +8,14 @@ import (
 	"bytes"
 	"net/url"
 	"strconv"
-	"sync"
 
 	"github.com/lemon4ksan/aoni/codec/values"
 	"github.com/lemon4ksan/foundation/codec/json"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/trading"
+
+	"github.com/lemon4ksan/foundation/silicon/pool"
 )
 
 type descKey = uint64
@@ -63,11 +64,9 @@ type sendNewReq struct {
 	CounteredID  uint64 `query:"tradeofferid_countered,omitempty"`
 }
 
-var formBufferPool = sync.Pool{
-	New: func() any {
-		return new(bytes.Buffer)
-	},
-}
+var formBufferPool = pool.NewPerPStorage(func() any {
+	return new(bytes.Buffer)
+})
 
 func (r sendNewReq) EncodeFormString() (string, error) {
 	buf := formBufferPool.Get().(*bytes.Buffer)

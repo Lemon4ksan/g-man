@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"net/url"
 	"strconv"
-	"sync"
 	"testing"
 
 	"github.com/lemon4ksan/foundation/codec/json"
@@ -25,6 +24,8 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/trading"
 	pb "github.com/lemon4ksan/g-man/protobuf/steam"
+
+	"github.com/lemon4ksan/foundation/silicon/pool"
 )
 
 // ============================================================================
@@ -252,11 +253,9 @@ func BenchmarkInventory_ProcessAssets_Opt(b *testing.B) {
 // 4. TRADING & FORM ENCODING BENCHMARKS
 // ============================================================================
 
-var formBufferPool = sync.Pool{
-	New: func() any {
+var formBufferPool = pool.NewPerPStorage(func() any {
 		return new(bytes.Buffer)
-	},
-}
+	})
 
 type mockSendReq struct {
 	ServerID     int

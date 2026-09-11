@@ -11,6 +11,8 @@ import (
 	"sync"
 
 	"github.com/lemon4ksan/g-man/pkg/trading"
+
+	"github.com/lemon4ksan/foundation/silicon/pool"
 )
 
 type Handler func(ctx *TradeContext) error
@@ -22,18 +24,18 @@ type Engine struct {
 	mu          sync.RWMutex
 	middlewares []Middleware
 	compiled    Handler
-	contextPool sync.Pool
+	contextPool *pool.PerPStorage[any]
 }
 
 func New() *Engine {
 	e := &Engine{
 		middlewares: make([]Middleware, 0, 8),
 	}
-	e.contextPool.New = func() any {
+	e.contextPool = pool.NewPerPStorage(func() any {
 		return &TradeContext{
 			data: make(map[string]any, 4),
 		}
-	}
+	})
 	e.compileLocked()
 
 	return e

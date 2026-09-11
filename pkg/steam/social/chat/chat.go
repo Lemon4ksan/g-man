@@ -39,11 +39,9 @@ func From(c *client.Client) *Chat {
 	return client.GetModule[*Chat](c)
 }
 
-var messageEventPool = sync.Pool{
-	New: func() any {
-		return &MessageEvent{}
-	},
-}
+var messageEventPool = pool.NewPerPStorage(func() any {
+	return &MessageEvent{}
+})
 
 // AcquireMessageEvent fetches a pooled MessageEvent instance.
 func AcquireMessageEvent(senderID uint64, msg string, ts time.Time, ordinal uint32) *MessageEvent {

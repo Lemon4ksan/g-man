@@ -11,6 +11,8 @@ import (
 
 	"github.com/lemon4ksan/g-man/internal/crypto"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
+
+	"github.com/lemon4ksan/foundation/silicon/clock"
 )
 
 // PollerConfig configures the event-driven adaptive Steam Guard confirmation poller.
@@ -67,7 +69,7 @@ func (p *ConfirmationPoller) Trigger() {
 
 // PollOnce executes an immediate check and processes pending confirmations.
 func (p *ConfirmationPoller) PollOnce(ctx context.Context) ([]*Confirmation, error) {
-	now := time.Now().Unix()
+	now := clock.CoarseTime().Unix()
 	confKeyArr := crypto.GenerateConfirmationKey([]byte(p.cfg.IdentitySecret), now, "conf")
 	confKey := string(confKeyArr[:])
 
@@ -95,7 +97,7 @@ func (p *ConfirmationPoller) PollOnce(ctx context.Context) ([]*Confirmation, err
 	}
 
 	if len(toAccept) > 0 {
-		actTime := time.Now().Unix()
+		actTime := clock.CoarseTime().Unix()
 		actKeyArr := crypto.GenerateConfirmationKey([]byte(p.cfg.IdentitySecret), actTime, "allow")
 		actKey := string(actKeyArr[:])
 		_ = p.mobileConf.RespondToMultiple(ctx, toAccept, true, p.cfg.DeviceID, p.cfg.SteamID, actKey, actTime)
@@ -150,7 +152,7 @@ func (p *ConfirmationPoller) loop(ctx context.Context) {
 }
 
 func (p *ConfirmationPoller) runBurst(ctx context.Context) {
-	burstDeadline := time.Now().Add(p.cfg.BurstDuration)
+	burstDeadline := clock.CoarseTime().Add(p.cfg.BurstDuration)
 
 	burstTicker := time.NewTicker(p.cfg.BurstInterval)
 	defer burstTicker.Stop()
@@ -165,7 +167,7 @@ func (p *ConfirmationPoller) runBurst(ctx context.Context) {
 		case <-p.stopCh:
 			return
 		case <-burstTicker.C:
-			if time.Now().After(burstDeadline) {
+			if clock.CoarseTime().After(burstDeadline) {
 				return
 			}
 

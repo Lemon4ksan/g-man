@@ -15,6 +15,8 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/trading"
 	"github.com/lemon4ksan/g-man/pkg/trading/reason"
+
+	"github.com/lemon4ksan/foundation/silicon/clock"
 )
 
 // RecoverMiddleware catches panics in the middleware chain and marks the offer for review.
@@ -43,7 +45,7 @@ func RecoverMiddleware(logger log.Logger) Middleware {
 func LoggerMiddleware(logger log.Logger) Middleware {
 	return func(next Handler) Handler {
 		return func(ctx *TradeContext) error {
-			start := time.Now()
+			start := clock.CoarseTime()
 
 			err := next(ctx)
 			duration := time.Since(start)

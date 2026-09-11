@@ -19,15 +19,15 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	pb "github.com/lemon4ksan/g-man/protobuf/steam"
+
+	"github.com/lemon4ksan/foundation/silicon/pool"
 )
 
-var gcBufferPool = sync.Pool{
-	New: func() any {
-		b := make([]byte, 0, 1024)
+var gcBufferPool = pool.NewPerPStorage(func() any {
+	b := make([]byte, 0, 1024)
 
-		return &b
-	},
-}
+	return &b
+})
 
 const ModuleName string = "gc"
 
@@ -133,6 +133,45 @@ func (c *Coordinator) CallRaw(
 	}
 
 	return c.send(ctx, appID, msgType, nil, payload, cb)
+}
+
+// CallGC transmits a generic Protobuf message and waits for a specific typed Protobuf response.
+// Uses type inference to eliminate boilerplate callback structures.
+func CallGC[Req proto.Message, Res proto.Message](
+	ctx context.Context,
+	c *Coordinator,
+	appID, msgType uint32,
+	req Req,
+	res Res,
+) error {
+	ch := make(chan error, 1)
+
+	cb := func(_ context.Context, packet *protocol.GCPacket, err error) {
+		if err != nil {
+			ch <- err
+			return
+		}
+		if packet == nil {
+			ch <- ErrCallbackRequired
+			return
+		}
+		if err := proto.Unmarshal(packet.Payload, res); err != nil {
+			ch <- err
+			return
+		}
+		ch <- nil
+	}
+
+	if err := c.Call(ctx, appID, msgType, req, cb); err != nil {
+		return err
+	}
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case err := <-ch:
+		return err
+	}
 }
 
 func (c *Coordinator) send(

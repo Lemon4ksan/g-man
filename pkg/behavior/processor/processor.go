@@ -25,6 +25,10 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/trading/notifications"
 	"github.com/lemon4ksan/g-man/pkg/trading/review"
 	"github.com/lemon4ksan/g-man/pkg/trading/web"
+
+	"github.com/lemon4ksan/foundation/silicon/pool"
+
+	"github.com/lemon4ksan/foundation/silicon/clock"
 )
 
 // ProcessTrades registers trade processing behavior with the client orchestrator.
@@ -131,9 +135,9 @@ func (p *Processor) Enqueue(offer *trading.TradeOffer) {
 	}
 }
 
-var corrBufPool = sync.Pool{
-	New: func() any { return new(strings.Builder) },
-}
+var corrBufPool = pool.NewPerPStorage(func() any {
+	return new(strings.Builder)
+})
 
 func generateCorrelationID(offerID uint64) string {
 	sb := corrBufPool.Get().(*strings.Builder)
@@ -171,7 +175,7 @@ func (p *Processor) worker(ctx context.Context) {
 func (p *Processor) handleOffer(ctx context.Context, offer *trading.TradeOffer) {
 	defer p.processing.Delete(offer.ID)
 
-	start := time.Now()
+	start := clock.CoarseTime()
 	ctx = log.WithCorrelationID(ctx, generateCorrelationID(offer.ID))
 
 	p.logger.InfoContext(ctx, "Processing offer", log.Uint64("id", offer.ID))

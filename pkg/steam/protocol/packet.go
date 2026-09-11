@@ -20,6 +20,8 @@ import (
 	"github.com/lemon4ksan/g-man/internal/network"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	pb "github.com/lemon4ksan/g-man/protobuf/steam"
+
+	"github.com/lemon4ksan/foundation/silicon/pool"
 )
 
 var (
@@ -141,13 +143,11 @@ const (
 	HeaderKindStandard
 )
 
-var packetPool = sync.Pool{
-	New: func() any {
-		return &Packet{
-			Payload: make([]byte, 0, 4096),
-		}
-	},
-}
+var packetPool = pool.NewPerPStorage(func() any {
+	return &Packet{
+		Payload: make([]byte, 0, 4096),
+	}
+})
 
 // AcquirePacket fetches a Packet from memory pool.
 func AcquirePacket() *Packet {
@@ -440,9 +440,9 @@ func (p *Packet) Reset() {
 	p.Transport = ""
 }
 
-var gcPacketPool = sync.Pool{
-	New: func() any { return &GCPacket{} },
-}
+var gcPacketPool = pool.NewPerPStorage(func() any {
+	return &GCPacket{}
+})
 
 func AcquireGCPacket() *GCPacket {
 	p := gcPacketPool.Get().(*GCPacket)
