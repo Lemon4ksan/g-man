@@ -132,6 +132,54 @@ func TestTradeContext_VerdictMutations(t *testing.T) {
 		_, ok := ctx.Get("").Value()
 		assert.False(t, ok)
 	})
+
+	t.Run("typed_keys", func(t *testing.T) {
+		t.Parallel()
+		intKey := NewKey[int]("trade_rate")
+		assert.Equal(t, "trade_rate", intKey.Name())
+
+		SetKey(ctx, intKey, 42)
+		val, ok := GetKey(ctx, intKey)
+		assert.True(t, ok)
+		assert.Equal(t, 42, val)
+
+		missingKey := NewKey[int]("missing_rate")
+		_, ok = GetKey(ctx, missingKey)
+		assert.False(t, ok)
+
+		wrongTypeKey := NewKey[string]("trade_rate")
+		_, ok = GetKey(ctx, wrongTypeKey)
+		assert.False(t, ok)
+	})
+
+	t.Run("verdict_locking", func(t *testing.T) {
+		t.Parallel()
+		tCtx := NewTradeContext(t.Context(), &trading.TradeOffer{ID: 101})
+		assert.False(t, tCtx.IsLocked())
+
+		tCtx.Accept(reason.AcceptDonation)
+		assert.Equal(t, trading.ActionAccept, tCtx.Verdict.Action)
+
+		// Lock it
+		tCtx.Lock()
+		assert.True(t, tCtx.IsLocked())
+
+		// Attempt overwrite
+		tCtx.Decline(reason.DeclineBegging)
+		assert.Equal(t, trading.ActionAccept, tCtx.Verdict.Action)
+
+		// Finalize on unlocked context
+		tCtx2 := NewTradeContext(t.Context(), &trading.TradeOffer{ID: 102})
+		ok := tCtx2.Finalize(trading.ActionDecline, reason.DeclineBlacklisted)
+		assert.True(t, ok)
+		assert.True(t, tCtx2.IsLocked())
+		assert.Equal(t, trading.ActionDecline, tCtx2.Verdict.Action)
+
+		// Subsequent finalize fails
+		ok = tCtx2.Finalize(trading.ActionAccept, reason.AcceptDonation)
+		assert.False(t, ok)
+		assert.Equal(t, trading.ActionDecline, tCtx2.Verdict.Action)
+	})
 }
 
 func TestTradeContext_Decision(t *testing.T) {
