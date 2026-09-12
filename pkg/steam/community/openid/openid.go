@@ -2,7 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package openid executes automated Steam OpenID authentication flows against third-party websites.
+// Package openid executes automated Steam OpenID authentication flows against third-party websites,
+// and provides Relying Party (RP) utilities for verifying Steam OpenID callbacks.
 package openid
 
 import (
@@ -10,11 +11,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"strings"
 
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/aoni/mod"
+	"github.com/lemon4ksan/aoni/option"
 	"golang.org/x/net/html"
 )
 
@@ -25,6 +30,14 @@ var (
 	ErrNoForm = errors.New("openid: could not find OpenID login form")
 	// ErrWrongHost indicates initial authorization redirects ended outside steamcommunity.com.
 	ErrWrongHost = errors.New("openid: was not redirected to steamcommunity.com")
+	// ErrAuthenticationFailed indicates Steam rejected the check_authentication request.
+	ErrAuthenticationFailed = errors.New("openid: authentication failed (is_valid:false or missing)")
+)
+
+const (
+	steamLoginURL = "https://steamcommunity.com/openid/login"
+	openIDNS      = "http://specs.openid.net/auth/2.0"
+	identifier    = "http://specs.openid.net/auth/2.0/identifier_select"
 )
 
 type openIDForm struct {
@@ -42,21 +55,15 @@ func Login(ctx context.Context, targetURL string, steamCookies []*http.Cookie) (
 		return nil, fmt.Errorf("openid: invalid target URL: %w", err)
 	}
 
-	client, stdClient, err := createClientWithCookies(steamCookies)
+	client, err := createClientWithCookies(steamCookies)
 	if err != nil {
 		return nil, err
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, targetURL, nil)
-	if err != nil {
-		return nil, fmt.Errorf("openid: failed to create request: %w", err)
-	}
-
-	resp, err := stdClient.Do(httpReq)
+	resp, err := client.Get(ctx, targetURL)
 	if err != nil {
 		return nil, fmt.Errorf("openid: initial request failed: %w", err)
 	}
-
 	defer resp.Body.Close()
 
 	redirected, err := verifyRedirect(parsedTarget.Host, resp.Request.URL)
@@ -75,32 +82,28 @@ func Login(ctx context.Context, targetURL string, steamCookies []*http.Cookie) (
 
 	postURL := resolveActionURL(resp.Request.URL, form.action)
 
-	postReq, err := http.NewRequestWithContext(ctx, http.MethodPost, postURL, nil)
-	if err != nil {
-		return nil, fmt.Errorf("openid: failed to create post request: %w", err)
-	}
-
-	postReq.Header.Set("Referer", resp.Request.URL.String())
-	postReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	postReq.URL.RawQuery = form.inputs.Encode()
-
-	postResp, err := stdClient.Do(postReq)
+	postResp, err := client.Post(
+		ctx,
+		postURL,
+		nil,
+		mod.WithHeader("Referer", resp.Request.URL.String()),
+		mod.WithFormValues(form.inputs),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("openid: form submission failed: %w", err)
 	}
-
 	_ = postResp.Body.Close()
 
 	return client, nil
 }
 
-func createClientWithCookies(steamCookies []*http.Cookie) (*aoni.Client, *http.Client, error) {
+func createClientWithCookies(steamCookies []*http.Cookie) (*aoni.Client, error) {
 	steamCommURL, _ := url.Parse("https://steamcommunity.com")
 	steamStoreURL, _ := url.Parse("https://store.steampowered.com")
 
 	jar, err := cookiejar.New(nil)
 	if err != nil {
-		return nil, nil, fmt.Errorf("openid: failed to create cookie jar: %w", err)
+		return nil, fmt.Errorf("openid: failed to create cookie jar: %w", err)
 	}
 
 	jar.SetCookies(steamCommURL, steamCookies)
@@ -111,7 +114,7 @@ func createClientWithCookies(steamCookies []*http.Cookie) (*aoni.Client, *http.C
 		Transport: http.DefaultTransport,
 	}
 
-	return aoni.NewClient(stdClient), stdClient, nil
+	return aoni.NewClient(stdClient, option.WithRedirectLimit(10)), nil
 }
 
 func verifyRedirect(originalTargetHost string, responseURL *url.URL) (bool, error) {
@@ -212,7 +215,7 @@ func parseOpenIDForm(r io.Reader) (openIDForm, error) {
 }
 
 func resolveActionURL(currentURL *url.URL, action string) string {
-	defaultURL := "https://steamcommunity.com/openid/login"
+	defaultURL := steamLoginURL
 	if action == "" {
 		return defaultURL
 	}
@@ -223,4 +226,51 @@ func resolveActionURL(currentURL *url.URL, action string) string {
 	}
 
 	return currentURL.ResolveReference(parsedAction).String()
+}
+
+// BuildRedirectURL generates the 302 redirect URL to send a user to Steam for OpenID authentication.
+func BuildRedirectURL(realm, returnTo string) string {
+	params := url.Values{}
+	params.Set("openid.ns", openIDNS)
+	params.Set("openid.mode", "checkid_setup")
+	params.Set("openid.return_to", returnTo)
+	params.Set("openid.realm", realm)
+	params.Set("openid.identity", identifier)
+	params.Set("openid.claimed_id", identifier)
+
+	return steamLoginURL + "?" + params.Encode()
+}
+
+// VerifyCallback validates the OpenID callback query parameters by sending a check_authentication
+// request to Steam.
+func VerifyCallback(ctx context.Context, client *aoni.Client, query url.Values) (bool, error) {
+	// Clone query so we don't mutate the input map
+	reqQuery := make(url.Values, len(query))
+	maps.Copy(reqQuery, query)
+
+	reqQuery.Set("openid.mode", "check_authentication")
+
+	// Post directly with aoni Client. We use raw Post because Steam returns text/plain ("ns:...\nis_valid:true\n"),
+	// and we avoid typed decoding which expects JSON/XML.
+	resp, err := client.Post(ctx, steamLoginURL, nil, mod.WithFormValues(reqQuery))
+	if err != nil {
+		return false, fmt.Errorf("openid: check_authentication request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return false, fmt.Errorf("openid: unexpected status code from Steam: %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return false, fmt.Errorf("openid: failed to read response body: %w", err)
+	}
+
+	strBody := string(body)
+	if !strings.Contains(strBody, "is_valid:true") {
+		return false, ErrAuthenticationFailed
+	}
+
+	return true, nil
 }

@@ -5,15 +5,18 @@
 package openid_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/g-man/pkg/steam/community/openid"
 )
 
@@ -23,12 +26,12 @@ type mockTransport struct {
 }
 
 func (m *mockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	url := req.URL.String()
+	urlStr := req.URL.String()
 	path := req.URL.Host + req.URL.Path
 
-	m.calls = append(m.calls, fmt.Sprintf("%s %s", req.Method, url))
+	m.calls = append(m.calls, fmt.Sprintf("%s %s", req.Method, urlStr))
 
-	if res, ok := m.responses[url]; ok {
+	if res, ok := m.responses[urlStr]; ok {
 		res.Request = req
 		return res, nil
 	}
@@ -38,7 +41,7 @@ func (m *mockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return res, nil
 	}
 
-	return nil, fmt.Errorf("no mock response for %s", url)
+	return nil, fmt.Errorf("no mock response for %s", urlStr)
 }
 
 type errorReader struct{}
@@ -46,6 +49,18 @@ type errorReader struct{}
 func (errorReader) Read(p []byte) (n int, err error) {
 	return 0, errors.New("read error")
 }
+
+func stringResponse(status int, body string) *http.Response {
+	return &http.Response{
+		StatusCode: status,
+		Header:     make(http.Header),
+		Body:       io.NopCloser(strings.NewReader(body)),
+	}
+}
+
+// -----------------------------------------------------------------------------
+// Client (Bot) Simulation Flow Tests
+// -----------------------------------------------------------------------------
 
 func TestLogin(t *testing.T) {
 	t.Parallel()
@@ -265,10 +280,129 @@ func TestLogin_InvalidTargetURL(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid target URL")
 }
 
-func stringResponse(status int, body string) *http.Response {
-	return &http.Response{
-		StatusCode: status,
-		Header:     make(http.Header),
-		Body:       io.NopCloser(strings.NewReader(body)),
+// -----------------------------------------------------------------------------
+// Server-side (Relying Party) Flow Tests
+// -----------------------------------------------------------------------------
+
+type callbackMockTransport struct {
+	roundTripFunc func(req *http.Request) (*http.Response, error)
+}
+
+func (m *callbackMockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	return m.roundTripFunc(req)
+}
+
+func TestBuildRedirectURL(t *testing.T) {
+	t.Parallel()
+
+	realm := "https://vault.vlhl.tf"
+	returnTo := "https://vault.vlhl.tf/callback"
+
+	result := openid.BuildRedirectURL(realm, returnTo)
+
+	parsedURL, err := url.Parse(result)
+	assert.NoError(t, err)
+	assert.Equal(t, "https", parsedURL.Scheme)
+	assert.Equal(t, "steamcommunity.com", parsedURL.Host)
+	assert.Equal(t, "/openid/login", parsedURL.Path)
+
+	query := parsedURL.Query()
+	assert.Equal(t, "http://specs.openid.net/auth/2.0", query.Get("openid.ns"))
+	assert.Equal(t, "checkid_setup", query.Get("openid.mode"))
+	assert.Equal(t, returnTo, query.Get("openid.return_to"))
+	assert.Equal(t, realm, query.Get("openid.realm"))
+	assert.Equal(t, "http://specs.openid.net/auth/2.0/identifier_select", query.Get("openid.identity"))
+	assert.Equal(t, "http://specs.openid.net/auth/2.0/identifier_select", query.Get("openid.claimed_id"))
+}
+
+func TestVerifyCallback_Success(t *testing.T) {
+	t.Parallel()
+
+	query := url.Values{}
+	query.Set("openid.ns", "http://specs.openid.net/auth/2.0")
+	query.Set("openid.mode", "id_res")
+	query.Set("openid.op_endpoint", "https://steamcommunity.com/openid/login")
+	query.Set("openid.claimed_id", "https://steamcommunity.com/openid/id/76561199276543055")
+	query.Set("openid.identity", "https://steamcommunity.com/openid/id/76561199276543055")
+	query.Set("openid.return_to", "https://vault.vlhl.tf/callback")
+	query.Set("openid.response_nonce", "2026-09-12T13:29:42Z")
+	query.Set("openid.assoc_handle", "1234567890")
+	query.Set("openid.signed", "signed,op_endpoint,claimed_id,identity,return_to,response_nonce,assoc_handle")
+	query.Set("openid.sig", "dummy_sig")
+
+	mockTr := &callbackMockTransport{
+		roundTripFunc: func(req *http.Request) (*http.Response, error) {
+			assert.Equal(t, http.MethodPost, req.Method)
+			assert.Equal(t, "https://steamcommunity.com/openid/login", req.URL.String())
+			assert.Equal(t, "application/x-www-form-urlencoded", req.Header.Get("Content-Type"))
+
+			body, _ := io.ReadAll(req.Body)
+			reqBodyStr := string(body)
+
+			assert.Contains(t, reqBodyStr, "openid.mode=check_authentication")
+			assert.Contains(t, reqBodyStr, "openid.claimed_id=")
+
+			return &http.Response{
+				StatusCode: 200,
+				Header:     make(http.Header),
+				Body:       io.NopCloser(strings.NewReader("ns:http://specs.openid.net/auth/2.0\nis_valid:true\n")),
+			}, nil
+		},
 	}
+
+	httpClient := &http.Client{Transport: mockTr}
+	aoniClient := aoni.NewClient(httpClient)
+
+	isValid, err := openid.VerifyCallback(context.Background(), aoniClient, query)
+	assert.NoError(t, err)
+	assert.True(t, isValid)
+
+	assert.Equal(t, "id_res", query.Get("openid.mode"))
+}
+
+func TestVerifyCallback_Failure(t *testing.T) {
+	t.Parallel()
+
+	query := url.Values{}
+	query.Set("openid.mode", "id_res")
+
+	mockTr := &callbackMockTransport{
+		roundTripFunc: func(req *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: 200,
+				Header:     make(http.Header),
+				Body:       io.NopCloser(strings.NewReader("ns:http://specs.openid.net/auth/2.0\nis_valid:false\n")),
+			}, nil
+		},
+	}
+
+	httpClient := &http.Client{Transport: mockTr}
+	aoniClient := aoni.NewClient(httpClient)
+
+	isValid, err := openid.VerifyCallback(context.Background(), aoniClient, query)
+	assert.Error(t, err)
+	assert.ErrorIs(t, err, openid.ErrAuthenticationFailed)
+	assert.False(t, isValid)
+}
+
+func TestVerifyCallback_BadStatus(t *testing.T) {
+	t.Parallel()
+
+	mockTr := &callbackMockTransport{
+		roundTripFunc: func(req *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: 500,
+				Header:     make(http.Header),
+				Body:       io.NopCloser(strings.NewReader("Internal Server Error")),
+			}, nil
+		},
+	}
+
+	httpClient := &http.Client{Transport: mockTr}
+	aoniClient := aoni.NewClient(httpClient)
+
+	isValid, err := openid.VerifyCallback(context.Background(), aoniClient, url.Values{})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unexpected status code from Steam: 500")
+	assert.False(t, isValid)
 }
