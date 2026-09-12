@@ -4,7 +4,7 @@ go 1.27.0
 
 require (
 	github.com/andygrunwald/vdf v1.1.0
-	github.com/lemon4ksan/aoni v0.7.0-rc.1.0.20260910154953-a1da337aa635
+	github.com/lemon4ksan/aoni v0.7.0-rc.1.0.20260912161623-ed6b7aebdd7c
 	github.com/lemon4ksan/aoni/x v0.0.0-20260912145539-c8f61e178bb4
 	github.com/lemon4ksan/foundation v0.0.0-20260912143841-ae415cdfd72d
 	github.com/lemon4ksan/sein v0.0.0-20260910193739-152ceb50fdf6

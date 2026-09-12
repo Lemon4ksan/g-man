@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/aoni/codec/decode"
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/option"
 	"golang.org/x/net/html"
@@ -253,7 +254,7 @@ func VerifyCallback(ctx context.Context, client *aoni.Client, query url.Values) 
 
 	// Post directly with aoni Client. We use raw Post because Steam returns text/plain ("ns:...\nis_valid:true\n"),
 	// and we avoid typed decoding which expects JSON/XML.
-	resp, err := client.Post(ctx, steamLoginURL, nil, mod.WithFormValues(reqQuery))
+	resp, err := client.Post(ctx, steamLoginURL, nil, mod.WithFormValues(reqQuery), decode.WithRaw())
 	if err != nil {
 		return false, fmt.Errorf("openid: check_authentication request failed: %w", err)
 	}
