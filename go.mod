@@ -5,9 +5,9 @@ go 1.27.0
 require (
 	github.com/andygrunwald/vdf v1.1.0
 	github.com/lemon4ksan/aoni v0.7.0-rc.1.0.20260910154953-a1da337aa635
-	github.com/lemon4ksan/aoni/x v0.0.0-20260910154953-a1da337aa635
-	github.com/lemon4ksan/foundation v0.0.0-20260910154509-e8ac18a42e81
-	github.com/lemon4ksan/sein v0.0.0-20260901200607-6f711067af3f
+	github.com/lemon4ksan/aoni/x v0.0.0-20260912145539-c8f61e178bb4
+	github.com/lemon4ksan/foundation v0.0.0-20260912143841-ae415cdfd72d
+	github.com/lemon4ksan/sein v0.0.0-20260910193739-152ceb50fdf6
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10
 	github.com/stretchr/testify v1.12.1
@@ -16,7 +16,7 @@ require (
 )
 
 require (
-	github.com/andybalholm/brotli v1.2.3 // indirect
+	github.com/andybalholm/brotli v1.2.4 // indirect
 	github.com/klauspost/compress v1.20.0 // indirect
 	github.com/refraction-networking/utls v1.8.2 // indirect
 	github.com/stretchr/objx v0.5.3 // indirect

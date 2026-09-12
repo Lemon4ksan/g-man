@@ -15,6 +15,8 @@ import (
 
 	"github.com/lemon4ksan/foundation/async/event"
 	log "github.com/lemon4ksan/foundation/async/logkit"
+	"github.com/lemon4ksan/foundation/silicon/clock"
+	"github.com/lemon4ksan/foundation/silicon/pool"
 	"github.com/lemon4ksan/foundation/sync/keylock"
 
 	"github.com/lemon4ksan/g-man/pkg/behavior"
@@ -25,10 +27,6 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/trading/notifications"
 	"github.com/lemon4ksan/g-man/pkg/trading/review"
 	"github.com/lemon4ksan/g-man/pkg/trading/web"
-
-	"github.com/lemon4ksan/foundation/silicon/pool"
-
-	"github.com/lemon4ksan/foundation/silicon/clock"
 )
 
 // ProcessTrades registers trade processing behavior with the client orchestrator.

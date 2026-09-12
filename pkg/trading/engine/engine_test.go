@@ -135,6 +135,7 @@ func TestTradeContext_VerdictMutations(t *testing.T) {
 
 	t.Run("typed_keys", func(t *testing.T) {
 		t.Parallel()
+
 		intKey := NewKey[int]("trade_rate")
 		assert.Equal(t, "trade_rate", intKey.Name())
 

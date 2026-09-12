@@ -141,36 +141,44 @@ func (c *TradeContext) Get(key string) generic.Optional[any] {
 func (c *TradeContext) Accept(reason reason.TradeReason) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
 	if c.locked {
 		return
 	}
+
 	c.Verdict = Verdict{Action: trading.ActionAccept, Reason: reason}
 }
 
 func (c *TradeContext) Decline(reason reason.TradeReason) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
 	if c.locked {
 		return
 	}
+
 	c.Verdict = Verdict{Action: trading.ActionDecline, Reason: reason}
 }
 
 func (c *TradeContext) Review(reason reason.TradeReason) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
 	if c.locked {
 		return
 	}
+
 	c.Verdict = Verdict{Action: trading.ActionReview, Reason: reason}
 }
 
 func (c *TradeContext) Counter(reason reason.TradeReason, params *trading.CounterParams) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
 	if c.locked {
 		return
 	}
+
 	c.Verdict = Verdict{Action: trading.ActionCounter, Reason: reason, Data: params}
 }
 
@@ -192,11 +200,14 @@ func (c *TradeContext) IsLocked() bool {
 func (c *TradeContext) Finalize(action trading.ActionType, reason reason.TradeReason) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
 	if c.locked {
 		return false
 	}
+
 	c.Verdict = Verdict{Action: action, Reason: reason}
 	c.locked = true
+
 	return true
 }
 

@@ -14,12 +14,11 @@ import (
 
 	log "github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/lemon4ksan/foundation/generic"
+	"github.com/lemon4ksan/foundation/silicon/clock"
 	"github.com/lemon4ksan/foundation/silicon/pool"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/trading"
-
-	"github.com/lemon4ksan/foundation/silicon/clock"
 )
 
 var (

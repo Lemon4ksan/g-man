@@ -9,10 +9,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/lemon4ksan/foundation/silicon/clock"
+
 	"github.com/lemon4ksan/g-man/internal/crypto"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
-
-	"github.com/lemon4ksan/foundation/silicon/clock"
 )
 
 // PollerConfig configures the event-driven adaptive Steam Guard confirmation poller.

@@ -11,10 +11,9 @@ import (
 
 	"github.com/lemon4ksan/foundation/codec/json"
 	"github.com/lemon4ksan/foundation/silicon/bytesconv"
+	"github.com/lemon4ksan/foundation/silicon/pool"
 
 	"github.com/lemon4ksan/g-man/pkg/trading"
-
-	"github.com/lemon4ksan/foundation/silicon/pool"
 )
 
 var (

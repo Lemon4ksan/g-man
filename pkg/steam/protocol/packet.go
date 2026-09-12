@@ -14,14 +14,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/lemon4ksan/foundation/silicon/pool"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/lemon4ksan/g-man/internal/framer"
 	"github.com/lemon4ksan/g-man/internal/network"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	pb "github.com/lemon4ksan/g-man/protobuf/steam"
-
-	"github.com/lemon4ksan/foundation/silicon/pool"
 )
 
 var (

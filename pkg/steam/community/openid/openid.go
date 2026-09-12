@@ -92,6 +92,7 @@ func Login(ctx context.Context, targetURL string, steamCookies []*http.Cookie) (
 	if err != nil {
 		return nil, fmt.Errorf("openid: form submission failed: %w", err)
 	}
+
 	_ = postResp.Body.Close()
 
 	return client, nil

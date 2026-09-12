@@ -13,14 +13,13 @@ import (
 	"github.com/lemon4ksan/foundation/async/event"
 	log "github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/lemon4ksan/foundation/async/task"
+	"github.com/lemon4ksan/foundation/silicon/pool"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/client"
 	"github.com/lemon4ksan/g-man/pkg/steam/module"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	pb "github.com/lemon4ksan/g-man/protobuf/steam"
-
-	"github.com/lemon4ksan/foundation/silicon/pool"
 )
 
 var gcBufferPool = pool.NewPerPStorage(func() any {
@@ -137,7 +136,7 @@ func (c *Coordinator) CallRaw(
 
 // CallGC transmits a generic Protobuf message and waits for a specific typed Protobuf response.
 // Uses type inference to eliminate boilerplate callback structures.
-func CallGC[Req proto.Message, Res proto.Message](
+func CallGC[Req, Res proto.Message](
 	ctx context.Context,
 	c *Coordinator,
 	appID, msgType uint32,
@@ -151,14 +150,17 @@ func CallGC[Req proto.Message, Res proto.Message](
 			ch <- err
 			return
 		}
+
 		if packet == nil {
 			ch <- ErrCallbackRequired
 			return
 		}
+
 		if err := proto.Unmarshal(packet.Payload, res); err != nil {
 			ch <- err
 			return
 		}
+
 		ch <- nil
 	}
 

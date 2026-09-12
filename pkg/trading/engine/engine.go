@@ -10,9 +10,9 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/lemon4ksan/g-man/pkg/trading"
-
 	"github.com/lemon4ksan/foundation/silicon/pool"
+
+	"github.com/lemon4ksan/g-man/pkg/trading"
 )
 
 type Handler func(ctx *TradeContext) error

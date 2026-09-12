@@ -19,11 +19,10 @@ import (
 	"github.com/lemon4ksan/foundation/codec/json"
 	"github.com/lemon4ksan/foundation/generic"
 	"github.com/lemon4ksan/foundation/silicon/bytesconv"
+	"github.com/lemon4ksan/foundation/silicon/pool"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
-
-	"github.com/lemon4ksan/foundation/silicon/pool"
 )
 
 var (

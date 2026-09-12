@@ -12,6 +12,7 @@ import (
 
 	"github.com/lemon4ksan/foundation/codec/json"
 	"github.com/lemon4ksan/foundation/silicon/bytesconv"
+	"github.com/lemon4ksan/foundation/silicon/pool"
 
 	"github.com/lemon4ksan/g-man/internal/crypto"
 	"github.com/lemon4ksan/g-man/internal/framer"
@@ -24,8 +25,6 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/trading"
 	pb "github.com/lemon4ksan/g-man/protobuf/steam"
-
-	"github.com/lemon4ksan/foundation/silicon/pool"
 )
 
 // ============================================================================
@@ -254,8 +253,8 @@ func BenchmarkInventory_ProcessAssets_Opt(b *testing.B) {
 // ============================================================================
 
 var formBufferPool = pool.NewPerPStorage(func() any {
-		return new(bytes.Buffer)
-	})
+	return new(bytes.Buffer)
+})
 
 type mockSendReq struct {
 	ServerID     int

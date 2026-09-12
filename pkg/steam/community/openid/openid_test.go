@@ -14,9 +14,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/lemon4ksan/aoni"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/g-man/pkg/steam/community/openid"
 )
 

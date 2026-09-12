@@ -11,14 +11,13 @@ import (
 
 	"github.com/lemon4ksan/foundation/async/event"
 	log "github.com/lemon4ksan/foundation/async/logkit"
+	"github.com/lemon4ksan/foundation/silicon/clock"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"github.com/lemon4ksan/g-man/pkg/steam/sys/notifications"
 	"github.com/lemon4ksan/g-man/pkg/trading"
 	pb "github.com/lemon4ksan/g-man/protobuf/steam"
-
-	"github.com/lemon4ksan/foundation/silicon/clock"
 )
 
 // GetPollData snapshots active polling state for persistence.
