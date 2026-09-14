@@ -198,7 +198,6 @@ func (s *WebSession) Authenticate(
 func (s *WebSession) Refresh(ctx context.Context) error {
 	s.mu.RLock()
 	refreshToken := s.lastRefreshToken
-	accessToken := s.lastAccessToken
 	platform := s.lastPlatform
 	s.mu.RUnlock()
 
@@ -208,7 +207,10 @@ func (s *WebSession) Refresh(ctx context.Context) error {
 
 	s.logger.Info("Refreshing WebSession cookies...")
 
-	if err := s.Authenticate(ctx, platform, refreshToken, accessToken); err != nil {
+	// Pass an empty accessToken to force the slow path.
+	// The slow path uses the refreshToken to hit /jwt/finalizelogin
+	// and acquire fresh session cookies across all Steam domains.
+	if err := s.Authenticate(ctx, platform, refreshToken, ""); err != nil {
 		s.logger.Error("Failed to refresh WebSession cookies", log.Err(err))
 		return err
 	}
