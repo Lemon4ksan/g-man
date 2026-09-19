@@ -170,7 +170,7 @@ func (c *Client) Do(ctx context.Context, req *tr.Request) (*tr.Response, error) 
 	}
 
 	if err := c.validateEResult(resp); err != nil {
-		return nil, err
+		return resp, err
 	}
 
 	return resp, nil
@@ -314,19 +314,31 @@ func Execute[Resp any](
 		req.WithParam("__no_response", "true")
 	}
 
-	resp, err := d.Do(ctx, req)
-	if err != nil {
-		return nil, err
+	resp, doErr := d.Do(ctx, req)
+	if doErr != nil {
+		var resErr *EResultError
+		if !(errors.As(doErr, &resErr) && resErr.Result == enums.EResult_Fail && resp != nil) {
+			if resp != nil {
+				_ = resp.Body.Close()
+			}
+			return nil, doErr
+		}
 	}
 
 	defer resp.Body.Close()
 
 	if isNoResponse {
+		if doErr != nil {
+			return nil, doErr
+		}
 		return nil, nil
 	}
 
 	result := new(Resp)
 	if err := req.Decoder(defDecoder).Decode(resp.Body, result); err != nil {
+		if doErr != nil {
+			return nil, doErr
+		}
 		return nil, err
 	}
 

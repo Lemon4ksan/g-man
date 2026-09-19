@@ -35,7 +35,22 @@ func (o *TradeOffer) ExpiresAt() time.Time { return time.Unix(o.ExpirationTime, 
 func (o *TradeOffer) IsActive() bool { return o.State == OfferStateActive }
 
 func (o *TradeOffer) IsGlitched() bool {
-	return o.OtherSteamID == 0 || (len(o.ItemsToGive) == 0 && len(o.ItemsToReceive) == 0)
+	if o.OtherSteamID == 0 || (len(o.ItemsToGive) == 0 && len(o.ItemsToReceive) == 0 && o.Message == "") {
+		return true
+	}
+
+	for _, item := range o.ItemsToGive {
+		if item.Name == "" && item.MarketHashName == "" {
+			return true
+		}
+	}
+	for _, item := range o.ItemsToReceive {
+		if item.Name == "" && item.MarketHashName == "" {
+			return true
+		}
+	}
+
+	return false
 }
 
 type ActionType string

@@ -9,7 +9,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand/v2"
 	"slices"
+	"time"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"github.com/lemon4ksan/g-man/pkg/steam/socket"
@@ -87,7 +89,24 @@ func (d *Service) GetCMListForConnect(ctx context.Context, cfg CMCfg) ([]CMServe
 
 // GetOptimalCMServer discovers active CM servers and selects the endpoint reporting the lowest load metric.
 func (d *Service) GetOptimalCMServer(ctx context.Context) (socket.CMServer, error) {
-	cmList, err := d.GetCMListForConnect(ctx, CMCfg{})
+	var cmList []CMServer
+	var err error
+
+	for i := 0; i < 5; i++ {
+		cmList, err = d.GetCMListForConnect(ctx, CMCfg{
+			Realm: "steamglobal",
+		})
+		if err == nil && len(cmList) > 0 {
+			break
+		}
+
+		select {
+		case <-ctx.Done():
+			return socket.CMServer{}, ctx.Err()
+		case <-time.After(time.Second):
+		}
+	}
+
 	if err != nil {
 		return socket.CMServer{}, err
 	}
@@ -96,19 +115,32 @@ func (d *Service) GetOptimalCMServer(ctx context.Context) (socket.CMServer, erro
 		return socket.CMServer{}, ErrNoCMServers
 	}
 
+	var filtered []CMServer
+	for _, cm := range cmList {
+		if cm.Realm == "steamglobal" {
+			filtered = append(filtered, cm)
+		}
+	}
+	if len(filtered) > 0 {
+		cmList = filtered
+	}
+
 	slices.SortFunc(cmList, func(a, b CMServer) int {
-		if a.Load < b.Load {
+		if a.WtdLoad < b.WtdLoad {
 			return -1
 		}
-
-		if a.Load > b.Load {
+		if a.WtdLoad > b.WtdLoad {
 			return 1
 		}
-
 		return 0
 	})
 
-	cm := cmList[0]
+	maxIdx := len(cmList)
+	if maxIdx > 5 {
+		maxIdx = 5
+	}
+
+	cm := cmList[rand.IntN(maxIdx)]
 
 	return socket.CMServer{
 		Endpoint: cm.Endpoint,

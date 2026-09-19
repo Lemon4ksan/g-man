@@ -146,6 +146,10 @@ func (m *Manager) doPoll(ctx context.Context) {
 	pollDataChanged := false
 
 	for _, off := range allOffers {
+		if off.IsGlitched() {
+			continue
+		}
+
 		m.lastSeenOffers[off.ID] = now
 
 		var (
@@ -186,6 +190,10 @@ func (m *Manager) doPoll(ctx context.Context) {
 	latest := m.offersSince
 
 	for _, off := range allOffers {
+		if off.IsGlitched() {
+			continue
+		}
+
 		if off.TimeUpdated > latest {
 			latest = off.TimeUpdated
 			pollDataChanged = true

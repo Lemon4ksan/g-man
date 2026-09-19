@@ -98,7 +98,7 @@ func (p *ConfirmationPoller) PollOnce(ctx context.Context) ([]*Confirmation, err
 
 	if len(toAccept) > 0 {
 		actTime := clock.CoarseTime().Unix()
-		actKeyArr := crypto.GenerateConfirmationKey([]byte(p.cfg.IdentitySecret), actTime, "allow")
+		actKeyArr := crypto.GenerateConfirmationKey([]byte(p.cfg.IdentitySecret), actTime, "accept")
 		actKey := string(actKeyArr[:])
 		_ = p.mobileConf.RespondToMultiple(ctx, toAccept, true, p.cfg.DeviceID, p.cfg.SteamID, actKey, actTime)
 	}

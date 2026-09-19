@@ -12,6 +12,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/lemon4ksan/aoni"
@@ -20,6 +22,8 @@ import (
 
 	"github.com/lemon4ksan/g-man/pkg/steam/community/client"
 	"github.com/lemon4ksan/g-man/pkg/steam/encoding"
+	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
+	"github.com/lemon4ksan/g-man/pkg/steam/service"
 )
 
 const BaseURL = client.BaseURL
@@ -34,6 +38,9 @@ var NewClient = client.New
 var ErrSessionExpired = errors.New("steam: session expired or authentication required")
 
 // SteamSoftErrorDetector detects HTML login forms or session expiration messages in Steam Community responses.
+var strErrorRegex = regexp.MustCompile(`"strError":"([^"]+)"`)
+var eResultRegex = regexp.MustCompile(`\((\d+)\)`)
+
 func SteamSoftErrorDetector(resp *http.Response, peek []byte) error {
 	if resp == nil {
 		return nil
@@ -53,6 +60,23 @@ func SteamSoftErrorDetector(resp *http.Response, peek []byte) error {
 		bytes.Contains(peek, []byte(`"not logged in"`)) ||
 		bytes.Contains(peek, []byte(`"Logged In":false`)) {
 		return ErrSessionExpired
+	}
+
+	if matches := strErrorRegex.FindSubmatch(peek); len(matches) > 1 {
+		msg := string(matches[1])
+		
+		if codeMatch := eResultRegex.FindStringSubmatch(msg); len(codeMatch) > 1 {
+			if code, err := strconv.Atoi(codeMatch[1]); err == nil {
+				return service.NewSteamAPIError(msg, resp.StatusCode, service.NewEResultError(enums.EResult(code), nil))
+			}
+		}
+
+		if strings.Contains(msg, "sent too many trade offers") {
+			return service.NewSteamAPIError(msg, resp.StatusCode, service.NewEResultError(enums.EResult_LimitExceeded, nil))
+		}
+		if strings.Contains(msg, "unable to contact the game's item server") {
+			return service.NewSteamAPIError(msg, resp.StatusCode, service.NewEResultError(enums.EResult_ServiceUnavailable, nil))
+		}
 	}
 
 	return nil
@@ -89,12 +113,7 @@ func GetTo[Resp any](
 		mod.WithHeader("X-Requested-With", "XMLHttpRequest"),
 	}, mods...)
 
-	res, resp, err := aoni.FetchTo[*Resp](ctx, r, http.MethodGet, path, mods...)
-	if resp != nil && resp.Body != nil {
-		defer resp.Body.Close()
-	}
-
-	return res, err
+	return aoni.FetchTo[*Resp](ctx, r, http.MethodGet, path, mods...)
 }
 
 // GetHTML executes a GET request and returns an HTML body stream.
@@ -133,12 +152,7 @@ func PostTo[Resp any](
 		mod.WithSmartBody(body),
 	}, mods...)
 
-	res, resp, err := aoni.FetchTo[*Resp](ctx, r, http.MethodPost, path, mods...)
-	if resp != nil && resp.Body != nil {
-		defer resp.Body.Close()
-	}
-
-	return res, err
+	return aoni.FetchTo[*Resp](ctx, r, http.MethodPost, path, mods...)
 }
 
 // PostFormTo executes a POST request with URL-encoded form data.
@@ -194,12 +208,7 @@ func PostFormTo[Resp any](
 		mod.WithContentType("application/x-www-form-urlencoded; charset=UTF-8"),
 	}, mods...)
 
-	res, resp, err := aoni.FetchTo[*Resp](ctx, r, http.MethodPost, path, mods...)
-	if resp != nil && resp.Body != nil {
-		defer resp.Body.Close()
-	}
-
-	return res, err
+	return aoni.FetchTo[*Resp](ctx, r, http.MethodPost, path, mods...)
 }
 
 func urlValuesHasKey(formStr, key string) bool {

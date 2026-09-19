@@ -52,6 +52,7 @@ const (
 	urlFinalize            = "https://login.steampowered.com/jwt/finalizelogin"
 	urlVerify              = "https://steamcommunity.com/chat/clientinterfaces"
 	cookieSessionID        = "sessionid"
+	cookieClientSessionID  = "clientsessionid"
 	cookieSteamLoginSecure = "steamLoginSecure"
 )
 
@@ -76,6 +77,16 @@ type WebSession struct {
 	lastAccessToken  string
 	lastPlatform     pb.EAuthTokenPlatformType
 	refreshCancel    context.CancelFunc
+
+	tokenRefresher func(ctx context.Context, refreshToken string) (string, error)
+}
+
+// WithTokenRefresher sets a callback used to acquire fresh access tokens during background refresh for Client/Mobile tokens.
+func (s *WebSession) WithTokenRefresher(fn func(ctx context.Context, refreshToken string) (string, error)) *WebSession {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.tokenRefresher = fn
+	return s
 }
 
 type doerRoundTripper struct {
@@ -199,6 +210,7 @@ func (s *WebSession) Refresh(ctx context.Context) error {
 	s.mu.RLock()
 	refreshToken := s.lastRefreshToken
 	platform := s.lastPlatform
+	refresher := s.tokenRefresher
 	s.mu.RUnlock()
 
 	if refreshToken == "" {
@@ -207,10 +219,22 @@ func (s *WebSession) Refresh(ctx context.Context) error {
 
 	s.logger.Info("Refreshing WebSession cookies...")
 
-	// Pass an empty accessToken to force the slow path.
-	// The slow path uses the refreshToken to hit /jwt/finalizelogin
-	// and acquire fresh session cookies across all Steam domains.
-	if err := s.Authenticate(ctx, platform, refreshToken, ""); err != nil {
+	accessToken := ""
+	if platform == pb.EAuthTokenPlatformType_k_EAuthTokenPlatformType_SteamClient ||
+		platform == pb.EAuthTokenPlatformType_k_EAuthTokenPlatformType_MobileApp {
+		if refresher == nil {
+			return errors.New("websession: missing TokenRefresher for platform " + platform.String())
+		}
+
+		var err error
+		accessToken, err = refresher(ctx, refreshToken)
+		if err != nil {
+			s.logger.Error("Failed to acquire fresh access token", log.Err(err))
+			return err
+		}
+	}
+
+	if err := s.Authenticate(ctx, platform, refreshToken, accessToken); err != nil {
 		s.logger.Error("Failed to refresh WebSession cookies", log.Err(err))
 		return err
 	}
@@ -408,6 +432,8 @@ func (s *WebSession) seedCookies(sessionID, secureValue string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	clientSessionID := generateClientSessionID()
+
 	for _, u := range s.domains {
 		cookies := []*http.Cookie{
 			{
@@ -416,6 +442,14 @@ func (s *WebSession) seedCookies(sessionID, secureValue string) {
 				Path:     "/",
 				Secure:   true,
 				HttpOnly: true,
+				SameSite: http.SameSiteLaxMode,
+			},
+			{
+				Name:     cookieClientSessionID,
+				Value:    clientSessionID,
+				Path:     "/",
+				Secure:   true,
+				HttpOnly: false,
 				SameSite: http.SameSiteLaxMode,
 			},
 		}
@@ -442,3 +476,12 @@ func generateSessionID() string {
 
 	return hex.EncodeToString(b[:])
 }
+
+func generateClientSessionID() string {
+	var b [8]byte
+
+	_, _ = rand.Read(b[:])
+
+	return hex.EncodeToString(b[:])
+}
+

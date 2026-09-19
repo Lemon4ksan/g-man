@@ -316,7 +316,9 @@ func IsSessionExpiredError(err error) bool {
 	return strings.Contains(msg, "session expired") ||
 		strings.Contains(msg, "redirect") ||
 		strings.Contains(msg, "401") ||
-		strings.Contains(msg, "unauthorized")
+		strings.Contains(msg, "403") ||
+		strings.Contains(msg, "unauthorized") ||
+		strings.Contains(msg, "forbidden")
 }
 
 // CheckSteamErrors inspects HTTP status codes and response bodies for Steam error markers.
@@ -340,8 +342,8 @@ func CheckSteamErrors(statusCode int, header http.Header, body []byte) error {
 		return service.NewSteamAPIError("Family View enabled", statusCode, ErrFamilyViewRestricted)
 	}
 
-	if statusCode == http.StatusUnauthorized {
-		return service.NewSteamAPIError("Session expired (unauthorized)", statusCode, service.ErrSessionExpired)
+	if statusCode == http.StatusUnauthorized || statusCode == http.StatusForbidden {
+		return service.NewSteamAPIError("Session expired (unauthorized/forbidden)", statusCode, service.ErrSessionExpired)
 	}
 
 	if bytes.Contains(body, patternSteamIDFalse) ||
