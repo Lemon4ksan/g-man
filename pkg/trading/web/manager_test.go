@@ -217,7 +217,8 @@ func TestPoll_NewAndUpdatedOffers_PublishesEvents(t *testing.T) {
 				map[string]any{
 					"tradeofferid":      "12345",
 					"trade_offer_state": int(trading.OfferStateActive),
-					"accountid_other":   999,
+					"accountid_other":   "76561197960265728",
+					"message":           "test offer",
 					"time_updated":      1710000000,
 				},
 			},
@@ -237,7 +238,7 @@ func TestPoll_NewAndUpdatedOffers_PublishesEvents(t *testing.T) {
 			t.Errorf("expected offer state %v, got %v", trading.OfferStateActive, event.Offer.State)
 		}
 
-	case <-t.Context().Done():
+	case <-time.After(5 * time.Second):
 		t.Fatal("timeout waiting for NewOfferEvent")
 	}
 
@@ -247,7 +248,8 @@ func TestPoll_NewAndUpdatedOffers_PublishesEvents(t *testing.T) {
 				map[string]any{
 					"tradeofferid":      "12345",
 					"trade_offer_state": int(trading.OfferStateAccepted),
-					"accountid_other":   999,
+					"accountid_other":   "76561197960265728",
+					"message":           "test offer",
 					"time_updated":      1710000100,
 				},
 			},
@@ -271,7 +273,7 @@ func TestPoll_NewAndUpdatedOffers_PublishesEvents(t *testing.T) {
 			t.Errorf("expected current state %v, got %v", trading.OfferStateAccepted, event.Offer.State)
 		}
 
-	case <-t.Context().Done():
+	case <-time.After(5 * time.Second):
 		t.Fatal("timeout waiting for OfferChangedEvent")
 	}
 }
@@ -547,6 +549,8 @@ func TestPoll_StateChanges_EmitsPollDataEvent(t *testing.T) {
 				map[string]any{
 					"tradeofferid":      "123",
 					"trade_offer_state": int(trading.OfferStateActive),
+					"accountid_other":   "76561197960265728",
+					"message":           "test offer",
 					"time_updated":      1710000000,
 				},
 			},
@@ -566,7 +570,7 @@ func TestPoll_StateChanges_EmitsPollDataEvent(t *testing.T) {
 			t.Errorf("expected Received[123] %v, got %v", trading.OfferStateActive, eventData.Received[123])
 		}
 
-	case <-t.Context().Done():
+	case <-time.After(5 * time.Second):
 		t.Fatal("timeout waiting for PollDataEvent")
 	}
 }
@@ -584,6 +588,8 @@ func TestPoll_ExpiredSentOffers(t *testing.T) {
 				"trade_offers_sent": []any{
 					map[string]any{
 						"tradeofferid":      "999",
+						"accountid_other":   "76561197960265728",
+						"message":           "test offer",
 						"trade_offer_state": int(trading.OfferStateActive),
 						"is_our_offer":      true,
 						"time_updated":      time.Now().Add(-2 * time.Hour).Unix(),
@@ -619,7 +625,7 @@ func TestPoll_ExpiredSentOffers(t *testing.T) {
 			if cid != 999 {
 				t.Errorf("expected cancelled offer ID 999, got %d", cid)
 			}
-		case <-t.Context().Done():
+		case <-time.After(5 * time.Second):
 			t.Fatal("timeout waiting for CancelTradeOffer call")
 		}
 	})
@@ -634,6 +640,8 @@ func TestPoll_ExpiredSentOffers(t *testing.T) {
 				"trade_offers_sent": []any{
 					map[string]any{
 						"tradeofferid":      "999",
+						"accountid_other":   "76561197960265728",
+						"message":           "test offer",
 						"trade_offer_state": int(trading.OfferStateActive),
 						"is_our_offer":      true,
 						"time_updated":      time.Now().Add(-2 * time.Hour).Unix(),
@@ -659,7 +667,7 @@ func TestPoll_ExpiredSentOffers(t *testing.T) {
 
 		select {
 		case <-cancelChan:
-		case <-t.Context().Done():
+		case <-time.After(5 * time.Second):
 			t.Fatal("timeout waiting for failed CancelTradeOffer call")
 		}
 	})
@@ -679,12 +687,16 @@ func TestPoll_SentOffersExceedLimit(t *testing.T) {
 				"trade_offers_sent": []any{
 					map[string]any{
 						"tradeofferid":      "1001",
+						"accountid_other":   "76561197960265728",
+						"message":           "test offer",
 						"trade_offer_state": int(trading.OfferStateActive),
 						"is_our_offer":      true,
 						"time_updated":      time.Now().Add(-10 * time.Minute).Unix(),
 					},
 					map[string]any{
 						"tradeofferid":      "1002",
+						"accountid_other":   "76561197960265728",
+						"message":           "test offer",
 						"trade_offer_state": int(trading.OfferStateActive),
 						"is_our_offer":      true,
 						"time_updated":      time.Now().Add(-6 * time.Minute).Unix(),
@@ -720,7 +732,7 @@ func TestPoll_SentOffersExceedLimit(t *testing.T) {
 			if cid != 1001 {
 				t.Errorf("expected cancelled offer ID 1001, got %d", cid)
 			}
-		case <-t.Context().Done():
+		case <-time.After(5 * time.Second):
 			t.Fatal("timeout waiting for oldest offer cancellation")
 		}
 	})
@@ -736,12 +748,16 @@ func TestPoll_SentOffersExceedLimit(t *testing.T) {
 				"trade_offers_sent": []any{
 					map[string]any{
 						"tradeofferid":      "1001",
+						"accountid_other":   "76561197960265728",
+						"message":           "test offer",
 						"trade_offer_state": int(trading.OfferStateActive),
 						"is_our_offer":      true,
 						"time_updated":      time.Now().Add(-10 * time.Minute).Unix(),
 					},
 					map[string]any{
 						"tradeofferid":      "1002",
+						"accountid_other":   "76561197960265728",
+						"message":           "test offer",
 						"trade_offer_state": int(trading.OfferStateActive),
 						"is_our_offer":      true,
 						"time_updated":      time.Now().Add(-6 * time.Minute).Unix(),
@@ -767,7 +783,7 @@ func TestPoll_SentOffersExceedLimit(t *testing.T) {
 
 		select {
 		case <-cancelChan:
-		case <-t.Context().Done():
+		case <-time.After(5 * time.Second):
 			t.Fatal("timeout waiting for failed limit CancelTradeOffer call")
 		}
 	})

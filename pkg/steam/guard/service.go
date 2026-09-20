@@ -8,13 +8,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/lemon4ksan/aoni/codec/decode"
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/foundation/generic"
 	"github.com/lemon4ksan/foundation/silicon/bytesconv"
@@ -125,16 +125,21 @@ func (s *MobileConf) GetConfirmationOfferID(
 
 	path := "mobileconf/detailspage/" + strconv.FormatUint(confID, 10)
 
-	respBytes, err := community.GetTo[[]byte](
+	body, err := community.GetHTML(
 		ctx, s.client, path,
 		mod.WithQuery(params),
-		decode.WithRaw(),
 	)
 	if err != nil {
 		return 0, err
 	}
+	defer body.Close()
 
-	matches := rxTradeOfferID.FindSubmatch(*respBytes)
+	respBytes, err := io.ReadAll(body)
+	if err != nil {
+		return 0, err
+	}
+
+	matches := rxTradeOfferID.FindSubmatch(respBytes)
 	if len(matches) < 2 {
 		return 0, ErrOfferIDNotFound
 	}

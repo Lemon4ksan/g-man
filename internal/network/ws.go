@@ -14,10 +14,10 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/aoni"
-	"github.com/lemon4ksan/aoni/fast"
+	
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/option"
-	"github.com/lemon4ksan/aoni/realtime/ws"
+	"github.com/lemon4ksan/aoni/x/realtime/ws"
 	log "github.com/lemon4ksan/foundation/async/logkit"
 
 	"github.com/lemon4ksan/g-man/internal/framer"
@@ -152,7 +152,7 @@ func NewWSWithFastClient(
 	logger log.Logger,
 	endpoint, proxyURL string,
 	headers http.Header,
-	fastClient *fast.Client,
+	fastClient *aoni.Client,
 ) (*WS, error) {
 	if fastClient == nil {
 		return NewWSWithClient(ctx, logger, endpoint, proxyURL, headers, nil)

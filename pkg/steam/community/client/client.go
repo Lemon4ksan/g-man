@@ -16,7 +16,7 @@ import (
 	"strings"
 
 	"github.com/lemon4ksan/aoni"
-	"github.com/lemon4ksan/aoni/codec/extract"
+	"github.com/lemon4ksan/aoni/x/codec/extract"
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/option"
 	log "github.com/lemon4ksan/foundation/async/logkit"
@@ -304,6 +304,10 @@ var (
 // IsSessionExpiredError reports whether err indicates an expired Steam web session.
 func IsSessionExpiredError(err error) bool {
 	if err == nil {
+		return false
+	}
+
+	if errors.Is(err, ErrFamilyViewRestricted) {
 		return false
 	}
 

@@ -16,7 +16,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/lemon4ksan/aoni/ast"
+	"github.com/lemon4ksan/vortex/ast"
 	"github.com/lemon4ksan/foundation/codec/json"
 )
 

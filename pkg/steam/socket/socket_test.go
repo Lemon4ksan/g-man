@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	aoni_socket "github.com/lemon4ksan/aoni/realtime/socket"
-	"github.com/lemon4ksan/aoni/realtime/socket/connector"
+	aoni_socket "github.com/lemon4ksan/aoni-contrib/socket"
+	"github.com/lemon4ksan/aoni-contrib/socket/connector"
 	log "github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

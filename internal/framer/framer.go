@@ -12,7 +12,7 @@ import (
 	"io"
 	"net"
 
-	"github.com/lemon4ksan/aoni/realtime/socket"
+	"github.com/lemon4ksan/aoni-contrib/socket"
 
 	"github.com/lemon4ksan/g-man/internal/crypto"
 )

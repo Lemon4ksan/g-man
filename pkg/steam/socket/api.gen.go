@@ -15,10 +15,10 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 
-	"github.com/lemon4ksan/aoni/realtime/socket"
-	"github.com/lemon4ksan/aoni/realtime/socket/connector"
-	"github.com/lemon4ksan/aoni/realtime/socket/dispatcher"
-	"github.com/lemon4ksan/aoni/realtime/socket/processor"
+	"github.com/lemon4ksan/aoni-contrib/socket"
+	"github.com/lemon4ksan/aoni-contrib/socket/connector"
+	"github.com/lemon4ksan/aoni-contrib/socket/dispatcher"
+	"github.com/lemon4ksan/aoni-contrib/socket/processor"
 )
 
 // SteamSocketConfig configures the SteamSocket socket subsystem.

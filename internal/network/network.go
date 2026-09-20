@@ -10,7 +10,7 @@ import (
 	"sync/atomic"
 
 	"github.com/lemon4ksan/aoni"
-	"github.com/lemon4ksan/aoni/realtime/socket"
+	"github.com/lemon4ksan/aoni-contrib/socket"
 
 	"github.com/lemon4ksan/g-man/internal/framer"
 )

@@ -17,7 +17,7 @@ import (
 	"strings"
 
 	"github.com/lemon4ksan/aoni"
-	"github.com/lemon4ksan/aoni/codec/values"
+	"github.com/lemon4ksan/aoni/x/codec/values"
 	"github.com/lemon4ksan/aoni/mod"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/community/client"
@@ -113,7 +113,7 @@ func GetTo[Resp any](
 		mod.WithHeader("X-Requested-With", "XMLHttpRequest"),
 	}, mods...)
 
-	res, _, err := aoni.FetchTo[*Resp](ctx, r, http.MethodGet, path, mods...)
+	res, err := aoni.FetchTo[*Resp](ctx, r, http.MethodGet, path, mods...)
 	return res, err
 }
 
@@ -153,7 +153,7 @@ func PostTo[Resp any](
 		mod.WithSmartBody(body),
 	}, mods...)
 
-	res, _, err := aoni.FetchTo[*Resp](ctx, r, http.MethodPost, path, mods...)
+	res, err := aoni.FetchTo[*Resp](ctx, r, http.MethodPost, path, mods...)
 	return res, err
 }
 
@@ -210,7 +210,7 @@ func PostFormTo[Resp any](
 		mod.WithContentType("application/x-www-form-urlencoded; charset=UTF-8"),
 	}, mods...)
 
-	res, _, err := aoni.FetchTo[*Resp](ctx, r, http.MethodPost, path, mods...)
+	res, err := aoni.FetchTo[*Resp](ctx, r, http.MethodPost, path, mods...)
 	return res, err
 }
 

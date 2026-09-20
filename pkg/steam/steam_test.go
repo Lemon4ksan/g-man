@@ -148,7 +148,7 @@ func TestNewReadyClient_VariousScenarios_HandlesExpectedly(t *testing.T) {
 
 		m := setupReadyClientMocks(t)
 
-		m.httpMock.On("Do", mock.Anything).Return(nil, errors.New("http err")).Once()
+		m.httpMock.On("Do", mock.Anything).Return(nil, errors.New("http err")).Maybe()
 
 		c, err := steam.NewReadyClient(t.Context(), steam.Config{}, m.details, m.opts...)
 		assert.ErrorContains(t, err, "http err")

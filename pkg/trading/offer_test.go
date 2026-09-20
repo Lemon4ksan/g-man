@@ -91,7 +91,7 @@ func TestTradeOffer_IsGlitched(t *testing.T) {
 			name: "valid_offer",
 			offer: &TradeOffer{
 				OtherSteamID: id.ID(76561197960265728),
-				ItemsToGive:  []*Item{{AssetID: 100}},
+				ItemsToGive:  []*Item{{AssetID: 100, MarketHashName: "Mann Co. Supply Crate Key"}},
 			},
 			glitched: false,
 		},

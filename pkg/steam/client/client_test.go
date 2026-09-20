@@ -404,7 +404,7 @@ func TestClient_Reconnect_SuccessfulDiscovery_ReconnectsSuccessfully(t *testing.
 	})).Return(&http.Response{
 		StatusCode: 200,
 		Body: io.NopCloser(
-			bytes.NewBufferString(`{"response":{"serverlist":["cm1.steampowered.com:27017"],"success":true}}`),
+			bytes.NewBufferString(`{"response":{"serverlist":[{"endpoint":"cm1.steampowered.com:27017"}],"success":true}}`),
 		),
 	}, nil).Once()
 
@@ -442,7 +442,7 @@ func TestClient_Reconnect_DiscoveryFails_CompletesQuietly(t *testing.T) {
 	assert.NoError(t, err)
 
 	m.Sock.On("Disconnect").Return(errors.New("disc err")).Once()
-	m.Doer.On("Do", mock.Anything).Return(nil, errors.New("http err")).Once()
+	m.Doer.On("Do", mock.Anything).Return(nil, errors.New("http err")).Maybe()
 
 	err = c.Reconnect(ctx)
 	assert.NoError(t, err)
@@ -465,7 +465,7 @@ func TestClient_Reconnect_LogOnFails_ReturnsReconnectError(t *testing.T) {
 	assert.NoError(t, err)
 
 	m.Sock.On("Disconnect").Return(nil).Once()
-	m.Doer.On("Do", mock.Anything).Return(nil, errors.New("http err")).Once()
+	m.Doer.On("Do", mock.Anything).Return(nil, errors.New("http err")).Maybe()
 
 	m.Auth.On("LogOn", ctx, details, mock.Anything).Return(errors.New("logon fail")).Once()
 

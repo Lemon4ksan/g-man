@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lemon4ksan/aoni/fast"
-	"github.com/lemon4ksan/aoni/realtime/ws"
+	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/aoni/x/realtime/ws"
 	log "github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/stretchr/testify/assert"
 
@@ -251,7 +251,7 @@ func TestWS_ReadLoop(t *testing.T) {
 		_, err := NewWSWithFastClient(shortCtx(t), log.Discard, "invalid:80", "", headers, nil)
 		assert.Error(t, err)
 
-		fc := fast.NewClient(nil)
+		fc := aoni.NewClient(nil)
 		_, err = NewWSWithFastClient(shortCtx(t), log.Discard, "invalid:80", "", headers, fc)
 		assert.Error(t, err)
 	})
