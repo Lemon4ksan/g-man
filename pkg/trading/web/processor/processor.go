@@ -138,7 +138,7 @@ func (p *Processor) CheckEscrow(ctx context.Context, offer *trading.TradeOffer) 
 		log.Int("theirHoldDays", details.TheirDays),
 	)
 
-	return details.TheirDays > 0, nil
+	return details.HasHold(), nil
 }
 
 func (p *Processor) worker(ctx context.Context) {

@@ -126,16 +126,7 @@ func (cfg *Config) ResolveDefaults() {
 
 	if cfg.WebFactory == nil {
 		cfg.WebFactory = func(steamID id.ID, logger log.Logger, r any) WebSessionProvider {
-			ws := websession.New(steamID, logger, r)
-			ws.WithTokenRefresher(func(ctx context.Context, refreshToken string) (string, error) {
-				svc := auth.NewAuthenticationService(aoni.NewRequestDoerAdapter(r), cfg.Device)
-				resp, err := svc.GenerateAccessTokenForApp(ctx, refreshToken, uint64(steamID))
-				if err != nil {
-					return "", err
-				}
-				return resp.GetAccessToken(), nil
-			})
-			return ws
+			return websession.New(steamID, logger, r)
 		}
 	}
 

@@ -56,6 +56,10 @@ const (
 	cookieSteamLoginSecure = "steamLoginSecure"
 )
 
+type refreshCtxKey struct{}
+
+var inRefreshKey = &refreshCtxKey{}
+
 // WebSession maintains cookie jars across Steam web domains and provides authenticated HTTP Doer capabilities.
 //
 // Thread Safety:
@@ -154,6 +158,22 @@ func (s *WebSession) REST() *aoni.Client {
 	return aoni.NewClient(middleware.Chain(s, reauth, retrier))
 }
 
+// rawREST returns an aoni.Client wrapping the WebSession with retries but WITHOUT ReAuth middleware.
+// This is used internally during authentication, transfers, and verification to prevent mutual recursion.
+func (s *WebSession) rawREST() *aoni.Client {
+	s.mu.RLock()
+	backoff := s.retryBackoff
+	s.mu.RUnlock()
+
+	retrier := middleware.Retry(middleware.RetryOptions{
+		MaxRetries:     3,
+		Backoff:        backoff,
+		AllowedMethods: []string{"GET", "POST", "HEAD", "PUT", "DELETE"},
+	}, middleware.RetryOnErr())
+
+	return aoni.NewClient(middleware.Chain(s, retrier))
+}
+
 // HTTP returns the underlying http.Client instance.
 func (s *WebSession) HTTP() *http.Client {
 	s.mu.RLock()
@@ -207,6 +227,11 @@ func (s *WebSession) Authenticate(
 
 // Refresh re-authenticates the WebSession using stored credentials.
 func (s *WebSession) Refresh(ctx context.Context) error {
+	if ctx.Value(inRefreshKey) != nil {
+		return errors.New("websession: refresh recursion detected")
+	}
+	ctx = context.WithValue(ctx, inRefreshKey, struct{}{})
+
 	s.mu.RLock()
 	refreshToken := s.lastRefreshToken
 	platform := s.lastPlatform
@@ -295,10 +320,16 @@ func (s *WebSession) Verify(ctx context.Context) (bool, error) {
 		return false, nil
 	}
 
-	_, err := s.REST().GetTo[aoni.NoResponse](ctx, urlVerify)
+	_, err := s.rawREST().GetTo[aoni.NoResponse](ctx, urlVerify)
 	if err != nil {
-		s.Clear()
-		return false, nil //nolint:nilerr
+		if errors.Is(err, ErrSessionExpiredRedirect) || aoni.IsUnauthorized(err) || aoni.IsForbidden(err) {
+			s.logger.Warn("WebSession verification failed: session expired or unauthorized", log.Err(err))
+			s.Clear()
+			return false, nil
+		}
+
+		s.logger.Error("WebSession verification encountered network error (cookies preserved)", log.Err(err))
+		return false, fmt.Errorf("websession: verify failed: %w", err)
 	}
 
 	return true, nil
@@ -384,7 +415,7 @@ func (s *WebSession) authSlowPath(ctx context.Context, refreshToken, sessionID s
 		} `json:"transfer_info"`
 	}
 
-	res, err := s.REST().PostTo[finalizeResponse](ctx, urlFinalize, payload)
+	res, err := s.rawREST().PostTo[finalizeResponse](ctx, urlFinalize, payload)
 	if err != nil {
 		return fmt.Errorf("websession: finalize login failed: %w", err)
 	}
@@ -416,7 +447,7 @@ func (s *WebSession) executeTransfer(ctx context.Context, transferURL string, pa
 		Result enums.EResult `json:"result"`
 	}
 
-	resp, err := s.REST().PostTo[transferResp](ctx, transferURL, nil, mod.WithFormBody(params))
+	resp, err := s.rawREST().PostTo[transferResp](ctx, transferURL, nil, mod.WithFormBody(params))
 	if err != nil {
 		return err
 	}

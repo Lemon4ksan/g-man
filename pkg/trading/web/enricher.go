@@ -198,7 +198,7 @@ func (e *Enricher) fetchAssetClassInfos(
 		chunks = append(chunks, uncachedKeys[i:end])
 	}
 
-	cfg := pipeline.Config{Workers: 3, RPS: 5, Burst: 2}
+	cfg := pipeline.PipelineConfig{Workers: 3, RPS: 5, Burst: 2}
 
 	results, err := pipeline.Map(
 		ctx,

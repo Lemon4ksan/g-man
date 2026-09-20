@@ -113,7 +113,8 @@ func GetTo[Resp any](
 		mod.WithHeader("X-Requested-With", "XMLHttpRequest"),
 	}, mods...)
 
-	return aoni.FetchTo[*Resp](ctx, r, http.MethodGet, path, mods...)
+	res, _, err := aoni.FetchTo[*Resp](ctx, r, http.MethodGet, path, mods...)
+	return res, err
 }
 
 // GetHTML executes a GET request and returns an HTML body stream.
@@ -152,7 +153,8 @@ func PostTo[Resp any](
 		mod.WithSmartBody(body),
 	}, mods...)
 
-	return aoni.FetchTo[*Resp](ctx, r, http.MethodPost, path, mods...)
+	res, _, err := aoni.FetchTo[*Resp](ctx, r, http.MethodPost, path, mods...)
+	return res, err
 }
 
 // PostFormTo executes a POST request with URL-encoded form data.
@@ -208,7 +210,8 @@ func PostFormTo[Resp any](
 		mod.WithContentType("application/x-www-form-urlencoded; charset=UTF-8"),
 	}, mods...)
 
-	return aoni.FetchTo[*Resp](ctx, r, http.MethodPost, path, mods...)
+	res, _, err := aoni.FetchTo[*Resp](ctx, r, http.MethodPost, path, mods...)
+	return res, err
 }
 
 func urlValuesHasKey(formStr, key string) bool {

@@ -7,6 +7,7 @@ package guard
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/lemon4ksan/foundation/silicon/clock"
@@ -34,7 +35,9 @@ type ConfirmationPoller struct {
 	triggerCh  chan struct{}
 	stopCh     chan struct{}
 	mu         sync.Mutex
+	wg         sync.WaitGroup
 	running    bool
+	stopped    atomic.Bool
 }
 
 // NewPoller creates an adaptive 2FA confirmation poller.
@@ -51,12 +54,15 @@ func NewPoller(mobileConf *MobileConf, cfg PollerConfig) *ConfirmationPoller {
 		cfg.BurstDuration = 30 * time.Second
 	}
 
-	return &ConfirmationPoller{
+	p := &ConfirmationPoller{
 		mobileConf: mobileConf,
 		cfg:        cfg,
 		triggerCh:  make(chan struct{}, 8),
 		stopCh:     make(chan struct{}),
 	}
+	p.stopped.Store(true)
+
+	return p
 }
 
 // Trigger proactively wakes up the poller into high-frequency burst mode (e.g. after sending a trade offer).
@@ -115,9 +121,13 @@ func (p *ConfirmationPoller) Start(ctx context.Context) {
 	}
 
 	p.running = true
+	p.stopCh = make(chan struct{})
+	p.stopped.Store(false)
+	stopCh := p.stopCh
+	p.wg.Add(1)
 	p.mu.Unlock()
 
-	go p.loop(ctx)
+	go p.loop(ctx, stopCh)
 }
 
 // Stop terminates the polling loop.
@@ -130,10 +140,16 @@ func (p *ConfirmationPoller) Stop() {
 	}
 
 	p.running = false
-	close(p.stopCh)
+	if p.stopped.CompareAndSwap(false, true) {
+		close(p.stopCh)
+	}
+
+	p.wg.Wait()
 }
 
-func (p *ConfirmationPoller) loop(ctx context.Context) {
+func (p *ConfirmationPoller) loop(ctx context.Context, stopCh <-chan struct{}) {
+	defer p.wg.Done()
+
 	idleTicker := time.NewTicker(p.cfg.IdleInterval)
 	defer idleTicker.Stop()
 
@@ -141,17 +157,17 @@ func (p *ConfirmationPoller) loop(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case <-p.stopCh:
+		case <-stopCh:
 			return
 		case <-idleTicker.C:
 			_, _ = p.PollOnce(ctx)
 		case <-p.triggerCh:
-			p.runBurst(ctx)
+			p.runBurst(ctx, stopCh)
 		}
 	}
 }
 
-func (p *ConfirmationPoller) runBurst(ctx context.Context) {
+func (p *ConfirmationPoller) runBurst(ctx context.Context, stopCh <-chan struct{}) {
 	burstDeadline := clock.CoarseTime().Add(p.cfg.BurstDuration)
 
 	burstTicker := time.NewTicker(p.cfg.BurstInterval)
@@ -164,7 +180,7 @@ func (p *ConfirmationPoller) runBurst(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case <-p.stopCh:
+		case <-stopCh:
 			return
 		case <-burstTicker.C:
 			if clock.CoarseTime().After(burstDeadline) {

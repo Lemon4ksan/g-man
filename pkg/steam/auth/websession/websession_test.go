@@ -6,6 +6,7 @@ package websession
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -302,6 +303,25 @@ func TestVerify(t *testing.T) {
 		ws.isAuth = true
 		ok, err := ws.Verify(t.Context())
 		assert.False(t, ok)
+		assert.True(t, ws.IsAuthenticated())
+		assert.ErrorContains(t, err, "network error")
+	})
+
+	t.Run("verify_unauthorized_clears_session", func(t *testing.T) {
+		t.Parallel()
+
+		mt := setupMockTransport()
+		mt.handlers[urlVerify] = func(r *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: http.StatusUnauthorized,
+				Body:       io.NopCloser(strings.NewReader("")),
+				Request:    r,
+			}, nil
+		}
+		ws := newMockedSession(mt)
+		ws.isAuth = true
+		ok, err := ws.Verify(t.Context())
+		assert.False(t, ok)
 		assert.False(t, ws.IsAuthenticated())
 		assert.NoError(t, err)
 	})
@@ -441,6 +461,9 @@ func TestRefreshAndAutoRefresh(t *testing.T) {
 		t.Parallel()
 
 		ws := newMockedSession(setupMockTransport())
+		ws.WithTokenRefresher(func(ctx context.Context, refreshToken string) (string, error) {
+			return "access_token", nil
+		})
 		err := ws.Authenticate(
 			t.Context(),
 			pb.EAuthTokenPlatformType_k_EAuthTokenPlatformType_SteamClient,
@@ -472,4 +495,38 @@ func TestRefreshAndAutoRefresh(t *testing.T) {
 		assert.True(t, ws.IsAuthenticated())
 		ws.StopAutoRefresh()
 	})
+}
+
+func TestWebSession_Refresh_FinalizeUnauthorized_NoInfiniteRecursion(t *testing.T) {
+	t.Parallel()
+
+	mt := setupMockTransport()
+	mt.handlers[urlFinalize] = func(r *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusUnauthorized,
+			Body:       io.NopCloser(strings.NewReader(`{"error": "Unauthorized"}`)),
+			Header:     http.Header{"Content-Type": {"application/json"}},
+			Request:    r,
+		}, nil
+	}
+
+	ws := newMockedSession(mt)
+	ws.retryBackoff = time.Millisecond
+
+	// Must fail cleanly with error and NOT crash the test process with stack overflow
+	err := ws.Authenticate(t.Context(), pb.EAuthTokenPlatformType_k_EAuthTokenPlatformType_WebBrowser, "invalid_nonce", "")
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "finalize login failed")
+	assert.False(t, ws.IsAuthenticated())
+}
+
+func TestWebSession_Refresh_RecursionCircuitBreaker(t *testing.T) {
+	t.Parallel()
+
+	ws := newMockedSession(setupMockTransport())
+	ctx := context.WithValue(t.Context(), inRefreshKey, struct{}{})
+
+	err := ws.Refresh(ctx)
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "refresh recursion detected")
 }

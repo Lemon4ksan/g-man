@@ -301,6 +301,23 @@ func TestCheckEscrow(t *testing.T) {
 		}
 	})
 
+	t.Run("fetch_escrow_success_with_my_hold", func(t *testing.T) {
+		t.Parallel()
+
+		f := newTestFixture(t, trading.ActionDecision{}, 0)
+		f.manager.escrowDetails = Details{MyDays: 15, TheirDays: 0}
+		off := &trading.TradeOffer{ID: 6}
+
+		hold, err := f.proc.CheckEscrow(t.Context(), off)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if !hold {
+			t.Errorf("expected hold to be true")
+		}
+	})
+
 	t.Run("fetch_escrow_error_aborts_on_timeout", func(t *testing.T) {
 		t.Parallel()
 
@@ -601,14 +618,15 @@ func TestHandleOffer(t *testing.T) {
 			t.Fatal("timeout waiting for SendOffer call")
 		}
 
-		lockCalls, unlockCalls := f.bp.GetCalls()
+		lockCalls, _ := f.bp.GetCalls()
 		if lockCalls != 1 {
 			t.Errorf("expected LockItems once, got %d", lockCalls)
 		}
 
-		if unlockCalls != 1 {
-			t.Errorf("expected UnlockItems once after counter-offer, got %d", unlockCalls)
-		}
+		assert.Eventually(t, func() bool {
+			_, unlockCalls := f.bp.GetCalls()
+			return unlockCalls == 1
+		}, 500*time.Millisecond, 5*time.Millisecond, "expected UnlockItems once after counter-offer")
 	})
 
 	t.Run("executor_failure_retries_and_calls_on_action_failed", func(t *testing.T) {

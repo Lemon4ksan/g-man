@@ -36,6 +36,11 @@ func (c *Canceller) PushActiveSent(off *trading.TradeOffer) {
 	c.priorityQueue.Push(off)
 }
 
+// Remove removes a sent offer from auto-cancellation tracking.
+func (c *Canceller) Remove(offerID uint64) bool {
+	return c.priorityQueue.Remove(offerID)
+}
+
 // HandleAutoCancellation processes timeout and count limit cancellations on sent offers.
 func (c *Canceller) HandleAutoCancellation(
 	ctx context.Context,
@@ -91,6 +96,8 @@ func (c *Canceller) cancelTimeouts(
 				if c.logger != nil {
 					c.logger.Error("Failed to auto-cancel offer", log.Uint64("offer_id", id), log.Err(err))
 				}
+			} else {
+				c.priorityQueue.Remove(id)
 			}
 		}(off.ID)
 	}
@@ -146,6 +153,8 @@ func (c *Canceller) cancelOverLimit(
 				if c.logger != nil {
 					c.logger.Error("Failed to auto-cancel oldest offer", log.Uint64("offer_id", id), log.Err(err))
 				}
+			} else {
+				c.priorityQueue.Remove(id)
 			}
 		}(oldest.ID)
 	}
