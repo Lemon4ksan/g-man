@@ -70,3 +70,22 @@ func (m *WebSession) IsAuthenticated() bool {
 	args := m.Called()
 	return args.Bool(0)
 }
+
+func (m *WebSession) WithTokenRefresher(refresher func(ctx context.Context, refreshToken string) (string, error)) {
+	for _, call := range m.ExpectedCalls {
+		if call.Method == "WithTokenRefresher" {
+			m.Called(refresher)
+			return
+		}
+	}
+}
+
+func (m *WebSession) Refresh(ctx context.Context) error {
+	for _, call := range m.ExpectedCalls {
+		if call.Method == "Refresh" {
+			args := m.Called(ctx)
+			return args.Error(0)
+		}
+	}
+	return nil
+}

@@ -8,9 +8,41 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
+	"strconv"
+	"strings"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 )
+
+var eResultPattern = regexp.MustCompile(`\((\d+)\)`)
+
+// ParseEResultFromMessage extracts an EResult code enclosed in parentheses from an error string.
+// E.g. "There was an error accepting this offer. Please try again later. (11)" -> EResult_InvalidState (11).
+// Also parses common Steam message patterns matching node-steam-tradeoffer-manager.
+func ParseEResultFromMessage(msg string) (enums.EResult, bool) {
+	if match := eResultPattern.FindStringSubmatch(msg); len(match) > 1 {
+		if code, err := strconv.Atoi(match[1]); err == nil {
+			return enums.EResult(code), true
+		}
+	}
+	if strings.Contains(msg, "sent too many trade offers") {
+		return enums.EResult_LimitExceeded, true
+	}
+	if strings.Contains(msg, "unable to contact the game's item server") {
+		return enums.EResult_ServiceUnavailable, true
+	}
+	return enums.EResult_Invalid, false
+}
+
+// ExtractEResult extracts the EResult enum from err if it wraps an EResultError.
+func ExtractEResult(err error) (enums.EResult, bool) {
+	if eresultErr, ok := errors.AsType[*EResultError](err); ok {
+		return eresultErr.Result, true
+	}
+	return enums.EResult_Invalid, false
+}
+
 
 var (
 	// ErrSessionExpired signals that the active session or OAuth2 access token has expired.
@@ -85,7 +117,8 @@ func (e *EResultError) IsRetriable() bool {
 		enums.EResult_ServiceUnavailable,
 		enums.EResult_Pending,
 		enums.EResult_Busy,
-		enums.EResult_LimitExceeded:
+		enums.EResult_LimitExceeded,
+		enums.EResult(28):
 		return true
 	}
 

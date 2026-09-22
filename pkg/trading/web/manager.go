@@ -42,6 +42,8 @@ var (
 
 	// ErrUnauthenticatedTrade indicates community client is not authenticated.
 	ErrUnauthenticatedTrade = errors.New("trading: community client not authenticated or initialized")
+	// ErrEmptyResponse indicates Steam returned an empty HTTP response body.
+	ErrEmptyResponse = errors.New("trading: empty response received from steam")
 	// ErrOfferNotFound indicates requested trade offer does not exist.
 	ErrOfferNotFound = errors.New("trade offer not found")
 	// ErrMissingPartnerParam indicates trade URL does not contain partner parameter.

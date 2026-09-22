@@ -75,6 +75,8 @@ func SetupTestClient(t *testing.T) (*client.Client, *TestMocks) {
 	m.Sock.On("UpdateServers", mock.Anything).Return().Maybe()
 	m.Web.On("Verify", mock.Anything).Return(true, nil).Maybe()
 	m.Web.On("HTTP").Return(&http.Client{}).Maybe()
+	m.Web.On("WithTokenRefresher", mock.Anything).Maybe()
+	m.Web.On("Refresh", mock.Anything).Return(nil).Maybe()
 	m.Comm.On("GetOrRegisterAPIKey", mock.Anything, mock.Anything).Return("key_123", nil).Maybe()
 
 	return c, m

@@ -116,10 +116,18 @@ type SendNewTradeOfferRequest struct {
 
 // AcceptTradeOfferRequest defines the request for accepting a trade offer.
 //
+// Invariant: Steam Community POST "tradeoffer/{offerID}/accept" strictly requires
+// the partner's 64-bit SteamID (`partner`) and an empty `captcha=` form field.
+// Omitting `partner` or passing "0" causes Steam to return HTTP 403 Forbidden.
+//
+// Parity: matches node-steam-tradeoffer-manager (lib/classes/TradeOffer.js: accept).
+//
 // @aoni:dto casing=snake_case
 type AcceptTradeOfferRequest struct {
 	ServerID     int    `json:"serverid"     url:"serverid"`
 	TradeOfferID uint64 `json:"tradeofferid" url:"tradeofferid"`
+	Partner      uint64 `json:"partner"      url:"partner"`
+	Captcha      string `json:"captcha"      url:"captcha"`
 }
 
 type GetOffersResponse struct {

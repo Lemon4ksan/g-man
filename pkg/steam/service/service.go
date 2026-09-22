@@ -298,6 +298,14 @@ func LegacyProto[Resp any](
 }
 
 // Execute transmits a Request and unmarshals the response payload into Resp.
+//
+// Invariant: Valve WebAPI and Community endpoints intermittently return "x-eresult: 2"
+// (EResult_Fail) on successful operations (e.g. trade offer mutations or community queries)
+// even when the HTTP status code is 200 and the JSON response payload is completely valid.
+// If an EResult_Fail error occurs but the response body successfully decodes into Resp,
+// the error is discarded and the payload is accepted.
+//
+// Parity: matches node-steam-tradeoffer-manager and steamcommunity error handling.
 func Execute[Resp any](
 	ctx context.Context,
 	d Doer,
@@ -317,7 +325,7 @@ func Execute[Resp any](
 	resp, doErr := d.Do(ctx, req)
 	if doErr != nil {
 		var resErr *EResultError
-		if !(errors.As(doErr, &resErr) && resErr.Result == enums.EResult_Fail && resp != nil) {
+		if (!errors.As(doErr, &resErr) || resErr.Result != enums.EResult_Fail || resp == nil) {
 			if resp != nil {
 				_ = resp.Body.Close()
 			}

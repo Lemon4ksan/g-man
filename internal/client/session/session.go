@@ -57,6 +57,8 @@ type WebSessionProvider interface {
 	Verify(ctx context.Context) (bool, error)
 	Authenticate(ctx context.Context, platformType pb.EAuthTokenPlatformType, refreshToken, accessToken string) error
 	IsAuthenticated() bool
+	WithTokenRefresher(refresher func(ctx context.Context, refreshToken string) (string, error))
+	Refresh(ctx context.Context) error
 }
 
 // SocketProvider encapsulates socket operations required by Session.
@@ -322,6 +324,28 @@ func (c *Session) Web() WebSessionProvider {
 		c.mu.Lock()
 		if c.web == nil {
 			c.web = c.webFactory(steamID, c.logger, c.http)
+			c.web.WithTokenRefresher(func(ctx context.Context, refreshToken string) (string, error) {
+				sid := c.SteamID().Uint64()
+				if sid == 0 {
+					return "", errors.New("session: cannot refresh token with zero steamID")
+				}
+
+				socketAuthSvc := auth.NewAuthenticationService(c.socketAPI, c.device)
+
+				resp, err := socketAuthSvc.GenerateAccessTokenForApp(ctx, refreshToken, sid)
+				if err != nil {
+					return "", err
+				}
+
+				newToken := resp.GetAccessToken()
+				if newToken != "" {
+					if err := c.SetAccessToken(newToken); err != nil {
+						c.Logger().Warn("Failed to propagate access token to session transports", log.Err(err))
+					}
+				}
+
+				return newToken, nil
+			})
 		}
 
 		web = c.web
@@ -389,6 +413,10 @@ func (c *Session) SetAPIKey(key string) {
 // Returns:
 //   - ErrSocketNotConnected if no active socket session exists.
 func (c *Session) SetAccessToken(token string) error {
+	if c.socket == nil {
+		return ErrSocketNotConnected
+	}
+
 	sess := c.socket.Session()
 	if sess == nil {
 		return ErrSocketNotConnected
@@ -396,15 +424,21 @@ func (c *Session) SetAccessToken(token string) error {
 
 	sess.SetAccessToken(token)
 
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	if c.unified != nil {
-		c.unified.SetAccessToken(token)
+	c.mu.Lock()
+	if c.logonDetails != nil {
+		c.logonDetails.AccessToken = token
 	}
 
-	if c.socketAPI != nil {
-		c.socketAPI.SetAccessToken(token)
+	unified := c.unified
+	socketAPI := c.socketAPI
+	c.mu.Unlock()
+
+	if unified != nil {
+		unified.SetAccessToken(token)
+	}
+
+	if socketAPI != nil {
+		socketAPI.SetAccessToken(token)
 	}
 
 	return nil

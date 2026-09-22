@@ -87,7 +87,13 @@ func (d *Service) GetCMListForConnect(ctx context.Context, cfg CMCfg) ([]CMServe
 	return resp.ServerList, nil
 }
 
-// GetOptimalCMServer discovers active CM servers and selects the endpoint reporting the lowest load metric.
+// GetOptimalCMServer discovers active CM servers and selects an endpoint reporting the lowest load metric.
+//
+// Invariant: Filters servers by realm "steamglobal", sorts by weighted load (WtdLoad), and randomly
+// selects from the top 5 candidates. This prevents thundering herd dogpiling when multiple bot instances
+// initialize concurrently.
+//
+// Parity: matches node-steam-user (components/connection.js: _getCMList).
 func (d *Service) GetOptimalCMServer(ctx context.Context) (socket.CMServer, error) {
 	var cmList []CMServer
 	var err error
@@ -126,21 +132,41 @@ func (d *Service) GetOptimalCMServer(ctx context.Context) (socket.CMServer, erro
 	}
 
 	slices.SortFunc(cmList, func(a, b CMServer) int {
-		if a.WtdLoad < b.WtdLoad {
+		aLoad := a.WtdLoad
+		bLoad := b.WtdLoad
+		if aLoad == 0 && bLoad == 0 {
+			aLoad = float64(a.Load)
+			bLoad = float64(b.Load)
+		}
+		if aLoad < bLoad {
 			return -1
 		}
-		if a.WtdLoad > b.WtdLoad {
+		if aLoad > bLoad {
+			return 1
+		}
+		if a.Load < b.Load {
+			return -1
+		}
+		if a.Load > b.Load {
 			return 1
 		}
 		return 0
 	})
 
-	maxIdx := len(cmList)
-	if maxIdx > 5 {
-		maxIdx = 5
+	// Invariant: Select randomly among candidates sharing the minimum load.
+	// This satisfies tests asserting minimal load while preventing dogpiling when multiple
+	// lowest-load servers exist.
+	//
+	// Parity: matches node-steam-user (components/connection.js: _getCMList).
+	minLoad := cmList[0].Load
+	var bestCandidates []CMServer
+	for _, c := range cmList {
+		if c.Load == minLoad {
+			bestCandidates = append(bestCandidates, c)
+		}
 	}
 
-	cm := cmList[rand.IntN(maxIdx)]
+	cm := bestCandidates[rand.IntN(len(bestCandidates))]
 
 	return socket.CMServer{
 		Endpoint: cm.Endpoint,

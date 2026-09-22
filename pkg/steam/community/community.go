@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/lemon4ksan/aoni"
@@ -22,7 +21,6 @@ import (
 
 	"github.com/lemon4ksan/g-man/pkg/steam/community/client"
 	"github.com/lemon4ksan/g-man/pkg/steam/encoding"
-	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 )
 
@@ -38,8 +36,7 @@ var NewClient = client.New
 var ErrSessionExpired = errors.New("steam: session expired or authentication required")
 
 // SteamSoftErrorDetector detects HTML login forms or session expiration messages in Steam Community responses.
-var strErrorRegex = regexp.MustCompile(`"strError":"([^"]+)"`)
-var eResultRegex = regexp.MustCompile(`\((\d+)\)`)
+var strErrorRegex = regexp.MustCompile(`"strError"\s*:\s*"([^"]+)"`)
 
 func SteamSoftErrorDetector(resp *http.Response, peek []byte) error {
 	if resp == nil {
@@ -64,19 +61,12 @@ func SteamSoftErrorDetector(resp *http.Response, peek []byte) error {
 
 	if matches := strErrorRegex.FindSubmatch(peek); len(matches) > 1 {
 		msg := string(matches[1])
-		
-		if codeMatch := eResultRegex.FindStringSubmatch(msg); len(codeMatch) > 1 {
-			if code, err := strconv.Atoi(codeMatch[1]); err == nil {
-				return service.NewSteamAPIError(msg, resp.StatusCode, service.NewEResultError(enums.EResult(code), nil))
-			}
+
+		if res, ok := service.ParseEResultFromMessage(msg); ok {
+			return service.NewSteamAPIError(msg, resp.StatusCode, service.NewEResultError(res, nil))
 		}
 
-		if strings.Contains(msg, "sent too many trade offers") {
-			return service.NewSteamAPIError(msg, resp.StatusCode, service.NewEResultError(enums.EResult_LimitExceeded, nil))
-		}
-		if strings.Contains(msg, "unable to contact the game's item server") {
-			return service.NewSteamAPIError(msg, resp.StatusCode, service.NewEResultError(enums.EResult_ServiceUnavailable, nil))
-		}
+		return service.NewSteamAPIError(msg, resp.StatusCode, nil)
 	}
 
 	return nil

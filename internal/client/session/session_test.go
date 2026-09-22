@@ -16,6 +16,7 @@ import (
 	log "github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/auth"
@@ -70,6 +71,15 @@ func (m *mockWebSession) Authenticate(
 func (m *mockWebSession) IsAuthenticated() bool {
 	args := m.Called()
 	return args.Bool(0)
+}
+
+func (m *mockWebSession) WithTokenRefresher(refresher func(ctx context.Context, refreshToken string) (string, error)) {
+	m.Called(refresher)
+}
+
+func (m *mockWebSession) Refresh(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
 }
 
 type mockCommunity struct {
@@ -279,6 +289,8 @@ func setupTestClient(t *testing.T) (*testClient, *testMocks) {
 	sess.community = m.comm
 
 	m.web.On("HTTP").Return(&http.Client{}).Maybe()
+	m.web.On("WithTokenRefresher", mock.Anything).Maybe()
+	m.web.On("Refresh", mock.Anything).Return(nil).Maybe()
 
 	return &testClient{session: sess}, m
 }
@@ -687,6 +699,8 @@ func TestSessionManager_CustomFactories_ValidFactories_InvokesCustomFactories(t 
 	mw := new(mockWebSession)
 	mw.On("Verify", mock.Anything).Return(true, nil).Maybe()
 	mw.On("HTTP").Return(&http.Client{}).Maybe()
+	mw.On("WithTokenRefresher", mock.Anything).Maybe()
+	mw.On("Refresh", mock.Anything).Return(nil).Maybe()
 
 	mc := new(mockCommunity)
 	mc.On("GetOrRegisterAPIKey", mock.Anything, mock.Anything).Return("key_12345", nil).Maybe()
@@ -933,4 +947,74 @@ func TestSession_Disconnect_SocketFails_ReturnsDisconnectError(t *testing.T) {
 
 	err := c.session.Disconnect()
 	assert.ErrorContains(t, err, "disconnect err")
+}
+
+func TestSession_Web_TokenRefresherWiringAndPropagation(t *testing.T) {
+	t.Parallel()
+	c, m := setupTestClient(t)
+
+	// Setup socket session mock
+	msess := new(mockSession)
+	msess.On("SteamID").Return(uint64(12345))
+	msess.On("IsAuthenticated").Return(true)
+	msess.On("SetAccessToken", "propagated_at").Return()
+	m.sock.On("Session").Return(msess)
+
+	c.session.logonDetails = &auth.LogOnDetails{SteamID: 12345, AccessToken: "old_token"}
+
+	customWeb := new(mockWebSession)
+
+	var capturedRefresher func(context.Context, string) (string, error)
+	customWeb.On("WithTokenRefresher", mock.Anything).Run(func(args mock.Arguments) {
+		capturedRefresher = args.Get(0).(func(context.Context, string) (string, error))
+	}).Return()
+
+	c.session.webFactory = func(steamID id.ID, logger log.Logger, r any) WebSessionProvider {
+		return customWeb
+	}
+	c.session.web = nil // force Web() to invoke factory
+	_ = c.session.Web()
+
+	require.NotNil(t, capturedRefresher)
+
+	tokenPb, err := proto.Marshal(&pb.CAuthentication_AccessToken_GenerateForApp_Response{
+		AccessToken: new("propagated_at"),
+	})
+	require.NoError(t, err)
+
+	m.sock.On("SendSync", mock.Anything, mock.Anything, mock.Anything).Return(&protocol.Packet{
+		IsProto:    true,
+		HeaderKind: protocol.HeaderKindProto,
+		HdrProto: protocol.MsgHdrProtoBuf{
+			Proto: &pb.CMsgProtoBufHeader{
+				Eresult: proto.Int32(int32(enums.EResult_OK)),
+			},
+		},
+		Payload: tokenPb,
+	}, nil).Once()
+
+	token, err := capturedRefresher(t.Context(), "my_rt")
+	require.NoError(t, err)
+	assert.Equal(t, "propagated_at", token)
+
+	// Verify token propagation across transports and logonDetails
+	assert.Equal(t, "propagated_at", c.session.AccessToken())
+	assert.Equal(t, "propagated_at", c.session.unified.AccessToken())
+	assert.Equal(t, "propagated_at", c.session.socketAPI.AccessToken())
+	msess.AssertCalled(t, "SetAccessToken", "propagated_at")
+}
+
+func TestSession_SetAccessToken_UpdatesLogonDetails(t *testing.T) {
+	t.Parallel()
+	c, m := setupTestClient(t)
+
+	msess := new(mockSession)
+	msess.On("SetAccessToken", "updated_token").Return()
+	m.sock.On("Session").Return(msess)
+
+	c.session.logonDetails = &auth.LogOnDetails{AccessToken: "initial_token"}
+
+	err := c.session.SetAccessToken("updated_token")
+	require.NoError(t, err)
+	assert.Equal(t, "updated_token", c.session.AccessToken())
 }

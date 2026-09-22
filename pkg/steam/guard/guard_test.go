@@ -23,6 +23,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/lemon4ksan/g-man/internal/clock"
+	"github.com/lemon4ksan/g-man/internal/crypto"
 	"github.com/lemon4ksan/g-man/pkg/steam/community"
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol/enums"
@@ -716,3 +717,83 @@ type nilCommunityAuthContext struct {
 
 func (nilCommunityAuthContext) Community() community.Requester { return nil }
 func (nilCommunityAuthContext) SteamID() id.ID                 { return 0 }
+
+func TestFeature17_ConfirmationKeyGeneration_AllValidTags(t *testing.T) {
+	t.Parallel()
+
+	secret := []byte("12345678901234567890")
+	timestamp := int64(1700000000)
+
+	validTags := []string{"allow", "cancel", "accept", "reject", "conf", "details"}
+	generatedKeys := make(map[string]string)
+
+	for _, tag := range validTags {
+		key := GenerateConfirmationKey(secret, timestamp, tag)
+		assert.NotEmpty(t, key)
+		assert.Len(t, key, 28, "Confirmation key must be 28 characters base64")
+		generatedKeys[tag] = key
+	}
+
+	assert.Len(t, generatedKeys, len(validTags), "All valid tags must produce unique HMAC confirmation keys")
+
+	cfg := Config{
+		IdentitySecret: validSecret,
+		DeviceID:       "android:123",
+	}
+	g, err := New(cfg)
+	require.NoError(t, err)
+
+	for _, tag := range validTags {
+		k, err := g.ConfirmationKey(tag, timestamp)
+		require.NoError(t, err)
+		assert.Len(t, k, 28)
+	}
+}
+
+func TestFeature17_Guardian_Respond_ActionTagParity(t *testing.T) {
+	t.Parallel()
+
+	cfg := defaultValidConfig()
+	g, _, mockSvc := setupAuthenticatedGuardian(t, cfg, id.ID(123))
+
+	secretBytes, err := decodeSecret(cfg.IdentitySecret)
+	require.NoError(t, err)
+
+	conf := &Confirmation{ID: 777, Nonce: 888}
+
+	var capturedAcceptKey string
+
+	mockSvc.On("RespondToConfirmation", mock.Anything, conf, true, cfg.DeviceID, g.SteamID(),
+		mock.MatchedBy(func(key string) bool {
+			capturedAcceptKey = key
+
+			return len(key) == 28
+		}),
+		mock.MatchedBy(func(ts int64) bool {
+			expectedKey := crypto.GenerateConfirmationKey(secretBytes, ts, "allow")
+
+			return capturedAcceptKey == string(expectedKey[:])
+		}),
+	).Return(nil).Once()
+
+	err = g.Accept(t.Context(), conf)
+	require.NoError(t, err)
+
+	var capturedCancelKey string
+
+	mockSvc.On("RespondToConfirmation", mock.Anything, conf, false, cfg.DeviceID, g.SteamID(),
+		mock.MatchedBy(func(key string) bool {
+			capturedCancelKey = key
+
+			return len(key) == 28
+		}),
+		mock.MatchedBy(func(ts int64) bool {
+			expectedKey := crypto.GenerateConfirmationKey(secretBytes, ts, "cancel")
+
+			return capturedCancelKey == string(expectedKey[:])
+		}),
+	).Return(nil).Once()
+
+	err = g.Cancel(t.Context(), conf)
+	require.NoError(t, err)
+}

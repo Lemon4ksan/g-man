@@ -220,6 +220,15 @@ func TestPoll_NewAndUpdatedOffers_PublishesEvents(t *testing.T) {
 					"accountid_other":   "76561197960265728",
 					"message":           "test offer",
 					"time_updated":      1710000000,
+					"items_to_receive": []any{
+						map[string]any{
+							"appid":            440,
+							"contextid":        "2",
+							"assetid":          "1",
+							"name":             "Key",
+							"market_hash_name": "Key",
+						},
+					},
 				},
 			},
 		},
@@ -251,6 +260,15 @@ func TestPoll_NewAndUpdatedOffers_PublishesEvents(t *testing.T) {
 					"accountid_other":   "76561197960265728",
 					"message":           "test offer",
 					"time_updated":      1710000100,
+					"items_to_receive": []any{
+						map[string]any{
+							"appid":            440,
+							"contextid":        "2",
+							"assetid":          "1",
+							"name":             "Key",
+							"market_hash_name": "Key",
+						},
+					},
 				},
 			},
 		},
@@ -552,6 +570,15 @@ func TestPoll_StateChanges_EmitsPollDataEvent(t *testing.T) {
 					"accountid_other":   "76561197960265728",
 					"message":           "test offer",
 					"time_updated":      1710000000,
+					"items_to_receive": []any{
+						map[string]any{
+							"appid":            440,
+							"contextid":        "2",
+							"assetid":          "1",
+							"name":             "Key",
+							"market_hash_name": "Key",
+						},
+					},
 				},
 			},
 		},
@@ -593,6 +620,15 @@ func TestPoll_ExpiredSentOffers(t *testing.T) {
 						"trade_offer_state": int(trading.OfferStateActive),
 						"is_our_offer":      true,
 						"time_updated":      time.Now().Add(-2 * time.Hour).Unix(),
+						"items_to_give": []any{
+							map[string]any{
+								"appid":            440,
+								"contextid":        "2",
+								"assetid":          "1",
+								"name":             "Key",
+								"market_hash_name": "Key",
+							},
+						},
 					},
 				},
 			},
@@ -645,6 +681,15 @@ func TestPoll_ExpiredSentOffers(t *testing.T) {
 						"trade_offer_state": int(trading.OfferStateActive),
 						"is_our_offer":      true,
 						"time_updated":      time.Now().Add(-2 * time.Hour).Unix(),
+						"items_to_give": []any{
+							map[string]any{
+								"appid":            440,
+								"contextid":        "2",
+								"assetid":          "1",
+								"name":             "Key",
+								"market_hash_name": "Key",
+							},
+						},
 					},
 				},
 			},
@@ -692,6 +737,15 @@ func TestPoll_SentOffersExceedLimit(t *testing.T) {
 						"trade_offer_state": int(trading.OfferStateActive),
 						"is_our_offer":      true,
 						"time_updated":      time.Now().Add(-10 * time.Minute).Unix(),
+						"items_to_give": []any{
+							map[string]any{
+								"appid":            440,
+								"contextid":        "2",
+								"assetid":          "1",
+								"name":             "Key",
+								"market_hash_name": "Key",
+							},
+						},
 					},
 					map[string]any{
 						"tradeofferid":      "1002",
@@ -700,6 +754,15 @@ func TestPoll_SentOffersExceedLimit(t *testing.T) {
 						"trade_offer_state": int(trading.OfferStateActive),
 						"is_our_offer":      true,
 						"time_updated":      time.Now().Add(-6 * time.Minute).Unix(),
+						"items_to_give": []any{
+							map[string]any{
+								"appid":            440,
+								"contextid":        "2",
+								"assetid":          "2",
+								"name":             "Key",
+								"market_hash_name": "Key",
+							},
+						},
 					},
 				},
 			},
@@ -753,6 +816,15 @@ func TestPoll_SentOffersExceedLimit(t *testing.T) {
 						"trade_offer_state": int(trading.OfferStateActive),
 						"is_our_offer":      true,
 						"time_updated":      time.Now().Add(-10 * time.Minute).Unix(),
+						"items_to_give": []any{
+							map[string]any{
+								"appid":            440,
+								"contextid":        "2",
+								"assetid":          "1",
+								"name":             "Key",
+								"market_hash_name": "Key",
+							},
+						},
 					},
 					map[string]any{
 						"tradeofferid":      "1002",
@@ -761,6 +833,15 @@ func TestPoll_SentOffersExceedLimit(t *testing.T) {
 						"trade_offer_state": int(trading.OfferStateActive),
 						"is_our_offer":      true,
 						"time_updated":      time.Now().Add(-6 * time.Minute).Unix(),
+						"items_to_give": []any{
+							map[string]any{
+								"appid":            440,
+								"contextid":        "2",
+								"assetid":          "2",
+								"name":             "Key",
+								"market_hash_name": "Key",
+							},
+						},
 					},
 				},
 			},
@@ -1022,6 +1103,23 @@ func TestAcceptOffer(t *testing.T) {
 	t.Run("valid_id", func(t *testing.T) {
 		t.Parallel()
 		f := newTestFixture(t)
+		f.web.SetJSONResponse("IEconService", "GetTradeOffer", map[string]any{
+			"response": map[string]any{
+				"offer": map[string]any{
+					"tradeofferid":    "12345",
+					"accountid_other": OtherAccountID,
+					"items_to_receive": []any{
+						map[string]any{
+							"appid":            440,
+							"contextid":        "2",
+							"assetid":          "1",
+							"name":             "Key",
+							"market_hash_name": "Key",
+						},
+					},
+				},
+			},
+		})
 		f.comm.SetHTMLResponse(
 			"tradeoffer/12345/accept",
 			200,
@@ -1052,6 +1150,35 @@ func TestAcceptOffer(t *testing.T) {
 
 		case <-t.Context().Done():
 			t.Fatal("timeout waiting for ConfirmationRequiredEvent")
+		}
+	})
+
+	t.Run("valid_with_partner", func(t *testing.T) {
+		t.Parallel()
+		f := newTestFixture(t)
+		f.comm.SetHTMLResponse(
+			"tradeoffer/12345/accept",
+			200,
+			`{"needs_mobile_confirmation":false}`,
+		)
+
+		err := f.manager.AcceptOfferWithPartner(t.Context(), 12345, id.FromAccountID(OtherAccountID))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("missing_partner_fails_fast", func(t *testing.T) {
+		t.Parallel()
+		f := newTestFixture(t)
+
+		err := f.manager.AcceptOffer(t.Context(), 99999)
+		if err == nil {
+			t.Fatalf("expected error when partner is unknown, got nil")
+		}
+
+		if !strings.Contains(err.Error(), "partner SteamID cannot be zero") {
+			t.Errorf("expected partner SteamID cannot be zero error, got %v", err)
 		}
 	})
 
@@ -2041,4 +2168,281 @@ func isPollDataEqual(a, b trading.PollData) bool {
 	}
 
 	return true
+}
+
+func TestDeclineOfferCommunity(t *testing.T) {
+	t.Parallel()
+
+	t.Run("successful_community_decline", func(t *testing.T) {
+		t.Parallel()
+		f := newTestFixture(t)
+		f.comm.SetHTMLResponse("tradeoffer/12345/decline", 200, `{"tradeofferid":"12345"}`)
+
+		err := f.manager.DeclineOfferCommunity(t.Context(), 12345)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("nil_community", func(t *testing.T) {
+		t.Parallel()
+		f := newTestFixture(t)
+		f.manager.community = nil
+
+		err := f.manager.DeclineOfferCommunity(t.Context(), 12345)
+		if !errors.Is(err, ErrCommunityNotReady) {
+			t.Errorf("expected ErrCommunityNotReady, got %v", err)
+		}
+	})
+}
+
+func TestCancelOfferCommunity(t *testing.T) {
+	t.Parallel()
+
+	t.Run("successful_community_cancel", func(t *testing.T) {
+		t.Parallel()
+		f := newTestFixture(t)
+		f.comm.SetHTMLResponse("tradeoffer/12345/cancel", 200, `{"tradeofferid":"12345"}`)
+
+		err := f.manager.CancelOfferCommunity(t.Context(), 12345)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("nil_community", func(t *testing.T) {
+		t.Parallel()
+		f := newTestFixture(t)
+		f.manager.community = nil
+
+		err := f.manager.CancelOfferCommunity(t.Context(), 12345)
+		if !errors.Is(err, ErrCommunityNotReady) {
+			t.Errorf("expected ErrCommunityNotReady, got %v", err)
+		}
+	})
+}
+
+func TestEscrowDurationAndChecking(t *testing.T) {
+	t.Parallel()
+
+	t.Run("get_escrow_duration_lowercase_d", func(t *testing.T) {
+		t.Parallel()
+		f := newTestFixture(t)
+		html := `<html><body><script>var g_daysTheirEscrow = 15; var g_daysMyEscrow = 0;</script></body></html>`
+		f.comm.SetHTMLResponse("tradeoffer/12345/", 200, html)
+
+		details, err := f.manager.GetEscrowDuration(t.Context(), 12345)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if details.TheirDays != 15 || details.MyDays != 0 {
+			t.Errorf("expected 15 and 0, got %d and %d", details.TheirDays, details.MyDays)
+		}
+
+		if !details.HasHold() {
+			t.Errorf("expected HasHold to be true")
+		}
+	})
+
+	t.Run("get_escrow_duration_for_partner_pre_trade", func(t *testing.T) {
+		t.Parallel()
+		f := newTestFixture(t)
+		html := `<html><body><script>var g_daysTheirEscrow = 0; var g_daysMyEscrow = 0;</script></body></html>`
+		partnerID := id.FromAccountID(123456)
+		f.comm.SetHTMLResponse(
+			fmt.Sprintf("tradeoffer/new/?partner=%d&token=mytoken", partnerID.AccountID()),
+			200,
+			html,
+		)
+
+		details, err := f.manager.GetEscrowDurationForPartner(t.Context(), partnerID, "mytoken")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if details.TheirDays != 0 || details.MyDays != 0 {
+			t.Errorf("expected 0 and 0, got %d and %d", details.TheirDays, details.MyDays)
+		}
+
+		if details.HasHold() {
+			t.Errorf("expected HasHold to be false")
+		}
+	})
+
+	t.Run("check_escrow_outgoing_offer_in_escrow_state", func(t *testing.T) {
+		t.Parallel()
+		f := newTestFixture(t)
+		offer := &trading.TradeOffer{
+			ID:           1001,
+			IsOurOffer:   true,
+			State:        trading.OfferStateInEscrow,
+			OtherSteamID: id.FromAccountID(123456),
+		}
+
+		hasHold, err := f.manager.CheckEscrow(t.Context(), offer)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if !hasHold {
+			t.Errorf("expected hasHold to be true for OfferStateInEscrow")
+		}
+	})
+
+	t.Run("check_escrow_outgoing_offer_pre_trade_lookup", func(t *testing.T) {
+		t.Parallel()
+		f := newTestFixture(t)
+		partnerID := id.FromAccountID(123456)
+		html := `<html><body><script>var g_daysTheirEscrow = 7; var g_daysMyEscrow = 0;</script></body></html>`
+		f.comm.SetHTMLResponse(fmt.Sprintf("tradeoffer/new/?partner=%d", partnerID.AccountID()), 200, html)
+
+		offer := &trading.TradeOffer{
+			ID:           1002,
+			IsOurOffer:   true,
+			State:        trading.OfferStateActive,
+			OtherSteamID: partnerID,
+		}
+
+		hasHold, err := f.manager.CheckEscrow(t.Context(), offer)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if !hasHold {
+			t.Errorf("expected hasHold to be true for 7 days hold")
+		}
+	})
+}
+
+func TestAcceptOffer_FallbackVerification(t *testing.T) {
+	t.Parallel()
+
+	t.Run("accept_fallback_to_state_9_needs_confirmation", func(t *testing.T) {
+		t.Parallel()
+		f := newTestFixture(t)
+		partnerID := id.FromAccountID(OtherAccountID)
+
+		// Accept form returns 500 error
+		f.comm.SetHTMLResponse("tradeoffer/55555/accept", 500, `Internal Server Error`)
+
+		// GetOffer returns State 9 (CreatedNeedsConfirmation)
+		f.web.SetJSONResponse("IEconService", "GetTradeOffer", map[string]any{
+			"response": map[string]any{
+				"offer": map[string]any{
+					"tradeofferid":      "55555",
+					"accountid_other":   OtherAccountID,
+					"trade_offer_state": int(trading.OfferStateCreatedNeedsConfirmation),
+					"items_to_receive": []any{
+						map[string]any{
+							"appid":            440,
+							"contextid":        "2",
+							"assetid":          "1",
+							"name":             "Key",
+							"market_hash_name": "Key",
+						},
+					},
+				},
+			},
+		})
+
+		sub := f.manager.Bus.Subscribe(&guard.ConfirmationRequiredEvent{})
+
+		err := f.manager.AcceptOfferWithPartner(t.Context(), 55555, partnerID)
+		if err != nil {
+			t.Fatalf("expected nil error on state 9 fallback recovery, got %v", err)
+		}
+
+		select {
+		case ev := <-sub.C():
+			event := ev.(*guard.ConfirmationRequiredEvent)
+			if event.TradeOfferID != "55555" || !event.IsAppConfirm {
+				t.Errorf("unexpected event: %+v", event)
+			}
+		case <-t.Context().Done():
+			t.Fatal("timeout waiting for ConfirmationRequiredEvent")
+		}
+	})
+
+	t.Run("accept_fallback_to_state_3_accepted", func(t *testing.T) {
+		t.Parallel()
+		f := newTestFixture(t)
+		partnerID := id.FromAccountID(OtherAccountID)
+
+		// Accept form returns 500 error
+		f.comm.SetHTMLResponse("tradeoffer/66666/accept", 500, `Internal Server Error`)
+
+		// GetOffer returns State 3 (Accepted)
+		f.web.SetJSONResponse("IEconService", "GetTradeOffer", map[string]any{
+			"response": map[string]any{
+				"offer": map[string]any{
+					"tradeofferid":      "66666",
+					"accountid_other":   OtherAccountID,
+					"trade_offer_state": int(trading.OfferStateAccepted),
+					"items_to_receive": []any{
+						map[string]any{
+							"appid":            440,
+							"contextid":        "2",
+							"assetid":          "1",
+							"name":             "Key",
+							"market_hash_name": "Key",
+						},
+					},
+				},
+			},
+		})
+
+		err := f.manager.AcceptOfferWithPartner(t.Context(), 66666, partnerID)
+		if err != nil {
+			t.Fatalf("expected nil error on state 3 fallback recovery, got %v", err)
+		}
+	})
+}
+
+func TestPoll_WatermarkFreezing_OnGlitchedOffer(t *testing.T) {
+	t.Parallel()
+	f := newTestFixture(t)
+	f.manager.offersSince = 1000
+
+	sub := f.manager.Bus.Subscribe(&PollDataEvent{})
+	t.Cleanup(sub.Unsubscribe)
+
+	// Batch contains 1 glitched offer (0 items) and 1 valid newer offer
+	f.web.SetJSONResponse("IEconService", "GetTradeOffers", map[string]any{
+		"response": map[string]any{
+			"trade_offers_received": []any{
+				map[string]any{
+					"tradeofferid":      "7001",
+					"trade_offer_state": int(trading.OfferStateActive),
+					"accountid_other":   "76561197960265728",
+					"message":           "corrupt offer",
+					"time_updated":      1050,
+					// 0 items -> glitched!
+				},
+				map[string]any{
+					"tradeofferid":      "7002",
+					"trade_offer_state": int(trading.OfferStateActive),
+					"accountid_other":   "76561197960265728",
+					"message":           "valid offer",
+					"time_updated":      2000,
+					"items_to_receive": []any{
+						map[string]any{
+							"appid":            440,
+							"contextid":        "2",
+							"assetid":          "1",
+							"name":             "Key",
+							"market_hash_name": "Key",
+						},
+					},
+				},
+			},
+		},
+	})
+
+	f.manager.doPoll(t.Context())
+
+	// Watermark must remain frozen at 1000 because of the glitched offer
+	if f.manager.offersSince != 1000 {
+		t.Errorf("expected offersSince to freeze at 1000, but advanced to %d", f.manager.offersSince)
+	}
 }

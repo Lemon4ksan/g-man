@@ -147,7 +147,33 @@ func (s *MobileConf) GetConfirmationOfferID(
 	return strconv.ParseUint(string(matches[1]), 10, 64)
 }
 
+// AjaxOpResponse represents the response payload from /mobileconf/ajaxop.
+type AjaxOpResponse struct {
+	Success  bool   `json:"success"`
+	Message  string `json:"message"`
+	Detail   string `json:"detail"`
+	NeedAuth bool   `json:"needauth"`
+}
+
+// MultiAjaxOpResponse represents the response payload from /mobileconf/multiajaxop.
+type MultiAjaxOpResponse struct {
+	Success  bool   `json:"success"`
+	Message  string `json:"message"`
+	Detail   string `json:"detail"`
+	NeedAuth bool   `json:"needauth"`
+}
+
 // RespondToConfirmation accepts or rejects a single confirmation.
+//
+// Invariant: Valve's /mobileconf/ajaxop endpoint requires action tags "allow" and "cancel"
+// (both for parameter "tag" and "op"). Using legacy tags such as "accept" results in signature
+// verification failure on Steam's backend.
+//
+// Invariant: If the response indicates `needauth: true`, ErrSessionExpired is returned
+// so callers can trigger session re-authentication and retry.
+//
+// Parity: matches @tf2autobot/steamcommunity (classes/CConfirmation.js: respond) and
+// steamcommunity (components/confirmations.js: _respond).
 func (s *MobileConf) RespondToConfirmation(
 	ctx context.Context,
 	conf *Confirmation,
@@ -163,17 +189,13 @@ func (s *MobileConf) RespondToConfirmation(
 		ConfKey:   confKey,
 		Timestamp: timestamp,
 		Mode:      "react",
-		ActionTag: generic.Ternary(accept, "accept", "reject"),
+		ActionTag: generic.Ternary(accept, "allow", "cancel"),
 		Op:        generic.Ternary(accept, "allow", "cancel"),
 		ConfID:    conf.ID,
 		Nonce:     conf.Nonce,
 	}
 
-	type respStruct struct {
-		Success bool `json:"success"`
-	}
-
-	resp, err := community.GetTo[respStruct](
+	resp, err := community.GetTo[AjaxOpResponse](
 		ctx, s.client, "mobileconf/ajaxop",
 		mod.WithQuery(params),
 	)
@@ -181,8 +203,25 @@ func (s *MobileConf) RespondToConfirmation(
 		return err
 	}
 
+	if resp == nil {
+		return fmt.Errorf("%w: empty response from steam", ErrConfirmationRejected)
+	}
+
+	if resp.NeedAuth {
+		return service.ErrSessionExpired
+	}
+
 	if !resp.Success {
-		return ErrConfirmationRejected
+		msg := resp.Message
+		if msg == "" {
+			msg = resp.Detail
+		}
+
+		if msg == "" {
+			return ErrConfirmationRejected
+		}
+
+		return fmt.Errorf("%w: %s", ErrConfirmationRejected, msg)
 	}
 
 	return nil
@@ -219,6 +258,12 @@ func (r multiRequest) EncodeFormString() (string, error) {
 }
 
 // RespondToMultiple accepts or rejects multiple confirmations in a single batch request.
+//
+// Invariant: Steam Community /mobileconf/multiajaxop expects PHP-style array parameters
+// ("cid[]" and "ck[]") and action tags "allow" and "cancel".
+//
+// Parity: matches @tf2autobot/steamcommunity (classes/CConfirmation.js) and
+// steamcommunity (components/confirmations.js: _respond).
 func (s *MobileConf) RespondToMultiple(
 	ctx context.Context,
 	confs []*Confirmation,
@@ -238,7 +283,7 @@ func (s *MobileConf) RespondToMultiple(
 		ConfKey:   confKey,
 		Timestamp: timestamp,
 		Mode:      "react",
-		ActionTag: generic.Ternary(accept, "accept", "reject"),
+		ActionTag: generic.Ternary(accept, "allow", "cancel"),
 		Op:        generic.Ternary(accept, "allow", "cancel"),
 		ConfIDs:   make([]uint64, len(confs)),
 		Nonces:    make([]uint64, len(confs)),
@@ -249,18 +294,30 @@ func (s *MobileConf) RespondToMultiple(
 		req.Nonces[i] = c.Nonce
 	}
 
-	type respStruct struct {
-		Success bool   `json:"success"`
-		Message string `json:"message"`
-	}
-
-	resp, err := community.PostFormTo[respStruct](ctx, s.client, "mobileconf/multiajaxop", req)
+	resp, err := community.PostFormTo[MultiAjaxOpResponse](ctx, s.client, "mobileconf/multiajaxop", req)
 	if err != nil {
 		return err
 	}
 
+	if resp == nil {
+		return fmt.Errorf("%w: empty response from steam", ErrConfirmationRejected)
+	}
+
+	if resp.NeedAuth {
+		return service.ErrSessionExpired
+	}
+
 	if !resp.Success {
-		return fmt.Errorf("steam rejected multi-confirmation action: %s", resp.Message)
+		msg := resp.Message
+		if msg == "" {
+			msg = resp.Detail
+		}
+
+		if msg == "" {
+			msg = "unknown error"
+		}
+
+		return fmt.Errorf("%w: %s", ErrConfirmationRejected, msg)
 	}
 
 	return nil

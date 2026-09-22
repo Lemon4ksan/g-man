@@ -16,11 +16,12 @@ import (
 	"strings"
 
 	"github.com/lemon4ksan/aoni"
-	"github.com/lemon4ksan/aoni/x/codec/extract"
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/option"
+	"github.com/lemon4ksan/aoni/x/codec/extract"
 	log "github.com/lemon4ksan/foundation/async/logkit"
 
+	"github.com/lemon4ksan/g-man/pkg/steam/auth/websession"
 	"github.com/lemon4ksan/g-man/pkg/steam/service"
 )
 
@@ -180,6 +181,8 @@ func (c *Client) Request(
 				if rErr := r.Refresh(ctx); rErr == nil {
 					c.logger.Info("Auto-refresh succeeded, retrying community request")
 					return c.r.Request(ctx, method, path, mods...)
+				} else {
+					return nil, fmt.Errorf("community: auto-refresh failed: %w", rErr)
 				}
 			}
 
@@ -200,15 +203,18 @@ func (c *Client) Request(
 					c.logger.Info("Auto-refresh succeeded, retrying community request")
 
 					retryResp, retryErr := c.r.Request(ctx, method, path, mods...)
-					if retryErr == nil {
-						if valErr := SteamErrorsValidator(retryResp); valErr == nil {
-							return retryResp, nil
-						}
+					if retryErr != nil {
+						return nil, retryErr
 					}
 
-					if retryResp != nil {
-						return retryResp, retryErr
+					if valErr := SteamErrorsValidator(retryResp); valErr != nil {
+						_ = retryResp.Body.Close()
+						return nil, valErr
 					}
+
+					return retryResp, nil
+				} else {
+					return nil, fmt.Errorf("community: auto-refresh failed: %w", rErr)
 				}
 			}
 
@@ -296,9 +302,13 @@ func (c *Client) GetOrRegisterAPIKey(ctx context.Context, domain string) (string
 }
 
 var (
-	patternSteamIDFalse = []byte("g_steamID = false;")
-	patternSteamIDZero  = []byte(`g_steamID = "0";`)
-	patternSignInTitle  = []byte("<title>Sign In</title>")
+	patternSteamIDFalse            = []byte("g_steamID = false;")
+	patternSteamIDZero             = []byte(`g_steamID = "0";`)
+	patternSignInTitle             = []byte("<title>Sign In</title>")
+	patternLoggedInFalse           = []byte(`"Logged In":false`)
+	patternLoggedInFalseSpace      = []byte(`"Logged In": false`)
+	patternLowerLoggedInFalse      = []byte(`"logged in":false`)
+	patternLowerLoggedInFalseSpace = []byte(`"logged in": false`)
 )
 
 // IsSessionExpiredError reports whether err indicates an expired Steam web session.
@@ -311,13 +321,17 @@ func IsSessionExpiredError(err error) bool {
 		return false
 	}
 
-	if errors.Is(err, service.ErrSessionExpired) {
+	if errors.Is(err, service.ErrSessionExpired) ||
+		errors.Is(err, websession.ErrSessionExpiredRedirect) ||
+		errors.Is(err, aoni.ErrRedirectBlocked) {
 		return true
 	}
 
 	msg := strings.ToLower(err.Error())
 
 	return strings.Contains(msg, "session expired") ||
+		strings.Contains(msg, "redirected to login") ||
+		strings.Contains(msg, "redirect blocked") ||
 		strings.Contains(msg, "redirect") ||
 		strings.Contains(msg, "401") ||
 		strings.Contains(msg, "403") ||
@@ -337,7 +351,7 @@ func CheckSteamErrors(statusCode int, header http.Header, body []byte) error {
 
 	if statusCode == http.StatusFound || statusCode == http.StatusSeeOther {
 		loc := header.Get("Location")
-		if strings.Contains(loc, "steam") && strings.Contains(loc, "/login") {
+		if strings.Contains(loc, "/login/home") || strings.Contains(loc, "/login") {
 			return service.NewSteamAPIError("Session expired", statusCode, service.ErrSessionExpired)
 		}
 	}
@@ -347,12 +361,20 @@ func CheckSteamErrors(statusCode int, header http.Header, body []byte) error {
 	}
 
 	if statusCode == http.StatusUnauthorized || statusCode == http.StatusForbidden {
-		return service.NewSteamAPIError("Session expired (unauthorized/forbidden)", statusCode, service.ErrSessionExpired)
+		return service.NewSteamAPIError(
+			"Session expired (unauthorized/forbidden)",
+			statusCode,
+			service.ErrSessionExpired,
+		)
 	}
 
 	if bytes.Contains(body, patternSteamIDFalse) ||
 		bytes.Contains(body, patternSteamIDZero) ||
-		bytes.Contains(body, patternSignInTitle) {
+		bytes.Contains(body, patternSignInTitle) ||
+		bytes.Contains(body, patternLoggedInFalse) ||
+		bytes.Contains(body, patternLoggedInFalseSpace) ||
+		bytes.Contains(body, patternLowerLoggedInFalse) ||
+		bytes.Contains(body, patternLowerLoggedInFalseSpace) {
 		return service.NewSteamAPIError("Session expired", statusCode, service.ErrSessionExpired)
 	}
 

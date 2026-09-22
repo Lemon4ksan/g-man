@@ -5,12 +5,14 @@
 package client_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/lemon4ksan/aoni"
@@ -773,6 +775,38 @@ func TestCheckSteamErrors_VariousResponses_DetectsErrors(t *testing.T) {
 			errMsg:  "This additional text is added to en...[truncated]",
 		},
 		{
+			name:       "relative_login_redirect",
+			statusCode: http.StatusFound,
+			header:     http.Header{"Location": []string{"/login/home"}},
+			body:       []byte(""),
+			wantErr:    true,
+			errMsg:     "Session expired",
+		},
+		{
+			name:       "soft_logout_logged_in_false",
+			statusCode: http.StatusOK,
+			header:     http.Header{},
+			body:       []byte(`{"success":false,"Logged In":false}`),
+			wantErr:    true,
+			errMsg:     "Session expired",
+		},
+		{
+			name:       "soft_logout_logged_in_false_space",
+			statusCode: http.StatusOK,
+			header:     http.Header{},
+			body:       []byte(`{"success":false,"Logged In": false}`),
+			wantErr:    true,
+			errMsg:     "Session expired",
+		},
+		{
+			name:       "soft_logout_lower_logged_in_false",
+			statusCode: http.StatusOK,
+			header:     http.Header{},
+			body:       []byte(`{"success":false,"logged in":false}`),
+			wantErr:    true,
+			errMsg:     "Session expired",
+		},
+		{
 			name:       "success",
 			statusCode: http.StatusOK,
 			header:     http.Header{},
@@ -800,4 +834,77 @@ func TestCheckSteamErrors_VariousResponses_DetectsErrors(t *testing.T) {
 			}
 		})
 	}
+}
+
+type mockRefresherSession struct {
+	mockSession
+	refreshCount atomic.Int32
+	refreshErr   error
+}
+
+func (m *mockRefresherSession) Refresh(ctx context.Context) error {
+	m.refreshCount.Add(1)
+	return m.refreshErr
+}
+
+func TestClient_Request_SoftLogout_AutoRefresh(t *testing.T) {
+	t.Parallel()
+
+	t.Run("logged_in_false_triggers_refresh", func(t *testing.T) {
+		t.Parallel()
+
+		sess := &mockRefresherSession{}
+
+		var calls atomic.Int32
+
+		mockSvc := mock.NewServiceMock()
+		mockSvc.OnRest = func(method, path string, body any) (*http.Response, error) {
+			if calls.Add(1) == 1 {
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+					Body:       io.NopCloser(strings.NewReader(`{"success":false,"Logged In":false}`)),
+				}, nil
+			}
+
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(strings.NewReader(`{"success":true}`)),
+			}, nil
+		}
+
+		c := client.New(nil, sess).WithREST(mockSvc)
+		resp, err := c.Request(t.Context(), "GET", "tradeoffers")
+		require.NoError(t, err)
+
+		defer resp.Body.Close()
+
+		assert.Equal(t, int32(1), sess.refreshCount.Load())
+		assert.Equal(t, int32(2), calls.Load())
+	})
+
+	t.Run("refresh_failure_preserves_error", func(t *testing.T) {
+		t.Parallel()
+
+		sess := &mockRefresherSession{
+			refreshErr: errors.New("underlying network auth timeout"),
+		}
+
+		mockSvc := mock.NewServiceMock()
+		mockSvc.OnRest = func(method, path string, body any) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: http.StatusFound,
+				Header:     http.Header{"Location": []string{"/login/home"}},
+				Body:       io.NopCloser(strings.NewReader("")),
+			}, nil
+		}
+
+		c := client.New(nil, sess).WithREST(mockSvc)
+		resp, err := c.Request(t.Context(), "GET", "tradeoffers")
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		assert.ErrorContains(t, err, "underlying network auth timeout")
+		assert.NotErrorIs(t, err, client.ErrRedirectLoop)
+	})
 }

@@ -88,7 +88,45 @@ func TestTradeOffer_IsGlitched(t *testing.T) {
 			glitched: true,
 		},
 		{
-			name: "valid_offer",
+			name: "empty_items_with_message",
+			offer: &TradeOffer{
+				OtherSteamID:   id.ID(76561197960265728),
+				Message:        "Thanks for the free trade!",
+				ItemsToGive:    []*Item{},
+				ItemsToReceive: []*Item{},
+			},
+			glitched: true,
+		},
+		{
+			name: "corrupt_item_empty_names",
+			offer: &TradeOffer{
+				OtherSteamID: id.ID(76561197960265728),
+				ItemsToReceive: []*Item{
+					{AssetID: 101, Name: "", MarketHashName: ""},
+				},
+			},
+			glitched: true,
+		},
+		{
+			name: "nil_item_pointer",
+			offer: &TradeOffer{
+				OtherSteamID: id.ID(76561197960265728),
+				ItemsToGive:  []*Item{nil},
+			},
+			glitched: true,
+		},
+		{
+			name: "valid_offer_name_only",
+			offer: &TradeOffer{
+				OtherSteamID: id.ID(76561197960265728),
+				ItemsToReceive: []*Item{
+					{AssetID: 102, Name: "Mann Co. Supply Crate Key"},
+				},
+			},
+			glitched: false,
+		},
+		{
+			name: "valid_offer_markethashname_only",
 			offer: &TradeOffer{
 				OtherSteamID: id.ID(76561197960265728),
 				ItemsToGive:  []*Item{{AssetID: 100, MarketHashName: "Mann Co. Supply Crate Key"}},

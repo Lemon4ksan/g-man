@@ -113,6 +113,13 @@ func (t *HTTPTransport) Do(ctx context.Context, req *Request) (*Response, error)
 	}), nil
 }
 
+// parseEResult extracts the Valve EResult code from HTTP response headers.
+//
+// Invariant: Steam WebAPI returns result codes via the "x-eresult" response header.
+// Note on Valve quirk: In certain edge cases, Steam servers intermittently return "x-eresult: 2"
+// (EResult_Fail) despite HTTP 200 OK and valid JSON body payloads.
+//
+// Parity: matches node-steam-tradeoffer-manager and steamcommunity error handling.
 func (t *HTTPTransport) parseEResult(r *http.Response) enums.EResult {
 	if r == nil || r.Header == nil {
 		return enums.EResult_OK

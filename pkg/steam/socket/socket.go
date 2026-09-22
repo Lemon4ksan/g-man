@@ -430,6 +430,10 @@ func (s *Socket) StartHeartbeat(interval time.Duration) error {
 
 	s.Logger().Debug("Starting heartbeat loop", log.Duration("interval", interval))
 
+	// Invariant: Transmit heartbeats at 2/3 of the negotiated interval (e.g. ~6.6s for 10s interval).
+	// Aggressive heartbeat timing prevents idle timeouts and connection resets from eager Steam CM load balancers.
+	//
+	// Parity: intentional enhancement over node steam-user.
 	sendInterval := interval * 2 / 3
 	if sendInterval <= 0 {
 		sendInterval = interval

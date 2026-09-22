@@ -522,6 +522,20 @@ func (r *AcceptTradeOfferRequest) AppendFormData(dst []byte) []byte {
 		dst = append(dst, "tradeofferid="...)
 		dst = strconv.AppendUint(dst, uint64(r.TradeOfferID), 10)
 	}
+	if r.Partner != 0 {
+		if len(dst) > 0 {
+			dst = append(dst, '&')
+		}
+		dst = append(dst, "partner="...)
+		dst = strconv.AppendUint(dst, uint64(r.Partner), 10)
+	}
+	if len(dst) > 0 {
+		dst = append(dst, '&')
+	}
+	dst = append(dst, "captcha="...)
+	if r.Captcha != "" {
+		dst = append(dst, url.QueryEscape(r.Captcha)...)
+	}
 
 	return dst
 }
@@ -540,4 +554,9 @@ func (r *AcceptTradeOfferRequest) EncodeValues(vals url.Values) {
 	if r.TradeOfferID != 0 {
 		vals.Set("tradeofferid", strconv.FormatUint(uint64(r.TradeOfferID), 10))
 	}
+	if r.Partner != 0 {
+		vals.Set("partner", strconv.FormatUint(uint64(r.Partner), 10))
+	}
+	vals.Set("captcha", r.Captcha)
 }
+

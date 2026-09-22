@@ -29,12 +29,12 @@ const (
 )
 
 type OfferParams struct {
-	PartnerID      id.ID
-	Token          string
-	Message        string
-	ItemsToGive    []*Item
-	ItemsToReceive []*Item
-	CounteredID    uint64
+	PartnerID      id.ID   `json:"partner_id"`
+	Token          string  `json:"token,omitempty"`
+	Message        string  `json:"message,omitempty"`
+	ItemsToGive    []*Item `json:"items_to_give,omitempty"`
+	ItemsToReceive []*Item `json:"items_to_receive,omitempty"`
+	CounteredID    uint64  `json:"countered_id,omitempty"`
 }
 
 type Attribute struct {

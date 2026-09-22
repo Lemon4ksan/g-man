@@ -104,7 +104,9 @@ func (p *ConfirmationPoller) PollOnce(ctx context.Context) ([]*Confirmation, err
 
 	if len(toAccept) > 0 {
 		actTime := clock.CoarseTime().Unix()
-		actKeyArr := crypto.GenerateConfirmationKey([]byte(p.cfg.IdentitySecret), actTime, "accept")
+		// Invariant: Generate key using tag "allow", matching the ActionTag sent by RespondToMultiple
+		// to satisfy Steam's HMAC signature verification (parity with @tf2autobot/steamcommunity).
+		actKeyArr := crypto.GenerateConfirmationKey([]byte(p.cfg.IdentitySecret), actTime, "allow")
 		actKey := string(actKeyArr[:])
 		_ = p.mobileConf.RespondToMultiple(ctx, toAccept, true, p.cfg.DeviceID, p.cfg.SteamID, actKey, actTime)
 	}

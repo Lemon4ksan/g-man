@@ -499,7 +499,7 @@ func (g *Guardian) respond(ctx context.Context, confirmations []*Confirmation, a
 	}
 
 	timestamp := g.clock.Now().Unix()
-	tag := generic.Ternary(accept, "accept", "reject")
+	tag := generic.Ternary(accept, "allow", "cancel")
 	key := crypto.GenerateConfirmationKey(secretBytes, timestamp, tag)
 
 	if err := g.executeResponse(ctx, confirmations, accept, key, timestamp); err != nil {
@@ -549,6 +549,31 @@ func (g *Guardian) updateMetrics(count int, accept bool) {
 	} else {
 		g.metrics.TotalRejected.Add(int64(count))
 	}
+}
+
+// ConfirmationKey derives a confirmation key using Guardian's identity secret for a specific action tag.
+// It supports canonical action tags ("allow", "cancel", "conf", "details") and legacy tags ("accept", "reject").
+func (g *Guardian) ConfirmationKey(tag string, timestamp int64) (string, error) {
+	if g == nil {
+		return "", ErrNotConfigured
+	}
+
+	secretBytes, err := decodeSecret(g.config.IdentitySecret)
+	if err != nil {
+		return "", fmt.Errorf("key generation failed: %w", err)
+	}
+
+	key := crypto.GenerateConfirmationKey(secretBytes, timestamp, tag)
+
+	return bytesconv.B2S(key[:]), nil
+}
+
+// GenerateConfirmationKey derives a Base64-encoded confirmation key for mobile confirmation operations.
+// It supports canonical tags ("allow", "cancel", "conf", "details") as well as legacy tags ("accept", "reject").
+func GenerateConfirmationKey(secret []byte, timestamp int64, tag string) string {
+	key := crypto.GenerateConfirmationKey(secret, timestamp, tag)
+
+	return bytesconv.B2S(key[:])
 }
 
 func maskDeviceID(deviceID string) string {

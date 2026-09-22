@@ -34,18 +34,27 @@ func (o *TradeOffer) ExpiresAt() time.Time { return time.Unix(o.ExpirationTime, 
 
 func (o *TradeOffer) IsActive() bool { return o.State == OfferStateActive }
 
+// IsGlitched reports whether the offer is corrupted or incompletely loaded by Steam.
+//
+// An offer is considered glitched by Steam if:
+//  1. Partner SteamID is 0.
+//  2. Both ItemsToGive and ItemsToReceive are empty (regardless of whether Message is non-empty).
+//  3. Any item has neither Name nor MarketHashName populated (Steam failed to load asset descriptions).
+//
+// Parity: matches node-steam-tradeoffer-manager (lib/classes/TradeOffer.js: isGlitched).
 func (o *TradeOffer) IsGlitched() bool {
-	if o.OtherSteamID == 0 || (len(o.ItemsToGive) == 0 && len(o.ItemsToReceive) == 0 && o.Message == "") {
+	if o.OtherSteamID == 0 || (len(o.ItemsToGive) == 0 && len(o.ItemsToReceive) == 0) {
 		return true
 	}
 
 	for _, item := range o.ItemsToGive {
-		if item.Name == "" && item.MarketHashName == "" {
+		if item == nil || (item.Name == "" && item.MarketHashName == "") {
 			return true
 		}
 	}
+
 	for _, item := range o.ItemsToReceive {
-		if item.Name == "" && item.MarketHashName == "" {
+		if item == nil || (item.Name == "" && item.MarketHashName == "") {
 			return true
 		}
 	}

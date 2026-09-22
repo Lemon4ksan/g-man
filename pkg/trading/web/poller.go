@@ -187,20 +187,32 @@ func (m *Manager) doPoll(ctx context.Context) {
 		}
 	}
 
-	latest := m.offersSince
-
+	// Invariant: Do not advance offersSince watermark when any offer is glitched.
+	// Advancing the timestamp watermark would permanently exclude glitched offers
+	// from future poll queries once Steam inventory descriptions finish loading.
+	//
+	// Parity: matches node-steam-tradeoffer-manager (lib/polling.js: _poll).
+	hasGlitchedOffer := false
 	for _, off := range allOffers {
 		if off.IsGlitched() {
-			continue
-		}
-
-		if off.TimeUpdated > latest {
-			latest = off.TimeUpdated
-			pollDataChanged = true
+			hasGlitchedOffer = true
+			break
 		}
 	}
 
-	m.offersSince = latest
+	if !hasGlitchedOffer {
+		latest := m.offersSince
+
+		for _, off := range allOffers {
+			if off.TimeUpdated > latest {
+				latest = off.TimeUpdated
+				pollDataChanged = true
+			}
+		}
+
+		m.offersSince = latest
+	}
+
 	m.gcKnownOffers(now)
 
 	if pollDataChanged {

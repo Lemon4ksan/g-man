@@ -201,6 +201,8 @@ func (a *Authenticator) sendLogOn(ctx context.Context, details *LogOnDetails) {
 		MachineId:                 details.MachineID,
 		MachineName:               new(details.MachineName),
 		SupportsRateLimitResponse: new(true),
+		// Invariant: Steam Connection Managers require obfuscated client IP (masked using 0xbaadf00d).
+		// Parity: matches node-steam-user (components/connection.js).
 		ObfuscatedPrivateIp: &pb.CMsgIPAddress{
 			Ip: &pb.CMsgIPAddress_V4{V4: uint32(time.Now().Unix()) ^ 0xbaadf00d},
 		},

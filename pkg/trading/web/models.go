@@ -57,6 +57,7 @@ type createParams struct {
 type sendNewReq struct {
 	ServerID     int    `query:"serverid"`
 	PartnerID    id.ID  `query:"partner"`
+	Captcha      string `query:"captcha"`
 	Message      string `query:"tradeoffermessage"`
 	JSON         string `query:"json_tradeoffer"`
 	CreateParams string `query:"trade_offer_create_params,omitempty"`
@@ -67,6 +68,13 @@ var formBufferPool = pool.NewPerPStorage(func() any {
 	return new(bytes.Buffer)
 })
 
+// EncodeFormString serializes sendNewReq into application/x-www-form-urlencoded format.
+//
+// Invariant: Steam Community POST "/tradeoffer/new/send" strictly requires the parameters
+// `serverid=1`, `partner` (64-bit SteamID string), `tradeoffermessage`, `json_tradeoffer`,
+// and `captcha=""`.
+//
+// Parity: matches node-steam-tradeoffer-manager (lib/classes/TradeOffer.js: send).
 func (r sendNewReq) EncodeFormString() (string, error) {
 	buf := formBufferPool.Get().(*bytes.Buffer)
 	buf.Reset()
@@ -78,14 +86,21 @@ func (r sendNewReq) EncodeFormString() (string, error) {
 	buf.WriteString("serverid=")
 	buf.Write(strconv.AppendInt(intBuf[:0], int64(r.ServerID), 10))
 
+	partnerID := r.PartnerID
+	if partnerID != 0 && partnerID < id.FromAccountID(0) {
+		partnerID = id.FromAccountID(uint32(partnerID))
+	}
+
 	buf.WriteString("&partner=")
-	buf.Write(strconv.AppendUint(intBuf[:0], uint64(r.PartnerID), 10))
+	buf.Write(strconv.AppendUint(intBuf[:0], uint64(partnerID), 10))
 
 	buf.WriteString("&tradeoffermessage=")
 	buf.WriteString(url.QueryEscape(r.Message))
 
 	buf.WriteString("&json_tradeoffer=")
 	buf.WriteString(url.QueryEscape(r.JSON))
+
+	buf.WriteString("&captcha=")
 
 	if r.CreateParams != "" {
 		buf.WriteString("&trade_offer_create_params=")

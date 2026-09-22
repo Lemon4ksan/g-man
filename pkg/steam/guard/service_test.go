@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/id"
+	"github.com/lemon4ksan/g-man/pkg/steam/service"
 	"github.com/lemon4ksan/g-man/pkg/test/mock"
 	pbSteam "github.com/lemon4ksan/g-man/protobuf/steam"
 )
@@ -160,6 +161,72 @@ func TestMobileConf_RespondToConfirmation(t *testing.T) {
 		assert.Error(t, err)
 		assert.Equal(t, "steam rejected confirmation action", err.Error())
 	})
+
+	t.Run("cancel_success", func(t *testing.T) {
+		t.Parallel()
+
+		mockComm := mock.NewHTTPStub()
+		svc := NewMobileConf(mockComm)
+
+		mockComm.SetJSONResponse("mobileconf/ajaxop", 200, map[string]bool{"success": true})
+
+		err := svc.RespondToConfirmation(t.Context(), conf, false, "dev", testSteamID, "key", 0)
+		assert.NoError(t, err)
+
+		params := mockComm.GetLastCallParams()
+		assert.Equal(t, "cancel", params.Get("op"))
+		assert.Equal(t, "cancel", params.Get("tag"))
+		assert.Equal(t, "111", params.Get("cid"))
+	})
+
+	t.Run("needauth_session_expired", func(t *testing.T) {
+		t.Parallel()
+
+		mockComm := mock.NewHTTPStub()
+		svc := NewMobileConf(mockComm)
+
+		mockComm.SetJSONResponse("mobileconf/ajaxop", 200, map[string]any{
+			"success":  false,
+			"needauth": true,
+			"message":  "Session invalid",
+		})
+
+		err := svc.RespondToConfirmation(t.Context(), conf, true, "dev", testSteamID, "key", 0)
+		assert.ErrorIs(t, err, service.ErrSessionExpired)
+	})
+
+	t.Run("failure_with_message", func(t *testing.T) {
+		t.Parallel()
+
+		mockComm := mock.NewHTTPStub()
+		svc := NewMobileConf(mockComm)
+
+		mockComm.SetJSONResponse("mobileconf/ajaxop", 200, map[string]any{
+			"success": false,
+			"message": "Confirmation not found or already processed",
+		})
+
+		err := svc.RespondToConfirmation(t.Context(), conf, true, "dev", testSteamID, "key", 0)
+		assert.ErrorIs(t, err, ErrConfirmationRejected)
+		assert.Contains(t, err.Error(), "Confirmation not found or already processed")
+	})
+
+	t.Run("failure_with_detail", func(t *testing.T) {
+		t.Parallel()
+
+		mockComm := mock.NewHTTPStub()
+		svc := NewMobileConf(mockComm)
+
+		mockComm.SetJSONResponse("mobileconf/ajaxop", 200, map[string]any{
+			"success": false,
+			"message": "",
+			"detail":  "Items are no longer available for trade",
+		})
+
+		err := svc.RespondToConfirmation(t.Context(), conf, true, "dev", testSteamID, "key", 0)
+		assert.ErrorIs(t, err, ErrConfirmationRejected)
+		assert.Contains(t, err.Error(), "Items are no longer available for trade")
+	})
 }
 
 func TestMobileConf_RespondToMultiple(t *testing.T) {
@@ -200,6 +267,39 @@ func TestMobileConf_RespondToMultiple(t *testing.T) {
 		assert.ElementsMatch(t, []string{"10", "20"}, params["ck[]"])
 	})
 
+	t.Run("cancel_batch_success", func(t *testing.T) {
+		t.Parallel()
+
+		mockComm := mock.NewHTTPStub()
+		svc := NewMobileConf(mockComm)
+
+		mockComm.SetJSONResponse("mobileconf/multiajaxop", 200, map[string]any{
+			"success": true,
+		})
+
+		err := svc.RespondToMultiple(t.Context(), confs, false, "dev", testSteamID, "key", 0)
+		assert.NoError(t, err)
+
+		params := mockComm.GetLastCallParams()
+		assert.Equal(t, "cancel", params.Get("op"))
+		assert.Equal(t, "cancel", params.Get("tag"))
+	})
+
+	t.Run("needauth_session_expired", func(t *testing.T) {
+		t.Parallel()
+
+		mockComm := mock.NewHTTPStub()
+		svc := NewMobileConf(mockComm)
+
+		mockComm.SetJSONResponse("mobileconf/multiajaxop", 200, map[string]any{
+			"success":  false,
+			"needauth": true,
+		})
+
+		err := svc.RespondToMultiple(t.Context(), confs, true, "dev", testSteamID, "key", 0)
+		assert.ErrorIs(t, err, service.ErrSessionExpired)
+	})
+
 	t.Run("failure_with_message", func(t *testing.T) {
 		t.Parallel()
 
@@ -214,6 +314,38 @@ func TestMobileConf_RespondToMultiple(t *testing.T) {
 		err := svc.RespondToMultiple(t.Context(), confs, false, "dev", testSteamID, "key", 0)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed manually")
+	})
+
+	t.Run("failure_with_detail", func(t *testing.T) {
+		t.Parallel()
+
+		mockComm := mock.NewHTTPStub()
+		svc := NewMobileConf(mockComm)
+
+		mockComm.SetJSONResponse("mobileconf/multiajaxop", 200, map[string]any{
+			"success": false,
+			"message": "",
+			"detail":  "Items no longer available to trade",
+		})
+
+		err := svc.RespondToMultiple(t.Context(), confs, false, "dev", testSteamID, "key", 0)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "Items no longer available to trade")
+	})
+
+	t.Run("failure_unknown_error", func(t *testing.T) {
+		t.Parallel()
+
+		mockComm := mock.NewHTTPStub()
+		svc := NewMobileConf(mockComm)
+
+		mockComm.SetJSONResponse("mobileconf/multiajaxop", 200, map[string]any{
+			"success": false,
+		})
+
+		err := svc.RespondToMultiple(t.Context(), confs, false, "dev", testSteamID, "key", 0)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unknown error")
 	})
 }
 

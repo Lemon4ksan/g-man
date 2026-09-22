@@ -108,6 +108,15 @@ func (p *Processor) Enqueue(off *trading.TradeOffer) {
 	}
 }
 
+// CheckEscrow verifies whether the trade offer has an escrow hold duration.
+//
+// Invariant: Do not remove or bypass the `offer.IsOurOffer` check.
+// On Steam Community, GET "/tradeoffer/{offerID}/" for an outgoing offer (offer.IsOurOffer == true)
+// renders the "Waiting for partner" page which does not include `g_daysTheirEscrow` javascript variables.
+// Scraping escrow on outgoing trades always yields ErrEscrowNotFound.
+// Outgoing escrow is checked pre-trade via trade URL or post-trade via OfferStateInEscrow (State 11).
+//
+// Parity: matches node-steam-tradeoffer-manager (lib/classes/TradeOffer.js).
 func (p *Processor) CheckEscrow(ctx context.Context, offer *trading.TradeOffer) (bool, error) {
 	if offer == nil || offer.IsOurOffer {
 		return false, nil

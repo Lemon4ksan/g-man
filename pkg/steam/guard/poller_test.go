@@ -83,6 +83,7 @@ func TestConfirmationPoller_PollOnce(t *testing.T) {
 
 func TestConfirmationPoller_StopConcurrency(t *testing.T) {
 	t.Parallel()
+
 	httpStub := mock.NewHTTPStub()
 	mobileConf := guard.NewMobileConf(httpStub)
 
@@ -101,9 +102,11 @@ func TestConfirmationPoller_StopConcurrency(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+
 			poller.Stop()
 		}()
 	}
+
 	wg.Wait()
 
 	// Ensure poller can be safely restarted after Stop
@@ -118,6 +121,7 @@ func TestConfirmationPoller_StopConcurrency(t *testing.T) {
 
 func TestConfirmationPoller_RestartStress(t *testing.T) {
 	t.Parallel()
+
 	httpStub := mock.NewHTTPStub()
 	mobileConf := guard.NewMobileConf(httpStub)
 
@@ -133,9 +137,11 @@ func TestConfirmationPoller_RestartStress(t *testing.T) {
 	for i := 0; i < 30; i++ {
 		ctx, cancel := context.WithCancel(t.Context())
 		poller.Start(ctx)
+
 		if i%2 == 0 {
 			poller.Trigger()
 		}
+
 		time.Sleep(2 * time.Millisecond)
 		poller.Stop()
 		cancel()
@@ -144,6 +150,7 @@ func TestConfirmationPoller_RestartStress(t *testing.T) {
 
 func TestConfirmationPoller_ConcurrentStartStopThrashing(t *testing.T) {
 	t.Parallel()
+
 	httpStub := mock.NewHTTPStub()
 	mobileConf := guard.NewMobileConf(httpStub)
 
@@ -157,6 +164,7 @@ func TestConfirmationPoller_ConcurrentStartStopThrashing(t *testing.T) {
 	})
 
 	var wg sync.WaitGroup
+
 	const goroutines = 8
 
 	ctx, cancel := context.WithTimeout(t.Context(), 500*time.Millisecond)
@@ -166,6 +174,7 @@ func TestConfirmationPoller_ConcurrentStartStopThrashing(t *testing.T) {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
+
 			for ctx.Err() == nil {
 				switch id % 3 {
 				case 0:
@@ -184,4 +193,3 @@ func TestConfirmationPoller_ConcurrentStartStopThrashing(t *testing.T) {
 	wg.Wait()
 	poller.Stop()
 }
-
