@@ -125,7 +125,12 @@ func (m *Manager) SendOffer(ctx context.Context, p trading.OfferParams) (uint64,
 		return 0, ErrEmptyResponse
 	}
 
-	if resp != nil && (resp.NeedsMobile || resp.NeedsEmail) {
+	idVal, err := strconv.ParseUint(resp.TradeOfferID, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid trade offer ID in response: %w", err)
+	}
+
+	if resp.NeedsMobile || resp.NeedsEmail {
 		m.Bus.Publish(&guard.ConfirmationRequiredEvent{
 			TradeOfferID: resp.TradeOfferID,
 			IsAppConfirm: resp.NeedsMobile,
@@ -133,33 +138,32 @@ func (m *Manager) SendOffer(ctx context.Context, p trading.OfferParams) (uint64,
 		})
 	}
 
-	idVal, err := strconv.ParseUint(resp.TradeOfferID, 10, 64)
-	if err != nil {
-		return 0, fmt.Errorf("invalid trade offer ID in response: %w", err)
-	}
-
 	return idVal, nil
 }
 
+// ErrInvalidPartnerSteamID indicates that partner SteamID was zero, malformed, or could not be normalized.
+var ErrInvalidPartnerSteamID = errors.New("trading: invalid partner steam id")
+
 // NormalizePartnerSteamID normalizes a partner SteamID into an individual 64-bit SteamID.
+// If partnerID is 0, it fails fast with [ErrInvalidPartnerSteamID].
 // If partnerID is a 32-bit AccountID (< id.FromAccountID(0)) and non-zero, it converts it via id.FromAccountID.
-// If partnerID is 0, it fails fast with an error immediately to prevent sending "partner: 0" and HTTP 403 Forbidden.
+// If partnerID is not valid or its account type is not [id.AccountTypeIndividual], it fails fast with [ErrInvalidPartnerSteamID].
 //
 // Invariant: Steam Community POST "/tradeoffer/{offerID}/accept" and "/tradeoffer/new/send" strictly
 // require the partner's 64-bit individual SteamID string. Passing "0" triggers an immediate HTTP 403 Forbidden.
 //
-// Parity: matches node-steam-tradeoffer-manager (lib/classes/TradeOffer.js).
+// Parity: matches @tf2autobot/tradeoffer-manager (lib/classes/TradeOffer.js:13-21).
 func NormalizePartnerSteamID(partnerID id.ID) (id.ID, error) {
 	if partnerID == 0 {
-		return 0, errors.New("trading: partner SteamID cannot be zero")
+		return 0, fmt.Errorf("%w: partner SteamID cannot be zero", ErrInvalidPartnerSteamID)
 	}
 
 	if partnerID < id.FromAccountID(0) {
 		partnerID = id.FromAccountID(uint32(partnerID))
 	}
 
-	if partnerID == 0 {
-		return 0, errors.New("trading: partner SteamID cannot be zero after normalization")
+	if !partnerID.IsValid() || partnerID.Type() != id.AccountTypeIndividual {
+		return 0, fmt.Errorf("%w: partner SteamID is invalid after normalization", ErrInvalidPartnerSteamID)
 	}
 
 	return partnerID, nil
@@ -182,7 +186,8 @@ func (m *Manager) AcceptOffer(ctx context.Context, offerID uint64) error {
 // already transitioned to OfferStateCreatedNeedsConfirmation (State 9) on Steam's servers.
 // Verifying actual state via GetOffer prevents falsely failing trades that only require confirmation.
 //
-// Parity: matches node-steam-tradeoffer-manager (lib/classes/TradeOffer.js: accept).
+// Parity: matches @tf2autobot/tradeoffer-manager (lib/classes/TradeOffer.js: accept).
+// Parity improvement: validates partner SteamID before network dispatch and recovers State 9 confirmations.
 func (m *Manager) AcceptOfferWithPartner(ctx context.Context, offerID uint64, partnerID id.ID) error {
 	if err := m.rateLimiter.Wait(ctx); err != nil {
 		return err
@@ -194,9 +199,12 @@ func (m *Manager) AcceptOfferWithPartner(ctx context.Context, offerID uint64, pa
 	}
 
 	if partnerID == 0 {
-		if offer, getErr := m.GetOffer(ctx, offerID); getErr == nil && offer != nil {
-			partnerID = offer.OtherSteamID
+		offer, getErr := m.GetOffer(ctx, offerID)
+		if getErr != nil || offer == nil {
+			return fmt.Errorf("accept offer %d: %w: partner SteamID cannot be zero", offerID, ErrInvalidPartnerSteamID)
 		}
+
+		partnerID = offer.OtherSteamID
 	}
 
 	normPartnerID, err := NormalizePartnerSteamID(partnerID)
@@ -258,7 +266,7 @@ func (m *Manager) AcceptOfferWithPartner(ctx context.Context, offerID uint64, pa
 		return nil
 	}
 
-	if resp != nil && (resp.NeedsMobileConfirmation || resp.NeedsEmailConfirmation) {
+	if resp.NeedsMobileConfirmation || resp.NeedsEmailConfirmation {
 		m.Bus.Publish(&guard.ConfirmationRequiredEvent{
 			TradeOfferID: strconv.FormatUint(offerID, 10),
 			IsAppConfirm: resp.NeedsMobileConfirmation,

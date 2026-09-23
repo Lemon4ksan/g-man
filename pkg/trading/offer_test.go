@@ -116,20 +116,30 @@ func TestTradeOffer_IsGlitched(t *testing.T) {
 			glitched: true,
 		},
 		{
-			name: "valid_offer_name_only",
+			name: "invalid_offer_name_only_is_glitched",
 			offer: &TradeOffer{
 				OtherSteamID: id.ID(76561197960265728),
 				ItemsToReceive: []*Item{
-					{AssetID: 102, Name: "Mann Co. Supply Crate Key"},
+					{AssetID: 102, Name: "Mann Co. Supply Crate Key", MarketHashName: ""},
 				},
 			},
-			glitched: false,
+			glitched: true,
 		},
 		{
-			name: "valid_offer_markethashname_only",
+			name: "invalid_offer_markethashname_only_is_glitched",
 			offer: &TradeOffer{
 				OtherSteamID: id.ID(76561197960265728),
-				ItemsToGive:  []*Item{{AssetID: 100, MarketHashName: "Mann Co. Supply Crate Key"}},
+				ItemsToGive:  []*Item{{AssetID: 100, Name: "", MarketHashName: "Mann Co. Supply Crate Key"}},
+			},
+			glitched: true,
+		},
+		{
+			name: "valid_offer_both_name_and_markethashname_populated",
+			offer: &TradeOffer{
+				OtherSteamID: id.ID(76561197960265728),
+				ItemsToReceive: []*Item{
+					{AssetID: 102, Name: "Mann Co. Supply Crate Key", MarketHashName: "Mann Co. Supply Crate Key"},
+				},
 			},
 			glitched: false,
 		},

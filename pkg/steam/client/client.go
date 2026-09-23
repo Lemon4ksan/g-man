@@ -248,7 +248,7 @@ func New(cfg Config, opts ...Option) (*Client, error) {
 
 	cfg.ResolveDefaults()
 
-	mach := fsm.NewFSM[State, Event](StateNew)
+	mach := fsm.New[State, Event](StateNew)
 	mach.AddRules(
 		fsm.TransitionRule[State, Event]{From: StateNew, Event: EventRun, To: StateRunning},
 		fsm.TransitionRule[State, Event]{From: StateRunning, Event: EventAuthorize, To: StateAuthorized},

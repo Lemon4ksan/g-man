@@ -104,10 +104,16 @@ type TradeOfferActionParams struct {
 
 // SendNewTradeOfferRequest defines the request for sending a new trade offer.
 //
+// Invariant: Steam Community POST "/tradeoffer/new/send" strictly expects form-encoded parameters:
+// `serverid=1`, `partner` (64-bit SteamID), `tradeoffermessage`, `json_tradeoffer`, and `captcha=""`.
+//
+// Parity: matches @tf2autobot/tradeoffer-manager (lib/classes/TradeOffer.js: send).
+//
 // @aoni:dto casing=snake_case
 type SendNewTradeOfferRequest struct {
 	ServerID               int    `json:"serverid"                            url:"serverid"`
 	Partner                uint64 `json:"partner"                             url:"partner"`
+	Captcha                string `json:"captcha"                             url:"captcha"`
 	TradeOfferMessage      string `json:"tradeoffermessage"                   url:"tradeoffermessage"`
 	JSONTradeOffer         string `json:"json_tradeoffer"                     url:"json_tradeoffer"`
 	TradeOfferCreateParams string `json:"trade_offer_create_params,omitempty" url:"trade_offer_create_params,omitempty"`
@@ -120,7 +126,7 @@ type SendNewTradeOfferRequest struct {
 // the partner's 64-bit SteamID (`partner`) and an empty `captcha=` form field.
 // Omitting `partner` or passing "0" causes Steam to return HTTP 403 Forbidden.
 //
-// Parity: matches node-steam-tradeoffer-manager (lib/classes/TradeOffer.js: accept).
+// Parity: matches @tf2autobot/tradeoffer-manager (lib/classes/TradeOffer.js: accept).
 //
 // @aoni:dto casing=snake_case
 type AcceptTradeOfferRequest struct {
@@ -130,17 +136,20 @@ type AcceptTradeOfferRequest struct {
 	Captcha      string `json:"captcha"      url:"captcha"`
 }
 
+// GetOffersResponse represents the IEconService/GetTradeOffers WebAPI response body.
 type GetOffersResponse struct {
 	Sent         []*trading.TradeOffer `json:"trade_offers_sent"`
 	Received     []*trading.TradeOffer `json:"trade_offers_received"`
 	Descriptions []rawDescription      `json:"descriptions"`
 }
 
+// GetOfferResponse represents the IEconService/GetTradeOffer WebAPI response body.
 type GetOfferResponse struct {
 	Offer        *trading.TradeOffer `json:"offer"`
 	Descriptions []rawDescription    `json:"descriptions"`
 }
 
+// TradeStatusResponse represents the IEconService/GetTradeStatus WebAPI response body.
 type TradeStatusResponse struct {
 	Trades []struct {
 		TradeID        uint64                  `json:"tradeid,string"`
@@ -152,12 +161,14 @@ type TradeStatusResponse struct {
 	} `json:"trades"`
 }
 
+// SendNewTradeOfferResponse represents the Steam Community JSON response for sending a new offer.
 type SendNewTradeOfferResponse struct {
 	TradeOfferID string `json:"tradeofferid"`
 	NeedsMobile  bool   `json:"needs_mobile_confirmation"`
 	NeedsEmail   bool   `json:"needs_email_confirmation"`
 }
 
+// AcceptTradeOfferResponse represents the Steam Community JSON response for accepting an offer.
 type AcceptTradeOfferResponse struct {
 	TradeID                 string `json:"tradeid"`
 	NeedsMobileConfirmation bool   `json:"needs_mobile_confirmation"`

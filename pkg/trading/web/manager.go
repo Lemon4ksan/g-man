@@ -28,6 +28,7 @@ import (
 	"github.com/lemon4ksan/g-man/pkg/trading/web/processor"
 )
 
+// ModuleName is the unique identifier for the web trading module.
 const ModuleName string = "trading"
 
 var (
@@ -66,8 +67,11 @@ func From(c *client.Client) *Manager {
 type State int32
 
 const (
+	// StateStopped indicates that trade offer polling is halted.
 	StateStopped State = iota
+	// StatePolling indicates that background offer polling is active.
 	StatePolling
+	// StateClosed indicates that the trading manager has terminated.
 	StateClosed
 )
 
@@ -75,8 +79,11 @@ const (
 type Event int32
 
 const (
+	// EventStartPolling triggers transition to active polling state.
 	EventStartPolling Event = iota
+	// EventStopPolling halts active background polling.
 	EventStopPolling
+	// EventClose terminates the manager lifecycle.
 	EventClose
 )
 
@@ -95,13 +102,20 @@ func (s State) String() string {
 
 // Config configures trade polling, cancellation, and inventory parameters.
 type Config struct {
-	PollInterval           time.Duration
-	Language               string
-	AppID                  uint32
-	ContextID              int64
-	CancelOfferCount       int
+	// PollInterval specifies how frequently to poll IEconService/GetTradeOffers.
+	PollInterval time.Duration
+	// Language defines the localized language for item descriptions (e.g. "english").
+	Language string
+	// AppID is the target Steam game application ID (default: 440 for TF2).
+	AppID uint32
+	// ContextID is the asset context ID for trade items (default: 2).
+	ContextID int64
+	// CancelOfferCount is the sent offer count threshold for triggering cancellation.
+	CancelOfferCount int
+	// CancelOfferCountMinAge is the minimum age before an offer counts toward CancelOfferCount.
 	CancelOfferCountMinAge time.Duration
-	CancelTime             time.Duration
+	// CancelTime is the maximum lifespan after which an active sent offer is auto-canceled.
+	CancelTime time.Duration
 }
 
 // DefaultConfig provides sensible production defaults for trading configuration.
@@ -150,7 +164,7 @@ func New(cfg Config) *Manager {
 		cfg.PollInterval = 30 * time.Second
 	}
 
-	mach := fsm.NewFSM[State, Event](StateStopped)
+	mach := fsm.New[State, Event](StateStopped)
 	mach.AddRules(
 		fsm.TransitionRule[State, Event]{From: StateStopped, Event: EventStartPolling, To: StatePolling},
 		fsm.TransitionRule[State, Event]{From: StatePolling, Event: EventStopPolling, To: StateStopped},

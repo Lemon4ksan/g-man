@@ -95,6 +95,7 @@ type SocketProvider interface {
 	SendRaw(ctx context.Context, eMsg enums.EMsg, payload []byte, opts ...socket.SendOption) error
 	Session() socket.Session
 	StartHeartbeat(time.Duration) error
+	IsConnected() bool
 }
 
 // WebAuthenticator manages web-based authentication endpoints and mobile Guard confirmation updates.
@@ -230,7 +231,7 @@ type Authenticator struct {
 
 // NewAuthenticator constructs an Authenticator instance.
 func NewAuthenticator(s SocketProvider, svc WebAuthenticator, bus *event.Bus, opts ...Option) *Authenticator {
-	mach := fsm.NewFSM[State, Event](StateDisconnected)
+	mach := fsm.New[State, Event](StateDisconnected)
 	mach.AddRules(
 		fsm.TransitionRule[State, Event]{From: StateDisconnected, Event: EventBegin, To: StateAuthenticating},
 		fsm.TransitionRule[State, Event]{From: StateFailed, Event: EventBegin, To: StateAuthenticating},
@@ -301,11 +302,38 @@ func (a *Authenticator) LogOn(ctx context.Context, details *LogOnDetails, server
 	a.loginCancel.Store(cancel)
 	a.activeDetails.Store(details)
 
-	a.getLogger().
-		Debug("Connecting to CM server...", log.String("endpoint", server.Endpoint), log.String("type", server.Type))
+	// Feature 36: Eliminate CM Reconnect Double-Connect
+	if connChecker, ok := a.socket.(interface{ IsConnecting() bool }); ok && connChecker.IsConnecting() {
+		a.getLogger().Debug("Socket is currently connecting via reconnectLoop, awaiting connection...")
 
-	if err := a.socket.Connect(loginCtx, server); err != nil {
-		return fmt.Errorf("cm connection failed: %w", err)
+		if waiter, ok := a.socket.(interface {
+			WaitForConnection(ctx context.Context) error
+		}); ok {
+			_ = waiter.WaitForConnection(loginCtx)
+		}
+	}
+
+	if a.socket.IsConnected() {
+		a.getLogger().
+			Debug("Socket transport already connected via reconnectLoop, skipping dial to avoid double-connect",
+				log.String("endpoint", server.Endpoint),
+				log.String("type", server.Type),
+			)
+
+		if srvProvider, ok := a.socket.(interface {
+			CurrentServer() (socket.CMServer, bool)
+		}); ok {
+			if curServer, ok := srvProvider.CurrentServer(); ok && curServer.Endpoint != "" {
+				server = curServer
+			}
+		}
+	} else {
+		a.getLogger().
+			Debug("Connecting to CM server...", log.String("endpoint", server.Endpoint), log.String("type", server.Type))
+
+		if err := a.socket.Connect(loginCtx, server); err != nil {
+			return fmt.Errorf("cm connection failed: %w", err)
+		}
 	}
 
 	a.getLogger().Debug("Connected to CM server, configuring session...", log.String("endpoint", server.Endpoint))
@@ -345,8 +373,35 @@ func (a *Authenticator) LogOnAnonymous(ctx context.Context, server socket.CMServ
 	a.loginCancel.Store(cancel)
 	a.activeDetails.Store(anonDetails)
 
-	if err := a.socket.Connect(ctx, server); err != nil {
-		return fmt.Errorf("cm connection failed: %w", err)
+	// Feature 36: Eliminate CM Reconnect Double-Connect
+	if connChecker, ok := a.socket.(interface{ IsConnecting() bool }); ok && connChecker.IsConnecting() {
+		a.getLogger().Debug("Socket is currently connecting via reconnectLoop, awaiting connection...")
+
+		if waiter, ok := a.socket.(interface {
+			WaitForConnection(ctx context.Context) error
+		}); ok {
+			_ = waiter.WaitForConnection(loginCtx)
+		}
+	}
+
+	if a.socket.IsConnected() {
+		a.getLogger().
+			Debug("Socket transport already connected via reconnectLoop, skipping dial to avoid double-connect",
+				log.String("endpoint", server.Endpoint),
+				log.String("type", server.Type),
+			)
+
+		if srvProvider, ok := a.socket.(interface {
+			CurrentServer() (socket.CMServer, bool)
+		}); ok {
+			if curServer, ok := srvProvider.CurrentServer(); ok && curServer.Endpoint != "" {
+				server = curServer
+			}
+		}
+	} else {
+		if err := a.socket.Connect(ctx, server); err != nil {
+			return fmt.Errorf("cm connection failed: %w", err)
+		}
 	}
 
 	if isWebSocketServer(server.Type) {

@@ -6,6 +6,7 @@ package web
 
 import (
 	"context"
+	"errors"
 	"maps"
 	"time"
 
@@ -67,21 +68,22 @@ func (m *Manager) pollingLoop(ctx context.Context) {
 
 		case <-m.trigger:
 			time.Sleep(1 * time.Second)
-			m.doPoll(ctx)
+
+			_ = m.doPoll(ctx)
 
 		case <-ticker.C:
 			if m.fsm.CurrentState() != StatePolling {
 				return
 			}
 
-			m.doPoll(ctx)
+			_ = m.doPoll(ctx)
 		}
 	}
 }
 
-func (m *Manager) doPoll(ctx context.Context) {
+func (m *Manager) doPoll(ctx context.Context) error {
 	if err := m.rateLimiter.Wait(ctx); err != nil {
-		return
+		return err
 	}
 
 	m.Logger.Debug("Polling trade offers...")
@@ -109,7 +111,11 @@ func (m *Manager) doPoll(ctx context.Context) {
 			m.Logger.Warn("Trade poll failed", log.Err(err))
 		}
 
-		return
+		return err
+	}
+
+	if resp == nil {
+		return errors.New("webapi: received nil response from GetTradeOffers")
 	}
 
 	for _, o := range resp.Sent {
@@ -191,7 +197,7 @@ func (m *Manager) doPoll(ctx context.Context) {
 	// Advancing the timestamp watermark would permanently exclude glitched offers
 	// from future poll queries once Steam inventory descriptions finish loading.
 	//
-	// Parity: matches node-steam-tradeoffer-manager (lib/polling.js: _poll).
+	// Parity: matches @tf2autobot/tradeoffer-manager (lib/polling.js: _poll).
 	hasGlitchedOffer := false
 	for _, off := range allOffers {
 		if off.IsGlitched() {
@@ -211,6 +217,10 @@ func (m *Manager) doPoll(ctx context.Context) {
 		}
 
 		m.offersSince = latest
+	} else {
+		m.Logger.Debug("Watermark offersSince frozen due to glitched offer in poll batch",
+			log.Int64("offers_since", m.offersSince),
+		)
 	}
 
 	m.gcKnownOffers(now)
@@ -238,6 +248,8 @@ func (m *Manager) doPoll(ctx context.Context) {
 		log.Int("sent_active", len(resp.Sent)),
 		log.Int("received_active", len(resp.Received)),
 	)
+
+	return nil
 }
 
 func (m *Manager) gcKnownOffers(now time.Time) {

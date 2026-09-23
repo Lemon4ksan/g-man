@@ -6,6 +6,7 @@ package web
 
 import (
 	"bytes"
+	"fmt"
 	"net/url"
 	"strconv"
 
@@ -74,8 +75,13 @@ var formBufferPool = pool.NewPerPStorage(func() any {
 // `serverid=1`, `partner` (64-bit SteamID string), `tradeoffermessage`, `json_tradeoffer`,
 // and `captcha=""`.
 //
-// Parity: matches node-steam-tradeoffer-manager (lib/classes/TradeOffer.js: send).
+// Parity: matches @tf2autobot/tradeoffer-manager (lib/classes/TradeOffer.js: send).
 func (r sendNewReq) EncodeFormString() (string, error) {
+	normPartnerID, err := NormalizePartnerSteamID(r.PartnerID)
+	if err != nil {
+		return "", fmt.Errorf("send offer form encode: %w", err)
+	}
+
 	buf := formBufferPool.Get().(*bytes.Buffer)
 	buf.Reset()
 
@@ -86,13 +92,8 @@ func (r sendNewReq) EncodeFormString() (string, error) {
 	buf.WriteString("serverid=")
 	buf.Write(strconv.AppendInt(intBuf[:0], int64(r.ServerID), 10))
 
-	partnerID := r.PartnerID
-	if partnerID != 0 && partnerID < id.FromAccountID(0) {
-		partnerID = id.FromAccountID(uint32(partnerID))
-	}
-
 	buf.WriteString("&partner=")
-	buf.Write(strconv.AppendUint(intBuf[:0], uint64(partnerID), 10))
+	buf.Write(strconv.AppendUint(intBuf[:0], uint64(normPartnerID), 10))
 
 	buf.WriteString("&tradeoffermessage=")
 	buf.WriteString(url.QueryEscape(r.Message))
@@ -101,6 +102,10 @@ func (r sendNewReq) EncodeFormString() (string, error) {
 	buf.WriteString(url.QueryEscape(r.JSON))
 
 	buf.WriteString("&captcha=")
+
+	if r.Captcha != "" {
+		buf.WriteString(url.QueryEscape(r.Captcha))
+	}
 
 	if r.CreateParams != "" {
 		buf.WriteString("&trade_offer_create_params=")

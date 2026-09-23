@@ -180,14 +180,14 @@ type Session struct {
 }
 
 // New constructs an initialized Session orchestrator.
-func New(socket SocketProvider, cfg Config) *Session {
+func New(sock SocketProvider, cfg Config) *Session {
 	cfg.ResolveDefaults()
 
 	unified := service.New(tr.NewHTTPTransport(cfg.HTTP, cfg.WebAPIBase))
 
 	if cfg.Authenticator == nil {
 		cfg.Authenticator = auth.NewAuthenticator(
-			socket,
+			sock,
 			auth.NewAuthenticationService(unified, cfg.Device),
 			cfg.Bus,
 			auth.WithLogger(cfg.Logger),
@@ -200,7 +200,7 @@ func New(socket SocketProvider, cfg Config) *Session {
 		ctx:                sessCtx,
 		cancel:             cancel,
 		auth:               cfg.Authenticator,
-		socket:             socket,
+		socket:             sock,
 		logger:             cfg.Logger.With(log.Module("session_manager")),
 		storage:            cfg.Storage,
 		device:             cfg.Device,
@@ -209,15 +209,23 @@ func New(socket SocketProvider, cfg Config) *Session {
 		webFactory:         cfg.WebFactory,
 		communityFactory:   cfg.CommunityFactory,
 		unified:            unified,
-		socketAPI:          service.New(tr.NewSocketTransport(socket)),
+		socketAPI:          service.New(tr.NewSocketTransport(sock)),
 		refreshSF:          generic.NewSingleFlight[struct{}](),
 		reconnectSF:        generic.NewSingleFlight[struct{}](),
 		refreshJobInterval: cfg.RefreshJobInterval,
 	}
 
-	if socket != nil {
-		socket.SetOnReconnect(func(reconCtx context.Context) {
+	if sock != nil {
+		sock.SetOnReconnect(func(reconCtx context.Context) {
 			sess.Logger().Info("L4 transport reconnected, re-authenticating L7 Steam session...")
+
+			if srvProvider, ok := sock.(interface {
+				CurrentServer() (socket.CMServer, bool)
+			}); ok {
+				if curServer, ok := srvProvider.CurrentServer(); ok && curServer.Endpoint != "" {
+					sess.SetLogonServer(curServer)
+				}
+			}
 
 			if _, err := sess.reconnectSF.Do("reconnect", func() (struct{}, error) {
 				if err := sess.Reconnect(reconCtx); err != nil {
@@ -387,11 +395,19 @@ func (c *Session) IsSocketConnected() bool {
 	return c.socket != nil && c.socket.IsConnected()
 }
 
-// SetLogonServer updates the target Connection Manager server address.
+// SetLogonServer updates the target Connection Manager server address in a thread-safe manner.
 func (c *Session) SetLogonServer(s socket.CMServer) {
 	c.mu.Lock()
 	c.logonServer = s
 	c.mu.Unlock()
+}
+
+// LogonServer returns the target Connection Manager server address in a thread-safe manner.
+func (c *Session) LogonServer() socket.CMServer {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	return c.logonServer
 }
 
 // SetAPIKey configures WebAPI service clients with the specified Steam WebAPI key.
@@ -504,7 +520,16 @@ func (c *Session) Reconnect(ctx context.Context) error {
 		return ErrMissingCredentials
 	}
 
-	c.Logger().Info("Attempting automatic reconnection...")
+	if srvProvider, ok := c.socket.(interface {
+		CurrentServer() (socket.CMServer, bool)
+	}); ok {
+		if curServer, ok := srvProvider.CurrentServer(); ok && curServer.Endpoint != "" {
+			c.SetLogonServer(curServer)
+			server = curServer
+		}
+	}
+
+	c.Logger().Info("Attempting automatic reconnection...", log.String("endpoint", server.Endpoint))
 
 	c.mu.Lock()
 	c.web = nil

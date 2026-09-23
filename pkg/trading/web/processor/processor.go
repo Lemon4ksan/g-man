@@ -17,46 +17,66 @@ import (
 	"github.com/lemon4ksan/foundation/silicon/clock"
 	"github.com/lemon4ksan/foundation/silicon/pool"
 
+	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/trading"
 )
 
 var (
-	ErrMaxRetriesReached    = errors.New("max retries reached")
-	ErrCommunityNotReady    = errors.New("community client is not ready (bot not logged in)")
-	ErrEscrowNotFound       = errors.New("escrow data not found on the page (Steam might be down or offer is invalid)")
+	// ErrMaxRetriesReached indicates an operation failed repeatedly and exhausted its retry budget.
+	ErrMaxRetriesReached = errors.New("max retries reached")
+	// ErrCommunityNotReady indicates the community requester is not authenticated or bot is logged off.
+	ErrCommunityNotReady = errors.New("community client is not ready (bot not logged in)")
+	// ErrEscrowNotFound indicates escrow holding data could not be parsed from Steam Community HTML.
+	ErrEscrowNotFound = errors.New("escrow data not found on the page (Steam might be down or offer is invalid)")
+	// ErrCounterParamsMissing indicates a counter action was returned without counter parameters.
 	ErrCounterParamsMissing = errors.New("processor: counter params missing for counter action")
-	ErrUnknownActionType    = errors.New("processor: unknown action type")
+	// ErrUnknownActionType indicates an unhandled action decision type was encountered.
+	ErrUnknownActionType = errors.New("processor: unknown action type")
 )
 
+// Details encapsulates trade hold duration in days for both our account and the trade partner.
 type Details struct {
 	MyDays    int
 	TheirDays int
 }
 
+// HasHold reports whether either party has an active escrow hold.
 func (e Details) HasHold() bool {
 	return e.MyDays > 0 || e.TheirDays > 0
 }
 
+// HasTheirHold reports whether the partner has an escrow hold.
+func (e Details) HasTheirHold() bool { return e.TheirDays > 0 }
+
+// HasMyHold reports whether our account has an escrow hold.
+func (e Details) HasMyHold() bool { return e.MyDays > 0 }
+
+// ManagerProvider defines trading manager operations required by the offer processor.
 type ManagerProvider interface {
 	GetEscrowDuration(ctx context.Context, offerID uint64) (Details, error)
 	AcceptOffer(ctx context.Context, offerID uint64) error
+	AcceptOfferWithPartner(ctx context.Context, offerID uint64, partnerID id.ID) error
 	DeclineOffer(ctx context.Context, offerID uint64) error
 	SendOffer(ctx context.Context, p trading.OfferParams) (uint64, error)
 }
 
+// BackpackProvider manages item locks in local inventory to prevent double-offering.
 type BackpackProvider interface {
 	LockItems(ids []uint64)
 	UnlockItems(ids []uint64)
 }
 
+// OfferHandler evaluates trade offers and determines decisions (accept, decline, counter, skip).
 type OfferHandler interface {
 	ProcessOffer(ctx context.Context, offer *trading.TradeOffer) (trading.ActionDecision, error)
 	OnActionFailed(ctx context.Context, offer *trading.TradeOffer, action trading.ActionType, reason string, err error)
 }
 
+// Option configures Processor instances.
 type Option = generic.Option[*Processor]
 
+// WithLogger configures a custom logger for the Processor.
 func WithLogger(l log.Logger) Option {
 	return func(p *Processor) {
 		p.logger = l
@@ -75,25 +95,34 @@ type Processor struct {
 	processing sync.Map
 }
 
+// New creates a new offer Processor with the specified dependencies.
 func New(
 	manager ManagerProvider,
 	backpack BackpackProvider,
 	handler OfferHandler,
 	opts ...generic.Option[*Processor],
 ) *Processor {
-	return &Processor{
+	p := &Processor{
 		manager:  manager,
 		handler:  handler,
 		backpack: backpack,
 		logger:   log.Discard,
 		queue:    make(chan *trading.TradeOffer, 500),
 	}
+
+	for _, opt := range opts {
+		opt(p)
+	}
+
+	return p
 }
 
+// Start launches the background worker goroutine for processing enqueued offers.
 func (p *Processor) Start(ctx context.Context) {
 	go p.worker(ctx)
 }
 
+// Enqueue adds an offer to the processing queue if it is not already being processed.
 func (p *Processor) Enqueue(off *trading.TradeOffer) {
 	if _, loaded := p.processing.LoadOrStore(off.ID, true); loaded {
 		return
@@ -212,8 +241,9 @@ func (p *Processor) processSingleOffer(ctx context.Context, off *trading.TradeOf
 func (p *Processor) applyAction(ctx context.Context, off *trading.TradeOffer, decision trading.ActionDecision) error {
 	switch decision.Action {
 	case trading.ActionAccept:
+		// Parity: matches @tf2autobot/tradeoffer-manager by passing partner 64-bit SteamID to avoid HTTP 403.
 		return p.withRetry(ctx, 5, func() error {
-			return p.manager.AcceptOffer(ctx, off.ID)
+			return p.manager.AcceptOfferWithPartner(ctx, off.ID, off.OtherSteamID)
 		})
 
 	case trading.ActionDecline:

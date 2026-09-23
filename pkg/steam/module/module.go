@@ -150,7 +150,7 @@ type Base struct {
 
 // New constructs a Base module.
 func New(name string) Base {
-	mach := fsm.NewFSM[State, Event](StateNew)
+	mach := fsm.New[State, Event](StateNew)
 	mach.AddRules(
 		fsm.TransitionRule[State, Event]{From: StateNew, Event: EventStart, To: StateStarted},
 		fsm.TransitionRule[State, Event]{From: StateStarted, Event: EventClose, To: StateClosed},
@@ -181,7 +181,7 @@ func (b *Base) Init(ctx InitContext) error {
 	b.Bus = ctx.Bus()
 
 	if b.Fsm == nil {
-		mach := fsm.NewFSM[State, Event](StateNew)
+		mach := fsm.New[State, Event](StateNew)
 		mach.AddRules(
 			fsm.TransitionRule[State, Event]{From: StateNew, Event: EventStart, To: StateStarted},
 			fsm.TransitionRule[State, Event]{From: StateStarted, Event: EventClose, To: StateClosed},

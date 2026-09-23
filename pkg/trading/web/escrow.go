@@ -51,20 +51,19 @@ func parseEscrowFromHTML(bodyBytes []byte) (processor.Details, error) {
 
 // ParseEscrowFromHTML extracts escrow hold days for both parties from trade offer page HTML.
 //
-// Invariant: Matches node-steam-tradeoffer-manager where Valve HTML fluctuates between
-// lowercase "g_daysTheirEscrow" and uppercase "g_DaysTheirEscrow".
+// Invariant: Matches @tf2autobot/tradeoffer-manager where Valve HTML fluctuates between
+// lowercase "g_daysTheirEscrow" and uppercase "g_DaysTheirEscrow". Lowercase is evaluated first.
 //
-// Parity: matches node-steam-tradeoffer-manager (lib/index.js: getEscrowDuration).
+// Parity: matches @tf2autobot/tradeoffer-manager (lib/classes/TradeOffer.js: getUserDetails).
 func ParseEscrowFromHTML(bodyBytes []byte) (processor.Details, error) {
 	return parseEscrowFromHTML(bodyBytes)
 }
 
 // GetEscrowDuration parses escrow hold days from the trade offer web page.
 //
-// [JS PARITY REFERENCE]:
-// Matches node-steam-tradeoffer-manager (lib/index.js: TradeOfferManager.prototype.getEscrowDuration).
+// Parity: matches @tf2autobot/tradeoffer-manager (lib/index.js: TradeOfferManager.prototype.getEscrowDuration).
 // Valve historically fluctuates between lowercase "g_daysTheirEscrow" and uppercase "g_DaysTheirEscrow"
-// in Steam Community HTML responses. The regex and between extractions handle both cases.
+// in Steam Community HTML responses. The between extractions and regex fallback handle both cases.
 func (m *Manager) GetEscrowDuration(ctx context.Context, offerID uint64) (processor.Details, error) {
 	comm := m.Community()
 	if comm == nil {
@@ -92,7 +91,7 @@ func (m *Manager) GetEscrowDuration(ctx context.Context, offerID uint64) (proces
 // GetEscrowDurationForPartner queries the pre-trade page (tradeoffer/new/?partner=...&token=...)
 // to determine escrow hold durations before sending an offer.
 //
-// Parity: matches node-steam-tradeoffer-manager (lib/classes/TradeOffer.js: getUserDetails).
+// Parity: matches @tf2autobot/tradeoffer-manager (lib/classes/TradeOffer.js: getUserDetails).
 func (m *Manager) GetEscrowDurationForPartner(
 	ctx context.Context,
 	partnerID id.ID,
@@ -139,7 +138,8 @@ func (m *Manager) GetEscrowDurationForPartner(
 //   - Pre-trade / active outgoing check: Scrapes "tradeoffer/new/?partner={partnerID.AccountID()}"
 //     to inspect escrow holds with the partner.
 //
-// Parity: matches node-steam-tradeoffer-manager (lib/classes/TradeOffer.js) and @tf2autobot/tf2.
+// Parity: matches @tf2autobot/tradeoffer-manager (lib/classes/TradeOffer.js: getUserDetails).
+// Parity improvement: enables escrow duration inspection for sent offers by querying the pre-trade URL.
 func (m *Manager) CheckEscrow(ctx context.Context, offer *trading.TradeOffer) (bool, error) {
 	if offer == nil {
 		return false, nil

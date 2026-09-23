@@ -13,10 +13,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/lemon4ksan/aoni/fast"
 	"github.com/lemon4ksan/aoni-contrib/socket"
 	"github.com/lemon4ksan/aoni-contrib/socket/connector"
 	"github.com/lemon4ksan/aoni-contrib/socket/processor"
+	"github.com/lemon4ksan/aoni/fast"
 	log "github.com/lemon4ksan/foundation/async/logkit"
 
 	"github.com/lemon4ksan/g-man/internal/network"

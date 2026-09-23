@@ -204,7 +204,7 @@ func (s *MobileConf) RespondToConfirmation(
 	}
 
 	if resp == nil {
-		return fmt.Errorf("%w: empty response from steam", ErrConfirmationRejected)
+		return fmt.Errorf("%w: guard: received empty response from steam", ErrConfirmationRejected)
 	}
 
 	if resp.NeedAuth {
@@ -300,7 +300,7 @@ func (s *MobileConf) RespondToMultiple(
 	}
 
 	if resp == nil {
-		return fmt.Errorf("%w: empty response from steam", ErrConfirmationRejected)
+		return fmt.Errorf("%w: guard: received empty response from steam", ErrConfirmationRejected)
 	}
 
 	if resp.NeedAuth {

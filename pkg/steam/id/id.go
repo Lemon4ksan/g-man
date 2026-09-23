@@ -23,9 +23,7 @@ type ID uint64
 const (
 	InvalidID ID = 0
 
-	IndividualBase ID = ID(
-		(uint64(UniversePublic) << 56) | (uint64(AccountTypeIndividual) << 52) | (1 << 32),
-	)
+	IndividualBase ID = ID(uint64(UniversePublic) << 56 | uint64(AccountTypeIndividual) << 52 | 1 << 32)
 )
 
 var (
@@ -152,7 +150,7 @@ func Parse(s string) ID {
 		accountID, err2 := strconv.ParseUint(rest[idx2+1:], 10, 64)
 
 		if err1 == nil && err2 == nil {
-			return ID(IndividualBase.Uint64() + (accountID * 2) + authServer)
+			return ID(IndividualBase.Uint64() + accountID*2 + authServer)
 		}
 
 		return InvalidID
@@ -290,8 +288,7 @@ func ResolveVanityURL(ctx context.Context, d service.Doer, vanityURL string) (ID
 	if res.Success != 1 {
 		return InvalidID, fmt.Errorf(
 			"steamid: could not resolve vanity URL (success=%d, msg=%s)",
-			res.Success,
-			res.Message,
+			res.Success, res.Message,
 		)
 	}
 

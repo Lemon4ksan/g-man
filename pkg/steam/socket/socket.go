@@ -18,7 +18,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/lemon4ksan/aoni/fast"
 	"github.com/lemon4ksan/aoni-contrib/socket"
 	"github.com/lemon4ksan/aoni-contrib/socket/connector"
 	"github.com/lemon4ksan/aoni-contrib/socket/dispatcher"
@@ -91,23 +90,6 @@ func (s *BasicSession) SetRefreshToken(token string) { s.refreshToken.Store(toke
 
 // SetAccessToken sets the access token string.
 func (s *BasicSession) SetAccessToken(token string) { s.accessToken.Store(token) }
-
-// Config configures the Steam socket subsystem.
-type Config struct {
-	FastClient *fast.Client
-	Connector  ConnectorConfig
-	Processor  ProcessorConfig
-	MaxJobs    int
-}
-
-// DefaultConfig builds recommended socket subsystem settings.
-func DefaultConfig() Config {
-	return Config{
-		Connector: DefaultConnectorConfig(),
-		Processor: DefaultProcessorConfig(),
-		MaxJobs:   1000,
-	}
-}
 
 // Socket manages connection dialing, worker decoding pools, and packet job dispatching.
 type Socket struct {
@@ -314,6 +296,30 @@ func (s *Socket) IsConnected() bool {
 	return s.conn.IsConnected() && !s.closed.Load()
 }
 
+// CurrentServer returns the active CM server and reports whether connection is established.
+func (s *Socket) CurrentServer() (CMServer, bool) {
+	return s.conn.CurrentEndpoint()
+}
+
+// IsConnecting reports whether a transport connection dial is actively in progress.
+func (s *Socket) IsConnecting() bool {
+	return s.conn.IsConnecting() && !s.closed.Load()
+}
+
+// WaitForConnection blocks until active connection is established or dial fails.
+func (s *Socket) WaitForConnection(ctx context.Context) error {
+	if s.closed.Load() {
+		return ErrClosed
+	}
+
+	return s.conn.WaitForConnection(ctx)
+}
+
+// TriggerReconnect initiates an immediate automatic CM reconnection cycle.
+func (s *Socket) TriggerReconnect() {
+	s.conn.TriggerReconnect()
+}
+
 // UpdateServers updates known Connection Manager servers.
 func (s *Socket) UpdateServers(servers []CMServer) {
 	s.conn.UpdateEndpoints(servers)
@@ -439,11 +445,56 @@ func (s *Socket) StartHeartbeat(interval time.Duration) error {
 		sendInterval = interval
 	}
 
+	maxFailures := s.cfg.MaxHeartbeatFailures
+	if maxFailures <= 0 {
+		maxFailures = DefaultMaxHeartbeatFailures
+	}
+
 	go func() {
-		if s.IsConnected() {
-			if err := s.SendProto(ctx, enums.EMsg_ClientHeartBeat, &pb.CMsgClientHeartBeat{}); err != nil {
-				s.Logger().Warn("Failed to send initial heartbeat", log.Err(err))
+		consecutiveFailures := 0
+		sendTimeout := min(sendInterval, 5*time.Second)
+
+		handleFailure := func(err error) bool {
+			consecutiveFailures++
+			s.Logger().Warn("Failed to send heartbeat",
+				log.Err(err),
+				log.Int("consecutive_failures", consecutiveFailures),
+				log.Int("threshold", maxFailures),
+			)
+
+			if consecutiveFailures >= maxFailures {
+				s.Logger().
+					Error("Consecutive heartbeat failures exceeded threshold, terminating transport to trigger reconnect",
+						log.Int("failures", consecutiveFailures),
+						log.Int("threshold", maxFailures),
+						log.Err(err),
+					)
+
+				_ = s.conn.Disconnect()
+				s.conn.TriggerReconnect()
+
+				return true
 			}
+
+			return false
+		}
+
+		sendHeartbeat := func() bool {
+			sendCtx, sendCancel := context.WithTimeout(ctx, sendTimeout)
+			defer sendCancel()
+
+			err := s.SendProto(sendCtx, enums.EMsg_ClientHeartBeat, &pb.CMsgClientHeartBeat{})
+			if err != nil {
+				return handleFailure(err)
+			}
+
+			consecutiveFailures = 0
+
+			return false
+		}
+
+		if s.IsConnected() && sendHeartbeat() {
+			return
 		}
 
 		ticker := time.NewTicker(sendInterval)
@@ -456,9 +507,8 @@ func (s *Socket) StartHeartbeat(interval time.Duration) error {
 					continue
 				}
 
-				err := s.SendProto(ctx, enums.EMsg_ClientHeartBeat, &pb.CMsgClientHeartBeat{})
-				if err != nil {
-					s.Logger().Warn("Failed to send heartbeat", log.Err(err))
+				if sendHeartbeat() {
+					return
 				}
 
 			case <-ctx.Done():

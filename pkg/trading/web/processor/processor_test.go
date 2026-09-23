@@ -14,6 +14,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lemon4ksan/g-man/pkg/steam/id"
 	"github.com/lemon4ksan/g-man/pkg/steam/protocol"
 	"github.com/lemon4ksan/g-man/pkg/trading"
 )
@@ -84,6 +85,10 @@ func (m *mockManager) AcceptOffer(ctx context.Context, id uint64) error {
 	}
 
 	return nil
+}
+
+func (m *mockManager) AcceptOfferWithPartner(ctx context.Context, id uint64, _ id.ID) error {
+	return m.AcceptOffer(ctx, id)
 }
 
 func (m *mockManager) DeclineOffer(ctx context.Context, id uint64) error {

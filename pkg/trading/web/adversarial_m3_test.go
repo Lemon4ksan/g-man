@@ -100,15 +100,57 @@ func TestAdversarial_PartnerNormalization(t *testing.T) {
 		assert.Equal(t, "76561198012345678", strconv.FormatUint(res.Uint64(), 10))
 	})
 
-	t.Run("adversarial_negative_id_cast_to_uint64_never_zero", func(t *testing.T) {
+	t.Run("adversarial_negative_id_cast_to_uint64_invalid_fails_fast", func(t *testing.T) {
 		t.Parallel()
 
 		negAsUint := id.ID(^uint64(0)) // 18446744073709551615
 		res, err := NormalizePartnerSteamID(negAsUint)
-		require.NoError(t, err)
-		assert.NotEqual(t, id.ID(0), res)
-		assert.Equal(t, negAsUint, res)
-		assert.NotEqual(t, "0", strconv.FormatUint(res.Uint64(), 10))
+		require.Error(t, err)
+		assert.ErrorIs(t, err, ErrInvalidPartnerSteamID)
+		assert.Equal(t, id.ID(0), res)
+	})
+
+	t.Run("non_individual_account_types_fail_fast", func(t *testing.T) {
+		t.Parallel()
+
+		nonIndividualTypes := []id.AccountType{
+			id.AccountTypeMultiseat,
+			id.AccountTypeGameServer,
+			id.AccountTypeAnonGameServer,
+			id.AccountTypeClan,
+			id.AccountTypeChat,
+		}
+
+		for _, accType := range nonIndividualTypes {
+			accType := accType
+			t.Run(accType.String(), func(t *testing.T) {
+				t.Parallel()
+
+				nonIndivID := id.ID(uint64(id.UniversePublic)<<56 | uint64(accType)<<52 | 1<<32 | 12345)
+				res, err := NormalizePartnerSteamID(nonIndivID)
+				require.Error(t, err)
+				assert.ErrorIs(t, err, ErrInvalidPartnerSteamID)
+				assert.Equal(t, id.ID(0), res)
+			})
+		}
+	})
+
+	t.Run("adversarial_negative_int64_cast_fails_fast", func(t *testing.T) {
+		t.Parallel()
+
+		negValues := []int64{-1, -2, -100, -9999999}
+		for _, negVal := range negValues {
+			negVal := negVal
+			t.Run(strconv.FormatInt(negVal, 10), func(t *testing.T) {
+				t.Parallel()
+
+				negID := id.ID(uint64(negVal))
+				res, err := NormalizePartnerSteamID(negID)
+				require.Error(t, err)
+				assert.ErrorIs(t, err, ErrInvalidPartnerSteamID)
+				assert.Equal(t, id.ID(0), res)
+			})
+		}
 	})
 }
 
@@ -349,6 +391,154 @@ func TestAdversarial_SendFormPayload_CaptchaAndFields(t *testing.T) {
 		assert.Equal(t, "20001", vals.Get("tradeofferid"))
 		assert.Equal(t, "76561197960311406", vals.Get("partner"))
 	})
+
+	t.Run("send_offer_http_200_null_json_nil_dereference_safety", func(t *testing.T) {
+		t.Parallel()
+		f := newTestFixture(t)
+
+		f.comm.SetRawResponse("tradeoffer/new/send", 200, []byte("null"))
+
+		params := trading.OfferParams{
+			PartnerID: 45678,
+			Message:   "test null json",
+		}
+
+		assert.NotPanics(t, func() {
+			offerID, err := f.manager.SendOffer(t.Context(), params)
+			require.Error(t, err)
+			assert.Equal(t, uint64(0), offerID)
+			assert.ErrorIs(t, err, ErrEmptyResponse)
+		})
+	})
+
+	t.Run("send_offer_http_200_empty_trade_offer_id_fails_without_publishing_event", func(t *testing.T) {
+		t.Parallel()
+		f := newTestFixture(t)
+
+		f.comm.SetHTMLResponse(
+			"tradeoffer/new/send",
+			200,
+			`{"tradeofferid":"","needs_mobile_confirmation":true}`,
+		)
+
+		sub := f.manager.Bus.Subscribe(&guard.ConfirmationRequiredEvent{})
+		t.Cleanup(sub.Unsubscribe)
+
+		params := trading.OfferParams{
+			PartnerID: 45678,
+			Message:   "test empty offer id",
+		}
+
+		offerID, err := f.manager.SendOffer(t.Context(), params)
+		require.Error(t, err)
+		assert.Equal(t, uint64(0), offerID)
+		assert.Contains(t, err.Error(), "invalid trade offer ID in response")
+
+		select {
+		case ev := <-sub.C():
+			t.Fatalf("unexpected ConfirmationRequiredEvent published for empty tradeofferid: %+v", ev)
+		case <-time.After(50 * time.Millisecond):
+		}
+	})
+
+	t.Run("send_offer_http_200_malformed_trade_offer_id_fails_without_publishing_event", func(t *testing.T) {
+		t.Parallel()
+		f := newTestFixture(t)
+
+		f.comm.SetHTMLResponse(
+			"tradeoffer/new/send",
+			200,
+			`{"tradeofferid":"invalid_not_uint64","needs_mobile_confirmation":true}`,
+		)
+
+		sub := f.manager.Bus.Subscribe(&guard.ConfirmationRequiredEvent{})
+		t.Cleanup(sub.Unsubscribe)
+
+		params := trading.OfferParams{
+			PartnerID: 45678,
+			Message:   "test malformed offer id",
+		}
+
+		offerID, err := f.manager.SendOffer(t.Context(), params)
+		require.Error(t, err)
+		assert.Equal(t, uint64(0), offerID)
+		assert.Contains(t, err.Error(), "invalid trade offer ID in response")
+
+		select {
+		case ev := <-sub.C():
+			t.Fatalf("unexpected ConfirmationRequiredEvent published for malformed tradeofferid: %+v", ev)
+		case <-time.After(50 * time.Millisecond):
+		}
+	})
+
+	t.Run("send_offer_http_200_malformed_json_fails", func(t *testing.T) {
+		t.Parallel()
+		f := newTestFixture(t)
+
+		f.comm.SetRawResponse("tradeoffer/new/send", 200, []byte("{malformed:json}"))
+
+		params := trading.OfferParams{
+			PartnerID: 45678,
+			Message:   "test malformed json",
+		}
+
+		offerID, err := f.manager.SendOffer(t.Context(), params)
+		require.Error(t, err)
+		assert.Equal(t, uint64(0), offerID)
+	})
+
+	t.Run("send_offer_payload_over_the_wire_contains_empty_captcha_and_normalized_partner", func(t *testing.T) {
+		t.Parallel()
+		f := newTestFixture(t)
+
+		f.comm.SetHTMLResponse(
+			"tradeoffer/new/send",
+			200,
+			`{"tradeofferid":"123456","needs_mobile_confirmation":false}`,
+		)
+
+		params := trading.OfferParams{
+			PartnerID: 45678,
+			Message:   "Hello from over-the-wire test",
+		}
+
+		offerID, err := f.manager.SendOffer(t.Context(), params)
+		require.NoError(t, err)
+		assert.Equal(t, uint64(123456), offerID)
+
+		var sendBody string
+		for _, call := range f.comm.Calls {
+			if strings.Contains(call.URL.Path, "tradeoffer/new/send") {
+				sendBody = getRequestBody(call.Body, call.GetBody)
+			}
+		}
+
+		require.NotEmpty(t, sendBody)
+
+		vals, err := url.ParseQuery(sendBody)
+		require.NoError(t, err)
+
+		assert.True(t, vals.Has("captcha"), "Form body must contain captcha field")
+		assert.Equal(t, "", vals.Get("captcha"), "Captcha field must be empty string")
+		assert.Contains(t, sendBody, "&captcha=", "Raw body must explicitly contain &captcha=")
+		assert.Equal(t, "76561197960311406", vals.Get("partner"))
+		assert.NotEqual(t, "0", vals.Get("partner"))
+		assert.Equal(t, "1", vals.Get("serverid"))
+	})
+
+	t.Run("sendNewReq_EncodeFormString_with_zero_partner_returns_error", func(t *testing.T) {
+		t.Parallel()
+
+		req := sendNewReq{
+			ServerID:  1,
+			PartnerID: 0,
+			Captcha:   "",
+		}
+
+		_, err := req.EncodeFormString()
+		require.Error(t, err)
+		assert.ErrorIs(t, err, ErrInvalidPartnerSteamID)
+	})
 }
 
 // 3. Fallback on HTTP 500 / timeout: Simulate Steam accept failure where offer transitioned to state 9 (CreatedNeedsConfirmation).
@@ -583,6 +773,71 @@ func TestAdversarial_AcceptOffer_State9ConfirmationFallback(t *testing.T) {
 			err := f.manager.AcceptOfferWithPartner(t.Context(), offerID, partnerID)
 			assert.NoError(t, err)
 		})
+	})
+
+	t.Run("http_200_malformed_json_recovers_if_state_is_9", func(t *testing.T) {
+		t.Parallel()
+		f := newTestFixture(t)
+		partnerID := id.FromAccountID(OtherAccountID)
+		offerID := uint64(30009)
+
+		f.comm.SetRawResponse(fmt.Sprintf("tradeoffer/%d/accept", offerID), 200, []byte("{malformed:json"))
+
+		f.web.SetJSONResponse("IEconService", "GetTradeOffer", map[string]any{
+			"response": map[string]any{
+				"offer": map[string]any{
+					"tradeofferid":      strconv.FormatUint(offerID, 10),
+					"accountid_other":   OtherAccountID,
+					"trade_offer_state": int(trading.OfferStateCreatedNeedsConfirmation),
+					"items_to_receive": []any{
+						map[string]any{
+							"appid":            440,
+							"contextid":        "2",
+							"assetid":          "1",
+							"name":             "Key",
+							"market_hash_name": "Key",
+						},
+					},
+				},
+			},
+		})
+
+		sub := f.manager.Bus.Subscribe(&guard.ConfirmationRequiredEvent{})
+		t.Cleanup(sub.Unsubscribe)
+
+		err := f.manager.AcceptOfferWithPartner(t.Context(), offerID, partnerID)
+		assert.NoError(t, err, "Malformed response with state 9 on WebAPI must recover and return nil")
+
+		select {
+		case ev := <-sub.C():
+			event := ev.(*guard.ConfirmationRequiredEvent)
+			assert.Equal(t, strconv.FormatUint(offerID, 10), event.TradeOfferID)
+			assert.True(t, event.IsAppConfirm)
+		case <-time.After(2 * time.Second):
+			t.Fatal("timeout waiting for ConfirmationRequiredEvent")
+		}
+	})
+
+	t.Run("http_200_malformed_json_fails_if_state_is_active", func(t *testing.T) {
+		t.Parallel()
+		f := newTestFixture(t)
+		partnerID := id.FromAccountID(OtherAccountID)
+		offerID := uint64(30010)
+
+		f.comm.SetRawResponse(fmt.Sprintf("tradeoffer/%d/accept", offerID), 200, []byte("{malformed:json"))
+
+		f.web.SetJSONResponse("IEconService", "GetTradeOffer", map[string]any{
+			"response": map[string]any{
+				"offer": map[string]any{
+					"tradeofferid":      strconv.FormatUint(offerID, 10),
+					"accountid_other":   OtherAccountID,
+					"trade_offer_state": int(trading.OfferStateActive),
+				},
+			},
+		})
+
+		err := f.manager.AcceptOfferWithPartner(t.Context(), offerID, partnerID)
+		require.Error(t, err, "Malformed response with active offer must return error")
 	})
 }
 

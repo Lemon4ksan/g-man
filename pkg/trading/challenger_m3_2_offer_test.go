@@ -123,9 +123,11 @@ func TestChallenger_GlitchedOffer_EdgeCases(t *testing.T) {
 				{AssetID: 301, Name: "", MarketHashName: "Mann Co. Supply Crate Key"},
 			},
 		}
-		// We assert and record what Go actually does vs what Node does
-		isGlitched := offer.IsGlitched()
-		t.Logf("Empirical result for empty Name + non-empty MarketHashName: IsGlitched() = %v", isGlitched)
+		assert.True(
+			t,
+			offer.IsGlitched(),
+			"Empty Name must be flagged as glitched matching @tf2autobot/tradeoffer-manager",
+		)
 	})
 
 	t.Run("adversarial_item_nonempty_name_empty_markethashname", func(t *testing.T) {
@@ -137,7 +139,10 @@ func TestChallenger_GlitchedOffer_EdgeCases(t *testing.T) {
 				{AssetID: 302, Name: "Mann Co. Supply Crate Key", MarketHashName: ""},
 			},
 		}
-		isGlitched := offer.IsGlitched()
-		t.Logf("Empirical result for non-empty Name + empty MarketHashName: IsGlitched() = %v", isGlitched)
+		assert.True(
+			t,
+			offer.IsGlitched(),
+			"Empty MarketHashName must be flagged as glitched matching @tf2autobot/tradeoffer-manager",
+		)
 	})
 }
