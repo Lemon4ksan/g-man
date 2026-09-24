@@ -95,8 +95,10 @@ func (d *Service) GetCMListForConnect(ctx context.Context, cfg CMCfg) ([]CMServe
 //
 // Parity: matches node-steam-user (components/connection.js: _getCMList).
 func (d *Service) GetOptimalCMServer(ctx context.Context) (socket.CMServer, error) {
-	var cmList []CMServer
-	var err error
+	var (
+		cmList []CMServer
+		err    error
+	)
 
 	for i := 0; i < 5; i++ {
 		cmList, err = d.GetCMListForConnect(ctx, CMCfg{
@@ -127,6 +129,7 @@ func (d *Service) GetOptimalCMServer(ctx context.Context) (socket.CMServer, erro
 			filtered = append(filtered, cm)
 		}
 	}
+
 	if len(filtered) > 0 {
 		cmList = filtered
 	}
@@ -134,22 +137,28 @@ func (d *Service) GetOptimalCMServer(ctx context.Context) (socket.CMServer, erro
 	slices.SortFunc(cmList, func(a, b CMServer) int {
 		aLoad := a.WtdLoad
 		bLoad := b.WtdLoad
+
 		if aLoad == 0 && bLoad == 0 {
 			aLoad = float64(a.Load)
 			bLoad = float64(b.Load)
 		}
+
 		if aLoad < bLoad {
 			return -1
 		}
+
 		if aLoad > bLoad {
 			return 1
 		}
+
 		if a.Load < b.Load {
 			return -1
 		}
+
 		if a.Load > b.Load {
 			return 1
 		}
+
 		return 0
 	})
 
@@ -159,7 +168,9 @@ func (d *Service) GetOptimalCMServer(ctx context.Context) (socket.CMServer, erro
 	//
 	// Parity: matches node-steam-user (components/connection.js: _getCMList).
 	minLoad := cmList[0].Load
+
 	var bestCandidates []CMServer
+
 	for _, c := range cmList {
 		if c.Load == minLoad {
 			bestCandidates = append(bestCandidates, c)

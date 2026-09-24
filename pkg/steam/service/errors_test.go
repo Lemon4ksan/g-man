@@ -127,6 +127,7 @@ func TestParseEResultFromMessage(t *testing.T) {
 			if ok != tc.wantOK {
 				t.Fatalf("expected ok=%v, got %v", tc.wantOK, ok)
 			}
+
 			if ok && code != tc.wantCode {
 				t.Fatalf("expected code=%v, got %v", tc.wantCode, code)
 			}
@@ -138,21 +139,23 @@ func TestExtractEResult(t *testing.T) {
 	t.Parallel()
 
 	eErr := NewEResultError(enums.EResult_Timeout, nil)
+
 	code, ok := ExtractEResult(eErr)
 	if !ok || code != enums.EResult_Timeout {
 		t.Fatalf("expected EResult_Timeout, got code=%v ok=%v", code, ok)
 	}
 
 	wrapped := NewSteamAPIError("fail", 500, eErr)
+
 	codeW, okW := ExtractEResult(wrapped)
 	if !okW || codeW != enums.EResult_Timeout {
 		t.Fatalf("expected EResult_Timeout from wrapped, got code=%v ok=%v", codeW, okW)
 	}
 
 	plainErr := errors.New("something went wrong")
+
 	_, okPlain := ExtractEResult(plainErr)
 	if okPlain {
 		t.Fatalf("expected ok=false for plain error")
 	}
 }
-

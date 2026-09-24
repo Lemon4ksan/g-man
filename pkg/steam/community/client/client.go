@@ -8,7 +8,6 @@ package client
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -182,6 +181,7 @@ func (c *Client) Request(
 			if r, ok := c.session.(Refresher); ok {
 				if rErr := r.Refresh(ctx); rErr == nil {
 					c.logger.Info("Auto-refresh succeeded, retrying community request")
+
 					if newSID := c.SessionID(BaseURL); newSID != "" {
 						mods = UpdateSessionIDInMods(mods, newSID)
 					}
@@ -207,6 +207,7 @@ func (c *Client) Request(
 			if r, ok := c.session.(Refresher); ok {
 				if rErr := r.Refresh(ctx); rErr == nil {
 					c.logger.Info("Auto-refresh succeeded, retrying community request")
+
 					if newSID := c.SessionID(BaseURL); newSID != "" {
 						mods = UpdateSessionIDInMods(mods, newSID)
 					}
@@ -331,6 +332,9 @@ func UpdateSessionIDInMods(mods []aoni.RequestModifier, newSID string) []aoni.Re
 	updated := make([]aoni.RequestModifier, len(mods))
 	copy(updated, mods)
 
+	escapedSID := []byte(url.QueryEscape(newSID))
+	rawSID := []byte(newSID)
+
 	for i, m := range updated {
 		if m.Key == "sessionid" {
 			m.Value = newSID
@@ -342,24 +346,39 @@ func UpdateSessionIDInMods(mods []aoni.RequestModifier, newSID string) []aoni.Re
 			b := m.Bytes
 			// Check if payload looks like a JSON object
 			if len(b) >= 2 && b[0] == '{' && b[len(b)-1] == '}' {
-				var data map[string]any
-				if err := json.Unmarshal(b, &data); err == nil {
-					if _, exists := data["sessionid"]; exists {
-						data["sessionid"] = newSID
-						if newBytes, err := json.Marshal(data); err == nil {
-							m.Bytes = newBytes
-							updated[i] = m
-						}
+				// Fast in-place replacement for {"sessionid":"..."}
+				key := []byte(`"sessionid":"`)
+				if idx := bytes.Index(b, key); idx != -1 {
+					start := idx + len(key)
+					if end := bytes.IndexByte(b[start:], '"'); end != -1 {
+						res := make([]byte, 0, start+len(rawSID)+(len(b)-(start+end)))
+						res = append(res, b[:start]...)
+						res = append(res, rawSID...)
+						res = append(res, b[start+end:]...)
+						m.Bytes = res
+						updated[i] = m
 					}
 				}
 			} else {
-				// Otherwise, attempt x-www-form-urlencoded structural parsing
-				if vals, err := url.ParseQuery(string(b)); err == nil {
-					if vals.Has("sessionid") {
-						vals.Set("sessionid", newSID)
-						m.Bytes = []byte(vals.Encode())
-						updated[i] = m
+				// Fast in-place replacement for sessionid=... in x-www-form-urlencoded
+				keyStr := []byte("sessionid=")
+				idx := bytes.Index(b, keyStr)
+
+				// Ensure it's either at the start or preceded by &
+				if idx != -1 && (idx == 0 || b[idx-1] == '&') {
+					start := idx + len(keyStr)
+					end := bytes.IndexByte(b[start:], '&')
+
+					if end == -1 {
+						end = len(b) - start
 					}
+
+					res := make([]byte, 0, start+len(escapedSID)+(len(b)-(start+end)))
+					res = append(res, b[:start]...)
+					res = append(res, escapedSID...)
+					res = append(res, b[start+end:]...)
+					m.Bytes = res
+					updated[i] = m
 				}
 			}
 		}

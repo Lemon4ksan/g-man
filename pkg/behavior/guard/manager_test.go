@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/lemon4ksan/g-man/pkg/behavior"
-	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/steam/guard"
 )
 
@@ -125,7 +124,7 @@ func TestManager_Run(t *testing.T) {
 
 		go func() {
 			time.Sleep(20 * time.Millisecond)
-			eventBus.Publish(&auth.SteamGuardRequiredEvent{IsAppConfirm: true})
+			eventBus.Publish(&guard.ConfirmationRequiredEvent{IsAppConfirm: true})
 
 			select {
 			case <-accepted:
@@ -213,7 +212,7 @@ func TestManager_Run(t *testing.T) {
 
 		go func() {
 			time.Sleep(20 * time.Millisecond)
-			eventBus.Publish(&auth.SteamGuardRequiredEvent{IsAppConfirm: true})
+			eventBus.Publish(&guard.ConfirmationRequiredEvent{IsAppConfirm: true})
 
 			select {
 			case <-accepted:
@@ -303,7 +302,7 @@ func TestManager_Run(t *testing.T) {
 		go func() {
 			time.Sleep(10 * time.Millisecond)
 			// Publish non-app-confirm events (should be ignored, no FetchConfirmations called)
-			eventBus.Publish(&auth.SteamGuardRequiredEvent{IsAppConfirm: false})
+			eventBus.Publish(&guard.ConfirmationRequiredEvent{IsAppConfirm: false})
 			eventBus.Publish(&guard.ConfirmationRequiredEvent{IsAppConfirm: false})
 			time.Sleep(10 * time.Millisecond)
 			cancel()
@@ -337,7 +336,7 @@ func TestManager_Run(t *testing.T) {
 
 		go func() {
 			time.Sleep(20 * time.Millisecond)
-			eventBus.Publish(&auth.SteamGuardRequiredEvent{IsAppConfirm: true})
+			eventBus.Publish(&guard.ConfirmationRequiredEvent{IsAppConfirm: true})
 
 			select {
 			case <-fetched:

@@ -404,7 +404,9 @@ func TestClient_Reconnect_SuccessfulDiscovery_ReconnectsSuccessfully(t *testing.
 	})).Return(&http.Response{
 		StatusCode: 200,
 		Body: io.NopCloser(
-			bytes.NewBufferString(`{"response":{"serverlist":[{"endpoint":"cm1.steampowered.com:27017"}],"success":true}}`),
+			bytes.NewBufferString(
+				`{"response":{"serverlist":[{"endpoint":"cm1.steampowered.com:27017"}],"success":true}}`,
+			),
 		),
 	}, nil).Once()
 

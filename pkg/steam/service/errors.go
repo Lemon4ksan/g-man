@@ -26,12 +26,15 @@ func ParseEResultFromMessage(msg string) (enums.EResult, bool) {
 			return enums.EResult(code), true
 		}
 	}
+
 	if strings.Contains(msg, "sent too many trade offers") {
 		return enums.EResult_LimitExceeded, true
 	}
+
 	if strings.Contains(msg, "unable to contact the game's item server") {
 		return enums.EResult_ServiceUnavailable, true
 	}
+
 	return enums.EResult_Invalid, false
 }
 
@@ -40,9 +43,9 @@ func ExtractEResult(err error) (enums.EResult, bool) {
 	if eresultErr, ok := errors.AsType[*EResultError](err); ok {
 		return eresultErr.Result, true
 	}
+
 	return enums.EResult_Invalid, false
 }
-
 
 var (
 	// ErrSessionExpired signals that the active session or OAuth2 access token has expired.

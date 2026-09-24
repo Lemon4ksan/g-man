@@ -948,12 +948,11 @@ func TestUpdateSessionIDInMods(t *testing.T) {
 		updated := client.UpdateSessionIDInMods(mods, "NEW_SESSION_ID")
 		require.Len(t, updated, 1)
 
-		parsed, err := url.ParseQuery(string(updated[0].Bytes))
-		require.NoError(t, err)
-		assert.Equal(t, "NEW_SESSION_ID", parsed.Get("sessionid"))
-		assert.Equal(t, "1", parsed.Get("serverid"))
-		assert.Equal(t, "76561198000000000", parsed.Get("partner"))
-		assert.True(t, parsed.Has("captcha"))
+		assert.Equal(
+			t,
+			"serverid=1&partner=76561198000000000&sessionid=NEW_SESSION_ID&captcha=",
+			string(updated[0].Bytes),
+		)
 	})
 
 	t.Run("updates json body bytes", func(t *testing.T) {
@@ -991,13 +990,16 @@ func (d *dynamicSession) SessionID(baseURL string) string {
 	if p := d.sid.Load(); p != nil {
 		return *p
 	}
+
 	return ""
 }
 
 func (d *dynamicSession) Refresh(ctx context.Context) error {
 	d.refreshCount.Add(1)
+
 	newSID := "NEW_SESSION_ID"
 	d.sid.Store(&newSID)
+
 	return nil
 }
 
@@ -1008,18 +1010,23 @@ func TestClient_Request_AutoRefresh_UpdatesSessionIDInRequestBody(t *testing.T) 
 	sess := &dynamicSession{}
 	sess.sid.Store(&initSID)
 
-	var callCount atomic.Int32
-	var receivedBodies []string
+	var (
+		callCount      atomic.Int32
+		receivedBodies []string
+	)
 
 	mockSvc := mock.NewServiceMock()
 	mockSvc.OnRest = func(method, path string, body any) (*http.Response, error) {
 		c := callCount.Add(1)
+
 		var bodyStr string
+
 		if b, ok := body.([]byte); ok {
 			bodyStr = string(b)
 		} else if s, ok := body.(string); ok {
 			bodyStr = s
 		}
+
 		receivedBodies = append(receivedBodies, bodyStr)
 
 		if c == 1 {
@@ -1046,6 +1053,7 @@ func TestClient_Request_AutoRefresh_UpdatesSessionIDInRequestBody(t *testing.T) 
 		mod.WithBodyBytes([]byte(initialForm)),
 	)
 	require.NoError(t, err)
+
 	defer resp.Body.Close()
 
 	assert.Equal(t, int32(1), sess.refreshCount.Load(), "auto-refresh should be triggered once")
@@ -1055,4 +1063,3 @@ func TestClient_Request_AutoRefresh_UpdatesSessionIDInRequestBody(t *testing.T) 
 	assert.Contains(t, receivedBodies[0], "sessionid=OLD_SESSION_ID")
 	assert.Contains(t, receivedBodies[1], "sessionid=NEW_SESSION_ID", "retried body MUST contain updated sessionid")
 }
-

@@ -45,6 +45,7 @@ func (pq *PriorityQueue) Push(off *trading.TradeOffer) {
 		} else {
 			pq.siftDown(idx)
 		}
+
 		return
 	}
 
@@ -66,6 +67,7 @@ func (pq *PriorityQueue) Remove(offerID uint64) bool {
 	}
 
 	pq.removeLocked(idx)
+
 	return true
 }
 
@@ -75,6 +77,7 @@ func (pq *PriorityQueue) Has(offerID uint64) bool {
 	defer pq.mu.Unlock()
 
 	_, exists := pq.index[offerID]
+
 	return exists
 }
 

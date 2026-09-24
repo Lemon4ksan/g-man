@@ -133,6 +133,7 @@ func TestPriorityQueue_Remove(t *testing.T) {
 	t.Parallel()
 
 	pq := NewPriorityQueue()
+
 	offers := []*trading.TradeOffer{
 		{ID: 10, TimeUpdated: 100},
 		{ID: 20, TimeUpdated: 200},
@@ -140,6 +141,7 @@ func TestPriorityQueue_Remove(t *testing.T) {
 		{ID: 40, TimeUpdated: 400},
 		{ID: 50, TimeUpdated: 500},
 	}
+
 	for _, o := range offers {
 		pq.Push(o)
 	}
@@ -160,6 +162,7 @@ func TestPriorityQueue_Concurrent_Deduplication(t *testing.T) {
 	t.Parallel()
 
 	pq := NewPriorityQueue()
+
 	const (
 		goroutines = 25
 		offers     = 10
@@ -172,6 +175,7 @@ func TestPriorityQueue_Concurrent_Deduplication(t *testing.T) {
 	for g := 0; g < goroutines; g++ {
 		go func(gid int) {
 			defer wg.Done()
+
 			for iter := 0; iter < iterations; iter++ {
 				for id := 1; id <= offers; id++ {
 					pq.Push(&trading.TradeOffer{
@@ -186,6 +190,7 @@ func TestPriorityQueue_Concurrent_Deduplication(t *testing.T) {
 	wg.Wait()
 
 	assert.Equal(t, offers, pq.Len(), "queue must contain exactly 10 items after high concurrency")
+
 	for id := 1; id <= offers; id++ {
 		assert.True(t, pq.Has(uint64(id)))
 	}
@@ -264,4 +269,3 @@ func TestPriorityQueue_Push_InPlacePointerMutationHeapInvariant(t *testing.T) {
 
 	assert.Equal(t, 0, pq.Len())
 }
-

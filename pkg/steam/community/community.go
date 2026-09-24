@@ -16,8 +16,8 @@ import (
 	"strings"
 
 	"github.com/lemon4ksan/aoni"
-	"github.com/lemon4ksan/aoni/x/codec/values"
 	"github.com/lemon4ksan/aoni/mod"
+	"github.com/lemon4ksan/aoni/x/codec/values"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/community/client"
 	"github.com/lemon4ksan/g-man/pkg/steam/encoding"
@@ -104,6 +104,7 @@ func GetTo[Resp any](
 	}, mods...)
 
 	res, err := aoni.FetchTo[*Resp](ctx, r, http.MethodGet, path, mods...)
+
 	return res, err
 }
 
@@ -144,6 +145,7 @@ func PostTo[Resp any](
 	}, mods...)
 
 	res, err := aoni.FetchTo[*Resp](ctx, r, http.MethodPost, path, mods...)
+
 	return res, err
 }
 
@@ -167,7 +169,7 @@ func PostFormTo[Resp any](
 
 		if sid := r.SessionID(BaseURL); sid != "" && !urlValuesHasKey(rawForm, "sessionid") {
 			if rawForm != "" {
-				rawForm += "&sessionid=" + url.QueryEscape(sid)
+				rawForm = "sessionid=" + url.QueryEscape(sid) + "&" + rawForm
 			} else {
 				rawForm = "sessionid=" + url.QueryEscape(sid)
 			}
@@ -201,6 +203,7 @@ func PostFormTo[Resp any](
 	}, mods...)
 
 	res, err := aoni.FetchTo[*Resp](ctx, r, http.MethodPost, path, mods...)
+
 	return res, err
 }
 

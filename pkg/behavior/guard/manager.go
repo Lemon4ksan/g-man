@@ -13,7 +13,6 @@ import (
 	"github.com/lemon4ksan/foundation/generic"
 
 	"github.com/lemon4ksan/g-man/pkg/behavior"
-	"github.com/lemon4ksan/g-man/pkg/steam/auth"
 	"github.com/lemon4ksan/g-man/pkg/steam/client"
 	"github.com/lemon4ksan/g-man/pkg/steam/guard"
 )
@@ -96,7 +95,6 @@ func (m *Manager) Run(ctx context.Context) error {
 	}
 
 	sub := m.bus.Subscribe(
-		&auth.SteamGuardRequiredEvent{},
 		&guard.ConfirmationRequiredEvent{},
 	)
 	defer sub.Unsubscribe()
@@ -112,13 +110,6 @@ func (m *Manager) Run(ctx context.Context) error {
 
 			trigger := false
 			switch e := ev.(type) {
-			case *auth.SteamGuardRequiredEvent:
-				if e.IsAppConfirm {
-					m.logger.Debug("Received login confirmation request signal")
-
-					trigger = true
-				}
-
 			case *guard.ConfirmationRequiredEvent:
 				if e.IsAppConfirm {
 					m.logger.Debug("Received trade confirmation request signal", log.String("offer_id", e.TradeOfferID))

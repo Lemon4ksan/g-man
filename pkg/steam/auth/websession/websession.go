@@ -390,7 +390,13 @@ func (s *WebSession) doRefresh(ctx context.Context) error {
 		return err
 	}
 
-	s.logger.Info("Successfully refreshed WebSession cookies")
+	s.logger.Info("Successfully refreshed WebSession cookies, waiting 1s for Steam Edge propagation...")
+	
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(1 * time.Second):
+	}
 
 	return nil
 }

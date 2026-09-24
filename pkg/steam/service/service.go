@@ -16,9 +16,9 @@ import (
 	"sync/atomic"
 
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/x/codec/decode"
 	"github.com/lemon4ksan/aoni/x/codec/values"
-	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/foundation/generic"
 	"google.golang.org/protobuf/proto"
 
@@ -325,10 +325,11 @@ func Execute[Resp any](
 	resp, doErr := d.Do(ctx, req)
 	if doErr != nil {
 		var resErr *EResultError
-		if (!errors.As(doErr, &resErr) || resErr.Result != enums.EResult_Fail || resp == nil) {
+		if !errors.As(doErr, &resErr) || resErr.Result != enums.EResult_Fail || resp == nil {
 			if resp != nil {
 				_ = resp.Body.Close()
 			}
+
 			return nil, doErr
 		}
 	}
@@ -339,6 +340,7 @@ func Execute[Resp any](
 		if doErr != nil {
 			return nil, doErr
 		}
+
 		return nil, nil
 	}
 
@@ -347,6 +349,7 @@ func Execute[Resp any](
 		if doErr != nil {
 			return nil, doErr
 		}
+
 		return nil, err
 	}
 

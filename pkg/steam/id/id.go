@@ -23,7 +23,7 @@ type ID uint64
 const (
 	InvalidID ID = 0
 
-	IndividualBase ID = ID(uint64(UniversePublic) << 56 | uint64(AccountTypeIndividual) << 52 | 1 << 32)
+	IndividualBase ID = ID(uint64(UniversePublic)<<56 | uint64(AccountTypeIndividual)<<52 | 1<<32)
 )
 
 var (
