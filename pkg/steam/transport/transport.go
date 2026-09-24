@@ -13,7 +13,7 @@ import (
 	"reflect"
 
 	"github.com/lemon4ksan/aoni"
-	"github.com/lemon4ksan/aoni/x/codec/decode"
+	"github.com/lemon4ksan/aoni/codec/decode"
 )
 
 type Transport interface {

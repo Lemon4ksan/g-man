@@ -17,7 +17,7 @@ import (
 
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/mod"
-	"github.com/lemon4ksan/aoni/x/codec/values"
+	"github.com/lemon4ksan/aoni/codec/values"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/community/client"
 	"github.com/lemon4ksan/g-man/pkg/steam/encoding"

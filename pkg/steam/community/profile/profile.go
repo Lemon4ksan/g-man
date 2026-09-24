@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/lemon4ksan/aoni/x/codec/extract"
+	"github.com/lemon4ksan/aoni/codec/extract"
 	"github.com/lemon4ksan/foundation/generic"
 
 	"github.com/lemon4ksan/g-man/pkg/steam/community"

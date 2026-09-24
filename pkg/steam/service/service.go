@@ -17,8 +17,8 @@ import (
 
 	"github.com/lemon4ksan/aoni"
 	"github.com/lemon4ksan/aoni/mod"
-	"github.com/lemon4ksan/aoni/x/codec/decode"
-	"github.com/lemon4ksan/aoni/x/codec/values"
+	"github.com/lemon4ksan/aoni/codec/decode"
+	"github.com/lemon4ksan/aoni/codec/values"
 	"github.com/lemon4ksan/foundation/generic"
 	"google.golang.org/protobuf/proto"
 

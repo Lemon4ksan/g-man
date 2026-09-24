@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/lemon4ksan/aoni"
-	"github.com/lemon4ksan/aoni/x/realtime/ws"
+	"github.com/lemon4ksan/aoni/realtime/ws"
 	log "github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/stretchr/testify/assert"
 
