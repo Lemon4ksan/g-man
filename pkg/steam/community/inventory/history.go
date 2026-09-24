@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lemon4ksan/aoni/codec/extract"
+	"github.com/lemon4ksan/aoni-contrib/extract"
 	"github.com/lemon4ksan/foundation/codec/json"
 	"golang.org/x/net/html"
 

@@ -24,7 +24,7 @@ import (
 	"github.com/lemon4ksan/aoni/mod"
 	"github.com/lemon4ksan/aoni/option"
 	"github.com/lemon4ksan/aoni/codec/decode"
-	"github.com/lemon4ksan/aoni/codec/extract"
+	"github.com/lemon4ksan/aoni-contrib/extract"
 )
 
 type apiClient struct {
