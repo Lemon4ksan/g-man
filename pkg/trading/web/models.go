@@ -126,6 +126,45 @@ type sendNewResponse struct {
 	NeedsEmail   bool   `json:"needs_email_confirmation"`
 }
 
+type acceptOfferReq struct {
+	ServerID     int    `query:"serverid"`
+	TradeOfferID uint64 `query:"tradeofferid"`
+	Partner      string `query:"partner"`
+	Captcha      string `query:"captcha"`
+}
+
+// EncodeFormString serializes acceptOfferReq into application/x-www-form-urlencoded format.
+//
+// Invariant: Steam Community POST "/tradeoffer/{id}/accept" strictly requires
+// `serverid=1`, `tradeofferid`, `partner` (SteamID64), and `captcha=""`.
+//
+// Parity: matches @tf2autobot/tradeoffer-manager (lib/classes/TradeOffer.js: accept).
+func (r acceptOfferReq) EncodeFormString() (string, error) {
+	buf := formBufferPool.Get().(*bytes.Buffer)
+
+	buf.Reset()
+	defer formBufferPool.Put(buf)
+
+	var intBuf [20]byte
+
+	buf.WriteString("serverid=")
+	buf.Write(strconv.AppendInt(intBuf[:0], int64(r.ServerID), 10))
+
+	buf.WriteString("&tradeofferid=")
+	buf.Write(strconv.AppendUint(intBuf[:0], r.TradeOfferID, 10))
+
+	buf.WriteString("&partner=")
+	buf.WriteString(url.QueryEscape(r.Partner))
+
+	buf.WriteString("&captcha=")
+
+	if r.Captcha != "" {
+		buf.WriteString(url.QueryEscape(r.Captcha))
+	}
+
+	return buf.String(), nil
+}
+
 type acceptResponse struct {
 	TradeID                 string `json:"tradeid"`
 	NeedsMobileConfirmation bool   `json:"needs_mobile_confirmation"`

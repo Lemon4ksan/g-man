@@ -95,6 +95,7 @@ type SocketProvider interface {
 	SendRaw(ctx context.Context, eMsg enums.EMsg, payload []byte, opts ...socket.SendOption) error
 	Session() socket.Session
 	StartHeartbeat(time.Duration) error
+	// IsConnected reports whether an active transport connection to a Steam CM is currently established.
 	IsConnected() bool
 }
 
@@ -358,8 +359,8 @@ func (a *Authenticator) LogOnAnonymous(ctx context.Context, server socket.CMServ
 
 	defer a.ensureTerminalState()
 
-	loginCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	loginCtx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
 
 	anonDetails := &LogOnDetails{
 		ProtocolVersion: ProtocolVersion,
@@ -399,7 +400,7 @@ func (a *Authenticator) LogOnAnonymous(ctx context.Context, server socket.CMServ
 			}
 		}
 	} else {
-		if err := a.socket.Connect(ctx, server); err != nil {
+		if err := a.socket.Connect(loginCtx, server); err != nil {
 			return fmt.Errorf("cm connection failed: %w", err)
 		}
 	}
@@ -658,8 +659,13 @@ func (a *Authenticator) succeedLogin() {
 }
 
 func (a *Authenticator) failLogin(err error) {
-	if cancelFunc, ok := a.loginCancel.Load().(context.CancelFunc); ok {
-		cancelFunc()
+	if val := a.loginCancel.Load(); val != nil {
+		switch cancel := val.(type) {
+		case context.CancelCauseFunc:
+			cancel(err)
+		case context.CancelFunc:
+			cancel()
+		}
 	}
 
 	if ch, ok := a.loginResult.Load().(chan error); ok && ch != nil {

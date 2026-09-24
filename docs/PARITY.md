@@ -21,6 +21,8 @@ This document maps `g-man` packages, data structures, and runtime behaviors agai
 | **Glitched Offer Detection** | `@tf2autobot/tradeoffer-manager` (`TradeOffer.js:72-82`) | `pkg/trading/offer.go` (`IsGlitched`) | Full parity | Flags offers with 0 items regardless of message, missing partner SteamID, or missing item `Name` / `MarketHashName` |
 | **Polling Watermark Freezing** | `@tf2autobot/tradeoffer-manager` (`polling.js:258-268`) | `pkg/trading/web/poller.go` (`doPoll`) | Full parity | Freezes `m.offersSince` timestamp watermark when any offer in the batch is glitched, preventing offer stranding |
 | **Retriable Error Classification** | `@tf2autobot/tradeoffer-manager`, `@tf2autobot/tf2` | `pkg/steam/service/errors.go` (`IsRetriable`) | Extended | Classifies transient EResults (16, 20, 28, 10, 29) and HTTP 429/5xx status codes into typed retriable errors |
+| **CM Socket Heartbeat & Threshold Reconnect** | `steam-user/components/09-logon.js` (`_heartbeat`) | `pkg/steam/socket/socket.go` (`StartHeartbeat`), `config.go` (`DefaultMaxHeartbeatFailures`) | Extended Parity | Proactive transmission at 2/3 interval with bounded send timeout (`min(sendInterval, 5s)`). Consecutive send failures reaching `MaxHeartbeatFailures` (default 3) automatically close transport and trigger clean reconnect, preventing hung sockets. |
+| **CM Reconnect Double-Connect Elimination** | `steam-user/components/09-logon.js` | `pkg/steam/auth/auth.go` (`LogOn`, `LogOnAnonymous`), `internal/client/session/session.go` (`LogonServer`, `SetLogonServer`) | Full Parity | Checks `IsConnecting()` and `IsConnected()` on `SocketProvider`; awaits in-progress dial via `WaitForConnection(ctx)`. Reuses existing connection and updates active server via `CurrentServer()`, eliminating duplicate socket allocation during reconnect. |
 
 ## 2. Authentication & Session Management
 
@@ -136,3 +138,30 @@ During `Manager.doPoll`:
   - Retries on transient Steam errors: `EResult_Timeout` (16), `EResult_ServiceUnavailable` (20), `EResult_LimitExceeded` (28), `EResult_Busy` (10), `EResult_TryAnotherCM` (29).
   - Retries on HTTP 429 (Rate Limit) and HTTP 5xx (Internal Server Error, Bad Gateway, Service Unavailable, Gateway Timeout).
   - Fails fast without retry on terminal errors: HTTP 403 Forbidden, `EResult_AccessDenied` (15), `EResult_InvalidState` (8).
+
+## 6. Steam CM Socket Heartbeat & Transport Resilience (`pkg/steam/socket`)
+
+### 6.1 Proactive Heartbeat Cadence
+In standard Node.js implementations (`steam-user`), heartbeats are sent at the exact negotiated interval, risking timeouts if packets experience transport jitter.
+- `Socket.StartHeartbeat` calculates `sendInterval := interval * 2 / 3` (e.g., ~6.6 seconds for a 10-second Steam CM interval).
+- Clamps non-positive intervals to `DefaultHeartbeatInterval` (10s) to prevent `time.NewTicker` panics.
+- Heartbeat send operations are bounded by `sendTimeout := min(sendInterval, 5*time.Second)`, preventing socket send stalls from blocking the heartbeat scheduler.
+
+### 6.2 Consecutive Failure Threshold & Automated Reconnection Trigger
+Steam Connection Managers occasionally silently hang without terminating TCP sockets.
+- `Socket` tracks `consecutiveFailures`.
+- Each successful `CMsgClientHeartBeat` transmission resets `consecutiveFailures = 0`.
+- If `consecutiveFailures >= cfg.MaxHeartbeatFailures` (default 3), the socket logs a critical event, closes transport via `s.conn.Disconnect()`, and initiates automatic CM reconnect via `s.conn.TriggerReconnect()`.
+
+## 7. Double-Connect Elimination & Connection State Synchronization (`pkg/steam/auth`, `internal/client/session`)
+
+### 7.1 Connection Dial Deduplication
+When background reconnect loops trigger CM reconnection:
+- `auth.LogOn` and `auth.LogOnAnonymous` inspect `connChecker.IsConnecting()`.
+- If dialing is in progress, callers await completion via `waiter.WaitForConnection(loginCtx)` rather than spawning redundant TCP connections.
+- If `socket.IsConnected()` reports true, dialing is skipped completely, preventing socket collisions.
+
+### 7.2 Active CM Server State Synchronization
+- `session.Session` tracks `logonServer socket.CMServer` via thread-safe `SetLogonServer` and `LogonServer()`.
+- Upon successful reconnect, `sock.SetOnReconnect` invokes `session.Reconnect()`, synchronizing `session.logonServer` with `socket.CurrentServer()`.
+

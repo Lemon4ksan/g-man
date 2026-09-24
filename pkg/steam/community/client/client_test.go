@@ -16,6 +16,7 @@ import (
 	"testing"
 
 	"github.com/lemon4ksan/aoni"
+	"github.com/lemon4ksan/aoni/mod"
 	log "github.com/lemon4ksan/foundation/async/logkit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -807,6 +808,30 @@ func TestCheckSteamErrors_VariousResponses_DetectsErrors(t *testing.T) {
 			errMsg:     "Session expired",
 		},
 		{
+			name:       "str_error_json_403",
+			statusCode: http.StatusForbidden,
+			header:     http.Header{},
+			body:       []byte(`{"strError": "This trade offer is no longer valid"}`),
+			wantErr:    true,
+			errMsg:     "This trade offer is no longer valid",
+		},
+		{
+			name:       "str_error_json_eresult",
+			statusCode: http.StatusBadRequest,
+			header:     http.Header{},
+			body:       []byte(`{"strError": "There was an error accepting this offer. Please try again later. (28)"}`),
+			wantErr:    true,
+			errMsg:     "There was an error accepting this offer",
+		},
+		{
+			name:       "error_msg_div_403",
+			statusCode: http.StatusForbidden,
+			header:     http.Header{},
+			body:       []byte(`<div id="error_msg">You cannot trade with this user.</div>`),
+			wantErr:    true,
+			errMsg:     "You cannot trade with this user.",
+		},
+		{
 			name:       "success",
 			statusCode: http.StatusOK,
 			header:     http.Header{},
@@ -908,3 +933,126 @@ func TestClient_Request_SoftLogout_AutoRefresh(t *testing.T) {
 		assert.NotErrorIs(t, err, client.ErrRedirectLoop)
 	})
 }
+
+func TestUpdateSessionIDInMods(t *testing.T) {
+	t.Parallel()
+
+	t.Run("updates form encoded body bytes", func(t *testing.T) {
+		t.Parallel()
+
+		rawForm := "serverid=1&partner=76561198000000000&sessionid=OLD_SESSION_ID&captcha="
+		mods := []aoni.RequestModifier{
+			mod.WithBodyBytes([]byte(rawForm)),
+		}
+
+		updated := client.UpdateSessionIDInMods(mods, "NEW_SESSION_ID")
+		require.Len(t, updated, 1)
+
+		parsed, err := url.ParseQuery(string(updated[0].Bytes))
+		require.NoError(t, err)
+		assert.Equal(t, "NEW_SESSION_ID", parsed.Get("sessionid"))
+		assert.Equal(t, "1", parsed.Get("serverid"))
+		assert.Equal(t, "76561198000000000", parsed.Get("partner"))
+		assert.True(t, parsed.Has("captcha"))
+	})
+
+	t.Run("updates json body bytes", func(t *testing.T) {
+		t.Parallel()
+
+		jsonBody := `{"serverid":1,"sessionid":"OLD_SESSION_ID"}`
+		mods := []aoni.RequestModifier{
+			mod.WithBodyBytes([]byte(jsonBody)),
+		}
+
+		updated := client.UpdateSessionIDInMods(mods, "NEW_SESSION_ID")
+		require.Len(t, updated, 1)
+		assert.Contains(t, string(updated[0].Bytes), `"sessionid":"NEW_SESSION_ID"`)
+	})
+
+	t.Run("updates modifier with sessionid key", func(t *testing.T) {
+		t.Parallel()
+
+		mods := []aoni.RequestModifier{
+			{Key: "sessionid", Value: "OLD_SESSION_ID"},
+		}
+
+		updated := client.UpdateSessionIDInMods(mods, "NEW_SESSION_ID")
+		require.Len(t, updated, 1)
+		assert.Equal(t, "NEW_SESSION_ID", updated[0].Value)
+	})
+}
+
+type dynamicSession struct {
+	sid          atomic.Pointer[string]
+	refreshCount atomic.Int32
+}
+
+func (d *dynamicSession) SessionID(baseURL string) string {
+	if p := d.sid.Load(); p != nil {
+		return *p
+	}
+	return ""
+}
+
+func (d *dynamicSession) Refresh(ctx context.Context) error {
+	d.refreshCount.Add(1)
+	newSID := "NEW_SESSION_ID"
+	d.sid.Store(&newSID)
+	return nil
+}
+
+func TestClient_Request_AutoRefresh_UpdatesSessionIDInRequestBody(t *testing.T) {
+	t.Parallel()
+
+	initSID := "OLD_SESSION_ID"
+	sess := &dynamicSession{}
+	sess.sid.Store(&initSID)
+
+	var callCount atomic.Int32
+	var receivedBodies []string
+
+	mockSvc := mock.NewServiceMock()
+	mockSvc.OnRest = func(method, path string, body any) (*http.Response, error) {
+		c := callCount.Add(1)
+		var bodyStr string
+		if b, ok := body.([]byte); ok {
+			bodyStr = string(b)
+		} else if s, ok := body.(string); ok {
+			bodyStr = s
+		}
+		receivedBodies = append(receivedBodies, bodyStr)
+
+		if c == 1 {
+			// First call returns 403 Forbidden because session was expired
+			return &http.Response{
+				StatusCode: http.StatusForbidden,
+				Header:     http.Header{"Content-Type": []string{"text/html"}},
+				Body:       io.NopCloser(strings.NewReader("Forbidden")),
+			}, nil
+		}
+
+		// Second call (retry) should have updated session ID
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(`{"tradeid":"12345"}`)),
+		}, nil
+	}
+
+	c := client.New(nil, sess).WithREST(mockSvc)
+
+	initialForm := "serverid=1&partner=76561198000000000&tradeofferid=9383418003&sessionid=OLD_SESSION_ID&captcha="
+	resp, err := c.Request(t.Context(), http.MethodPost, "tradeoffer/9383418003/accept",
+		mod.WithBodyBytes([]byte(initialForm)),
+	)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	assert.Equal(t, int32(1), sess.refreshCount.Load(), "auto-refresh should be triggered once")
+	assert.Equal(t, int32(2), callCount.Load(), "should retry the request")
+
+	require.Len(t, receivedBodies, 2)
+	assert.Contains(t, receivedBodies[0], "sessionid=OLD_SESSION_ID")
+	assert.Contains(t, receivedBodies[1], "sessionid=NEW_SESSION_ID", "retried body MUST contain updated sessionid")
+}
+

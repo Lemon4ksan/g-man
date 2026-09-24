@@ -33,8 +33,16 @@ func TestAdversarial_MultiAjaxOp_MalformedJSON(t *testing.T) {
 
 		err := svc.RespondToMultiple(t.Context(), confs, true, "dev", testSteamID, "key", 0)
 		require.Error(t, err)
-		assert.False(t, errors.Is(err, ErrConfirmationRejected), "Truncated JSON must NOT be classified as confirmation rejected")
-		assert.False(t, errors.Is(err, service.ErrSessionExpired), "Truncated JSON must NOT be classified as session expired")
+		assert.False(
+			t,
+			errors.Is(err, ErrConfirmationRejected),
+			"Truncated JSON must NOT be classified as confirmation rejected",
+		)
+		assert.False(
+			t,
+			errors.Is(err, service.ErrSessionExpired),
+			"Truncated JSON must NOT be classified as session expired",
+		)
 	})
 
 	t.Run("html_cloudflare_error", func(t *testing.T) {
@@ -49,8 +57,16 @@ func TestAdversarial_MultiAjaxOp_MalformedJSON(t *testing.T) {
 		err := svc.RespondToMultiple(t.Context(), confs, true, "dev", testSteamID, "key", 0)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "HTML")
-		assert.False(t, errors.Is(err, ErrConfirmationRejected), "HTML Cloudflare error must NOT be classified as confirmation rejected")
-		assert.False(t, errors.Is(err, service.ErrSessionExpired), "HTML Cloudflare error must NOT be classified as session expired")
+		assert.False(
+			t,
+			errors.Is(err, ErrConfirmationRejected),
+			"HTML Cloudflare error must NOT be classified as confirmation rejected",
+		)
+		assert.False(
+			t,
+			errors.Is(err, service.ErrSessionExpired),
+			"HTML Cloudflare error must NOT be classified as session expired",
+		)
 	})
 
 	t.Run("non_json_500_internal_server_error", func(t *testing.T) {
@@ -63,8 +79,16 @@ func TestAdversarial_MultiAjaxOp_MalformedJSON(t *testing.T) {
 
 		err := svc.RespondToMultiple(t.Context(), confs, true, "dev", testSteamID, "key", 0)
 		require.Error(t, err)
-		assert.False(t, errors.Is(err, ErrConfirmationRejected), "500 Internal Server Error must NOT be classified as confirmation rejected")
-		assert.False(t, errors.Is(err, service.ErrSessionExpired), "500 Internal Server Error must NOT be classified as session expired")
+		assert.False(
+			t,
+			errors.Is(err, ErrConfirmationRejected),
+			"500 Internal Server Error must NOT be classified as confirmation rejected",
+		)
+		assert.False(
+			t,
+			errors.Is(err, service.ErrSessionExpired),
+			"500 Internal Server Error must NOT be classified as session expired",
+		)
 	})
 
 	t.Run("empty_response_body_causes_nil_panic", func(t *testing.T) {
@@ -137,7 +161,12 @@ func TestAdversarial_MultiAjaxOp_DetailAndNeedAuth(t *testing.T) {
 
 		err := svc.RespondToMultiple(t.Context(), confs, true, "dev", testSteamID, "key", 0)
 		require.Error(t, err)
-		assert.ErrorIs(t, err, service.ErrSessionExpired, "needauth: true MUST return service.ErrSessionExpired even with non-empty message")
+		assert.ErrorIs(
+			t,
+			err,
+			service.ErrSessionExpired,
+			"needauth: true MUST return service.ErrSessionExpired even with non-empty message",
+		)
 	})
 }
 
@@ -163,7 +192,12 @@ func TestAdversarial_ErrorTyping_PermanentVsTransient(t *testing.T) {
 
 		err := svc.RespondToConfirmation(t.Context(), singleConf[0], true, "dev", testSteamID, "key", 0)
 		require.Error(t, err)
-		assert.ErrorIs(t, err, ErrConfirmationRejected, "Single confirmation rejection must be typed as ErrConfirmationRejected")
+		assert.ErrorIs(
+			t,
+			err,
+			ErrConfirmationRejected,
+			"Single confirmation rejection must be typed as ErrConfirmationRejected",
+		)
 	})
 
 	t.Run("multi_confirmation_rejection_is_typed", func(t *testing.T) {
@@ -180,7 +214,12 @@ func TestAdversarial_ErrorTyping_PermanentVsTransient(t *testing.T) {
 		err := svc.RespondToMultiple(t.Context(), multiConfs, true, "dev", testSteamID, "key", 0)
 		require.Error(t, err)
 		// Empirical check: Does RespondToMultiple wrap ErrConfirmationRejected?
-		assert.ErrorIs(t, err, ErrConfirmationRejected, "Multi confirmation rejection must be typed as ErrConfirmationRejected")
+		assert.ErrorIs(
+			t,
+			err,
+			ErrConfirmationRejected,
+			"Multi confirmation rejection must be typed as ErrConfirmationRejected",
+		)
 	})
 
 	t.Run("transient_network_error_not_conf_rejected", func(t *testing.T) {
@@ -213,7 +252,12 @@ func TestAdversarial_ErrorTyping_PermanentVsTransient(t *testing.T) {
 
 		errSingle := gSingle.Accept(t.Context(), singleConf[0])
 		require.Error(t, errSingle)
-		assert.ErrorIs(t, errSingle, ErrConfirmationRejected, "Guardian single confirmation rejection must wrap ErrConfirmationRejected")
+		assert.ErrorIs(
+			t,
+			errSingle,
+			ErrConfirmationRejected,
+			"Guardian single confirmation rejection must wrap ErrConfirmationRejected",
+		)
 
 		// Multi confirmation rejection via Guardian
 		gMulti, _, _ := setupAuthenticatedGuardian(t, cfg, testSteamID)
@@ -226,6 +270,11 @@ func TestAdversarial_ErrorTyping_PermanentVsTransient(t *testing.T) {
 
 		errMulti := gMulti.AcceptMultiple(t.Context(), multiConfs)
 		require.Error(t, errMulti)
-		assert.ErrorIs(t, errMulti, ErrConfirmationRejected, "Guardian multi confirmation rejection MUST wrap ErrConfirmationRejected to match single confirmation")
+		assert.ErrorIs(
+			t,
+			errMulti,
+			ErrConfirmationRejected,
+			"Guardian multi confirmation rejection MUST wrap ErrConfirmationRejected to match single confirmation",
+		)
 	})
 }

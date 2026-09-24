@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -365,6 +366,98 @@ func (s *AuthenticatorSuite) TestFailLogin_DoubleChannelSend() {
 	s.auth.failLogin(err2)
 
 	s.Equal(err1, <-s.auth.getLoginResult())
+}
+
+func (s *AuthenticatorSuite) TestFailLogin_CancelCauseFunc_PropagatesCauseAndZeroLeak() {
+	ctx, cancel := context.WithCancelCause(context.Background())
+	s.auth.loginCancel.Store(cancel)
+	s.auth.setLoginResult(make(chan error, 1))
+
+	targetErr := errors.New("cm authentication rejected")
+	s.auth.failLogin(targetErr)
+
+	// Context must be cancelled immediately with targetErr as cause (zero context leak)
+	s.Error(ctx.Err())
+	s.Equal(targetErr, context.Cause(ctx))
+	s.Equal(targetErr, <-s.auth.getLoginResult())
+}
+
+func (s *AuthenticatorSuite) TestFailLogin_CancelFunc_NoPanicAndZeroLeak() {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Create fresh Authenticator to test context.CancelFunc support in type switch
+	freshAuth := NewAuthenticator(s.socket, s.webAPI, s.bus)
+	freshAuth.loginCancel.Store(cancel)
+	freshAuth.setLoginResult(make(chan error, 1))
+
+	targetErr := errors.New("session timeout")
+	s.NotPanics(func() {
+		freshAuth.failLogin(targetErr)
+	})
+
+	s.Error(ctx.Err())
+	s.Equal(targetErr, <-freshAuth.getLoginResult())
+}
+
+func (s *AuthenticatorSuite) TestFailLogin_ConcurrentStress() {
+	var wg sync.WaitGroup
+
+	ctx, cancel := context.WithCancelCause(context.Background())
+	s.auth.loginCancel.Store(cancel)
+	s.auth.setLoginResult(make(chan error, 1))
+
+	numWorkers := 30
+	for i := 0; i < numWorkers; i++ {
+		wg.Add(1)
+
+		go func(workerID int) {
+			defer wg.Done()
+
+			err := fmt.Errorf("worker %d error", workerID)
+			s.auth.failLogin(err)
+		}(i)
+	}
+
+	wg.Wait()
+
+	// Invariant 1: Context must be cancelled (zero context leak)
+	s.Error(ctx.Err())
+
+	// Invariant 2: Exactly one error was received on resultChan without blocking or leaking
+	select {
+	case err := <-s.auth.getLoginResult():
+		s.Error(err)
+	default:
+		s.Fail("Expected an error in login result channel")
+	}
+}
+
+func (s *AuthenticatorSuite) TestFailLogin_MultiInstance_ZeroLeak() {
+	var wg sync.WaitGroup
+
+	numInstances := 25
+	for i := 0; i < numInstances; i++ {
+		wg.Add(1)
+
+		go func(idx int) {
+			defer wg.Done()
+
+			sock := NewMockSocket()
+			bus := event.New()
+			freshAuth := NewAuthenticator(sock, s.webAPI, bus)
+			ctx, cancel := context.WithCancelCause(context.Background())
+			freshAuth.loginCancel.Store(cancel)
+			freshAuth.setLoginResult(make(chan error, 1))
+
+			err := fmt.Errorf("instance %d error", idx)
+			freshAuth.failLogin(err)
+
+			s.Error(ctx.Err())
+			s.Equal(err, context.Cause(ctx))
+		}(i)
+	}
+
+	wg.Wait()
 }
 
 type MockSocketProvider struct {

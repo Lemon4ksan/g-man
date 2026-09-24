@@ -161,6 +161,7 @@ func TestAdversarial_ActionTags_URLParametersMatchCanonical(t *testing.T) {
 
 	t.Run("single_allow_query_params", func(t *testing.T) {
 		t.Parallel()
+
 		mockComm := testmock.NewHTTPStub()
 		svc := NewMobileConf(mockComm)
 		mockComm.SetJSONResponse("mobileconf/ajaxop", 200, map[string]bool{"success": true})
@@ -178,6 +179,7 @@ func TestAdversarial_ActionTags_URLParametersMatchCanonical(t *testing.T) {
 
 	t.Run("single_cancel_query_params", func(t *testing.T) {
 		t.Parallel()
+
 		mockComm := testmock.NewHTTPStub()
 		svc := NewMobileConf(mockComm)
 		mockComm.SetJSONResponse("mobileconf/ajaxop", 200, map[string]bool{"success": true})
@@ -192,6 +194,7 @@ func TestAdversarial_ActionTags_URLParametersMatchCanonical(t *testing.T) {
 
 	t.Run("multi_allow_form_params", func(t *testing.T) {
 		t.Parallel()
+
 		mockComm := testmock.NewHTTPStub()
 		svc := NewMobileConf(mockComm)
 		mockComm.SetJSONResponse("mobileconf/multiajaxop", 200, map[string]bool{"success": true})
@@ -209,6 +212,7 @@ func TestAdversarial_ActionTags_URLParametersMatchCanonical(t *testing.T) {
 
 	t.Run("multi_cancel_form_params", func(t *testing.T) {
 		t.Parallel()
+
 		mockComm := testmock.NewHTTPStub()
 		svc := NewMobileConf(mockComm)
 		mockComm.SetJSONResponse("mobileconf/multiajaxop", 200, map[string]bool{"success": true})
@@ -247,6 +251,7 @@ func TestAdversarial_Concurrency_100_ConcurrentSingleConfirmations(t *testing.T)
 	for i := range numOps {
 		go func(idx int) {
 			defer wg.Done()
+
 			<-startBarrier
 
 			conf := &Confirmation{
@@ -254,12 +259,15 @@ func TestAdversarial_Concurrency_100_ConcurrentSingleConfirmations(t *testing.T)
 				Nonce: uint64(5000 + idx),
 			}
 			isAccept := idx%2 == 0
+
 			var err error
+
 			if isAccept {
 				err = g.Accept(context.Background(), conf)
 			} else {
 				err = g.Cancel(context.Background(), conf)
 			}
+
 			assert.NoError(t, err)
 		}(i)
 	}
@@ -282,6 +290,7 @@ func TestAdversarial_Concurrency_BatchMultiConfirmation_100_Nonces(t *testing.T)
 	t.Parallel()
 
 	const batchSize = 100
+
 	confs := make([]*Confirmation, batchSize)
 	for i := range batchSize {
 		confs[i] = &Confirmation{
@@ -321,7 +330,9 @@ func TestAdversarial_Concurrency_50_ConcurrentBatchConfirmations_DuplicateNonces
 	mockComm.SetJSONResponse("mobileconf/multiajaxop", 200, map[string]bool{"success": true})
 
 	const numWorkers = 50
+
 	var wg sync.WaitGroup
+
 	wg.Add(numWorkers)
 
 	startBarrier := make(chan struct{})
@@ -338,9 +349,18 @@ func TestAdversarial_Concurrency_50_ConcurrentBatchConfirmations_DuplicateNonces
 	for range numWorkers {
 		go func() {
 			defer wg.Done()
+
 			<-startBarrier
 
-			err := svc.RespondToMultiple(context.Background(), duplicateBatch, true, "android:dev", testSteamID, "key", 1700000000)
+			err := svc.RespondToMultiple(
+				context.Background(),
+				duplicateBatch,
+				true,
+				"android:dev",
+				testSteamID,
+				"key",
+				1700000000,
+			)
 			if err == nil {
 				successCount.Add(1)
 			}
@@ -350,7 +370,12 @@ func TestAdversarial_Concurrency_50_ConcurrentBatchConfirmations_DuplicateNonces
 	close(startBarrier)
 	wg.Wait()
 
-	assert.Equal(t, int64(numWorkers), successCount.Load(), "All 50 concurrent batch calls must complete without race/corruption")
+	assert.Equal(
+		t,
+		int64(numWorkers),
+		successCount.Load(),
+		"All 50 concurrent batch calls must complete without race/corruption",
+	)
 }
 
 func TestAdversarial_MultiRequest_EncodeFormString_AdversarialInputs(t *testing.T) {
@@ -358,6 +383,7 @@ func TestAdversarial_MultiRequest_EncodeFormString_AdversarialInputs(t *testing.
 
 	t.Run("empty_confs", func(t *testing.T) {
 		t.Parallel()
+
 		req := multiRequest{
 			baseParams: baseParams{
 				DeviceID:  "android:123",
@@ -379,6 +405,7 @@ func TestAdversarial_MultiRequest_EncodeFormString_AdversarialInputs(t *testing.
 
 	t.Run("escaped_characters_in_device_id_and_key", func(t *testing.T) {
 		t.Parallel()
+
 		req := multiRequest{
 			baseParams: baseParams{
 				DeviceID:  "android:test device&evil=true",
@@ -544,8 +571,16 @@ func TestAdversarial_SessionExpired_GuardianIntegrationPropagation(t *testing.T)
 	conf := &Confirmation{ID: 555, Nonce: 666}
 
 	// Configure mock to return service.ErrSessionExpired
-	mockSvc.On("RespondToConfirmation", testifymock.Anything, conf, true, testifymock.Anything, g.SteamID(), testifymock.Anything, testifymock.Anything).
-		Return(service.ErrSessionExpired).Once()
+	mockSvc.On(
+		"RespondToConfirmation",
+		testifymock.Anything,
+		conf,
+		true,
+		testifymock.Anything,
+		g.SteamID(),
+		testifymock.Anything,
+		testifymock.Anything,
+	).Return(service.ErrSessionExpired).Once()
 
 	err := g.Accept(t.Context(), conf)
 	require.Error(t, err)
@@ -563,6 +598,7 @@ func TestAdversarial_SessionExpired_DetailFallbackPriority(t *testing.T) {
 
 	t.Run("single_conf_detail_priority_when_message_empty", func(t *testing.T) {
 		t.Parallel()
+
 		mockComm := testmock.NewHTTPStub()
 		svc := NewMobileConf(mockComm)
 
@@ -581,6 +617,7 @@ func TestAdversarial_SessionExpired_DetailFallbackPriority(t *testing.T) {
 
 	t.Run("single_conf_message_priority_when_both_present", func(t *testing.T) {
 		t.Parallel()
+
 		mockComm := testmock.NewHTTPStub()
 		svc := NewMobileConf(mockComm)
 
@@ -598,6 +635,7 @@ func TestAdversarial_SessionExpired_DetailFallbackPriority(t *testing.T) {
 
 	t.Run("multi_conf_detail_priority_when_message_empty", func(t *testing.T) {
 		t.Parallel()
+
 		mockComm := testmock.NewHTTPStub()
 		svc := NewMobileConf(mockComm)
 
@@ -615,6 +653,7 @@ func TestAdversarial_SessionExpired_DetailFallbackPriority(t *testing.T) {
 
 	t.Run("multi_conf_unknown_fallback_when_both_empty", func(t *testing.T) {
 		t.Parallel()
+
 		mockComm := testmock.NewHTTPStub()
 		svc := NewMobileConf(mockComm)
 

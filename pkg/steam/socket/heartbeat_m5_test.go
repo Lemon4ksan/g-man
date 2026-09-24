@@ -78,38 +78,34 @@ func TestSocket_Heartbeat_SuccessResetsFailureCounter(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, s.IsConnected())
 
-	// Start heartbeat with 30ms interval
-	err = s.StartHeartbeat(30 * time.Millisecond)
+	// Sequence: Call 1: success -> counter = 0
+	// Call 2: transient error -> counter = 1
+	// Call 3: success -> counter resets to 0
+	// Call 4: transient error -> counter = 1 (NOT 2)
+	// Call 5: success -> counter resets to 0
+	var callCount atomic.Int32
+
+	mConn.mu.Lock()
+	mConn.sendHook = func() error {
+		n := callCount.Add(1)
+		if n == 2 || n == 4 {
+			return errors.New("transient send error")
+		}
+
+		return nil
+	}
+	mConn.mu.Unlock()
+
+	// Start heartbeat with 20ms interval
+	err = s.StartHeartbeat(20 * time.Millisecond)
 	require.NoError(t, err)
 
-	// Inject 1 failure
-	time.Sleep(10 * time.Millisecond)
-	mConn.mu.Lock()
-	mConn.sendErr = errors.New("transient send error")
-	mConn.mu.Unlock()
+	// Wait for at least 5 heartbeat cycles to complete
+	require.Eventually(t, func() bool {
+		return callCount.Load() >= 5
+	}, 2*time.Second, 10*time.Millisecond, "should complete 5 heartbeat cycles")
 
-	// Wait for 1 heartbeat cycle to fail
-	time.Sleep(30 * time.Millisecond)
-
-	// Clear error so next heartbeat succeeds, resetting failure count
-	mConn.mu.Lock()
-	mConn.sendErr = nil
-	mConn.mu.Unlock()
-
-	time.Sleep(50 * time.Millisecond)
-
-	// Inject 1 more failure (should be count 1, not 2)
-	mConn.mu.Lock()
-	mConn.sendErr = errors.New("second transient send error")
-	mConn.mu.Unlock()
-
-	time.Sleep(20 * time.Millisecond)
-
-	// Transport should still be connected because failures were not consecutive >= 2
-	mConn.mu.Lock()
-	mConn.sendErr = nil
-	mConn.mu.Unlock()
-
+	// Invariant: transport remains connected because failures were never consecutive >= 2
 	assert.False(t, mConn.closed.Load(), "transport should remain connected when failure count is reset by success")
 	assert.True(t, s.IsConnected())
 }

@@ -28,6 +28,7 @@ import (
 type mockConnection struct {
 	mu       sync.Mutex
 	sendErr  error
+	sendHook func() error
 	sentMsgs chan []byte
 	incoming chan *aoni_socket.FrameBuffer
 	closed   atomic.Bool
@@ -50,6 +51,10 @@ func (m *mockConnection) Send(_ context.Context, d []byte) error {
 	select {
 	case m.sentMsgs <- cp:
 	default:
+	}
+
+	if m.sendHook != nil {
+		return m.sendHook()
 	}
 
 	return m.sendErr

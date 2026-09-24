@@ -5,8 +5,8 @@ go 1.27.0
 require (
 	github.com/andygrunwald/vdf v1.1.0
 	github.com/lemon4ksan/aoni v0.7.0-rc.1.0.20260923050730-6edfbd8d275d
-	github.com/lemon4ksan/aoni-contrib v0.0.0-20260923050828-ae18f4ab28fa
-	github.com/lemon4ksan/foundation v0.0.0-20260923050528-dc5d9a8c9c6b
+	github.com/lemon4ksan/aoni-contrib v0.0.0-20260924045324-5a8222650eac
+	github.com/lemon4ksan/foundation v0.0.0-20260924043232-ec089ea61b69
 	github.com/lemon4ksan/sein v0.0.0-20260921100627-4be1ad4b77a9
 	github.com/lemon4ksan/vortex v0.0.0-20260920200003-eb53bc438ed7
 	github.com/mitchellh/mapstructure v1.5.0

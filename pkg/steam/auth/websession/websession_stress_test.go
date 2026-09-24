@@ -125,11 +125,20 @@ func TestStress_Refresh_MultiWave_SustainedConcurrency(t *testing.T) {
 		callersPerWave = 50
 	)
 
-	var refresherExecutions atomic.Int64
+	var (
+		refresherExecutions atomic.Int64
+		entered             atomic.Int64
+	)
 
 	ws := newMockedSession(setupMockTransport())
 	ws.WithTokenRefresher(func(ctx context.Context, refreshToken string) (string, error) {
 		idx := refresherExecutions.Add(1)
+		target := idx * callersPerWave
+		deadline := time.Now().Add(2 * time.Second)
+
+		for entered.Load() < target && time.Now().Before(deadline) {
+			time.Sleep(1 * time.Millisecond)
+		}
 
 		time.Sleep(20 * time.Millisecond)
 
@@ -147,6 +156,9 @@ func TestStress_Refresh_MultiWave_SustainedConcurrency(t *testing.T) {
 	for wave := 1; wave <= waves; wave++ {
 		startBarrier := make(chan struct{})
 
+		var readyWg sync.WaitGroup
+		readyWg.Add(callersPerWave)
+
 		var wg sync.WaitGroup
 		wg.Add(callersPerWave)
 		errs := make([]error, callersPerWave)
@@ -155,12 +167,16 @@ func TestStress_Refresh_MultiWave_SustainedConcurrency(t *testing.T) {
 			go func(i int) {
 				defer wg.Done()
 
+				readyWg.Done()
 				<-startBarrier
+
+				entered.Add(1)
 
 				errs[i] = ws.Refresh(t.Context())
 			}(i)
 		}
 
+		readyWg.Wait()
 		close(startBarrier)
 		wg.Wait()
 

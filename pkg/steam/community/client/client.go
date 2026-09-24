@@ -8,11 +8,13 @@ package client
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/lemon4ksan/aoni"
@@ -180,6 +182,10 @@ func (c *Client) Request(
 			if r, ok := c.session.(Refresher); ok {
 				if rErr := r.Refresh(ctx); rErr == nil {
 					c.logger.Info("Auto-refresh succeeded, retrying community request")
+					if newSID := c.SessionID(BaseURL); newSID != "" {
+						mods = UpdateSessionIDInMods(mods, newSID)
+					}
+
 					return c.r.Request(ctx, method, path, mods...)
 				} else {
 					return nil, fmt.Errorf("community: auto-refresh failed: %w", rErr)
@@ -201,6 +207,9 @@ func (c *Client) Request(
 			if r, ok := c.session.(Refresher); ok {
 				if rErr := r.Refresh(ctx); rErr == nil {
 					c.logger.Info("Auto-refresh succeeded, retrying community request")
+					if newSID := c.SessionID(BaseURL); newSID != "" {
+						mods = UpdateSessionIDInMods(mods, newSID)
+					}
 
 					retryResp, retryErr := c.r.Request(ctx, method, path, mods...)
 					if retryErr != nil {
@@ -309,7 +318,55 @@ var (
 	patternLoggedInFalseSpace      = []byte(`"Logged In": false`)
 	patternLowerLoggedInFalse      = []byte(`"logged in":false`)
 	patternLowerLoggedInFalseSpace = []byte(`"logged in": false`)
+
+	rxStrError = regexp.MustCompile(`"strError"\s*:\s*"([^"]+)"`)
 )
+
+// UpdateSessionIDInMods replaces sessionid occurrences in request modifiers with newSID.
+func UpdateSessionIDInMods(mods []aoni.RequestModifier, newSID string) []aoni.RequestModifier {
+	if len(mods) == 0 || newSID == "" {
+		return mods
+	}
+
+	updated := make([]aoni.RequestModifier, len(mods))
+	copy(updated, mods)
+
+	for i, m := range updated {
+		if m.Key == "sessionid" {
+			m.Value = newSID
+			updated[i] = m
+			continue
+		}
+
+		if len(m.Bytes) > 0 {
+			b := m.Bytes
+			// Check if payload looks like a JSON object
+			if len(b) >= 2 && b[0] == '{' && b[len(b)-1] == '}' {
+				var data map[string]any
+				if err := json.Unmarshal(b, &data); err == nil {
+					if _, exists := data["sessionid"]; exists {
+						data["sessionid"] = newSID
+						if newBytes, err := json.Marshal(data); err == nil {
+							m.Bytes = newBytes
+							updated[i] = m
+						}
+					}
+				}
+			} else {
+				// Otherwise, attempt x-www-form-urlencoded structural parsing
+				if vals, err := url.ParseQuery(string(b)); err == nil {
+					if vals.Has("sessionid") {
+						vals.Set("sessionid", newSID)
+						m.Bytes = []byte(vals.Encode())
+						updated[i] = m
+					}
+				}
+			}
+		}
+	}
+
+	return updated
+}
 
 // IsSessionExpiredError reports whether err indicates an expired Steam web session.
 func IsSessionExpiredError(err error) bool {
@@ -360,6 +417,29 @@ func CheckSteamErrors(statusCode int, header http.Header, body []byte) error {
 		return service.NewSteamAPIError("Family View enabled", statusCode, ErrFamilyViewRestricted)
 	}
 
+	if matches := rxStrError.FindSubmatch(body); len(matches) > 1 {
+		msg := string(matches[1])
+		if res, ok := service.ParseEResultFromMessage(msg); ok {
+			return service.NewSteamAPIError(msg, statusCode, service.NewEResultError(res, nil))
+		}
+
+		return service.NewSteamAPIError(msg, statusCode, nil)
+	}
+
+	if bytes.Contains(body, []byte("<h1>Sorry!</h1>")) {
+		if msg, err := extract.Between(body, "<h3>", "</h3>"); err == nil {
+			return service.NewSteamAPIError(string(bytes.TrimSpace(msg)), statusCode, nil)
+		}
+
+		return service.NewSteamAPIError("unknown steam community error (Sorry page)", statusCode, nil)
+	}
+
+	if bytes.Contains(body, []byte("error_msg")) {
+		if msg, err := extract.Between(body, `<div id="error_msg">`, "</div>"); err == nil {
+			return service.NewSteamAPIError(string(bytes.TrimSpace(msg)), statusCode, nil)
+		}
+	}
+
 	if statusCode == http.StatusUnauthorized || statusCode == http.StatusForbidden {
 		return service.NewSteamAPIError(
 			"Session expired (unauthorized/forbidden)",
@@ -376,20 +456,6 @@ func CheckSteamErrors(statusCode int, header http.Header, body []byte) error {
 		bytes.Contains(body, patternLowerLoggedInFalse) ||
 		bytes.Contains(body, patternLowerLoggedInFalseSpace) {
 		return service.NewSteamAPIError("Session expired", statusCode, service.ErrSessionExpired)
-	}
-
-	if bytes.Contains(body, []byte("<h1>Sorry!</h1>")) {
-		if msg, err := extract.Between(body, "<h3>", "</h3>"); err == nil {
-			return service.NewSteamAPIError(string(bytes.TrimSpace(msg)), statusCode, nil)
-		}
-
-		return service.NewSteamAPIError("unknown steam community error (Sorry page)", statusCode, nil)
-	}
-
-	if bytes.Contains(body, []byte("error_msg")) {
-		if msg, err := extract.Between(body, `<div id="error_msg">`, "</div>"); err == nil {
-			return service.NewSteamAPIError(string(bytes.TrimSpace(msg)), statusCode, nil)
-		}
 	}
 
 	if statusCode >= http.StatusBadRequest {

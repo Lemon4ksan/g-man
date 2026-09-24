@@ -212,12 +212,7 @@ func (m *Manager) AcceptOfferWithPartner(ctx context.Context, offerID uint64, pa
 		return fmt.Errorf("accept offer %d: %w", offerID, err)
 	}
 
-	req := struct {
-		ServerID     int    `query:"serverid"`
-		TradeOfferID uint64 `query:"tradeofferid"`
-		Partner      string `query:"partner"`
-		Captcha      string `query:"captcha"`
-	}{
+	req := acceptOfferReq{
 		ServerID:     1,
 		TradeOfferID: offerID,
 		Partner:      strconv.FormatUint(normPartnerID.Uint64(), 10),
