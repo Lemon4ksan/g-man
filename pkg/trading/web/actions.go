@@ -224,6 +224,7 @@ func (m *Manager) AcceptOfferWithPartner(ctx context.Context, offerID uint64, pa
 		mod.WithVar("offerID", offerID),
 		mod.WithOrigin("https://steamcommunity.com"),
 		mod.WithHeader("Referer", fmt.Sprintf("https://steamcommunity.com/tradeoffer/%d/", offerID)),
+		mod.WithHeader("Accept-Language", "en-US,en;q=0.9"),
 	)
 	if err != nil {
 		m.Logger.Warn("Accept trade offer HTTP call returned error, verifying actual offer status",

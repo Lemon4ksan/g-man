@@ -1018,3 +1018,30 @@ func TestSession_SetAccessToken_UpdatesLogonDetails(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "updated_token", c.session.AccessToken())
 }
+
+func TestDynamicWebDoer_NilProvider(t *testing.T) {
+	t.Parallel()
+
+	doer := &dynamicWebDoer{web: nil}
+	req, err := http.NewRequest(http.MethodGet, "https://steamcommunity.com", nil)
+	require.NoError(t, err)
+
+	resp, err := doer.Do(req)
+	assert.Nil(t, resp)
+	assert.ErrorContains(t, err, "web session provider is nil")
+}
+
+func TestDynamicWebDoer_NilHTTPClient(t *testing.T) {
+	t.Parallel()
+
+	mockWeb := new(mockWebSession)
+	mockWeb.On("HTTP").Return((*http.Client)(nil))
+
+	doer := &dynamicWebDoer{web: mockWeb}
+	req, err := http.NewRequest(http.MethodGet, "https://steamcommunity.com", nil)
+	require.NoError(t, err)
+
+	resp, err := doer.Do(req)
+	assert.Nil(t, resp)
+	assert.ErrorContains(t, err, "web http client is nil")
+}

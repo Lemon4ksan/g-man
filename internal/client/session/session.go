@@ -301,6 +301,23 @@ func (c *Session) RefreshToken() string {
 	return ""
 }
 
+type dynamicWebDoer struct {
+	web WebSessionProvider
+}
+
+func (d *dynamicWebDoer) Do(req *http.Request) (*http.Response, error) {
+	if d.web == nil {
+		return nil, errors.New("session: web session provider is nil")
+	}
+
+	client := d.web.HTTP()
+	if client == nil {
+		return nil, errors.New("session: web http client is nil")
+	}
+
+	return client.Do(req)
+}
+
 // Community returns the active community requester, lazily instantiating it if uninitialized.
 func (c *Session) Community() community.Requester {
 	c.mu.RLock()
@@ -311,7 +328,7 @@ func (c *Session) Community() community.Requester {
 		web := c.Web()
 		c.mu.Lock()
 		if c.community == nil {
-			c.community = c.communityFactory(web.HTTP(), web, c.logger)
+			c.community = c.communityFactory(&dynamicWebDoer{web: web}, web, c.logger)
 		}
 
 		comm = c.community
