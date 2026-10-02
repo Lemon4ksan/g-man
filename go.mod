@@ -6,7 +6,7 @@ require (
 	github.com/andygrunwald/vdf v1.1.0
 	github.com/lemon4ksan/aoni v0.7.0-rc.1.0.20260925054938-d3c5d2a89667
 	github.com/lemon4ksan/aoni-contrib v0.0.0-20260925053734-a073140f97a2
-	github.com/lemon4ksan/foundation v0.0.0-20260924183451-121e9f1d1f93
+	github.com/lemon4ksan/foundation v0.0.0-20261002145449-09beb07cf54a
 	github.com/lemon4ksan/mach v0.0.0-20260924165838-4be719b602ef
 	github.com/lemon4ksan/sein v0.0.0-20260925054014-ae1e35fff56e
 	github.com/lemon4ksan/vortex v0.0.0-20260920200003-eb53bc438ed7

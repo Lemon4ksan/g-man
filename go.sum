@@ -14,6 +14,8 @@ github.com/lemon4ksan/aoni-contrib v0.0.0-20260925053734-a073140f97a2 h1:bKYDxjR
 github.com/lemon4ksan/aoni-contrib v0.0.0-20260925053734-a073140f97a2/go.mod h1:bgIZgFo3ZvdmjMBa53SqTm1AKAoShcuFSmaCjv8PLA8=
 github.com/lemon4ksan/foundation v0.0.0-20260924183451-121e9f1d1f93 h1:nqvSaYnFGhIta5pBYhCr7UnmuqQqrhWnj4hIPcEFic8=
 github.com/lemon4ksan/foundation v0.0.0-20260924183451-121e9f1d1f93/go.mod h1:mKZ+py0Jq9/teeK0cvjFUajx/DqJ3UiCvez0mwjhw8Y=
+github.com/lemon4ksan/foundation v0.0.0-20261002145449-09beb07cf54a h1:ercWUZdt6jDTPapMB+O51dwNC97srFo6yYZGLs3eIG8=
+github.com/lemon4ksan/foundation v0.0.0-20261002145449-09beb07cf54a/go.mod h1:mKZ+py0Jq9/teeK0cvjFUajx/DqJ3UiCvez0mwjhw8Y=
 github.com/lemon4ksan/mach v0.0.0-20260924165838-4be719b602ef h1:wW4Jy/Nxs94GgO7Y5qL3GWjI2MPrG+FxAVPd0lv3iAo=
 github.com/lemon4ksan/mach v0.0.0-20260924165838-4be719b602ef/go.mod h1:1dlEN10qlEEAA4QAk9Hs8go4/BY3iaO6NOm05XN8/0g=
 github.com/lemon4ksan/sein v0.0.0-20260925054014-ae1e35fff56e h1:3Gnv+nS3JLuys1p/EQJQdNv0ekmR9/q5JyAngxDLjZE=
