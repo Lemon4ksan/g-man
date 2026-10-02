@@ -177,6 +177,8 @@ type Session struct {
 
 	enrichedAccount string
 	enrichedSteamID id.ID
+
+	apiKey string
 }
 
 // New constructs an initialized Session orchestrator.
@@ -427,17 +429,28 @@ func (c *Session) LogonServer() socket.CMServer {
 	return c.logonServer
 }
 
-// SetAPIKey configures WebAPI service clients with the specified Steam WebAPI key.
-func (c *Session) SetAPIKey(key string) {
+// APIKey returns the active Steam WebAPI key.
+func (c *Session) APIKey() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	if c.unified != nil {
-		c.unified.SetAPIKey(key)
+	return c.apiKey
+}
+
+// SetAPIKey configures WebAPI service clients with the specified Steam WebAPI key.
+func (c *Session) SetAPIKey(key string) {
+	c.mu.Lock()
+	c.apiKey = key
+	unified := c.unified
+	socketAPI := c.socketAPI
+	c.mu.Unlock()
+
+	if unified != nil {
+		unified.SetAPIKey(key)
 	}
 
-	if c.socketAPI != nil {
-		c.socketAPI.SetAPIKey(key)
+	if socketAPI != nil {
+		socketAPI.SetAPIKey(key)
 	}
 }
 
@@ -504,11 +517,17 @@ func (c *Session) LogOn(ctx context.Context, server socket.CMServer, details *au
 		return fmt.Errorf("session: initial token refresh failed: %w", err)
 	}
 
-	if key, err := c.GetOrRegisterAPIKey(ctx, "g-man-bot.dev"); err != nil {
-		c.Logger().Warn("Could not auto-fetch WebAPI Key", log.Err(err))
-	} else {
-		c.Logger().Info("WebAPI Key acquired automatically", log.String("key", key[:4]+"***"))
-		c.SetAPIKey(key)
+	if c.APIKey() == "" {
+		if key, err := c.GetOrRegisterAPIKey(ctx, "g-man-bot.dev"); err != nil {
+			c.Logger().Warn("Could not auto-fetch WebAPI Key", log.Err(err))
+		} else {
+			keyPreview := key
+			if len(key) >= 4 {
+				keyPreview = key[:4] + "***"
+			}
+			c.Logger().Info("WebAPI Key acquired automatically", log.String("key", keyPreview))
+			c.SetAPIKey(key)
+		}
 	}
 
 	go c.StartRefreshLoop(c.ctx) //nolint:gosec

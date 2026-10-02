@@ -320,7 +320,8 @@ var (
 	patternLowerLoggedInFalse      = []byte(`"logged in":false`)
 	patternLowerLoggedInFalseSpace = []byte(`"logged in": false`)
 
-	rxStrError = regexp.MustCompile(`"strError"\s*:\s*"([^"]+)"`)
+	rxStrError   = regexp.MustCompile(`"strError"\s*:\s*"([^"]+)"`)
+	rxErrorField = regexp.MustCompile(`"error"\s*:\s*"([^"]+)"`)
 )
 
 // UpdateSessionIDInMods replaces sessionid occurrences in request modifiers with newSID.
@@ -421,10 +422,6 @@ func CheckSteamErrors(statusCode int, header http.Header, body []byte) error {
 		return service.NewSteamAPIError("Rate limit exceeded", statusCode, service.ErrRateLimited)
 	}
 
-	if statusCode >= http.StatusInternalServerError {
-		return service.NewSteamAPIError("Steam is down or in maintenance", statusCode, nil)
-	}
-
 	if statusCode == http.StatusFound || statusCode == http.StatusSeeOther {
 		loc := header.Get("Location")
 		if strings.Contains(loc, "/login/home") || strings.Contains(loc, "/login") {
@@ -443,6 +440,19 @@ func CheckSteamErrors(statusCode int, header http.Header, body []byte) error {
 		}
 
 		return service.NewSteamAPIError(msg, statusCode, nil)
+	}
+
+	if matches := rxErrorField.FindSubmatch(body); len(matches) > 1 {
+		msg := string(matches[1])
+		if res, ok := service.ParseEResultFromMessage(msg); ok {
+			return service.NewSteamAPIError(msg, statusCode, service.NewEResultError(res, nil))
+		}
+
+		return service.NewSteamAPIError(msg, statusCode, nil)
+	}
+
+	if statusCode >= http.StatusInternalServerError {
+		return service.NewSteamAPIError("Steam is down or in maintenance", statusCode, nil)
 	}
 
 	if bytes.Contains(body, []byte("<h1>Sorry!</h1>")) {

@@ -192,6 +192,21 @@ func TestClient_Request_VariousResponses_ReturnsExpected(t *testing.T) {
 			errorContent: "steam API error: message=Steam is down or in maintenance, status=500",
 		},
 		{
+			name: "duplicate_request_500",
+			mockSetup: func(m *mock.ServiceMock) {
+				m.OnRest = func(method, path string, body any) (*http.Response, error) {
+					return &http.Response{
+						StatusCode: http.StatusInternalServerError,
+						Body: io.NopCloser(
+							strings.NewReader(`{"error":"The request is a duplicate and the action has already occurred in the past, ignored this time (29)"}`),
+						),
+					}, nil
+				}
+			},
+			wantErr:      true,
+			errorContent: "The request is a duplicate and the action has already occurred in the past, ignored this time (29)",
+		},
+		{
 			name: "auth_redirect",
 			mockSetup: func(m *mock.ServiceMock) {
 				m.OnRest = func(method, path string, body any) (*http.Response, error) {
